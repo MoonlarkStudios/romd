@@ -11,9 +11,21 @@ importers:
       '@biomejs/biome':
         specifier: ^2.3.11
         version: 2.3.11
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.9
+      '@vitejs/plugin-react':
+        specifier: ^5.1.2
+        version: 5.1.2(vite@7.3.1(jiti@2.6.1))
       '@vitest/coverage-v8':
         specifier: ^4.0.17
         version: 4.0.17(vitest@4.0.17(jiti@2.6.1)(jsdom@26.1.0)(msw@2.12.7(typescript@5.9.3)))
+      jsdom:
+        specifier: ^26.0.0
+        version: 26.1.0
+      react:
+        specifier: ^19.2.0
+        version: 19.2.3
       vitest:
         specifier: ^4.0.17
         version: 4.0.17(jiti@2.6.1)(jsdom@26.1.0)(msw@2.12.7(typescript@5.9.3))
@@ -244,12 +256,27 @@ importers:
         specifier: ^19.0.0
         version: 19.2.3
     devDependencies:
+      '@testing-library/dom':
+        specifier: ^10.4.0
+        version: 10.4.1
+      '@testing-library/react':
+        specifier: ^16.1.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.9
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.9)
+      react-dom:
+        specifier: ^19.2.0
+        version: 19.2.3(react@19.2.3)
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
+      vitest:
+        specifier: ^4.0.17
+        version: 4.0.17(jiti@2.6.1)(jsdom@26.1.0)(msw@2.12.7(typescript@5.9.3))
 
   packages/romd-foundation:
     dependencies:

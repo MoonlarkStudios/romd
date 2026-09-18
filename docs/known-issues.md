@@ -779,3 +779,21 @@ creation. The bundle inventory and checksum tests pass without metadata entries.
 
 Agent guidance: retain this setting for portable release archives; do not
 weaken the file inventory assertion to accept platform-specific metadata.
+
+## Clean web installs require explicit shared test dependencies
+
+Status: FIXED
+
+Commands: `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm test`, `pnpm build` from a fresh checkout's `web/` directory.
+
+Root cause: the shared root JSX fixture imported React without a root dependency,
+and consumer UI tests imported Testing Library without declaring it. GitHub's
+clean install failed to resolve those imports in 45 test files.
+
+Change: declare the root fixture/config dependencies and consumer UI test
+dependencies explicitly, retaining existing locked package versions. A fresh
+install passed lint, all 728 web tests, and production builds.
+
+Agent guidance: validate dependency changes with a fresh frozen-lockfile install;
+existing node_modules can hide missing workspace declarations. Do not work around
+missing declarations by broadly hoisting dependencies.
