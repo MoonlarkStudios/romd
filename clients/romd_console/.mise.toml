@@ -1,0 +1,73 @@
+[tools]
+flutter = "3.44.2"
+# CocoaPods (a Ruby gem) is required to build the macOS/iOS native plugins
+# (flutter_secure_storage, sqlite3_flutter_libs, path_provider). Ruby backs the gem install.
+ruby = { version = "3.4", os = ["macos"] }
+"gem:cocoapods" = { version = "latest", os = ["macos"] }
+
+[tasks.doctor]
+description = "Check the local Flutter toolchain"
+run = "flutter doctor"
+
+[tasks.bootstrap]
+description = "Add native Flutter platform runner directories"
+run = "flutter create --project-name romd_console --org com.romd --platforms macos,windows,linux,android --no-overwrite ."
+
+[tasks.test]
+description = "Run Flutter tests"
+run = "flutter test"
+
+[tasks.analyze]
+description = "Validate theme boundaries and run Flutter static analysis"
+run = [
+  "dotnet run --project ../../tools/Romd.ReferenceData.Tool -- ../.. --check",
+  "node ../../scripts/presentation/validate.mjs",
+  "tool/check_token_imports.sh",
+  "tool/check_theme_token_registry.sh",
+  "tool/check_theme_token_usage.sh",
+  "tool/check_theme_extension_contracts.sh",
+  "tool/check_widget_style_literals.sh",
+  "flutter analyze",
+]
+
+[tasks."theme:check-token-imports"]
+description = "Prevent new presentation imports of legacy design-token globals"
+run = "tool/check_token_imports.sh"
+
+[tasks."theme:check"]
+description = "Validate legacy bans, token governance, and widget style boundaries"
+run = [
+  "tool/check_token_imports.sh",
+  "tool/check_theme_token_registry.sh",
+  "tool/check_theme_token_usage.sh",
+  "tool/check_theme_extension_contracts.sh",
+  "tool/check_widget_style_literals.sh",
+]
+
+[tasks."goldens:update"]
+description = "Regenerate deterministic console golden baselines"
+run = "flutter test --update-goldens test/golden"
+
+[tasks."goldens:test"]
+description = "Verify deterministic console golden baselines"
+run = "flutter test test/golden"
+
+[tasks."generate:database"]
+description = "Regenerate deterministic Drift database artifacts"
+run = "dart run build_runner build"
+
+[tasks."run:macos"]
+description = "Run the console client against the local consumer API"
+run = "flutter run -d macos --dart-define=VITE_ROMD_CONSUMER_API_ORIGIN=http://localhost:11338"
+
+[tasks."run:linux"]
+description = "Run the Linux console client against the local consumer API"
+run = "flutter run -d linux --dart-define=VITE_ROMD_CONSUMER_API_ORIGIN=http://localhost:11338"
+
+[tasks."run:windows"]
+description = "Run the Windows console client against the local consumer API"
+run = "flutter run -d windows --dart-define=VITE_ROMD_CONSUMER_API_ORIGIN=http://localhost:11338"
+
+[tasks."build:linux"]
+description = "Build the Linux release bundle on a Linux host"
+run = "flutter build linux --release"

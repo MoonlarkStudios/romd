@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Romd.Application.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Romd.Admin.Application\Romd.Admin.Application.csproj"/>
+    <ProjectReference Include="..\..\src\Romd.Application.Common\Romd.Application.Common.csproj"/>
+    <ProjectReference Include="..\..\src\Romd.Consumer.Application\Romd.Consumer.Application.csproj"/>
+    <ProjectReference Include="..\..\src\Romd.Contracts.Common\Romd.Contracts.Common.csproj"/>
+    <ProjectReference Include="..\..\src\Romd.Contracts.Consumer\Romd.Contracts.Consumer.csproj"/>
+    <ProjectReference Include="..\..\src\Romd.Contracts.Management\Romd.Contracts.Management.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="xunit"/>
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Shouldly"/>
+    <PackageReference Include="NSubstitute"/>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

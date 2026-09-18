@@ -1,0 +1,62 @@
+{
+  "atari": {
+    "name": "Atari",
+    "aliases": []
+  },
+  "bandai": {
+    "name": "Bandai",
+    "aliases": []
+  },
+  "coleco": {
+    "name": "Coleco",
+    "aliases": []
+  },
+  "commodore": {
+    "name": "Commodore",
+    "aliases": []
+  },
+  "ibm": {
+    "name": "IBM",
+    "aliases": []
+  },
+  "mattel": {
+    "name": "Mattel",
+    "aliases": []
+  },
+  "microsoft": {
+    "name": "Microsoft",
+    "aliases": []
+  },
+  "nec": {
+    "name": "NEC",
+    "aliases": []
+  },
+  "nintendo": {
+    "name": "Nintendo",
+    "aliases": []
+  },
+  "panasonic": {
+    "name": "Panasonic",
+    "aliases": []
+  },
+  "philips": {
+    "name": "Philips",
+    "aliases": []
+  },
+  "sega": {
+    "name": "Sega",
+    "aliases": []
+  },
+  "sinclair": {
+    "name": "Sinclair",
+    "aliases": []
+  },
+  "snk": {
+    "name": "SNK",
+    "aliases": []
+  },
+  "sony": {
+    "name": "Sony",
+    "aliases": []
+  }
+}

@@ -1,0 +1,109 @@
+html, body, #game { width: 100%; height: 100%; margin: 0; }
+body { overflow: hidden; background: transparent; color: var(--romd-text-strong); font-family: var(--romd-font-display); }
+body[data-playing] { background: black; }
+#status { position: fixed; inset: auto 1rem 1rem; text-align: center; pointer-events: none; font: inherit; color: var(--romd-text-muted); }
+/* Pinned EmulatorJS 4.2.3 selectors. Keep overrides scoped to presentation;
+   native input, saves, fullscreen and runtime sizing remain emulator-owned. */
+#game .ejs_start_button {
+  position: absolute;
+  bottom: auto !important;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--romd-accent);
+  color: var(--romd-on-accent) !important;
+  border: 1px solid var(--romd-accent-line);
+  border-radius: 6px;
+  box-shadow: none;
+  text-shadow: none;
+  font-family: var(--romd-font-display);
+  font-size: var(--romd-body-size);
+  font-weight: 700;
+  text-transform: none;
+  padding: 16px 32px;
+  height: auto;
+  line-height: 1.4;
+}
+#game .ejs_start_button:hover, #game .ejs_start_button:active { animation: none; filter: brightness(1.08); }
+#game .ejs_start_button:focus-visible, #game button:focus-visible {
+  outline: 2px solid var(--romd-accent);
+  outline-offset: 4px;
+}
+#game .ejs_loading_text { font-family: var(--romd-font-display); font-size: var(--romd-body-size); text-shadow: none; }
+#game .ejs_menu_bar { background: var(--romd-surface-raised); border-top: 1px solid var(--romd-border-subtle); }
+#game .ejs_menu_bar:focus-within { opacity: 1; transform: none; visibility: visible; pointer-events: auto; }
+#game.ejs_small_screen .ejs_menu_bar:focus-within { transform: translateX(-50%); }
+@media (prefers-reduced-motion: reduce) {
+  #game .ejs_start_button, #game .ejs_menu_bar { transition: none; }
+}
+/* The native parent otherwise paints black over the portal's launch artwork. */
+body:not([data-playing]) #game.ejs_parent { background: transparent; }
+#game.ejs_parent, #game.ejs_parent * { font-family: var(--romd-font-display); }
+
+body:not([data-playing]) #game .ejs_menu_bar { visibility: hidden; }
+
+/* Only the pinned Controls panel: other native dialogs keep their own layout. */
+#game .romd-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  width: min(100%, 840px);
+  height: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: clamp(12px, 3vw, 28px);
+  background: var(--romd-surface-deep);
+  color: var(--romd-text-strong);
+  border-inline: 1px solid var(--romd-border-subtle);
+  color-scheme: dark;
+}
+#game .romd-controls > h4 {
+  grid-column: 1 / -1;
+  padding: 0;
+  text-align: left;
+  font-size: var(--romd-card-title-size);
+  color: var(--romd-text-strong);
+}
+#game .romd-controls-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: left;
+  font-size: var(--romd-body-size);
+  color: var(--romd-text-muted);
+  line-height: 1.5;
+}
+#game .romd-controls > .ejs_control_body {
+  grid-column: 1 / -1;
+  height: auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--romd-border-subtle) var(--romd-surface-deep);
+}
+#game .romd-controls > .ejs_control_body + div { display: none; }
+#game .romd-controls .ejs_control_player_bar { margin: 0 0 16px; background: var(--romd-surface-raised); }
+#game .romd-controls .ejs_control_player_bar a { display: block; padding: 12px 8px; color: var(--romd-text-muted) !important; }
+#game .romd-controls .ejs_control_selected { background: var(--romd-panel); }
+#game .romd-controls .ejs_control_selected a { color: var(--romd-accent) !important; box-shadow: inset 0 -2px var(--romd-accent); }
+#game .romd-controls .ejs_control_bar { padding-block: 8px; border-bottom: 1px solid var(--romd-border-subtle); }
+#game .romd-controls .ejs_control_bar:hover { background: var(--romd-panel); }
+#game .romd-controls input[type='text'], #game .romd-controls select {
+  max-width: 100%;
+  background: var(--romd-surface-raised);
+  border: 1px solid var(--romd-border-subtle);
+  border-radius: 6px;
+  color: var(--romd-text-strong) !important;
+  min-height: 36px;
+}
+#game .romd-controls .ejs_control_set_button { background: var(--romd-panel); color: var(--romd-accent) !important; padding: 10px 8px; display: inline-block; }
+#game .romd-controls > .ejs_button {
+  margin: 0;
+  padding: 12px 8px;
+  background: var(--romd-surface-raised);
+  color: var(--romd-text-strong) !important;
+  border: 1px solid var(--romd-border-subtle);
+}
+#game .romd-controls > .ejs_button:last-of-type { background: var(--romd-accent); color: var(--romd-on-accent) !important; }
+#game .romd-controls :is(a, input, select):focus-visible { outline: 2px solid var(--romd-accent); outline-offset: -2px; }
+#game .romd-controls .ejs_popup_box { background: var(--romd-surface-raised); border: 1px solid var(--romd-border-subtle); color: var(--romd-text-strong); }
+@media (max-height: 440px) { #game .romd-controls-hint { display: none; } #game .romd-controls { grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; } }

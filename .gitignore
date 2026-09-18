@@ -1,0 +1,119 @@
+## .NET
+bin/
+obj/
+out/
+
+## IDE
+.idea/
+*.sln.iml
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+## Rider
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+.idea/**/aws.xml
+.idea/**/contentModel.xml
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/**/dbnavigator.xml
+
+## Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+## NuGet
+*.nupkg
+*.snupkg
+.nuget/
+/packages/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+bin\\Debug/
+!clients/**/android/app/src/debug/
+!clients/**/android/app/src/debug/**
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+
+## Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+## OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+## Misc
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+/tmp
+
+## Secrets
+.env
+.env.*
+!.env.example
+*.pfx
+*.publishsettings
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+# Host-local development overrides stay untracked.
+src/Romd.Admin.Host/appsettings.Development.json
+
+## Tool caches
+.fake/
+.paket/
+paket-files/
+.pnpm-store/
+.worktrees/
+
+## ROMD specific
+*.db
+*.db-shm
+*.db-wal
+/data/
+/.data/
+src/Romd.Admin.Host/wwwroot/
+src/Romd.Consumer.Host/wwwroot/
+src/Romd.Admin.Host/openapi/
+src/Romd.Consumer.Host/openapi/
+# EF/MSBuild design-time tooling can emit literal backslash-named output portals on macOS.
+src/*/bin\\Debug/
+src/*/bin\\Release/
+.claude/CLAUDE.md
+
+# Deployment tooling Python cache and locally selected release images
+__pycache__/
+/images.env
+/release-output/

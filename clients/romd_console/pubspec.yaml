@@ -1,0 +1,51 @@
+name: romd_console
+description: Ottercade console client for 10-ft launcher experiences.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+
+dependencies:
+  crypto: ^3.0.7
+  drift: ^2.34.0
+  ffi: ^2.2.0
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: ^9.2.4
+  gamepads: ^0.1.10
+  path: ^1.9.1
+  path_provider: ^2.1.6
+  sqids: ^0.0.2
+  sqlite3_flutter_libs: ^0.6.0+eol
+  window_manager: ^0.5.1
+
+dev_dependencies:
+  build_runner: ^2.15.0
+  drift_dev: ^2.34.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/brand/
+
+  # Retro-futurist archive identity. Archivo (display/UI) carries every weight
+  # 400–800 via a single variable file; IBM Plex Mono (metadata, catalog IDs,
+  # status pills, keycap hints) ships static weights. Both are SIL OFL — see the
+  # bundled *-OFL.txt. TTFs are vendored so the 10-ft launcher never fetches a
+  # font over the network at runtime.
+  fonts:
+    - family: Archivo
+      fonts:
+        - asset: assets/fonts/Archivo-Variable.ttf
+    - family: IBM Plex Mono
+      fonts:
+        - asset: assets/fonts/IBMPlexMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/IBMPlexMono-SemiBold.ttf
+          weight: 600

@@ -1,0 +1,229 @@
+# Consumer DTO snapshot from Phase 0A decisions.
+# Scope is implicit /api/me and /api/me/library library context.
+# Collections are consumer-read-only browse projections; titles expose owned Releases.
+
+Romd.Contracts.Consumer.Account.ChangePasswordRequest
+  CurrentPassword: string
+  NewPassword: string
+
+Romd.Contracts.Consumer.Account.ConsumerReleasePreferenceDto
+  PreferredLanguageIds: IReadOnlyList<string>
+  PreferredRegionIds: IReadOnlyList<string>
+  RevisionStrategy: string
+
+Romd.Contracts.Consumer.Account.ConsumerUserSettingsDto
+  ReleasePreference: ConsumerReleasePreferenceDto
+  Theme: string
+
+Romd.Contracts.Consumer.Account.UpdateConsumerUserSettingsRequest
+  ReleasePreference: ConsumerReleasePreferenceDto?
+  Theme: string
+
+Romd.Contracts.Consumer.Activity.PlaySessionDto
+  ActiveDurationSeconds: int?
+  ClientId: string [required]
+  CreatedAt: DateTimeOffset [required]
+  EndedAt: DateTimeOffset?
+  ReleaseId: string [required]
+  SessionId: Guid [required]
+  StartedAt: DateTimeOffset [required]
+  TitleId: string [required]
+  UpdatedAt: DateTimeOffset [required]
+
+Romd.Contracts.Consumer.Activity.RecentlyPlayedTitleDto
+  Artwork: IReadOnlyList<ResolvedArtworkDto>
+  CoverUrl: string?
+  DefaultReleaseId: string?
+  Genre: string?
+  Id: string [required]
+  LastPlayedAt: DateTimeOffset [required]
+  Name: string [required]
+  PlayCount: int [required]
+  Rating: double?
+  ReleaseCount: int [required]
+  ReleaseDate: DateOnly?
+  System: SystemSummaryDto [required]
+
+Romd.Contracts.Consumer.Activity.UpsertPlaySessionRequest
+  ActiveDurationSeconds: int?
+  ClientId: string [required]
+  EndedAt: DateTimeOffset?
+  ReleaseId: string [required]
+  StartedAt: DateTimeOffset [required]
+  TitleId: string [required]
+
+Romd.Contracts.Consumer.Auth.CurrentUserDto
+  Email: string
+  Id: Guid
+  Roles: IReadOnlyList<string>
+  Username: string
+
+Romd.Contracts.Consumer.Browse.ConsumerContentRatingDto
+  Board: string [required]
+  BoardName: string [required]
+  Code: string [required]
+  Description: string?
+  Icon: ReferenceAssetDto?
+  Name: string [required]
+
+Romd.Contracts.Consumer.Browse.ConsumerMediaRefDto
+  Id: string [required]
+  IsPrimary: bool [required]
+  Type: string [required]
+  Url: string [required]
+
+Romd.Contracts.Consumer.Browse.ConsumerPlatformDetailDto
+  Key: string [required]
+  Manufacturer: string?
+  Media: IReadOnlyList<ConsumerMediaRefDto> [required]
+  Name: string [required]
+  ShortName: string [required]
+  TitleCount: int [required]
+
+Romd.Contracts.Consumer.Browse.ConsumerPlatformSummaryDto
+  CoverUrl: string?
+  Key: string [required]
+  Manufacturer: string?
+  Name: string [required]
+  ShortName: string [required]
+  TitleCount: int [required]
+
+Romd.Contracts.Consumer.Browse.ConsumerTitleCardDto
+  Artwork: IReadOnlyList<ResolvedArtworkDto>
+  ContentRatings: IReadOnlyList<ConsumerContentRatingDto>
+  CoverUrl: string?
+  DefaultReleaseId: string?
+  EsrbRating: string?
+  Genre: string?
+  Id: string [required]
+  Name: string [required]
+  Players: int?
+  Rating: double?
+  ReleaseCount: int [required]
+  ReleaseDate: DateOnly?
+  System: SystemSummaryDto [required]
+
+Romd.Contracts.Consumer.Browse.ConsumerTitleDetailDto
+  Artwork: IReadOnlyList<ResolvedArtworkDto>
+  ContentRatings: IReadOnlyList<ConsumerContentRatingDto>
+  DefaultReleaseId: string?
+  Description: string?
+  Developer: string?
+  Genre: string?
+  Id: string [required]
+  Media: IReadOnlyList<ConsumerMediaRefDto> [required]
+  Name: string [required]
+  Players: int?
+  Publisher: string?
+  Rating: double?
+  ReleaseDate: DateOnly?
+  Releases: IReadOnlyList<ConsumerReleaseDto> [required]
+  System: SystemSummaryDto [required]
+
+Romd.Contracts.Consumer.Collections.ConsumerCollectionDto
+  CoverUrl: string?
+  Description: string?
+  HeroUrl: string?
+  Id: string [required]
+  IsFeatured: bool
+  ItemCount: int
+  Name: string [required]
+  System: SystemSummaryDto?
+
+Romd.Contracts.Consumer.Collections.ConsumerCollectionTitleDto
+  Artwork: IReadOnlyList<ResolvedArtworkDto>
+  CoverUrl: string?
+  DefaultReleaseId: string?
+  Genre: string?
+  Id: string [required]
+  Name: string [required]
+  Rating: double?
+  ReleaseCount: int [required]
+  ReleaseDate: DateOnly?
+  System: SystemSummaryDto [required]
+
+Romd.Contracts.Consumer.Delivery.ConsumerPlatformBiosDto
+  Items: IReadOnlyList<ConsumerPlatformBiosItemDto> [required]
+  SystemKey: string [required]
+
+Romd.Contracts.Consumer.Delivery.ConsumerPlatformBiosItemDto
+  BiosId: string [required]
+  ContentGrant: ContentGrantDto?
+  FileName: string [required]
+  IsAvailable: bool [required]
+  Md5: string?
+  Name: string [required]
+  Sha1: string?
+  Sha256: string?
+  SizeBytes: ByteCount [required]
+
+Romd.Contracts.Consumer.Libraries.LibraryContentCountsDto
+  AvailableTitleCount: int
+  CollectionCount: int
+  OwnedTitleCount: int
+
+Romd.Contracts.Consumer.Libraries.LibraryContextDto
+  Counts: LibraryContentCountsDto [required]
+  FeaturedCollections: IReadOnlyList<ConsumerCollectionDto> [required]
+  Genres: IReadOnlyList<LibraryFacetDto> [required]
+  Name: string [required]
+  Platforms: IReadOnlyList<LibraryFacetDto> [required]
+
+Romd.Contracts.Consumer.Libraries.LibraryFacetDto
+  Count: int
+  Id: string
+  Name: string
+
+Romd.Contracts.Consumer.Playback.ConsumerPlaybackConfigDto
+  PlayerOrigin: string? [required]
+
+Romd.Contracts.Consumer.Releases.ConsumerLaunchTargetDto
+  RelativePath: string [required]
+  Type: string [required]
+
+Romd.Contracts.Consumer.Releases.ConsumerReleaseAccessDto
+  Allowed: bool [required]
+  ReleaseId: string [required]
+  ServerInstanceId: string [required]
+  TitleId: string?
+
+Romd.Contracts.Consumer.Releases.ConsumerReleaseDto
+  Id: string [required]
+  IsComplete: bool [required]
+  Languages: IReadOnlyList<string> [required]
+  Name: string [required]
+  Regions: IReadOnlyList<string> [required]
+  Revision: string?
+  SizeBytes: ByteCount [required]
+
+Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestDto
+  IsComplete: bool [required]
+  Items: IReadOnlyList<ConsumerReleaseManifestItemDto> [required]
+  Name: string [required]
+  ReleaseId: string [required]
+  Revision: string?
+  Runtime: ConsumerReleaseRuntimeDto [required]
+  ServerInstanceId: string [required]
+  SystemKey: string [required]
+  TitleId: string [required]
+
+Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestItemDto
+  ContentGrant: ContentGrantDto?
+  IsAvailable: bool [required]
+  RelativePath: string [required]
+  Role: string [required]
+  Sha256: string?
+  SizeBytes: ByteCount [required]
+
+Romd.Contracts.Consumer.Releases.ConsumerReleaseRuntimeDto
+  ContentType: string [required]
+  Launch: ConsumerLaunchTargetDto?
+  MinimumInstallBytes: ByteCount [required]
+  Packaging: string [required]
+
+Romd.Contracts.Consumer.Releases.ContentGrantDto
+  DownloadUrl: string [required]
+  ExpiresAt: DateTimeOffset [required]
+
+Romd.Contracts.Consumer.Server.ConsumerServerIdentityDto
+  InstanceId: string [required]

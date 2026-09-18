@@ -1,0 +1,37 @@
+{
+  "name": "romd-monorepo",
+  "private": true,
+  "description": "",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @romd/foundation build && pnpm --filter @romd/consumer-ui build && pnpm --filter romd-admin-app dev",
+    "dev:consumer": "pnpm --filter @romd/foundation build && pnpm --filter @romd/consumer-ui build && pnpm --filter @romd/player-protocol build && pnpm --filter romd-consumer-app dev",
+    "dev:player": "pnpm --filter @romd/player-protocol build && pnpm --filter romd-player-app dev",
+    "build": "pnpm --filter @romd/foundation build && pnpm --filter @romd/consumer-ui build && pnpm --filter @romd/player-protocol build && pnpm --filter @romd/admin-api-client build && pnpm --filter @romd/consumer-api-client build && pnpm --filter romd-admin-app build && pnpm --filter romd-consumer-app build && pnpm --filter romd-player-app build",
+    "lint": "pnpm catalog:check && biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test:prepare": "pnpm --filter @romd/foundation build && pnpm --filter @romd/consumer-ui build && pnpm --filter @romd/player-protocol build && pnpm --filter @romd/admin-api-client build && pnpm --filter @romd/consumer-api-client build",
+    "test": "pnpm catalog:check && pnpm catalog:test && pnpm test:prepare && NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "test:watch": "pnpm test:prepare && NODE_OPTIONS=--no-experimental-webstorage vitest",
+    "test:coverage": "pnpm test:prepare && NODE_OPTIONS=--no-experimental-webstorage vitest run --coverage",
+    "api:generate": "pnpm --filter @romd/admin-api-client generate && pnpm --filter @romd/consumer-api-client generate",
+    "api:update": "DOTNET_ENVIRONMENT=Development dotnet build ../src/Romd.Admin.Host/Romd.Admin.Host.csproj -p:OpenApiGenerateDocuments=true -p:OpenApiGenerateDocumentsOnBuild=true && DOTNET_ENVIRONMENT=Development dotnet build ../src/Romd.Consumer.Host/Romd.Consumer.Host.csproj -p:OpenApiGenerateDocuments=true -p:OpenApiGenerateDocumentsOnBuild=true && pnpm api:generate",
+    "catalog:check": "pnpm reference:check && node ../scripts/presentation/validate.mjs",
+    "catalog:test": "node --test ../scripts/presentation/validate.test.mjs",
+    "reference:check": "dotnet run --project ../tools/Romd.ReferenceData.Tool -- .. --check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JackSkylark/romd.git"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
+    "@vitest/coverage-v8": "^4.0.17",
+    "vitest": "^4.0.17"
+  }
+}

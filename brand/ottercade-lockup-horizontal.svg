@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 340" role="img" aria-labelledby="title desc">
+  <title id="title">Ottercade horizontal lockup</title>
+  <desc id="desc">Romp the otter beside the Ottercade wordmark.</desc>
+  <image href="ottercade-romp.svg" x="20" y="10" width="320" height="320"/>
+  <image href="ottercade-wordmark.svg" x="370" y="119" width="870" height="101"/>
+</svg>

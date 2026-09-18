@@ -1,0 +1,275 @@
+/* ROMD Consumer — cinematic treatments layered over the @romd/foundation
+   token layer. Identity values (accent, surfaces, borders, motion, type)
+   come from @romd/foundation/tokens.css; this file owns consumer-only
+   composition. */
+
+/* Horizontal collection rail — hide the scrollbar, keep momentum scrolling. */
+.romd-rail {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  padding: 12px 8px 28px;
+}
+.romd-rail::-webkit-scrollbar {
+  height: 0;
+}
+.romd-rail > * {
+  flex: 0 0 var(--romd-poster-w, 184px);
+  scroll-snap-align: start;
+}
+
+/* Keep the animated frame separate from the clipped artwork. */
+.romd-poster {
+  position: relative;
+  display: block;
+  --romd-poster-radius: calc(var(--mantine-radius-md) + 4px);
+  border-radius: var(--romd-poster-radius);
+  transition: transform var(--romd-duration-screen) var(--romd-ease-standard);
+  outline: 1px solid var(--romd-border-subtle);
+  box-shadow: 0 20px 24px -8px color-mix(in srgb, var(--romd-surface-deepest) 80%, transparent);
+}
+.romd-poster > a:first-child {
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.romd-poster > a:first-child:focus-visible {
+  outline: none; /* The enclosing frame supplies the visible focus indicator. */
+}
+.romd-poster-fallback-name {
+  position: absolute;
+  inset-inline: var(--mantine-spacing-md);
+  bottom: var(--mantine-spacing-md);
+  z-index: 1;
+  color: var(--romd-text-strong);
+  overflow-wrap: anywhere;
+}
+.romd-poster::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 4px solid var(--romd-text-strong);
+  border-radius: calc(var(--romd-poster-radius) + 8px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--romd-duration-screen) var(--romd-ease-standard);
+}
+.romd-poster:hover,
+.romd-poster:focus-within {
+  transform: translateY(-3px);
+}
+.romd-poster:hover::after,
+.romd-poster:focus-within::after {
+  opacity: 1;
+}
+.romd-poster .romd-poster-play {
+  opacity: 0;
+  transform: scale(0.7);
+  transition:
+    opacity var(--romd-duration-focus) var(--romd-ease-standard),
+    transform var(--romd-duration-enter) var(--romd-ease-emphasized);
+}
+.romd-poster:hover .romd-poster-play,
+.romd-poster:focus-within .romd-poster-play {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Rail edge fade arrows. */
+.romd-rail-wrap {
+  position: relative;
+}
+.romd-rail-arrow {
+  opacity: 0;
+  transition: opacity var(--romd-duration-focus) var(--romd-ease-standard);
+}
+.romd-rail-wrap:hover .romd-rail-arrow,
+.romd-rail-wrap:focus-within .romd-rail-arrow {
+  opacity: 1;
+}
+
+/* Header search — the input itself is borderless, so focus lands on the
+   containing field with the accent ring. */
+.romd-header-search:focus-within {
+  border-color: var(--romd-accent-line);
+  box-shadow: 0 0 0 1px var(--romd-accent-line), 0 0 12px var(--romd-accent-glow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .romd-poster,
+  .romd-poster::after,
+  .romd-poster .romd-poster-play,
+  .romd-rail-arrow,
+  .romd-version-row {
+    transition: none;
+  }
+}
+
+/* Keep the game's identity and primary action together above the fold. */
+.romd-game-hero { isolation: isolate; }
+.romd-game-hero-art { position: absolute; inset: 0; z-index: -1; opacity: .2; pointer-events: none; }
+.romd-game-hero-art img { width: 100%; height: 100%; object-fit: cover; }
+.romd-game-hero-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--romd-bg), transparent); }
+@media (max-width: 48em) {
+  .romd-game-hero > .mantine-Group-root { flex-wrap: wrap; }
+}
+
+
+/* Hero composition controls: tune height, gutters, and the lower content inset
+   together. Content stays in normal flow so long titles can grow the hero. */
+.romd-home-spotlight {
+  --romd-spotlight-min-height: clamp(380px, 36vw, 560px);
+  --romd-spotlight-gutter: clamp(32px, 5vw, 80px);
+  --romd-spotlight-bottom: clamp(48px, 6vw, 80px);
+  --romd-spotlight-content-width: 70%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--romd-panel);
+  min-height: var(--romd-spotlight-min-height);
+  margin: calc(-1 * var(--mantine-spacing-xl)) calc(-1 * var(--mantine-spacing-xl)) 0;
+  display: flex;
+  align-items: flex-end;
+}
+.romd-home-spotlight-art { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.romd-home-spotlight-art img { object-fit: cover !important; }
+.romd-home-spotlight-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--romd-bg), color-mix(in srgb, var(--romd-bg) 85%, transparent) 25%, color-mix(in srgb, var(--romd-bg) 15%, transparent) 80%), linear-gradient(0deg, var(--romd-bg), transparent 65%);
+}
+.romd-home-spotlight-content {
+  width: var(--romd-spotlight-content-width);
+  min-width: 0;
+  padding: var(--romd-spotlight-gutter);
+  padding-bottom: var(--romd-spotlight-bottom);
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xl);
+}
+/* One responsive measure keeps the logo and metadata aligned. The logo height
+   remains independently tunable for artwork with different proportions. */
+.romd-home-spotlight-info {
+  --romd-spotlight-info-width: clamp(18rem, 32vw, 23rem);
+  width: var(--romd-spotlight-info-width);
+  max-width: 100%;
+}
+.romd-home-spotlight-logo {
+  width: 100%;
+  max-width: 100%;
+  min-height: var(--romd-spotlight-logo-height, clamp(120px, 15vw, 200px));
+}
+.romd-home-spotlight-content h1 { width: 100%; max-width: 18ch; text-wrap: balance; overflow-wrap: anywhere; }
+.romd-home-spotlight-poster { width: clamp(120px, 15vw, 210px); flex: none; transform: rotate(-5deg); box-shadow: 0 24px 60px var(--romd-surface-deepest); }
+.romd-home-spotlight:not([data-has-art]) { background: radial-gradient(ellipse at 80% 20%, var(--romd-accent-glow), transparent 65%), linear-gradient(0deg, var(--romd-bg), var(--romd-panel)); }
+.romd-home-spotlight:not([data-has-art]) { --romd-spotlight-content-width: 90%; }
+.romd-primary-nav { position: relative; }
+.romd-primary-nav[aria-current='page']::after { content: ''; position: absolute; bottom: 0; left: var(--mantine-spacing-sm); right: var(--mantine-spacing-sm); height: 2px; background: var(--romd-text-strong); }
+.romd-rail { gap: 22px; padding-block: 12px 28px; }
+.romd-rail > * { flex-basis: clamp(190px, 18vw, 260px); }
+@media (hover: none) { .romd-poster .romd-poster-play { opacity: 1; transform: scale(.85); } }
+@media (max-width: 48em) {
+  .romd-home-spotlight {
+    --romd-spotlight-min-height: 460px;
+    --romd-spotlight-gutter: var(--mantine-spacing-lg);
+    --romd-spotlight-bottom: clamp(40px, 8vw, 64px);
+    margin-inline: calc(-1 * var(--mantine-spacing-md));
+  }
+  .romd-home-spotlight, .romd-home-spotlight:not([data-has-art]) {
+    --romd-spotlight-content-width: 100%;
+  }
+  .romd-home-spotlight-art::after { background: linear-gradient(0deg, var(--romd-bg), color-mix(in srgb, var(--romd-bg) 88%, transparent) 35%, transparent); }
+  .romd-home-spotlight-content {
+    flex-direction: column;
+    text-align: center;
+    --romd-logo-position: center;
+    --romd-logo-fallback-alignment: center;
+  }
+  .romd-home-spotlight-info { align-items: center; max-width: 100%; }
+  .romd-home-spotlight-info .romd-game-metadata-badges,
+  .romd-home-spotlight-info .romd-game-metadata-facts { justify-content: center; }
+  .romd-home-spotlight-poster { width: 80px; }
+  .romd-rail > * { flex-basis: 150px; }
+}
+
+
+/* Consumer composition uses the shared palette and type ramp with a quieter hierarchy. */
+body.romd-consumer {
+  --romd-poster-aspect: 3 / 4;
+  --romd-bg: color-mix(in srgb, var(--mantine-color-dark-7), var(--mantine-color-gray-9) 65%);
+  --romd-backdrop: none;
+  --romd-page-gap: clamp(24px, 3vw, 40px);
+  background: var(--romd-bg);
+}
+.romd-consumer-shell .romd-hero { font-weight: 650; letter-spacing: -.025em; }
+.romd-consumer-shell .romd-page-heading { font-weight: 650; }
+.romd-consumer-shell .romd-section-heading { font-weight: 500; letter-spacing: 0; }
+.romd-consumer-shell .romd-card-title { font-weight: 500; }
+.romd-consumer-shell .romd-metadata { font-family: var(--romd-font-display); font-weight: 400; }
+.romd-consumer-shell .romd-eyebrow { font-family: var(--romd-font-display); font-weight: 500; letter-spacing: .08em; }
+.romd-wordmark { font-family: var(--romd-font-display); font-size: var(--romd-card-title-size); font-weight: 650; letter-spacing: .12em; }
+.romd-home .romd-rail-wrap { margin-right: calc(-1 * var(--mantine-spacing-xl)); }
+.romd-home .romd-rail { padding-right: var(--mantine-spacing-xl); }
+.romd-consumer-shell summary:focus-visible { outline: 2px solid var(--romd-accent); outline-offset: 4px; }
+@media (max-width: 48em) {
+  .romd-home .romd-rail-wrap { margin-right: calc(-1 * var(--mantine-spacing-md)); }
+  .romd-home .romd-rail { padding-right: var(--mantine-spacing-md); }
+}
+
+/* Fade only the edges that have more content beyond them. Keep controls outside the mask. */
+.romd-rail { --rail-left-opacity: 1; --rail-right-opacity: 1; scroll-padding-inline: 8px; }
+.romd-rail[data-left] { --rail-left-opacity: 0; }
+.romd-rail[data-right] { --rail-right-opacity: 0; }
+.romd-rail[data-left], .romd-rail[data-right] {
+  mask-image: linear-gradient(to right, rgb(0 0 0 / var(--rail-left-opacity)), black 40px, black calc(100% - 40px), rgb(0 0 0 / var(--rail-right-opacity)));
+}
+.romd-rail-arrow[data-disabled] { visibility: hidden; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .romd-rail { scroll-behavior: auto; } }
+
+/* A neutral primary action stays legible against changing hero artwork. */
+.romd-spotlight-details {
+  background: var(--romd-text-strong);
+  color: var(--romd-surface-deepest);
+  border-color: transparent;
+}
+.romd-spotlight-details:hover {
+  background: var(--mantine-color-white);
+  color: var(--romd-surface-deepest);
+}
+
+.romd-shelf-heading-link {
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+}
+.romd-shelf-heading-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.romd-shelf-heading-link:focus-visible {
+  outline: 2px solid var(--romd-accent);
+  outline-offset: 4px;
+  border-radius: var(--mantine-radius-xs);
+}
+
+
+
+/* Carousel owns the full-bleed frame; every slide shares its natural height. */
+.romd-spotlight-carousel { position: relative; margin: calc(-1 * var(--mantine-spacing-xl)) calc(-1 * var(--mantine-spacing-xl)) 0; }
+.romd-spotlight-carousel .romd-home-spotlight { margin: 0; height: 100%; }
+.romd-spotlight-slides { align-items: stretch; }
+.romd-spotlight-control { background: color-mix(in srgb, var(--romd-bg) 45%, transparent); color: var(--romd-text-strong); border: 1px solid transparent; box-shadow: none; opacity: .75; }
+.romd-spotlight-control:hover { background: var(--romd-panel); opacity: 1; }
+.romd-spotlight-control:focus-visible, .romd-spotlight-indicator:focus-visible { outline: 2px solid var(--romd-text-strong); outline-offset: 3px; }
+.romd-spotlight-pagination { position: absolute; inset-inline: 0; bottom: var(--mantine-spacing-md); display: flex; justify-content: center; pointer-events: none; }
+.romd-spotlight-indicator { width: 44px; height: 44px; display: grid; place-items: center; pointer-events: auto; border-radius: var(--mantine-radius-xl); }
+.romd-spotlight-indicator span { width: 8px; height: 8px; border-radius: var(--mantine-radius-xl); background: var(--romd-text-muted); }
+.romd-spotlight-indicator[aria-current] span { width: 28px; background: var(--romd-text-strong); }
+@media (max-width: 48em) {
+  .romd-spotlight-carousel { margin-inline: calc(-1 * var(--mantine-spacing-md)); }
+  .romd-spotlight-carousel .romd-home-spotlight { --romd-spotlight-bottom: calc(44px + 2 * var(--mantine-spacing-md)); }
+  .romd-spotlight-controls { top: auto; bottom: var(--mantine-spacing-md); }
+}

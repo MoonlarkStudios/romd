@@ -1,0 +1,35 @@
+.page { composes: page from "../../components/Workspace/Workspace.module.css"; }
+.eyebrow { composes: eyebrow from "../../components/Workspace/Workspace.module.css"; }
+.heading { composes: heading from "../../components/Workspace/Workspace.module.css"; }
+.intro { composes: intro from "../../components/Workspace/Workspace.module.css"; }
+.hero { composes: hero from "../../components/Workspace/Workspace.module.css"; }
+.libraryList { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--mantine-color-default-border); }
+.libraryRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, .5fr) 110px 18px; align-items: center; gap: 20px; padding: 16px 8px; border-bottom: 1px solid var(--mantine-color-default-border); color: inherit; text-decoration: none; overflow-wrap: anywhere; }
+.libraryRow:hover { background: var(--mantine-color-default-hover); }
+.libraryRow:focus-visible { outline: 3px solid var(--mantine-color-teal-6); outline-offset: -3px; }
+.panel { composes: panel from "../../components/Workspace/Workspace.module.css"; }
+.sectionHeading { composes: sectionHeading from "../../components/Workspace/Workspace.module.css"; }
+.stat { font-size: 26px; line-height: 1.2; font-weight: 600; letter-spacing: 0; }
+.overviewStat { min-width: 0; padding: 0 0 18px; border-bottom: 1px solid var(--mantine-color-default-border); }
+.overviewSection { padding: 8px 0 20px; border-bottom: 1px solid var(--mantine-color-default-border); }
+.tabs { composes: tabs from "../../components/Workspace/Workspace.module.css"; }
+.tabsList { composes: tabsList from "../../components/Workspace/Workspace.module.css"; }
+.tab { composes: tab from "../../components/Workspace/Workspace.module.css"; }
+.shelf { border: 1px solid var(--mantine-color-default-border); border-radius: 14px; padding: 20px; background: var(--mantine-color-body); }
+.shelfArt { width: 64px; height: 78px; border-radius: 8px; object-fit: cover; background: var(--mantine-color-teal-light); display: grid; place-items: center; color: var(--mantine-color-teal-light-color); flex-shrink: 0; }
+.preview { border: 1px solid var(--mantine-color-default-border); border-radius: 18px; padding: 28px; background: light-dark(#f5f6f3, #151b1a); }
+.gameArt { aspect-ratio: 3 / 4; width: 100%; object-fit: cover; border-radius: 9px; background: light-dark(#e2e8e3, #26332e); display: grid; place-items: center; color: var(--mantine-color-dimmed); }
+.empty { padding: 32px 0; }
+.saveBar { border-top: 1px solid var(--mantine-color-default-border); padding-top: 20px; margin-top: 14px; }
+@media (max-width: 600px) { .preview { padding: 18px; } }
+@media (max-width: 800px) { .libraryRow { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; } .rowPolicy { grid-column: 1; grid-row: 2; } .libraryRow > svg { display: none; } }
+
+.gamesWorkspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.resultsPanel { min-width: 0; padding: 26px; border: 1px solid var(--mantine-color-default-border); border-radius: 16px; }
+.changeSummary { background: var(--mantine-color-teal-light); border-radius: 12px; padding: 18px; }
+.evaluationList { list-style: none; margin: 0; padding: 0; }
+.evaluationRow { display: flex; gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--mantine-color-default-border); }
+.evaluationCover { width: 56px; height: 76px; object-fit: cover; border-radius: 6px; }
+.mobilePanels { display: none; }
+@media (max-width: 1100px) { .gamesWorkspace { display: block; } .mobilePanels { display: flex; } .mobileHidden { display: none; } .resultsPanel { padding: 18px; } }
+@media (min-width: 1101px) { .changeSummary { position: sticky; top: calc(var(--app-shell-header-height, 60px) + 12px); z-index: 1; background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-7)); border: 1px solid var(--mantine-color-default-border); } }

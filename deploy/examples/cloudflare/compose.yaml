@@ -1,0 +1,54 @@
+# Add to the root compose.yaml. All relative paths resolve from the bundle root.
+services:
+  # Stable addresses prevent cached DNS from routing to another surface after restart.
+  romd-admin:
+    networks:
+      backend: {}
+      edge:
+        ipv4_address: ${ROMD_ADMIN_EDGE_IP:-172.28.0.3}
+  romd-consumer:
+    networks:
+      backend: {}
+      edge:
+        ipv4_address: ${ROMD_CONSUMER_EDGE_IP:-172.28.0.4}
+  romd-player:
+    networks:
+      edge:
+        ipv4_address: ${ROMD_PLAYER_EDGE_IP:-172.28.0.5}
+  ingress:
+    labels:
+      io.romd.ingress-example: "true"
+    image: ${ROMD_NGINX_IMAGE:?select a reviewed nginx image}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    networks:
+      edge:
+        ipv4_address: ${ROMD_TRUSTED_PROXY:?set ROMD_TRUSTED_PROXY}
+    environment:
+      ROMD_ADMIN_HOST: ${ROMD_ADMIN_HOST:?set ROMD_ADMIN_HOST}
+      ROMD_CONSUMER_HOST: ${ROMD_CONSUMER_HOST:?set ROMD_CONSUMER_HOST}
+      ROMD_PLAYER_HOST: ${ROMD_PLAYER_HOST:?set ROMD_PLAYER_HOST}
+      NGINX_ENVSUBST_FILTER: "^ROMD_"
+    volumes:
+      - ./deploy/examples/cloudflare/templates:/etc/nginx/templates:ro
+
+  cloudflared:
+    image: ${ROMD_CLOUDFLARED_IMAGE:?select a reviewed cloudflared image}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN}
+    networks: [edge]
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: ${ROMD_EDGE_SUBNET:-172.28.0.0/24}
+          # Reserve low addresses for static peers, avoiding an IP allocation race.
+          ip_range: ${ROMD_EDGE_DYNAMIC_RANGE:-172.28.0.128/25}

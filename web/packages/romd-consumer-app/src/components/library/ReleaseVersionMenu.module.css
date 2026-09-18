@@ -1,0 +1,4 @@
+.trigger { height: auto; min-height: 36px; max-width: 100%; padding-block: var(--mantine-spacing-xs); }
+.label { white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.dropdown { max-width: calc(100vw - 24px); }
+.dropdown button { overflow-wrap: anywhere; }

@@ -1,0 +1,15 @@
+.romd-game-metadata { display: grid; gap: 12px; font-family: var(--romd-font-display); font-size: var(--romd-body-size); color: var(--romd-text-strong); }
+.romd-game-metadata-badges, .romd-game-metadata-facts { display: flex; align-items: center; flex-wrap: wrap; list-style: none; padding: 0; margin: 0; gap: 12px 24px; }
+.romd-game-metadata-badges > li { display: inline-flex; align-items: center; gap: 8px; }
+.romd-game-metadata-facts { color: var(--romd-text-muted); gap: 8px; }
+.romd-game-metadata-facts li + li::before { content: '·'; margin-right: 8px; }
+.romd-rating-mark { display: block; width: auto; object-fit: contain; flex-shrink: 0; background: white; border-radius: 3px; }
+.romd-rating-fallback { border: 1px solid var(--romd-border-subtle); border-radius: 4px; padding: 4px 8px; font-size: var(--romd-metadata-size); }
+.romd-platform-badge { display: inline-flex; align-items: center; min-height: 36px; padding: 4px 10px; border: 1px solid var(--romd-border-subtle); border-radius: 6px; background: var(--romd-panel); }
+.romd-platform-mark { display: inline-flex; max-width: 100%; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: help; }
+.romd-platform-mark:focus-visible { outline: 2px solid var(--mantine-color-mint-5); outline-offset: 4px; }
+.romd-platform-mark img { width: 160px; max-width: 100%; height: 56px; object-fit: contain; object-position: left center; }
+.romd-platform-mark img[data-tintable] { filter: brightness(0) invert(1); opacity: .85; }
+.romd-game-metadata-score strong { font-weight: 650; font-variant-numeric: tabular-nums; }
+.romd-game-metadata-scale { margin-left: 3px; color: var(--romd-text-muted); font-size: var(--romd-metadata-size); }
+@container (max-width: 480px) { .romd-game-metadata-badges { gap: 12px 16px; } }

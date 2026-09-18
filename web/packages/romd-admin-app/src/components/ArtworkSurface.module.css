@@ -1,0 +1,11 @@
+.surface {
+  overflow: hidden;
+  border-radius: var(--mantine-radius-sm);
+  background-color: var(--artwork-dark);
+}
+.surface[data-background='light'] { background-color: var(--artwork-light); }
+.surface[data-background='checkerboard'] {
+  background-color: var(--artwork-checker-light);
+  background-image: conic-gradient(var(--artwork-checker-dark) 25%, transparent 0 50%, var(--artwork-checker-dark) 0 75%, transparent 0);
+  background-size: 24px 24px;
+}

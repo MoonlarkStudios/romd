@@ -1,0 +1,22 @@
+# Source-build overlay for maintainers and CI, never required by an installation.
+services:
+  romd-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: romd-admin
+  romd-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: romd-consumer
+  romd-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: romd-worker
+  romd-player:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: romd-player

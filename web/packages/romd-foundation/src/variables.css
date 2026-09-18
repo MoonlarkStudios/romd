@@ -1,0 +1,169 @@
+/*
+ * ROMD design foundation — "the archive at night."
+ *
+ * Single source of truth for the web portfolio's visual identity. Values are
+ * aligned with the console client (clients/romd_console, lib/src/presentation/theme/
+ * romd_skins.dart) so every surface speaks the same language.
+ *
+ * Current scope: dark scheme only (the consumer and player apps force dark).
+ * The token roles are semantic rather than literal so a light scheme
+ * (the console's "the archive in daylight") can be layered in later via
+ * [data-mantine-color-scheme='light'] overrides without touching call sites.
+ *
+ * Keep tokens.ts in sync with this file.
+ */
+
+/* ------------------------------------------------------------------------ */
+/* Typefaces (OFL-licensed, shared with the console client)                  */
+/* ------------------------------------------------------------------------ */
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('./fonts/Archivo-Variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/IBMPlexMono-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/IBMPlexMono-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/IBMPlexMono-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ---------------------------------------------------------------------- */
+  /* Brand accents                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  --romd-accent: #4fe3b0; /* action / focus teal-mint */
+  --romd-accent-soft: rgba(79, 227, 176, 0.16);
+  --romd-accent-line: rgba(79, 227, 176, 0.38);
+  --romd-accent-glow: rgba(79, 227, 176, 0.22);
+  --romd-catalog-accent: #e6c074; /* archival bronze: ratings, featured */
+  --romd-warning: #ef6a4a; /* warning coral: destructive emphasis */
+  --romd-sea: #62b6cb; /* sea cyan: informational tone */
+  --romd-violet: #7b5cff; /* identity violet: secondary data tone */
+  --romd-on-accent: #05211a; /* text on accent fills */
+
+  /* ---------------------------------------------------------------------- */
+  /* Surfaces (near-black teal)                                              */
+  /* ---------------------------------------------------------------------- */
+
+  --romd-bg: #070d10;
+  --romd-surface: #0d1519;
+  --romd-surface-raised: #121d22;
+  --romd-surface-high: #18252b;
+  --romd-surface-highest: #213138;
+  --romd-surface-deep: #05090b; /* below-bg recesses: player stage, overlays */
+  --romd-surface-deepest: #030607;
+
+  /* Translucent panels, three elevations. Surfaces separate by translucency
+     and hairlines, not blur. */
+  --romd-panel-muted: rgba(13, 21, 25, 0.48); /* stat tiles, spotlights */
+  --romd-panel: rgba(13, 21, 25, 0.64); /* inputs, interactive tiles */
+  --romd-panel-strong: rgba(13, 21, 25, 0.74); /* cards, sticky rails */
+
+  /* App-wide cinematic backdrop behind everything else. Layered from the
+     console's signalTide ambient palette: teal glow from the upper left,
+     a faint wave-hue lift at the bottom edge, over the deep base. */
+  --romd-backdrop:
+    radial-gradient(90rem 60rem at 26% -10%, rgba(8, 43, 58, 0.55), transparent 60%),
+    radial-gradient(110rem 70rem at 85% 115%, rgba(11, 65, 88, 0.22), transparent 55%),
+    linear-gradient(180deg, #06101a 0%, #070d10 55%, #04080b 100%);
+
+  /* Decorative archival surface: shelf/card fallbacks, title heroes. */
+  --romd-brand-gradient: linear-gradient(135deg, #16302b, #0b1118);
+
+  /* Chips floating over artwork (rating, status). */
+  --romd-media-chip: rgba(7, 13, 16, 0.75);
+
+  /* ---------------------------------------------------------------------- */
+  /* Borders (teal-steel hairlines)                                          */
+  /* ---------------------------------------------------------------------- */
+
+  --romd-border-subtle: rgba(120, 159, 170, 0.14);
+  --romd-border: rgba(120, 159, 170, 0.22);
+  --romd-border-strong: rgba(120, 159, 170, 0.34);
+
+  /* ---------------------------------------------------------------------- */
+  /* Text ramp                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  --romd-text-strong: #eef4f5;
+  --romd-text-body: #b3c0c3;
+  --romd-text-muted: #9fb0b4;
+  --romd-text-faint: #6f8188;
+  --romd-text-disabled: #566970;
+
+  /* ---------------------------------------------------------------------- */
+  /* Focus                                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  --romd-focus-gradient: linear-gradient(120deg, #4fe3b0, #9ff5d8, #4fb8e3, #4fe3b0);
+  --romd-focus-ring:
+    0 0 0 2px var(--romd-bg),
+    0 0 0 4px var(--romd-accent),
+    0 0 12px 2px var(--romd-accent-glow);
+
+  /* ---------------------------------------------------------------------- */
+  /* Typography                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  --romd-font-display:
+    'Archivo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --romd-font-mono:
+    'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Web derivation of the console ramp (~0.85x for 2-foot reading). */
+  --romd-hero-size: 40px;
+  --romd-page-heading-size: 30px;
+  --romd-section-heading-size: 20px;
+  --romd-card-title-size: 17px;
+  --romd-body-size: 15px;
+  --romd-metadata-size: 13px;
+  --romd-eyebrow-size: 12px;
+  --romd-eyebrow-tracking: 0.18em;
+
+  /* ---------------------------------------------------------------------- */
+  /* Motion (console duration ladder + curve trio)                           */
+  /* ---------------------------------------------------------------------- */
+
+  --romd-duration-focus: 150ms;
+  --romd-duration-enter: 220ms;
+  --romd-duration-screen: 280ms;
+  --romd-duration-chrome: 360ms;
+  --romd-duration-intro: 480ms;
+
+  --romd-ease-standard: cubic-bezier(0, 0, 0.2, 1);
+  --romd-ease-emphasized: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --romd-ease-spatial: cubic-bezier(0.645, 0.045, 0.355, 1);
+
+  /* ---------------------------------------------------------------------- */
+  /* Layout                                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  --romd-content-max: 1440px;
+  --romd-page-gap: 40px; /* gap between major page regions */
+  --romd-section-gap: 24px; /* gap within a region */
+  --romd-poster-aspect: 2 / 3;
+}
+

@@ -1,0 +1,40 @@
+# Local development PostgreSQL service for the PostgreSQL cutover (#126).
+# Dev-loop tooling only: loopback-only trust auth, never production topology.
+# Production service/role/grant topology is owned by compose.yaml (#127).
+#
+# Happy path: `mise run db:up` / `mise run db:down` / `mise run db:reset`.
+# One server is shared by every checkout; each checkout gets its own database
+# (see scripts/db/lib.sh for the naming scheme).
+name: romd-db
+
+services:
+  postgres:
+    # ADR baseline (docs/decisions/postgresql-single-provider-cutover.md):
+    # PostgreSQL 18 on the official major tag; patch drift is acceptable.
+    image: postgres:18-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: romd
+      POSTGRES_DB: postgres
+      # Loopback-only local development server; the port binding below never
+      # exposes it beyond 127.0.0.1.
+      POSTGRES_HOST_AUTH_METHOD: trust
+      # ADR: UTF-8, UTC, deterministic C locale.
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "127.0.0.1:${ROMD_DB_PORT:-15432}:5432"
+    volumes:
+      # postgres:18 images volume the version-aware /var/lib/postgresql parent,
+      # not /var/lib/postgresql/data.
+      - romd-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U romd -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  romd-db-data:

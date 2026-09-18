@@ -1,0 +1,22 @@
+.table { composes: table from "../../components/Workspace/WorkspaceTable.module.css"; }
+.selection { width: 32px; }
+.job { min-width: 170px; overflow-wrap: anywhere; }
+.link { color: inherit; text-decoration: none; font-weight: 550; }
+.link:hover { color: var(--mantine-color-teal-6); text-decoration: underline; }
+.outcome { width: 150px; min-width: 150px; }
+.result { width: 120px; }
+.created { width: 145px; }
+.duration { width: 80px; white-space: nowrap; }
+.actions { width: 40px; }
+.mobile { display: none; }
+@media (max-width: 1000px) { .created, .duration { display: none; } }
+@media (max-width: 650px) {
+  .result, .outcome { display: none; }
+  .mobile { display: block; margin-top: 5px; }
+  .job { min-width: 0; }
+  .table td, .table th { padding: 9px 4px; }
+}
+
+.toolbar { height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.count { white-space: nowrap; }
+@media (max-width: 650px) { .updated { display: none; } }

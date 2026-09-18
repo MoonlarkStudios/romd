@@ -1,0 +1,86 @@
+[tools]
+dotnet = "10.0"
+node = "24"
+pnpm = "10"
+
+[env]
+DOTNET_NOLOGO = "true"
+DOTNET_CLI_TELEMETRY_OPTOUT = "true"
+# Per-checkout dev database connection strings for the hosts (scripts/db/env.sh).
+_.source = "scripts/db/env.sh"
+
+[tasks.dev]
+description = "Run full stack with hot reload"
+depends = ["dev:*"]
+
+[tasks."dev:backend"]
+description = "Run .NET backend"
+run = "dotnet run --project src/Romd.Admin.Host"
+env = { ASPNETCORE_ENVIRONMENT = "Development" }
+
+[tasks."dev:frontend"]
+description = "Run Vite dev server"
+dir = "web"
+run = "pnpm dev"
+
+[tasks."db:up"]
+description = "Start the local PostgreSQL dev server and ensure this checkout's database exists"
+run = "scripts/db/up.sh"
+
+[tasks."db:down"]
+description = "Stop the local PostgreSQL dev server (shared by all checkouts; data persists)"
+run = "scripts/db/down.sh"
+
+[tasks."db:reset"]
+description = "Drop and recreate this checkout's database and clear the data directory (first-run state)"
+run = "scripts/db/reset.sh"
+
+[tasks."db:psql"]
+description = "Open psql against this checkout's database"
+run = "scripts/db/psql.sh"
+
+[tasks."db:snapshot"]
+description = "Snapshot this checkout's database via CREATE DATABASE ... TEMPLATE (no args: list snapshots)"
+run = "scripts/db/snapshot.sh"
+
+[tasks."db:restore"]
+description = "Replace this checkout's database with a named snapshot"
+run = "scripts/db/restore.sh"
+
+[tasks."db:env"]
+description = "Print this checkout's database connection-string exports (eval it in shells without mise activation)"
+run = "scripts/db/env.sh"
+
+[tasks.build]
+description = "Build everything for production"
+run = "dotnet build -c Release -m:1 -p:BuildFrontend=true"
+env = { CI = "true" }
+
+[tasks.test]
+description = "Run deterministic backend tests; needs Docker for the PostgreSQL-backed infrastructure suite (integration suite is test:integration)"
+run = [
+  "dotnet run --project tools/Romd.ReferenceData.Tool -- . --check",
+  "node scripts/presentation/validate.mjs",
+  "node --test scripts/presentation/validate.test.mjs",
+  "dotnet test tests/Romd.Domain.Tests/Romd.Domain.Tests.csproj",
+  "dotnet test tests/Romd.Dat.Parsing.Tests/Romd.Dat.Parsing.Tests.csproj",
+  "dotnet test tests/Romd.Application.Tests/Romd.Application.Tests.csproj",
+  "dotnet test tests/Romd.Storage.Tests/Romd.Storage.Tests.csproj",
+  "dotnet test tests/Romd.Infrastructure.Tests/Romd.Infrastructure.Tests.csproj",
+]
+
+[tasks."test:integration"]
+description = "Run backend integration tests with hang diagnostics"
+run = "dotnet test tests/Romd.Hosting.IntegrationTests/Romd.Hosting.IntegrationTests.csproj --blame-hang --blame-hang-timeout 60s --blame-hang-dump-type none"
+
+[tasks."test:all"]
+description = "Run deterministic backend tests, then integration tests"
+run = [
+  "mise run test",
+  "mise run test:integration",
+]
+
+[tasks."test:web"]
+description = "Run frontend tests"
+dir = "web"
+run = "pnpm test"

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ErrorOr" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj" />
+    <ProjectReference Include="..\Romd.Contracts.Common\Romd.Contracts.Common.csproj" />
+    <ProjectReference Include="..\Romd.Contracts.Consumer\Romd.Contracts.Consumer.csproj" />
+    <ProjectReference Include="..\Romd.Domain\Romd.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

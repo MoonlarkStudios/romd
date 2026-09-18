@@ -1,0 +1,13 @@
+@import '@romd/foundation/variables.css';
+@import '@romd/foundation/typography.css';
+@import './components/title-detail/GameDetailHero.css';
+@import './components/metadata/GameMetadata.css';
+
+.romd-consumer-presentation {
+  container: romd-detail / inline-size;
+  --romd-bg: color-mix(in srgb, var(--mantine-color-dark-7), var(--mantine-color-gray-9) 65%);
+  color: var(--romd-text-strong);
+  font-family: var(--romd-font-display);
+}
+.romd-consumer-presentation .romd-hero { font-weight: 650; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.romd-consumer-presentation .romd-metadata { font-family: var(--romd-font-display); font-weight: 400; color: var(--romd-text-muted); }

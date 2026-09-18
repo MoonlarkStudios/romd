@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Romd.Admin.Application\Romd.Admin.Application.csproj"/>
+    <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj"/>
+    <ProjectReference Include="..\Romd.Consumer.Application\Romd.Consumer.Application.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore"/>
+    <PackageReference Include="Microsoft.EntityFrameworkCore"/>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions"/>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+    <PackageReference Include="OpenIddict.EntityFrameworkCore"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="../../reference-data/dist/reference-data.json" LogicalName="Romd.ReferenceData.json" />
+    <EmbeddedResource Include="../../reference-data/assets/presentation/platforms/*.png" LogicalName="ReferenceAssets/platforms/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../../reference-data/assets/presentation/ratings/**/*.svg" LogicalName="ReferenceAssets/ratings/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

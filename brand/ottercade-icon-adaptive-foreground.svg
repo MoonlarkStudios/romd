@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-labelledby="title desc">
+  <title id="title">Ottercade adaptive icon foreground</title>
+  <desc id="desc">Romp and the controller centered inside the Android adaptive-icon safe zone.</desc>
+  <svg x="21" y="21" width="66" height="66" viewBox="145 10 734 734">
+    <image href="ottercade-romp.svg" width="1024" height="1024"/>
+  </svg>
+</svg>

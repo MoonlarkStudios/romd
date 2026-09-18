@@ -1,0 +1,10 @@
+/* Full-page foundation styling. Embedded consumer UI imports variables.css only. */
+@import './variables.css';
+
+/* The backdrop lives on body, fixed, so it stays composed regardless of page
+   scroll length. Apps paint their shells transparent over it. */
+body {
+  background-color: var(--romd-bg);
+  background-image: var(--romd-backdrop);
+  background-attachment: fixed;
+}

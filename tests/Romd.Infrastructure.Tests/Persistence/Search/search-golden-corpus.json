@@ -1,0 +1,2351 @@
+{
+  "schemaVersion": 1,
+  "capturedFrom": "postgresql-tsvector-simple",
+  "notes": "Accepted golden search results for #173 on PostgreSQL (tsvector, simple configuration, application-normalized search document). Keys are '<id>:<name>'. orderMode Exact asserts the exact sequence; Set asserts membership, no duplicates, and run-to-run determinism (relevance ranks are provider-specific). knownDefects[provider] records that a provider is known NOT to meet the accepted expectation: the test asserts the case still fails there and passes nothing else, so the entry must be removed once the provider is fixed. Divergence from the SQLite FTS5 capture accepted 2026-09-03: the normalizer folds compatibility forms, so full-width and ASCII queries match both 'Ｆ－ＺＥＲＯ' and 'F-Zero X'. Regenerate with ROMD_SEARCH_GOLDEN_CAPTURE=1 (known-defect cases are never overwritten) and review the diff; the fixture is SearchGoldenFixture.",
+  "cases": [
+    {
+      "id": "admin-titles/empty/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "empty"
+      ],
+      "query": "",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "21:Castlevania",
+        "22:Contra",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "26:EarthBound",
+        "20:F-Zero X",
+        "23:Kirby's Dream Land",
+        "17:Legend of Zelda, The: A Link to the Past",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "9:Mega Man 2",
+        "10:Mega-Man X",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World",
+        "24:Tetris",
+        "25:Tetris",
+        "15:The Legend of Zelda",
+        "16:Zelda II: The Adventure of Link",
+        "14:Über Racer",
+        "13:Ōkami",
+        "18:ドラゴンクエスト",
+        "19:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-titles/whitespace/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "empty",
+        "whitespace"
+      ],
+      "query": "   ",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "21:Castlevania",
+        "22:Contra",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "26:EarthBound",
+        "20:F-Zero X",
+        "23:Kirby's Dream Land",
+        "17:Legend of Zelda, The: A Link to the Past",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "9:Mega Man 2",
+        "10:Mega-Man X",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World",
+        "24:Tetris",
+        "25:Tetris",
+        "15:The Legend of Zelda",
+        "16:Zelda II: The Adventure of Link",
+        "14:Über Racer",
+        "13:Ōkami",
+        "18:ドラゴンクエスト",
+        "19:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-titles/surrounding-spaces/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "whitespace",
+        "prefix"
+      ],
+      "query": "  mario  ",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/prefix-mar/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "prefix"
+      ],
+      "query": "mar",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/prefix-upper/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "prefix",
+        "case"
+      ],
+      "query": "MARIO",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/multi-mario-bros/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "multi-term"
+      ],
+      "query": "mario bros",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "5:Mario Bros.",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3"
+      ]
+    },
+    {
+      "id": "admin-titles/multi-reversed/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "multi-term"
+      ],
+      "query": "bros mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/multi-super-mario-bros-2/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "multi-term",
+        "digits"
+      ],
+      "query": "super mario bros 2",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "2:Super Mario Bros. 2"
+      ]
+    },
+    {
+      "id": "admin-titles/punct-dr-dot-mario/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "dr. mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario"
+      ]
+    },
+    {
+      "id": "admin-titles/punct-dr-mario/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "dr mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario"
+      ]
+    },
+    {
+      "id": "admin-titles/punct-apostrophe/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "mario's",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "8:Mario's Picross"
+      ]
+    },
+    {
+      "id": "admin-titles/punct-apostrophe-stripped/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "marios",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/punct-hyphen/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "mega-man",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "9:Mega Man 2",
+        "10:Mega-Man X"
+      ]
+    },
+    {
+      "id": "admin-titles/punct-hyphen-as-space/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "mega man",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "9:Mega Man 2",
+        "10:Mega-Man X"
+      ]
+    },
+    {
+      "id": "admin-titles/punct-colon/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "zelda ii: the",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "16:Zelda II: The Adventure of Link"
+      ]
+    },
+    {
+      "id": "admin-titles/punct-comma-article/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "legend of zelda, the",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "17:Legend of Zelda, The: A Link to the Past"
+      ]
+    },
+    {
+      "id": "admin-titles/diacritic-pokemon-ascii/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "pokemon",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "12:Pokemon Blue",
+        "11:Pokémon Red"
+      ]
+    },
+    {
+      "id": "admin-titles/diacritic-pokemon-accented/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "pokémon",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "12:Pokemon Blue",
+        "11:Pokémon Red"
+      ]
+    },
+    {
+      "id": "admin-titles/diacritic-pokemon-upper-accented/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "diacritics",
+        "case"
+      ],
+      "query": "POKÉMON",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "12:Pokemon Blue",
+        "11:Pokémon Red"
+      ]
+    },
+    {
+      "id": "admin-titles/diacritic-okami-ascii/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "okami",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "13:Ōkami"
+      ]
+    },
+    {
+      "id": "admin-titles/diacritic-okami-macron/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "ōkami",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "13:Ōkami"
+      ]
+    },
+    {
+      "id": "admin-titles/diacritic-uber-ascii/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "uber",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "14:Über Racer"
+      ]
+    },
+    {
+      "id": "admin-titles/diacritic-uber-umlaut/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "über",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "14:Über Racer"
+      ]
+    },
+    {
+      "id": "admin-titles/unicode-katakana-prefix/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "unicode",
+        "prefix"
+      ],
+      "query": "ドラゴン",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "18:ドラゴンクエスト"
+      ]
+    },
+    {
+      "id": "admin-titles/unicode-katakana-full/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "unicode"
+      ],
+      "query": "ドラゴンクエスト",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "18:ドラゴンクエスト"
+      ]
+    },
+    {
+      "id": "admin-titles/unicode-fullwidth-query/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "unicode"
+      ],
+      "query": "ｆ－ｚｅｒｏ",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "20:F-Zero X",
+        "19:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-titles/unicode-ascii-query-fullwidth-doc/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "unicode"
+      ],
+      "query": "f-zero",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "20:F-Zero X",
+        "19:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-titles/quotes-wrapped/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "\"mario\"",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/operator-star/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "mario*",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/operator-and/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "mario AND luigi",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/operator-or/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "mario OR zelda",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/operator-not/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "NOT mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/operator-near/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "NEAR(mario zelda)",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/operator-minus/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "-mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/operator-caret/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "^mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/operator-column-filter/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "Name:mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/malformed-unbalanced-quote/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "malformed"
+      ],
+      "query": "\"mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/malformed-star-only/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "malformed"
+      ],
+      "query": "*",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/malformed-punctuation-only/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "malformed"
+      ],
+      "query": "---",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/malformed-open-paren/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "malformed"
+      ],
+      "query": "(mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/malformed-double-quote-only/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "malformed"
+      ],
+      "query": "\"",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/description-match/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "description"
+      ],
+      "query": "vampire",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "21:Castlevania"
+      ]
+    },
+    {
+      "id": "admin-titles/description-prefix/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "description",
+        "prefix"
+      ],
+      "query": "goomb",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "1:Super Mario Bros."
+      ]
+    },
+    {
+      "id": "admin-titles/duplicate-names/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "duplicate-ranks"
+      ],
+      "query": "tetris",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "24:Tetris",
+        "25:Tetris"
+      ]
+    },
+    {
+      "id": "admin-titles/duplicate-names-equal-rating/rating",
+      "surface": "AdminTitles",
+      "tags": [
+        "duplicate-ranks",
+        "sort-rating"
+      ],
+      "query": "dr. mario",
+      "sort": "Rating",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario"
+      ]
+    },
+    {
+      "id": "admin-titles/relevance-mario/relevance",
+      "surface": "AdminTitles",
+      "tags": [
+        "relevance"
+      ],
+      "query": "mario",
+      "sort": "Relevance",
+      "limit": 50,
+      "orderMode": "Set",
+      "expected": [
+        "5:Mario Bros.",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "4:Super Mario World",
+        "8:Mario's Picross",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "1:Super Mario Bros."
+      ]
+    },
+    {
+      "id": "admin-titles/relevance-mario-paged/relevance",
+      "surface": "AdminTitles",
+      "tags": [
+        "relevance",
+        "pagination"
+      ],
+      "query": "mario",
+      "sort": "Relevance",
+      "limit": 50,
+      "pageSize": 3,
+      "orderMode": "Set",
+      "expected": [
+        "5:Mario Bros.",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "4:Super Mario World",
+        "8:Mario's Picross",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "1:Super Mario Bros."
+      ]
+    },
+    {
+      "id": "admin-titles/relevance-zelda/relevance",
+      "surface": "AdminTitles",
+      "tags": [
+        "relevance"
+      ],
+      "query": "zelda",
+      "sort": "Relevance",
+      "limit": 50,
+      "orderMode": "Set",
+      "expected": [
+        "15:The Legend of Zelda",
+        "16:Zelda II: The Adventure of Link",
+        "17:Legend of Zelda, The: A Link to the Past"
+      ]
+    },
+    {
+      "id": "admin-titles/rating-all/rating",
+      "surface": "AdminTitles",
+      "tags": [
+        "sort-rating",
+        "null-last"
+      ],
+      "query": "",
+      "sort": "Rating",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "17:Legend of Zelda, The: A Link to the Past",
+        "24:Tetris",
+        "26:EarthBound",
+        "4:Super Mario World",
+        "9:Mega Man 2",
+        "3:Super Mario Bros. 3",
+        "15:The Legend of Zelda",
+        "10:Mega-Man X",
+        "11:Pokémon Red",
+        "12:Pokemon Blue",
+        "1:Super Mario Bros.",
+        "20:F-Zero X",
+        "21:Castlevania",
+        "19:Ｆ－ＺＥＲＯ",
+        "22:Contra",
+        "18:ドラゴンクエスト",
+        "25:Tetris",
+        "16:Zelda II: The Adventure of Link",
+        "8:Mario's Picross",
+        "23:Kirby's Dream Land",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "2:Super Mario Bros. 2",
+        "5:Mario Bros.",
+        "14:Über Racer",
+        "13:Ōkami"
+      ]
+    },
+    {
+      "id": "admin-titles/rating-paged/rating",
+      "surface": "AdminTitles",
+      "tags": [
+        "sort-rating",
+        "pagination"
+      ],
+      "query": "",
+      "sort": "Rating",
+      "limit": 50,
+      "pageSize": 7,
+      "orderMode": "Exact",
+      "expected": [
+        "17:Legend of Zelda, The: A Link to the Past",
+        "24:Tetris",
+        "26:EarthBound",
+        "4:Super Mario World",
+        "9:Mega Man 2",
+        "3:Super Mario Bros. 3",
+        "15:The Legend of Zelda",
+        "10:Mega-Man X",
+        "11:Pokémon Red",
+        "12:Pokemon Blue",
+        "1:Super Mario Bros.",
+        "20:F-Zero X",
+        "21:Castlevania",
+        "19:Ｆ－ＺＥＲＯ",
+        "22:Contra",
+        "18:ドラゴンクエスト",
+        "25:Tetris",
+        "16:Zelda II: The Adventure of Link",
+        "8:Mario's Picross",
+        "23:Kirby's Dream Land",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "2:Super Mario Bros. 2",
+        "5:Mario Bros.",
+        "14:Über Racer",
+        "13:Ōkami"
+      ]
+    },
+    {
+      "id": "admin-titles/name-paged/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "pagination"
+      ],
+      "query": "",
+      "sort": "Name",
+      "limit": 50,
+      "pageSize": 10,
+      "orderMode": "Exact",
+      "expected": [
+        "21:Castlevania",
+        "22:Contra",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "26:EarthBound",
+        "20:F-Zero X",
+        "23:Kirby's Dream Land",
+        "17:Legend of Zelda, The: A Link to the Past",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "9:Mega Man 2",
+        "10:Mega-Man X",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World",
+        "24:Tetris",
+        "25:Tetris",
+        "15:The Legend of Zelda",
+        "16:Zelda II: The Adventure of Link",
+        "14:Über Racer",
+        "13:Ōkami",
+        "18:ドラゴンクエスト",
+        "19:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-titles/prefix-paged/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "pagination",
+        "prefix"
+      ],
+      "query": "mar",
+      "sort": "Name",
+      "limit": 50,
+      "pageSize": 2,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/filter-platform-nes/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-platform"
+      ],
+      "query": "mario",
+      "sort": "Name",
+      "filters": {
+        "platformId": 1
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "5:Mario Bros.",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3"
+      ]
+    },
+    {
+      "id": "admin-titles/filter-platform-gb-empty-query/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-platform"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "platformId": 3
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "7:Dr. Mario",
+        "23:Kirby's Dream Land",
+        "8:Mario's Picross",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "24:Tetris"
+      ]
+    },
+    {
+      "id": "admin-titles/filter-genre-puzzle/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-genre"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "genre": "Puzzle"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "8:Mario's Picross",
+        "24:Tetris",
+        "25:Tetris"
+      ]
+    },
+    {
+      "id": "admin-titles/filter-genre-with-query/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-genre"
+      ],
+      "query": "mario",
+      "sort": "Name",
+      "filters": {
+        "genre": "Puzzle"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "8:Mario's Picross"
+      ]
+    },
+    {
+      "id": "admin-titles/filter-tracked/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-tracked"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "tracked": "Tracked"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "1:Super Mario Bros.",
+        "24:Tetris",
+        "15:The Legend of Zelda"
+      ]
+    },
+    {
+      "id": "admin-titles/filter-untracked-with-query/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-tracked"
+      ],
+      "query": "mario",
+      "sort": "Name",
+      "filters": {
+        "tracked": "Untracked"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-titles/filter-enrichment-enriched/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-enrichment"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "enrichmentStatus": "Enriched"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "26:EarthBound"
+      ]
+    },
+    {
+      "id": "admin-titles/filter-release-completeness-none/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-completeness"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "releaseCompleteness": "None"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-titles/filter-release-completeness-complete/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "filter-completeness"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "releaseCompleteness": "Complete"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-games/empty/name",
+      "surface": "AdminGames",
+      "tags": [
+        "empty",
+        "filter-bios"
+      ],
+      "query": "",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "121:Castlevania",
+        "122:Contra",
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "126:EarthBound",
+        "120:F-Zero X",
+        "123:Kirby's Dream Land",
+        "117:Legend of Zelda, The: A Link to the Past",
+        "105:Mario Bros.",
+        "108:Mario's Picross",
+        "109:Mega Man 2",
+        "110:Mega-Man X",
+        "112:Pokemon Blue",
+        "111:Pokémon Red",
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World",
+        "124:Tetris",
+        "125:Tetris",
+        "115:The Legend of Zelda",
+        "116:Zelda II: The Adventure of Link",
+        "114:Über Racer",
+        "113:Ōkami",
+        "118:ドラゴンクエスト",
+        "119:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-games/prefix-mar/name",
+      "surface": "AdminGames",
+      "tags": [
+        "prefix"
+      ],
+      "query": "mar",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "105:Mario Bros.",
+        "108:Mario's Picross",
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-games/prefix-upper/name",
+      "surface": "AdminGames",
+      "tags": [
+        "prefix",
+        "case"
+      ],
+      "query": "MARIO",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "105:Mario Bros.",
+        "108:Mario's Picross",
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-games/multi-mario-bros/name",
+      "surface": "AdminGames",
+      "tags": [
+        "multi-term"
+      ],
+      "query": "mario bros",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "105:Mario Bros.",
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3"
+      ]
+    },
+    {
+      "id": "admin-games/multi-reversed/name",
+      "surface": "AdminGames",
+      "tags": [
+        "multi-term"
+      ],
+      "query": "bros mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-games/punct-apostrophe/name",
+      "surface": "AdminGames",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "mario's",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "108:Mario's Picross"
+      ]
+    },
+    {
+      "id": "admin-games/punct-hyphen/name",
+      "surface": "AdminGames",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "mega-man",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "109:Mega Man 2",
+        "110:Mega-Man X"
+      ]
+    },
+    {
+      "id": "admin-games/diacritic-pokemon-ascii/name",
+      "surface": "AdminGames",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "pokemon",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "112:Pokemon Blue",
+        "111:Pokémon Red"
+      ]
+    },
+    {
+      "id": "admin-games/diacritic-pokemon-accented/name",
+      "surface": "AdminGames",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "pokémon",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "112:Pokemon Blue",
+        "111:Pokémon Red"
+      ]
+    },
+    {
+      "id": "admin-games/unicode-katakana-prefix/name",
+      "surface": "AdminGames",
+      "tags": [
+        "unicode",
+        "prefix"
+      ],
+      "query": "ドラゴン",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "118:ドラゴンクエスト"
+      ]
+    },
+    {
+      "id": "admin-games/quotes-wrapped/name",
+      "surface": "AdminGames",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "\"tetris\"",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "124:Tetris",
+        "125:Tetris"
+      ]
+    },
+    {
+      "id": "admin-games/operator-and/name",
+      "surface": "AdminGames",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "mario AND luigi",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-games/malformed-star-only/name",
+      "surface": "AdminGames",
+      "tags": [
+        "malformed"
+      ],
+      "query": "*",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "admin-games/malformed-unbalanced-quote/name",
+      "surface": "AdminGames",
+      "tags": [
+        "malformed"
+      ],
+      "query": "\"mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "105:Mario Bros.",
+        "108:Mario's Picross",
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-games/description-match/name",
+      "surface": "AdminGames",
+      "tags": [
+        "description"
+      ],
+      "query": "vampire",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "121:Castlevania"
+      ]
+    },
+    {
+      "id": "admin-games/duplicate-names/name",
+      "surface": "AdminGames",
+      "tags": [
+        "duplicate-ranks"
+      ],
+      "query": "tetris",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "124:Tetris",
+        "125:Tetris"
+      ]
+    },
+    {
+      "id": "admin-games/relevance-mario/relevance",
+      "surface": "AdminGames",
+      "tags": [
+        "relevance"
+      ],
+      "query": "mario",
+      "sort": "Relevance",
+      "limit": 50,
+      "orderMode": "Set",
+      "expected": [
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World",
+        "105:Mario Bros.",
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "108:Mario's Picross"
+      ]
+    },
+    {
+      "id": "admin-games/relevance-mario-paged/relevance",
+      "surface": "AdminGames",
+      "tags": [
+        "relevance",
+        "pagination"
+      ],
+      "query": "mario",
+      "sort": "Relevance",
+      "limit": 50,
+      "pageSize": 3,
+      "orderMode": "Set",
+      "expected": [
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World",
+        "105:Mario Bros.",
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "108:Mario's Picross"
+      ]
+    },
+    {
+      "id": "admin-games/year-all/year",
+      "surface": "AdminGames",
+      "tags": [
+        "sort-year"
+      ],
+      "query": "",
+      "sort": "Year",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "120:F-Zero X",
+        "111:Pokémon Red",
+        "112:Pokemon Blue",
+        "108:Mario's Picross",
+        "113:Ōkami",
+        "114:Über Racer",
+        "126:EarthBound",
+        "110:Mega-Man X",
+        "123:Kirby's Dream Land",
+        "117:Legend of Zelda, The: A Link to the Past",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World",
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "119:Ｆ－ＺＥＲＯ",
+        "124:Tetris",
+        "125:Tetris",
+        "102:Super Mario Bros. 2",
+        "109:Mega Man 2",
+        "116:Zelda II: The Adventure of Link",
+        "122:Contra",
+        "115:The Legend of Zelda",
+        "118:ドラゴンクエスト",
+        "121:Castlevania",
+        "101:Super Mario Bros.",
+        "105:Mario Bros."
+      ]
+    },
+    {
+      "id": "admin-games/year-paged/year",
+      "surface": "AdminGames",
+      "tags": [
+        "sort-year",
+        "pagination"
+      ],
+      "query": "mario",
+      "sort": "Year",
+      "limit": 50,
+      "pageSize": 2,
+      "orderMode": "Exact",
+      "expected": [
+        "108:Mario's Picross",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World",
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "102:Super Mario Bros. 2",
+        "101:Super Mario Bros.",
+        "105:Mario Bros."
+      ]
+    },
+    {
+      "id": "admin-games/name-paged/name",
+      "surface": "AdminGames",
+      "tags": [
+        "pagination"
+      ],
+      "query": "",
+      "sort": "Name",
+      "limit": 50,
+      "pageSize": 9,
+      "orderMode": "Exact",
+      "expected": [
+        "121:Castlevania",
+        "122:Contra",
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "126:EarthBound",
+        "120:F-Zero X",
+        "123:Kirby's Dream Land",
+        "117:Legend of Zelda, The: A Link to the Past",
+        "105:Mario Bros.",
+        "108:Mario's Picross",
+        "109:Mega Man 2",
+        "110:Mega-Man X",
+        "112:Pokemon Blue",
+        "111:Pokémon Red",
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World",
+        "124:Tetris",
+        "125:Tetris",
+        "115:The Legend of Zelda",
+        "116:Zelda II: The Adventure of Link",
+        "114:Über Racer",
+        "113:Ōkami",
+        "118:ドラゴンクエスト",
+        "119:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-games/filter-year-1985/name",
+      "surface": "AdminGames",
+      "tags": [
+        "filter-year"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "year": "1985"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "101:Super Mario Bros."
+      ]
+    },
+    {
+      "id": "admin-games/filter-manufacturer-konami/name",
+      "surface": "AdminGames",
+      "tags": [
+        "filter-manufacturer"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "manufacturer": "Konami"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "121:Castlevania",
+        "122:Contra"
+      ]
+    },
+    {
+      "id": "admin-games/filter-region-japan/name",
+      "surface": "AdminGames",
+      "tags": [
+        "filter-region"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "regionId": 3
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "122:Contra",
+        "105:Mario Bros.",
+        "111:Pokémon Red",
+        "101:Super Mario Bros.",
+        "125:Tetris",
+        "113:Ōkami",
+        "118:ドラゴンクエスト",
+        "119:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-games/filter-region-usa-with-query/name",
+      "surface": "AdminGames",
+      "tags": [
+        "filter-region"
+      ],
+      "query": "mario",
+      "sort": "Name",
+      "filters": {
+        "regionId": 1
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World"
+      ]
+    },
+    {
+      "id": "admin-games/filter-platform-gb/name",
+      "surface": "AdminGames",
+      "tags": [
+        "filter-platform"
+      ],
+      "query": "mario",
+      "sort": "Name",
+      "filters": {
+        "platformId": 3
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "107:Dr. Mario",
+        "108:Mario's Picross"
+      ]
+    },
+    {
+      "id": "admin-games/filter-bios-only/name",
+      "surface": "AdminGames",
+      "tags": [
+        "filter-bios"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "bios": "Only"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "199:[BIOS] Game Boy Boot ROM"
+      ]
+    },
+    {
+      "id": "admin-games/filter-bios-include/name",
+      "surface": "AdminGames",
+      "tags": [
+        "filter-bios"
+      ],
+      "query": "",
+      "sort": "Name",
+      "filters": {
+        "bios": "Include"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "121:Castlevania",
+        "122:Contra",
+        "106:Dr. Mario",
+        "107:Dr. Mario",
+        "126:EarthBound",
+        "120:F-Zero X",
+        "123:Kirby's Dream Land",
+        "117:Legend of Zelda, The: A Link to the Past",
+        "105:Mario Bros.",
+        "108:Mario's Picross",
+        "109:Mega Man 2",
+        "110:Mega-Man X",
+        "112:Pokemon Blue",
+        "111:Pokémon Red",
+        "101:Super Mario Bros.",
+        "102:Super Mario Bros. 2",
+        "103:Super Mario Bros. 3",
+        "104:Super Mario World",
+        "124:Tetris",
+        "125:Tetris",
+        "115:The Legend of Zelda",
+        "116:Zelda II: The Adventure of Link",
+        "199:[BIOS] Game Boy Boot ROM",
+        "114:Über Racer",
+        "113:Ōkami",
+        "118:ドラゴンクエスト",
+        "119:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "admin-games/filter-bios-include-with-query/name",
+      "surface": "AdminGames",
+      "tags": [
+        "filter-bios",
+        "description"
+      ],
+      "query": "boot",
+      "sort": "Name",
+      "filters": {
+        "bios": "Include"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "199:[BIOS] Game Boy Boot ROM"
+      ]
+    },
+    {
+      "id": "consumer/empty/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "empty",
+        "ownership"
+      ],
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "21:Castlevania",
+        "22:Contra",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "20:F-Zero X",
+        "23:Kirby's Dream Land",
+        "17:Legend of Zelda, The: A Link to the Past",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "9:Mega Man 2",
+        "10:Mega-Man X",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World",
+        "24:Tetris",
+        "25:Tetris",
+        "15:The Legend of Zelda",
+        "16:Zelda II: The Adventure of Link",
+        "14:Über Racer",
+        "18:ドラゴンクエスト",
+        "19:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "consumer/whitespace/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "empty",
+        "whitespace"
+      ],
+      "query": "   ",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "21:Castlevania",
+        "22:Contra",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "20:F-Zero X",
+        "23:Kirby's Dream Land",
+        "17:Legend of Zelda, The: A Link to the Past",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "9:Mega Man 2",
+        "10:Mega-Man X",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World",
+        "24:Tetris",
+        "25:Tetris",
+        "15:The Legend of Zelda",
+        "16:Zelda II: The Adventure of Link",
+        "14:Über Racer",
+        "18:ドラゴンクエスト",
+        "19:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "consumer/surrounding-spaces/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "whitespace",
+        "prefix"
+      ],
+      "query": "  mario  ",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "consumer/prefix-mar/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "prefix"
+      ],
+      "query": "mar",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "consumer/prefix-upper/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "prefix",
+        "case"
+      ],
+      "query": "MARIO",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "consumer/multi-mario-bros/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "multi-term"
+      ],
+      "query": "mario bros",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "5:Mario Bros.",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3"
+      ]
+    },
+    {
+      "id": "consumer/multi-reversed/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "multi-term"
+      ],
+      "query": "bros mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "consumer/punct-apostrophe/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "kirby's",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "23:Kirby's Dream Land"
+      ]
+    },
+    {
+      "id": "consumer/punct-colon/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "zelda ii: the",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "16:Zelda II: The Adventure of Link"
+      ]
+    },
+    {
+      "id": "consumer/diacritic-pokemon-ascii/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "pokemon",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "12:Pokemon Blue",
+        "11:Pokémon Red"
+      ]
+    },
+    {
+      "id": "consumer/diacritic-pokemon-accented/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "diacritics"
+      ],
+      "query": "pokémon",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "12:Pokemon Blue",
+        "11:Pokémon Red"
+      ]
+    },
+    {
+      "id": "consumer/diacritic-okami-not-owned/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "diacritics",
+        "ownership"
+      ],
+      "query": "okami",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "consumer/unicode-katakana-prefix/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "unicode",
+        "prefix"
+      ],
+      "query": "ドラゴン",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "18:ドラゴンクエスト"
+      ]
+    },
+    {
+      "id": "consumer/quotes-wrapped/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "\"tetris\"",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "24:Tetris",
+        "25:Tetris"
+      ]
+    },
+    {
+      "id": "consumer/operator-and/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "mario AND luigi",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "consumer/operator-star/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "quotes-operators"
+      ],
+      "query": "mario*",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "consumer/malformed-star-only/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "malformed"
+      ],
+      "query": "*",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": []
+    },
+    {
+      "id": "consumer/malformed-unbalanced-quote/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "malformed"
+      ],
+      "query": "\"mario",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "consumer/description-match/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "description"
+      ],
+      "query": "vampire",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "21:Castlevania"
+      ]
+    },
+    {
+      "id": "consumer/duplicate-names/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "duplicate-ranks"
+      ],
+      "query": "tetris",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "24:Tetris",
+        "25:Tetris"
+      ]
+    },
+    {
+      "id": "consumer/duplicate-names/rating",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "duplicate-ranks",
+        "sort-rating"
+      ],
+      "query": "tetris",
+      "sort": "Rating",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "24:Tetris",
+        "25:Tetris"
+      ]
+    },
+    {
+      "id": "consumer/rating-all/rating",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "sort-rating",
+        "null-last"
+      ],
+      "sort": "Rating",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "17:Legend of Zelda, The: A Link to the Past",
+        "24:Tetris",
+        "4:Super Mario World",
+        "9:Mega Man 2",
+        "3:Super Mario Bros. 3",
+        "15:The Legend of Zelda",
+        "10:Mega-Man X",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "1:Super Mario Bros.",
+        "20:F-Zero X",
+        "21:Castlevania",
+        "19:Ｆ－ＺＥＲＯ",
+        "22:Contra",
+        "25:Tetris",
+        "18:ドラゴンクエスト",
+        "16:Zelda II: The Adventure of Link",
+        "8:Mario's Picross",
+        "23:Kirby's Dream Land",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "2:Super Mario Bros. 2",
+        "5:Mario Bros.",
+        "14:Über Racer"
+      ]
+    },
+    {
+      "id": "consumer/rating-paged/rating",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "sort-rating",
+        "pagination"
+      ],
+      "sort": "Rating",
+      "limit": 50,
+      "pageSize": 5,
+      "orderMode": "Exact",
+      "expected": [
+        "17:Legend of Zelda, The: A Link to the Past",
+        "24:Tetris",
+        "4:Super Mario World",
+        "9:Mega Man 2",
+        "3:Super Mario Bros. 3",
+        "15:The Legend of Zelda",
+        "10:Mega-Man X",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "1:Super Mario Bros.",
+        "20:F-Zero X",
+        "21:Castlevania",
+        "19:Ｆ－ＺＥＲＯ",
+        "22:Contra",
+        "25:Tetris",
+        "18:ドラゴンクエスト",
+        "16:Zelda II: The Adventure of Link",
+        "8:Mario's Picross",
+        "23:Kirby's Dream Land",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "2:Super Mario Bros. 2",
+        "5:Mario Bros.",
+        "14:Über Racer"
+      ]
+    },
+    {
+      "id": "consumer/name-paged/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "pagination"
+      ],
+      "sort": "Name",
+      "limit": 50,
+      "pageSize": 6,
+      "orderMode": "Exact",
+      "expected": [
+        "21:Castlevania",
+        "22:Contra",
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "20:F-Zero X",
+        "23:Kirby's Dream Land",
+        "17:Legend of Zelda, The: A Link to the Past",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "9:Mega Man 2",
+        "10:Mega-Man X",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World",
+        "24:Tetris",
+        "25:Tetris",
+        "15:The Legend of Zelda",
+        "16:Zelda II: The Adventure of Link",
+        "14:Über Racer",
+        "18:ドラゴンクエスト",
+        "19:Ｆ－ＺＥＲＯ"
+      ]
+    },
+    {
+      "id": "consumer/prefix-paged/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "pagination",
+        "prefix"
+      ],
+      "query": "mar",
+      "sort": "Name",
+      "limit": 50,
+      "pageSize": 2,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "7:Dr. Mario",
+        "5:Mario Bros.",
+        "8:Mario's Picross",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3",
+        "4:Super Mario World"
+      ]
+    },
+    {
+      "id": "consumer/filter-platform-gb/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "filter-platform"
+      ],
+      "sort": "Name",
+      "filters": {
+        "platformId": 3
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "7:Dr. Mario",
+        "23:Kirby's Dream Land",
+        "8:Mario's Picross",
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "24:Tetris"
+      ]
+    },
+    {
+      "id": "consumer/filter-platform-with-query/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "filter-platform"
+      ],
+      "query": "mario",
+      "sort": "Name",
+      "filters": {
+        "platformId": 1
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "6:Dr. Mario",
+        "5:Mario Bros.",
+        "1:Super Mario Bros.",
+        "2:Super Mario Bros. 2",
+        "3:Super Mario Bros. 3"
+      ]
+    },
+    {
+      "id": "consumer/filter-genre-rpg/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "filter-genre"
+      ],
+      "sort": "Name",
+      "filters": {
+        "genre": "RPG"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "12:Pokemon Blue",
+        "11:Pokémon Red",
+        "18:ドラゴンクエスト"
+      ]
+    },
+    {
+      "id": "consumer/filter-completeness-complete/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "filter-completeness"
+      ],
+      "sort": "Name",
+      "filters": {
+        "completeness": "Complete"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "1:Super Mario Bros."
+      ]
+    },
+    {
+      "id": "consumer/filter-completeness-partial/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "filter-completeness"
+      ],
+      "sort": "Name",
+      "filters": {
+        "completeness": "Partial"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "2:Super Mario Bros. 2"
+      ]
+    },
+    {
+      "id": "consumer/filter-completeness-complete-with-query/name",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "filter-completeness"
+      ],
+      "query": "mario",
+      "sort": "Name",
+      "filters": {
+        "completeness": "Complete"
+      },
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "1:Super Mario Bros."
+      ]
+    }
+  ]
+}

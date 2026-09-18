@@ -1,0 +1,1774 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": 1,
+  "systems": {
+    "2600": {
+      "name": "Atari 2600",
+      "manufacturerIds": [
+        "atari"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "59"
+      },
+      "symbol": "Atari2600",
+      "compactLabel": "Atari 2600",
+      "iconPath": "platforms/2600.png",
+      "monochrome": true
+    },
+    "32x": {
+      "name": "Sega 32X",
+      "manufacturerIds": [
+        "sega"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "30"
+      },
+      "symbol": "Sega32X",
+      "compactLabel": "Sega 32X",
+      "iconPath": "platforms/32x.png",
+      "monochrome": true
+    },
+    "3do": {
+      "name": "3DO Interactive Multiplayer",
+      "manufacturerIds": [
+        "panasonic"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "50"
+      },
+      "symbol": "ThreeDo",
+      "compactLabel": "3DO Interactive Multiplayer",
+      "iconPath": "platforms/3do.png",
+      "monochrome": true
+    },
+    "3ds": {
+      "name": "Nintendo 3DS",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "37"
+      },
+      "symbol": "Nintendo3Ds",
+      "compactLabel": "Nintendo 3DS",
+      "iconPath": "platforms/3ds.png",
+      "monochrome": true
+    },
+    "5200": {
+      "name": "Atari 5200",
+      "manufacturerIds": [
+        "atari"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "66"
+      },
+      "symbol": "Atari5200",
+      "compactLabel": "Atari 5200",
+      "iconPath": "platforms/5200.png",
+      "monochrome": true
+    },
+    "7800": {
+      "name": "Atari 7800",
+      "manufacturerIds": [
+        "atari"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "60"
+      },
+      "symbol": "Atari7800",
+      "compactLabel": "Atari 7800",
+      "iconPath": "platforms/7800.png",
+      "monochrome": true
+    },
+    "amiga": {
+      "name": "Amiga",
+      "manufacturerIds": [
+        "commodore"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "16"
+      },
+      "symbol": "Amiga",
+      "compactLabel": "Amiga",
+      "iconPath": null,
+      "monochrome": true
+    },
+    "arcade": {
+      "name": "Arcade",
+      "manufacturerIds": [],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "52"
+      },
+      "symbol": "Arcade",
+      "compactLabel": "Arcade",
+      "iconPath": null,
+      "monochrome": true
+    },
+    "atarist": {
+      "name": "Atari ST",
+      "manufacturerIds": [
+        "atari"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "63"
+      },
+      "symbol": "AtariSt",
+      "compactLabel": "Atari ST",
+      "iconPath": null,
+      "monochrome": true
+    },
+    "c64": {
+      "name": "Commodore 64",
+      "manufacturerIds": [
+        "commodore"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "15"
+      },
+      "symbol": "Commodore64",
+      "compactLabel": "Commodore 64",
+      "iconPath": null,
+      "monochrome": true
+    },
+    "cdi": {
+      "name": "Philips CD-i",
+      "manufacturerIds": [
+        "philips"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "117"
+      },
+      "symbol": "CdI",
+      "compactLabel": "Philips CD-i",
+      "iconPath": "platforms/cdi.png",
+      "monochrome": true
+    },
+    "coleco": {
+      "name": "ColecoVision",
+      "manufacturerIds": [
+        "coleco"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "68"
+      },
+      "symbol": "ColecoVision",
+      "compactLabel": "ColecoVision",
+      "iconPath": "platforms/coleco.png",
+      "monochrome": true
+    },
+    "dc": {
+      "name": "Sega Dreamcast",
+      "manufacturerIds": [
+        "sega"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "23"
+      },
+      "symbol": "Dreamcast",
+      "compactLabel": "Sega Dreamcast",
+      "iconPath": "platforms/dc.png",
+      "monochrome": true
+    },
+    "dos": {
+      "name": "DOS",
+      "manufacturerIds": [
+        "ibm"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "13"
+      },
+      "symbol": "Dos",
+      "compactLabel": "DOS",
+      "iconPath": null,
+      "monochrome": true
+    },
+    "gb": {
+      "name": "Game Boy",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "33"
+      },
+      "symbol": "GameBoy",
+      "compactLabel": "Game Boy",
+      "iconPath": "platforms/gb.png",
+      "monochrome": true
+    },
+    "gba": {
+      "name": "Game Boy Advance",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [
+        "GBA"
+      ],
+      "providerMappings": {
+        "igdb": "24"
+      },
+      "symbol": "GameBoyAdvance",
+      "compactLabel": "Game Boy Advance",
+      "iconPath": "platforms/gba.png",
+      "monochrome": true
+    },
+    "gbc": {
+      "name": "Game Boy Color",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [
+        "GBC"
+      ],
+      "providerMappings": {
+        "igdb": "22"
+      },
+      "symbol": "GameBoyColor",
+      "compactLabel": "Game Boy Color",
+      "iconPath": "platforms/gbc.png",
+      "monochrome": true
+    },
+    "gc": {
+      "name": "Nintendo GameCube",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [
+        "GameCube"
+      ],
+      "providerMappings": {
+        "igdb": "21"
+      },
+      "symbol": "GameCube",
+      "compactLabel": "GameCube",
+      "iconPath": "platforms/gc.png",
+      "monochrome": true
+    },
+    "genesis": {
+      "name": "Sega Genesis",
+      "manufacturerIds": [
+        "sega"
+      ],
+      "aliases": [
+        "Mega Drive",
+        "Sega Mega Drive"
+      ],
+      "providerMappings": {
+        "igdb": "29"
+      },
+      "symbol": "Genesis",
+      "compactLabel": "Sega Genesis",
+      "iconPath": "platforms/genesis.png",
+      "monochrome": true
+    },
+    "gg": {
+      "name": "Sega Game Gear",
+      "manufacturerIds": [
+        "sega"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "35"
+      },
+      "symbol": "GameGear",
+      "compactLabel": "Sega Game Gear",
+      "iconPath": "platforms/gg.png",
+      "monochrome": true
+    },
+    "intv": {
+      "name": "Intellivision",
+      "manufacturerIds": [
+        "mattel"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "67"
+      },
+      "symbol": "Intellivision",
+      "compactLabel": "Intellivision",
+      "iconPath": "platforms/intv.png",
+      "monochrome": true
+    },
+    "jaguar": {
+      "name": "Atari Jaguar",
+      "manufacturerIds": [
+        "atari"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "62"
+      },
+      "symbol": "Jaguar",
+      "compactLabel": "Atari Jaguar",
+      "iconPath": "platforms/jaguar.png",
+      "monochrome": true
+    },
+    "lynx": {
+      "name": "Atari Lynx",
+      "manufacturerIds": [
+        "atari"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "61"
+      },
+      "symbol": "Lynx",
+      "compactLabel": "Atari Lynx",
+      "iconPath": "platforms/lynx.png",
+      "monochrome": true
+    },
+    "msx": {
+      "name": "MSX",
+      "manufacturerIds": [
+        "microsoft"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "27"
+      },
+      "symbol": "Msx",
+      "compactLabel": "MSX",
+      "iconPath": null,
+      "monochrome": true
+    },
+    "n64": {
+      "name": "Nintendo 64",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [
+        "N64"
+      ],
+      "providerMappings": {
+        "igdb": "4"
+      },
+      "symbol": "N64",
+      "compactLabel": "Nintendo 64",
+      "iconPath": "platforms/n64.png",
+      "monochrome": true
+    },
+    "nds": {
+      "name": "Nintendo DS",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [
+        "NDS"
+      ],
+      "providerMappings": {
+        "igdb": "20"
+      },
+      "symbol": "NintendoDs",
+      "compactLabel": "Nintendo DS",
+      "iconPath": "platforms/nds.png",
+      "monochrome": true
+    },
+    "neogeo": {
+      "name": "Neo Geo",
+      "manufacturerIds": [
+        "snk"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "80"
+      },
+      "symbol": "NeoGeo",
+      "compactLabel": "Neo Geo",
+      "iconPath": "platforms/neogeo.png",
+      "monochrome": true
+    },
+    "neogeocd": {
+      "name": "Neo Geo CD",
+      "manufacturerIds": [
+        "snk"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "136"
+      },
+      "symbol": "NeoGeoCd",
+      "compactLabel": "Neo Geo CD",
+      "iconPath": "platforms/neogeocd.png",
+      "monochrome": true
+    },
+    "nes": {
+      "name": "Nintendo Entertainment System",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [
+        "NES",
+        "Famicom",
+        "Family Computer"
+      ],
+      "providerMappings": {
+        "igdb": "18"
+      },
+      "symbol": "Nes",
+      "compactLabel": "NES",
+      "iconPath": "platforms/nes.png",
+      "monochrome": true
+    },
+    "ngp": {
+      "name": "Neo Geo Pocket",
+      "manufacturerIds": [
+        "snk"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "119"
+      },
+      "symbol": "NeoGeoPocket",
+      "compactLabel": "Neo Geo Pocket",
+      "iconPath": "platforms/ngp.png",
+      "monochrome": true
+    },
+    "ngpc": {
+      "name": "Neo Geo Pocket Color",
+      "manufacturerIds": [
+        "snk"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "120"
+      },
+      "symbol": "NeoGeoPocketColor",
+      "compactLabel": "Neo Geo Pocket Color",
+      "iconPath": "platforms/ngpc.png",
+      "monochrome": true
+    },
+    "ps2": {
+      "name": "PlayStation 2",
+      "manufacturerIds": [
+        "sony"
+      ],
+      "aliases": [
+        "PS2"
+      ],
+      "providerMappings": {
+        "igdb": "8"
+      },
+      "symbol": "PlayStation2",
+      "compactLabel": "PlayStation 2",
+      "iconPath": "platforms/ps2.png",
+      "monochrome": true
+    },
+    "ps3": {
+      "name": "PlayStation 3",
+      "manufacturerIds": [
+        "sony"
+      ],
+      "aliases": [
+        "PS3"
+      ],
+      "providerMappings": {
+        "igdb": "9"
+      },
+      "symbol": "PlayStation3",
+      "compactLabel": "PlayStation 3",
+      "iconPath": "platforms/ps3.png",
+      "monochrome": true
+    },
+    "ps4": {
+      "name": "PlayStation 4",
+      "manufacturerIds": [
+        "sony"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "48"
+      },
+      "symbol": "PlayStation4",
+      "compactLabel": "PlayStation 4",
+      "iconPath": "platforms/ps4.png",
+      "monochrome": true
+    },
+    "ps5": {
+      "name": "PlayStation 5",
+      "manufacturerIds": [
+        "sony"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "167"
+      },
+      "symbol": "PlayStation5",
+      "compactLabel": "PlayStation 5",
+      "iconPath": "platforms/ps5.png",
+      "monochrome": true
+    },
+    "psp": {
+      "name": "PlayStation Portable",
+      "manufacturerIds": [
+        "sony"
+      ],
+      "aliases": [
+        "PSP"
+      ],
+      "providerMappings": {
+        "igdb": "38"
+      },
+      "symbol": "Psp",
+      "compactLabel": "PSP",
+      "iconPath": "platforms/psp.png",
+      "monochrome": true
+    },
+    "psx": {
+      "name": "PlayStation",
+      "manufacturerIds": [
+        "sony"
+      ],
+      "aliases": [
+        "PSX",
+        "PS1",
+        "Sony PlayStation"
+      ],
+      "providerMappings": {
+        "igdb": "7"
+      },
+      "symbol": "PlayStation",
+      "compactLabel": "PlayStation",
+      "iconPath": "platforms/psx.png",
+      "monochrome": true
+    },
+    "saturn": {
+      "name": "Sega Saturn",
+      "manufacturerIds": [
+        "sega"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "32"
+      },
+      "symbol": "Saturn",
+      "compactLabel": "Sega Saturn",
+      "iconPath": "platforms/saturn.png",
+      "monochrome": true
+    },
+    "segacd": {
+      "name": "Sega CD",
+      "manufacturerIds": [
+        "sega"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "78"
+      },
+      "symbol": "SegaCd",
+      "compactLabel": "Sega CD",
+      "iconPath": "platforms/segacd.png",
+      "monochrome": true
+    },
+    "sgx": {
+      "name": "PC Engine SuperGrafx",
+      "manufacturerIds": [
+        "nec"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "128"
+      },
+      "symbol": "SuperGrafx",
+      "compactLabel": "PC Engine SuperGrafx",
+      "iconPath": "platforms/sgx.png",
+      "monochrome": true
+    },
+    "sms": {
+      "name": "Sega Master System",
+      "manufacturerIds": [
+        "sega"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "64"
+      },
+      "symbol": "MasterSystem",
+      "compactLabel": "Master System",
+      "iconPath": "platforms/sms.png",
+      "monochrome": true
+    },
+    "snes": {
+      "name": "Super Nintendo Entertainment System",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [
+        "SNES",
+        "Super Famicom",
+        "Super Nintendo"
+      ],
+      "providerMappings": {
+        "igdb": "19"
+      },
+      "symbol": "Snes",
+      "compactLabel": "SNES",
+      "iconPath": "platforms/snes.png",
+      "monochrome": true
+    },
+    "switch": {
+      "name": "Nintendo Switch",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "130"
+      },
+      "symbol": "Switch",
+      "compactLabel": "Nintendo Switch",
+      "iconPath": "platforms/switch.png",
+      "monochrome": true
+    },
+    "tg16": {
+      "name": "TurboGrafx-16",
+      "manufacturerIds": [
+        "nec"
+      ],
+      "aliases": [
+        "PC Engine"
+      ],
+      "providerMappings": {
+        "igdb": "86"
+      },
+      "symbol": "TurboGrafx16",
+      "compactLabel": "TurboGrafx-16",
+      "iconPath": "platforms/tg16.png",
+      "monochrome": true
+    },
+    "tgcd": {
+      "name": "TurboGrafx-CD",
+      "manufacturerIds": [
+        "nec"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "150"
+      },
+      "symbol": "TurboGrafxCd",
+      "compactLabel": "TurboGrafx-CD",
+      "iconPath": "platforms/tgcd.png",
+      "monochrome": true
+    },
+    "vb": {
+      "name": "Virtual Boy",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "87"
+      },
+      "symbol": "VirtualBoy",
+      "compactLabel": "Virtual Boy",
+      "iconPath": "platforms/vb.png",
+      "monochrome": true
+    },
+    "vita": {
+      "name": "PlayStation Vita",
+      "manufacturerIds": [
+        "sony"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "46"
+      },
+      "symbol": "Vita",
+      "compactLabel": "PS Vita",
+      "iconPath": "platforms/vita.png",
+      "monochrome": true
+    },
+    "wii": {
+      "name": "Wii",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "5"
+      },
+      "symbol": "Wii",
+      "compactLabel": "Wii",
+      "iconPath": "platforms/wii.png",
+      "monochrome": true
+    },
+    "wiiu": {
+      "name": "Wii U",
+      "manufacturerIds": [
+        "nintendo"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "41"
+      },
+      "symbol": "WiiU",
+      "compactLabel": "Wii U",
+      "iconPath": "platforms/wiiu.png",
+      "monochrome": true
+    },
+    "ws": {
+      "name": "WonderSwan",
+      "manufacturerIds": [
+        "bandai"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "57"
+      },
+      "symbol": "WonderSwan",
+      "compactLabel": "WonderSwan",
+      "iconPath": "platforms/ws.png",
+      "monochrome": true
+    },
+    "wsc": {
+      "name": "WonderSwan Color",
+      "manufacturerIds": [
+        "bandai"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "123"
+      },
+      "symbol": "WonderSwanColor",
+      "compactLabel": "WonderSwan Color",
+      "iconPath": "platforms/wsc.png",
+      "monochrome": true
+    },
+    "x360": {
+      "name": "Xbox 360",
+      "manufacturerIds": [
+        "microsoft"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "12"
+      },
+      "symbol": "Xbox360",
+      "compactLabel": "Xbox 360",
+      "iconPath": "platforms/x360.png",
+      "monochrome": true
+    },
+    "xbox": {
+      "name": "Xbox",
+      "manufacturerIds": [
+        "microsoft"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "11"
+      },
+      "symbol": "Xbox",
+      "compactLabel": "Xbox",
+      "iconPath": "platforms/xbox.png",
+      "monochrome": true
+    },
+    "xone": {
+      "name": "Xbox One",
+      "manufacturerIds": [
+        "microsoft"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "49"
+      },
+      "symbol": "XboxOne",
+      "compactLabel": "Xbox One",
+      "iconPath": "platforms/xone.png",
+      "monochrome": true
+    },
+    "xsx": {
+      "name": "Xbox Series X|S",
+      "manufacturerIds": [
+        "microsoft"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "169"
+      },
+      "symbol": "XboxSeriesX",
+      "compactLabel": "Xbox Series X|S",
+      "iconPath": "platforms/xsx.png",
+      "monochrome": true
+    },
+    "zxs": {
+      "name": "ZX Spectrum",
+      "manufacturerIds": [
+        "sinclair"
+      ],
+      "aliases": [],
+      "providerMappings": {
+        "igdb": "26"
+      },
+      "symbol": "ZxSpectrum",
+      "compactLabel": "ZX Spectrum",
+      "iconPath": null,
+      "monochrome": true
+    }
+  },
+  "companies": {
+    "atari": {
+      "name": "Atari",
+      "aliases": []
+    },
+    "bandai": {
+      "name": "Bandai",
+      "aliases": []
+    },
+    "coleco": {
+      "name": "Coleco",
+      "aliases": []
+    },
+    "commodore": {
+      "name": "Commodore",
+      "aliases": []
+    },
+    "ibm": {
+      "name": "IBM",
+      "aliases": []
+    },
+    "mattel": {
+      "name": "Mattel",
+      "aliases": []
+    },
+    "microsoft": {
+      "name": "Microsoft",
+      "aliases": []
+    },
+    "nec": {
+      "name": "NEC",
+      "aliases": []
+    },
+    "nintendo": {
+      "name": "Nintendo",
+      "aliases": []
+    },
+    "panasonic": {
+      "name": "Panasonic",
+      "aliases": []
+    },
+    "philips": {
+      "name": "Philips",
+      "aliases": []
+    },
+    "sega": {
+      "name": "Sega",
+      "aliases": []
+    },
+    "sinclair": {
+      "name": "Sinclair",
+      "aliases": []
+    },
+    "snk": {
+      "name": "SNK",
+      "aliases": []
+    },
+    "sony": {
+      "name": "Sony",
+      "aliases": []
+    }
+  },
+  "regions": {
+    "asia": {
+      "name": "Asia",
+      "sortOrder": 52,
+      "aliases": [
+        "AS"
+      ]
+    },
+    "australia": {
+      "name": "Australia",
+      "sortOrder": 45,
+      "aliases": [
+        "AU",
+        "AUS"
+      ]
+    },
+    "brazil": {
+      "name": "Brazil",
+      "sortOrder": 49,
+      "aliases": [
+        "BR",
+        "BRA"
+      ]
+    },
+    "canada": {
+      "name": "Canada",
+      "sortOrder": 46,
+      "aliases": [
+        "CA",
+        "CAN"
+      ]
+    },
+    "china": {
+      "name": "China",
+      "sortOrder": 48,
+      "aliases": [
+        "CN",
+        "CHN",
+        "PRC"
+      ]
+    },
+    "europe": {
+      "name": "Europe",
+      "sortOrder": 20,
+      "aliases": [
+        "EU",
+        "EUR",
+        "PAL"
+      ]
+    },
+    "france": {
+      "name": "France",
+      "sortOrder": 41,
+      "aliases": [
+        "FR",
+        "FRA"
+      ]
+    },
+    "germany": {
+      "name": "Germany",
+      "sortOrder": 40,
+      "aliases": [
+        "DE",
+        "D",
+        "GER"
+      ]
+    },
+    "hong-kong": {
+      "name": "Hong Kong",
+      "sortOrder": 54,
+      "aliases": [
+        "HK",
+        "HKG"
+      ]
+    },
+    "italy": {
+      "name": "Italy",
+      "sortOrder": 43,
+      "aliases": [
+        "IT",
+        "ITA"
+      ]
+    },
+    "japan": {
+      "name": "Japan",
+      "sortOrder": 30,
+      "aliases": [
+        "JP",
+        "J",
+        "JPN",
+        "NTSC-J"
+      ]
+    },
+    "korea": {
+      "name": "Korea",
+      "sortOrder": 47,
+      "aliases": [
+        "KR",
+        "K",
+        "KOR",
+        "South Korea"
+      ]
+    },
+    "netherlands": {
+      "name": "Netherlands",
+      "sortOrder": 51,
+      "aliases": [
+        "NL",
+        "NLD",
+        "Holland"
+      ]
+    },
+    "russia": {
+      "name": "Russia",
+      "sortOrder": 55,
+      "aliases": [
+        "RU",
+        "RUS"
+      ]
+    },
+    "spain": {
+      "name": "Spain",
+      "sortOrder": 42,
+      "aliases": [
+        "ES",
+        "SPA"
+      ]
+    },
+    "sweden": {
+      "name": "Sweden",
+      "sortOrder": 50,
+      "aliases": [
+        "SE",
+        "SWE"
+      ]
+    },
+    "taiwan": {
+      "name": "Taiwan",
+      "sortOrder": 53,
+      "aliases": [
+        "TW",
+        "TWN"
+      ]
+    },
+    "united-kingdom": {
+      "name": "United Kingdom",
+      "sortOrder": 44,
+      "aliases": [
+        "UK",
+        "GB",
+        "GBR",
+        "Great Britain"
+      ]
+    },
+    "usa": {
+      "name": "USA",
+      "sortOrder": 10,
+      "aliases": [
+        "US",
+        "U",
+        "America",
+        "United States",
+        "NTSC-U"
+      ]
+    },
+    "world": {
+      "name": "World",
+      "sortOrder": 1,
+      "aliases": [
+        "W",
+        "WLD"
+      ]
+    }
+  },
+  "languages": {
+    "da": {
+      "name": "Danish",
+      "code": "da",
+      "sortOrder": 12,
+      "aliases": [
+        "Da",
+        "Dan"
+      ]
+    },
+    "de": {
+      "name": "German",
+      "code": "de",
+      "sortOrder": 4,
+      "aliases": [
+        "De",
+        "Deu",
+        "Ger",
+        "G"
+      ]
+    },
+    "en": {
+      "name": "English",
+      "code": "en",
+      "sortOrder": 1,
+      "aliases": [
+        "En",
+        "Eng",
+        "E"
+      ]
+    },
+    "es": {
+      "name": "Spanish",
+      "code": "es",
+      "sortOrder": 5,
+      "aliases": [
+        "Es",
+        "Esp",
+        "Spa",
+        "S"
+      ]
+    },
+    "fi": {
+      "name": "Finnish",
+      "code": "fi",
+      "sortOrder": 14,
+      "aliases": [
+        "Fi",
+        "Fin"
+      ]
+    },
+    "fr": {
+      "name": "French",
+      "code": "fr",
+      "sortOrder": 3,
+      "aliases": [
+        "Fr",
+        "Fra",
+        "F"
+      ]
+    },
+    "it": {
+      "name": "Italian",
+      "code": "it",
+      "sortOrder": 6,
+      "aliases": [
+        "It",
+        "Ita",
+        "I"
+      ]
+    },
+    "ja": {
+      "name": "Japanese",
+      "code": "ja",
+      "sortOrder": 2,
+      "aliases": [
+        "Ja",
+        "Jpn",
+        "J"
+      ]
+    },
+    "ko": {
+      "name": "Korean",
+      "code": "ko",
+      "sortOrder": 9,
+      "aliases": [
+        "Ko",
+        "Kor"
+      ]
+    },
+    "nl": {
+      "name": "Dutch",
+      "code": "nl",
+      "sortOrder": 7,
+      "aliases": [
+        "Nl",
+        "Nld",
+        "Dut"
+      ]
+    },
+    "no": {
+      "name": "Norwegian",
+      "code": "no",
+      "sortOrder": 13,
+      "aliases": [
+        "No",
+        "Nor"
+      ]
+    },
+    "pl": {
+      "name": "Polish",
+      "code": "pl",
+      "sortOrder": 16,
+      "aliases": [
+        "Pl",
+        "Pol"
+      ]
+    },
+    "pt": {
+      "name": "Portuguese",
+      "code": "pt",
+      "sortOrder": 8,
+      "aliases": [
+        "Pt",
+        "Por"
+      ]
+    },
+    "ru": {
+      "name": "Russian",
+      "code": "ru",
+      "sortOrder": 15,
+      "aliases": [
+        "Ru",
+        "Rus"
+      ]
+    },
+    "sv": {
+      "name": "Swedish",
+      "code": "sv",
+      "sortOrder": 11,
+      "aliases": [
+        "Sv",
+        "Swe"
+      ]
+    },
+    "zh": {
+      "name": "Chinese",
+      "code": "zh",
+      "sortOrder": 10,
+      "aliases": [
+        "Zh",
+        "Zho",
+        "Chi"
+      ]
+    }
+  },
+  "ratings": {
+    "boards": [
+      {
+        "key": "Esrb",
+        "label": "ESRB",
+        "value": 0,
+        "prefixes": [
+          "ESRB"
+        ]
+      },
+      {
+        "key": "Pegi",
+        "label": "PEGI",
+        "value": 1,
+        "prefixes": [
+          "PEGI"
+        ]
+      },
+      {
+        "key": "Cero",
+        "label": "CERO",
+        "value": 2,
+        "prefixes": [
+          "CERO"
+        ]
+      },
+      {
+        "key": "Usk",
+        "label": "USK",
+        "value": 3,
+        "prefixes": [
+          "USK"
+        ]
+      },
+      {
+        "key": "Grac",
+        "label": "GRAC",
+        "value": 4,
+        "prefixes": [
+          "GRAC"
+        ]
+      },
+      {
+        "key": "ClassInd",
+        "label": "ClassInd",
+        "value": 5,
+        "prefixes": [
+          "CLASS IND",
+          "CLASSIND"
+        ]
+      },
+      {
+        "key": "Acb",
+        "label": "ACB",
+        "value": 6,
+        "prefixes": [
+          "ACB"
+        ]
+      }
+    ],
+    "ratings": [
+      {
+        "board": "Esrb",
+        "code": "EC",
+        "designation": "Rated",
+        "minimumAge": 3,
+        "aliases": [
+          "EC",
+          "EARLY CHILDHOOD"
+        ],
+        "name": "ESRB Early Childhood",
+        "description": "ESRB Early Childhood",
+        "iconPath": "ratings/esrb/ESRB_2013_EC_Rating.svg"
+      },
+      {
+        "board": "Esrb",
+        "code": "E",
+        "designation": "Rated",
+        "minimumAge": 0,
+        "aliases": [
+          "E",
+          "EVERYONE",
+          "KA",
+          "KIDS TO ADULTS"
+        ],
+        "name": "ESRB Everyone",
+        "description": "ESRB Everyone",
+        "iconPath": "ratings/esrb/ESRB_2013_E_Rating.svg"
+      },
+      {
+        "board": "Esrb",
+        "code": "E10+",
+        "designation": "Rated",
+        "minimumAge": 10,
+        "aliases": [
+          "E10",
+          "E10+",
+          "E 10+",
+          "EVERYONE 10+"
+        ],
+        "name": "ESRB Everyone 10+",
+        "description": "ESRB Everyone 10+",
+        "iconPath": "ratings/esrb/ESRB_2013_E10+_Rating.svg"
+      },
+      {
+        "board": "Esrb",
+        "code": "T",
+        "designation": "Rated",
+        "minimumAge": 13,
+        "aliases": [
+          "T",
+          "TEEN"
+        ],
+        "name": "ESRB Teen",
+        "description": "ESRB Teen",
+        "iconPath": "ratings/esrb/ESRB_2013_T_Rating.svg"
+      },
+      {
+        "board": "Esrb",
+        "code": "M",
+        "designation": "Rated",
+        "minimumAge": 17,
+        "aliases": [
+          "M",
+          "MATURE",
+          "MATURE 17+",
+          "M17+",
+          "M 17+"
+        ],
+        "name": "ESRB Mature 17+",
+        "description": "ESRB Mature 17+",
+        "iconPath": "ratings/esrb/ESRB_2013_M_Rating.svg"
+      },
+      {
+        "board": "Esrb",
+        "code": "AO",
+        "designation": "Rated",
+        "minimumAge": 18,
+        "aliases": [
+          "AO",
+          "ADULTS ONLY",
+          "ADULTS ONLY 18+",
+          "AO 18+"
+        ],
+        "name": "ESRB Adults Only 18+",
+        "description": "ESRB Adults Only 18+",
+        "iconPath": "ratings/esrb/ESRB_2013_AO_Rating.svg"
+      },
+      {
+        "board": "Esrb",
+        "code": "RP",
+        "designation": "RatingPending",
+        "minimumAge": null,
+        "aliases": [
+          "RP",
+          "RATING PENDING",
+          "RP LIKELY MATURE 17+",
+          "RP LIKELY MATURE17+"
+        ],
+        "name": "ESRB Rating Pending",
+        "description": "ESRB Rating Pending",
+        "iconPath": "ratings/esrb/ESRB_2013_Rating_Pending.svg"
+      },
+      {
+        "board": "Pegi",
+        "code": "PEGI 3",
+        "designation": "Rated",
+        "minimumAge": 3,
+        "aliases": [
+          "3"
+        ],
+        "name": "PEGI 3",
+        "description": "PEGI 3",
+        "iconPath": "ratings/pegi/PEGI_3.svg"
+      },
+      {
+        "board": "Pegi",
+        "code": "PEGI 7",
+        "designation": "Rated",
+        "minimumAge": 7,
+        "aliases": [
+          "7"
+        ],
+        "name": "PEGI 7",
+        "description": "PEGI 7",
+        "iconPath": "ratings/pegi/PEGI_7.svg"
+      },
+      {
+        "board": "Pegi",
+        "code": "PEGI 12",
+        "designation": "Rated",
+        "minimumAge": 12,
+        "aliases": [
+          "12"
+        ],
+        "name": "PEGI 12",
+        "description": "PEGI 12",
+        "iconPath": "ratings/pegi/PEGI_12.svg"
+      },
+      {
+        "board": "Pegi",
+        "code": "PEGI 16",
+        "designation": "Rated",
+        "minimumAge": 16,
+        "aliases": [
+          "16"
+        ],
+        "name": "PEGI 16",
+        "description": "PEGI 16",
+        "iconPath": "ratings/pegi/PEGI_16.svg"
+      },
+      {
+        "board": "Pegi",
+        "code": "PEGI 18",
+        "designation": "Rated",
+        "minimumAge": 18,
+        "aliases": [
+          "18"
+        ],
+        "name": "PEGI 18",
+        "description": "PEGI 18",
+        "iconPath": "ratings/pegi/PEGI_18.svg"
+      },
+      {
+        "board": "Cero",
+        "code": "CERO A",
+        "designation": "Rated",
+        "minimumAge": 0,
+        "aliases": [
+          "A",
+          "ALL AGES"
+        ],
+        "name": "CERO A",
+        "description": "CERO A",
+        "iconPath": "ratings/cero/CERO_A.svg"
+      },
+      {
+        "board": "Cero",
+        "code": "CERO B",
+        "designation": "Rated",
+        "minimumAge": 12,
+        "aliases": [
+          "B"
+        ],
+        "name": "CERO B",
+        "description": "CERO B",
+        "iconPath": "ratings/cero/CERO_B.svg"
+      },
+      {
+        "board": "Cero",
+        "code": "CERO C",
+        "designation": "Rated",
+        "minimumAge": 15,
+        "aliases": [
+          "C"
+        ],
+        "name": "CERO C",
+        "description": "CERO C",
+        "iconPath": "ratings/cero/CERO_C.svg"
+      },
+      {
+        "board": "Cero",
+        "code": "CERO D",
+        "designation": "Rated",
+        "minimumAge": 17,
+        "aliases": [
+          "D"
+        ],
+        "name": "CERO D",
+        "description": "CERO D",
+        "iconPath": "ratings/cero/CERO_D.svg"
+      },
+      {
+        "board": "Cero",
+        "code": "CERO Z",
+        "designation": "Rated",
+        "minimumAge": 18,
+        "aliases": [
+          "Z"
+        ],
+        "name": "CERO Z",
+        "description": "CERO Z",
+        "iconPath": "ratings/cero/CERO_Z.svg"
+      },
+      {
+        "board": "Usk",
+        "code": "USK 0",
+        "designation": "Rated",
+        "minimumAge": 0,
+        "aliases": [
+          "0"
+        ],
+        "name": "USK 0",
+        "description": "USK 0",
+        "iconPath": "ratings/usk/USK_0.svg"
+      },
+      {
+        "board": "Usk",
+        "code": "USK 6",
+        "designation": "Rated",
+        "minimumAge": 6,
+        "aliases": [
+          "6"
+        ],
+        "name": "USK 6",
+        "description": "USK 6",
+        "iconPath": "ratings/usk/USK_6.svg"
+      },
+      {
+        "board": "Usk",
+        "code": "USK 12",
+        "designation": "Rated",
+        "minimumAge": 12,
+        "aliases": [
+          "12"
+        ],
+        "name": "USK 12",
+        "description": "USK 12",
+        "iconPath": "ratings/usk/USK_12.svg"
+      },
+      {
+        "board": "Usk",
+        "code": "USK 16",
+        "designation": "Rated",
+        "minimumAge": 16,
+        "aliases": [
+          "16"
+        ],
+        "name": "USK 16",
+        "description": "USK 16",
+        "iconPath": "ratings/usk/USK_16.svg"
+      },
+      {
+        "board": "Usk",
+        "code": "USK 18",
+        "designation": "Rated",
+        "minimumAge": 18,
+        "aliases": [
+          "18"
+        ],
+        "name": "USK 18",
+        "description": "USK 18",
+        "iconPath": "ratings/usk/USK_18.svg"
+      },
+      {
+        "board": "Grac",
+        "code": "GRAC ALL",
+        "designation": "Rated",
+        "minimumAge": 0,
+        "aliases": [
+          "ALL"
+        ],
+        "name": "GRAC ALL",
+        "description": "GRAC ALL",
+        "iconPath": "ratings/grac/GRAC_All.svg"
+      },
+      {
+        "board": "Grac",
+        "code": "GRAC 12",
+        "designation": "Rated",
+        "minimumAge": 12,
+        "aliases": [
+          "12"
+        ],
+        "name": "GRAC 12",
+        "description": "GRAC 12",
+        "iconPath": "ratings/grac/GRAC_12.svg"
+      },
+      {
+        "board": "Grac",
+        "code": "GRAC 15",
+        "designation": "Rated",
+        "minimumAge": 15,
+        "aliases": [
+          "15"
+        ],
+        "name": "GRAC 15",
+        "description": "GRAC 15",
+        "iconPath": "ratings/grac/GRAC_15.svg"
+      },
+      {
+        "board": "Grac",
+        "code": "GRAC 18",
+        "designation": "Rated",
+        "minimumAge": 18,
+        "aliases": [
+          "18"
+        ],
+        "name": "GRAC 18",
+        "description": "GRAC 18",
+        "iconPath": "ratings/grac/GRAC_18.svg"
+      },
+      {
+        "board": "Grac",
+        "code": "GRAC TESTING",
+        "designation": "RatingPending",
+        "minimumAge": null,
+        "aliases": [
+          "TESTING"
+        ],
+        "name": "GRAC TESTING",
+        "description": "GRAC TESTING",
+        "iconPath": "ratings/grac/GRAC_Test.svg"
+      },
+      {
+        "board": "ClassInd",
+        "code": "L",
+        "designation": "Rated",
+        "minimumAge": 0,
+        "aliases": [
+          "L",
+          "LIVRE"
+        ],
+        "name": "CLASSIND L",
+        "description": "CLASSIND L",
+        "iconPath": "ratings/classind/ClassInd_L.svg"
+      },
+      {
+        "board": "ClassInd",
+        "code": "10",
+        "designation": "Rated",
+        "minimumAge": 10,
+        "aliases": [
+          "10"
+        ],
+        "name": "CLASSIND 10",
+        "description": "CLASSIND 10",
+        "iconPath": "ratings/classind/ClassInd_10.svg"
+      },
+      {
+        "board": "ClassInd",
+        "code": "12",
+        "designation": "Rated",
+        "minimumAge": 12,
+        "aliases": [
+          "12"
+        ],
+        "name": "CLASSIND 12",
+        "description": "CLASSIND 12",
+        "iconPath": "ratings/classind/ClassInd_12.svg"
+      },
+      {
+        "board": "ClassInd",
+        "code": "14",
+        "designation": "Rated",
+        "minimumAge": 14,
+        "aliases": [
+          "14"
+        ],
+        "name": "CLASSIND 14",
+        "description": "CLASSIND 14",
+        "iconPath": "ratings/classind/ClassInd_14.svg"
+      },
+      {
+        "board": "ClassInd",
+        "code": "16",
+        "designation": "Rated",
+        "minimumAge": 16,
+        "aliases": [
+          "16"
+        ],
+        "name": "CLASSIND 16",
+        "description": "CLASSIND 16",
+        "iconPath": "ratings/classind/ClassInd_16.svg"
+      },
+      {
+        "board": "ClassInd",
+        "code": "18",
+        "designation": "Rated",
+        "minimumAge": 18,
+        "aliases": [
+          "18"
+        ],
+        "name": "CLASSIND 18",
+        "description": "CLASSIND 18",
+        "iconPath": "ratings/classind/ClassInd_18.svg"
+      },
+      {
+        "board": "Acb",
+        "code": "G",
+        "designation": "Rated",
+        "minimumAge": 0,
+        "aliases": [
+          "G",
+          "GENERAL"
+        ],
+        "name": "ACB G",
+        "description": "ACB G",
+        "iconPath": "ratings/acb/ACB_G.svg"
+      },
+      {
+        "board": "Acb",
+        "code": "PG",
+        "designation": "Rated",
+        "minimumAge": 8,
+        "aliases": [
+          "PG",
+          "PARENTAL GUIDANCE"
+        ],
+        "name": "ACB PG",
+        "description": "ACB PG",
+        "iconPath": "ratings/acb/ACB_PG.svg"
+      },
+      {
+        "board": "Acb",
+        "code": "M",
+        "designation": "Rated",
+        "minimumAge": 15,
+        "aliases": [
+          "M",
+          "MATURE"
+        ],
+        "name": "ACB M",
+        "description": "ACB M",
+        "iconPath": "ratings/acb/ACB_M.svg"
+      },
+      {
+        "board": "Acb",
+        "code": "MA15+",
+        "designation": "Rated",
+        "minimumAge": 15,
+        "aliases": [
+          "MA15+",
+          "MA 15+",
+          "MA15",
+          "MA"
+        ],
+        "name": "ACB MA15+",
+        "description": "ACB MA15+",
+        "iconPath": "ratings/acb/ACB_MA15+.svg"
+      },
+      {
+        "board": "Acb",
+        "code": "R18+",
+        "designation": "Rated",
+        "minimumAge": 18,
+        "aliases": [
+          "R18+",
+          "R 18+",
+          "R18",
+          "R"
+        ],
+        "name": "ACB R18+",
+        "description": "ACB R18+",
+        "iconPath": "ratings/acb/ACB_R18+.svg"
+      },
+      {
+        "board": "Acb",
+        "code": "RC",
+        "designation": "RefusedClassification",
+        "minimumAge": null,
+        "aliases": [
+          "RC",
+          "REFUSED CLASSIFICATION"
+        ],
+        "name": "ACB RC",
+        "description": "ACB RC",
+        "iconPath": "ratings/acb/ACB_RC.svg"
+      }
+    ]
+  }
+}

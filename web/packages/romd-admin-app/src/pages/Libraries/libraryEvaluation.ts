@@ -1,0 +1,15 @@
+export const exclusionReasons: Record<string, string> = {
+  SystemScope: 'Outside the selected systems',
+  ManualExclude: 'Explicitly excluded from this library',
+  NotInIncludeList: 'Not in the handpicked games',
+  ContentRating: 'Exceeds the content-rating ceiling',
+  RefusedClassification: 'Has a refused classification',
+  UnknownRatingHidden: 'Has no usable rating',
+  UnknownRatingNeedsReview: 'Has no usable rating and needs review',
+  Genre: 'Outside the selected genres',
+  UnknownGenreHidden: 'Has no known genre',
+  UnknownGenreNeedsReview: 'Has no known genre and needs review',
+  ExcludedDat: 'All linked release sources are excluded',
+  MissingRom: 'No owned release qualifies',
+  NoLinkedRelease: 'Has no linked releases to evaluate',
+};

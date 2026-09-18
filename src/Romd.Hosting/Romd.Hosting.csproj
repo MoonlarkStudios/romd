@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Romd.Admin.Application\Romd.Admin.Application.csproj" />
+    <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj" />
+    <ProjectReference Include="..\Romd.Contracts.Common\Romd.Contracts.Common.csproj" />
+    <ProjectReference Include="..\Romd.Contracts.Consumer\Romd.Contracts.Consumer.csproj" />
+    <ProjectReference Include="..\Romd.Contracts.Management\Romd.Contracts.Management.csproj" />
+    <ProjectReference Include="..\Romd.Consumer.Application\Romd.Consumer.Application.csproj" />
+    <ProjectReference Include="..\Romd.Infrastructure\Romd.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="OpenIddict.AspNetCore" />
+  </ItemGroup>
+
+</Project>

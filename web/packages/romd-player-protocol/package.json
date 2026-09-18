@@ -1,0 +1,25 @@
+{
+  "name": "@romd/player-protocol",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run --root ../.. packages/romd-player-protocol/src/index.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.17"
+  }
+}

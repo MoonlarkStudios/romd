@@ -1,0 +1,12 @@
+.panel { padding: var(--mantine-spacing-lg); border: 1px solid var(--romd-border-subtle); border-radius: var(--mantine-radius-md); background: var(--romd-panel); }
+.files { border-top: 1px solid var(--romd-border-subtle); padding-top: var(--mantine-spacing-md); }
+.files > summary { cursor: pointer; color: var(--romd-text-strong); border-radius: var(--mantine-radius-xs); }
+.files > summary:focus-visible { outline: 2px solid var(--mantine-color-mint-5); outline-offset: 4px; }
+.fileRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--mantine-spacing-md); }
+.fileRow + .fileRow { border-top: 1px solid var(--romd-border-subtle); padding-top: var(--mantine-spacing-md); }
+.fileInfo { min-width: 0; }
+@media (max-width: 36em) {
+  .panel { padding: var(--mantine-spacing-md); }
+  .fileRow { grid-template-columns: minmax(0, 1fr); gap: var(--mantine-spacing-xs); }
+  .fileRow > button { justify-self: start; }
+}

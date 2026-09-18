@@ -1,0 +1,174 @@
+{
+  "asia": {
+    "name": "Asia",
+    "sortOrder": 52,
+    "aliases": [
+      "AS"
+    ]
+  },
+  "australia": {
+    "name": "Australia",
+    "sortOrder": 45,
+    "aliases": [
+      "AU",
+      "AUS"
+    ]
+  },
+  "brazil": {
+    "name": "Brazil",
+    "sortOrder": 49,
+    "aliases": [
+      "BR",
+      "BRA"
+    ]
+  },
+  "canada": {
+    "name": "Canada",
+    "sortOrder": 46,
+    "aliases": [
+      "CA",
+      "CAN"
+    ]
+  },
+  "china": {
+    "name": "China",
+    "sortOrder": 48,
+    "aliases": [
+      "CN",
+      "CHN",
+      "PRC"
+    ]
+  },
+  "europe": {
+    "name": "Europe",
+    "sortOrder": 20,
+    "aliases": [
+      "EU",
+      "EUR",
+      "PAL"
+    ]
+  },
+  "france": {
+    "name": "France",
+    "sortOrder": 41,
+    "aliases": [
+      "FR",
+      "FRA"
+    ]
+  },
+  "germany": {
+    "name": "Germany",
+    "sortOrder": 40,
+    "aliases": [
+      "DE",
+      "D",
+      "GER"
+    ]
+  },
+  "hong-kong": {
+    "name": "Hong Kong",
+    "sortOrder": 54,
+    "aliases": [
+      "HK",
+      "HKG"
+    ]
+  },
+  "italy": {
+    "name": "Italy",
+    "sortOrder": 43,
+    "aliases": [
+      "IT",
+      "ITA"
+    ]
+  },
+  "japan": {
+    "name": "Japan",
+    "sortOrder": 30,
+    "aliases": [
+      "JP",
+      "J",
+      "JPN",
+      "NTSC-J"
+    ]
+  },
+  "korea": {
+    "name": "Korea",
+    "sortOrder": 47,
+    "aliases": [
+      "KR",
+      "K",
+      "KOR",
+      "South Korea"
+    ]
+  },
+  "netherlands": {
+    "name": "Netherlands",
+    "sortOrder": 51,
+    "aliases": [
+      "NL",
+      "NLD",
+      "Holland"
+    ]
+  },
+  "russia": {
+    "name": "Russia",
+    "sortOrder": 55,
+    "aliases": [
+      "RU",
+      "RUS"
+    ]
+  },
+  "spain": {
+    "name": "Spain",
+    "sortOrder": 42,
+    "aliases": [
+      "ES",
+      "SPA"
+    ]
+  },
+  "sweden": {
+    "name": "Sweden",
+    "sortOrder": 50,
+    "aliases": [
+      "SE",
+      "SWE"
+    ]
+  },
+  "taiwan": {
+    "name": "Taiwan",
+    "sortOrder": 53,
+    "aliases": [
+      "TW",
+      "TWN"
+    ]
+  },
+  "united-kingdom": {
+    "name": "United Kingdom",
+    "sortOrder": 44,
+    "aliases": [
+      "UK",
+      "GB",
+      "GBR",
+      "Great Britain"
+    ]
+  },
+  "usa": {
+    "name": "USA",
+    "sortOrder": 10,
+    "aliases": [
+      "US",
+      "U",
+      "America",
+      "United States",
+      "NTSC-U"
+    ]
+  },
+  "world": {
+    "name": "World",
+    "sortOrder": 1,
+    "aliases": [
+      "W",
+      "WLD"
+    ]
+  }
+}

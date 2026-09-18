@@ -1,0 +1,90 @@
+.page {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(0px, 1.4vw, 22px);
+  background: var(--romd-backdrop);
+  color: var(--romd-text-strong);
+}
+.page :global(.romd-metadata) {
+  font-family: var(--romd-font-display);
+  font-weight: 400;
+}
+.player {
+  width: 100%;
+  height: 100%;
+  max-width: 1920px;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--romd-border-subtle);
+  border-radius: var(--mantine-radius-md);
+  background: var(--romd-surface-deep);
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-bottom: 1px solid var(--romd-border-subtle);
+  background: var(--romd-panel);
+}
+.header > :first-child { flex: 1; min-width: 0; }
+.header > :last-child { flex-shrink: 0; }
+.stage { position: relative; min-height: 0; isolation: isolate; background: black; }
+.backdrop { position: absolute; inset: 0; z-index: -1; background: var(--romd-brand-gradient); }
+.backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--romd-bg) 30%, transparent), color-mix(in srgb, var(--romd-bg) 72%, transparent)), radial-gradient(ellipse at center, var(--romd-panel-muted), var(--romd-bg));
+}
+/* Identity and iframe share normal layout flow so text wrapping cannot separate
+   the native Start action from its title. The frame expands in place on start. */
+.launch {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  padding: clamp(16px, 4vh, 48px) var(--mantine-spacing-lg);
+  overflow: auto;
+}
+.identity { display: grid; gap: var(--mantine-spacing-lg); width: min(100%, 560px); flex-shrink: 0; text-align: center; }
+.logo {
+  width: min(100%, 380px);
+  margin-inline: auto;
+  --romd-logo-position: center;
+  --romd-logo-fallback-alignment: center;
+  overflow-wrap: anywhere;
+}
+/* The player uses the default canvas scheme. Match it here so the browser
+   preserves transparency instead of painting an opaque iframe background. */
+.frame { color-scheme: normal; background: transparent; display: block; width: 100%; height: 112px; flex-shrink: 0; border: 0; margin-top: var(--mantine-spacing-sm); }
+.frame:not([data-ready]) { position: absolute; visibility: hidden; }
+.launchState { width: min(100%, 520px); text-align: center; flex-shrink: 0; }
+.launchState > * { padding-block: var(--mantine-spacing-xl); }
+.launch[data-playing] { padding: 0; overflow: hidden; display: block; }
+.launch[data-playing] .frame { height: 100%; margin: 0; }
+.leaving { position: absolute; inset: 0; display: grid; place-items: center; background: var(--romd-panel-strong); }
+@media (max-width: 48em) {
+  .page { padding: 0; }
+  .player { border: 0; border-radius: 0; }
+  .header { padding-inline: var(--mantine-spacing-sm); }
+}
+@media (max-height: 500px) {
+  .identity { gap: var(--mantine-spacing-xs); }
+  .frame { height: 80px; }
+  .launch { padding-block: var(--mantine-spacing-sm); }
+}
+/* Keep the in-session controls reachable on narrow screens without squeezing
+   away the title or creating horizontal overflow. */
+@media (max-width: 40em) {
+  .header { flex-wrap: wrap; }
+  .header > :first-child { flex-basis: 100%; }
+  .header > :last-child { flex-wrap: wrap; }
+}

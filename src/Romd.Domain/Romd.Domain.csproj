@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Newtonsoft.Json" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <InternalsVisibleTo Include="Romd.Persistence" />
+      <InternalsVisibleTo Include="Romd.Domain.Tests" />
+      <InternalsVisibleTo Include="Romd.Application.Tests" />
+      <InternalsVisibleTo Include="Romd.Infrastructure.Tests" />
+    </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/Romd.ReferenceData.Generators/Romd.ReferenceData.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <AdditionalFiles Include="../../reference-data/catalog/*.json" />
+    <Analyzer Include="../../tools/Romd.ReferenceData.Generators/bin/$(Configuration)/netstandard2.0/Newtonsoft.Json.dll" />
+  </ItemGroup>
+</Project>

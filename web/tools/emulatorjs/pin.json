@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "version": "4.2.3",
+  "cores": [
+    "fceumm",
+    "snes9x",
+    "gambatte",
+    "mgba"
+  ]
+}

@@ -1,0 +1,164 @@
+# Portable production stack. Configure images.env + .env; ingress is operator-owned.
+name: romd
+
+x-service: &service
+  restart: unless-stopped
+  stop_grace_period: 90s
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-api-health: &api-health
+  test: ["CMD", "curl", "--fail", "--silent", "--max-time", "7", "http://localhost:8080/health/ready"]
+  interval: 15s
+  timeout: 10s
+  retries: 6
+  start_period: 60s
+
+x-forwarded: &forwarded
+  Romd__ForwardedHeaders__Enabled: "true"
+  Romd__ForwardedHeaders__KnownProxies__0: ${ROMD_TRUSTED_PROXY:?set ROMD_TRUSTED_PROXY to your ingress IP}
+  Romd__ForwardedHeaders__ForwardLimit: "1"
+
+
+x-romd-common-environment: &romd-common-environment
+  DOTNET_ENVIRONMENT: Production
+  ASPNETCORE_ENVIRONMENT: Production
+  # URLs below are authoritative; clear the runtime image's competing port default.
+  ASPNETCORE_HTTP_PORTS: ""
+  Romd__DataDirectory: /var/lib/romd
+  Romd__ReadinessMarkerPath: /run/romd/ready
+  Romd__Auth__AdminSpa__RedirectUris__0: ${ROMD_ADMIN_PUBLIC_URL:?set ROMD_ADMIN_PUBLIC_URL}/auth/callback
+  Romd__Auth__AdminSpa__PostLogoutRedirectUris__0: ${ROMD_ADMIN_PUBLIC_URL:?set ROMD_ADMIN_PUBLIC_URL}
+  Romd__Auth__ConsumerSpa__RedirectUris__0: ${ROMD_CONSUMER_PUBLIC_URL:?set ROMD_CONSUMER_PUBLIC_URL}/auth/callback
+  Romd__Auth__ConsumerSpa__PostLogoutRedirectUris__0: ${ROMD_CONSUMER_PUBLIC_URL:?set ROMD_CONSUMER_PUBLIC_URL}
+  Romd__JwtSecret: ${ROMD_JWT_SECRET:?set ROMD_JWT_SECRET}
+  Romd__DefaultAdminEmail: ${ROMD_DEFAULT_ADMIN_EMAIL:-admin@localhost}
+  Romd__DefaultAdminPassword: ${ROMD_DEFAULT_ADMIN_PASSWORD:?set ROMD_DEFAULT_ADMIN_PASSWORD}
+  Romd__ConsumerDelivery__SigningKeyId: ${ROMD_CONSUMER_DELIVERY_SIGNING_KEY_ID:-primary}
+  Romd__ConsumerDelivery__SigningSecret: ${ROMD_CONSUMER_DELIVERY_SIGNING_SECRET:?set ROMD_CONSUMER_DELIVERY_SIGNING_SECRET}
+  Romd__ConsumerDelivery__SignedUrlTtlMinutes: ${ROMD_CONSUMER_DELIVERY_SIGNED_URL_TTL_MINUTES:-10}
+
+# Path import (Romd__AllowedImportPaths__*): if you bind-mount import source
+# directories, mount each one at an IDENTICAL container path on romd-admin and
+# romd-worker. The admin host stages imports and the worker host deletes
+# move-mode originals; a root mounted at different paths leaves sources behind.
+services:
+  postgres:
+    image: ${ROMD_POSTGRES_IMAGE:?set ROMD_POSTGRES_IMAGE from the release bundle}
+    networks: [backend]
+    <<: *service
+    environment:
+      POSTGRES_USER: romd_bootstrap
+      POSTGRES_PASSWORD: ${ROMD_POSTGRES_BOOTSTRAP_PASSWORD:?set ROMD_POSTGRES_BOOTSTRAP_PASSWORD}
+      POSTGRES_DB: romd
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+      ROMD_POSTGRES_PROVISIONER_PASSWORD: ${ROMD_POSTGRES_PROVISIONER_PASSWORD:?set ROMD_POSTGRES_PROVISIONER_PASSWORD}
+      ROMD_POSTGRES_WORKER_PASSWORD: ${ROMD_POSTGRES_WORKER_PASSWORD:?set ROMD_POSTGRES_WORKER_PASSWORD}
+      ROMD_POSTGRES_ADMIN_PASSWORD: ${ROMD_POSTGRES_ADMIN_PASSWORD:?set ROMD_POSTGRES_ADMIN_PASSWORD}
+      ROMD_POSTGRES_CONSUMER_PASSWORD: ${ROMD_POSTGRES_CONSUMER_PASSWORD:?set ROMD_POSTGRES_CONSUMER_PASSWORD}
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - romd-postgres:/var/lib/postgresql
+      - ./deploy/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U romd_bootstrap -d romd"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  romd-worker:
+    networks: [backend]
+    tmpfs: ["/run/romd:mode=1777"]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /run/romd/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    image: ${ROMD_WORKER_IMAGE:?set ROMD_WORKER_IMAGE from the release bundle}
+    <<: *service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *romd-common-environment
+      Providers__Igdb__ClientId: ${IGDB_CLIENT_ID:-}
+      Providers__Igdb__ClientSecret: ${IGDB_CLIENT_SECRET:-}
+      ConnectionStrings__Romd: "Host=postgres;Port=5432;Database=romd;Username=romd_worker;Password=${ROMD_POSTGRES_WORKER_PASSWORD:?set ROMD_POSTGRES_WORKER_PASSWORD}"
+      ConnectionStrings__RomdProvisioning: "Host=postgres;Port=5432;Database=romd;Username=romd_provisioner;Password=${ROMD_POSTGRES_PROVISIONER_PASSWORD:?set ROMD_POSTGRES_PROVISIONER_PASSWORD}"
+      ConnectionStrings__Hangfire: "Host=postgres;Port=5432;Database=romd;Username=romd_worker;Password=${ROMD_POSTGRES_WORKER_PASSWORD:?set ROMD_POSTGRES_WORKER_PASSWORD}"
+      ConnectionStrings__HangfireProvisioning: "Host=postgres;Port=5432;Database=romd;Username=romd_provisioner;Password=${ROMD_POSTGRES_PROVISIONER_PASSWORD:?set ROMD_POSTGRES_PROVISIONER_PASSWORD}"
+    volumes:
+      - romd-data:/var/lib/romd
+
+  romd-admin:
+    networks: [backend, edge]
+    tmpfs: ["/run/romd:mode=1777"]
+    healthcheck: *api-health
+    image: ${ROMD_ADMIN_IMAGE:?set ROMD_ADMIN_IMAGE from the release bundle}
+    <<: *service
+    depends_on:
+      romd-worker:
+        condition: service_healthy
+    environment:
+      <<: [*romd-common-environment, *forwarded]
+      ASPNETCORE_URLS: http://+:8080
+      Romd__AdminHost__PublicUrl: ${ROMD_ADMIN_PUBLIC_URL:?set ROMD_ADMIN_PUBLIC_URL}
+      Romd__AdminHost__CorsOrigins__0: ${ROMD_ADMIN_PUBLIC_URL:?set ROMD_ADMIN_PUBLIC_URL}
+      Providers__Igdb__ClientId: ${IGDB_CLIENT_ID:-}
+      Providers__Igdb__ClientSecret: ${IGDB_CLIENT_SECRET:-}
+      ConnectionStrings__Romd: "Host=postgres;Port=5432;Database=romd;Username=romd_admin;Password=${ROMD_POSTGRES_ADMIN_PASSWORD:?set ROMD_POSTGRES_ADMIN_PASSWORD}"
+      ConnectionStrings__Hangfire: "Host=postgres;Port=5432;Database=romd;Username=romd_admin;Password=${ROMD_POSTGRES_ADMIN_PASSWORD:?set ROMD_POSTGRES_ADMIN_PASSWORD}"
+    volumes:
+      - romd-data:/var/lib/romd
+
+  romd-consumer:
+    networks: [backend, edge]
+    tmpfs: ["/run/romd:mode=1777"]
+    healthcheck: *api-health
+    image: ${ROMD_CONSUMER_IMAGE:?set ROMD_CONSUMER_IMAGE from the release bundle}
+    <<: *service
+    depends_on:
+      romd-worker:
+        condition: service_healthy
+    environment:
+      <<: [*romd-common-environment, *forwarded]
+      ASPNETCORE_URLS: http://+:8080
+      Romd__ConsumerHost__PublicUrl: ${ROMD_CONSUMER_PUBLIC_URL:?set ROMD_CONSUMER_PUBLIC_URL}
+      Romd__ConsumerHost__CorsOrigins__0: ${ROMD_CONSUMER_PUBLIC_URL:?set ROMD_CONSUMER_PUBLIC_URL}
+      ConnectionStrings__Romd: "Host=postgres;Port=5432;Database=romd;Username=romd_consumer;Password=${ROMD_POSTGRES_CONSUMER_PASSWORD:?set ROMD_POSTGRES_CONSUMER_PASSWORD}"
+      ConnectionStrings__Hangfire: "Host=postgres;Port=5432;Database=romd;Username=romd_consumer;Password=${ROMD_POSTGRES_CONSUMER_PASSWORD:?set ROMD_POSTGRES_CONSUMER_PASSWORD}"
+      Romd__BrowserPlayback__PlayerOrigins__0__Parent: ${ROMD_CONSUMER_PUBLIC_URL:?set ROMD_CONSUMER_PUBLIC_URL}
+      Romd__BrowserPlayback__PlayerOrigins__0__Player: ${ROMD_PLAYER_PUBLIC_URL:?set ROMD_PLAYER_PUBLIC_URL}
+    volumes:
+      - romd-data:/var/lib/romd
+
+  romd-player:
+    networks: [edge]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/player-config.json"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+    image: ${ROMD_PLAYER_IMAGE:?set ROMD_PLAYER_IMAGE from the release bundle}
+    <<: *service
+    environment:
+      ROMD_PLAYER_EMULATORJS_SOURCE: ${ROMD_PLAYER_EMULATORJS_SOURCE:-cdn}
+      ROMD_PLAYER_EMULATORJS_DATA_PATH: ${ROMD_PLAYER_EMULATORJS_DATA_PATH:-}
+      ROMD_PLAYER_CORES: ${ROMD_PLAYER_CORES:-}
+      ROMD_PLAYER_ALLOWED_PARENTS: ${ROMD_CONSUMER_PUBLIC_URL:?set ROMD_CONSUMER_PUBLIC_URL}
+
+volumes:
+  romd-data:
+  romd-postgres:
+
+# No host ports are published. Attach your ingress only to edge.
+# backend allows outbound access for the worker's metadata/catalog providers.
+networks:
+  backend:
+  edge:

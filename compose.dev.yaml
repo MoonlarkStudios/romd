@@ -1,0 +1,123 @@
+name: romd-dev
+
+x-romd-dev-environment: &romd-dev-environment
+  DOTNET_ENVIRONMENT: Development
+  ASPNETCORE_ENVIRONMENT: Development
+  Romd__DataDirectory: /var/lib/romd
+  Romd__JwtSecret: ${ROMD_JWT_SECRET:-local-dev-jwt-secret-at-least-32-characters}
+  Romd__DefaultAdminEmail: ${ROMD_DEFAULT_ADMIN_EMAIL:-admin@localhost}
+  Romd__DefaultAdminPassword: ${ROMD_DEFAULT_ADMIN_PASSWORD:-LocalDev123}
+  Romd__ConsumerDelivery__SigningKeyId: ${ROMD_CONSUMER_DELIVERY_SIGNING_KEY_ID:-local-dev}
+  Romd__ConsumerDelivery__SigningSecret: ${ROMD_CONSUMER_DELIVERY_SIGNING_SECRET:-local-dev-consumer-delivery-secret-at-least-32-bytes}
+  Romd__ConsumerDelivery__SignedUrlTtlMinutes: ${ROMD_CONSUMER_DELIVERY_SIGNED_URL_TTL_MINUTES:-10}
+  Romd__AdminHost__CorsOrigins__0: http://localhost:5137
+  Romd__ConsumerHost__CorsOrigins__0: http://localhost:5174
+  ConnectionStrings__Romd: Host=postgres;Port=5432;Database=romd;Username=romd
+  ConnectionStrings__Hangfire: Host=postgres;Port=5432;Database=romd;Username=romd
+
+services:
+  # Development-only PostgreSQL for this Compose project: trust auth on the
+  # internal network and no published host port. The production
+  # owner/provisioner/runtime role topology lives in compose.yaml.
+  postgres:
+    image: postgres:18-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: romd
+      POSTGRES_DB: romd
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - romd-dev-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U romd -d romd"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+
+  romd-worker:
+    image: romd-worker-dev:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: romd-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *romd-dev-environment
+      Providers__Igdb__ClientId: ${IGDB_CLIENT_ID:-}
+      Providers__Igdb__ClientSecret: ${IGDB_CLIENT_SECRET:-}
+      ConnectionStrings__RomdProvisioning: Host=postgres;Port=5432;Database=romd;Username=romd
+      ConnectionStrings__HangfireProvisioning: Host=postgres;Port=5432;Database=romd;Username=romd
+    volumes:
+      - ${ROMD_DEV_DATA_MOUNT:-romd-dev-data}:/var/lib/romd
+
+  romd-admin:
+    image: romd-admin-dev:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: romd-admin-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      romd-worker:
+        condition: service_started
+    ports:
+      - "${ROMD_DEV_ADMIN_PORT:-11337}:8080"
+    environment:
+      <<: *romd-dev-environment
+      Providers__Igdb__ClientId: ${IGDB_CLIENT_ID:-}
+      Providers__Igdb__ClientSecret: ${IGDB_CLIENT_SECRET:-}
+      ASPNETCORE_URLS: http://+:8080
+    volumes:
+      - ${ROMD_DEV_DATA_MOUNT:-romd-dev-data}:/var/lib/romd
+
+  romd-consumer:
+    image: romd-consumer-dev:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: romd-consumer-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      romd-worker:
+        condition: service_started
+    ports:
+      - "${ROMD_DEV_CONSUMER_PORT:-11338}:8080"
+    environment:
+      <<: *romd-dev-environment
+      ASPNETCORE_URLS: http://+:8080
+      Romd__BrowserPlayback__PlayerOrigins__0__Parent: http://localhost:5174
+      Romd__BrowserPlayback__PlayerOrigins__0__Player: ${ROMD_DEV_PLAYER_URL:-http://localhost:5175}
+    volumes:
+      - ${ROMD_DEV_DATA_MOUNT:-romd-dev-data}:/var/lib/romd
+
+  # Static player image for full-topology development. Do not start it while the
+  # player app's Vite server is using the same host port.
+  romd-player:
+    image: romd-player-dev:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: romd-player
+    restart: unless-stopped
+    ports:
+      - "${ROMD_DEV_PLAYER_PORT:-5175}:8080"
+    environment:
+      ROMD_PLAYER_EMULATORJS_SOURCE: ${ROMD_PLAYER_EMULATORJS_SOURCE:-cdn}
+      ROMD_PLAYER_EMULATORJS_DATA_PATH: ${ROMD_PLAYER_EMULATORJS_DATA_PATH:-}
+      ROMD_PLAYER_CORES: ${ROMD_PLAYER_CORES:-}
+      ROMD_PLAYER_ALLOWED_PARENTS: ${ROMD_DEV_PLAYER_ALLOWED_PARENTS:-http://localhost:5174}
+
+volumes:
+  romd-dev-data:
+  romd-dev-postgres:

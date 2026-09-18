@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Romd.Admin.Application\Romd.Admin.Application.csproj"/>
+    <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj"/>
+    <ProjectReference Include="..\Romd.Consumer.Application\Romd.Consumer.Application.csproj"/>
+    <ProjectReference Include="..\Romd.Dat.Parsing\Romd.Dat.Parsing.csproj"/>
+    <ProjectReference Include="..\Romd.Persistence\Romd.Persistence.csproj"/>
+    <ProjectReference Include="..\Romd.Storage\Romd.Storage.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.Core"/>
+    <PackageReference Include="Hangfire.PostgreSql"/>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt"/>
+    <PackageReference Include="Npgsql"/>
+    <PackageReference Include="Microsoft.Extensions.Resilience"/>
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience"/>
+    <PackageReference Include="Newtonsoft.Json"/>
+    <PackageReference Include="Polly.Core"/>
+    <PackageReference Include="Scrutor"/>
+    <PackageReference Include="SkiaSharp"/>
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies"/>
+    <PackageReference Include="System.IO.Hashing"/>
+    <PackageReference Include="TestableIO.System.IO.Abstractions"/>
+    <PackageReference Include="TestableIO.System.IO.Abstractions.Wrappers"/>
+  </ItemGroup>
+
+</Project>

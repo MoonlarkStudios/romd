@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ErrorOr" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <Target Name="RejectProjectReferences" BeforeTargets="PrepareForBuild"
+          Condition="'@(ProjectReference)' != ''">
+    <Error Text="Romd.Dat.Parsing must remain independent of ROMD project references." />
+  </Target>
+
+</Project>
