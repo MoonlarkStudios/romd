@@ -212,6 +212,7 @@ describe('BrowserPlayer', () => {
     preparePlayable();
     renderPlayer();
     await screen.findByTitle(/browser player/i);
+    await waitFor(() => expect(bridgeHarness.create).toHaveBeenCalled());
     const event = bridgeHarness.create.mock.calls[0][3];
     act(() => { event({ event: 'game-started' }); event({ event: 'controls-ready' }); });
     if (paused) act(() => event({ event: 'paused' }));
@@ -237,6 +238,7 @@ describe('BrowserPlayer', () => {
     ], { initialEntries: ['/library', '/titles/title-1/releases/release-1/play'] });
     renderBase(<MantineProvider><RouterProvider router={router} /></MantineProvider>);
     await screen.findByTitle(/browser player/i);
+    await waitFor(() => expect(bridgeHarness.create).toHaveBeenCalled());
     const event = bridgeHarness.create.mock.calls[0][3];
     act(() => { event({ event: 'game-started' }); event({ event: 'controls-ready' }); });
     await act(() => router.navigate(-1));
@@ -260,6 +262,7 @@ describe('BrowserPlayer', () => {
     const state = { titleReturn: { href: '/', label: 'Home', section: 'home', scroll: { y: 400, rails: {} } } };
     renderPlayer(state);
     await screen.findByTitle(/browser player/i);
+    await waitFor(() => expect(bridgeHarness.create).toHaveBeenCalled());
     const event = bridgeHarness.create.mock.calls[0][3];
     act(() => event({ event: 'game-started' }));
     fireEvent.click(screen.getByRole('button', { name: 'Quit' }));
@@ -293,6 +296,7 @@ describe('BrowserPlayer', () => {
 
     renderPlayer();
     await screen.findByTitle(/browser player/i);
+    await waitFor(() => expect(bridgeHarness.create).toHaveBeenCalled());
     const onEvent = bridgeHarness.create.mock.calls[0]?.[3] as
       | ((event: { event: 'ready' | 'game-started' | 'exit' | 'controls-ready' | 'paused' | 'resumed' }) => void)
       | undefined;

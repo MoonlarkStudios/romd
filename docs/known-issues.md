@@ -800,7 +800,7 @@ missing declarations by broadly hoisting dependencies.
 
 ## BrowserPlayer session tracking reads bridge callback before its effect runs
 
-Status: DEFERRED
+Status: FIXED
 
 Commands:
 - `pnpm test` from `web/`
@@ -815,8 +815,11 @@ so the iframe's presence alone does not synchronize that callback. A September
 an unchanged isolated file run passed all eight tests. This is a different
 assertion from the rapid-exit timing issue above.
 
-Change: None; consumer player behavior and tests were outside the dashboard
-statistics change that exposed the race.
+Change: the session-tracking and pause/quit tests now explicitly wait for
+`createPlayerBridge` to be called before reading its callback. The same race
+failed the paused-quit test at line 215 in public CI run 35415437482, while the
+release workflow for the identical commit passed. Production player behavior
+and existing pause/resume/session assertions are unchanged.
 
 Agent guidance: report the broad failure separately from an isolated pass. In a
 focused test fix, wait for bridge creation before reading its callback rather
