@@ -32,6 +32,7 @@ using Romd.Host.Authorization;
 using Romd.Host.Configuration;
 using Romd.Host.Hubs;
 using Romd.Hosting.Realtime;
+using Romd.Hosting.Dashboard;
 using Romd.Hosting.Serialization;
 using Romd.Infrastructure.Identity;
 using Romd.Infrastructure.Jobs;
@@ -381,6 +382,9 @@ public static class RomdHostRegistrationExtensions
         IHostEnvironment? environment = null,
         string openApiDocumentName = "v1")
     {
+        services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        services.TryAddSingleton<DashboardStatsCache>();
+
         // Admin contract enums serialize as named strings, never integers
         // (docs/decisions/admin-api-contract-policy.md, "Opaque Public Identity"). Reading is
         // strict too: only exact ordinal declared names bind; integers, case variants,

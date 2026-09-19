@@ -27,8 +27,8 @@ const mapCoverageStats = (dto: CoverageStatsDto): CoverageStats => ({
 export function useCoverageStats() {
   return useQuery({
     queryKey: coverageStatsKeys.all,
-    queryFn: async (): Promise<CoverageStats> => {
-      const response = await getCoverageStats();
+    queryFn: async ({ signal }): Promise<CoverageStats> => {
+      const response = await getCoverageStats({ signal });
       if (response.error || !response.data) {
         throw new Error('Failed to fetch coverage stats');
       }

@@ -89,6 +89,60 @@ public sealed class RomRepositoryCoverageTests : IDisposable
         aggregateSql.ShouldNotContain("SELECT COUNT(*)\n    FROM romd.\"Titles\" AS");
     }
 
+    [Fact]
+    public async Task GetCoverageBreakdownAsync_MultipleEntriesAndDisabledSources_PreservesCoverage()
+    {
+        using var db = CreateDb();
+        await SeedCoverageGraphAsync(db);
+        // One missing ROM in another entry makes title 1 partial, not complete.
+        AddGameWithRom(db, 5, 1, null, DateTimeOffset.UtcNow, Guid.NewGuid());
+        // Tracked titles without effective ROMs remain in the denominator.
+        AddTitle(db, 5, true, false, DateTimeOffset.UtcNow, Guid.NewGuid());
+        await db.SaveChangesAsync();
+        var repository = new RomRepository(db);
+        var coverage = await repository.GetCoverageBreakdownAsync();
+        coverage.ExpectedTitleCount.ShouldBe(3);
+        coverage.CompleteTitleCount.ShouldBe(0);
+        coverage.PartialTitleCount.ShouldBe(1);
+        coverage.LocalPayloadTitleCount.ShouldBe(1);
+
+        await db.CatalogSources.ExecuteUpdateAsync(setters => setters.SetProperty(s => s.Status, "Disabled"));
+        coverage = await repository.GetCoverageBreakdownAsync();
+        coverage.ExpectedTitleCount.ShouldBe(3);
+        coverage.LocalPayloadTitleCount.ShouldBe(0);
+        coverage.PartialTitleCount.ShouldBe(0);
+        coverage.CompleteTitleCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetCoverageBreakdownAsync_EmptyCollection_ReturnsZeroCounts()
+    {
+        using var db = CreateDb();
+        var coverage = await new RomRepository(db).GetCoverageBreakdownAsync();
+        coverage.ExpectedTitleCount.ShouldBe(0);
+        coverage.LocalPayloadTitleCount.ShouldBe(0);
+        coverage.CompleteTitleCount.ShouldBe(0);
+        coverage.PartialTitleCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetStatsAsync_SharedRomCountsOnceAndInactiveSourcesAreUnrouted()
+    {
+        using var db = CreateDb();
+        await SeedCoverageGraphAsync(db);
+        var repository = new RomRepository(db);
+        var stats = await repository.GetStatsAsync();
+        // Two source entries point to the same held ROM identity.
+        stats.CatalogedCount.ShouldBe(1);
+        stats.UnroutedCount.ShouldBe(0);
+        stats.UnidentifiedCount.ShouldBe(0);
+        await db.CatalogSources.ExecuteUpdateAsync(setters => setters.SetProperty(s => s.Status, "Disabled"));
+        stats = await repository.GetStatsAsync();
+        stats.CatalogedCount.ShouldBe(0);
+        stats.UnroutedCount.ShouldBe(1);
+        stats.UnidentifiedCount.ShouldBe(0);
+    }
+
     public void Dispose() => _connection.Dispose();
 
     [Fact]

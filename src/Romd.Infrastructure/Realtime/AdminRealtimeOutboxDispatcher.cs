@@ -28,11 +28,25 @@ public sealed class AdminRealtimeOutboxDispatcher(
         var sink = scope.ServiceProvider.GetRequiredService<IAdminRealtimeEventSink>();
         var messages = await outbox.ClaimPendingAsync(BatchSize, LeaseDuration, ct);
 
+        // All claimed rows describe already committed mutations. A successful stats
+        // signal covers duplicates in this batch, but never future batches or retries.
+        var sentStats = new HashSet<(string EventType, int SchemaVersion)>();
         foreach (var message in messages)
         {
             try
             {
-                await DispatchAsync(sink, message, ct);
+                bool isStats = message.EventType is AdminRealtimeEventTypes.StorageStatsChanged
+                    or AdminRealtimeEventTypes.CoverageStatsChanged
+                    or AdminRealtimeEventTypes.HealthStatsChanged;
+                var statsKey = (message.EventType, message.SchemaVersion);
+                if (!isStats || !sentStats.Contains(statsKey))
+                {
+                    await DispatchAsync(sink, message, ct);
+                    if (isStats)
+                    {
+                        sentStats.Add(statsKey);
+                    }
+                }
                 await outbox.MarkProcessedAsync(message.Id, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)

@@ -797,3 +797,28 @@ install passed lint, all 728 web tests, and production builds.
 Agent guidance: validate dependency changes with a fresh frozen-lockfile install;
 existing node_modules can hide missing workspace declarations. Do not work around
 missing declarations by broadly hoisting dependencies.
+
+## BrowserPlayer session tracking reads bridge callback before its effect runs
+
+Status: DEFERRED
+
+Commands:
+- `pnpm test` from `web/`
+- `NODE_OPTIONS=--no-experimental-webstorage pnpm exec vitest run packages/romd-consumer-app/src/pages/BrowserPlayer.test.tsx` from `web/`
+
+Root cause: the test `tracks one retry-safe session from the actual game-started
+event through exit` waits for the iframe to render, then immediately reads the
+mocked `createPlayerBridge` callback. The bridge is initialized in a React effect,
+so the iframe's presence alone does not synchronize that callback. A September
+2026 full run passed 733 tests and failed this assertion at
+`BrowserPlayer.test.tsx:299` with `expected undefined to be type of 'function'`;
+an unchanged isolated file run passed all eight tests. This is a different
+assertion from the rapid-exit timing issue above.
+
+Change: None; consumer player behavior and tests were outside the dashboard
+statistics change that exposed the race.
+
+Agent guidance: report the broad failure separately from an isolated pass. In a
+focused test fix, wait for bridge creation before reading its callback rather
+than introducing a fixed delay or weakening the session assertions. Do not
+interpret an isolated pass as evidence that the full suite passed.

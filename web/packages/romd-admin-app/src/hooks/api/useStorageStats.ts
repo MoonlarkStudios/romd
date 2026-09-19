@@ -41,8 +41,8 @@ const mapStorageStats = (dto: StorageStatsDto): StorageStats => ({
 export function useStorageStats() {
   return useQuery({
     queryKey: storageStatsKeys.all,
-    queryFn: async (): Promise<StorageStats> => {
-      const response = await getStorageStats();
+    queryFn: async ({ signal }): Promise<StorageStats> => {
+      const response = await getStorageStats({ signal });
       if (response.error || !response.data) {
         throw new Error('Failed to fetch storage stats');
       }

@@ -27,8 +27,8 @@ const mapHealthStats = (dto: SystemHealthDto): HealthStats => ({
 export function useHealthStats() {
   return useQuery({
     queryKey: healthStatsKeys.all,
-    queryFn: async (): Promise<HealthStats> => {
-      const response = await getSystemHealth();
+    queryFn: async ({ signal }): Promise<HealthStats> => {
+      const response = await getSystemHealth({ signal });
       if (response.error || !response.data) {
         throw new Error('Failed to fetch health stats');
       }

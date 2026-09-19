@@ -235,11 +235,15 @@ public sealed class RomRepository : IRomRepository
             .Where(rf => !_context.DatRoms.Any(r => r.RomFileId == rf.Id))
             .CountAsync(cancellationToken);
 
-        int catalogedCount = await _context.RomFiles
-            .Where(rf => _context.DatRoms
-                .Where(r => r.RomFileId == rf.Id)
-                .Join(_context.DatGames, r => r.DatGameId, g => g.Id, (r, g) => g)
-                .Any(g => _context.EffectiveTitleSourceLinks().Any(l => l.SourceEntryId == g.SourceEntryId)))
+        // Count the distinct held ROM identities reached from effective catalog links.
+        // Starting at the links avoids nested correlated EXISTS for each stored ROM.
+        int catalogedCount = await (
+                from link in _context.EffectiveTitleSourceLinks()
+                join game in _context.DatGames on link.SourceEntryId equals game.SourceEntryId
+                join rom in _context.DatRoms on game.Id equals rom.DatGameId
+                where rom.RomFileId != null
+                select rom.RomFileId)
+            .Distinct()
             .CountAsync(cancellationToken);
 
         int unroutedCount = totalRomFiles - unidentifiedCount - catalogedCount;
@@ -427,23 +431,23 @@ public sealed class RomRepository : IRomRepository
         // the denominator is tracked titles and the numerator is tracked titles that are owned.
         int expectedTitleCount = await _context.TrackedTitles.CountAsync(cancellationToken);
 
-        var counts = await _context.Titles
-            .AsNoTracking()
-            .Where(t => _context.TrackedTitles.Any(tracked => tracked.TitleId == t.Id))
-            .Select(t => new
+        // Aggregate each tracked title's effective ROM rows once. Correlated counts here
+        // are duplicated into every outer predicate by SQL translation, multiplying work
+        // across the entire tracked collection on every statistics refresh.
+        var titleRomCounts =
+            from link in _context.EffectiveTitleSourceLinks()
+            join tracked in _context.TrackedTitles on link.TitleId equals tracked.TitleId
+            join game in _context.DatGames on link.SourceEntryId equals game.SourceEntryId
+            join rom in _context.DatRoms on game.Id equals rom.DatGameId
+            group rom by link.TitleId
+            into roms
+            select new
             {
-                TotalDatRoms = _context.EffectiveTitleSourceLinks()
-                    .Where(l => l.TitleId == t.Id)
-                    .Join(_context.DatGames, l => l.SourceEntryId, g => g.SourceEntryId, (l, g) => g)
-                    .SelectMany(g => g.Roms)
-                    .Count(),
-                MatchedDatRoms = _context.EffectiveTitleSourceLinks()
-                    .Where(l => l.TitleId == t.Id)
-                    .Join(_context.DatGames, l => l.SourceEntryId, g => g.SourceEntryId, (l, g) => g)
-                    .SelectMany(g => g.Roms)
-                    .Count(r => r.RomFileId != null)
-            })
-            .Where(x => x.TotalDatRoms > 0)
+                TotalDatRoms = roms.Count(),
+                MatchedDatRoms = roms.Count(rom => rom.RomFileId != null)
+            };
+
+        var counts = await titleRomCounts
             .GroupBy(x => 1)
             .Select(g => new
             {

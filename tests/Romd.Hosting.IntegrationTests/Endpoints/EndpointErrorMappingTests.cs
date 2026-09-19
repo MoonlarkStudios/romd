@@ -3,6 +3,9 @@ using ErrorOr;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Romd.Hosting.Dashboard;
 using Romd.Admin.Application.Catalog.Queries.GetCatalogFilters;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
@@ -46,10 +49,15 @@ public sealed class EndpointErrorMappingTests
         handler.HandleAsync(Arg.Any<GetStorageStatsQuery>(), Arg.Any<CancellationToken>())
             .Returns(ToError<Models.StorageStatsDto>(Error.Conflict("Dashboard.Busy", "Dashboard is busy.")));
 
+        var services = new ServiceCollection();
+        services.AddScoped<IQueryHandler<GetStorageStatsQuery, Models.StorageStatsDto>>(_ => handler);
+        await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        var cache = new DashboardStatsCache(provider.GetRequiredService<IServiceScopeFactory>(),
+            TimeProvider.System, Substitute.For<IHostApplicationLifetime>());
         var result = await InvokeAsync(
             typeof(DashboardEndpoints),
             "GetStorage",
-            handler,
+            cache,
             CancellationToken.None);
 
         AssertProblem(result, StatusCodes.Status409Conflict, "Conflict", "Dashboard is busy.", "Dashboard.Busy");
@@ -117,7 +125,8 @@ public sealed class EndpointErrorMappingTests
         if (method.GetParameters().FirstOrDefault()?.ParameterType == typeof(Romd.Application.Common.ReferenceCatalog.IReferenceCatalogService))
             args = [Romd.Hosting.IntegrationTests.Infrastructure.TestReferenceCatalog.Create(), .. args];
         var task = method.Invoke(null, args);
-        return await task.ShouldBeOfType<Task<IResult>>();
+        // Asynchronous completion may return a runtime-generated Task subclass.
+        return await Assert.IsAssignableFrom<Task<IResult>>(task);
     }
 
     private static void AssertProblem(

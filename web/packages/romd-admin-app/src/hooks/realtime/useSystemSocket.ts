@@ -7,6 +7,7 @@ import { coverageStatsKeys } from '../api/useCoverageStats';
 import { healthStatsKeys } from '../api/useHealthStats';
 import { storageStatsKeys } from '../api/useStorageStats';
 import { libraryKeys } from '../api/useUsers';
+import { createStatsInvalidationScheduler } from './statsInvalidation';
 
 type SystemSocketStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 
@@ -37,13 +38,6 @@ export function useSystemSocket(enabled: boolean) {
     [queryClient],
   );
 
-  const invalidateAll = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: storageStatsKeys.all });
-    queryClient.invalidateQueries({ queryKey: coverageStatsKeys.all });
-    queryClient.invalidateQueries({ queryKey: healthStatsKeys.all });
-    queryClient.invalidateQueries({ queryKey: libraryKeys.all });
-  }, [queryClient]);
-
   useEffect(() => {
     mountedRef.current = true;
 
@@ -59,6 +53,7 @@ export function useSystemSocket(enabled: boolean) {
     }
 
     let stopped = false;
+    const stats = createStatsInvalidationScheduler(queryClient);
 
     async function connect() {
       const token = getAuthToken();
@@ -75,13 +70,13 @@ export function useSystemSocket(enabled: boolean) {
       connectionRef.current = connection;
 
       connection.on('StorageStatsChanged', () => {
-        queryClient.invalidateQueries({ queryKey: storageStatsKeys.all });
+        stats.invalidate(storageStatsKeys.all);
       });
       connection.on('CoverageStatsChanged', () => {
-        queryClient.invalidateQueries({ queryKey: coverageStatsKeys.all });
+        stats.invalidate(coverageStatsKeys.all);
       });
       connection.on('HealthStatsChanged', () => {
-        queryClient.invalidateQueries({ queryKey: healthStatsKeys.all });
+        stats.invalidate(healthStatsKeys.all);
       });
       connection.on(
         'LibraryUpdated',
@@ -100,7 +95,10 @@ export function useSystemSocket(enabled: boolean) {
         if (!mountedRef.current) return;
         setStatus('connected');
         setPollingFallback(false);
-        invalidateAll();
+        stats.invalidate(storageStatsKeys.all);
+        stats.invalidate(coverageStatsKeys.all);
+        stats.invalidate(healthStatsKeys.all);
+        queryClient.invalidateQueries({ queryKey: libraryKeys.all });
         connection.invoke('SubscribeToStats').catch(() => {});
       });
 
@@ -131,6 +129,7 @@ export function useSystemSocket(enabled: boolean) {
 
     return () => {
       stopped = true;
+      stats.dispose();
       mountedRef.current = false;
       const conn = connectionRef.current;
       if (conn) {
@@ -139,7 +138,7 @@ export function useSystemSocket(enabled: boolean) {
       }
       setPollingFallback(false);
     };
-  }, [enabled, queryClient, setPollingFallback, invalidateAll]);
+  }, [enabled, queryClient, setPollingFallback]);
 
   return { status };
 }

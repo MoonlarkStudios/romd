@@ -558,6 +558,44 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
     }
 
     [Fact]
+    public async Task AdminRealtimeOutboxDispatcher_DuplicateStats_CoalescesOnlyWithinClaimedBatch()
+    {
+        var sink = new RecordingAdminRealtimeSink();
+        await using var provider = await CreateServiceProvider(sink);
+        async Task EnqueueBatch()
+        {
+            await using var scope = provider.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+            for (int i = 0; i < 3; i++)
+            {
+                db.AdminRealtimeOutboxEvents.AddRange(
+                    CreatePersistedEvent(AdminRealtimeEventTypes.StorageStatsChanged, "{}"),
+                    CreatePersistedEvent(AdminRealtimeEventTypes.CoverageStatsChanged, "{}"),
+                    CreatePersistedEvent(AdminRealtimeEventTypes.HealthStatsChanged, "{}"));
+            }
+            await db.SaveChangesAsync();
+        }
+        var dispatcher = new AdminRealtimeOutboxDispatcher(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            NullLogger<AdminRealtimeOutboxDispatcher>.Instance);
+
+        await EnqueueBatch();
+        (await dispatcher.DispatchPendingAsync()).ShouldBe(9);
+        sink.StorageChangedCount.ShouldBe(1);
+        sink.CoverageChangedCount.ShouldBe(1);
+        sink.HealthChangedCount.ShouldBe(1);
+        await EnqueueBatch();
+        (await dispatcher.DispatchPendingAsync()).ShouldBe(9);
+        sink.StorageChangedCount.ShouldBe(2);
+        sink.CoverageChangedCount.ShouldBe(2);
+        sink.HealthChangedCount.ShouldBe(2);
+        await using var assertScope = provider.CreateAsyncScope();
+        var assertDb = assertScope.ServiceProvider.GetRequiredService<RomdDbContext>();
+        (await assertDb.AdminRealtimeOutboxEvents.CountAsync(row => row.ProcessedAtUtc != null))
+            .ShouldBe(18);
+    }
+
+    [Fact]
     public async Task AdminRealtimeOutboxDispatcher_DispatchPendingAsync_WhenSinkFailsSchedulesRetry()
     {
         var sink = new ThrowingAdminRealtimeSink();
@@ -567,6 +605,7 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
             var outbox = scope.ServiceProvider.GetRequiredService<IAdminEventOutbox>();
             var enqueueDb = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
             await EnqueueAndSaveAsync(outbox, enqueueDb, AdminRealtimeEventTypes.HealthStatsChanged);
+            await EnqueueAndSaveAsync(outbox, enqueueDb, AdminRealtimeEventTypes.HealthStatsChanged);
         }
 
         var dispatcher = new AdminRealtimeOutboxDispatcher(
@@ -575,14 +614,18 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
 
         int dispatched = await dispatcher.DispatchPendingAsync(CancellationToken.None);
 
-        dispatched.ShouldBe(1);
+        dispatched.ShouldBe(2);
         await using var assertScope = provider.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope();
         var db = assertScope.ServiceProvider.GetRequiredService<RomdDbContext>();
-        var row = await db.AdminRealtimeOutboxEvents.SingleAsync();
-        row.ProcessedAtUtc.ShouldBeNull();
-        row.LastError.ShouldNotBeNull();
-        row.LastError.ShouldContain("SignalR unavailable");
-        row.AvailableAtUtc.ShouldBe(Now.AddSeconds(30));
+        var rows = await db.AdminRealtimeOutboxEvents.ToListAsync();
+        rows.Count.ShouldBe(2);
+        foreach (var row in rows)
+        {
+            row.ProcessedAtUtc.ShouldBeNull();
+            row.LastError.ShouldNotBeNull();
+            row.LastError.ShouldContain("SignalR unavailable");
+            row.AvailableAtUtc.ShouldBe(Now.AddSeconds(30));
+        }
     }
 
     [Fact]

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Hosting;
+using Romd.Hosting.Dashboard;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -242,6 +244,8 @@ public sealed class SignalRAdminRealtimeEventSinkTests
         var timeProvider = new ManualTimeProvider(Now);
 
         services.AddSingleton<TimeProvider>(timeProvider);
+        services.AddSingleton(Substitute.For<IHostApplicationLifetime>());
+        services.AddSingleton<DashboardStatsCache>();
         services.AddSingleton(Romd.Hosting.IntegrationTests.Infrastructure.TestReferenceCatalog.Create());
         services.AddDbContext<RomdDbContext>(options => options.UseNpgsql(connection.ConnectionString));
         services.AddScoped<AdminRealtimeOutbox>();

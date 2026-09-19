@@ -1,7 +1,4 @@
-using Romd.Application.Common.Cqrs;
-using Romd.Admin.Application.Dashboard.Queries.GetCoverageStats;
-using Romd.Admin.Application.Dashboard.Queries.GetStorageStats;
-using Romd.Admin.Application.Dashboard.Queries.GetSystemHealth;
+using Romd.Hosting.Dashboard;
 using Romd.Contracts.Management.Models;
 using Romd.Host.Authorization;
 
@@ -33,30 +30,30 @@ public static class DashboardEndpoints
     }
 
     private static async Task<IResult> GetStorage(
-        IQueryHandler<GetStorageStatsQuery, StorageStatsDto> handler,
+        DashboardStatsCache cache,
         CancellationToken ct)
     {
-        var result = await handler.HandleAsync(new GetStorageStatsQuery(), ct);
+        var result = await cache.GetStorageAsync(ct);
         return result.Match(
             stats => Results.Ok(stats),
             errors => errors.ToProblem());
     }
 
     private static async Task<IResult> GetCoverage(
-        IQueryHandler<GetCoverageStatsQuery, CoverageStatsDto> handler,
+        DashboardStatsCache cache,
         CancellationToken ct)
     {
-        var result = await handler.HandleAsync(new GetCoverageStatsQuery(), ct);
+        var result = await cache.GetCoverageAsync(ct);
         return result.Match(
             stats => Results.Ok(stats),
             errors => errors.ToProblem());
     }
 
     private static async Task<IResult> GetHealth(
-        IQueryHandler<GetSystemHealthQuery, SystemHealthDto> handler,
+        DashboardStatsCache cache,
         CancellationToken ct)
     {
-        var result = await handler.HandleAsync(new GetSystemHealthQuery(), ct);
+        var result = await cache.GetHealthAsync(ct);
         return result.Match(
             stats => Results.Ok(stats),
             errors => errors.ToProblem());
