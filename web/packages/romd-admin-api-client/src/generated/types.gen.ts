@@ -661,6 +661,7 @@ export type ImportFromPath = {
     maxParallelRoms?: null | number;
     allowUnidentified?: null | boolean;
     archiveOnly?: null | boolean;
+    trackedOnly?: null | boolean;
     move?: null | boolean;
 };
 
@@ -846,6 +847,7 @@ export type JobDtoUploadJobDto = {
     romsIngested?: number;
     romsDeduplicated?: number;
     romsRejected?: number;
+    trackedOnly?: boolean;
     id: string;
     correlationId: string;
     sourceFilename: string;
@@ -1927,6 +1929,7 @@ export type UploadJobDto = {
     romsIngested?: number;
     romsDeduplicated?: number;
     romsRejected?: number;
+    trackedOnly?: boolean;
     id: string;
     correlationId: string;
     sourceFilename: string;
@@ -3009,6 +3012,7 @@ export type UploadData = {
         maxParallelRoms?: number;
         allowUnidentified?: boolean;
         archiveOnly?: boolean;
+        trackedOnly?: boolean;
         requestId?: string;
         batchId?: string;
     };
@@ -3071,7 +3075,9 @@ export type UploadRomData = {
         file?: IFormFile;
     };
     path?: never;
-    query?: never;
+    query?: {
+        trackedOnly?: boolean;
+    };
     url: '/api/upload/rom';
 };
 

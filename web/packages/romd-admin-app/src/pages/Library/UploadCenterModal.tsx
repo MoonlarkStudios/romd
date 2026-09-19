@@ -1,4 +1,4 @@
-import { Modal, Tabs, Text } from '@mantine/core';
+import { Modal, Select, Tabs, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
   IconDatabase,
@@ -19,6 +19,7 @@ export function UploadCenterModal({
   onClose,
 }: UploadCenterModalProps) {
   const [activeTab, setActiveTab] = useState<string | null>('auto');
+  const [trackedOnly, setTrackedOnly] = useState(false);
 
   const uploadGeneric = useUploadGeneric();
   const uploadRom = useUploadRom();
@@ -40,7 +41,7 @@ export function UploadCenterModal({
     if (!file) return;
 
     uploadGeneric.mutate(
-      { file },
+      { file, trackedOnly },
       {
         onSuccess: () => onClose(),
         onError: handleUploadError,
@@ -53,7 +54,7 @@ export function UploadCenterModal({
     if (!file) return;
 
     uploadRom.mutate(
-      { file },
+      { file, trackedOnly },
       {
         onSuccess: () => onClose(),
         onError: handleUploadError,
@@ -84,6 +85,10 @@ export function UploadCenterModal({
       closeOnClickOutside={!isUploading}
       closeOnEscape={!isUploading}
     >
+      {activeTab !== 'dat' && <Select label="ROMs to keep" mb="md"
+        value={trackedOnly ? 'tracked' : 'all'} onChange={(value) => setTrackedOnly(value === 'tracked')}
+        disabled={isUploading} allowDeselect={false}
+        data={[{ value: 'all', label: 'Import everything' }, { value: 'tracked', label: 'Tracked titles only' }]} />}
       <Tabs value={activeTab} onChange={setActiveTab}>
         <Tabs.List grow>
           <Tabs.Tab

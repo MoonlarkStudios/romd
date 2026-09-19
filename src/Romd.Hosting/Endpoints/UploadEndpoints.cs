@@ -1,4 +1,5 @@
 using Romd.Application.Common.ReferenceCatalog;
+using Romd.Admin.Application.Titles;
 using Microsoft.AspNetCore.Mvc;
 using Romd.Application.Common.Ids;
 using Romd.Application.Common.Security;
@@ -85,6 +86,8 @@ public static class UploadEndpoints
         [FromQuery] int? maxParallelRoms,
         [FromQuery] bool? allowUnidentified,
         [FromQuery] bool? archiveOnly,
+        [FromQuery] bool? trackedOnly,
+        ITitleRepository titles,
         [FromQuery] Guid? requestId,
         [FromQuery] Guid? batchId,
         IUploadJobCreator jobCreator,
@@ -101,6 +104,8 @@ public static class UploadEndpoints
             return ProblemResults.ValidationProblem("Upload.InvalidConcurrency", "maxParallelRoms", "Parallel ROM processing must be between 1 and 32.");
         if (requestId == Guid.Empty || batchId == Guid.Empty || requestId.HasValue != batchId.HasValue)
             return ProblemResults.ValidationProblem("Upload.InvalidIdentity", "requestId", "Provide both non-empty request and batch IDs, or neither.");
+        if (trackedOnly == true && !await titles.HasTrackedAsync(cancellationToken: ct))
+            return NoTrackedTitles();
         await using var stream = file!.OpenReadStream();
 
         try
@@ -116,6 +121,7 @@ public static class UploadEndpoints
                     MaxParallelRoms = maxParallelRoms ?? 4,
                     AllowUnidentified = allowUnidentified ?? false,
                     ArchiveOnly = archiveOnly ?? false,
+                    TrackedOnly = trackedOnly ?? false,
                     CreatedByUserId = currentUser.UserId
                 },
                 ct);
@@ -172,6 +178,8 @@ public static class UploadEndpoints
     ///     ROM upload — validates content is not a DAT before queuing.
     /// </summary>
     private static async Task<IResult> UploadRom([FromForm] IFormFile? file,
+        [FromQuery] bool? trackedOnly,
+        ITitleRepository titles,
         IFileClassifier classifier,
         IUploadJobCreator jobCreator,
         ICurrentUser currentUser,
@@ -182,6 +190,9 @@ public static class UploadEndpoints
         {
             return validation;
         }
+
+        if (trackedOnly == true && !await titles.HasTrackedAsync(cancellationToken: ct))
+            return NoTrackedTitles();
 
         // Validate file is NOT a DAT
         await using var classifyStream = file!.OpenReadStream();
@@ -200,7 +211,7 @@ public static class UploadEndpoints
         var result = await jobCreator.CreateAsync(
             uploadStream,
             file.FileName,
-            new UploadJobOptions { CreatedByUserId = currentUser.UserId },
+            new UploadJobOptions { CreatedByUserId = currentUser.UserId, TrackedOnly = trackedOnly ?? false },
             ct);
 
         return Results.Accepted(result.StatusUrl, ToContract(result));
@@ -211,10 +222,14 @@ public static class UploadEndpoints
     /// </summary>
     private static async Task<IResult> ImportFromPath([FromServices] IReferenceCatalogService referenceCatalog,
         Commands.ImportFromPath request,
+        ITitleRepository titles,
         IPathImportJobCreator jobCreator,
         ICurrentUser currentUser,
         CancellationToken ct)
     {
+        if (request.TrackedOnly == true && !await titles.HasTrackedAsync(cancellationToken: ct))
+            return NoTrackedTitles();
+
         int? platformId = request.SystemKey is null ? null : await referenceCatalog.RequireSystemAsync(request.SystemKey, ct);
 
         var result = await jobCreator.CreateFromPathAsync(
@@ -225,6 +240,7 @@ public static class UploadEndpoints
                 MaxParallelRoms = request.MaxParallelRoms ?? 4,
                 AllowUnidentified = request.AllowUnidentified ?? false,
                 ArchiveOnly = request.ArchiveOnly ?? false,
+                TrackedOnly = request.TrackedOnly ?? false,
                 CreatedByUserId = currentUser.UserId
             },
             request.Move ?? false,
@@ -234,6 +250,9 @@ public static class UploadEndpoints
             created => Results.Accepted(created.StatusUrl, ToContract(created)),
             errors => errors.ToProblem());
     }
+
+    private static IResult NoTrackedTitles() => ProblemResults.ValidationProblem(
+        "Upload.NoTrackedTitles", "trackedOnly", "Track at least one title before importing tracked-title ROMs.");
 
     private static IResult? ValidateFile(IFormFile? file)
     {

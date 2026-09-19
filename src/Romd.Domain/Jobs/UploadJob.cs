@@ -61,7 +61,8 @@ public sealed class UploadJob : Job
         DateTimeOffset? completedAt,
         bool isArchived,
         DateTimeOffset? archivedAt,
-        Guid? createdByUserId)
+        Guid? createdByUserId,
+        bool trackedOnly = false)
     {
         var job = new UploadJob
         {
@@ -82,6 +83,7 @@ public sealed class UploadJob : Job
             MaxParallelRoms = maxParallelRoms,
             AllowUnidentified = allowUnidentified,
             ArchiveOnly = archiveOnly,
+            TrackedOnly = trackedOnly,
             ImportSourcePath = importSourcePath,
             ImportMove = importMove,
             CurrentItem = currentItem,
@@ -117,6 +119,11 @@ public sealed class UploadJob : Job
     ///     ingested and playable when this is true.
     /// </summary>
     public bool ArchiveOnly { get; private set; }
+
+    /// <summary>Retain only ROMs matching existing tracked titles, without tracking more titles.</summary>
+    public bool TrackedOnly { get; private set; }
+
+    public void SetTrackedOnly(bool value) => TrackedOnly = value;
 
     /// <summary>
     ///     Server-local directory this job was imported from, when created via path import.
@@ -168,7 +175,7 @@ public sealed class UploadJob : Job
     public int RomsDeduplicated { get; private set; }
 
     /// <summary>
-    ///     Number of ROM files rejected (unidentified).
+    ///     Number of ROM files skipped by the import filter or rejected as unidentified.
     /// </summary>
     public int RomsRejected { get; private set; }
 

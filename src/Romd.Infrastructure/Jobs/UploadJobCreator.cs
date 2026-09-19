@@ -45,6 +45,7 @@ public sealed class UploadJobCreator : IUploadJobCreator
                 || existing.PlatformId != options.PlatformId
                 || existing.AllowUnidentified != options.AllowUnidentified
                 || existing.ArchiveOnly != options.ArchiveOnly
+                || existing.TrackedOnly != options.TrackedOnly
                 || existing.MaxParallelRoms != options.MaxParallelRoms)
                 throw new InvalidOperationException("This upload request ID has already been used for another import.");
             return new UploadJobCreationResult(existing.Id, existing.Id.ToString("N"), $"/jobs/{existing.Id}");
@@ -61,6 +62,7 @@ public sealed class UploadJobCreator : IUploadJobCreator
         job.SetMaxParallelRoms(options.MaxParallelRoms);
         job.SetAllowUnidentified(options.AllowUnidentified);
         job.SetArchiveOnly(options.ArchiveOnly);
+        job.SetTrackedOnly(options.TrackedOnly);
 
         // Create work directory
         string workDirectory = Path.Combine(

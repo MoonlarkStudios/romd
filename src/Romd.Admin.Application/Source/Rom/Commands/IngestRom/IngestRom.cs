@@ -28,7 +28,8 @@ public sealed record IngestRomCommand(
     Stream FileStream,
     string OriginalFilename,
     bool AllowUnidentified = false,
-    bool ArchiveOnly = false) : ICommand<RomIngestResult>;
+    bool ArchiveOnly = false,
+    bool TrackedOnly = false) : ICommand<RomIngestResult>;
 
 public sealed class IngestRomCommandHandler : ICommandHandler<IngestRomCommand, RomIngestResult>
 {
@@ -86,11 +87,21 @@ public sealed class IngestRomCommandHandler : ICommandHandler<IngestRomCommand, 
 
             var datHashes = await _hashingService.ComputeDatHashesAsync(tempFile.OpenRead(), ct);
 
+            // Filter before both duplicate relinking and CAS writes. Shared content may match
+            // untracked titles too, but this mode must never expand tracking intent.
+            var catalogMatch = await _romCatalogMatches.ReadAsync(datHashes.Sha1, ct);
+            if (command.TrackedOnly && (catalogMatch.TitleIds.Count == 0
+                || !await _titleRepository.HasTrackedAsync(catalogMatch.TitleIds, ct)))
+            {
+                return CatalogErrors.UntrackedRom();
+            }
+            bool archiveOnly = command.ArchiveOnly || command.TrackedOnly;
+
             var existing = await _romRepository.GetBySha1Async(datHashes.Sha1, ct);
             if (existing is not null)
             {
                 var existingMatch = await LinkExistingRomToMatchedDatRomsAsync(
-                    existing, datHashes.Sha1, command.ArchiveOnly, ct);
+                    existing, datHashes.Sha1, catalogMatch, archiveOnly, ct);
 
                 _logger.LogDebug(
                     "ROM already exists: {Sha1} (ID: {Id}), returning existing",
@@ -104,8 +115,6 @@ public sealed class IngestRomCommandHandler : ICommandHandler<IngestRomCommand, 
                     PlatformId = existingMatch.PrimaryPlatformId
                 };
             }
-
-            var catalogMatch = await _romCatalogMatches.ReadAsync(datHashes.Sha1, ct);
 
             if (!catalogMatch.HasCatalogMatch)
             {
@@ -147,7 +156,7 @@ public sealed class IngestRomCommandHandler : ICommandHandler<IngestRomCommand, 
                     ?? throw new InvalidOperationException("Staged ROM was not available after flush.");
 
                 int linkedCount = await LinkAndApplyTrackingAsync(
-                    datHashes.Sha1, romFile.Id, catalogMatch, command.ArchiveOnly, ct);
+                    datHashes.Sha1, romFile.Id, catalogMatch, archiveOnly, ct);
 
                 await EnqueueStatsChangedAsync(ct);
                 await _unitOfWork.FlushAsync(ct);
@@ -157,7 +166,7 @@ public sealed class IngestRomCommandHandler : ICommandHandler<IngestRomCommand, 
                     "Ingested ROM: {Filename} ({Size} bytes, SHA1: {Sha1}, Titles: {TitleCount}, BiosPlatforms: {BiosPlatformCount}, Linked: {LinkedCount}, ArchiveOnly: {ArchiveOnly})",
                     command.OriginalFilename, romFile.Size, romFile.Sha1.ToShortHex(),
                     catalogMatch.TitleIds.Count, catalogMatch.BiosPlatformIds.Count, linkedCount,
-                    command.ArchiveOnly);
+                    archiveOnly);
 
                 return new RomIngestResult
                 {
@@ -178,7 +187,7 @@ public sealed class IngestRomCommandHandler : ICommandHandler<IngestRomCommand, 
                     var concurrentExisting =
                         await _romRepository.GetBySha1Async(datHashes.Sha1, CancellationToken.None);
                     var concurrentMatch = await LinkExistingRomToMatchedDatRomsAsync(
-                        concurrentExisting!, datHashes.Sha1, command.ArchiveOnly, CancellationToken.None);
+                        concurrentExisting!, datHashes.Sha1, catalogMatch, archiveOnly, CancellationToken.None);
                     return new RomIngestResult
                     {
                         RomFile = concurrentExisting!,
@@ -206,11 +215,10 @@ public sealed class IngestRomCommandHandler : ICommandHandler<IngestRomCommand, 
     private async Task<RomCatalogMatch> LinkExistingRomToMatchedDatRomsAsync(
             RomFile romFile,
             Sha1 sha1,
+            RomCatalogMatch catalogMatch,
             bool archiveOnly,
             CancellationToken ct)
     {
-        var catalogMatch = await _romCatalogMatches.ReadAsync(sha1, ct);
-
         await using var transaction = await _unitOfWork.BeginTransactionAsync(ct);
         try
         {

@@ -16,7 +16,7 @@ public static class PostgreSqlConfiguration
     public const string ProvisioningConnectionName = "RomdProvisioning";
     public const string MigrationsHistoryTable = "__EFMigrationsHistory";
     public const string SchemaVersionTable = "romd_schema";
-    public const int ExpectedSchemaVersion = 32;
+    public const int ExpectedSchemaVersion = 33;
     private const int MaxBatchSize = 1000;
 
     public static string GetRequiredConnectionString(IConfiguration configuration, string connectionName)

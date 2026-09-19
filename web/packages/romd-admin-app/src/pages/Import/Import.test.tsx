@@ -14,6 +14,7 @@ vi.mock('@romd/admin-api-client', async () => {
     getRecentJobs: vi.fn(),
     getJobById: vi.fn(),
     getImportBatch: vi.fn(),
+    getTrackedCollectionStats: vi.fn(),
     listAdminSystems: vi.fn(),
   };
 });
@@ -30,6 +31,7 @@ import {
   getJobById,
   getLibraryStats,
   getRecentJobs,
+  getTrackedCollectionStats,
   listAdminSystems,
 } from '@romd/admin-api-client';
 import { uploadWithProgress } from '../../hooks/api/uploadWithProgress';
@@ -174,6 +176,7 @@ describe('ImportPage', () => {
             systemKey: 'plat-1',
             allowUnidentified: undefined,
             archiveOnly: 'false',
+            trackedOnly: undefined,
           }),
         }),
       );
@@ -181,6 +184,39 @@ describe('ImportPage', () => {
 
     // The started job surfaces as a live card.
     expect(await screen.findByText('Running')).toBeInTheDocument();
+  });
+
+  it('keeps only tracked-title ROMs without tracking or retaining unmatched files', async () => {
+    const user = userEvent.setup();
+    render(<ImportPage />);
+    const file = new File(['rom'], 'game.sfc', { type: 'application/octet-stream' });
+    fireEvent.drop(screen.getByTestId('import-dropzone'), {
+      dataTransfer: { files: [file], items: [{ kind: 'file', type: file.type, getAsFile: () => file }], types: ['Files'] },
+    });
+    await user.click(await screen.findByRole('checkbox', { name: 'Keep unmatched files' }));
+    await user.click(screen.getByLabelText('ROMs to keep', { selector: 'input' }));
+    await user.click(await screen.findByRole('option', { name: 'Tracked titles only' }));
+    expect(screen.getByRole('checkbox', { name: 'Track matched titles' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Keep unmatched files' })).not.toBeChecked();
+    vi.mocked(getTrackedCollectionStats).mockResolvedValue({ data: { trackedTitleCount: '1' } } as Awaited<ReturnType<typeof getTrackedCollectionStats>>);
+    await user.click(screen.getByRole('button', { name: /Start import/ }));
+    await waitFor(() => expect(mockUpload).toHaveBeenCalledWith('/api/upload', file,
+      expect.objectContaining({ query: expect.objectContaining({ trackedOnly: 'true', archiveOnly: 'true', allowUnidentified: undefined }) })));
+  });
+
+  it('stops a tracked-only upload before transferring bytes when no titles are tracked', async () => {
+    const user = userEvent.setup();
+    render(<ImportPage />);
+    const file = new File(['rom'], 'game.sfc', { type: 'application/octet-stream' });
+    fireEvent.drop(screen.getByTestId('import-dropzone'), {
+      dataTransfer: { files: [file], items: [{ kind: 'file', type: file.type, getAsFile: () => file }], types: ['Files'] },
+    });
+    await user.click(await screen.findByLabelText('ROMs to keep', { selector: 'input' }));
+    await user.click(await screen.findByRole('option', { name: 'Tracked titles only' }));
+    vi.mocked(getTrackedCollectionStats).mockResolvedValue({ data: { trackedTitleCount: '0' } } as Awaited<ReturnType<typeof getTrackedCollectionStats>>);
+    await user.click(screen.getByRole('button', { name: /Start import/ }));
+    expect(await screen.findByText(/Track at least one title before importing/)).toBeInTheDocument();
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('imports archive-only when matched-title tracking is unchecked without changing unidentified handling', async () => {
@@ -214,6 +250,7 @@ describe('ImportPage', () => {
             systemKey: undefined,
             allowUnidentified: 'true',
             archiveOnly: 'true',
+            trackedOnly: undefined,
           }),
         }),
       );

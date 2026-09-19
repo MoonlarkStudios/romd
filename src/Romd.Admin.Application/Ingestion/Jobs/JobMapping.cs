@@ -51,6 +51,7 @@ public static class JobMapping
             RomsIngested = job.RomsIngested,
             RomsDeduplicated = job.RomsDeduplicated,
             RomsRejected = job.RomsRejected,
+            TrackedOnly = job.TrackedOnly,
             CurrentItem = job.CurrentItem,
             Errors = job.Errors.Select(e => e.ToContract()).ToList(),
             HasErrors = job.HasErrors,

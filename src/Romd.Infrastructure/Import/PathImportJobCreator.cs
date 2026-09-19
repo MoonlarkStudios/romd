@@ -79,6 +79,7 @@ public sealed class PathImportJobCreator : IPathImportJobCreator
         job.SetMaxParallelRoms(options.MaxParallelRoms);
         job.SetAllowUnidentified(options.AllowUnidentified);
         job.SetArchiveOnly(options.ArchiveOnly);
+        job.SetTrackedOnly(options.TrackedOnly);
         job.SetImportSource(sourceRoot, move);
         foreach (var (path, reason) in skipped)
         {

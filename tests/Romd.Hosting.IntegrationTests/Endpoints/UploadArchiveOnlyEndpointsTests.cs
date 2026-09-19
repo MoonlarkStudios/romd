@@ -1,4 +1,9 @@
 using System.Net;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using NSubstitute;
+using Romd.Admin.Application.Titles;
+using Romd.Domain.Identity;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +19,37 @@ namespace Romd.Hosting.IntegrationTests.Endpoints;
 [Collection(IntegrationTestCollection.Name)]
 public sealed class UploadArchiveOnlyEndpointsTests(IntegrationTestFixture fixture)
 {
+    [Theory]
+    [InlineData("/api/upload")]
+    [InlineData("/api/upload/rom")]
+    public async Task Upload_TrackedOnly_RequiresTrackingAndPersistsChoice(string route)
+    {
+        var titles = Substitute.For<ITitleRepository>();
+        using var factory = fixture.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ITitleRepository>();
+            services.AddSingleton(titles);
+        }));
+        await using var scope = fixture.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+        var userId = await db.Users.Select(u => u.Id).FirstAsync();
+        using var client = factory.CreateClient().WithTestUser(userId, "admin@localhost", [RomdRoleType.Admin]);
+        using var blocked = new MultipartFormDataContent();
+        blocked.Add(new ByteArrayContent([1, 2, 3]), "file", "tracked.rom");
+        using var rejection = await client.PostAsync(route + "?trackedOnly=true", blocked);
+        rejection.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await rejection.Content.ReadAsStringAsync()).ShouldContain("Track at least one title");
+
+        titles.HasTrackedAsync(null, Arg.Any<CancellationToken>()).Returns(true);
+        using var content = new MultipartFormDataContent();
+        content.Add(new ByteArrayContent([1, 2, 3]), "file", "tracked.rom");
+        using var response = await client.PostAsync(route + "?trackedOnly=true", content);
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        var accepted = (await response.Content.ReadFromJsonAsync<UploadAccepted>())!;
+        var persisted = await db.Set<UploadJobEntity>().SingleAsync(job => job.Id == accepted.JobId);
+        persisted.TrackedOnly.ShouldBeTrue();
+    }
+
     [Fact]
     public async Task GenericUpload_RepeatedIdentity_ReturnsOneDurableJobAndBatch()
     {

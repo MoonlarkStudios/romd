@@ -1,3 +1,7 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Romd.PostgreSql.TestSupport;
 using Romd.Domain.Jobs;
 using Romd.Persistence.Entities;
 using Shouldly;
@@ -8,22 +12,41 @@ namespace Romd.Infrastructure.Tests.Persistence;
 public class UploadJobEntityTests
 {
     [Fact]
+    public async Task Migration_ExistingUpload_DefaultsToImportEverything()
+    {
+        using var database = PostgreSqlTestDatabase.Create();
+        await using var db = database.CreateContext();
+        var job = UploadJob.Create("old-upload.zip");
+        db.Add(UploadJobEntity.FromDomain(job));
+        await db.SaveChangesAsync();
+        var migrator = db.GetService<IMigrator>();
+        var previous = db.Database.GetMigrations().TakeWhile(name => !name.EndsWith("_TrackedOnlyUploads")).Last();
+        await migrator.MigrateAsync(previous);
+        await migrator.MigrateAsync();
+        db.ChangeTracker.Clear();
+        (await db.Set<UploadJobEntity>().SingleAsync(j => j.Id == job.Id)).ToDomain().TrackedOnly.ShouldBeFalse();
+    }
+
+    [Fact]
     public void FromDomain_ToDomain_RoundTripsUploadChoices()
     {
         var domain = UploadJob.Create("library.zip", platformId: 7);
         domain.SetMaxParallelRoms(8);
         domain.SetAllowUnidentified(true);
         domain.SetArchiveOnly(true);
+        domain.SetTrackedOnly(true);
 
         var entity = UploadJobEntity.FromDomain(domain);
         entity.AllowUnidentified.ShouldBeTrue();
         entity.ArchiveOnly.ShouldBeTrue();
+        entity.TrackedOnly.ShouldBeTrue();
         entity.MaxParallelRoms.ShouldBe(8);
         entity.JobType.ShouldBe("upload");
 
         var roundTripped = entity.ToDomain();
         roundTripped.AllowUnidentified.ShouldBeTrue();
         roundTripped.ArchiveOnly.ShouldBeTrue();
+        roundTripped.TrackedOnly.ShouldBeTrue();
         roundTripped.MaxParallelRoms.ShouldBe(8);
         roundTripped.PlatformId.ShouldBe(7);
     }
@@ -35,6 +58,7 @@ public class UploadJobEntityTests
 
         domain.AllowUnidentified.ShouldBeFalse();
         domain.ArchiveOnly.ShouldBeFalse();
+        UploadJobEntity.FromDomain(domain).ToDomain().TrackedOnly.ShouldBeFalse();
         UploadJobEntity.FromDomain(domain).ToDomain().AllowUnidentified.ShouldBeFalse();
         UploadJobEntity.FromDomain(domain).ToDomain().ArchiveOnly.ShouldBeFalse();
     }

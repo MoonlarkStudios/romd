@@ -19,6 +19,7 @@ interface PendingPlan {
   systemKey?: string;
   allowUnidentified: boolean;
   archiveOnly: boolean;
+  trackedOnly: boolean;
 }
 
 export function useImportSession() {
@@ -32,6 +33,7 @@ export function useImportSession() {
   const [defaultPlatformId, setDefaultPlatformId] = useState<string | null>(null);
   const [allowUnidentified, setAllowUnidentified] = useState(false);
   const [trackMatchedTitles, setTrackMatchedTitles] = useState(true);
+  const [trackedOnly, setTrackedOnly] = useState(false);
   const [localIds, setLocalIds] = useState<string[]>([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [isStarting, setIsStarting] = useState(false);
@@ -98,7 +100,7 @@ export function useImportSession() {
         const id = crypto.randomUUID();
         planRef.current = {
           batchId: id, systemKey: hasDats ? defaultPlatformId ?? undefined : undefined,
-          allowUnidentified, archiveOnly: !trackMatchedTitles,
+          allowUnidentified: !trackedOnly && allowUnidentified, archiveOnly: trackedOnly || !trackMatchedTitles, trackedOnly,
           requests: (bundle.kind === 'individual' ? bundle.files : [bundle.file]).map((file, index) => ({
             file, id: crypto.randomUUID(), stagedIds: bundle.kind === 'individual' ? [staged[index].id] : staged.map((entry) => entry.id),
           })),
@@ -115,7 +117,7 @@ export function useImportSession() {
         setUploadProgress(progress);
         const result = await uploadGeneric.mutateAsync({
           file: request.file, systemKey: plan.systemKey, allowUnidentified: plan.allowUnidentified,
-          archiveOnly: plan.archiveOnly, requestId: request.id, batchId: plan.batchId, signal: controller.signal,
+          archiveOnly: plan.archiveOnly, trackedOnly: plan.trackedOnly, requestId: request.id, batchId: plan.batchId, signal: controller.signal,
           onProgress: ({ loaded, total }) => {
             const stats = computeTransferStats(loaded, total, (performance.now() - start) / 1000);
             setUploadProgress({ ...progress, ...stats, loaded, total, phase: loaded >= total ? 'accepting' : 'uploading' });
@@ -139,7 +141,7 @@ export function useImportSession() {
   return {
     staged, summary, hasDats, addFiles, removeFile, clearStaged,
     defaultPlatformId, setDefaultPlatformId, allowUnidentified, setAllowUnidentified,
-    trackMatchedTitles, setTrackMatchedTitles, startImport, isStarting, uploadProgress, uploadError,
+    trackedOnly, setTrackedOnly, trackMatchedTitles, setTrackMatchedTitles, startImport, isStarting, uploadProgress, uploadError,
     retryPending: !!planRef.current, cancelUpload: () => abortRef.current?.abort(),
     activeJobIds, dismissJob: (id: string) => setDismissed((current) => [...current, id]), reopenJob,
     batchError: batch.isError, retryBatch: () => void batch.refetch(),

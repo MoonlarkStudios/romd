@@ -7,6 +7,7 @@ using Romd.Admin.Application.Ingestion.Classification;
 using Romd.Admin.Application.Ingestion.Extraction;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Titles.Enrichment;
+using Romd.Admin.Application.Titles;
 using Romd.Domain.Identity;
 using Romd.Domain.Jobs;
 using Romd.Infrastructure.Jobs.Processors;
@@ -55,6 +56,13 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
         var ct = context.CancellationToken;
         var workDirectory = context.WorkspacePath
             ?? throw new InvalidOperationException("Upload job requires a workspace");
+
+        if (job.TrackedOnly)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            if (!await scope.ServiceProvider.GetRequiredService<ITitleRepository>().HasTrackedAsync(cancellationToken: ct))
+                throw new InvalidOperationException("Track at least one title before importing tracked-title ROMs.");
+        }
 
         // Phase 1: Extract nested archives
         _logger.LogInformation("Job {Id}: Starting extraction", job.Id);
@@ -221,7 +229,7 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
                 try { job.SetCurrentItem(Path.GetRelativePath(workDirectory, romPath)); }
                 finally { progressGate.Release(); }
                 var result = await _romProcessor.ProcessAsync(
-                    romPath, allowUnidentified, job.ArchiveOnly, innerCt);
+                    romPath, allowUnidentified, job.ArchiveOnly, innerCt, job.TrackedOnly);
 
                 await progressGate.WaitAsync(CancellationToken.None);
                 try
@@ -239,7 +247,7 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
                     sink.Add(JobItem.ForRom(
                         job.Id, Path.GetRelativePath(workDirectory, romPath), result.SizeBytes, result.Outcome,
                         result.RomFileId, result.MatchedTitleIds, result.PlatformId, result.Error,
-                        job.ArchiveOnly));
+                        job.ArchiveOnly || job.TrackedOnly));
 
                     if (processedCount % _progressSaveInterval == 0 || sinceSave.Elapsed >= TimeSpan.FromSeconds(1))
                     {

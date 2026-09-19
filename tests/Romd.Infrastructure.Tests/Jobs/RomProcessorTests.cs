@@ -56,13 +56,14 @@ public sealed class RomProcessorTests
             await File.WriteAllBytesAsync(path, [1]);
 
             var result = await processor.ProcessAsync(
-                path, allowUnidentified: true, archiveOnly, CancellationToken.None);
+                path, allowUnidentified: true, archiveOnly, CancellationToken.None, trackedOnly: true);
 
             result.Outcome.ShouldBe(Romd.Domain.Jobs.RomIngestOutcome.Ingested);
             var command = handler.ReceivedCalls().ShouldHaveSingleItem().GetArguments()[0]
                 .ShouldBeOfType<IngestRomCommand>();
             command.AllowUnidentified.ShouldBeTrue();
             command.ArchiveOnly.ShouldBe(archiveOnly);
+            command.TrackedOnly.ShouldBeTrue();
         }
         finally
         {

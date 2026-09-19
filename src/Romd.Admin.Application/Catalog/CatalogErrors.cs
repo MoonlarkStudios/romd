@@ -6,6 +6,9 @@ namespace Romd.Admin.Application.Catalog;
 
 public static class CatalogErrors
 {
+    public static Error UntrackedRom() =>
+        Error.Validation("Library.UntrackedRom", "Skipped: ROM does not match a currently tracked title.");
+
     // DAT-related errors
     public static Error DatNotFound(int id) =>
         Error.NotFound("Catalog.DatNotFound", $"DAT file with ID {id} not found");

@@ -20,7 +20,7 @@ public enum JobItemOutcome
     /// <summary>ROM already existed (linked to the existing file).</summary>
     Deduplicated = 1,
 
-    /// <summary>ROM matched no catalog and was not stored.</summary>
+    /// <summary>ROM was excluded by the import policy and was not stored.</summary>
     Rejected = 2,
 
     /// <summary>File could not be processed.</summary>

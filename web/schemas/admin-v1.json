@@ -1685,6 +1685,13 @@
             }
           },
           {
+            "name": "trackedOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "requestId",
             "in": "query",
             "schema": {
@@ -1812,6 +1819,15 @@
         ],
         "description": "Upload a ROM file with validation",
         "operationId": "UploadRom",
+        "parameters": [
+          {
+            "name": "trackedOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -11318,6 +11334,12 @@
               "boolean"
             ]
           },
+          "trackedOnly": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
           "move": {
             "type": [
               "null",
@@ -12098,6 +12120,9 @@
           "romsRejected": {
             "type": "integer",
             "format": "int32"
+          },
+          "trackedOnly": {
+            "type": "boolean"
           },
           "id": {
             "type": "string",
@@ -16622,6 +16647,9 @@
           "romsRejected": {
             "type": "integer",
             "format": "int32"
+          },
+          "trackedOnly": {
+            "type": "boolean"
           },
           "id": {
             "type": "string",

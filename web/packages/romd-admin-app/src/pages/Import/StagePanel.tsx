@@ -48,9 +48,13 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
           </Table.Tr>)}</Table.Tbody>
         </Table>
       </ScrollArea.Autosize>
+      <Select label="ROMs to keep" value={props.trackedOnly ? 'tracked' : 'all'}
+        onChange={(value) => props.setTrackedOnly(value === 'tracked')} disabled={locked} allowDeselect={false}
+        data={[{ value: 'all', label: 'Import everything' }, { value: 'tracked', label: 'Tracked titles only' }]} maw={440} />
+      {props.trackedOnly && <Text size="sm" c="dimmed">Track titles before importing. Only ROMs matching currently tracked titles are kept, including matching regions and revisions. Unidentified ROMs and BIOS-only files are skipped. Catalogs still import normally.</Text>}
       <Group gap="xl" align="flex-start">
-        <Tooltip label="Track titles matched by the imported ROMs"><Checkbox label="Track matched titles" checked={props.trackMatchedTitles} onChange={(event) => props.setTrackMatchedTitles(event.currentTarget.checked)} disabled={locked} /></Tooltip>
-        {canManageTitles && <Tooltip label="Store files without a DAT match in Needs attention"><Checkbox label="Keep unmatched files" checked={props.allowUnidentified} onChange={(event) => props.setAllowUnidentified(event.currentTarget.checked)} disabled={locked} /></Tooltip>}
+        <Tooltip label="Track titles matched by the imported ROMs"><Checkbox label="Track matched titles" checked={!props.trackedOnly && props.trackMatchedTitles} onChange={(event) => props.setTrackMatchedTitles(event.currentTarget.checked)} disabled={locked || props.trackedOnly} /></Tooltip>
+        {canManageTitles && <Tooltip label="Store files without a DAT match in Needs attention"><Checkbox label="Keep unmatched files" checked={!props.trackedOnly && props.allowUnidentified} onChange={(event) => props.setAllowUnidentified(event.currentTarget.checked)} disabled={locked || props.trackedOnly} /></Tooltip>}
       </Group>
       {props.hasDats && <Select label="Assign catalogs to system" placeholder="Let ROMD route by header" value={props.defaultPlatformId} onChange={props.setDefaultPlatformId}
         data={(platforms.data ?? []).map((platform) => ({ value: platform.key, label: platform.compactLabel ? `${platform.name} (${platform.compactLabel})` : platform.name }))}

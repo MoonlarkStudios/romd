@@ -186,6 +186,9 @@ public interface ITitleRepository
     /// </summary>
     Task<bool> HasGamesAsync(int id, CancellationToken cancellationToken = default);
 
+    /// <summary>Checks current tracking intent, optionally restricted to matched title IDs.</summary>
+    Task<bool> HasTrackedAsync(IReadOnlyCollection<int>? titleIds = null, CancellationToken cancellationToken = default);
+
     /// <summary>
     ///     Legacy ingest seam that idempotently creates tracked-title intent rows for titles that
     ///     first become owned. Manual tracking mutations use <see cref="ITrackedTitleRepository" />.

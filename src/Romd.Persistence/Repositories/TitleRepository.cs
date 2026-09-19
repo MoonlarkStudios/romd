@@ -20,6 +20,11 @@ public sealed class TitleRepository : ITitleRepository
         _context = context;
     }
 
+    public Task<bool> HasTrackedAsync(IReadOnlyCollection<int>? titleIds = null, CancellationToken cancellationToken = default) =>
+        titleIds is null
+            ? _context.TrackedTitles.AnyAsync(cancellationToken)
+            : _context.TrackedTitles.AnyAsync(t => titleIds.Contains(t.TitleId), cancellationToken);
+
     public async Task<Title?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var entity = await _context.Titles

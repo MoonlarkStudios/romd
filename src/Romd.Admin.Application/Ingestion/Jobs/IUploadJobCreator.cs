@@ -29,6 +29,7 @@ public sealed record UploadJobOptions
     ///     adding their titles to the tracked collection.
     /// </summary>
     public bool ArchiveOnly { get; init; }
+    public bool TrackedOnly { get; init; }
 }
 
 public sealed record UploadJobCreationResult(

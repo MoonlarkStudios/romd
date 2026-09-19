@@ -36,6 +36,22 @@ public sealed class TitleRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task HasTrackedAsync_OnlyMatchesCurrentTrackingIntent()
+    {
+        using var db = CreateDb();
+        var repository = new TitleRepository(db);
+        (await repository.HasTrackedAsync()).ShouldBeFalse();
+        await AddTitleAsync(db, id: 1, isTracked: true);
+        await AddTitleAsync(db, id: 2, isTracked: false);
+        (await repository.HasTrackedAsync()).ShouldBeTrue();
+        (await repository.HasTrackedAsync([1, 2])).ShouldBeTrue();
+        (await repository.HasTrackedAsync([2])).ShouldBeFalse();
+        (await repository.HasTrackedAsync([])).ShouldBeFalse();
+        await db.TrackedTitles.ExecuteDeleteAsync();
+        (await repository.HasTrackedAsync([1])).ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task AddUserMedia_RetryDeduplicatesByContentAndType()
     {
         using var db = CreateDb();

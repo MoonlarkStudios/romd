@@ -29,7 +29,8 @@ public sealed class RomProcessor
         string path,
         bool allowUnidentified,
         bool archiveOnly,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool trackedOnly = false)
     {
         var policy = _resilience.GetPipeline(ResiliencePolicyKey.TransientFault);
         long sizeBytes = TryGetSize(path);
@@ -38,7 +39,7 @@ public sealed class RomProcessor
         {
             return await policy.ExecuteAsync(
                 async token => await ProcessCoreAsync(
-                    path, sizeBytes, allowUnidentified, archiveOnly, token),
+                    path, sizeBytes, allowUnidentified, archiveOnly, trackedOnly, token),
                 ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -53,6 +54,7 @@ public sealed class RomProcessor
         long sizeBytes,
         bool allowUnidentified,
         bool archiveOnly,
+        bool trackedOnly,
         CancellationToken ct)
     {
         using var scope = _serviceProvider.CreateScope();
@@ -60,12 +62,15 @@ public sealed class RomProcessor
 
         await using var stream = File.OpenRead(path);
         var command = new IngestRomCommand(
-            stream, Path.GetFileName(path), allowUnidentified, archiveOnly);
+            stream, Path.GetFileName(path), allowUnidentified, archiveOnly, trackedOnly);
         var result = await handler.HandleAsync(command, ct);
 
         if (result.IsError)
         {
             var error = result.FirstError;
+            if (error.Code == "Library.UntrackedRom")
+                return new RomProcessingResult(RomIngestOutcome.Rejected, error.Description, sizeBytes);
+
             if (error.Code == "Library.UnidentifiedRom")
             {
                 return new RomProcessingResult(RomIngestOutcome.Rejected, null, sizeBytes);

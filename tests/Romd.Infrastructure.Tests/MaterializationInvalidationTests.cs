@@ -46,6 +46,49 @@ public sealed class MaterializationInvalidationTests
     private static readonly Sha256 TestSha256 =
         Sha256.Parse("4444444444444444444444444444444444444444444444444444444444444444");
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task IngestRomCommandHandler_TrackedOnlyWithoutTrackedMatch_SkipsBeforeAnyMutation(bool duplicate, bool unidentified)
+    {
+        var (handler, ports) = CreateIngestRomHandler();
+        SetupCatalogMatch(ports, unidentified ? [] : [123], unidentified ? [] : [10]);
+        if (duplicate)
+            ports.RomRepository.GetBySha1Async(TestSha1, Arg.Any<CancellationToken>()).Returns(
+                RomFile.Rehydrate(7, "existing.rom", 42, 1, TestSha1, TestMd5, TestCrc32, DateTimeOffset.UtcNow));
+
+        var result = await handler.HandleAsync(new IngestRomCommand(
+            new MemoryStream([1]), "skip.rom", AllowUnidentified: true, TrackedOnly: true));
+
+        result.IsError.ShouldBeTrue();
+        result.FirstError.Code.ShouldBe("Library.UntrackedRom");
+        await ports.FileStorage.DidNotReceiveWithAnyArgs().StoreFromTempFileAsync(default!, default);
+        await ports.DatRepository.DidNotReceiveWithAnyArgs().LinkDatRomsToRomFileAsync(default, default, default);
+        await ports.TitleRepository.DidNotReceiveWithAnyArgs().MarkTrackedAsync(default!, default);
+        await ports.UnitOfWork.DidNotReceiveWithAnyArgs().BeginTransactionAsync(default);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IngestRomCommandHandler_TrackedOnlySharedRom_RetainsWithoutTrackingOtherMatches(bool duplicate)
+    {
+        var (handler, ports) = CreateIngestRomHandler();
+        SetupCatalogMatch(ports, [123, 456], [10]);
+        ports.TitleRepository.HasTrackedAsync(
+            Arg.Is<IReadOnlyCollection<int>>(ids => ids.SequenceEqual(new[] { 123, 456 })), Arg.Any<CancellationToken>()).Returns(true);
+        if (duplicate)
+            ports.RomRepository.GetBySha1Async(TestSha1, Arg.Any<CancellationToken>()).Returns(
+                RomFile.Rehydrate(7, "existing.rom", 42, 1, TestSha1, TestMd5, TestCrc32, DateTimeOffset.UtcNow));
+
+        var result = await handler.HandleAsync(new IngestRomCommand(new MemoryStream([1]), "keep.rom", TrackedOnly: true));
+
+        result.IsError.ShouldBeFalse();
+        result.Value.IsNew.ShouldBe(!duplicate);
+        await ports.TitleRepository.DidNotReceiveWithAnyArgs().MarkTrackedAsync(default!, default);
+    }
+
     [Fact]
     public async Task IngestRomCommandHandler_UnmatchedAllowedRom_DoesNotFlagLibraries()
     {
@@ -559,7 +602,7 @@ public sealed class MaterializationInvalidationTests
             NullLogger<IngestRomCommandHandler>.Instance);
 
         return (handler, new IngestRomPorts(
-            romRepository, datRepository, catalogMatches, libraryRepository, titleRepository));
+            romRepository, datRepository, catalogMatches, libraryRepository, titleRepository, fileStorage, unitOfWork));
     }
 
     private static void SetupCatalogMatch(
@@ -743,7 +786,9 @@ public sealed class MaterializationInvalidationTests
         IDatRepository DatRepository,
         IRomCatalogMatchReader CatalogMatches,
         ILibraryRepository LibraryRepository,
-        ITitleRepository TitleRepository);
+        ITitleRepository TitleRepository,
+        IFileStorageService FileStorage,
+        IUnitOfWork UnitOfWork);
 
     private sealed class MemoryTempFile(byte[] content, Sha256 sha256) : ITempFile
     {

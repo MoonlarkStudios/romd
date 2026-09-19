@@ -11,5 +11,6 @@ public sealed record ImportFromPath
     public int? MaxParallelRoms { get; init; }
     public bool? AllowUnidentified { get; init; }
     public bool? ArchiveOnly { get; init; }
+    public bool? TrackedOnly { get; init; }
     public bool? Move { get; init; }
 }

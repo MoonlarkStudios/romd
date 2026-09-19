@@ -1,8 +1,15 @@
 import type { UploadAccepted } from '@romd/admin-api-client';
-import { replaceDat, uploadDat, uploadRom } from '@romd/admin-api-client';
+import { getTrackedCollectionStats, replaceDat, uploadDat, uploadRom } from '@romd/admin-api-client';
 import { useMutation } from '@tanstack/react-query';
 import { type UploadProgress, uploadWithProgress } from './uploadWithProgress';
 import { useCreateJob } from './useCreateJob';
+
+async function requireTrackedTitles(signal?: AbortSignal) {
+  const response = await getTrackedCollectionStats({ signal });
+  if (response.error || !response.data) throw new Error('Could not check tracked titles. Try again before uploading.');
+  if (Number(response.data.trackedTitleCount) === 0)
+    throw new Error('Track at least one title before importing tracked-title ROMs.');
+}
 
 interface UploadDatParams {
   file: File;
@@ -67,6 +74,7 @@ interface UploadGenericParams {
   systemKey?: string;
   allowUnidentified?: boolean;
   archiveOnly?: boolean;
+  trackedOnly?: boolean;
   onProgress?: (progress: UploadProgress) => void;
   signal?: AbortSignal;
 }
@@ -76,18 +84,21 @@ export function useUploadGeneric() {
 
   return useMutation({
     // Sent via XHR (not the generated fetch client) so the caller gets upload progress.
-    mutationFn: ({ file, systemKey, allowUnidentified, archiveOnly = false, requestId, batchId, onProgress, signal }: UploadGenericParams) =>
-      uploadWithProgress<UploadAccepted>('/api/upload', file, {
+    mutationFn: async ({ file, systemKey, allowUnidentified, archiveOnly = false, trackedOnly = false, requestId, batchId, onProgress, signal }: UploadGenericParams) => {
+      if (trackedOnly) await requireTrackedTitles(signal);
+      return uploadWithProgress<UploadAccepted>('/api/upload', file, {
         query: {
           requestId,
           batchId,
           systemKey,
           allowUnidentified: allowUnidentified ? 'true' : undefined,
           archiveOnly: archiveOnly ? 'true' : 'false',
+          trackedOnly: trackedOnly ? 'true' : undefined,
         },
         onProgress,
         signal,
-      }),
+      });
+    },
     onSuccess: (data) => {
       seedJob(data);
     },
@@ -96,15 +107,18 @@ export function useUploadGeneric() {
 
 interface UploadRomParams {
   file: File;
+  trackedOnly?: boolean;
 }
 
 export function useUploadRom() {
   const { seedJob } = useCreateJob();
 
   return useMutation({
-    mutationFn: async ({ file }: UploadRomParams) => {
+    mutationFn: async ({ file, trackedOnly }: UploadRomParams) => {
+      if (trackedOnly) await requireTrackedTitles();
       const response = await uploadRom({
         body: { file },
+        query: { trackedOnly },
       });
 
       if (response.error) {

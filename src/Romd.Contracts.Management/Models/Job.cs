@@ -60,6 +60,7 @@ public sealed record UploadJobDto : JobDto
     public int RomsIngested { get; init; }
     public int RomsDeduplicated { get; init; }
     public int RomsRejected { get; init; }
+    public bool TrackedOnly { get; init; }
 }
 
 /// <summary>

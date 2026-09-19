@@ -35,6 +35,16 @@ public sealed class UploadJobCreatorTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateAsync_ChangedTrackedOnlyOption_CannotReuseRequest()
+    {
+        var request = new UploadJobOptions { RequestId = Guid.NewGuid(), BatchId = Guid.NewGuid(), TrackedOnly = true };
+        var accepted = UploadJob.Create("pack.zip", requestId: request.RequestId, batchId: request.BatchId);
+        _jobs.GetByIdAsync(accepted.Id, Arg.Any<CancellationToken>()).Returns(accepted);
+        using var stream = new ThrowingStream();
+        await Should.ThrowAsync<InvalidOperationException>(() => Create().CreateAsync(stream, "pack.zip", request));
+    }
+
+    [Fact]
     public async Task CreateAsync_AnotherOwner_CannotReuseRequest()
     {
         var request = new UploadJobOptions { RequestId = Guid.NewGuid(), BatchId = Guid.NewGuid(), CreatedByUserId = Guid.NewGuid() };

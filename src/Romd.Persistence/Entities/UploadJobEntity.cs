@@ -16,6 +16,7 @@ public sealed class UploadJobEntity : JobEntity
     public int MaxParallelRoms { get; set; } = 4;
     public bool AllowUnidentified { get; set; }
     public bool ArchiveOnly { get; set; }
+    public bool TrackedOnly { get; set; }
     public string? ImportSourcePath { get; set; }
     public bool ImportMove { get; set; }
 
@@ -65,7 +66,8 @@ public sealed class UploadJobEntity : JobEntity
             CompletedAt,
             IsArchived,
             ArchivedAt,
-            CreatedByUserId);
+            CreatedByUserId,
+            TrackedOnly);
     }
 
     public static UploadJobEntity FromDomain(UploadJob domain, DateTimeOffset? updatedAt = null)
@@ -89,6 +91,7 @@ public sealed class UploadJobEntity : JobEntity
             MaxParallelRoms = domain.MaxParallelRoms,
             AllowUnidentified = domain.AllowUnidentified,
             ArchiveOnly = domain.ArchiveOnly,
+            TrackedOnly = domain.TrackedOnly,
             ImportSourcePath = domain.ImportSourcePath,
             ImportMove = domain.ImportMove,
             CurrentItem = domain.CurrentItem,
