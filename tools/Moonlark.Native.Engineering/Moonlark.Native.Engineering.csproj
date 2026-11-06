@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Moonlark.Native.Engineering</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Moonlark.Native.Engineering.Tests" />
+  </ItemGroup>
+</Project>

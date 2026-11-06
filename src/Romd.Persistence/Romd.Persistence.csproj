@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Romd.Admin.Application\Romd.Admin.Application.csproj"/>
+    <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj"/>
+    <ProjectReference Include="..\Romd.Consumer.Application\Romd.Consumer.Application.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore"/>
+    <PackageReference Include="Microsoft.EntityFrameworkCore"/>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions"/>
+    <PackageReference Include="Microsoft.IdentityModel.Tokens"/>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL"/>
+    <PackageReference Include="OpenIddict.EntityFrameworkCore"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="MediaFacts/CdObservationFacts.sql" LogicalName="Romd.MediaFacts.CdObservationFacts.sql" />
+    <EmbeddedResource Include="MediaFacts/ReconciliationGuards.sql" LogicalName="Romd.MediaFacts.ReconciliationGuards.sql" />
+    <EmbeddedResource Include="MediaFacts/ReconciliationSchema.sql" LogicalName="Romd.MediaFacts.ReconciliationSchema.sql" />
+    <EmbeddedResource Include="MediaFacts/BaselineSupport.sql" LogicalName="Romd.MediaFacts.BaselineSupport.sql" />
+    <EmbeddedResource Include="MediaFacts/RuntimeFactGrants.sql" LogicalName="Romd.MediaFacts.RuntimeFactGrants.sql" />
+    <EmbeddedResource Include="MediaFacts/CatalogCdLayoutFacts.sql" LogicalName="Romd.MediaFacts.CatalogCdLayoutFacts.sql" />
+    <EmbeddedResource Include="MediaFacts/OwnershipFacts.sql" LogicalName="Romd.MediaFacts.OwnershipFacts.sql" />
+    <EmbeddedResource Include="MediaFacts/SourcePinFacts.sql" LogicalName="Romd.MediaFacts.SourcePinFacts.sql" />
+    <EmbeddedResource Include="MediaFacts/CreationFacts.sql" LogicalName="Romd.MediaFacts.CreationFacts.sql" />
+    <EmbeddedResource Include="MediaFacts/ContainerFacts.sql" LogicalName="Romd.MediaFacts.ContainerFacts.sql" />
+    <EmbeddedResource Include="MediaFacts/InspectionFacts.sql" LogicalName="Romd.MediaFacts.InspectionFacts.sql" />
+    <EmbeddedResource Include="MediaFacts/Schema.sql" LogicalName="Romd.MediaFacts.Schema.sql" />
+    <EmbeddedResource Include="../../reference-data/dist/reference-data.json" LogicalName="Romd.ReferenceData.json" />
+    <EmbeddedResource Include="../../reference-data/assets/presentation/platforms/*.png" LogicalName="ReferenceAssets/platforms/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../../reference-data/assets/presentation/ratings/**/*.svg" LogicalName="ReferenceAssets/ratings/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

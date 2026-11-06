@@ -1,0 +1,19 @@
+/* The metadata editor is its own size container. Its width decides the columns; the host's `data-density` picks the
+   spacing tier, and a narrow editor uses the compact tier whatever the host asked for. */
+.panel {
+  container: metadata-editor / inline-size; min-width: 0; display: flex; flex-direction: column; gap: var(--metadata-panel-gap);
+  --metadata-panel-gap: var(--mantine-spacing-lg); --metadata-field-gap: var(--mantine-spacing-md);
+  --metadata-field-padding: var(--mantine-spacing-md) var(--mantine-spacing-xs); --metadata-field-min-height: 92px;
+}
+.panel[data-density='compact'] {
+  --metadata-panel-gap: var(--mantine-spacing-md); --metadata-field-gap: var(--mantine-spacing-xs);
+  --metadata-field-padding: var(--mantine-spacing-xs); --metadata-field-min-height: 0;
+}
+@container metadata-editor (max-width: 30em) {
+  .panel > * { --metadata-field-gap: var(--mantine-spacing-xs); --metadata-field-padding: var(--mantine-spacing-xs); --metadata-field-min-height: 0; }
+}
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--metadata-field-gap); }
+@container metadata-editor (max-width: 32em) { .fields { grid-template-columns: minmax(0, 1fr); } }
+.wide { grid-column: 1 / -1; }
+/* The density tier sizes each field button. */
+.field { padding: var(--metadata-field-padding); min-height: var(--metadata-field-min-height); }

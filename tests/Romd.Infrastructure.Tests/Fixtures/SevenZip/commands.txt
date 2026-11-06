@@ -1,0 +1,9 @@
+7zz a non-solid.7z a.rom b.rom tree empty.rom emptydir -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=LZMA2 -md=1m -ms=off -mhc=off
+7zz a solid.7z a.rom b.rom tree empty.rom emptydir -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=LZMA2 -md=1m -ms=on
+7zz a lzma.7z a.rom b.rom tree empty.rom emptydir -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=LZMA -md=1m -ms=on
+7zz a large.7z large.rom -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=LZMA2 -md=1m -ms=off
+7zz a encrypted.7z a.rom -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=LZMA2 -md=1m -pfixture -mhe=off -mhc=off
+7zz a encrypted-headers.7z a.rom -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=LZMA2 -md=1m -pfixture -mhe=on
+7zz a copy-seed.7z a.rom b.rom -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=Copy -ms=off -mhc=off
+7zz a split.7z large.rom -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=Copy -v64k -mhc=off
+7zz a zip-in-7z.7z inner.zip -mtm=off -mta=off -mtc=off -bso0 -bsp0 -m0=LZMA2 -md=1m

@@ -1,0 +1,37 @@
+<Project>
+  <PropertyGroup>
+    <RomdMediaWorkerProject>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../src/Romd.Media.Worker/Romd.Media.Worker.csproj'))</RomdMediaWorkerProject>
+    <RomdMediaWorkerBuildDirectory>$([System.IO.Path]::GetDirectoryName('$(RomdMediaWorkerProject)'))/bin/$(Configuration)/net10.0/</RomdMediaWorkerBuildDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(RomdMediaWorkerProject)" ReferenceOutputAssembly="false"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile;PublishTrimmed;PublishReadyToRun"
+                      AdditionalProperties="UseAppHost=false;SelfContained=false;PublishSingleFile=false;PublishTrimmed=false;PublishReadyToRun=false" />
+  </ItemGroup>
+
+  <Target Name="CopyRomdMediaWorker" AfterTargets="Build">
+    <ItemGroup>
+      <RomdMediaWorkerBuildFiles Include="$(RomdMediaWorkerBuildDirectory)*.dll;$(RomdMediaWorkerBuildDirectory)*.pdb;$(RomdMediaWorkerBuildDirectory)*.deps.json;$(RomdMediaWorkerBuildDirectory)*.runtimeconfig.json" />
+    </ItemGroup>
+    <Error Condition="!Exists('$(RomdMediaWorkerBuildDirectory)Romd.Media.Worker.dll')"
+           Text="The dedicated media worker was not built." />
+    <Error Condition="!Exists('$(RomdMediaWorkerBuildDirectory)Romd.Media.Worker.runtimeconfig.json')"
+           Text="The dedicated media worker runtime configuration is missing." />
+    <Copy SourceFiles="@(RomdMediaWorkerBuildFiles)"
+          DestinationFiles="@(RomdMediaWorkerBuildFiles->'$(TargetDir)media-worker/%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="PublishRomdMediaWorker" BeforeTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <RomdMediaWorkerPublishFiles Include="$(RomdMediaWorkerBuildDirectory)*.dll;$(RomdMediaWorkerBuildDirectory)*.pdb;$(RomdMediaWorkerBuildDirectory)*.deps.json;$(RomdMediaWorkerBuildDirectory)*.runtimeconfig.json" />
+      <ResolvedFileToPublish Include="@(RomdMediaWorkerPublishFiles)">
+        <RelativePath>media-worker/%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+    <Error Condition="!Exists('$(RomdMediaWorkerBuildDirectory)Romd.Media.Worker.dll')"
+           Text="The dedicated media worker publication is missing its executable." />
+  </Target>
+</Project>

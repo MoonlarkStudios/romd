@@ -1,0 +1,3 @@
+# Preserve packaged documents and fonts byte-for-byte, including ASCII-heavy PDFs.
+*.pdf binary
+*.ttf binary

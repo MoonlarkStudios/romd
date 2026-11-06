@@ -1,0 +1,31 @@
+.page { composes: page from "../../components/Workspace/Workspace.module.css"; }
+.header { composes: hero from "../../components/Workspace/Workspace.module.css"; }
+.eyebrow { composes: eyebrow from "../../components/Workspace/Workspace.module.css"; }
+.heading { composes: heading from "../../components/Workspace/Workspace.module.css"; }
+.intro { composes: intro from "../../components/Workspace/Workspace.module.css"; }
+.list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--mantine-color-default-border); }
+.listRow { display: flex; gap: 20px; align-items: center; padding: 14px 8px; border-bottom: 1px solid var(--mantine-color-default-border); color: inherit; }
+.collectionLink { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+.rowContent { min-width: 0; overflow-wrap: anywhere; }
+.placements { max-width: 35%; overflow-wrap: anywhere; }
+.relationshipLink { color: var(--mantine-color-dimmed); text-decoration: underline; text-underline-offset: 3px; }
+.relationshipLink:hover { color: var(--mantine-color-teal-6); }
+@media (max-width: 600px) { .listRow { flex-wrap: wrap; } .collectionLink { flex-basis: 100%; } .placements { max-width: 100%; padding-left: 56px; } }
+.listRow:hover { background: var(--mantine-color-default-hover); }
+.listRow:focus-visible { outline: 3px solid var(--mantine-color-teal-6); outline-offset: -3px; }
+.art { width: 42px; height: 56px; flex-shrink: 0; object-fit: cover; border-radius: 4px; background: var(--mantine-color-default-hover); display: grid; place-items: center; color: var(--mantine-color-dimmed); }
+.heroArt { width: 100px; height: 132px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
+.build { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 28px; align-items: start; }
+.panel { composes: panel from "../../components/Workspace/Workspace.module.css"; }
+.results { max-height: 650px; overflow-y: auto; scrollbar-gutter: stable; }
+.catalogRow { display: flex; align-items: center; gap: 14px; padding: 14px 2px; border-bottom: 1px solid var(--mantine-color-default-border); }
+.shared { border-bottom: 1px solid var(--mantine-color-default-border); padding: 8px 0 16px; }
+.previewGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px; }
+.previewArt { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; background: var(--mantine-color-default-hover); display: grid; place-items: center; }
+.mobileToggle { display: none; }
+@media (max-width: 1050px) { .build { display: block; } .mobileToggle { display: flex; } .mobileHidden { display: none; } .previewGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .heroArt { width: 64px; height: 84px; } .previewGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .listRow { gap: 12px; } }
+.tabs { composes: tabs from "../../components/Workspace/Workspace.module.css"; }
+.tabsList { composes: tabsList from "../../components/Workspace/Workspace.module.css"; }
+.tab { composes: tab from "../../components/Workspace/Workspace.module.css"; }
+.sectionHeading { composes: sectionHeading from "../../components/Workspace/Workspace.module.css"; }

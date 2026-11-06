@@ -1,0 +1,9 @@
+title = "ROMD publication audit (Gitleaks 8.30.0)"
+
+[extend]
+useDefault = true
+
+# There are deliberately no ROMD allowlists or directory exclusions. Add an
+# exception only after reviewing a specific false positive, with its rule,
+# exact fingerprint/value, rationale, owner and review date. Never baseline
+# confirmed secrets; rotate them before coordinating any history cleanup.

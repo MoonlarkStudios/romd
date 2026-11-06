@@ -1,0 +1,254 @@
+[tools]
+actionlint = "1.7.12"
+shellcheck = "0.11.0"
+dotnet = "10.0.402"
+node = "24.22.0"
+pnpm = "10.34.7"
+docker-compose = "5.6.0"
+
+[env]
+DOTNET_NOLOGO = "true"
+DOTNET_CLI_TELEMETRY_OPTOUT = "true"
+# Per-checkout dev database connection strings for the hosts (scripts/db/env.sh).
+_.source = "scripts/db/env.sh"
+
+[tasks.dev]
+description = "Run worker-first local .NET hosts and watched web apps with containerized PostgreSQL"
+run = "python3 scripts/dev/manage.py source"
+
+[tasks.bootstrap]
+description = "Restore pinned development prerequisites without resetting local state (optional --console)"
+run = "python3 scripts/dev/manage.py bootstrap"
+
+[tasks.doctor]
+description = "Diagnose source development prerequisites and restored dependencies (optional --mode containers --console --tests)"
+run = "python3 scripts/dev/manage.py doctor"
+
+[tasks."dev:docker"]
+description = "Compatibility alias for dev:containers (uses the selected engine)"
+run = "python3 scripts/dev/manage.py containers"
+
+[tasks."dev:containers"]
+description = "Run owned container hosts and portal development servers"
+run = "python3 scripts/dev/manage.py containers"
+
+[tasks."containers:doctor"]
+description = "Check selected engine, API and required Compose capabilities"
+run = "python3 scripts/containers/runtime.py doctor"
+
+[tasks."containers:smoke"]
+description = "Verify disposable container builds, networking, health and volume persistence"
+run = "python3 scripts/containers/smoke.py"
+
+[tasks."dev:source"]
+description = "Run worker-first source hosts, rebuild/restart on backend edits, and start portal development servers"
+run = "python3 scripts/dev/manage.py source"
+
+[tasks."dev:status"]
+description = "Print this checkout's managed session status, URLs and diagnostic paths as JSON"
+run = "python3 scripts/dev/manage.py status"
+
+[tasks."dev:restart"]
+description = "Ask this checkout's active source run to rebuild and restart backend hosts worker-first"
+run = "python3 scripts/dev/manage.py restart"
+
+[tasks."dev:clean-images"]
+description = "Remove this checkout's legacy per-run and untagged development images (optional --dry-run --all)"
+run = "python3 scripts/dev/manage.py clean-images"
+
+[tasks."dev:check"]
+description = "Check development ownership, configuration and shutdown contracts"
+run = "python3 scripts/validation/run.py --group development"
+
+[tasks."dev:smoke"]
+description = "Qualify committed source in disposable worktrees and PostgreSQL (optional --parallel --demo)"
+run = "python3 scripts/dev/smoke.py"
+
+[tasks."dev:demo"]
+description = "Seed the prepared .demo manifest into this checkout's source session (optional --wait [SECONDS] --plan --synthetic)"
+run = "python3 scripts/dev/demo.py"
+
+[tasks."dev:demo:prepare"]
+description = "Prepare ignored .demo assets and authenticated DATs (--from COLLECTION with .demo/profile.json or --profile PATH, or --from-workspace OTHER/.demo to copy)"
+run = "python3 scripts/dev/demo_workspace.py"
+
+[tasks."dev:demo:serve"]
+description = "Run managed source development with the prepared production-pinned DAT subscription reader"
+run = "python3 scripts/dev/demo.py --serve"
+
+[tasks."dev:demo:subscriptions"]
+description = "Subscribe, check and preview the prepared DAT catalogs without approving updates"
+run = "python3 scripts/dev/demo.py --subscriptions"
+
+[tasks."db:up"]
+description = "Start the local PostgreSQL dev server and ensure this checkout's database exists"
+run = "scripts/db/up.sh"
+
+[tasks."db:down"]
+description = "Stop the local PostgreSQL dev server (shared by all checkouts; data persists)"
+run = "scripts/db/down.sh"
+
+[tasks."db:reset"]
+description = "Drop and recreate this checkout's database and clear the data directory (first-run state)"
+run = "scripts/db/reset.sh"
+
+[tasks."db:psql"]
+description = "Open psql against this checkout's database"
+run = "scripts/db/psql.sh"
+
+[tasks."db:snapshot"]
+description = "Snapshot this checkout's database via CREATE DATABASE ... TEMPLATE (no args: list snapshots)"
+run = "scripts/db/snapshot.sh"
+
+[tasks."db:restore"]
+description = "Replace this checkout's database with a named snapshot"
+run = "scripts/db/restore.sh"
+
+[tasks."db:env"]
+description = "Print this checkout's database connection-string exports (eval it in shells without mise activation)"
+run = "scripts/db/env.sh"
+
+[tasks.build]
+description = "Build everything for production"
+depends = ["native:libchdr"]
+run = "dotnet build -c Release -m:1 -p:BuildFrontend=true"
+env = { CI = "true" }
+
+[tasks."tools:restore"]
+description = "Restore repository-pinned .NET tools"
+run = "dotnet tool restore"
+
+[tasks."dotnet:style"]
+description = "Verify SDK whitespace formatting of changed C# files (optional --base REF; default origin/main)"
+run = "python3 scripts/quality/dotnet_style.py"
+
+[tasks."dotnet:style:smoke"]
+description = "Exercise the pinned SDK whitespace formatter on disposable good and bad C# fixtures"
+run = "python3 scripts/quality/dotnet_style.py --smoke-test"
+
+[tasks."agents:check"]
+description = "Check Markdown links/anchors, agent TOMLs, backend test routing, and checker regressions (Python 3.11+)"
+run = [
+  "python3 scripts/ci/prepare.py",
+  ".artifacts/ci-python/bin/python scripts/agents/check.py",
+  ".artifacts/ci-python/bin/python -B -m unittest discover -s scripts/agents -p 'test_*.py'",
+  ".artifacts/ci-python/bin/python -B -m unittest discover -s scripts/validation -p 'test_*.py'",
+  "python3 scripts/validation/run.py --group agents",
+]
+
+[tasks."native:libchdr"]
+description = "Build and verify libchdr into artifacts/ (Linux uses the selected container engine)"
+run = "scripts/native/build.sh libchdr"
+
+[tasks."native:chdman"]
+description = "Build the pinned chdman for this host, cached by the MAME tarball SHA-256 and recipe version"
+run = "scripts/native/build.sh chdman"
+
+[tasks."native:fixtures"]
+description = "Generate and verify the synthetic libchdr fixtures with the pinned chdman"
+run = "scripts/native/build.sh fixtures"
+
+[tasks."native:test-inputs"]
+description = "Build libchdr, chdman and the synthetic fixtures, then run the ClangSharp drift check"
+run = "scripts/native/build.sh test-inputs"
+
+[tasks."fuzz:libchdr"]
+description = "Fuzz the pinned libchdr with libFuzzer in a disposable native-architecture Linux container (arg: seconds per target, default 60; FUZZ_WORKERS=1|2)"
+depends = ["native:test-inputs"]
+run = "scripts/native/fuzz.sh run"
+
+[tasks."fuzz:libchdr:parity"]
+description = "Check that the fuzz harness and Moonlark.Libchdr admit and reject every deterministic seed alike (Docker, .NET SDK)"
+depends = ["native:test-inputs"]
+run = "scripts/native/fuzz.sh parity"
+
+[tasks."fuzz:libchdr:canary"]
+description = "Show ASan and UBSan fire in a separate libchdr canary build and that the fuzzing build is canary-free (Docker)"
+depends = ["native:test-inputs"]
+run = "scripts/native/fuzz.sh canary"
+
+[tasks."fuzz:libchdr:gate"]
+description = "The libchdr M5 fuzz gate: canary, then parity, then fuzzing (arg: seconds per target, default 1800), stopping at the first failure"
+depends = ["native:test-inputs"]
+run = "scripts/native/fuzz.sh gate"
+
+[tasks."bench:libchdr"]
+description = "Run the report-only libchdr benchmarks against the native build and fixtures"
+depends = ["native:test-inputs"]
+run = "dotnet run --project benchmarks/Moonlark.Libchdr.Benchmarks -c Release -- run artifacts/benchmarks/libchdr"
+
+[tasks.test]
+description = "Run registered deterministic backend checks (container engine and native prerequisites required)"
+depends = ["native:test-inputs"]
+run = "python3 scripts/validation/run.py --group backend"
+
+[tasks."test:mount-dev"]
+description = "Run registered checks for the parked mount development helper"
+run = "python3 scripts/validation/run.py --group mount-dev"
+
+[tasks."test:integration"]
+description = "Run registered host integration checks with hang diagnostics"
+run = "python3 scripts/validation/run.py --group integration"
+
+[tasks."test:all"]
+description = "Run deterministic backend tests, then integration tests"
+run = [
+  "mise run test",
+  "mise run test:integration",
+]
+
+[tasks."test:web"]
+description = "Run frontend tests"
+dir = "web"
+run = "pnpm test"
+
+[tasks."e2e:chd"]
+description = "Real-disc PS2 DVD CHD end-to-end harness on locally built images (Docker; needs ROMD_FIXTURES and ROMD_E2E_ROOT; see scripts/e2e/README.md)"
+run = "python3 scripts/e2e/chd.py"
+
+[tasks."e2e:chd:upgrade"]
+description = "Disposable native CHD recipe-1 to recipe-2 upgrade qualification (explicit baseline/current image tags; see scripts/e2e/README.md)"
+run = "python3 scripts/e2e/chd_upgrade.py"
+
+[tasks."e2e:chd:synthetic"]
+description = "Generated-input PS2 DVD CHD end-to-end harness on locally built images (Docker; no fixtures; composition only)"
+run = "python3 scripts/e2e/chd.py --synthetic --checkpoint encoding"
+
+[tasks."workflows:lint"]
+description = "Lint workflows with pinned actionlint and enforce immutable action references"
+run = ["python3 scripts/ci/prepare.py", ".artifacts/ci-python/bin/python scripts/ci/lint_workflows.py", ".artifacts/ci-python/bin/python -B -m unittest discover -s scripts/ci -p 'test_*.py'", "actionlint"]
+
+[tasks."toolchain:check"]
+description = "Verify exact local and CI toolchain selection"
+run = "python3 scripts/ci/toolchain.py"
+
+[tasks."contracts:check"]
+description = "Run registered deployment Compose, CHD harness and OpenAPI drift contracts (.NET, web deps; build-context export needs Docker)"
+run = "python3 scripts/validation/run.py --group contracts"
+
+[tasks."release:check"]
+description = "Run registered release policy, bundle and browser harness contract checks"
+run = "python3 scripts/validation/run.py --group release"
+
+[tasks."security:check"]
+description = "Run release scanner, inventory, policy and verification contract checks"
+run = "python3 scripts/validation/run.py --group security"
+
+[tasks."dependencies:check"]
+description = "Audit NuGet, pnpm, Pub and shipped Go reader (network; Linux x64; Docker BuildKit)"
+run = [
+  "python3 scripts/ci/prepare.py",
+  "python3 scripts/validation/run.py --group dependencies",
+]
+
+[tasks."dependencies:locks"]
+description = "Verify portable and Linux image NuGet lockfiles (use --update for reviewed dependency changes)"
+run = "python3 scripts/ci/nuget_locks.py"
+
+[tasks."publication:audit"]
+description = "Audit all acquired refs into a new private directory (required --source/--evidence/--gitleaks)"
+run = "python3 scripts/publication/audit.py"
+
+[tasks."publication:archive-review"]
+description = "Recheck private fixture provenance and decoded payload evidence without waiving scanner gaps"
+run = "python3 scripts/publication/archive_review.py"

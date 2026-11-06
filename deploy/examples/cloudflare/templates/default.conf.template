@@ -1,0 +1,76 @@
+# Credentials can occur in both URL paths and queries. Log only generated or
+# classified values; never request lines, URIs, headers or upstream addresses.
+map $host $romd_log_surface {
+    default unknown;
+    ${ROMD_ADMIN_HOST} admin;
+    ${ROMD_CONSUMER_HOST} consumer;
+    ${ROMD_PLAYER_HOST} player;
+}
+log_format romd_ingress escape=json
+    '{"event":"ingress_request","surface":"$romd_log_surface",'
+    '"request_id":"$request_id","status":$status,"bytes":$body_bytes_sent,'
+    '"duration":$request_time,"upstream_status":"$upstream_status",'
+    '"upstream_connect_time":"$upstream_connect_time",'
+    '"upstream_response_time":"$upstream_response_time"}';
+map $http_upgrade $romd_connection_upgrade {
+    default upgrade;
+    '' close;
+}
+map $host $romd_upstream {
+    default "";
+    ${ROMD_ADMIN_HOST} http://romd-admin:8080;
+    ${ROMD_CONSUMER_HOST} http://romd-consumer:8080;
+    ${ROMD_PLAYER_HOST} http://romd-player:8080;
+}
+# Trust only the pinned tunnel connector, never the entire edge network.
+set_real_ip_from ${ROMD_CLOUDFLARED_EDGE_IP};
+real_ip_header CF-Connecting-IP;
+real_ip_recursive off;
+map $realip_remote_addr $romd_tunnel_peer {
+    default 0;
+    ${ROMD_CLOUDFLARED_EDGE_IP} 1;
+}
+# realip parses the address. Reject chains and address:port syntax as well;
+# Cloudflare supplies exactly one bare visitor IP on direct tunnel requests.
+map $http_cf_connecting_ip $romd_single_client_ip {
+    default 1;
+    '' 0;
+    "~[,\\s\\[\\]]" 0;
+    "~^[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+:" 0;
+}
+server {
+    access_log /dev/stdout romd_ingress;
+    # nginx's request error renderer includes the raw request and upstream URI.
+    # Safe access events retain 4xx/5xx and timing diagnostics; startup errors
+    # still use the image's global stderr logger before a request exists.
+    error_log /dev/null;
+    listen 80 default_server;
+    # No published port: this listener is only for the HTTPS tunnel.
+    server_name ${ROMD_ADMIN_HOST} ${ROMD_CONSUMER_HOST} ${ROMD_PLAYER_HOST};
+    if ($romd_tunnel_peer = 0) { return 403; }
+    if ($romd_single_client_ip = 0) { return 400; }
+    # Missing/unparseable addresses leave remote_addr at the connector IP.
+    if ($remote_addr = ${ROMD_CLOUDFLARED_EDGE_IP}) { return 400; }
+    if ($romd_upstream = "") { return 421; }
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    client_max_body_size 0;
+    proxy_request_buffering off;
+    proxy_read_timeout 1800s;
+    proxy_send_timeout 1800s;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    # Replace caller-supplied chains with the parsed visitor IP. The application
+    # trusts only ingress, for one hop; it never interprets Cloudflare headers.
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header CF-Connecting-IP "";
+    proxy_set_header CF-Connecting-IPv6 "";
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $romd_connection_upgrade;
+    location /vfs/ {
+        proxy_buffering off;
+        proxy_pass $romd_upstream$request_uri;
+    }
+    location / { proxy_pass $romd_upstream$request_uri; }
+}

@@ -1,0 +1,24 @@
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    add_header Content-Security-Policy "${ROMD_PLAYER_CSP}" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), screen-wake-lock=(self)" always;
+
+    location = /player-config.json {
+        add_header Content-Security-Policy "${ROMD_PLAYER_CSP}" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), screen-wake-lock=(self)" always;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Cache-Control "no-store" always;
+        try_files /player-config.json =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

@@ -1,0 +1,20 @@
+@import '@romd/foundation/variables.css';
+@import '@romd/foundation/typography.css';
+@import './components/title-detail/GameDetailHero.css';
+@import './components/metadata/GameMetadata.css';
+@import './components/spotlight/GameSpotlight.css';
+
+.romd-game-poster-surface { position: relative; aspect-ratio: var(--romd-poster-aspect, 3 / 4); overflow: hidden; border-radius: inherit; }
+.romd-game-poster-surface > :first-child { width: 100%; height: 100%; }
+.romd-game-poster-shade { position: absolute; inset: 0; background: linear-gradient(195deg, transparent 40%, color-mix(in srgb, black 18%, transparent) 60%, color-mix(in srgb, black 72%, transparent) 100%); pointer-events: none; }
+
+.romd-consumer-presentation {
+  container: romd-detail / inline-size;
+  --romd-poster-aspect: 3 / 4;
+  color-scheme: dark;
+  --romd-bg: var(--mantine-color-dark-7);
+  color: var(--romd-text-strong);
+  font-family: var(--romd-font-display);
+}
+.romd-consumer-presentation .romd-hero { font-weight: 650; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.romd-consumer-presentation .romd-metadata { font-family: var(--romd-font-display); font-weight: 400; color: var(--romd-text-muted); }

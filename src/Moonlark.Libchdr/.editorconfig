@@ -1,0 +1,5 @@
+# Imported romd-native rules, layered over the repository root .editorconfig.
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_sort_system_directives_first = true
+dotnet_diagnostic.CS1591.severity = error

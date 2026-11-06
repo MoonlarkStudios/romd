@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible, non-sensitive product problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for non-sensitive defects. Read SECURITY.md for security-reporting status. Do not include credentials, signed content URLs, private addresses, personal paths, ROMs or BIOS files.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release tag and image digest, or source commit. Include the client version when relevant.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Admin portal or API
+        - Consumer portal or API
+        - Worker or media processing
+        - Isolated browser player
+        - Ottercade console
+        - Setup, build or deployment
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS/architecture, browser or console target, Docker/Compose versions, and relevant tool versions. Omit private network details.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal reproduction with controlled synthetic content and relevant sanitized configuration.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and sanitized evidence
+      description: Include the exact failing command, working directory and relevant redacted diagnostics. Remove secrets, tokens, signed URLs and personal data before attaching anything.
+    validations:
+      required: true
+  - type: textarea
+    id: known_issues
+    attributes:
+      label: Known issues or related reports
+      description: Link any matching docs/development/known-issues.md entry or existing issue and explain what differs.

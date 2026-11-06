@@ -1,0 +1,57 @@
+import type { SystemResourceDto } from '@romd/admin-api-client';
+
+const list: SystemResourceDto[] = [
+  {
+    key: 'plat-1',
+    name: 'Super Nintendo Entertainment System',
+    compactLabel: 'SNES',
+    ownership: 'Romd',
+    revision: 'a'.repeat(64),
+    builtInVersion: 1,
+    description: null,
+    icon: null,
+    retired: false,
+    manufacturers: [],
+  },
+  {
+    key: 'plat-2',
+    name: 'Sega Genesis',
+    compactLabel: 'Genesis',
+    ownership: 'Romd',
+    revision: 'a'.repeat(64),
+    builtInVersion: 1,
+    description: null,
+    icon: null,
+    retired: false,
+    manufacturers: [],
+  },
+  {
+    key: 'plat-3',
+    name: 'Nintendo Entertainment System',
+    compactLabel: 'NES',
+    ownership: 'Romd',
+    revision: 'a'.repeat(64),
+    builtInVersion: 1,
+    description: null,
+    icon: null,
+    retired: false,
+    manufacturers: [],
+  },
+  {
+    key: 'plat-4',
+    name: 'Sony PlayStation',
+    compactLabel: 'PS1',
+    ownership: 'Romd',
+    revision: 'a'.repeat(64),
+    builtInVersion: 1,
+    description: null,
+    icon: null,
+    retired: false,
+    manufacturers: [],
+  },
+];
+export const platformFixtures = {
+  list,
+  single: list[0],
+  empty: [] satisfies SystemResourceDto[],
+};

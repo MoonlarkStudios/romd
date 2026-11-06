@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- Deliberately independent of Romd.Media: fixtures and expected bytes come from a separate reference model. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Romd.Storage\Romd.Storage.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpCompress"/>
+    <PackageReference Include="ZstdSharp.Port"/>
+  </ItemGroup>
+
+</Project>

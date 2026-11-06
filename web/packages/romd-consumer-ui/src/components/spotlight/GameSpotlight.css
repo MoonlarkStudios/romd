@@ -1,0 +1,82 @@
+/* The surface is the size container, so the same slide lays out for its real width both full-bleed in the
+   consumer app and inside an admin device frame. Hero composition controls: tune height, gutters, and the lower
+   content inset together. Content stays in normal flow so long titles can grow the hero. */
+.romd-spotlight-surface { container: romd-spotlight / inline-size; }
+.romd-home-spotlight {
+  --romd-spotlight-min-height: clamp(380px, 36cqw, 560px);
+  --romd-spotlight-gutter: clamp(32px, 5cqw, 80px);
+  --romd-spotlight-bottom: clamp(48px, 6cqw, 80px);
+  --romd-spotlight-content-width: 70%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--romd-panel);
+  min-height: var(--romd-spotlight-min-height);
+  display: flex;
+  align-items: flex-end;
+}
+.romd-home-spotlight-art { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.romd-home-spotlight-art img { object-fit: cover !important; }
+.romd-home-spotlight-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--romd-bg), color-mix(in srgb, var(--romd-bg) 85%, transparent) 25%, color-mix(in srgb, var(--romd-bg) 15%, transparent) 80%), linear-gradient(0deg, var(--romd-bg), transparent 65%);
+}
+.romd-home-spotlight-content {
+  width: var(--romd-spotlight-content-width);
+  min-width: 0;
+  padding: var(--romd-spotlight-gutter);
+  padding-bottom: var(--romd-spotlight-bottom);
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xl);
+}
+/* One responsive measure keeps the logo and metadata aligned. The logo height
+   remains independently tunable for artwork with different proportions. */
+.romd-home-spotlight-info {
+  --romd-spotlight-info-width: clamp(18rem, 32cqw, 23rem);
+  width: var(--romd-spotlight-info-width);
+  max-width: 100%;
+}
+.romd-home-spotlight-logo {
+  width: 100%;
+  max-width: 100%;
+  min-height: var(--romd-spotlight-logo-height, clamp(120px, 15cqw, 200px));
+}
+.romd-home-spotlight-content h1 { width: 100%; max-width: 18ch; text-wrap: balance; overflow-wrap: anywhere; }
+.romd-home-spotlight-poster { width: clamp(120px, 15cqw, 210px); flex: none; transform: rotate(-5deg); box-shadow: 0 24px 60px var(--romd-surface-deepest); }
+.romd-home-spotlight:not([data-has-art]) { background: radial-gradient(ellipse at 80% 20%, var(--romd-accent-glow), transparent 65%), linear-gradient(0deg, var(--romd-bg), var(--romd-panel)); }
+.romd-home-spotlight:not([data-has-art]) { --romd-spotlight-content-width: 90%; }
+@container romd-spotlight (max-width: 48em) {
+  .romd-home-spotlight {
+    --romd-spotlight-min-height: 460px;
+    --romd-spotlight-gutter: var(--mantine-spacing-lg);
+    --romd-spotlight-bottom: clamp(40px, 8cqw, 64px);
+  }
+  .romd-home-spotlight, .romd-home-spotlight:not([data-has-art]) {
+    --romd-spotlight-content-width: 100%;
+  }
+  .romd-home-spotlight-art::after { background: linear-gradient(0deg, var(--romd-bg), color-mix(in srgb, var(--romd-bg) 88%, transparent) 35%, transparent); }
+  .romd-home-spotlight-content {
+    flex-direction: column;
+    text-align: center;
+    --romd-logo-position: center;
+    --romd-logo-fallback-alignment: center;
+  }
+  .romd-home-spotlight-info { align-items: center; max-width: 100%; }
+  .romd-home-spotlight-info .romd-game-metadata-badges,
+  .romd-home-spotlight-info .romd-game-metadata-facts { justify-content: center; }
+  .romd-home-spotlight-poster { width: 80px; }
+}
+/* The primary action uses the same teal as portal and authentication controls. Like Mantine's Button rules these are
+   single-class rules, so this stylesheet must load after Mantine's, as it does in both apps. */
+.romd-spotlight-details {
+  background: var(--romd-accent);
+  color: var(--romd-on-accent);
+  border-color: transparent;
+}
+.romd-spotlight-details:hover {
+  background: var(--romd-accent-hover);
+  color: var(--romd-on-accent);
+}

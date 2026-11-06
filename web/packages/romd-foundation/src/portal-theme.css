@@ -1,0 +1,38 @@
+/* Moonlark charcoal and teal. Semantic roles are shared by the portals
+   and server-rendered authentication, including their first paint. */
+:root {
+  color-scheme: dark;
+  --romd-portal-bg: light-dark(#f6f5f0, #191b1c);
+  --romd-portal-surface: light-dark(#fffefa, #222628);
+  --romd-portal-overlay: light-dark(#edefe8, #2b3032);
+  --romd-portal-text: light-dark(#252b29, #f4efe4);
+  --romd-portal-muted: light-dark(#56615d, #adb7b6);
+  --romd-portal-border: light-dark(#cbd2cb, #3c4443);
+  --romd-portal-accent: light-dark(#246758, #88c9b9);
+  --romd-portal-accent-hover: light-dark(#1d5549, #9ed5c7);
+  --romd-portal-on-accent: light-dark(#fffefa, #191b1c);
+  --romd-portal-error: light-dark(#a53734, #f09a90);
+}
+
+:root[data-mantine-color-scheme='light'] {
+  color-scheme: light;
+}
+
+:root[data-mantine-color-scheme='dark'],
+:root[data-romd-portal='consumer'] {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: var(--romd-portal-bg);
+}
+
+body {
+  margin: 0;
+}
+
+/* Mantine's segmented label contrast is otherwise resolved without a scheme. */
+.romd-accent-segment-label[data-active] {
+  color: var(--mantine-color-teal-contrast);
+}

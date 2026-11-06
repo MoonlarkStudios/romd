@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../native/libchdr/libchdr.props" />
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsTestProject>true</IsTestProject>
+    <!-- Program.cs holds the fuzz-gate commands (seed export, guard parity); the test runner does not use an entry point. -->
+    <GenerateProgramFile>false</GenerateProgramFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Moonlark.Libchdr/Moonlark.Libchdr.csproj" />
+    <!-- Built and copied beside the tests so malformed inputs run in a separate process. -->
+    <ProjectReference Include="../Moonlark.Libchdr.CorpusRunner/Moonlark.Libchdr.CorpusRunner.csproj" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

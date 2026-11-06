@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "allowedBranch": "main",
+  "requireBranchTip": true,
+  "platform": "linux/amd64",
+  "candidateOnly": true
+}

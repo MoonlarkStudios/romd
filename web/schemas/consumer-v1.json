@@ -1,0 +1,6668 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "romd-consumer | consumer-v1",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "HealthCheck",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/artwork/{assetId}/{variantName}/{contentVersion}": {
+      "get": {
+        "tags": [
+          "Storage"
+        ],
+        "operationId": "ServeArtwork",
+        "parameters": [
+          {
+            "name": "assetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "variantName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "contentVersion",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/media/{mediaId}": {
+      "get": {
+        "tags": [
+          "Storage"
+        ],
+        "operationId": "ServeMedia",
+        "parameters": [
+          {
+            "name": "mediaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/delivery/content/{token}": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "RedeemConsumerContentGrant",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/delivery/bios/{token}": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "RedeemConsumerBiosGrant",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/delivery/derived-descriptor/{token}": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "RedeemConsumerDerivedDescriptorGrant",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/delivery/original-layout/{token}": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "RedeemConsumerOriginalLayoutGrant",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/api/server/identity": {
+      "get": {
+        "tags": [
+          "Consumer Server"
+        ],
+        "operationId": "GetConsumerServerIdentity",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerServerIdentityDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/api/releases/{releaseId}/access": {
+      "get": {
+        "tags": [
+          "Consumer Access"
+        ],
+        "operationId": "GetConsumerReleaseAccess",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerReleaseAccessDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/systems/{systemKey}/bios": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "GetConsumerSystemBios",
+        "parameters": [
+          {
+            "name": "systemKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerPlatformBiosDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/disc-sets": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "ListConsumerDiscSets",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerDiscSetStatusDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/disc-sets/{discSetId}/status": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "GetConsumerDiscSetStatus",
+        "parameters": [
+          {
+            "name": "discSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerDiscSetStatusDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/disc-sets/{discSetId}/selection-manifest": {
+      "post": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "IssueConsumerDiscSetSelectionManifest",
+        "parameters": [
+          {
+            "name": "discSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerDiscSetSelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerDiscSetManifestDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/disc-sets/{discSetId}/access/preview": {
+      "post": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "CheckConsumerDiscSetAccess",
+        "parameters": [
+          {
+            "name": "discSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerDiscSetAccessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerDiscSetAccessDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/disc-sets/{discSetId}/manifest": {
+      "post": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "IssueConsumerDiscSetManifest",
+        "parameters": [
+          {
+            "name": "discSetId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerDiscSetManifestDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/playback/config": {
+      "get": {
+        "tags": [
+          "Consumer Playback"
+        ],
+        "operationId": "GetConsumerPlaybackConfig",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerPlaybackConfigDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/api/catalog-snapshot": {
+      "get": {
+        "tags": [
+          "Catalog snapshots"
+        ],
+        "operationId": "GetConsumerCatalogSnapshot",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceCatalogDescriptorDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog-snapshot/systems": {
+      "get": {
+        "tags": [
+          "Catalog snapshots"
+        ],
+        "description": "Members of one published schema-v1 catalog in its exact published sequence. Required revision is the descriptor catalogRevision. Default/max limit 100. The current-only publication may change between requests: 409 discards the entire staged traversal. Successful pages are 200 and have no ETag or conditional-read behavior.",
+        "operationId": "ListConsumerCatalogSnapshotSystems",
+        "parameters": [
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfReferenceSystemDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog-snapshot/companies": {
+      "get": {
+        "tags": [
+          "Catalog snapshots"
+        ],
+        "description": "Members of one published schema-v1 catalog in its exact published sequence. Required revision is the descriptor catalogRevision. Default/max limit 100. The current-only publication may change between requests: 409 discards the entire staged traversal. Successful pages are 200 and have no ETag or conditional-read behavior.",
+        "operationId": "ListConsumerCatalogSnapshotCompanies",
+        "parameters": [
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfReferenceNamedDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog-snapshot/regions": {
+      "get": {
+        "tags": [
+          "Catalog snapshots"
+        ],
+        "description": "Members of one published schema-v1 catalog in its exact published sequence. Required revision is the descriptor catalogRevision. Default/max limit 100. The current-only publication may change between requests: 409 discards the entire staged traversal. Successful pages are 200 and have no ETag or conditional-read behavior.",
+        "operationId": "ListConsumerCatalogSnapshotRegions",
+        "parameters": [
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfReferenceTaxonomyDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog-snapshot/languages": {
+      "get": {
+        "tags": [
+          "Catalog snapshots"
+        ],
+        "description": "Members of one published schema-v1 catalog in its exact published sequence. Required revision is the descriptor catalogRevision. Default/max limit 100. The current-only publication may change between requests: 409 discards the entire staged traversal. Successful pages are 200 and have no ETag or conditional-read behavior.",
+        "operationId": "ListConsumerCatalogSnapshotLanguages",
+        "parameters": [
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfReferenceTaxonomyDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog-snapshot/rating-boards": {
+      "get": {
+        "tags": [
+          "Catalog snapshots"
+        ],
+        "description": "Members of one published schema-v1 catalog in its exact published sequence. Required revision is the descriptor catalogRevision. Default/max limit 100. The current-only publication may change between requests: 409 discards the entire staged traversal. Successful pages are 200 and have no ETag or conditional-read behavior.",
+        "operationId": "ListConsumerCatalogSnapshotRatingBoards",
+        "parameters": [
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfReferenceRatingBoardDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog-snapshot/ratings": {
+      "get": {
+        "tags": [
+          "Catalog snapshots"
+        ],
+        "description": "Members of one published schema-v1 catalog in its exact published sequence. Required revision is the descriptor catalogRevision. Default/max limit 100. The current-only publication may change between requests: 409 discards the entire staged traversal. Successful pages are 200 and have no ETag or conditional-read behavior.",
+        "operationId": "ListConsumerCatalogSnapshotRatings",
+        "parameters": [
+          {
+            "name": "revision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfReferenceRatingDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assets/{hash}": {
+      "get": {
+        "tags": [
+          "Reference assets"
+        ],
+        "operationId": "GetConsumerReferenceAsset",
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "security": [ ]
+      }
+    },
+    "/api/me/password": {
+      "put": {
+        "tags": [
+          "Consumer Account"
+        ],
+        "operationId": "ReplaceConsumerPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/settings": {
+      "get": {
+        "tags": [
+          "Consumer Account"
+        ],
+        "operationId": "GetConsumerUserSettings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerUserSettingsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Consumer Account"
+        ],
+        "operationId": "UpdateConsumerUserSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConsumerUserSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerUserSettingsDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/connections": {
+      "get": {
+        "tags": [
+          "Consumer Connections"
+        ],
+        "operationId": "ListConsumerConnections",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfVfsConnectionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Consumer Connections"
+        ],
+        "operationId": "CreateConsumerConnection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveVfsConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Location": {
+                "description": "The created member's address.",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VfsConnectionCredentialDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/connections/{connectionId}": {
+      "patch": {
+        "tags": [
+          "Consumer Connections"
+        ],
+        "operationId": "UpdateConsumerConnection",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchVfsConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VfsConnectionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Consumer Connections"
+        ],
+        "operationId": "DeleteConsumerConnection",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/connections/{connectionId}/rotate": {
+      "post": {
+        "tags": [
+          "Consumer Connections"
+        ],
+        "operationId": "RotateConsumerConnection",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VfsConnectionCredentialDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "tags": [
+          "Consumer Identity"
+        ],
+        "operationId": "GetConsumerCurrentUser",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/library": {
+      "get": {
+        "tags": [
+          "Consumer Identity"
+        ],
+        "operationId": "GetConsumerCurrentLibrary",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryContextDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/library/systems": {
+      "get": {
+        "tags": [
+          "Consumer Browse"
+        ],
+        "operationId": "ListConsumerLibrarySystems",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerPlatformSummaryDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/library/systems/{systemKey}": {
+      "get": {
+        "tags": [
+          "Consumer Browse"
+        ],
+        "operationId": "GetConsumerLibrarySystem",
+        "parameters": [
+          {
+            "name": "systemKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerPlatformDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/catalog": {
+      "get": {
+        "tags": [
+          "Consumer Browse"
+        ],
+        "operationId": "ListConsumerCatalog",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "systemKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "genre",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "completeness",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "all",
+                "complete",
+                "partial"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "name",
+                "rating"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerTitleCardDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/titles/{titleId}": {
+      "get": {
+        "tags": [
+          "Consumer Browse"
+        ],
+        "operationId": "GetConsumerTitle",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerTitleDetailDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/titles/{titleId}/media": {
+      "get": {
+        "tags": [
+          "Consumer Browse"
+        ],
+        "operationId": "ListConsumerTitleMedia",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerMediaRefDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/titles/{titleId}/releases": {
+      "get": {
+        "tags": [
+          "Consumer Browse"
+        ],
+        "operationId": "ListConsumerTitleReleases",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerReleaseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections": {
+      "get": {
+        "tags": [
+          "Consumer Collections"
+        ],
+        "operationId": "ListConsumerCollections",
+        "parameters": [
+          {
+            "name": "systemKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerCollectionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collectionId}": {
+      "get": {
+        "tags": [
+          "Consumer Collections"
+        ],
+        "operationId": "GetConsumerCollection",
+        "parameters": [
+          {
+            "name": "collectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerCollectionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/collections/{collectionId}/titles": {
+      "get": {
+        "tags": [
+          "Consumer Collections"
+        ],
+        "operationId": "ListConsumerCollectionTitles",
+        "parameters": [
+          {
+            "name": "collectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerCollectionTitleDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/releases/{releaseId}/manifest": {
+      "post": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "IssueConsumerReleaseManifest",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerReleaseManifestDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/releases/{releaseId}/cd-archive": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "DownloadConsumerCdArchive",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/releases/{releaseId}/cd-archive/cue": {
+      "get": {
+        "tags": [
+          "Consumer Delivery"
+        ],
+        "operationId": "DownloadConsumerCdCue",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/activity/play-sessions/{sessionId}": {
+      "put": {
+        "tags": [
+          "Consumer Play Activity"
+        ],
+        "operationId": "ReplaceConsumerPlaySession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertPlaySessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaySessionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Consumer Play Activity"
+        ],
+        "operationId": "GetConsumerPlaySession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlaySessionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Consumer Play Activity"
+        ],
+        "operationId": "DeleteConsumerPlaySession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/activity/play-sessions": {
+      "get": {
+        "tags": [
+          "Consumer Play Activity"
+        ],
+        "operationId": "ListConsumerPlaySessions",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfPlaySessionDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Consumer Play Activity"
+        ],
+        "operationId": "DeleteConsumerPlaySessions",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/activity/recently-played": {
+      "get": {
+        "tags": [
+          "Consumer Play Activity"
+        ],
+        "operationId": "ListConsumerRecentlyPlayed",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfRecentlyPlayedTitleDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/systems": {
+      "get": {
+        "tags": [
+          "systems"
+        ],
+        "description": "Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order. Bounded keyset traversal; query matches normalized display facts. Default/max limit 100; sortBy supports key:asc. Each page is one coherent observation, not a complete-traversal snapshot.",
+        "operationId": "ListConsumerSystems",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfSystemResourceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/systems/{systemKey}": {
+      "get": {
+        "tags": [
+          "systems"
+        ],
+        "operationId": "GetConsumerSystem",
+        "parameters": [
+          {
+            "name": "systemKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemResourceDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/companies": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "description": "Registered companies in ascending PostgreSQL C (UTF-8 byte) natural-key order. Bounded keyset traversal; query matches normalized display facts. Default/max limit 100; sortBy supports key:asc. Each page is one coherent observation, not a complete-traversal snapshot.",
+        "operationId": "ListConsumerCompanies",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfCompanyResourceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/companies/{companyKey}": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "operationId": "GetConsumerCompany",
+        "parameters": [
+          {
+            "name": "companyKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResourceDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/regions": {
+      "get": {
+        "tags": [
+          "regions"
+        ],
+        "description": "Registered regions only; bounded by the built-in reference catalog.",
+        "operationId": "ListRegions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegionResourceDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/regions/{regionKey}": {
+      "get": {
+        "tags": [
+          "regions"
+        ],
+        "operationId": "GetRegion",
+        "parameters": [
+          {
+            "name": "regionKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegionResourceDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/languages": {
+      "get": {
+        "tags": [
+          "languages"
+        ],
+        "description": "Registered languages only; bounded by the built-in reference catalog.",
+        "operationId": "ListLanguages",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LanguageResourceDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/languages/{languageKey}": {
+      "get": {
+        "tags": [
+          "languages"
+        ],
+        "operationId": "GetLanguage",
+        "parameters": [
+          {
+            "name": "languageKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguageResourceDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rating-boards": {
+      "get": {
+        "tags": [
+          "rating-boards"
+        ],
+        "description": "Every rating board ROMD defines; bounded by the built-in reference catalog.",
+        "operationId": "ListRatingBoards",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RatingBoardResourceDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rating-boards/{board}": {
+      "get": {
+        "tags": [
+          "rating-boards"
+        ],
+        "operationId": "GetRatingBoard",
+        "parameters": [
+          {
+            "name": "board",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatingBoardResourceDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rating-boards/{board}/ratings": {
+      "get": {
+        "tags": [
+          "Ratings"
+        ],
+        "description": "Every rating of one board; bounded by the built-in reference catalog.",
+        "operationId": "ListRatings",
+        "parameters": [
+          {
+            "name": "board",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RatingResourceDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rating-boards/{board}/ratings/{ratingCode}": {
+      "get": {
+        "tags": [
+          "Ratings"
+        ],
+        "operationId": "GetRating",
+        "parameters": [
+          {
+            "name": "board",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ratingCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RatingResourceDto"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ArtworkVariantDto": {
+        "required": [
+          "name",
+          "url",
+          "contentVersion",
+          "contentType",
+          "width",
+          "height"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "contentVersion": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "width": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ByteCount": {
+        "pattern": "^(?:0|[1-9]\\d*)$",
+        "type": "string"
+      },
+      "ChangePasswordRequest": {
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string"
+          }
+        }
+      },
+      "CompanyResourceDto": {
+        "required": [
+          "key",
+          "ownership",
+          "builtInVersion",
+          "name",
+          "description",
+          "retired",
+          "revision"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "ownership": {
+            "type": "string"
+          },
+          "builtInVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retired": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "string"
+          }
+        }
+      },
+      "CompanySummaryDto": {
+        "required": [
+          "key",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerCollectionDto": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "system": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SystemSummaryDto"
+              }
+            ]
+          },
+          "coverUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "heroUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isFeatured": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerCollectionTitleDto": {
+        "required": [
+          "id",
+          "name",
+          "system",
+          "releaseCount"
+        ],
+        "type": "object",
+        "properties": {
+          "artwork": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolvedArtworkDto"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "system": {
+            "$ref": "#/components/schemas/SystemSummaryDto"
+          },
+          "coverUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "genre": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "rating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "releaseCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultReleaseId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerContentRatingDto": {
+        "required": [
+          "board",
+          "code",
+          "boardName",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "boardName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "icon": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAssetDto"
+              }
+            ]
+          }
+        }
+      },
+      "ConsumerDerivedPlaylistDto": {
+        "required": [
+          "artifactId",
+          "relativePath",
+          "sha256",
+          "sizeBytes",
+          "encoding",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "artifactId": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "$ref": "#/components/schemas/ByteCount"
+          },
+          "encoding": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerDiscSetAccessDto": {
+        "required": [
+          "contractVersion",
+          "serverInstanceId",
+          "discSetId",
+          "revision",
+          "deliverySnapshotId",
+          "selectedReleaseIds",
+          "layoutVersions",
+          "allowed",
+          "titleId",
+          "systemKey"
+        ],
+        "type": "object",
+        "properties": {
+          "contractVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "serverInstanceId": {
+            "type": "string"
+          },
+          "discSetId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deliverySnapshotId": {
+            "type": "string"
+          },
+          "selectedReleaseIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "layoutVersions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerDiscSetLayoutVersionDto"
+            }
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "titleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "systemKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerDiscSetAccessRequest": {
+        "required": [
+          "contractVersion",
+          "serverInstanceId",
+          "revision",
+          "deliverySnapshotId",
+          "selectedReleaseIds",
+          "layoutVersions",
+          "allowPartial"
+        ],
+        "type": "object",
+        "properties": {
+          "contractVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "serverInstanceId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deliverySnapshotId": {
+            "type": "string"
+          },
+          "selectedReleaseIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "layoutVersions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerDiscSetLayoutVersionDto"
+            }
+          },
+          "allowPartial": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerDiscSetDiscDto": {
+        "required": [
+          "releaseId",
+          "ordinal",
+          "name",
+          "entryPoint",
+          "files"
+        ],
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "entryPoint": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerDiscSetFileDto"
+            }
+          },
+          "layoutId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "layoutRevision": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerDiscSetFileDto": {
+        "required": [
+          "relativePath",
+          "sizeBytes",
+          "sha256",
+          "provenance",
+          "contentGrant"
+        ],
+        "type": "object",
+        "properties": {
+          "relativePath": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "$ref": "#/components/schemas/ByteCount"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ConsumerReleaseFileProvenance"
+          },
+          "contentGrant": {
+            "$ref": "#/components/schemas/ContentGrantDto"
+          }
+        }
+      },
+      "ConsumerDiscSetLayoutVersionDto": {
+        "required": [
+          "releaseId",
+          "layoutId",
+          "layoutRevision"
+        ],
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string"
+          },
+          "layoutId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "layoutRevision": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerDiscSetManifestDto": {
+        "required": [
+          "serverInstanceId",
+          "discSetId",
+          "revision",
+          "deliverySnapshotId",
+          "titleId",
+          "systemKey",
+          "name",
+          "expectedDiscCount",
+          "hasAllExpectedDiscs",
+          "discs",
+          "playlist"
+        ],
+        "type": "object",
+        "properties": {
+          "serverInstanceId": {
+            "type": "string"
+          },
+          "discSetId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deliverySnapshotId": {
+            "type": "string"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "systemKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "expectedDiscCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "hasAllExpectedDiscs": {
+            "type": "boolean"
+          },
+          "discs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerDiscSetDiscDto"
+            }
+          },
+          "playlist": {
+            "$ref": "#/components/schemas/ConsumerDerivedPlaylistDto"
+          },
+          "contractVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "observationId": {
+            "type": "string"
+          },
+          "selection": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConsumerDiscSetSelectionDto"
+              }
+            ]
+          }
+        }
+      },
+      "ConsumerDiscSetOmittedDiscDto": {
+        "required": [
+          "releaseId",
+          "ordinal"
+        ],
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ConsumerDiscSetSelectionDto": {
+        "required": [
+          "kind",
+          "completeness",
+          "selectedReleaseIds",
+          "omittedDiscs",
+          "missingExpectedOrdinals"
+        ],
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "completeness": {
+            "type": "string"
+          },
+          "selectedReleaseIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "omittedDiscs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerDiscSetOmittedDiscDto"
+            }
+          },
+          "missingExpectedOrdinals": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        }
+      },
+      "ConsumerDiscSetSelectionRequest": {
+        "required": [
+          "contractVersion",
+          "revision",
+          "observationId",
+          "selectedReleaseIds",
+          "allowPartial"
+        ],
+        "type": "object",
+        "properties": {
+          "contractVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observationId": {
+            "type": "string"
+          },
+          "selectedReleaseIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "allowPartial": {
+            "type": "boolean"
+          },
+          "requiredSnapshotId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerDiscSetStatusDiscDto": {
+        "required": [
+          "releaseId",
+          "ordinal",
+          "name",
+          "layoutId",
+          "layoutRevision",
+          "readiness"
+        ],
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "layoutId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "layoutRevision": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "readiness": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerDiscSetStatusDto": {
+        "required": [
+          "contractVersion",
+          "serverInstanceId",
+          "discSetId",
+          "revision",
+          "titleId",
+          "systemKey",
+          "name",
+          "observationId",
+          "expectedDiscCount",
+          "missingExpectedOrdinals",
+          "discs"
+        ],
+        "type": "object",
+        "properties": {
+          "contractVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "serverInstanceId": {
+            "type": "string"
+          },
+          "discSetId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "systemKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "observationId": {
+            "type": "string"
+          },
+          "expectedDiscCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "missingExpectedOrdinals": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "discs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerDiscSetStatusDiscDto"
+            }
+          }
+        }
+      },
+      "ConsumerLaunchTargetDto": {
+        "required": [
+          "type",
+          "relativePath"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "relativePath": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerMediaRefDto": {
+        "required": [
+          "id",
+          "type",
+          "url",
+          "isPrimary"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "isPrimary": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerPlatformBiosDto": {
+        "required": [
+          "systemKey",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "systemKey": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerPlatformBiosItemDto"
+            }
+          }
+        }
+      },
+      "ConsumerPlatformBiosItemDto": {
+        "required": [
+          "biosId",
+          "name",
+          "fileName",
+          "sizeBytes",
+          "isAvailable"
+        ],
+        "type": "object",
+        "properties": {
+          "biosId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "$ref": "#/components/schemas/ByteCount"
+          },
+          "sha1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "md5": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sha256": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "contentGrant": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentGrantDto"
+              }
+            ]
+          }
+        }
+      },
+      "ConsumerPlatformDetailDto": {
+        "required": [
+          "key",
+          "name",
+          "shortName",
+          "titleCount",
+          "media"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortName": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "titleCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerMediaRefDto"
+            }
+          }
+        }
+      },
+      "ConsumerPlatformSummaryDto": {
+        "required": [
+          "key",
+          "name",
+          "shortName",
+          "titleCount"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "shortName": {
+            "type": "string"
+          },
+          "manufacturer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "titleCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "coverUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerPlaybackConfigDto": {
+        "required": [
+          "playerOrigin"
+        ],
+        "type": "object",
+        "properties": {
+          "playerOrigin": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerReleaseAccessDto": {
+        "required": [
+          "serverInstanceId",
+          "releaseId",
+          "allowed"
+        ],
+        "type": "object",
+        "properties": {
+          "serverInstanceId": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "titleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerReleaseDto": {
+        "required": [
+          "id",
+          "name",
+          "regions",
+          "languages",
+          "sizeBytes",
+          "isComplete"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sizeBytes": {
+            "$ref": "#/components/schemas/ByteCount"
+          },
+          "isComplete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerReleaseFileProvenance": {
+        "enum": [
+          "Original",
+          "Derived"
+        ]
+      },
+      "ConsumerReleaseManifestDto": {
+        "required": [
+          "serverInstanceId",
+          "releaseId",
+          "titleId",
+          "systemKey",
+          "name",
+          "isComplete",
+          "isDeliveryComplete",
+          "runtime",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "serverInstanceId": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "systemKey": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "revision": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isComplete": {
+            "type": "boolean"
+          },
+          "isDeliveryComplete": {
+            "type": "boolean"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/ConsumerReleaseRuntimeDto"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerReleaseManifestItemDto"
+            }
+          }
+        }
+      },
+      "ConsumerReleaseManifestFormatDto": {
+        "required": [
+          "relativePath",
+          "format",
+          "label",
+          "state",
+          "profileVersion",
+          "runtimeApplicability"
+        ],
+        "type": "object",
+        "properties": {
+          "relativePath": {
+            "type": "string"
+          },
+          "runtime": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConsumerReleaseRuntimeDto"
+              }
+            ]
+          },
+          "contentGrant": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentGrantDto"
+              }
+            ]
+          },
+          "format": {
+            "enum": [
+              "original",
+              "rvz",
+              "chd"
+            ],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "fileExtension": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "state": {
+            "enum": [
+              "available",
+              "preparing",
+              "unsupported"
+            ],
+            "type": "string"
+          },
+          "filename": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sizeBytes": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ByteCount"
+              }
+            ]
+          },
+          "sha256": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "md5": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sha1": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "profileVersion": {
+            "type": "string"
+          },
+          "runtimeApplicability": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ConsumerReleaseManifestItemDto": {
+        "required": [
+          "relativePath",
+          "role",
+          "provenance",
+          "sizeBytes",
+          "isAvailable",
+          "formats"
+        ],
+        "type": "object",
+        "properties": {
+          "relativePath": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ConsumerReleaseFileProvenance"
+          },
+          "sizeBytes": {
+            "$ref": "#/components/schemas/ByteCount"
+          },
+          "sha256": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isAvailable": {
+            "type": "boolean"
+          },
+          "contentGrant": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ContentGrantDto"
+              }
+            ]
+          },
+          "formats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerReleaseManifestFormatDto"
+            }
+          }
+        }
+      },
+      "ConsumerReleasePreferenceDto": {
+        "required": [
+          "preferredRegionKeys",
+          "preferredLanguageKeys",
+          "revisionStrategy"
+        ],
+        "type": "object",
+        "properties": {
+          "preferredRegionKeys": {
+            "maxItems": 64,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preferredLanguageKeys": {
+            "maxItems": 64,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revisionStrategy": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerReleaseRuntimeDto": {
+        "required": [
+          "contentType",
+          "packaging",
+          "minimumInstallBytes"
+        ],
+        "type": "object",
+        "properties": {
+          "contentType": {
+            "type": "string"
+          },
+          "launch": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConsumerLaunchTargetDto"
+              }
+            ]
+          },
+          "packaging": {
+            "type": "string"
+          },
+          "minimumInstallBytes": {
+            "$ref": "#/components/schemas/ByteCount"
+          }
+        }
+      },
+      "ConsumerServerIdentityDto": {
+        "required": [
+          "instanceId"
+        ],
+        "type": "object",
+        "properties": {
+          "instanceId": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerTitleCardDto": {
+        "required": [
+          "id",
+          "system",
+          "name",
+          "releaseCount"
+        ],
+        "type": "object",
+        "properties": {
+          "artwork": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolvedArtworkDto"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "system": {
+            "$ref": "#/components/schemas/SystemSummaryDto"
+          },
+          "contentRatings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerContentRatingDto"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "genre": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "players": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "esrbRating": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "rating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "releaseCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultReleaseId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerTitleDetailDto": {
+        "required": [
+          "id",
+          "system",
+          "name",
+          "media",
+          "releases"
+        ],
+        "type": "object",
+        "properties": {
+          "artwork": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolvedArtworkDto"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "system": {
+            "$ref": "#/components/schemas/SystemSummaryDto"
+          },
+          "contentRatings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerContentRatingDto"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publisher": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "developer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "genre": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "players": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "rating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "media": {
+            "$ref": "#/components/schemas/PageOfConsumerMediaRefDto"
+          },
+          "releases": {
+            "$ref": "#/components/schemas/PageOfConsumerReleaseDto"
+          },
+          "defaultReleaseId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ConsumerUserSettingsDto": {
+        "required": [
+          "theme",
+          "releasePreference"
+        ],
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "string"
+          },
+          "releasePreference": {
+            "$ref": "#/components/schemas/ConsumerReleasePreferenceDto"
+          }
+        }
+      },
+      "ContentGrantDto": {
+        "required": [
+          "downloadUrl",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "downloadUrl": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CurrentUserDto": {
+        "required": [
+          "id",
+          "email",
+          "username",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "LanguageResourceDto": {
+        "required": [
+          "key",
+          "ownership",
+          "builtInVersion",
+          "name",
+          "description",
+          "sortOrder",
+          "code",
+          "retired"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "ownership": {
+            "type": "string"
+          },
+          "builtInVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "retired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LibraryContentCountsDto": {
+        "type": "object",
+        "properties": {
+          "ownedTitleCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "availableTitleCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "collectionCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "LibraryContextDto": {
+        "required": [
+          "name",
+          "counts",
+          "platforms",
+          "genres",
+          "featuredCollections"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/LibraryContentCountsDto"
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryFacetDto"
+            }
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryFacetDto"
+            }
+          },
+          "featuredCollections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerCollectionDto"
+            }
+          }
+        }
+      },
+      "LibraryFacetDto": {
+        "required": [
+          "id",
+          "name",
+          "count"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PageOfCompanyResourceDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanyResourceDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfConsumerCollectionDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerCollectionDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfConsumerCollectionTitleDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerCollectionTitleDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfConsumerDiscSetStatusDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerDiscSetStatusDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfConsumerMediaRefDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerMediaRefDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfConsumerPlatformSummaryDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerPlatformSummaryDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfConsumerReleaseDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerReleaseDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfConsumerTitleCardDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerTitleCardDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfPlaySessionDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaySessionDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfRecentlyPlayedTitleDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecentlyPlayedTitleDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfReferenceNamedDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceNamedDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfReferenceRatingBoardDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceRatingBoardDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfReferenceRatingDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceRatingDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfReferenceSystemDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceSystemDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfReferenceTaxonomyDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferenceTaxonomyDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfSystemResourceDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SystemResourceDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfVfsConnectionDto": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VfsConnectionDto"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PatchVfsConnectionRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "format": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PlaySessionDto": {
+        "required": [
+          "sessionId",
+          "clientId",
+          "titleId",
+          "releaseId",
+          "startedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "activeDurationSeconds": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "required": [
+          "errorCode",
+          "traceId"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "traceId": {
+            "type": "string"
+          }
+        }
+      },
+      "RatingBoardResourceDto": {
+        "required": [
+          "key",
+          "ownership",
+          "builtInVersion",
+          "name",
+          "description",
+          "retired"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "ownership": {
+            "type": "string"
+          },
+          "builtInVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RatingResourceDto": {
+        "required": [
+          "key",
+          "ownership",
+          "builtInVersion",
+          "name",
+          "description",
+          "board",
+          "code",
+          "designation",
+          "minimumAge",
+          "icon",
+          "retired"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "ownership": {
+            "type": "string"
+          },
+          "builtInVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "board": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "designation": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "minimumAge": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "icon": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAssetDto"
+              }
+            ]
+          },
+          "retired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RecentlyPlayedTitleDto": {
+        "required": [
+          "id",
+          "system",
+          "name",
+          "releaseCount",
+          "lastPlayedAt",
+          "playCount"
+        ],
+        "type": "object",
+        "properties": {
+          "artwork": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolvedArtworkDto"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "system": {
+            "$ref": "#/components/schemas/SystemSummaryDto"
+          },
+          "name": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "genre": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "rating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "releaseCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultReleaseId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastPlayedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "playCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ReferenceAssetDto": {
+        "required": [
+          "url",
+          "sha256",
+          "contentType",
+          "monochrome"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "monochrome": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ReferenceCatalogCountsDto": {
+        "required": [
+          "systems",
+          "companies",
+          "regions",
+          "languages",
+          "ratingBoards",
+          "ratings"
+        ],
+        "type": "object",
+        "properties": {
+          "systems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "companies": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "languages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ratingBoards": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ratings": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ReferenceCatalogDescriptorDto": {
+        "required": [
+          "schemaVersion",
+          "builtInVersion",
+          "revision",
+          "catalogRevision",
+          "contentHash",
+          "counts"
+        ],
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "builtInVersion": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "catalogRevision": {
+            "type": "string"
+          },
+          "contentHash": {
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ReferenceCatalogCountsDto"
+          }
+        }
+      },
+      "ReferenceNamedDto": {
+        "required": [
+          "key",
+          "name",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retired": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ReferenceRatingBoardDto": {
+        "required": [
+          "key",
+          "name",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retired": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ReferenceRatingDto": {
+        "required": [
+          "board",
+          "code",
+          "name",
+          "description",
+          "icon"
+        ],
+        "type": "object",
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "icon": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAssetDto"
+              }
+            ]
+          },
+          "designation": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "minimumAge": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "retired": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ReferenceSystemDto": {
+        "required": [
+          "key",
+          "name",
+          "compactLabel",
+          "description",
+          "icon"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "compactLabel": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "icon": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAssetDto"
+              }
+            ]
+          },
+          "manufacturerKeys": {
+            "maxItems": 16,
+            "uniqueItems": true,
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "retired": {
+            "type": "boolean",
+            "default": false
+          },
+          "manufacturers": {
+            "maxItems": 16,
+            "uniqueItems": true,
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CompanySummaryDto"
+            }
+          }
+        }
+      },
+      "ReferenceTaxonomyDto": {
+        "required": [
+          "key",
+          "name",
+          "description",
+          "sortOrder",
+          "languageCode"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "languageCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retired": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "RegionResourceDto": {
+        "required": [
+          "key",
+          "ownership",
+          "builtInVersion",
+          "name",
+          "description",
+          "sortOrder",
+          "retired"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "ownership": {
+            "type": "string"
+          },
+          "builtInVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "retired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ResolvedArtworkDto": {
+        "required": [
+          "role",
+          "assetId",
+          "contentVersion",
+          "url",
+          "width",
+          "height",
+          "originalWidth",
+          "originalHeight",
+          "fit",
+          "fallbackReason",
+          "variants"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "assetId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "contentVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "width": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "height": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "originalWidth": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "originalHeight": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "fit": {
+            "type": "string"
+          },
+          "fallbackReason": {
+            "type": "string"
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtworkVariantDto"
+            }
+          },
+          "focalX": {
+            "type": "integer",
+            "format": "int32",
+            "default": 50
+          },
+          "focalY": {
+            "type": "integer",
+            "format": "int32",
+            "default": 50
+          }
+        }
+      },
+      "SaveVfsConnectionRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "format": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SystemResourceDto": {
+        "required": [
+          "key",
+          "ownership",
+          "builtInVersion",
+          "name",
+          "compactLabel",
+          "description",
+          "icon",
+          "retired",
+          "manufacturers",
+          "revision"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "ownership": {
+            "type": "string"
+          },
+          "builtInVersion": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "compactLabel": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "icon": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAssetDto"
+              }
+            ]
+          },
+          "retired": {
+            "type": "boolean"
+          },
+          "manufacturers": {
+            "maxItems": 16,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanySummaryDto"
+            }
+          },
+          "revision": {
+            "type": "string"
+          }
+        }
+      },
+      "SystemSummaryDto": {
+        "required": [
+          "key",
+          "name",
+          "compactLabel"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "compactLabel": {
+            "type": "string"
+          },
+          "icon": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAssetDto"
+              }
+            ]
+          }
+        }
+      },
+      "UpdateConsumerUserSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releasePreference": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConsumerReleasePreferenceDto"
+              }
+            ]
+          }
+        }
+      },
+      "UpsertPlaySessionRequest": {
+        "required": [
+          "clientId",
+          "titleId",
+          "releaseId",
+          "startedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "titleId": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "activeDurationSeconds": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "VfsConnectionCredentialDto": {
+        "required": [
+          "connection",
+          "password",
+          "endpoint",
+          "rcloneConfig"
+        ],
+        "type": "object",
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/VfsConnectionDto"
+          },
+          "password": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "rcloneConfig": {
+            "type": "string"
+          }
+        }
+      },
+      "VfsConnectionDto": {
+        "required": [
+          "id",
+          "name",
+          "username",
+          "status",
+          "createdAt",
+          "credentialUpdatedAt",
+          "lastUsedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "credentialUpdatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "format": {
+            "type": "string",
+            "default": "stored"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "type": "oauth2",
+        "description": "OpenIddict authorization-code flow with PKCE. Access tokens are presented as bearer tokens.",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "/connect/authorize",
+            "tokenUrl": "/connect/token",
+            "scopes": {
+              "email": "Read the signed-in user's email address.",
+              "offline_access": "Obtain refresh tokens.",
+              "profile": "Read the signed-in user's profile.",
+              "roles": "Read the signed-in user's roles."
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": [ ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health"
+    },
+    {
+      "name": "Storage"
+    },
+    {
+      "name": "Consumer Delivery"
+    },
+    {
+      "name": "Consumer Server"
+    },
+    {
+      "name": "Consumer Access"
+    },
+    {
+      "name": "Consumer Playback"
+    },
+    {
+      "name": "Catalog snapshots"
+    },
+    {
+      "name": "Reference assets"
+    },
+    {
+      "name": "Consumer Account"
+    },
+    {
+      "name": "Consumer Connections"
+    },
+    {
+      "name": "Consumer Identity"
+    },
+    {
+      "name": "Consumer Browse"
+    },
+    {
+      "name": "Consumer Collections"
+    },
+    {
+      "name": "Consumer Play Activity"
+    },
+    {
+      "name": "systems"
+    },
+    {
+      "name": "companies"
+    },
+    {
+      "name": "regions"
+    },
+    {
+      "name": "languages"
+    },
+    {
+      "name": "rating-boards"
+    },
+    {
+      "name": "Ratings"
+    }
+  ]
+}

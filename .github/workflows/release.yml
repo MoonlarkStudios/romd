@@ -1,0 +1,363 @@
+name: Release deployment bundle
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate release tag and allowed revision before verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      revision: ${{ steps.policy.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Enforce release source policy
+        id: policy
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_REVISION: ${{ github.sha }}
+        run: python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION"
+
+  verify:
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+
+  advisories:
+    needs: preflight
+    uses: ./.github/workflows/dependencies.yml
+
+  publish:
+    name: Publish an explicitly unqualified prerelease candidate
+    needs: [preflight, verify, advisories]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    # Waits for the release Environment's required reviewer after verification and
+    # before anything immutable (images, release, assets) exists for this tag.
+    environment: release
+    permissions:
+      contents: write
+      packages: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Recheck the allowed source revision
+        run: python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION"
+      # Keep the second build: these exact locally verified images are pushed.
+      - name: Build and verify the exact candidate images
+        run: python3 scripts/deployment/smoke.py --build --vfs --source-revision "$SOURCE_REVISION" --release-tag "$RELEASE_TAG"
+      - name: Fetch and verify the worker's exact GPL source archive
+        run: |
+          set -euo pipefail
+          url="$(jq -er .sourceUrl native/chdman/mame.json)"
+          bytes="$(jq -er .sourceBytes native/chdman/mame.json)"
+          sha256="$(jq -er .sourceSha256 native/chdman/mame.json)"
+          mkdir -p release-output
+          archive="release-output/${url##*/}"
+          curl --fail --location --proto '=https' --proto-redir '=https' --max-time 600 \
+            --max-filesize "$bytes" --output "$archive" "$url"
+          test "$(stat -c %s "$archive")" = "$bytes"
+          echo "$sha256  $archive" | sha256sum --check --strict -
+      - name: Authenticate the publisher to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Publish immutable candidate images and assets without replacement
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source_url="$(jq -er .sourceUrl native/chdman/mame.json)"
+          python3 scripts/release/publication.py --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" \
+            --source-archive "release-output/${source_url##*/}" --output release-output
+      - name: Retain the publisher's immutable subject map
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: published-subjects-${{ github.sha }}
+          path: |
+            release-output/images.env
+            release-output/candidate.json
+            release-output/publication.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  qualify:
+    name: Downloaded Linux amd64 bundle and real-browser qualification
+    needs: [preflight, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: read
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.0'
+      - name: Install the locked qualification browser on this runner
+        run: |
+          npm ci --ignore-scripts --prefix scripts/release/browser
+          scripts/release/browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Download the publisher subject map from this workflow run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: published-subjects-${{ github.sha }}
+          path: publisher-subjects
+      - name: Download the actual candidate bundle and compare its image map
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir candidate-download \
+            --pattern "romd-$RELEASE_TAG-deployment.tar.gz*" --pattern images.env --pattern candidate.json
+          cmp publisher-subjects/images.env candidate-download/images.env
+          cmp publisher-subjects/candidate.json candidate-download/candidate.json
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Qualify the downloaded deployment and prove browser failures block it
+        run: |
+          set -euo pipefail
+          ingress="$(jq -er .ingress scripts/deployment/base-images.json)"
+          args=(--bundle "candidate-download/romd-$RELEASE_TAG-deployment.tar.gz"
+            --checksum "candidate-download/romd-$RELEASE_TAG-deployment.tar.gz.sha256"
+            --expected-images publisher-subjects/images.env --publisher-state publisher-subjects/candidate.json --expected-revision "$SOURCE_REVISION"
+            --expected-tag "$RELEASE_TAG" --nginx-image "$ingress")
+          python3 scripts/release/qualify.py "${args[@]}" --evidence-dir coverage/packaged/positive
+          for fault in portal-asset player-startup; do
+            if python3 scripts/release/qualify.py "${args[@]}" --inject-fault "$fault" --evidence-dir "coverage/packaged/$fault"; then
+              echo "Injected browser fault was incorrectly qualified: $fault" >&2
+              exit 1
+            fi
+            python3 scripts/release/assert_failure.py --fault "$fault" --evidence-dir "coverage/packaged/$fault"
+          done
+      - name: Retain sanitized packaged/browser diagnostics even on failure
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: packaged-qualification-${{ github.sha }}
+          path: coverage/packaged/
+          if-no-files-found: error
+          retention-days: 30
+
+  metadata:
+    name: Scan final digests and generate bound release SBOMs
+    needs: [preflight, qualify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: published-subjects-${{ github.sha }}
+          path: publisher-subjects
+      - name: Download immutable candidate inputs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir release-files \
+            --pattern "romd-$RELEASE_TAG-deployment.tar.gz*" --pattern images.env --pattern candidate.json
+          cmp publisher-subjects/images.env release-files/images.env
+          cmp publisher-subjects/candidate.json release-files/candidate.json
+      - name: Install checksum-pinned scanners
+        run: python3 scripts/security/tools.py --output .artifacts/security-tools
+      - name: Generate final-digest SBOMs and enforce the vulnerability policy
+        run: |
+          python3 scripts/security/metadata.py \
+            --bundle "release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
+            --checksum "release-files/romd-$RELEASE_TAG-deployment.tar.gz.sha256" \
+            --images publisher-subjects/images.env --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
+            --publisher-state publisher-subjects/candidate.json \
+            --tools-dir .artifacts/security-tools --output security-metadata
+      - name: Retain security diagnostics and immutable inputs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-metadata-${{ github.sha }}
+          path: |
+            security-metadata/
+            release-files/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-metadata:
+    name: Attest the exact ${{ matrix.role }} release subject
+    needs: [preflight, metadata]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        role: [admin, consumer, worker, player, postgres, bundle, index]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-metadata-${{ github.sha }}
+          path: release-inputs
+      - name: Select the verified subject
+        id: subject
+        env:
+          SUBJECT_ROLE: ${{ matrix.role }}
+        run: python3 scripts/release/attestation_files.py subject --root release-inputs --role "$SUBJECT_ROLE" --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG"
+      - name: Attest OCI qualification provenance
+        if: ${{ steps.subject.outputs.kind == 'image' }}
+        id: image-provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-name: ${{ steps.subject.outputs.name }}
+          subject-digest: ${{ steps.subject.outputs.digest }}
+          push-to-registry: false
+      - name: Attest file provenance
+        if: ${{ steps.subject.outputs.kind == 'file' }}
+        id: file-provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: ${{ steps.subject.outputs.path }}
+      - name: Attest the OCI SBOM
+        if: ${{ steps.subject.outputs.kind == 'image' }}
+        id: image-sbom
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-name: ${{ steps.subject.outputs.name }}
+          subject-digest: ${{ steps.subject.outputs.digest }}
+          sbom-path: ${{ steps.subject.outputs.sbom }}
+          push-to-registry: false
+      - name: Attest the deployment bundle SBOM
+        if: ${{ matrix.role == 'bundle' }}
+        id: bundle-sbom
+        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # v3
+        with:
+          subject-path: ${{ steps.subject.outputs.path }}
+          sbom-path: ${{ steps.subject.outputs.sbom }}
+      - name: Preserve complete attestation bundles as JSONL
+        env:
+          SUBJECT_ROLE: ${{ matrix.role }}
+          PROVENANCE_BUNDLE: ${{ steps.image-provenance.outputs.bundle-path || steps.file-provenance.outputs.bundle-path }}
+          SBOM_BUNDLE: ${{ steps.image-sbom.outputs.bundle-path || steps.bundle-sbom.outputs.bundle-path }}
+        run: |
+          python3 scripts/release/attestation_files.py append --bundle "$PROVENANCE_BUNDLE" --output "$SUBJECT_ROLE.jsonl"
+          if [[ -n "$SBOM_BUNDLE" ]]; then
+            python3 scripts/release/attestation_files.py append --bundle "$SBOM_BUNDLE" --output "$SUBJECT_ROLE.jsonl"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: release-attestations-${{ matrix.role }}-${{ github.sha }}
+          path: ${{ matrix.role }}.jsonl
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-complete:
+    name: Verify public evidence and mark a qualified prerelease
+    needs: [preflight, qualify, metadata, publish-metadata]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-metadata-${{ github.sha }}
+          path: release-inputs
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-attestations-*-${{ github.sha }}
+          path: attestation-parts
+          merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: packaged-qualification-${{ github.sha }}
+          path: packaged-evidence
+      - name: Assemble and verify anonymous offline attestations
+        run: |
+          python3 scripts/release/attestation_files.py merge --root attestation-parts --output attestations.jsonl
+          python3 scripts/security/verify.py --metadata-dir release-inputs/security-metadata \
+            --bundle "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
+            --attestations attestations.jsonl --repository "$GITHUB_REPOSITORY" \
+            --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+      - name: Attach evidence while the candidate remains unqualified
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tar -czf packaged-qualification.tar.gz -C packaged-evidence .
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            release-inputs/security-metadata/*.json attestations.jsonl packaged-qualification.tar.gz
+      - name: Download and verify the actual public assets without credentials
+        run: |
+          python3 scripts/security/download_release.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --metadata-dir release-inputs/security-metadata \
+            --bundle "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
+            --attestations attestations.jsonl --output public-download
+          python3 scripts/security/verify.py --metadata-dir public-download \
+            --bundle "public-download/romd-$RELEASE_TAG-deployment.tar.gz" \
+            --attestations public-download/attestations.jsonl --repository "$GITHUB_REPOSITORY" \
+            --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+      - name: Prove a tampered anonymously downloaded bundle is rejected
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/tampered
+          bundle="romd-$RELEASE_TAG-deployment.tar.gz"
+          cp "public-download/$bundle" ".artifacts/tampered/$bundle"
+          printf 'tampered' >> ".artifacts/tampered/$bundle"
+          if python3 scripts/security/verify.py --metadata-dir public-download \
+              --bundle ".artifacts/tampered/$bundle" --attestations public-download/attestations.jsonl \
+              --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"; then
+            echo 'Tampered bundle was incorrectly verified' >&2
+            exit 1
+          fi
+      - name: Retain sanitized public-download diagnostics even on failure
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: public-download-verification-${{ github.sha }}
+          path: public-download/download-result.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Mark the anonymously verified prerelease and retain the maintainer checkpoint
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s\n' 'Qualified Linux amd64 prerelease: packaged browser/recovery, negative fault gates, SBOM/scanning and anonymous provenance verification passed. Production promotion still requires the final maintainer checkpoint. Native console binaries remain experimental.' > qualification-notes.txt
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease --notes-file qualification-notes.txt

@@ -1,0 +1,30 @@
+{
+  "name": "@romd/admin-api-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "generate": "openapi-ts",
+    "build": "pnpm generate && tsc",
+    "test": "vitest run",
+    "clean": "rm -rf dist src/generated"
+  },
+  "dependencies": {
+    "@microsoft/signalr": "^10.0.0"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.97.3",
+    "typescript": "^5.8.3"
+  }
+}

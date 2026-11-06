@@ -1,0 +1,122 @@
+{
+  "profile": "romd-reference-json-v1",
+  "vectors": [
+    {
+      "name": "unicode-and-order",
+      "input": {
+        "z": "\u00e9\ud83d\ude00<>&\"\\\b\t\n\f\r\u0001/",
+        "a": [
+          null,
+          true,
+          false,
+          -1,
+          0,
+          123,
+          {
+            "\u03b2": "\u5024",
+            "A": "x"
+          }
+        ],
+        "\ue000": "private",
+        "\ud83d\ude00": "astral"
+      },
+      "canonical": "{\"a\":[null,true,false,-1,0,123,{\"A\":\"x\",\"\u03b2\":\"\u5024\"}],\"z\":\"\u00e9\ud83d\ude00<>&\\\"\\\\\\b\\t\\n\\f\\r\\u0001/\",\"\ud83d\ude00\":\"astral\",\"\ue000\":\"private\"}",
+      "sha256": "9cc76363cc3749ebe837b0b4f49e18763334827d36b1024caf76c80c9f4316a8"
+    },
+    {
+      "name": "complete-catalog-v1",
+      "input": {
+        "schemaVersion": 1,
+        "builtInVersion": 7,
+        "revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "systems": [
+          {
+            "key": "local-test",
+            "name": "\u00c9lan \ud83d\ude00 <>&",
+            "compactLabel": "E",
+            "description": null,
+            "icon": null,
+            "manufacturerKeys": [],
+            "retired": false,
+            "manufacturers": []
+          }
+        ],
+        "ratingBoards": [
+          {
+            "key": "ESRB",
+            "name": "ESRB",
+            "description": null,
+            "retired": false
+          }
+        ],
+        "ratings": [
+          {
+            "board": "ESRB",
+            "code": "E",
+            "name": "Everyone",
+            "description": "quoted \" / \\",
+            "icon": null,
+            "designation": null,
+            "minimumAge": null,
+            "retired": false
+          }
+        ],
+        "companies": [],
+        "regions": [],
+        "languages": []
+      },
+      "canonical": "{\"builtInVersion\":7,\"companies\":[],\"languages\":[],\"ratingBoards\":[{\"description\":null,\"key\":\"ESRB\",\"name\":\"ESRB\",\"retired\":false}],\"ratings\":[{\"board\":\"ESRB\",\"code\":\"E\",\"description\":\"quoted \\\" / \\\\\",\"designation\":null,\"icon\":null,\"minimumAge\":null,\"name\":\"Everyone\",\"retired\":false}],\"regions\":[],\"revision\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"schemaVersion\":1,\"systems\":[{\"compactLabel\":\"E\",\"description\":null,\"icon\":null,\"key\":\"local-test\",\"manufacturerKeys\":[],\"manufacturers\":[],\"name\":\"\u00c9lan \ud83d\ude00 <>&\",\"retired\":false}]}",
+      "sha256": "1e7f806d1d212b9801e659f00fa2bbd8a888edf35801c572a7808f9aea554e2b"
+    },
+    {
+      "name": "safe-integer-values",
+      "input": {
+        "maximum": 9007199254740991,
+        "minimum": -9007199254740991,
+        "negativeZero": -0.0,
+        "integralDecimal": 1.0,
+        "integralExponent": 1e2
+      },
+      "canonical": "{\"integralDecimal\":1,\"integralExponent\":100,\"maximum\":9007199254740991,\"minimum\":-9007199254740991,\"negativeZero\":0}",
+      "sha256": "83f092635de724c0c6256a00113fe400ce759214a2e4c60e2fae9dcb92c445d1"
+    },
+    {
+      "name": "all-controls",
+      "input": {
+        "controls": "\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f"
+      },
+      "canonical": "{\"controls\":\"\\u0000\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\b\\t\\n\\u000b\\f\\r\\u000e\\u000f\\u0010\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f\"}",
+      "sha256": "b76bb04fd866edab0a499d6a2f70286d42297ffaee2f7edb9aabd5e7d9ed65a3"
+    }
+  ],
+  "rejections": [
+    {
+      "name": "fraction",
+      "input": 1.5
+    },
+    {
+      "name": "unsafe-positive",
+      "input": 9007199254740992
+    },
+    {
+      "name": "unsafe-negative",
+      "input": -9007199254740992
+    },
+    {
+      "name": "lone-high-surrogate",
+      "input": "\ud800"
+    },
+    {
+      "name": "lone-low-surrogate",
+      "input": "\udfff"
+    },
+    {
+      "name": "nested-fraction",
+      "input": {
+        "a": [
+          0.1
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/rtissera/libchdr",
+  "commit": "607694ca0812edfc9cc2030c64634fc2393668de",
+  "upstreamVersion": "v0.3.0-116-g607694c",
+  "headers": {
+    "include/libchdr/chd.h": "a318ad8a93050bbe33fdc18dcddc1b433d1840d2f09e42166e090ad5838f5fe4",
+    "include/libchdr/coretypes.h": "f573f4ddf8960bff863d1e8f3513acad71a22807a18eccb634a4a4519cb88d72"
+  },
+  "features": ["raw-sectors", "subcode", "block-crc"],
+  "supportedRids": ["linux-x64", "linux-arm64", "osx-arm64"]
+}

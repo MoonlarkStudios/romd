@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Romd.Infrastructure.Tests" />
+    <ProjectReference Include="../../src/Romd.Hosting/Romd.Hosting.csproj" />
+    <ProjectReference Include="../../tests/Romd.PostgreSql.TestSupport/Romd.PostgreSql.TestSupport.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="NSubstitute" />
+  </ItemGroup>
+  <Import Project="../../build/Romd.Media.Worker.targets" />
+
+</Project>

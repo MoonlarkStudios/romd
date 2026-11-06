@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "name": "example-profile",
+  "description": "Template only. Copy to .demo/profile.json and replace every entry with archives from your own lawfully obtained collection; see docs/development/demo-data.md.",
+  "catalogSite": "https://moonlarkstudios.github.io/romd-dat-data",
+  "roms": [
+    {
+      "system": "gb",
+      "source": "roms/Nintendo - Game Boy/Example Homebrew Title (World).zip",
+      "purpose": "Placeholder: the directory must equal the complete No-Intro DAT name"
+    },
+    {
+      "system": "gb",
+      "source": "roms/Nintendo - Game Boy/Example Homebrew Title (World) (Rev 1).zip",
+      "purpose": "Placeholder: a revision sibling, one title with multiple releases"
+    }
+  ],
+  "bios": []
+}

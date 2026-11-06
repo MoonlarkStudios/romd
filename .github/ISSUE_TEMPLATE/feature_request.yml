@@ -1,0 +1,30 @@
+name: Feature request
+description: Describe a use case and observable outcome.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Who needs this and what are they trying to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired behavior
+      description: Describe an observable result, with a concrete example if possible.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Affected surfaces and compatibility
+      description: Note relevant clients, deployment targets, API/auth boundaries, persisted identities or data formats. Do not include private or secret material.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and additional context
+      description: Include existing workarounds and relevant related issues.

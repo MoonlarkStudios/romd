@@ -1,0 +1,312 @@
+<?xml version="1.0"?>
+<!DOCTYPE datafile PUBLIC "-//Logiqx//DTD ROM Management Datafile//EN" "http://www.logiqx.com/Dats/datafile.dtd">
+<datafile>
+	<!-- Synthetic ROMD test fixture. Titles, sizes and hashes are invented; this is not an upstream DAT release. See README.md. -->
+	<header>
+		<name>Sony - PlayStation</name>
+		<description>Sony - PlayStation - Discs (48) (2026-01-01 00-00-00)</description>
+		<version>2026-01-01 00-00-00</version>
+		<date>2026-01-01 00-00-00</date>
+		<author>redump.org</author>
+		<homepage>redump.org</homepage>
+		<url>http://redump.org/</url>
+	</header>
+	<game name="Example Tactics &amp; Tanks (USA)">
+		<category>Games</category>
+		<description>Example Tactics &amp; Tanks (USA)</description>
+		<rom name="Example Tactics &amp; Tanks (USA).cue" size="150" crc="ed1b65d6" md5="747e1ad945803b267aaa84d0e5c75845" sha1="3ea93cc5ceaf5c85192bf855edd108553e47508d"/>
+		<rom name="Example Tactics &amp; Tanks (USA).bin" size="359416176" crc="bbedad22" md5="38aa544cec28297e7c66554279ecd447" sha1="f45613e3d25ed3eacc47d65478410fa964c7a47a"/>
+	</game>
+	<game name="Fixture Horror House (Japan) (Rev 1)">
+		<category>Games</category>
+		<description>Fixture Horror House (Japan) (Rev 1)</description>
+		<rom name="Fixture Horror House (Japan) (Rev 1).cue" size="150" crc="7b08eda0" md5="56afe68855d0833beb88a7415bf54190" sha1="a1ffbc1f7dbac022c4f3c7895e4b900869c2bf50"/>
+		<rom name="Fixture Horror House (Japan) (Rev 1).bin" size="361013184" crc="c29405f8" md5="692e6d7c4872098542b5a7a3aeb1d8ff" sha1="3417793081e502f0840177c22189f59b99a4df58"/>
+	</game>
+	<game name="Fixture Horror House (USA)">
+		<category>Games</category>
+		<description>Fixture Horror House (USA)</description>
+		<rom name="Fixture Horror House (USA).cue" size="220" crc="9fad58c7" md5="6224b0ba5d2d4d1dd029af495539453b" sha1="4941c2a26da7f2f99301f45bd0fa22457dd688fc"/>
+		<rom name="Fixture Horror House (USA) (Track 1).bin" size="50702064" crc="6d878a78" md5="f985adf0fbea0c58e5be753950faa722" sha1="bba733793f873b2b7df98bebec045eb7cfe32144"/>
+		<rom name="Fixture Horror House (USA) (Track 2).bin" size="54302976" crc="81857280" md5="7cc67cb0516c8b2ec7f5fd928376e2c4" sha1="e529be0c222ec21b4256f408864b679b4d57a53e"/>
+	</game>
+	<game name="Mock Coverdisc Sampler 12 (Europe)">
+		<category>Coverdiscs</category>
+		<description>Mock Coverdisc Sampler 12 (Europe)</description>
+		<rom name="Mock Coverdisc Sampler 12 (Europe).cue" size="150" crc="7124dee5" md5="73c73b9b7378cf7753b0d7237dba27e0" sha1="dd1bcc8c9891675cde0a68719139bae130ca3d94"/>
+		<rom name="Mock Coverdisc Sampler 12 (Europe).bin" size="360556896" crc="02612885" md5="d8f779f6625c3c3c64754196b68680a8" sha1="3a003011a378442374eb8e9bee74e5211fd61b12"/>
+	</game>
+	<game name="Placeholder Music Studio (Europe) (En,Fr,De,Es,It)">
+		<category>Applications</category>
+		<description>Placeholder Music Studio (Europe) (En,Fr,De,Es,It)</description>
+		<rom name="Placeholder Music Studio (Europe) (En,Fr,De,Es,It).cue" size="290" crc="899253d0" md5="e99f43f193bb6a8d7d05a798fd16cf9a" sha1="6aa9510385a3e4843dedf0d7d9e775a5be1c79cb"/>
+		<rom name="Placeholder Music Studio (Europe) (En,Fr,De,Es,It) (Track 1).bin" size="50758512" crc="ed246013" md5="b554d5a878ba075b544cb84f4587e36f" sha1="8e9881d23631f02acd51851bb3d8d5d707d31c4c"/>
+		<rom name="Placeholder Music Studio (Europe) (En,Fr,De,Es,It) (Track 2).bin" size="54359424" crc="7d093150" md5="d0b1e5728b7ffad99dea9008b9f6da58" sha1="5dc4f91291b31af831d98ef28da6760b8a4bc0c8"/>
+		<rom name="Placeholder Music Studio (Europe) (En,Fr,De,Es,It) (Track 3).bin" size="57960336" crc="a8cab93b" md5="2f53775287a6636e455748f99f39acf8" sha1="29c9441ef60ba6a686bcfb70f187e2e897785de9"/>
+	</game>
+	<game name="Sample Making-Of Extras (USA)">
+		<category>Bonus Discs</category>
+		<description>Sample Making-Of Extras (USA)</description>
+		<rom name="Sample Making-Of Extras (USA).cue" size="150" crc="b546a1c9" md5="d77b92fb99edba8fed299109b9ba6734" sha1="185d6c380b5923b67cfdd15eb280570f6001157b"/>
+		<rom name="Sample Making-Of Extras (USA).bin" size="359416176" crc="c4eb3bfe" md5="3164961de56d6f9dcf655d30f17ebd94" sha1="cf1ea3e8ec6afe7bcfa467914c6439a695c18bf0"/>
+	</game>
+	<game name="Synthetic Collector's CD Vol. 1 (USA)">
+		<category>Coverdiscs</category>
+		<description>Synthetic Collector's CD Vol. 1 (USA)</description>
+		<rom name="Synthetic Collector's CD Vol. 1 (USA).cue" size="150" crc="703432ce" md5="ce14c07053c4e6e995508d47d8151ccb" sha1="7f77ea26d14789a89339bc7af39a7934f7b333a2"/>
+		<rom name="Synthetic Collector's CD Vol. 1 (USA).bin" size="361241328" crc="62979831" md5="67b254729c6a9642e1d606380c874d71" sha1="b121aed172737f8e8f92ac0b62daab93ad8e0f7a"/>
+	</game>
+	<game name="Synthetic Demo Disc - Shock Sampler (USA) (SLUS-00000)">
+		<category>Demos</category>
+		<description>Synthetic Demo Disc - Shock Sampler (USA) (SLUS-00000)</description>
+		<rom name="Synthetic Demo Disc - Shock Sampler (USA) (SLUS-00000).cue" size="150" crc="2bfcfaf7" md5="69bf649099054ac891f8322d8238f03b" sha1="3a0fb53e4ac1e4a38b522845b0607adea9cbc35b"/>
+		<rom name="Synthetic Demo Disc - Shock Sampler (USA) (SLUS-00000).bin" size="365119776" crc="08cd8ba0" md5="89cd2f837d337faa3c6c7101e7b17fd2" sha1="62a39446fe82f96cfe3e3b8175911f90b36146ab"/>
+	</game>
+	<game name="Synthetic Skyline Racer (Europe) (En,Fr,De,Es,It)">
+		<category>Games</category>
+		<description>Synthetic Skyline Racer (Europe) (En,Fr,De,Es,It)</description>
+		<rom name="Synthetic Skyline Racer (Europe) (En,Fr,De,Es,It).cue" size="360" crc="4758cf84" md5="852b882cde21f3130483c4d8acfe6171" sha1="b462ae8c5eaf775223d348c119c87047a73fa199"/>
+		<rom name="Synthetic Skyline Racer (Europe) (En,Fr,De,Es,It) (Track 1).bin" size="50756160" crc="39aa2474" md5="da30f1fa0d4556028ace41181f463ff1" sha1="30bd935124f22439f306ddf84baaec0a612453aa"/>
+		<rom name="Synthetic Skyline Racer (Europe) (En,Fr,De,Es,It) (Track 2).bin" size="54357072" crc="1bd3f23b" md5="ad2f7207dde9d17f2f2ea60c9a86dec0" sha1="82877f083c5870e83a071f281873c8b6a9c6165a"/>
+		<rom name="Synthetic Skyline Racer (Europe) (En,Fr,De,Es,It) (Track 3).bin" size="57957984" crc="eafb3f5a" md5="97e543660e55017067f177527522c76c" sha1="22b8f4d32f9673241c4642b4ce911fc3b3850060"/>
+		<rom name="Synthetic Skyline Racer (Europe) (En,Fr,De,Es,It) (Track 4).bin" size="61558896" crc="06ddc39f" md5="d630efeb885ef1d8bf11e690b3b11057" sha1="98cd4de07ba46663655e46352657f77ce7c12f2b"/>
+	</game>
+	<game name="Synthetic Skyline Racer (USA)">
+		<category>Games</category>
+		<description>Synthetic Skyline Racer (USA)</description>
+		<rom name="Synthetic Skyline Racer (USA).cue" size="360" crc="98c502a6" md5="31001cb234c99f9ac813300b921b8c93" sha1="729a70a859b9d2dc7c14f42d0c9475938ff105c0"/>
+		<rom name="Synthetic Skyline Racer (USA) (Track 1).bin" size="50709120" crc="2b46ec31" md5="daeff93cd3bf017d8d27c23fd3a7c696" sha1="7b23363ece4b062e73db43d7a1e87b681c6cd848"/>
+		<rom name="Synthetic Skyline Racer (USA) (Track 2).bin" size="54310032" crc="a8c4540a" md5="c03ddcb2b49a9f63281b4c9327112983" sha1="c40a5531496a5f1add2630c185aa1319140fde9a"/>
+		<rom name="Synthetic Skyline Racer (USA) (Track 3).bin" size="57910944" crc="2b4f856f" md5="e0ceb8faaf6ca2c75f138118aa20e5ef" sha1="771df95012734b5c0bb286c4bf8589a97a8edb1a"/>
+		<rom name="Synthetic Skyline Racer (USA) (Track 4).bin" size="61511856" crc="5d674423" md5="a6eaad195a9704f51ae7cdaba19042b6" sha1="1edf60b9314222647c3e09b4fa306538b8766d5a"/>
+	</game>
+	<game name="Synthetic Demo Disc 02 (Europe) (En,Fr,De,Es,It)">
+		<category>Demos</category>
+		<description>Synthetic Demo Disc 02 (Europe) (En,Fr,De,Es,It)</description>
+		<rom name="Synthetic Demo Disc 02 (Europe) (En,Fr,De,Es,It).cue" size="150" crc="d548c9cd" md5="235207ace3ff0feff45116d633518c03" sha1="24731470b89737902f2d3ae79285f8a12c471fa4"/>
+		<rom name="Synthetic Demo Disc 02 (Europe) (En,Fr,De,Es,It).bin" size="363750912" crc="f212994d" md5="44d49125aa8c0d499f043c571d96a073" sha1="66c720a30b848cbf22bb4536c6d8f0d52bf97491"/>
+	</game>
+	<game name="Synthetic Saga VII (USA) (Disc 1)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (USA) (Disc 1)</description>
+		<rom name="Synthetic Saga VII (USA) (Disc 1).cue" size="150" crc="05b53a86" md5="42e21abeeb68da760fd11d43b3a786a5" sha1="8e3cc9674cefc6187707f1c4c75fa5eac6337b6b"/>
+		<rom name="Synthetic Saga VII (USA) (Disc 1).bin" size="360328752" crc="73b9bab9" md5="bb867dd5488fb4ef92fa4645a78e6328" sha1="2af070e7dcf13ae08a12ad989806a80b217a7d6e"/>
+	</game>
+	<game name="Synthetic Saga VII (USA) (Disc 2)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (USA) (Disc 2)</description>
+		<rom name="Synthetic Saga VII (USA) (Disc 2).cue" size="150" crc="c73352fe" md5="4699ee9ea3f6389cb859a59727ff3461" sha1="e324dc2fdae26b0b08937e9d25fbad1ae9abb860"/>
+		<rom name="Synthetic Saga VII (USA) (Disc 2).bin" size="360328752" crc="301a606e" md5="58f43479a914a4b6cbbe33278fde6f59" sha1="db806a6bae87ca6e768a1c7d4c4f7e6b424da649"/>
+	</game>
+	<game name="Synthetic Saga VII (USA) (Disc 3)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (USA) (Disc 3)</description>
+		<rom name="Synthetic Saga VII (USA) (Disc 3).cue" size="150" crc="87e2d708" md5="1a807d10bb467af4addf2252f97d225d" sha1="0683986535bcb8deb8bd9e80f59ffb64f4334a02"/>
+		<rom name="Synthetic Saga VII (USA) (Disc 3).bin" size="360328752" crc="f1a4c1cd" md5="4b1bc0f7266eddfd74439b6cad26eef9" sha1="1661adb5077ea143bc29189229b944c28ce6b241"/>
+	</game>
+	<game name="Synthetic Saga VII (Europe) (Disc 1)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Europe) (Disc 1)</description>
+		<rom name="Synthetic Saga VII (Europe) (Disc 1).cue" size="150" crc="b120121d" md5="cffc618d931c72ab58377aee2fd37237" sha1="d0836a0183e5fd59ffc9cfd3709f292e1d173bdb"/>
+		<rom name="Synthetic Saga VII (Europe) (Disc 1).bin" size="361013184" crc="6c3101e3" md5="8c1c572ab871683249b6d90b217bc4a9" sha1="e0573b548e6ea859c5ddfef363ad9e2f8a811671"/>
+	</game>
+	<game name="Synthetic Saga VII (Europe) (Disc 3)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Europe) (Disc 3)</description>
+		<rom name="Synthetic Saga VII (Europe) (Disc 3).cue" size="150" crc="3b2fdd0f" md5="0f59a557a44fb902f2b6d9ffa5341235" sha1="19c7aa360025a8c4ca8a65f6f05093d27c084b5b"/>
+		<rom name="Synthetic Saga VII (Europe) (Disc 3).bin" size="361013184" crc="31b0632b" md5="760f0713b9f181289900e17451a5fc67" sha1="8bc632636e83d4121751abb988046796131f454b"/>
+	</game>
+	<game name="Synthetic Saga VII (Europe) (Disc 2)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Europe) (Disc 2)</description>
+		<rom name="Synthetic Saga VII (Europe) (Disc 2).cue" size="150" crc="57cae26f" md5="e966ac0b2bc0ea210352edddd0cca215" sha1="93559b9fe83cb403ad924def11d7ddbcd97cfef3"/>
+		<rom name="Synthetic Saga VII (Europe) (Disc 2).bin" size="361013184" crc="ed408ed6" md5="aa952c0c785438c6566b30140a6d3fd4" sha1="fcb1c2f59e1fc18b9f634df0931520144f772519"/>
+	</game>
+	<game name="Synthetic Saga VII (Japan) (Disc 1)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Japan) (Disc 1)</description>
+		<rom name="Synthetic Saga VII (Japan) (Disc 1).cue" size="150" crc="1d368adf" md5="de47d0c3e921df5465368ed3fa18e69b" sha1="fc7898744122af84f32501b1c0aecc34af05e092"/>
+		<rom name="Synthetic Saga VII (Japan) (Disc 1).bin" size="360785040" crc="0fc3eac0" md5="3c92be29cf61da56dc34c6f18fdf0fc2" sha1="71d02b3d9c62958fa6eddbf2a3c848140e67e456"/>
+	</game>
+	<game name="Synthetic Saga VII (Japan) (Disc 2)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Japan) (Disc 2)</description>
+		<rom name="Synthetic Saga VII (Japan) (Disc 2).cue" size="150" crc="b9b2f956" md5="94ce2c4438fe82b7d52c26843cb63787" sha1="0d01753b71375b2ace35f519bb036a54f5afd758"/>
+		<rom name="Synthetic Saga VII (Japan) (Disc 2).bin" size="360785040" crc="c4e11380" md5="9dc1e182f8dde92db1091e77b434ba93" sha1="ee5482c1f723a06e3ffe09cbd3f980054812d965"/>
+	</game>
+	<game name="Synthetic Saga VII (Japan) (Disc 3)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Japan) (Disc 3)</description>
+		<rom name="Synthetic Saga VII (Japan) (Disc 3).cue" size="150" crc="f0431d0c" md5="7905af59f9aad5de34d66e6b4d071f8a" sha1="018797e74cefdba014824f6b629836de97eb755f"/>
+		<rom name="Synthetic Saga VII (Japan) (Disc 3).bin" size="360785040" crc="98770bb7" md5="ebc6217091295c1bfe07717bd3306177" sha1="55d5e0a1b1977f371590761248e0670c11024d7f"/>
+	</game>
+	<game name="Synthetic Saga VII (Germany) (Disc 1)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Germany) (Disc 1)</description>
+		<rom name="Synthetic Saga VII (Germany) (Disc 1).cue" size="150" crc="0bce8587" md5="d3457dafc3d73c776c25e493ad3d0798" sha1="3c613e84b4debdb40c40364db50714c7e8cfd799"/>
+		<rom name="Synthetic Saga VII (Germany) (Disc 1).bin" size="361241328" crc="82998b8f" md5="a581045a82a55cd34ee5f0a04248421f" sha1="b7acb33e28ac449f773ca875346fd2d59c1622f5"/>
+	</game>
+	<game name="Synthetic Saga VII (Germany) (Disc 2)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Germany) (Disc 2)</description>
+		<rom name="Synthetic Saga VII (Germany) (Disc 2).cue" size="150" crc="d919d065" md5="94a21539d9f49df81fed8f39d3bd50ab" sha1="2f2637387722c7deed657c1f0954a27c421c0e5e"/>
+		<rom name="Synthetic Saga VII (Germany) (Disc 2).bin" size="361241328" crc="66658b4f" md5="e413e5892f67819a243c9284a83d84cf" sha1="3230244c3fca9c1bd71b1426d858088083433263"/>
+	</game>
+	<game name="Synthetic Saga VII (Germany) (Disc 3)">
+		<category>Games</category>
+		<description>Synthetic Saga VII (Germany) (Disc 3)</description>
+		<rom name="Synthetic Saga VII (Germany) (Disc 3).cue" size="150" crc="aa8ca0cf" md5="8fc8dfc963e463a272933e387b3a03b2" sha1="56ca4bcfc4b8c6195d14e3f2426ae7736eed8407"/>
+		<rom name="Synthetic Saga VII (Germany) (Disc 3).bin" size="361241328" crc="468a8c9d" md5="bc898da439d583a7fff048b238995418" sha1="f2acf4b8e4728b4f0bc65899bdd2c24155b865df"/>
+	</game>
+	<game name="Fixture Grand Prix 2 (Europe) (En,Fr,De,Es,It) (Disc 1) (Arcade Mode)">
+		<category>Games</category>
+		<description>Fixture Grand Prix 2 (Europe) (En,Fr,De,Es,It) (Disc 1) (Arcade Mode)</description>
+		<rom name="Fixture Grand Prix 2 (Europe) (En,Fr,De,Es,It) (Disc 1) (Arcade Mode).cue" size="150" crc="be10b4b0" md5="507db916e96357adfecf27f7a34a487c" sha1="37b08c93f3f87aeb84111b9e7372e092e652a10c"/>
+		<rom name="Fixture Grand Prix 2 (Europe) (En,Fr,De,Es,It) (Disc 1) (Arcade Mode).bin" size="368541936" crc="e1ad29a8" md5="2db820d4af31e11456ef82a382240685" sha1="7f1333aaa9708427fd0bc8e6350bf7cf194a9c32"/>
+	</game>
+	<game name="Fixture Grand Prix 2 (Europe) (En,Fr,De,Es,It) (Disc 2) (Career Mode)">
+		<category>Games</category>
+		<description>Fixture Grand Prix 2 (Europe) (En,Fr,De,Es,It) (Disc 2) (Career Mode)</description>
+		<rom name="Fixture Grand Prix 2 (Europe) (En,Fr,De,Es,It) (Disc 2) (Career Mode).cue" size="150" crc="b783e441" md5="7b8b7dd961adba823615e63d36ec136a" sha1="c8075e1655e50bc372d73a12264b2387e38b8b8a"/>
+		<rom name="Fixture Grand Prix 2 (Europe) (En,Fr,De,Es,It) (Disc 2) (Career Mode).bin" size="368541936" crc="5093a446" md5="83293d035662ff343f7ee258226168b9" sha1="351a91941a7bbe28f74e87a6bebe954f20498069"/>
+	</game>
+	<game name="Example Starfighter III - Comet Run (Europe) (Disc 2)">
+		<category>Games</category>
+		<description>Example Starfighter III - Comet Run (Europe) (Disc 2)</description>
+		<rom name="Example Starfighter III - Comet Run (Europe) (Disc 2).cue" size="150" crc="a4708ba8" md5="96048f847f3fe9af4d9c041edd0ecfe1" sha1="438b479c940dc1b9b8236872feb6f698973828c4"/>
+		<rom name="Example Starfighter III - Comet Run (Europe) (Disc 2).bin" size="364891632" crc="6a642673" md5="a0d0bec29a56a28aa16fcbb8a4a6ef60" sha1="fedf0d56e05589d72a100d342329c1dfe7e7150f"/>
+	</game>
+	<game name="Example Starfighter III - Comet Run (Europe) (Disc 4)">
+		<category>Games</category>
+		<description>Example Starfighter III - Comet Run (Europe) (Disc 4)</description>
+		<rom name="Example Starfighter III - Comet Run (Europe) (Disc 4).cue" size="150" crc="235684c4" md5="145d2a77a1bf0ca3c5826d2949ba5fc1" sha1="168bea5d8a7cae20e255c5650f3b79132f56e3c8"/>
+		<rom name="Example Starfighter III - Comet Run (Europe) (Disc 4).bin" size="364891632" crc="af6fcafe" md5="eeb2fb0a868b00c091435a692a2d1a77" sha1="f6933eba89af8188892e4985f85706242e85faa4"/>
+	</game>
+	<game name="Mock Infiltrator 2 (USA) (Disc 1)">
+		<category>Games</category>
+		<description>Mock Infiltrator 2 (USA) (Disc 1)</description>
+		<rom name="Mock Infiltrator 2 (USA) (Disc 1).cue" size="150" crc="5c09fcd0" md5="fa1fc9bcdbacd711dcdd41022b5b5f81" sha1="9e0542703f73dbc3cbc056b84546be5ca827073a"/>
+		<rom name="Mock Infiltrator 2 (USA) (Disc 1).bin" size="360328752" crc="86f2cadf" md5="0292bb00cf8b9d0e18bf717d65a7049a" sha1="1311775464686d43f018e0cd2b32a684471cefc3"/>
+	</game>
+	<game name="Mock Infiltrator 2 (USA) (Disc 2)">
+		<category>Games</category>
+		<description>Mock Infiltrator 2 (USA) (Disc 2)</description>
+		<rom name="Mock Infiltrator 2 (USA) (Disc 2).cue" size="150" crc="20574978" md5="3a59a7a5f96b2070490636a728fc8e00" sha1="bdafa4a8eed6239ab8f864002da098f78d1b5fa9"/>
+		<rom name="Mock Infiltrator 2 (USA) (Disc 2).bin" size="360328752" crc="477a278a" md5="88b7fd2bf4282bb05200a261200d40cb" sha1="59fa05ad197166edd3c7b440c64b0236d4771efa"/>
+	</game>
+	<game name="Mock Infiltrator 2 (Europe, Australia) (Disc 1)">
+		<category>Games</category>
+		<description>Mock Infiltrator 2 (Europe, Australia) (Disc 1)</description>
+		<rom name="Mock Infiltrator 2 (Europe, Australia) (Disc 1).cue" size="150" crc="18477415" md5="089db530ee96dee4c38e014132e1e0c9" sha1="9c153e210308c6baab0af0516781d3a74ea39d8d"/>
+		<rom name="Mock Infiltrator 2 (Europe, Australia) (Disc 1).bin" size="363522768" crc="c1fa4005" md5="357f831f23b7e4c98b0b43f89841cf49" sha1="8348a4fb850a1f9d911f1cb6ab877329d3ed3648"/>
+	</game>
+	<game name="Mock Infiltrator 2 (Europe) (Disc 2)">
+		<category>Games</category>
+		<description>Mock Infiltrator 2 (Europe) (Disc 2)</description>
+		<rom name="Mock Infiltrator 2 (Europe) (Disc 2).cue" size="150" crc="9c254462" md5="eaf50f77ad879b0998dcf415c34a7cea" sha1="c80008f05fab40c57c5c58a83740945ebf74a45b"/>
+		<rom name="Mock Infiltrator 2 (Europe) (Disc 2).bin" size="361013184" crc="4cd3cc2d" md5="327cf841461103ae30c8b142c9cbbef5" sha1="92b1db84d4565e65b0433ed91134b474572eaa76"/>
+	</game>
+	<game name="Placeholder Stealth Ops (USA) (Disc 1)">
+		<category>Games</category>
+		<description>Placeholder Stealth Ops (USA) (Disc 1)</description>
+		<rom name="Placeholder Stealth Ops (USA) (Disc 1).cue" size="150" crc="77865b59" md5="91465671d6ec3049ad1ed3719998bc16" sha1="68b245fbc95cc29d6a223402ce148aaa31f31f02"/>
+		<rom name="Placeholder Stealth Ops (USA) (Disc 1).bin" size="361469472" crc="c9529f29" md5="58f1548ecd963560e94fac307ab53ef9" sha1="07151e2dddf840b9a5bd5faf319230118e0d16ff"/>
+	</game>
+	<game name="Placeholder Stealth Ops (USA) (Disc 2)">
+		<category>Games</category>
+		<description>Placeholder Stealth Ops (USA) (Disc 2)</description>
+		<rom name="Placeholder Stealth Ops (USA) (Disc 2).cue" size="150" crc="96040a44" md5="10ed58c69ea1951c6a29c7751c15bc64" sha1="7f681c5123cbe77e120b454265638e3b22880ce2"/>
+		<rom name="Placeholder Stealth Ops (USA) (Disc 2).bin" size="361469472" crc="35a04873" md5="c6d259820940f7113b5443d713a53036" sha1="9b796d09d254fb400eb09d563fa8e783ecc736b6"/>
+	</game>
+	<game name="Placeholder Stealth Ops (USA) (Disc 1) (Rev 1)">
+		<category>Games</category>
+		<description>Placeholder Stealth Ops (USA) (Disc 1) (Rev 1)</description>
+		<rom name="Placeholder Stealth Ops (USA) (Disc 1) (Rev 1).cue" size="150" crc="ffae1502" md5="43b9577539fafc69e4ecbd0ede978cbe" sha1="55dc1811b7e51cdf2e50f770098844d2920cd39b"/>
+		<rom name="Placeholder Stealth Ops (USA) (Disc 1) (Rev 1).bin" size="363294624" crc="22cb89c5" md5="83d2e823ed9b300001608fcbfe188eb7" sha1="a39c3e8ff978d7f85731cb7e8d9a368062a6fe8c"/>
+	</game>
+	<game name="Placeholder Stealth Ops (USA) (Disc 2) (Rev 1)">
+		<category>Games</category>
+		<description>Placeholder Stealth Ops (USA) (Disc 2) (Rev 1)</description>
+		<rom name="Placeholder Stealth Ops (USA) (Disc 2) (Rev 1).cue" size="150" crc="a242ffd2" md5="16d07a48c77900fd39d02a63d5b43f88" sha1="b3858e34451f93cf9df5d92ef721a27603fa4b44"/>
+		<rom name="Placeholder Stealth Ops (USA) (Disc 2) (Rev 1).bin" size="363294624" crc="24464eea" md5="49badfda70ca95e28f1332fe1a16fdaa" sha1="25891677a394e36026167a9413639df9b4bb7415"/>
+	</game>
+	<game name="Synthetic Quartet (Japan, Asia) (En,Ja) (Disc 1)">
+		<category>Games</category>
+		<description>Synthetic Quartet (Japan, Asia) (En,Ja) (Disc 1)</description>
+		<rom name="Synthetic Quartet (Japan, Asia) (En,Ja) (Disc 1).cue" size="150" crc="b497cc7f" md5="2e28f2e556635a4b9e2b4f5c5eb904cc" sha1="8c5fab781a241bdbfc5892d8699aa52442a325dc"/>
+		<rom name="Synthetic Quartet (Japan, Asia) (En,Ja) (Disc 1).bin" size="363750912" crc="71794a35" md5="0783150818156622b2cef97942e04cd4" sha1="07e846800750e9de6e97b0cdbd43239ce118aa62"/>
+	</game>
+	<game name="Synthetic Quartet (Japan, Asia) (En,Ja) (Disc 2)">
+		<category>Games</category>
+		<description>Synthetic Quartet (Japan, Asia) (En,Ja) (Disc 2)</description>
+		<rom name="Synthetic Quartet (Japan, Asia) (En,Ja) (Disc 2).cue" size="150" crc="da3adaee" md5="4ced4d39283aa62e43d7f13e99cf54de" sha1="0cfc1403c2704caf08cf88d7281de088756a3973"/>
+		<rom name="Synthetic Quartet (Japan, Asia) (En,Ja) (Disc 2).bin" size="363750912" crc="c92f5d03" md5="fa94b5dea04af6ed7539730ca87cd6c2" sha1="8bc703e56a97fb448456f3c61d03665a57811cae"/>
+	</game>
+	<game name="Synthetic Quartet (Japan, Asia) (Disc 3) (VR-Disc)">
+		<category>Games</category>
+		<description>Synthetic Quartet (Japan, Asia) (Disc 3) (VR-Disc)</description>
+		<rom name="Synthetic Quartet (Japan, Asia) (Disc 3) (VR-Disc).cue" size="150" crc="aebb7fc5" md5="b8eb28e75f65acef1ae4f75b7f9afeb4" sha1="e19069faae12bc639906d9a5c9c41927c2c86f1c"/>
+		<rom name="Synthetic Quartet (Japan, Asia) (Disc 3) (VR-Disc).bin" size="364207200" crc="278f13aa" md5="a80a9e4aa34bf5cd5de12d534406becf" sha1="4b4a44ea93ac34ae59f3cdbe367bdedef46b8154"/>
+	</game>
+	<game name="Sample Survivor 2 (Germany) (Disc 2)">
+		<category>Games</category>
+		<description>Sample Survivor 2 (Germany) (Disc 2)</description>
+		<rom name="Sample Survivor 2 (Germany) (Disc 2).cue" size="150" crc="74595740" md5="2fe217fb25c77bdfd1fbed3366eb104a" sha1="55f68cc3ec19d256bb3b850101f185580be2a9e0"/>
+		<rom name="Sample Survivor 2 (Germany) (Disc 2).bin" size="361013184" crc="ef1c4494" md5="d0f4d2fab4537a8f05ff2e7c2052170d" sha1="d668b9e800ebe21c40c4687a87f269778f6d7918"/>
+	</game>
+	<game name="Sample Survivor 2 (Germany) (Disc 1)">
+		<category>Games</category>
+		<description>Sample Survivor 2 (Germany) (Disc 1)</description>
+		<rom name="Sample Survivor 2 (Germany) (Disc 1).cue" size="150" crc="13e682ac" md5="f050a07e012f2b1c87fbee67bb143ac2" sha1="88de698237bd0a8f4c84b12b662949a859d82e8d"/>
+		<rom name="Sample Survivor 2 (Germany) (Disc 1).bin" size="361013184" crc="b984f803" md5="3e339315697e36019180d3710d81c1fa" sha1="4117d9dd6e5b6cb5d8a073385e3b55290e9811cd"/>
+	</game>
+	<game name="Sample Survivor 2 (Europe) (Disc 1)">
+		<category>Games</category>
+		<description>Sample Survivor 2 (Europe) (Disc 1)</description>
+		<rom name="Sample Survivor 2 (Europe) (Disc 1).cue" size="150" crc="c4943b20" md5="8e0def869240f8063222ba1c1feb7476" sha1="82f2d10a474a57010ede5e2a44733e3144dbb4b3"/>
+		<rom name="Sample Survivor 2 (Europe) (Disc 1).bin" size="360785040" crc="151bf689" md5="4a6c9a2db664e2d90b488fa37e870574" sha1="cff632440c3dc5f47b9ae2ca5c7c2061a2b710c2"/>
+	</game>
+	<game name="Example Tactics &amp; Tanks (France) (Disc 1) (Blue)">
+		<category>Games</category>
+		<description>Example Tactics &amp; Tanks (France) (Disc 1) (Blue)</description>
+		<rom name="Example Tactics &amp; Tanks (France) (Disc 1) (Blue).cue" size="150" crc="759454df" md5="9c30f37e8c38a95745f88a88974c184e" sha1="243084a62cd74ddc92916b1e69b22dd5e0148242"/>
+		<rom name="Example Tactics &amp; Tanks (France) (Disc 1) (Blue).bin" size="363750912" crc="9e00b9ba" md5="716f7085094f3f9fe93dad188e735287" sha1="ab7e3014f50cfcea839d2ece30e7afe744fe819e"/>
+	</game>
+	<game name="Example Tactics &amp; Tanks (France) (Disc 2) (Red)">
+		<category>Games</category>
+		<description>Example Tactics &amp; Tanks (France) (Disc 2) (Red)</description>
+		<rom name="Example Tactics &amp; Tanks (France) (Disc 2) (Red).cue" size="150" crc="66365a61" md5="755f50740b0cbb520d3a47867f5d33bd" sha1="697c849c03bf6e43b67d28c30fcc07f1ced88d2f"/>
+		<rom name="Example Tactics &amp; Tanks (France) (Disc 2) (Red).bin" size="363522768" crc="0e15737f" md5="587c5e2062cd9a217e264c2511736a1a" sha1="de5f01de7d97518335ff372b9c73ed64e9f9f93f"/>
+	</game>
+	<game name="Fixture Mist Valley (Europe) (Disc 1)">
+		<category>Games</category>
+		<description>Fixture Mist Valley (Europe) (Disc 1)</description>
+		<rom name="Fixture Mist Valley (Europe) (Disc 1).cue" size="220" crc="2c6b9fa8" md5="a056906056f4a8ef7b79748bdefda609" sha1="607d3cdcd42f074e2007dc57b96564180021a669"/>
+		<rom name="Fixture Mist Valley (Europe) (Disc 1) (Track 1).bin" size="50727936" crc="cac6e2e7" md5="d539f7acfb08879968f3d270c83b4751" sha1="f9a673e54dee45f79e587c21c723da856ef9da76"/>
+		<rom name="Fixture Mist Valley (Europe) (Disc 1) (Track 2).bin" size="54328848" crc="991fc690" md5="4259d1c70221e5e74d4f7db0984669a8" sha1="520c31644af175df31fd3c9236c42308c9806a3a"/>
+	</game>
+	<game name="Fixture Mist Valley (Europe) (Disc 2)">
+		<category>Games</category>
+		<description>Fixture Mist Valley (Europe) (Disc 2)</description>
+		<rom name="Fixture Mist Valley (Europe) (Disc 2).cue" size="150" crc="a768054e" md5="c88a58e0574b812f1c6afda22430eead" sha1="7957cdb955ba506a6b3d4fac1430fb96437ebd47"/>
+		<rom name="Fixture Mist Valley (Europe) (Disc 2).bin" size="361241328" crc="05ec8bea" md5="924cd33eba6e8b52d97edb081ed17e43" sha1="65bbb4bc7c8da62b64b5a9f3123ef831c4c32ebf"/>
+	</game>
+	<game name="Fixture Mist Valley (Europe) (Disc 3)">
+		<category>Games</category>
+		<description>Fixture Mist Valley (Europe) (Disc 3)</description>
+		<rom name="Fixture Mist Valley (Europe) (Disc 3).cue" size="150" crc="639b61c1" md5="fbc7eef99c55378dccc5fa2238d2d12f" sha1="ca7a2f4cc48082c89d46e04647b2932ca83f8fd6"/>
+		<rom name="Fixture Mist Valley (Europe) (Disc 3).bin" size="361241328" crc="f792598a" md5="b81abeb0b10ebdb4695f9a15dfdf6e2a" sha1="3af5ef61805b7bfaaa7f23fe06479d1d737bb308"/>
+	</game>
+	<game name="Fixture Mist Valley (Europe) (Disc 4)">
+		<category>Games</category>
+		<description>Fixture Mist Valley (Europe) (Disc 4)</description>
+		<rom name="Fixture Mist Valley (Europe) (Disc 4).cue" size="150" crc="482b07fb" md5="407dfc5d1c426d5715e0ed8f47a8875b" sha1="3aa13af812fd1112c9224235a6cb84189d70cbd4"/>
+		<rom name="Fixture Mist Valley (Europe) (Disc 4).bin" size="361241328" crc="a962d78b" md5="b5facb023f43529bdb5b4a0d76dfff14" sha1="750066097dc2529419bdf2be7c8d629d19e85b88"/>
+	</game>
+	<game name="Fixture Mist Valley (Europe) (Disc 5)">
+		<category>Games</category>
+		<description>Fixture Mist Valley (Europe) (Disc 5)</description>
+		<rom name="Fixture Mist Valley (Europe) (Disc 5).cue" size="150" crc="6c0220bd" md5="4d867b513ea32966647c591f7e437b4b" sha1="ce8192b330cc75e0520823fef81f6eabfe5cead4"/>
+		<rom name="Fixture Mist Valley (Europe) (Disc 5).bin" size="361241328" crc="a3df7a87" md5="63b364fbdcdf530fd9012eda9b25005d" sha1="07159a07b5497111a2160135482e1d31fd711f97"/>
+	</game>
+</datafile>

@@ -1,0 +1,44 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../Romd.Infrastructure.Tests/Fixtures/SevenZip/*.7z;../Romd.Infrastructure.Tests/Fixtures/SevenZip/*.zip;../Romd.Infrastructure.Tests/Fixtures/SevenZip/*.001" Link="Fixtures/SevenZip/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <ProjectReference Include="..\Romd.PostgreSql.TestSupport\Romd.PostgreSql.TestSupport.csproj"/>
+    <ProjectReference Include="..\Romd.Media.TestSupport\Romd.Media.TestSupport.csproj"/>
+    <ProjectReference Include="..\..\src\Romd.Admin.Host\Romd.Admin.Host.csproj"/>
+    <ProjectReference Include="..\..\src\Romd.Consumer.Host\Romd.Consumer.Host.csproj"/>
+    <ProjectReference Include="..\..\src\Romd.Worker.Host\Romd.Worker.Host.csproj"/>
+    <ProjectReference Include="..\..\clients\romd_mount\Romd.Mount.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.Core"/>
+    <PackageReference Include="Hangfire.InMemory"/>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing"/>
+    <PackageReference Include="System.Security.Cryptography.Xml"/>
+    <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+    <PackageReference Include="Newtonsoft.Json"/>
+    <PackageReference Include="xunit"/>
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Shouldly"/>
+    <PackageReference Include="NSubstitute"/>
+    <PackageReference Include="Testcontainers.PostgreSql"/>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <Import Project="../../build/Romd.Media.Worker.targets" />
+
+</Project>

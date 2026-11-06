@@ -1,0 +1,30 @@
+.value {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 6px 3px 10px;
+}
+
+.hash {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  padding-top: 4px;
+}
+
+.copy {
+  flex-shrink: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .copy {
+    opacity: 0;
+  }
+
+  .row:hover .copy,
+  .row:focus-within .copy,
+  .copy[data-copied] {
+    opacity: 1;
+  }
+}

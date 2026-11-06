@@ -1,0 +1,20 @@
+packages:
+  - packages/*
+
+# Node tests use MSW without a browser worker; its worker-copy postinstall is unnecessary.
+ignoredBuiltDependencies:
+  - msw
+
+# esbuild installs and validates the platform-specific bundler binary.
+onlyBuiltDependencies:
+  - esbuild
+
+# The generator's parser pins js-yaml 4.1.1. Use its compatible security patch
+# until upstream updates that pin (GHSA-2883-xcg3-v3hh).
+overrides:
+  '@hey-api/json-schema-ref-parser@1.4.2>js-yaml': 4.3.2
+
+# SignalR 10.0.11 still ships these invalid function-declaration purity annotations.
+# The patch removes only those two comments; remove once upstream corrects their placement.
+patchedDependencies:
+  '@microsoft/signalr@10.0.0': patches/@microsoft__signalr@10.0.0.patch

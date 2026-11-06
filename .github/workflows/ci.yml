@@ -1,0 +1,442 @@
+name: CI
+
+on:
+  workflow_call:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  ROMD_CONTAINER_ENGINE: docker
+  DOTNET_VERSION: "10.0.402"
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  agent-infrastructure:
+    name: Agent guidance, validation routing and release contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24.22.0"
+      - name: Prepare hash-locked workflow parser
+        run: python3 scripts/ci/prepare.py
+      - name: Enforce workflow security policy
+        run: .artifacts/ci-python/bin/python scripts/ci/lint_workflows.py
+      - name: Test workflow security policy
+        run: .artifacts/ci-python/bin/python -B -m unittest discover -s scripts/ci -p 'test_*.py'
+      - name: Lint workflows
+        run: |
+          curl --fail --location --proto '=https' --proto-redir '=https' -o /tmp/actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz" | sha256sum --check --strict -
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          /tmp/actionlint
+      - name: Check agent infrastructure
+        run: .artifacts/ci-python/bin/python scripts/agents/check.py
+      - name: Test infrastructure checker
+        run: .artifacts/ci-python/bin/python -B -m unittest discover -s scripts/agents -p 'test_*.py'
+      - name: Test validation runner
+        run: .artifacts/ci-python/bin/python -B -m unittest discover -s scripts/validation -p 'test_*.py'
+      - name: Run registered inventory and release contracts
+        run: python3 scripts/validation/run.py --ci --job agent-infrastructure --evidence-parent coverage/agent-infrastructure
+
+  console:
+    name: Console analysis, theme governance and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24.22.0"
+      - name: Setup pinned Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+      - name: Restore committed console dependencies
+        working-directory: clients/romd_console
+        run: |
+          flutter pub get --enforce-lockfile
+          git diff --exit-code -- pubspec.lock
+      # The runner image has no ripgrep; the theme governance scripts need it.
+      - name: Install ripgrep for the theme governance scripts
+        run: sudo apt-get update -qq && sudo apt-get install --yes --no-install-recommends ripgrep
+      - name: Run registered console analysis and complete tests
+        run: python3 scripts/validation/run.py --ci --job console --evidence-parent coverage/console
+      - name: Retain console failure diagnostics
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: console-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: coverage/console/
+          if-no-files-found: ignore
+          retention-days: 5
+
+  backend:
+    name: Backend deterministic tests
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # New refs have no previous tip; the zero ID checks every maintained C# file.
+      ROMD_DOTNET_STYLE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '0000000000000000000000000000000000000000' }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the native linux-x64 build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-linux-x64-${{ github.run_id }}
+
+      - name: Unpack the native linux-x64 build
+        run: tar -xzf native-linux-x64.tar.gz && rm native-linux-x64.tar.gz
+
+      - name: Setup Node for registered presentation checks
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24.22.0"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Verify portable and Linux image dependency locks
+        run: python3 scripts/ci/nuget_locks.py
+
+      - name: Build backend
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run registered deterministic backend checks
+        run: python3 scripts/validation/run.py --ci --job backend --evidence-parent coverage/deterministic
+
+      - name: Upload deterministic backend coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-deterministic-coverage
+          path: coverage/deterministic/
+          if-no-files-found: ignore
+          retention-days: 5
+
+  infrastructure:
+    name: Backend infrastructure tests (${{ matrix.part }})
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # The suite is split by namespace; the two filters are exact complements.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: storage
+            filter: FullyQualifiedName~Romd.Infrastructure.Tests.Storage.
+          - part: other
+            filter: FullyQualifiedName!~Romd.Infrastructure.Tests.Storage.
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the native linux-x64 build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-linux-x64-${{ github.run_id }}
+
+      - name: Unpack the native linux-x64 build
+        run: tar -xzf native-linux-x64.tar.gz && rm native-linux-x64.tar.gz
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore infrastructure test dependencies
+        run: dotnet restore tests/Romd.Infrastructure.Tests/Romd.Infrastructure.Tests.csproj
+
+      - name: Build infrastructure test surface
+        run: >-
+          dotnet build
+          tests/Romd.Infrastructure.Tests/Romd.Infrastructure.Tests.csproj
+          --no-restore --configuration Release
+
+      - name: Run registered infrastructure partition
+        run: python3 scripts/validation/run.py --ci --job infrastructure --filter '${{ matrix.filter }}' --evidence-parent coverage/infrastructure
+
+      - name: Upload infrastructure coverage
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-infrastructure-coverage-${{ matrix.part }}
+          path: coverage/infrastructure/
+          if-no-files-found: ignore
+          retention-days: 5
+
+  native:
+    name: Native libchdr wrapper and tools
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the libchdr submodule against its pin
+        run: |
+          test "$(git -C native/libchdr/upstream rev-parse HEAD)" = "$(jq -er .commit native/libchdr/libchdr.json)"
+          ! git submodule status --recursive | grep -qE '^[-+U]'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.402
+
+      - name: Key the chdman build by MAME tarball SHA-256, recipe version, recipe sources and RID
+        id: chdman
+        run: |
+          sha="$(jq -er .sourceSha256 native/chdman/mame.json)"
+          recipe="$(sed -n 's/.*internal const int RecipeVersion = \([0-9][0-9]*\);.*/\1/p' tools/Moonlark.Native.Engineering/Chdman/ChdmanBuild.cs)"
+          test -n "$recipe"
+          sources="$(find tools/Moonlark.Native.Engineering/Chdman -name '*.cs' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-16)"
+          echo "key=chdman-linux-x64-$sha-r$recipe-$sources" >> "$GITHUB_OUTPUT"
+
+      - name: Restore chdman
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: artifacts/tools/chdman/linux-x64
+          key: ${{ steps.chdman.outputs.key }}
+
+      # libchdr and chdman build in the Dockerfile's AlmaLinux stages (glibc <= 2.31);
+      # fixtures and the ClangSharp drift check run on the runner.
+      - name: Build native code, fixtures and the drift check
+        run: scripts/native/build.sh test-inputs
+
+      - name: Keep generation output for drift diagnosis
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-generation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/generation/libchdr
+          if-no-files-found: ignore
+          retention-days: 5
+
+      - name: Package the native linux-x64 build for the backend jobs
+        run: >-
+          tar -czf native-linux-x64.tar.gz
+          artifacts/native/libchdr/linux-x64/build-manifest.json artifacts/native/libchdr/linux-x64/native
+          artifacts/tools/chdman/linux-x64/build-manifest.json artifacts/tools/chdman/linux-x64/native
+          artifacts/fixtures/libchdr-final
+
+      - name: Upload the native linux-x64 build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-linux-x64-${{ github.run_id }}
+          path: native-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+          # Partial reruns reuse this run's upload; a full rerun replaces it.
+          overwrite: true
+
+      - name: Run registered native tests
+        run: python3 scripts/validation/run.py --ci --job native --evidence-parent coverage/native
+
+  integration:
+    name: Backend integration tests (${{ matrix.part }})
+    needs: native
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # The serial suite is split by namespace; the two filters are exact complements.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: endpoints
+            filter: FullyQualifiedName~Romd.Hosting.IntegrationTests.Endpoints.
+          - part: hosting
+            filter: FullyQualifiedName!~Romd.Hosting.IntegrationTests.Endpoints.
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download the native linux-x64 build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-linux-x64-${{ github.run_id }}
+
+      - name: Unpack the native linux-x64 build
+        run: tar -xzf native-linux-x64.tar.gz && rm native-linux-x64.tar.gz
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore integration dependencies
+        run: >-
+          dotnet restore
+          tests/Romd.Hosting.IntegrationTests/Romd.Hosting.IntegrationTests.csproj
+
+      - name: Build integration test surface
+        run: >-
+          dotnet build
+          tests/Romd.Hosting.IntegrationTests/Romd.Hosting.IntegrationTests.csproj
+          --no-restore --configuration Release
+
+      - name: Run registered integration partition
+        run: python3 scripts/validation/run.py --ci --job integration --filter '${{ matrix.filter }}' --evidence-parent coverage/integration
+
+      - name: Upload integration coverage and hang diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: backend-integration-results-${{ matrix.part }}
+          path: coverage/integration/
+          if-no-files-found: ignore
+          retention-days: 5
+
+  web:
+    name: Web lint, test, build and OpenAPI drift
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          package_json_file: web/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24.22.0"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      # Lint, tests, build, then OpenAPI schema and client regeneration with a drift check.
+      - name: Run registered web checks
+        id: web-checks
+        run: python3 scripts/validation/run.py --ci --job web --evidence-parent coverage/web
+
+      - name: Build production hosts with frontend
+        env:
+          CI: "true"
+        run: dotnet build -c Release -m:1 -p:BuildFrontend=true
+
+      - name: Upload web check evidence and regenerated clients
+        if: ${{ failure() && steps.web-checks.outcome == 'failure' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: web-checks-and-regenerated-clients
+          path: |
+            coverage/web/
+            web/schemas/admin-v1.json
+            web/schemas/consumer-v1.json
+            web/packages/romd-admin-api-client/src/generated
+            web/packages/romd-consumer-api-client/src/generated
+          if-no-files-found: error
+          retention-days: 7
+
+  production-compose:
+    name: Production Compose and recovery drill
+    runs-on: ubuntu-24.04
+    # Image build and smoke drill (about 30 minutes), then the bounded synthetic CHD step below.
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run registered production topology and CHD harness contracts
+        run: python3 scripts/validation/run.py --ci --job production-compose --evidence-parent coverage/production-compose
+      - name: Build images and exercise production deployment
+        run: python3 scripts/deployment/smoke.py --build --vfs
+      - name: Reclaim disposable CI build cache
+        timeout-minutes: 5
+        run: bash scripts/ci/reclaim_build_cache.sh
+      # Reuses the romd-*:test images smoke.py built. Generated inputs only; no media leaves the runner.
+      # Recovery waits out a 5-minute execution lease. Harness budgets (15 + 15 + 10 minutes) cover the slow phases;
+      # the step limit bounds the rest and leaves headroom inside the job timeout.
+      - name: Synthetic PS2 DVD CHD end to end
+        timeout-minutes: 45
+        run: >-
+          python3 scripts/e2e/chd.py --synthetic --checkpoint encoding --image-tag test --convergence-timeout 15 --upload-timeout 10
+          --evidence "$RUNNER_TEMP/chd-e2e/evidence.json"
+      - name: Keep synthetic CHD end-to-end diagnostics
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: chd-e2e-synthetic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/chd-e2e
+          if-no-files-found: ignore
+          retention-days: 5
+
+  # The only CI status check branch protection requires. always() so that a failed, skipped or
+  # cancelled job still reports a failing gate instead of a skipped (passing) one.
+  ci-gate:
+    name: CI gate
+    if: ${{ always() }}
+    needs: [agent-infrastructure, console, native, backend, infrastructure, integration, web, production-compose]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every CI job to succeed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          jq -e 'all(.[]; .result == "success")' <<< "$NEEDS" > /dev/null

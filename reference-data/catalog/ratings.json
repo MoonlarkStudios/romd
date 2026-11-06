@@ -1,0 +1,561 @@
+{
+  "boards": [
+    {
+      "key": "Esrb",
+      "label": "ESRB",
+      "value": 0,
+      "prefixes": [
+        "ESRB"
+      ]
+    },
+    {
+      "key": "Pegi",
+      "label": "PEGI",
+      "value": 1,
+      "prefixes": [
+        "PEGI"
+      ]
+    },
+    {
+      "key": "Cero",
+      "label": "CERO",
+      "value": 2,
+      "prefixes": [
+        "CERO"
+      ]
+    },
+    {
+      "key": "Usk",
+      "label": "USK",
+      "value": 3,
+      "prefixes": [
+        "USK"
+      ]
+    },
+    {
+      "key": "Grac",
+      "label": "GRAC",
+      "value": 4,
+      "prefixes": [
+        "GRAC"
+      ]
+    },
+    {
+      "key": "ClassInd",
+      "label": "ClassInd",
+      "value": 5,
+      "prefixes": [
+        "CLASS IND",
+        "CLASSIND"
+      ]
+    },
+    {
+      "key": "Acb",
+      "label": "ACB",
+      "value": 6,
+      "prefixes": [
+        "ACB"
+      ]
+    }
+  ],
+  "ratings": [
+    {
+      "board": "Esrb",
+      "code": "EC",
+      "designation": "Rated",
+      "minimumAge": 3,
+      "aliases": [
+        "EC",
+        "EARLY CHILDHOOD"
+      ],
+      "name": "ESRB Early Childhood",
+      "description": "ESRB Early Childhood",
+      "iconPath": "ratings/esrb/ESRB_2013_EC_Rating.svg"
+    },
+    {
+      "board": "Esrb",
+      "code": "E",
+      "designation": "Rated",
+      "minimumAge": 0,
+      "aliases": [
+        "E",
+        "EVERYONE",
+        "KA",
+        "KIDS TO ADULTS"
+      ],
+      "name": "ESRB Everyone",
+      "description": "ESRB Everyone",
+      "iconPath": "ratings/esrb/ESRB_2013_E_Rating.svg"
+    },
+    {
+      "board": "Esrb",
+      "code": "E10+",
+      "designation": "Rated",
+      "minimumAge": 10,
+      "aliases": [
+        "E10",
+        "E10+",
+        "E 10+",
+        "EVERYONE 10+"
+      ],
+      "name": "ESRB Everyone 10+",
+      "description": "ESRB Everyone 10+",
+      "iconPath": "ratings/esrb/ESRB_2013_E10+_Rating.svg"
+    },
+    {
+      "board": "Esrb",
+      "code": "T",
+      "designation": "Rated",
+      "minimumAge": 13,
+      "aliases": [
+        "T",
+        "TEEN"
+      ],
+      "name": "ESRB Teen",
+      "description": "ESRB Teen",
+      "iconPath": "ratings/esrb/ESRB_2013_T_Rating.svg"
+    },
+    {
+      "board": "Esrb",
+      "code": "M",
+      "designation": "Rated",
+      "minimumAge": 17,
+      "aliases": [
+        "M",
+        "MATURE",
+        "MATURE 17+",
+        "M17+",
+        "M 17+"
+      ],
+      "name": "ESRB Mature 17+",
+      "description": "ESRB Mature 17+",
+      "iconPath": "ratings/esrb/ESRB_2013_M_Rating.svg"
+    },
+    {
+      "board": "Esrb",
+      "code": "AO",
+      "designation": "Rated",
+      "minimumAge": 18,
+      "aliases": [
+        "AO",
+        "ADULTS ONLY",
+        "ADULTS ONLY 18+",
+        "AO 18+"
+      ],
+      "name": "ESRB Adults Only 18+",
+      "description": "ESRB Adults Only 18+",
+      "iconPath": "ratings/esrb/ESRB_2013_AO_Rating.svg"
+    },
+    {
+      "board": "Esrb",
+      "code": "RP",
+      "designation": "RatingPending",
+      "minimumAge": null,
+      "aliases": [
+        "RP",
+        "RATING PENDING",
+        "RP LIKELY MATURE 17+",
+        "RP LIKELY MATURE17+"
+      ],
+      "name": "ESRB Rating Pending",
+      "description": "ESRB Rating Pending",
+      "iconPath": "ratings/esrb/ESRB_2013_Rating_Pending.svg"
+    },
+    {
+      "board": "Pegi",
+      "code": "PEGI 3",
+      "designation": "Rated",
+      "minimumAge": 3,
+      "aliases": [
+        "3"
+      ],
+      "name": "PEGI 3",
+      "description": "PEGI 3",
+      "iconPath": "ratings/pegi/PEGI_3.svg"
+    },
+    {
+      "board": "Pegi",
+      "code": "PEGI 7",
+      "designation": "Rated",
+      "minimumAge": 7,
+      "aliases": [
+        "7"
+      ],
+      "name": "PEGI 7",
+      "description": "PEGI 7",
+      "iconPath": "ratings/pegi/PEGI_7.svg"
+    },
+    {
+      "board": "Pegi",
+      "code": "PEGI 12",
+      "designation": "Rated",
+      "minimumAge": 12,
+      "aliases": [
+        "12"
+      ],
+      "name": "PEGI 12",
+      "description": "PEGI 12",
+      "iconPath": "ratings/pegi/PEGI_12.svg"
+    },
+    {
+      "board": "Pegi",
+      "code": "PEGI 16",
+      "designation": "Rated",
+      "minimumAge": 16,
+      "aliases": [
+        "16"
+      ],
+      "name": "PEGI 16",
+      "description": "PEGI 16",
+      "iconPath": "ratings/pegi/PEGI_16.svg"
+    },
+    {
+      "board": "Pegi",
+      "code": "PEGI 18",
+      "designation": "Rated",
+      "minimumAge": 18,
+      "aliases": [
+        "18"
+      ],
+      "name": "PEGI 18",
+      "description": "PEGI 18",
+      "iconPath": "ratings/pegi/PEGI_18.svg"
+    },
+    {
+      "board": "Cero",
+      "code": "CERO A",
+      "designation": "Rated",
+      "minimumAge": 0,
+      "aliases": [
+        "A",
+        "ALL AGES"
+      ],
+      "name": "CERO A",
+      "description": "CERO A",
+      "iconPath": "ratings/cero/CERO_A.svg"
+    },
+    {
+      "board": "Cero",
+      "code": "CERO B",
+      "designation": "Rated",
+      "minimumAge": 12,
+      "aliases": [
+        "B"
+      ],
+      "name": "CERO B",
+      "description": "CERO B",
+      "iconPath": "ratings/cero/CERO_B.svg"
+    },
+    {
+      "board": "Cero",
+      "code": "CERO C",
+      "designation": "Rated",
+      "minimumAge": 15,
+      "aliases": [
+        "C"
+      ],
+      "name": "CERO C",
+      "description": "CERO C",
+      "iconPath": "ratings/cero/CERO_C.svg"
+    },
+    {
+      "board": "Cero",
+      "code": "CERO D",
+      "designation": "Rated",
+      "minimumAge": 17,
+      "aliases": [
+        "D"
+      ],
+      "name": "CERO D",
+      "description": "CERO D",
+      "iconPath": "ratings/cero/CERO_D.svg"
+    },
+    {
+      "board": "Cero",
+      "code": "CERO Z",
+      "designation": "Rated",
+      "minimumAge": 18,
+      "aliases": [
+        "Z"
+      ],
+      "name": "CERO Z",
+      "description": "CERO Z",
+      "iconPath": "ratings/cero/CERO_Z.svg"
+    },
+    {
+      "board": "Usk",
+      "code": "USK 0",
+      "designation": "Rated",
+      "minimumAge": 0,
+      "aliases": [
+        "0"
+      ],
+      "name": "USK 0",
+      "description": "USK 0",
+      "iconPath": "ratings/usk/USK_0.svg"
+    },
+    {
+      "board": "Usk",
+      "code": "USK 6",
+      "designation": "Rated",
+      "minimumAge": 6,
+      "aliases": [
+        "6"
+      ],
+      "name": "USK 6",
+      "description": "USK 6",
+      "iconPath": "ratings/usk/USK_6.svg"
+    },
+    {
+      "board": "Usk",
+      "code": "USK 12",
+      "designation": "Rated",
+      "minimumAge": 12,
+      "aliases": [
+        "12"
+      ],
+      "name": "USK 12",
+      "description": "USK 12",
+      "iconPath": "ratings/usk/USK_12.svg"
+    },
+    {
+      "board": "Usk",
+      "code": "USK 16",
+      "designation": "Rated",
+      "minimumAge": 16,
+      "aliases": [
+        "16"
+      ],
+      "name": "USK 16",
+      "description": "USK 16",
+      "iconPath": "ratings/usk/USK_16.svg"
+    },
+    {
+      "board": "Usk",
+      "code": "USK 18",
+      "designation": "Rated",
+      "minimumAge": 18,
+      "aliases": [
+        "18"
+      ],
+      "name": "USK 18",
+      "description": "USK 18",
+      "iconPath": "ratings/usk/USK_18.svg"
+    },
+    {
+      "board": "Grac",
+      "code": "GRAC ALL",
+      "designation": "Rated",
+      "minimumAge": 0,
+      "aliases": [
+        "ALL"
+      ],
+      "name": "GRAC ALL",
+      "description": "GRAC ALL",
+      "iconPath": "ratings/grac/GRAC_All.svg"
+    },
+    {
+      "board": "Grac",
+      "code": "GRAC 12",
+      "designation": "Rated",
+      "minimumAge": 12,
+      "aliases": [
+        "12"
+      ],
+      "name": "GRAC 12",
+      "description": "GRAC 12",
+      "iconPath": "ratings/grac/GRAC_12.svg"
+    },
+    {
+      "board": "Grac",
+      "code": "GRAC 15",
+      "designation": "Rated",
+      "minimumAge": 15,
+      "aliases": [
+        "15"
+      ],
+      "name": "GRAC 15",
+      "description": "GRAC 15",
+      "iconPath": "ratings/grac/GRAC_15.svg"
+    },
+    {
+      "board": "Grac",
+      "code": "GRAC 18",
+      "designation": "Rated",
+      "minimumAge": 18,
+      "aliases": [
+        "18"
+      ],
+      "name": "GRAC 18",
+      "description": "GRAC 18",
+      "iconPath": "ratings/grac/GRAC_18.svg"
+    },
+    {
+      "board": "Grac",
+      "code": "GRAC TESTING",
+      "designation": "RatingPending",
+      "minimumAge": null,
+      "aliases": [
+        "TESTING"
+      ],
+      "name": "GRAC TESTING",
+      "description": "GRAC TESTING",
+      "iconPath": "ratings/grac/GRAC_Test.svg"
+    },
+    {
+      "board": "ClassInd",
+      "code": "L",
+      "designation": "Rated",
+      "minimumAge": 0,
+      "aliases": [
+        "L",
+        "LIVRE"
+      ],
+      "name": "CLASSIND L",
+      "description": "CLASSIND L",
+      "iconPath": "ratings/classind/ClassInd_L.svg"
+    },
+    {
+      "board": "ClassInd",
+      "code": "10",
+      "designation": "Rated",
+      "minimumAge": 10,
+      "aliases": [
+        "10"
+      ],
+      "name": "CLASSIND 10",
+      "description": "CLASSIND 10",
+      "iconPath": "ratings/classind/ClassInd_10.svg"
+    },
+    {
+      "board": "ClassInd",
+      "code": "12",
+      "designation": "Rated",
+      "minimumAge": 12,
+      "aliases": [
+        "12"
+      ],
+      "name": "CLASSIND 12",
+      "description": "CLASSIND 12",
+      "iconPath": "ratings/classind/ClassInd_12.svg"
+    },
+    {
+      "board": "ClassInd",
+      "code": "14",
+      "designation": "Rated",
+      "minimumAge": 14,
+      "aliases": [
+        "14"
+      ],
+      "name": "CLASSIND 14",
+      "description": "CLASSIND 14",
+      "iconPath": "ratings/classind/ClassInd_14.svg"
+    },
+    {
+      "board": "ClassInd",
+      "code": "16",
+      "designation": "Rated",
+      "minimumAge": 16,
+      "aliases": [
+        "16"
+      ],
+      "name": "CLASSIND 16",
+      "description": "CLASSIND 16",
+      "iconPath": "ratings/classind/ClassInd_16.svg"
+    },
+    {
+      "board": "ClassInd",
+      "code": "18",
+      "designation": "Rated",
+      "minimumAge": 18,
+      "aliases": [
+        "18"
+      ],
+      "name": "CLASSIND 18",
+      "description": "CLASSIND 18",
+      "iconPath": "ratings/classind/ClassInd_18.svg"
+    },
+    {
+      "board": "Acb",
+      "code": "G",
+      "designation": "Rated",
+      "minimumAge": 0,
+      "aliases": [
+        "G",
+        "GENERAL"
+      ],
+      "name": "ACB G",
+      "description": "ACB G",
+      "iconPath": "ratings/acb/ACB_G.svg"
+    },
+    {
+      "board": "Acb",
+      "code": "PG",
+      "designation": "Rated",
+      "minimumAge": 8,
+      "aliases": [
+        "PG",
+        "PARENTAL GUIDANCE"
+      ],
+      "name": "ACB PG",
+      "description": "ACB PG",
+      "iconPath": "ratings/acb/ACB_PG.svg"
+    },
+    {
+      "board": "Acb",
+      "code": "M",
+      "designation": "Rated",
+      "minimumAge": 15,
+      "aliases": [
+        "M",
+        "MATURE"
+      ],
+      "name": "ACB M",
+      "description": "ACB M",
+      "iconPath": "ratings/acb/ACB_M.svg"
+    },
+    {
+      "board": "Acb",
+      "code": "MA15+",
+      "designation": "Rated",
+      "minimumAge": 15,
+      "aliases": [
+        "MA15+",
+        "MA 15+",
+        "MA15",
+        "MA"
+      ],
+      "name": "ACB MA15+",
+      "description": "ACB MA15+",
+      "iconPath": "ratings/acb/ACB_MA15+.svg"
+    },
+    {
+      "board": "Acb",
+      "code": "R18+",
+      "designation": "Rated",
+      "minimumAge": 18,
+      "aliases": [
+        "R18+",
+        "R 18+",
+        "R18",
+        "R"
+      ],
+      "name": "ACB R18+",
+      "description": "ACB R18+",
+      "iconPath": "ratings/acb/ACB_R18+.svg"
+    },
+    {
+      "board": "Acb",
+      "code": "RC",
+      "designation": "RefusedClassification",
+      "minimumAge": null,
+      "aliases": [
+        "RC",
+        "REFUSED CLASSIFICATION"
+      ],
+      "name": "ACB RC",
+      "description": "ACB RC",
+      "iconPath": "ratings/acb/ACB_RC.svg"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "description": "Historical reviewer originals; measured preserved bytes, not a reproducible generator recipe. V2 intentionally generates new identities with equivalent geometry.",
+  "files": {
+    "mf.chd": {
+      "bytes": 92458,
+      "sha256": "b6d17cb7ad8367c8d64e9660fa0a64e5a2544818ea11158474668e556f930d7d"
+    },
+    "sf.chd": {
+      "bytes": 92458,
+      "sha256": "b6d17cb7ad8367c8d64e9660fa0a64e5a2544818ea11158474668e556f930d7d"
+    },
+    "mf12.chd": {
+      "bytes": 71103,
+      "sha256": "7cf53653da74adde69514b6068f9efeece7dc135802713af751364a5024ef710"
+    },
+    "mf.cue": {
+      "bytes": 230,
+      "sha256": "abada33ab835a3540707970a35b372dd718dfd6b012b468f65c3bdea38aca162"
+    },
+    "sf.cue": {
+      "bytes": 185,
+      "sha256": "32a7974ce83cfa640df22f933a9aa595b71aa0c46f0d8af319a2a947b2f09f90"
+    },
+    "mf12.cue": {
+      "bytes": 149,
+      "sha256": "dd806d2eef5663bb81414e9c4803975c27d9a295e1fac439d7ba32964db8c16c"
+    },
+    "mf1.bin": {
+      "bytes": 39984,
+      "sha256": "0f7b6670f66393be121e6e4e7e69ab3bca0407703459f462bfe5ad2f24b4b02b"
+    },
+    "mf2.bin": {
+      "bytes": 30576,
+      "sha256": "aa449a6821dc3393fe4db17cdb93cbbe9b0adbee2792e8b99a3dc54b39b4dab1"
+    },
+    "mf3.bin": {
+      "bytes": 21168,
+      "sha256": "b62ea9a3ef2d523ed0375507c79650f3a58eafd2c170ccfbee0f5f8b2a1b3a3b"
+    },
+    "sf.bin": {
+      "bytes": 91728,
+      "sha256": "573e09136ee99000750e18fb23b159ee3654519558e6543f03ba05b70922a4ce"
+    },
+    "sub.chd": {
+      "bytes": 58752,
+      "sha256": "f6c5cbd576bcffd4687554c4f44ee6a53d5d9b0cb357f934d58e3af64eaa8d70"
+    },
+    "sub.cue": {
+      "bytes": 161,
+      "sha256": "9b30e2dd5ade7377b4f926879d434c02c1f0e86b72a6da726fd10a06edeeb140"
+    },
+    "t1.bin": {
+      "bytes": 19584,
+      "sha256": "d56fc973a2490bbae6154ede280091cfef614588d843044f4722cdfe2021c511"
+    },
+    "t2.bin": {
+      "bytes": 14688,
+      "sha256": "03b058d5eea5599db0cbf4ea379582d01585cb1fd3b0ce38aaa5764bf128b67e"
+    }
+  }
+}

@@ -1,0 +1,1320 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "id": "quality.dotnet-style",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "scripts/quality/dotnet_style.py"
+      ],
+      "ci": [
+        "python3",
+        "scripts/quality/dotnet_style.py"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "quality.dotnet-style-smoke",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "scripts/quality/dotnet_style.py",
+        "--smoke-test"
+      ],
+      "ci": [
+        "python3",
+        "scripts/quality/dotnet_style.py",
+        "--smoke-test"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "quality.dotnet-style-tests",
+      "groups": [
+        "agents"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/quality",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/quality",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "reference.catalog",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "run",
+        "--project",
+        "tools/Romd.ReferenceData.Tool",
+        "--",
+        ".",
+        "--check"
+      ],
+      "ci": [
+        "dotnet",
+        "run",
+        "--project",
+        "tools/Romd.ReferenceData.Tool",
+        "--",
+        ".",
+        "--check"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "reference.presentation",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "node",
+        "scripts/presentation/validate.mjs"
+      ],
+      "ci": [
+        "node",
+        "scripts/presentation/validate.mjs"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "reference.presentation-tests",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "node",
+        "--test",
+        "scripts/presentation/validate.test.mjs"
+      ],
+      "ci": [
+        "node",
+        "--test",
+        "scripts/presentation/validate.test.mjs"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "media.probe-build",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "build",
+        "tools/Romd.Media.Probe",
+        "-c",
+        "Debug"
+      ],
+      "ci": [
+        "dotnet",
+        "build",
+        "tools/Romd.Media.Probe",
+        "-c",
+        "Release",
+        "--no-restore"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "media.staging",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "{probe}",
+        "--staging-probe",
+        "{evidence}/staging.json"
+      ],
+      "ci": [
+        "dotnet",
+        "{probe}",
+        "--staging-probe",
+        "{evidence}/staging.json"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "media.extraction",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "{probe}",
+        "--extraction-probe",
+        "{evidence}/extraction.json"
+      ],
+      "ci": [
+        "dotnet",
+        "{probe}",
+        "--extraction-probe",
+        "{evidence}/extraction.json"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "media.inspection-reports",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "tools/Romd.Media.Probe/test-inspection-reports.py",
+        "{probe}"
+      ],
+      "ci": [
+        "python3",
+        "tools/Romd.Media.Probe/test-inspection-reports.py",
+        "{probe}"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "media.recipe-reports",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "scripts/ci/recipe_reports.py",
+        "{probe}",
+        "--evidence-parent",
+        "{evidence}"
+      ],
+      "ci": [
+        "python3",
+        "scripts/ci/recipe_reports.py",
+        "{probe}",
+        "--evidence-parent",
+        "{evidence}"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "backend.domain",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Romd.Domain.Tests/Romd.Domain.Tests.csproj"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Romd.Domain.Tests/Romd.Domain.Tests.csproj",
+        "--no-build",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "normal",
+        "--collect:XPlat Code Coverage",
+        "--results-directory",
+        "{evidence}/domain"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "backend.dat-parsing",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Romd.Dat.Parsing.Tests/Romd.Dat.Parsing.Tests.csproj"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Romd.Dat.Parsing.Tests/Romd.Dat.Parsing.Tests.csproj",
+        "--no-build",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "normal",
+        "--collect:XPlat Code Coverage",
+        "--results-directory",
+        "{evidence}/dat-parsing"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "backend.dat-preview-build",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "build",
+        "tools/Romd.Dat.Preview/Romd.Dat.Preview.csproj",
+        "-c",
+        "Debug",
+        "-warnaserror"
+      ],
+      "ci": [
+        "dotnet",
+        "build",
+        "tools/Romd.Dat.Preview/Romd.Dat.Preview.csproj",
+        "-c",
+        "Release",
+        "-warnaserror"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "backend.dat-preview-tests",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "tools/Romd.Dat.Preview/test_preview.py"
+      ],
+      "ci": [
+        "python3",
+        "tools/Romd.Dat.Preview/test_preview.py",
+        "--tool",
+        "tools/Romd.Dat.Preview/bin/Release/net10.0/Romd.Dat.Preview.dll"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "backend.application",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Romd.Application.Tests/Romd.Application.Tests.csproj"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Romd.Application.Tests/Romd.Application.Tests.csproj",
+        "--no-build",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "normal",
+        "--collect:XPlat Code Coverage",
+        "--results-directory",
+        "{evidence}/application"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "backend.storage",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "native:test-inputs"
+      ],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Romd.Storage.Tests/Romd.Storage.Tests.csproj"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Romd.Storage.Tests/Romd.Storage.Tests.csproj",
+        "--no-build",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "normal",
+        "--collect:XPlat Code Coverage",
+        "--results-directory",
+        "{evidence}/storage"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "backend.media",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "native:test-inputs"
+      ],
+      "local": [
+        "nice",
+        "-n",
+        "10",
+        "dotnet",
+        "test",
+        "tests/Romd.Media.Tests/Romd.Media.Tests.csproj"
+      ],
+      "ci": [
+        "nice",
+        "-n",
+        "10",
+        "dotnet",
+        "test",
+        "tests/Romd.Media.Tests/Romd.Media.Tests.csproj",
+        "--no-build",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "normal",
+        "--collect:XPlat Code Coverage",
+        "--results-directory",
+        "{evidence}/media"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "backend.infrastructure",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "Container runtime"
+      ],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Romd.Infrastructure.Tests/Romd.Infrastructure.Tests.csproj",
+        "--blame-hang",
+        "--blame-hang-timeout",
+        "120s",
+        "--blame-hang-dump-type",
+        "none"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Romd.Infrastructure.Tests/Romd.Infrastructure.Tests.csproj",
+        "--no-build",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "normal",
+        "--filter",
+        "{filter}",
+        "--blame-hang",
+        "--blame-hang-timeout",
+        "120s",
+        "--blame-hang-dump-type",
+        "none",
+        "--collect:XPlat Code Coverage",
+        "--results-directory",
+        "{evidence}/infrastructure"
+      ],
+      "ci_job": "infrastructure",
+      "required_ci": true,
+      "container_environment": true
+    },
+    {
+      "id": "backend.native-engineering",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Moonlark.Native.Engineering.Tests/Moonlark.Native.Engineering.Tests.csproj"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Moonlark.Native.Engineering.Tests/Moonlark.Native.Engineering.Tests.csproj",
+        "--configuration",
+        "Release",
+        "--results-directory",
+        "{evidence}/native-engineering"
+      ],
+      "ci_job": "native",
+      "required_ci": true
+    },
+    {
+      "id": "backend.libchdr",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "native:test-inputs"
+      ],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Moonlark.Libchdr.Tests/Moonlark.Libchdr.Tests.csproj"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Moonlark.Libchdr.Tests/Moonlark.Libchdr.Tests.csproj",
+        "--configuration",
+        "Release",
+        "--results-directory",
+        "{evidence}/libchdr"
+      ],
+      "ci_job": "native",
+      "required_ci": true
+    },
+    {
+      "id": "backend.integration",
+      "groups": [
+        "integration"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "Container runtime"
+      ],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Romd.Hosting.IntegrationTests/Romd.Hosting.IntegrationTests.csproj",
+        "--blame-hang",
+        "--blame-hang-timeout",
+        "60s",
+        "--blame-hang-dump-type",
+        "none"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Romd.Hosting.IntegrationTests/Romd.Hosting.IntegrationTests.csproj",
+        "--no-build",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "normal",
+        "--filter",
+        "{filter}",
+        "--blame-hang",
+        "--blame-hang-timeout",
+        "60s",
+        "--blame-hang-dump-type",
+        "none",
+        "--collect:XPlat Code Coverage",
+        "--results-directory",
+        "{evidence}/integration"
+      ],
+      "ci_job": "integration",
+      "required_ci": true,
+      "container_environment": true
+    },
+    {
+      "id": "backend.mount",
+      "groups": [
+        "mount-dev"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "test",
+        "tests/Romd.Mount.Tests/Romd.Mount.Tests.csproj"
+      ],
+      "ci": [
+        "dotnet",
+        "test",
+        "tests/Romd.Mount.Tests/Romd.Mount.Tests.csproj",
+        "--no-build",
+        "--configuration",
+        "Release",
+        "--verbosity",
+        "normal",
+        "--collect:XPlat Code Coverage",
+        "--results-directory",
+        "{evidence}/mount"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "mount.bundle",
+      "groups": [
+        "mount-dev"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/mount",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/mount",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    },
+    {
+      "id": "web.lint",
+      "groups": [
+        "web"
+      ],
+      "cwd": "web",
+      "prerequisites": [],
+      "local": [
+        "pnpm",
+        "lint"
+      ],
+      "ci": [
+        "pnpm",
+        "lint"
+      ],
+      "ci_job": "web",
+      "required_ci": true
+    },
+    {
+      "id": "web.test",
+      "groups": [
+        "web"
+      ],
+      "cwd": "web",
+      "prerequisites": [],
+      "local": [
+        "pnpm",
+        "test"
+      ],
+      "ci": [
+        "pnpm",
+        "test"
+      ],
+      "ci_job": "web",
+      "required_ci": true
+    },
+    {
+      "id": "web.build",
+      "groups": [
+        "web"
+      ],
+      "cwd": "web",
+      "prerequisites": [],
+      "local": [
+        "pnpm",
+        "build"
+      ],
+      "ci": [
+        "pnpm",
+        "build"
+      ],
+      "ci_job": "web",
+      "required_ci": true
+    },
+    {
+      "id": "console.check_token_imports",
+      "groups": [
+        "console.analyze",
+        "console.guardrails"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "tool/check_token_imports.sh"
+      ],
+      "ci": [
+        "tool/check_token_imports.sh"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "console.check_theme_token_registry",
+      "groups": [
+        "console.analyze",
+        "console.guardrails"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "tool/check_theme_token_registry.sh"
+      ],
+      "ci": [
+        "tool/check_theme_token_registry.sh"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "console.check_theme_token_usage",
+      "groups": [
+        "console.analyze",
+        "console.guardrails"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "tool/check_theme_token_usage.sh"
+      ],
+      "ci": [
+        "tool/check_theme_token_usage.sh"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "console.check_theme_extension_contracts",
+      "groups": [
+        "console.analyze",
+        "console.guardrails"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "tool/check_theme_extension_contracts.sh"
+      ],
+      "ci": [
+        "tool/check_theme_extension_contracts.sh"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "console.check_widget_style_literals",
+      "groups": [
+        "console.analyze",
+        "console.guardrails"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "tool/check_widget_style_literals.sh"
+      ],
+      "ci": [
+        "tool/check_widget_style_literals.sh"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "console.reference",
+      "groups": [
+        "console.analyze"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "dotnet",
+        "run",
+        "--project",
+        "../../tools/Romd.ReferenceData.Tool",
+        "--",
+        "../..",
+        "--check"
+      ],
+      "ci": [
+        "dotnet",
+        "run",
+        "--project",
+        "../../tools/Romd.ReferenceData.Tool",
+        "--",
+        "../..",
+        "--check"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "console.presentation",
+      "groups": [
+        "console.analyze"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "node",
+        "../../scripts/presentation/validate.mjs"
+      ],
+      "ci": [
+        "node",
+        "../../scripts/presentation/validate.mjs"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "console.analyze",
+      "groups": [
+        "console.analyze"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "flutter",
+        "analyze"
+      ],
+      "ci": [
+        "flutter",
+        "analyze"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "console.tests",
+      "groups": [
+        "console.test"
+      ],
+      "cwd": "clients/romd_console",
+      "prerequisites": [],
+      "local": [
+        "flutter",
+        "test"
+      ],
+      "ci": [
+        "flutter",
+        "test"
+      ],
+      "ci_job": "console",
+      "required_ci": true
+    },
+    {
+      "id": "release.contracts",
+      "groups": [
+        "release"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/release",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/release",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "release.browser-contracts",
+      "groups": [
+        "release"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "node",
+        "--test",
+        "scripts/release/browser/harness.test.mjs"
+      ],
+      "ci": [
+        "node",
+        "--test",
+        "scripts/release/browser/harness.test.mjs"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "development.database-contracts",
+      "groups": [
+        "development",
+        "agents"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/db",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/db",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "development.contracts",
+      "groups": [
+        "development",
+        "agents"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/dev",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/dev",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "security.contracts",
+      "groups": [
+        "release",
+        "security"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/security",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/security",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "security.frontend-inventory",
+      "groups": [
+        "release",
+        "security"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "node",
+        "--test",
+        "scripts/security/frontend_inventory.test.mjs"
+      ],
+      "ci": [
+        "node",
+        "--test",
+        "scripts/security/frontend_inventory.test.mjs"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "publication.report-contracts",
+      "groups": [
+        "agents"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/publication",
+        "-p",
+        "test_report_contract.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/publication",
+        "-p",
+        "test_report_contract.py"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "publication.archive-review-contracts",
+      "groups": [
+        "agents"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/publication",
+        "-p",
+        "test_archive_review.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/publication",
+        "-p",
+        "test_archive_review.py"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "development.container-contracts",
+      "groups": [
+        "development",
+        "agents"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/containers",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-W",
+        "error",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/containers",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
+      "id": "deployment.contracts",
+      "groups": [
+        "contracts"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "Compose client (mise docker-compose, or Docker Compose plugin)"
+      ],
+      "local": [
+        "python3",
+        "scripts/deployment/test_contract.py"
+      ],
+      "ci": [
+        "python3",
+        "scripts/deployment/test_contract.py"
+      ],
+      "ci_job": "production-compose",
+      "required_ci": true
+    },
+    {
+      "id": "e2e.harness-tests",
+      "groups": [
+        "contracts"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/e2e",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/e2e",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "production-compose",
+      "required_ci": true
+    },
+    {
+      "id": "deployment.ingress",
+      "groups": [
+        "contracts"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "Selected Docker or native rootless Podman engine; pinned nginx ingress image (pulled automatically if absent)",
+        "OpenSSL (disposable TLS logging fixture)"
+      ],
+      "local": [
+        "python3",
+        "scripts/deployment/test_ingress.py"
+      ],
+      "ci": [
+        "python3",
+        "scripts/deployment/test_ingress.py"
+      ],
+      "ci_job": "production-compose",
+      "required_ci": true
+    },
+    {
+      "id": "dependencies.source",
+      "groups": [
+        "dependencies"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "Linux x64",
+        "Pinned .NET and pnpm toolchain",
+        "Hash-locked Python parser (scripts/ci/prepare.py)",
+        "Docker daemon and BuildKit/buildx (Go reader export; Podman is not qualified and fails closed)",
+        "Network access to NuGet, npm, GitHub scanner releases, pinned Go module proxy/checksum database and Trivy/official Go advisory databases"
+      ],
+      "local": [
+        ".artifacts/ci-python/bin/python",
+        "scripts/security/source_advisories.py",
+        "--output",
+        "{evidence}/dependencies.json"
+      ],
+      "ci": [
+        ".artifacts/ci-python/bin/python",
+        "scripts/security/source_advisories.py",
+        "--output",
+        "{evidence}/dependencies.json"
+      ],
+      "ci_job": "dependencies",
+      "required_ci": true
+    },
+    {
+      "id": "openapi.drift",
+      "groups": [
+        "contracts"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        ".NET SDK",
+        "web dependencies (pnpm install --frozen-lockfile)"
+      ],
+      "local": [
+        "python3",
+        "scripts/validation/openapi_drift.py"
+      ],
+      "ci": [
+        "python3",
+        "scripts/validation/openapi_drift.py"
+      ],
+      "ci_job": "web",
+      "required_ci": true
+    },
+    {
+      "id": "native.fuzz-runner-tests",
+      "groups": [
+        "backend"
+      ],
+      "cwd": ".",
+      "prerequisites": [],
+      "local": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/native",
+        "-p",
+        "test_*.py"
+      ],
+      "ci": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "scripts/native",
+        "-p",
+        "test_*.py"
+      ],
+      "ci_job": "backend",
+      "required_ci": true
+    }
+  ]
+}

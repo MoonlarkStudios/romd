@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Ottercade plated app icon</title>
+  <desc id="desc">A close crop of Romp and the controller on a rounded Midnight plate.</desc>
+  <defs><clipPath id="plate"><rect width="1024" height="1024" rx="220"/></clipPath></defs>
+  <g clip-path="url(#plate)">
+    <rect width="1024" height="1024" fill="#07101a"/>
+    <svg x="24" y="24" width="976" height="976" viewBox="145 10 734 734">
+      <image href="ottercade-romp.svg" width="1024" height="1024"/>
+    </svg>
+  </g>
+</svg>

@@ -1,0 +1,817 @@
+{
+  "2600": {
+    "name": "Atari 2600",
+    "manufacturerIds": [
+      "atari"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "59"
+    },
+    "symbol": "Atari2600",
+    "compactLabel": "Atari 2600",
+    "iconPath": "platforms/2600.png",
+    "monochrome": true
+  },
+  "32x": {
+    "name": "Sega 32X",
+    "manufacturerIds": [
+      "sega"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "30"
+    },
+    "symbol": "Sega32X",
+    "compactLabel": "Sega 32X",
+    "iconPath": "platforms/32x.png",
+    "monochrome": true
+  },
+  "3do": {
+    "name": "3DO Interactive Multiplayer",
+    "manufacturerIds": [
+      "panasonic"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "50"
+    },
+    "symbol": "ThreeDo",
+    "compactLabel": "3DO Interactive Multiplayer",
+    "iconPath": "platforms/3do.png",
+    "monochrome": true
+  },
+  "3ds": {
+    "name": "Nintendo 3DS",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "37"
+    },
+    "symbol": "Nintendo3Ds",
+    "compactLabel": "Nintendo 3DS",
+    "iconPath": "platforms/3ds.png",
+    "monochrome": true
+  },
+  "5200": {
+    "name": "Atari 5200",
+    "manufacturerIds": [
+      "atari"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "66"
+    },
+    "symbol": "Atari5200",
+    "compactLabel": "Atari 5200",
+    "iconPath": "platforms/5200.png",
+    "monochrome": true
+  },
+  "7800": {
+    "name": "Atari 7800",
+    "manufacturerIds": [
+      "atari"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "60"
+    },
+    "symbol": "Atari7800",
+    "compactLabel": "Atari 7800",
+    "iconPath": "platforms/7800.png",
+    "monochrome": true
+  },
+  "amiga": {
+    "name": "Amiga",
+    "manufacturerIds": [
+      "commodore"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "16"
+    },
+    "symbol": "Amiga",
+    "compactLabel": "Amiga",
+    "iconPath": null,
+    "monochrome": true
+  },
+  "arcade": {
+    "name": "Arcade",
+    "manufacturerIds": [],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "52"
+    },
+    "symbol": "Arcade",
+    "compactLabel": "Arcade",
+    "iconPath": null,
+    "monochrome": true
+  },
+  "atarist": {
+    "name": "Atari ST",
+    "manufacturerIds": [
+      "atari"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "63"
+    },
+    "symbol": "AtariSt",
+    "compactLabel": "Atari ST",
+    "iconPath": null,
+    "monochrome": true
+  },
+  "c64": {
+    "name": "Commodore 64",
+    "manufacturerIds": [
+      "commodore"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "15"
+    },
+    "symbol": "Commodore64",
+    "compactLabel": "Commodore 64",
+    "iconPath": null,
+    "monochrome": true
+  },
+  "cdi": {
+    "name": "Philips CD-i",
+    "manufacturerIds": [
+      "philips"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "117"
+    },
+    "symbol": "CdI",
+    "compactLabel": "Philips CD-i",
+    "iconPath": "platforms/cdi.png",
+    "monochrome": true
+  },
+  "coleco": {
+    "name": "ColecoVision",
+    "manufacturerIds": [
+      "coleco"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "68"
+    },
+    "symbol": "ColecoVision",
+    "compactLabel": "ColecoVision",
+    "iconPath": "platforms/coleco.png",
+    "monochrome": true
+  },
+  "dc": {
+    "name": "Sega Dreamcast",
+    "manufacturerIds": [
+      "sega"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "23"
+    },
+    "symbol": "Dreamcast",
+    "compactLabel": "Sega Dreamcast",
+    "iconPath": "platforms/dc.png",
+    "monochrome": true
+  },
+  "dos": {
+    "name": "DOS",
+    "manufacturerIds": [
+      "ibm"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "13"
+    },
+    "symbol": "Dos",
+    "compactLabel": "DOS",
+    "iconPath": null,
+    "monochrome": true
+  },
+  "gb": {
+    "name": "Game Boy",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "33"
+    },
+    "symbol": "GameBoy",
+    "compactLabel": "Game Boy",
+    "iconPath": "platforms/gb.png",
+    "monochrome": true
+  },
+  "gba": {
+    "name": "Game Boy Advance",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [
+      "GBA"
+    ],
+    "providerMappings": {
+      "igdb": "24"
+    },
+    "symbol": "GameBoyAdvance",
+    "compactLabel": "Game Boy Advance",
+    "iconPath": "platforms/gba.png",
+    "monochrome": true
+  },
+  "gbc": {
+    "name": "Game Boy Color",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [
+      "GBC"
+    ],
+    "providerMappings": {
+      "igdb": "22"
+    },
+    "symbol": "GameBoyColor",
+    "compactLabel": "Game Boy Color",
+    "iconPath": "platforms/gbc.png",
+    "monochrome": true
+  },
+  "gc": {
+    "name": "Nintendo GameCube",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [
+      "GameCube"
+    ],
+    "providerMappings": {
+      "igdb": "21"
+    },
+    "symbol": "GameCube",
+    "compactLabel": "GameCube",
+    "iconPath": "platforms/gc.png",
+    "monochrome": true
+  },
+  "genesis": {
+    "name": "Sega Genesis",
+    "manufacturerIds": [
+      "sega"
+    ],
+    "aliases": [
+      "Mega Drive",
+      "Sega Mega Drive"
+    ],
+    "providerMappings": {
+      "igdb": "29"
+    },
+    "symbol": "Genesis",
+    "compactLabel": "Sega Genesis",
+    "iconPath": "platforms/genesis.png",
+    "monochrome": true
+  },
+  "gg": {
+    "name": "Sega Game Gear",
+    "manufacturerIds": [
+      "sega"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "35"
+    },
+    "symbol": "GameGear",
+    "compactLabel": "Sega Game Gear",
+    "iconPath": "platforms/gg.png",
+    "monochrome": true
+  },
+  "intv": {
+    "name": "Intellivision",
+    "manufacturerIds": [
+      "mattel"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "67"
+    },
+    "symbol": "Intellivision",
+    "compactLabel": "Intellivision",
+    "iconPath": "platforms/intv.png",
+    "monochrome": true
+  },
+  "jaguar": {
+    "name": "Atari Jaguar",
+    "manufacturerIds": [
+      "atari"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "62"
+    },
+    "symbol": "Jaguar",
+    "compactLabel": "Atari Jaguar",
+    "iconPath": "platforms/jaguar.png",
+    "monochrome": true
+  },
+  "lynx": {
+    "name": "Atari Lynx",
+    "manufacturerIds": [
+      "atari"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "61"
+    },
+    "symbol": "Lynx",
+    "compactLabel": "Atari Lynx",
+    "iconPath": "platforms/lynx.png",
+    "monochrome": true
+  },
+  "msx": {
+    "name": "MSX",
+    "manufacturerIds": [
+      "microsoft"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "27"
+    },
+    "symbol": "Msx",
+    "compactLabel": "MSX",
+    "iconPath": null,
+    "monochrome": true
+  },
+  "n64": {
+    "name": "Nintendo 64",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [
+      "N64"
+    ],
+    "providerMappings": {
+      "igdb": "4"
+    },
+    "symbol": "N64",
+    "compactLabel": "Nintendo 64",
+    "iconPath": "platforms/n64.png",
+    "monochrome": true
+  },
+  "nds": {
+    "name": "Nintendo DS",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [
+      "NDS"
+    ],
+    "providerMappings": {
+      "igdb": "20"
+    },
+    "symbol": "NintendoDs",
+    "compactLabel": "Nintendo DS",
+    "iconPath": "platforms/nds.png",
+    "monochrome": true
+  },
+  "neogeo": {
+    "name": "Neo Geo",
+    "manufacturerIds": [
+      "snk"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "80"
+    },
+    "symbol": "NeoGeo",
+    "compactLabel": "Neo Geo",
+    "iconPath": "platforms/neogeo.png",
+    "monochrome": true
+  },
+  "neogeocd": {
+    "name": "Neo Geo CD",
+    "manufacturerIds": [
+      "snk"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "136"
+    },
+    "symbol": "NeoGeoCd",
+    "compactLabel": "Neo Geo CD",
+    "iconPath": "platforms/neogeocd.png",
+    "monochrome": true
+  },
+  "nes": {
+    "name": "Nintendo Entertainment System",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [
+      "NES",
+      "Famicom",
+      "Family Computer"
+    ],
+    "providerMappings": {
+      "igdb": "18"
+    },
+    "symbol": "Nes",
+    "compactLabel": "NES",
+    "iconPath": "platforms/nes.png",
+    "monochrome": true
+  },
+  "ngp": {
+    "name": "Neo Geo Pocket",
+    "manufacturerIds": [
+      "snk"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "119"
+    },
+    "symbol": "NeoGeoPocket",
+    "compactLabel": "Neo Geo Pocket",
+    "iconPath": "platforms/ngp.png",
+    "monochrome": true
+  },
+  "ngpc": {
+    "name": "Neo Geo Pocket Color",
+    "manufacturerIds": [
+      "snk"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "120"
+    },
+    "symbol": "NeoGeoPocketColor",
+    "compactLabel": "Neo Geo Pocket Color",
+    "iconPath": "platforms/ngpc.png",
+    "monochrome": true
+  },
+  "ps2": {
+    "name": "PlayStation 2",
+    "manufacturerIds": [
+      "sony"
+    ],
+    "aliases": [
+      "PS2"
+    ],
+    "providerMappings": {
+      "igdb": "8"
+    },
+    "symbol": "PlayStation2",
+    "compactLabel": "PlayStation 2",
+    "iconPath": "platforms/ps2.png",
+    "monochrome": true
+  },
+  "ps3": {
+    "name": "PlayStation 3",
+    "manufacturerIds": [
+      "sony"
+    ],
+    "aliases": [
+      "PS3"
+    ],
+    "providerMappings": {
+      "igdb": "9"
+    },
+    "symbol": "PlayStation3",
+    "compactLabel": "PlayStation 3",
+    "iconPath": "platforms/ps3.png",
+    "monochrome": true
+  },
+  "ps4": {
+    "name": "PlayStation 4",
+    "manufacturerIds": [
+      "sony"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "48"
+    },
+    "symbol": "PlayStation4",
+    "compactLabel": "PlayStation 4",
+    "iconPath": "platforms/ps4.png",
+    "monochrome": true
+  },
+  "ps5": {
+    "name": "PlayStation 5",
+    "manufacturerIds": [
+      "sony"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "167"
+    },
+    "symbol": "PlayStation5",
+    "compactLabel": "PlayStation 5",
+    "iconPath": "platforms/ps5.png",
+    "monochrome": true
+  },
+  "psp": {
+    "name": "PlayStation Portable",
+    "manufacturerIds": [
+      "sony"
+    ],
+    "aliases": [
+      "PSP"
+    ],
+    "providerMappings": {
+      "igdb": "38"
+    },
+    "symbol": "Psp",
+    "compactLabel": "PSP",
+    "iconPath": "platforms/psp.png",
+    "monochrome": true
+  },
+  "psx": {
+    "name": "PlayStation",
+    "manufacturerIds": [
+      "sony"
+    ],
+    "aliases": [
+      "PSX",
+      "PS1",
+      "Sony PlayStation"
+    ],
+    "providerMappings": {
+      "igdb": "7"
+    },
+    "symbol": "PlayStation",
+    "compactLabel": "PlayStation",
+    "iconPath": "platforms/psx.png",
+    "monochrome": true
+  },
+  "saturn": {
+    "name": "Sega Saturn",
+    "manufacturerIds": [
+      "sega"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "32"
+    },
+    "symbol": "Saturn",
+    "compactLabel": "Sega Saturn",
+    "iconPath": "platforms/saturn.png",
+    "monochrome": true
+  },
+  "segacd": {
+    "name": "Sega CD",
+    "manufacturerIds": [
+      "sega"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "78"
+    },
+    "symbol": "SegaCd",
+    "compactLabel": "Sega CD",
+    "iconPath": "platforms/segacd.png",
+    "monochrome": true
+  },
+  "sgx": {
+    "name": "PC Engine SuperGrafx",
+    "manufacturerIds": [
+      "nec"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "128"
+    },
+    "symbol": "SuperGrafx",
+    "compactLabel": "PC Engine SuperGrafx",
+    "iconPath": "platforms/sgx.png",
+    "monochrome": true
+  },
+  "sms": {
+    "name": "Sega Master System",
+    "manufacturerIds": [
+      "sega"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "64"
+    },
+    "symbol": "MasterSystem",
+    "compactLabel": "Master System",
+    "iconPath": "platforms/sms.png",
+    "monochrome": true
+  },
+  "snes": {
+    "name": "Super Nintendo Entertainment System",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [
+      "SNES",
+      "Super Famicom",
+      "Super Nintendo"
+    ],
+    "providerMappings": {
+      "igdb": "19"
+    },
+    "symbol": "Snes",
+    "compactLabel": "SNES",
+    "iconPath": "platforms/snes.png",
+    "monochrome": true
+  },
+  "switch": {
+    "name": "Nintendo Switch",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "130"
+    },
+    "symbol": "Switch",
+    "compactLabel": "Nintendo Switch",
+    "iconPath": "platforms/switch.png",
+    "monochrome": true
+  },
+  "tg16": {
+    "name": "TurboGrafx-16",
+    "manufacturerIds": [
+      "nec"
+    ],
+    "aliases": [
+      "PC Engine"
+    ],
+    "providerMappings": {
+      "igdb": "86"
+    },
+    "symbol": "TurboGrafx16",
+    "compactLabel": "TurboGrafx-16",
+    "iconPath": "platforms/tg16.png",
+    "monochrome": true
+  },
+  "tgcd": {
+    "name": "TurboGrafx-CD",
+    "manufacturerIds": [
+      "nec"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "150"
+    },
+    "symbol": "TurboGrafxCd",
+    "compactLabel": "TurboGrafx-CD",
+    "iconPath": "platforms/tgcd.png",
+    "monochrome": true
+  },
+  "vb": {
+    "name": "Virtual Boy",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "87"
+    },
+    "symbol": "VirtualBoy",
+    "compactLabel": "Virtual Boy",
+    "iconPath": "platforms/vb.png",
+    "monochrome": true
+  },
+  "vita": {
+    "name": "PlayStation Vita",
+    "manufacturerIds": [
+      "sony"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "46"
+    },
+    "symbol": "Vita",
+    "compactLabel": "PS Vita",
+    "iconPath": "platforms/vita.png",
+    "monochrome": true
+  },
+  "wii": {
+    "name": "Wii",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "5"
+    },
+    "symbol": "Wii",
+    "compactLabel": "Wii",
+    "iconPath": "platforms/wii.png",
+    "monochrome": true
+  },
+  "wiiu": {
+    "name": "Wii U",
+    "manufacturerIds": [
+      "nintendo"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "41"
+    },
+    "symbol": "WiiU",
+    "compactLabel": "Wii U",
+    "iconPath": "platforms/wiiu.png",
+    "monochrome": true
+  },
+  "ws": {
+    "name": "WonderSwan",
+    "manufacturerIds": [
+      "bandai"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "57"
+    },
+    "symbol": "WonderSwan",
+    "compactLabel": "WonderSwan",
+    "iconPath": "platforms/ws.png",
+    "monochrome": true
+  },
+  "wsc": {
+    "name": "WonderSwan Color",
+    "manufacturerIds": [
+      "bandai"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "123"
+    },
+    "symbol": "WonderSwanColor",
+    "compactLabel": "WonderSwan Color",
+    "iconPath": "platforms/wsc.png",
+    "monochrome": true
+  },
+  "x360": {
+    "name": "Xbox 360",
+    "manufacturerIds": [
+      "microsoft"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "12"
+    },
+    "symbol": "Xbox360",
+    "compactLabel": "Xbox 360",
+    "iconPath": "platforms/x360.png",
+    "monochrome": true
+  },
+  "xbox": {
+    "name": "Xbox",
+    "manufacturerIds": [
+      "microsoft"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "11"
+    },
+    "symbol": "Xbox",
+    "compactLabel": "Xbox",
+    "iconPath": "platforms/xbox.png",
+    "monochrome": true
+  },
+  "xone": {
+    "name": "Xbox One",
+    "manufacturerIds": [
+      "microsoft"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "49"
+    },
+    "symbol": "XboxOne",
+    "compactLabel": "Xbox One",
+    "iconPath": "platforms/xone.png",
+    "monochrome": true
+  },
+  "xsx": {
+    "name": "Xbox Series X|S",
+    "manufacturerIds": [
+      "microsoft"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "169"
+    },
+    "symbol": "XboxSeriesX",
+    "compactLabel": "Xbox Series X|S",
+    "iconPath": "platforms/xsx.png",
+    "monochrome": true
+  },
+  "zxs": {
+    "name": "ZX Spectrum",
+    "manufacturerIds": [
+      "sinclair"
+    ],
+    "aliases": [],
+    "providerMappings": {
+      "igdb": "26"
+    },
+    "symbol": "ZxSpectrum",
+    "compactLabel": "ZX Spectrum",
+    "iconPath": null,
+    "monochrome": true
+  }
+}

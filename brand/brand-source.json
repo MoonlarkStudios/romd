@@ -1,0 +1,32 @@
+{
+  "sourceRepository": "MoonlarkStudios/moonlark-branding",
+  "sourceVersion": "0.3.0",
+  "sourceCommit": "b2b4680179ee8be366e7ed03bf56f3b402a5426f",
+  "applicationBaseline": "3f9fc427f80626bd5ecf9d71d8fa1fdee241e814",
+  "kind": "compatibility-snapshot",
+  "adoption": "Central artwork ownership established; soft Romp console adoption pending.",
+  "files": {
+    "fonts/DMSans-OFL.txt": "7ec15e79c59bc14b86436a17e5eb7926b46cbcaeb08e1a7e6c110b415e6eb2a2",
+    "fonts/Fraunces-OFL.txt": "6732d6cc72c5d09292ff754dc1f39d9ea14918f74e87a17afa3f00a5120c3d48",
+    "fonts/Fraunces-Variable.ttf": "177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb",
+    "ottercade-icon-adaptive-foreground.svg": "84aac9842c69af15e2e1eeed5670452e694525b65a3430caa588c98edd546a8b",
+    "ottercade-icon-plated.svg": "80973a992bf06eaad6ccaca729c6425615cc32043d451ab83c8c4487a9ac886e",
+    "ottercade-icon-square.svg": "25391720490c92a276d15493cc9bf4718c772c16a8b4ea229b7741b17474a77f",
+    "ottercade-lockup-horizontal-dark.svg": "7f31098eb651e2d50594eb4a24d6eef11fb10237f9ccbbe2f981c5e60946a759",
+    "ottercade-lockup-horizontal.svg": "2222ed29655d5107f688e5274a00e27c4358ab07c40851ec78b7cb84386af196",
+    "ottercade-lockup-stacked-dark.svg": "a60c1b1d3ef376f5d0c95f65160c5301c08d793420dec16fa9815d1056d13dd7",
+    "ottercade-lockup-stacked.svg": "4cb0a26abad6f274ddd2491589e3c5b92b2048959edf4ff23a826a107cda3eeb",
+    "ottercade-romp.svg": "42bcf91a3d4eda98e10eb342d4124498f32d265f2f341230a7bff582ce5ca8de",
+    "ottercade-wordmark-cream.svg": "183afb8ec99645ee42351d7271e55ab54351e29db1555b64a24620ccc250c9da",
+    "ottercade-wordmark.svg": "f9f361557dc1225736c3d879f6ae679364badbaa503faf08e772a2bc6228c3c8",
+    "romd-icon.svg": "9e70d18ddfdd3338b7ff1793f1b5fbe5ababa96e7a6d1f08c374420e49362b5e",
+    "romd-lockup-horizontal-dark.svg": "1b26fb81b5ca95bb9b140cc076e59a20b2d4d0111fbcd5010f57f4aca2d399c0",
+    "romd-lockup-horizontal.svg": "0fddd6fc7021e1ef7e7801d867aedc4f43356c9ee9dd5bbc11b6bfe3738e8e79",
+    "romd-lockup-stacked-dark.svg": "1a9d4b0ae6e5c03757c9db935c00e59d74a72ba746f55a83286a3973125b7a92",
+    "romd-lockup-stacked.svg": "e554d7313cd32c93eac49d2230e71c3ad76e0ed72bada49eb458fa136c7c8d21",
+    "romd-mark-dark.svg": "bd5d90fd1d2de4997b4a912fade0978abb7617ecd457c2e60220c0ee49436a68",
+    "romd-mark.svg": "7bb572d8c6e0fb5b09c7bebffc238ef8d5e11e3e9cddeb31620c4da91b844efc",
+    "romd-wordmark-cream.svg": "42e9f4cd93d3849b0ad85b70a7155eae04e825520e7ce122ad03fc3fea3bb8f4",
+    "romd-wordmark.svg": "e8d93995782bea505c881b3ffa55d2c7c1e14d7f3719e37e9f9c4cd2ceca8890"
+  }
+}

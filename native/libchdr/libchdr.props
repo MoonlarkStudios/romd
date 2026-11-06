@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <LibchdrManagedVersion>1.0.0-preview.1</LibchdrManagedVersion>
+    <LibchdrNativeVersionMode>Family</LibchdrNativeVersionMode>
+    <LibchdrUpstreamCommit>607694ca0812edfc9cc2030c64634fc2393668de</LibchdrUpstreamCommit>
+    <LibchdrUpstreamVersion>v0.3.0-116-g607694c</LibchdrUpstreamVersion>
+    <Version>$(LibchdrManagedVersion)</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="UpstreamVersion" Value="$(LibchdrUpstreamVersion)" />
+    <AssemblyMetadata Include="UpstreamCommit" Value="$(LibchdrUpstreamCommit)" />
+    <AssemblyMetadata Include="NativeVersionMode" Value="$(LibchdrNativeVersionMode)" />
+  </ItemGroup>
+</Project>

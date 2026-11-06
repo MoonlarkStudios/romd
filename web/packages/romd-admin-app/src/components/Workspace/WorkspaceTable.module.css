@@ -1,0 +1,6 @@
+.table { width: 100%; border-collapse: collapse; }
+.table th { text-align: left; font-size: 11px; font-weight: 600; color: var(--mantine-color-dimmed); padding: 10px 8px; border-bottom: 1px solid var(--mantine-color-default-border); }
+.table td { padding: 9px 8px; border-bottom: 1px solid var(--mantine-color-default-border); font-size: 13px; }
+.table tbody tr:hover { background: var(--mantine-color-default-hover); }
+.table tr[data-selected] { background: light-dark(var(--mantine-color-teal-0), rgb(18 184 134 / 8%)); }
+.bulk { position: sticky; top: 65px; z-index: 5; padding: 10px 12px; border: 1px solid var(--mantine-color-teal-7); border-radius: 4px; background: var(--mantine-color-body); }

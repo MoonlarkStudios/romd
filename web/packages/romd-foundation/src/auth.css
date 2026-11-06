@@ -1,0 +1,124 @@
+.romd-auth-shell {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 24px;
+  background: var(--romd-portal-bg);
+  color: var(--romd-portal-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.romd-auth-card {
+  box-sizing: border-box;
+  width: min(420px, 100%);
+  padding: 32px;
+  border: 1px solid var(--romd-portal-border);
+  border-radius: 12px;
+  background: var(--romd-portal-surface);
+}
+
+.romd-auth-brand {
+  margin: 0 0 20px;
+  max-width: 320px;
+  margin-inline: auto;
+  line-height: 0;
+}
+
+.romd-auth-brand img {
+  width: 100%;
+  height: auto;
+}
+
+.romd-auth-brand-dark {
+  display: none;
+}
+
+[data-mantine-color-scheme='dark'] .romd-auth-brand-light,
+[data-romd-portal='consumer'] .romd-auth-brand-light {
+  display: none;
+}
+
+[data-mantine-color-scheme='dark'] .romd-auth-brand-dark,
+[data-romd-portal='consumer'] .romd-auth-brand-dark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mantine-color-scheme='light']) .romd-auth-brand-light {
+    display: none;
+  }
+
+  :root:not([data-mantine-color-scheme='light']) .romd-auth-brand-dark {
+    display: block;
+  }
+}
+
+.romd-auth-description {
+  margin: 0 0 24px;
+  color: var(--romd-portal-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.romd-auth-card label {
+  display: block;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.romd-auth-card input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--romd-portal-border);
+  border-radius: 6px;
+  background: var(--romd-portal-bg);
+  color: var(--romd-portal-text);
+  font: inherit;
+}
+
+/* Browser autofill keeps the same field surface instead of a blue inset. */
+.romd-auth-card input:autofill {
+  box-shadow: 0 0 0 1000px var(--romd-portal-bg) inset;
+  -webkit-text-fill-color: var(--romd-portal-text);
+  caret-color: var(--romd-portal-text);
+}
+
+.romd-auth-submit {
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  margin-top: 24px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--romd-portal-accent);
+  color: var(--romd-portal-on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.romd-auth-submit:hover:not(:disabled) {
+  background: var(--romd-portal-accent-hover);
+}
+
+.romd-auth-card input:focus-visible,
+.romd-auth-submit:focus-visible {
+  outline: 2px solid var(--romd-portal-accent);
+  outline-offset: 3px;
+}
+
+.romd-auth-error {
+  color: var(--romd-portal-error);
+}
+
+@media (max-width: 30em) {
+  .romd-auth-card {
+    padding: 24px;
+  }
+}

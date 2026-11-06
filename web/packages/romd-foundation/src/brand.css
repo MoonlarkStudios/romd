@@ -1,0 +1,73 @@
+/* Fixed artwork colors from the copied ROMD kit. Application theme roles stay local. */
+@import './brand/tokens.css';
+:root {
+  --romd-brand-foreground: var(--moonlark-romd-palette-cream);
+  --romd-brand-icon-size: 32px;
+  --romd-brand-wordmark-height: 32px;
+  --romd-brand-gap: 0.65rem;
+}
+
+[data-mantine-color-scheme='light'] {
+  --romd-brand-foreground: var(--moonlark-romd-palette-ink);
+}
+
+[data-mantine-color-scheme='dark'] {
+  --romd-brand-foreground: var(--moonlark-romd-palette-cream);
+}
+
+.romd-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--romd-brand-gap);
+  white-space: nowrap;
+}
+
+.romd-brand-icon {
+  display: none;
+  width: var(--romd-brand-icon-size);
+  height: var(--romd-brand-icon-size);
+  flex: none;
+  background-color: var(--romd-brand-foreground);
+  mask: url('./brand/romd-mark.svg') center / contain no-repeat;
+}
+
+.romd-brand-wordmark {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.romd-brand-wordmark img {
+  display: block;
+  height: var(--romd-brand-wordmark-height);
+  width: auto;
+}
+
+.romd-brand-wordmark .romd-brand-wordmark-light {
+  display: none;
+}
+
+[data-mantine-color-scheme='light'] .romd-brand-wordmark .romd-brand-wordmark-light {
+  display: block;
+}
+
+[data-mantine-color-scheme='light'] .romd-brand-wordmark .romd-brand-wordmark-dark {
+  display: none;
+}
+
+.romd-brand--large {
+  --romd-brand-icon-size: 56px;
+  --romd-brand-wordmark-height: 40px;
+}
+
+/* The symbol is the compact signature; avoid repeating the o beside romd. */
+@media (max-width: 35.99375em) {
+  .romd-brand-icon {
+    display: inline-block;
+  }
+
+  .romd-brand-wordmark {
+    display: none;
+  }
+}

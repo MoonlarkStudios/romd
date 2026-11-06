@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/mamedev/mame",
+  "tag": "mame0289",
+  "tagObject": "d0b7160e54874fa58f553614db373d73100d5ecb",
+  "commit": "f34f02505e32c1993c6a782b6814232cbfc74e36",
+  "version": "0.289",
+  "rebuildRevision": 1,
+  "sourceUrl": "https://github.com/mamedev/mame/archive/refs/tags/mame0289.tar.gz",
+  "sourceBytes": 213237316,
+  "sourceSha256": "0929cc749afabcef892900e10dd90bd8b05f94a7dde8f367ac6a5d2082589f84",
+  "supportedRids": ["linux-x64", "linux-arm64", "osx-arm64"]
+}

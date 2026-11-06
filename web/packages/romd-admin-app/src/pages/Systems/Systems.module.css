@@ -1,0 +1,28 @@
+.table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.table th { text-align: left; color: var(--mantine-color-dimmed); font-size: 11px; font-weight: 500; padding: 10px 8px; }
+.table td { padding: 14px 8px; border-top: 1px solid var(--mantine-color-default-border); vertical-align: middle; font-size: 13px; overflow-wrap: anywhere; }
+.table tbody tr:hover { background: var(--mantine-color-default-hover); }
+.name { width: 28%; }
+.count { width: 10%; }
+.status { width: 18%; }
+.updates { width: 24%; }
+.titleLink { color: inherit; text-decoration: none; font-weight: 600; }
+.titleLink:hover { text-decoration: underline; }
+.search { width: 280px; max-width: 100%; }
+.mobileCounts { display: none; }
+.mobileState { display: none; }
+.headerIdentity { min-width: 0; flex: 1; }
+@media (max-width: 800px) {
+  .count { display: none; }
+  .name { width: 45%; }
+  .status { width: 25%; }
+  .updates { width: 30%; }
+  .mobileCounts { display: block; }
+}
+@media (max-width: 480px) {
+  .status { display: none; }
+  .mobileState { display: block; }
+  .name { width: 60%; }
+  .updates { width: 40%; }
+  .search { width: 100%; }
+}

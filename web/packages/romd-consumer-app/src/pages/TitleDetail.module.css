@@ -1,0 +1,28 @@
+.page { margin: calc(-1 * var(--mantine-spacing-xl)) calc(-1 * var(--mantine-spacing-xl)) 0; }
+.tabs { padding-inline: clamp(24px, 5vw, 80px); background: var(--romd-bg); }
+.tabList { position: sticky; top: var(--app-shell-header-height, 0px); z-index: 2; background: var(--romd-bg); gap: var(--mantine-spacing-lg); flex-wrap: nowrap; overflow-x: auto; }
+.tabList button { padding-block: var(--mantine-spacing-lg); white-space: nowrap; font: inherit; }
+.panel { padding-block: var(--mantine-spacing-xl); min-height: 300px; }
+.details { display: grid; align-items: start; grid-template-columns: 1.1fr 1fr; gap: clamp(32px, 5vw, 80px); }
+.summary { display: flex; align-items: flex-start; gap: var(--mantine-spacing-xl); min-width: 0; }
+.summaryText { flex: 1; min-width: 0; }
+.detailsPoster { flex: 0 0 clamp(120px, 10vw, 160px); overflow: hidden; border-radius: var(--mantine-radius-sm); }
+.description { white-space: pre-line; line-height: 1.8; }
+.releases { display: grid; gap: var(--mantine-spacing-xs); }
+.release { display: flex; align-items: center; gap: var(--mantine-spacing-lg); width: 100%; border: 1px solid var(--romd-border-subtle); background: var(--romd-panel); color: var(--romd-text-strong); text-align: left; padding: var(--mantine-spacing-lg); cursor: pointer; font: inherit; border-radius: var(--mantine-radius-sm); }
+.release > span:first-child { flex: 1; }
+.release[aria-pressed='true'] { border-color: var(--mantine-color-mint-5); }
+.release:focus-visible, .media:focus-visible { outline: 2px solid var(--mantine-color-mint-5); outline-offset: 4px; }
+.media { border: 0; padding: 0; background: var(--romd-panel); cursor: pointer; border-radius: var(--mantine-radius-sm); overflow: hidden; }
+.media img { width: 100%; height: 100%; object-fit: contain; }
+@media (max-width: 48em) {
+  .page { margin-inline: calc(-1 * var(--mantine-spacing-md)); }
+  .details { grid-template-columns: 1fr; }
+  .summary { flex-direction: column; }
+  .detailsPoster { display: none; }
+  .tabs { padding-inline: var(--mantine-spacing-lg); }
+  .tabList { gap: 0; }
+  .release { flex-wrap: wrap; gap: var(--mantine-spacing-sm); }
+}
+
+.releaseContent { width: 100%; max-width: 800px; }

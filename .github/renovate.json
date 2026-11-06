@@ -1,0 +1,88 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "enabledManagers": [
+    "nuget",
+    "npm",
+    "pub",
+    "github-actions",
+    "dockerfile",
+    "docker-compose",
+    "mise",
+    "custom.regex"
+  ],
+  "dependencyDashboard": false,
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "automerge": false,
+  "platformAutomerge": false,
+  "rebaseWhen": "conflicted",
+  "internalChecksFilter": "strict",
+  "timezone": "America/Chicago",
+  "schedule": [
+    "after 10pm on thursday"
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": false
+  },
+  "packageRules": [
+    {
+      "matchManagers": [
+        "nuget"
+      ],
+      "groupName": "NuGet dependencies",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "matchManagers": [
+        "npm"
+      ],
+      "groupName": "web dependencies",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "matchManagers": [
+        "pub"
+      ],
+      "groupName": "Flutter dependencies"
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions",
+      "pinDigests": true
+    },
+    {
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose",
+        "custom.regex"
+      ],
+      "groupName": "container inputs",
+      "pinDigests": true
+    },
+    {
+      "matchManagers": [
+        "mise"
+      ],
+      "groupName": "development toolchains"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^scripts/deployment/base-images\\.json$/"
+      ],
+      "matchStrings": [
+        "\"(?:postgres|ingress)\":\\s*\"(?<depName>[^:@\"]+):(?<currentValue>[^@\"]+)@(?<currentDigest>sha256:[a-f0-9]{64})\""
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

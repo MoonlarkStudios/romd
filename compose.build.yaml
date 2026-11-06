@@ -1,0 +1,34 @@
+# Source-build overlay for maintainers and CI. linux/arm64 installations build the same Dockerfile targets.
+services:
+  romd-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ROMD_SOURCE_REVISION: ${ROMD_SOURCE_REVISION:-development}
+        ROMD_RELEASE_TAG: ${ROMD_RELEASE_TAG:-development}
+      target: romd-admin
+  romd-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ROMD_SOURCE_REVISION: ${ROMD_SOURCE_REVISION:-development}
+        ROMD_RELEASE_TAG: ${ROMD_RELEASE_TAG:-development}
+      target: romd-consumer
+  romd-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ROMD_SOURCE_REVISION: ${ROMD_SOURCE_REVISION:-development}
+        ROMD_RELEASE_TAG: ${ROMD_RELEASE_TAG:-development}
+      target: romd-worker
+  romd-player:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ROMD_SOURCE_REVISION: ${ROMD_SOURCE_REVISION:-development}
+        ROMD_RELEASE_TAG: ${ROMD_RELEASE_TAG:-development}
+      target: romd-player

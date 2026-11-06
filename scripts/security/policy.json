@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "blockedSeverities": ["CRITICAL", "HIGH", "UNKNOWN"],
+  "maxExceptionDays": 90,
+  "exceptions": []
+}

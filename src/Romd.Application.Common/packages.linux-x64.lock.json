@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "ErrorOr": {
+        "type": "Direct",
+        "requested": "[2.1.1, )",
+        "resolved": "2.1.1",
+        "contentHash": "Y/AhvEZ5DjSi993Db1VrnYpK8YpM4o+tonF4f+AtXDzrIHYvbjWJD7fpip+ugSwW8kMw+XXEnMlJM7E0BKJBWA=="
+      },
+      "Sqids": {
+        "type": "Direct",
+        "requested": "[3.2.1, )",
+        "resolved": "3.2.1",
+        "contentHash": "8uqA+i1CYgRz5H/Sd+ucmEh+/r9IwihxH24XuBfvZPsERuWLjnOITeODdcKyFZ40wfeG1xH2H+MS4o7DpVt8og=="
+      },
+      "romd.contracts.common": {
+        "type": "Project"
+      },
+      "romd.domain": {
+        "type": "Project"
+      }
+    },
+    "net10.0/linux-x64": {}
+  }
+}

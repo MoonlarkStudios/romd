@@ -1,0 +1,38 @@
+.candidates {
+  max-height: min(36vh, 24rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.candidate {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-sm);
+}
+.candidate[data-selected] { background: var(--mantine-color-default-hover); }
+.candidate:focus-within { outline: 2px solid var(--mantine-color-teal-filled); outline-offset: -2px; }
+.preview { min-width: 0; padding-left: calc(var(--mantine-spacing-md) + var(--mantine-spacing-sm)); }
+/* The card-title role's strong text colour has no light-scheme value, so light schemes use the admin text colour. */
+.pickerHeading:global(.romd-card-title) { color: light-dark(var(--mantine-color-text), var(--romd-text-strong)); }
+.actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding-block: var(--mantine-spacing-sm);
+  border-top: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+}
+.actions button { height: auto; min-height: var(--button-height); white-space: normal; }
+
+.actions[data-inline] { bottom: var(--romd-admin-status-bar-height, 0px); }
+
+/* The match list is its own size container. The host's density picks the spacing tier, and narrow lists use the
+   compact rows whatever the host asked for. */
+.matches {
+  container: provider-matches / inline-size;
+  display: flex; flex-direction: column;
+  --matches-gap: var(--mantine-spacing-sm); --matches-row-padding: var(--mantine-spacing-sm);
+  gap: var(--matches-gap);
+}
+.matches[data-density='compact'] { --matches-gap: var(--mantine-spacing-xs); --matches-row-padding: var(--mantine-spacing-xs); }
+.match { padding-block: var(--matches-row-padding); border-bottom: 1px solid var(--mantine-color-default-border); }
+@container provider-matches (max-width: 30em) { .match { padding-block: var(--mantine-spacing-xs); } }

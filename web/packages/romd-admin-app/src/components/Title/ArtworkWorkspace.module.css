@@ -1,0 +1,57 @@
+.header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.assignments { composes: panel from '../../components/Workspace/Workspace.module.css'; }
+.library { composes: panel from '../../components/Workspace/Workspace.module.css'; }
+.heading { composes: sectionHeading from '../../components/Workspace/Workspace.module.css'; }
+.dropzone { border: 1px dashed var(--mantine-color-teal-6); border-radius: 12px; padding: 24px; background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-6)); }
+.browser { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; }
+.sources { display: flex; flex-direction: column; gap: 8px; }
+.source { border: 1px solid var(--mantine-color-default-border); border-radius: 8px; padding: 12px; text-align: left; }
+.source[aria-pressed='true'] { border-color: var(--mantine-color-teal-6); background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-6)); }
+.candidate { position: relative; border: 2px solid var(--mantine-color-default-border); border-radius: 10px; padding: 8px; overflow: hidden; }
+.candidate[aria-pressed='true'] { border-color: var(--mantine-color-teal-6); background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-6)); }
+.candidate:focus-visible, .source:focus-visible { outline: 3px solid var(--mantine-color-teal-5); outline-offset: 3px; }
+.footer { position: sticky; bottom: 0; background: var(--mantine-color-body); border-top: 1px solid var(--mantine-color-default-border); padding: 16px 0 4px; z-index: 2; }
+/* The add-artwork dialog lays out for its own width. */
+.addArtwork { container: artwork-library / inline-size; }
+@container artwork-library (max-width: 650px) { .browser { grid-template-columns: minmax(0, 1fr); gap: 16px; } .sources { flex-direction: row; overflow-x: auto; } .source { flex: 0 0 160px; } }
+
+.assignment { min-width: 0; border: 1px solid var(--mantine-color-default-border); border-radius: var(--mantine-radius-sm); padding: var(--mantine-spacing-md); }
+
+/* The artwork editor is the size container for everything inside it. Density tiers are custom properties: the host's
+   `data-density` picks one, and narrow editors fall back to compact whatever the host asked for. */
+.workspace {
+  container: artwork-editor / inline-size; max-width: 1600px; min-width: 0;
+  --artwork-role-columns: 4; --artwork-role-padding: var(--mantine-spacing-sm); --artwork-thumbnail-width: 44px; --artwork-thumbnail-height: 60px;
+  --artwork-layout-gap: var(--mantine-spacing-lg); --artwork-panel-gap: var(--mantine-spacing-md); --artwork-panel-padding: var(--mantine-spacing-md);
+}
+.workspace[data-density='compact'] {
+  --artwork-role-columns: 2; --artwork-role-padding: var(--mantine-spacing-xs); --artwork-thumbnail-width: 32px; --artwork-thumbnail-height: 44px;
+  --artwork-layout-gap: var(--mantine-spacing-md); --artwork-panel-gap: var(--mantine-spacing-sm); --artwork-panel-padding: var(--mantine-spacing-sm);
+}
+@container artwork-editor (max-width: 600px) {
+  .workspace > * {
+    --artwork-role-columns: 2; --artwork-role-padding: var(--mantine-spacing-xs); --artwork-thumbnail-width: 32px; --artwork-thumbnail-height: 44px;
+    --artwork-layout-gap: var(--mantine-spacing-md); --artwork-panel-gap: var(--mantine-spacing-sm); --artwork-panel-padding: var(--mantine-spacing-sm);
+  }
+}
+.roleStrip { display: grid; grid-template-columns: repeat(var(--artwork-role-columns), minmax(0, 1fr)); gap: var(--mantine-spacing-sm); }
+.roleButton { display: flex; align-items: center; gap: var(--mantine-spacing-sm); padding: var(--artwork-role-padding); min-width: 0; border: 1px solid var(--mantine-color-default-border); border-radius: var(--mantine-radius-sm); }
+.roleButton[aria-checked='true'] { border-color: var(--mantine-color-teal-6); background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-6)); }
+.roleButton:disabled { cursor: default; }
+.roleButton:focus-visible, .workspace summary:focus-visible { outline: 2px solid var(--mantine-color-teal-5); outline-offset: 3px; }
+.roleThumbnail { width: var(--artwork-thumbnail-width); flex: 0 0 var(--artwork-thumbnail-width); max-height: var(--artwork-thumbnail-height); overflow: hidden; }
+.roleThumbnail p { font-size: var(--mantine-font-size-xs); }
+.editorLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 370px); gap: var(--artwork-layout-gap); align-items: start; }
+.composition { min-width: 0; position: sticky; top: var(--mantine-spacing-md); border: 1px solid var(--mantine-color-default-border); border-radius: var(--mantine-radius-sm); padding: var(--artwork-panel-padding); }
+.inspector { display: flex; flex-direction: column; gap: var(--artwork-panel-gap); min-width: 0; border: 1px solid var(--mantine-color-default-border); border-radius: var(--mantine-radius-sm); padding: var(--artwork-panel-padding); }
+.inspector input, .inspector select { min-width: 0; }
+.sourcePicker { max-width: 100%; overflow-x: auto; }
+.editor { min-width: 0; }
+.editorBody { min-width: 0; padding-bottom: var(--mantine-spacing-md); }
+.editorFooter { border-top: 1px solid var(--mantine-color-default-border); padding-top: var(--mantine-spacing-md); }
+.workspace summary { cursor: pointer; font-size: var(--mantine-font-size-sm); color: var(--mantine-color-dimmed); }
+.composition { scroll-margin-top: calc(var(--app-shell-header-height, 60px) + var(--mantine-spacing-md)); top: calc(var(--app-shell-header-height, 60px) + var(--mantine-spacing-md)); }
+.roleThumbnail:has(p) { display: none; }
+
+@container artwork-editor (max-width: 1000px) { .editorLayout { grid-template-columns: minmax(0, 1fr); } .composition { position: static; } }
+@container artwork-editor (max-width: 650px) { .header { align-items: flex-start; flex-wrap: wrap; } }

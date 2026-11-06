@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<datafile xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://datomatic.no-intro.org/stuff https://datomatic.no-intro.org/stuff/schema_nointro_datfile_v3.xsd">
+	<!-- Synthetic ROMD test fixture. Titles, sizes and hashes are invented; this is not an upstream DAT release. See README.md. -->
+	<header>
+		<id>9999</id>
+		<name>Nintendo - Nintendo 64 (BigEndian)</name>
+		<description>Nintendo - Nintendo 64 (BigEndian)</description>
+		<version>20260101-000000</version>
+		<author>Fixture Curator, Synthetic Dumper, Example Verifier</author>
+		<homepage>No-Intro</homepage>
+		<url>https://www.no-intro.org</url>
+		<clrmamepro forcenodump="required"/>
+	</header>
+	<game name="[BIOS] Synthetic 64 - Boot ROM (Brazil)" id="9003" cloneofid="9001">
+		<description>[BIOS] Synthetic 64 - Boot ROM (Brazil)</description>
+		<rom name="[BIOS] Synthetic 64 - Boot ROM (Brazil).bin" size="1984" crc="78ff4b6b" md5="56dc9c7fb26a0c1a2a804b618b228c7c" sha1="994779edc00090631f90fa025c16aaf793fae28f" sha256="bc388177e610830d9bfedbf2958b75ec36f3b2a3a1d8acc3a35e3772686ad34e" status="verified"/>
+	</game>
+	<game name="[BIOS] Synthetic 64 - Boot ROM (Europe)" id="9001">
+		<description>[BIOS] Synthetic 64 - Boot ROM (Europe)</description>
+		<rom name="[BIOS] Synthetic 64 - Boot ROM (Europe).bin" size="1984" crc="7d7b3d83" md5="fa8a0cab72f575700daf2a0cf2ef2b9c" sha1="6e2a02da5c7579fcf2745ba24c6973cd4c34d468" sha256="de8d655cd3306a26683b93c7fe8f66a711d78ee4b1ab51bfb66f88ebdf34b94b" status="verified"/>
+	</game>
+	<game name="[BIOS] Synthetic 64 - Boot ROM (Japan, USA)" id="9002" cloneofid="9001">
+		<description>[BIOS] Synthetic 64 - Boot ROM (Japan, USA)</description>
+		<rom name="[BIOS] Synthetic 64 - Boot ROM (Japan, USA).bin" size="1984" crc="9fba78bf" md5="5201ad07379eceda03e42926fc68a852" sha1="6cb99d53d465bb4a5ce368481079eab177042377" sha256="ea053449035018ab37555c4c19c7a54f7316da6116a50578f6d8a70d579f1dae" status="verified"/>
+	</game>
+	<game name="Fixture Golf Open (Europe) (En,Fr,De,Es,It)" id="0201" cloneofid="0200">
+		<description>Fixture Golf Open (Europe) (En,Fr,De,Es,It)</description>
+		<rom name="Fixture Golf Open (Europe) (En,Fr,De,Es,It).z64" size="16777216" crc="6ed5e11f" md5="6c261456cd5c3fcb0d4a5b7f2faac0ee" sha1="3e81feb3dc49a1afd8fc5362a7866ba8234178de" sha256="690c7b8b86cba6d8d6ad3d8e064ae0c293d02f09ed71da68b1401dac2d4a7953" status="verified" serial="NFGP"/>
+	</game>
+	<game name="Fixture Golf Open (USA)" id="0200">
+		<description>Fixture Golf Open (USA)</description>
+		<rom name="Fixture Golf Open (USA).z64" size="16777216" crc="bcc546ad" md5="e0fd4afa573ae3e1cb16d018e64a9b2a" sha1="4cf4b387c51d11a9f48825750c2fdd8870609295" sha256="7d23d607dbb4fd74508ba66e58fc46c2d1027e21ed100026471232a149c23828" status="verified" serial="NFGE"/>
+	</game>
+	<game name="Fixture Racer Turbo (USA)" id="0300">
+		<description>Fixture Racer Turbo (USA)</description>
+		<rom name="Fixture Racer Turbo (USA).z64" size="12582912" crc="8d084662" md5="e473bb33475abcb85158aa33121ee77d" sha1="3197b0070b1c5d530492a294bda40c1b5358f375" sha256="1a2469e5ba2595988be49bfa0c2c891cbec4637d09bfa50634e83ff6b8a1a801" serial="NFRE"/>
+	</game>
+	<game name="Fixture Racer Turbo (USA) (Rev 1)" id="0301" cloneofid="0300">
+		<description>Fixture Racer Turbo (USA) (Rev 1)</description>
+		<rom name="Fixture Racer Turbo (USA) (Rev 1).z64" size="12582912" crc="f9b765e2" md5="a59cc94835a136da348c788ec3cea826" sha1="d58db54e4b396eae1b993615a8063da472efe570" sha256="1af5c10d6d0b1ca8a95d26fa164019e6c7eb97e36ee2b8ddae7ff6746118245a" status="verified" serial="NFRE"/>
+	</game>
+	<game name="Example Raiders &amp; Rogues (Europe)" id="0400">
+		<description>Example Raiders &amp; Rogues (Europe)</description>
+		<rom name="Example Raiders &amp; Rogues (Europe).z64" size="8388608" crc="85df8201" md5="bf02b59af9ba8eec3d4f296892e60ede" sha1="6c88602a434a90392793bde3bc9ec013bf94dde1" serial="NERP"/>
+	</game>
+	<game name="Mock Mansion Mystery (USA) (Proto)" id="0500">
+		<category>Games</category>
+		<category>Preproduction</category>
+		<description>Mock Mansion Mystery (USA) (Proto)</description>
+		<rom name="Mock Mansion Mystery (USA) (Proto).z64" size="33554432" crc="cf8c91e5" md5="5d0ae3607f879a6adeb09af6d8b2f631" sha1="93441d2e4adf3851bbb05b8942b005d16420f5f5"/>
+	</game>
+	<game name="Placeholder Kart League (Japan) (Beta) [b]" id="0601" cloneofid="0600">
+		<category>Games</category>
+		<category>Preproduction</category>
+		<description>Placeholder Kart League (Japan) (Beta) [b]</description>
+		<rom name="Placeholder Kart League (Japan) (Beta) [b].z64" size="33554432" crc="b0a89204" md5="b4643e410b5d17cf2e7dffa804dd7297" sha1="6e44e3f80152a8a8d450c3ed804ed3a5dc24d812" sha256="5fd3969bf306602d09d3e4dd3ef2e99926229b6a70f6e0c0bb0fc04f29f0c555" status="baddump"/>
+	</game>
+	<game name="Placeholder Kart League (Japan) (Beta) (2000-07-10) [b]" id="0602" cloneofid="0600">
+		<category>Games</category>
+		<category>Preproduction</category>
+		<description>Placeholder Kart League (Japan) (Beta) (2000-07-10) [b]</description>
+		<rom name="Placeholder Kart League (Japan) (Beta) (2000-07-10) [b].z64" size="33554432" crc="4b94ed6b" md5="12b5980c86bae96c0078647dbb30fad7" sha1="6928bfb80afdb63e3fb82b5b7bce0ee836032bb4" status="baddump" serial="NPKJ"/>
+	</game>
+	<game name="Placeholder Kart League (Japan)" id="0600">
+		<description>Placeholder Kart League (Japan)</description>
+		<rom name="Placeholder Kart League (Japan).z64" size="33554432" crc="5b36f74b" md5="873b742f69e2d501392eb15668f083dd" sha1="88f0d8155dc2eff48ce23ae09f9bf2d4559e344f" sha256="681ff3199cc77f7aa9e4ac9324e3584f4df8f13cbfa7062c2d9ea1c0860f2c33" status="verified" serial="NPKJ"/>
+	</game>
+	<game name="Sample Cheat Cartridge (Europe) (v3.3) (Unl)" id="0701" cloneofid="0700">
+		<category>Applications</category>
+		<description>Sample Cheat Cartridge (Europe) (v3.3) (Unl)</description>
+		<rom name="Sample Cheat Cartridge (Europe) (v3.3) (Unl).bin" size="262144" crc="10994a08" md5="8bcca9f3321c9f56579c7d08e46c28de" sha1="f520affb43e61bea5cad7d12b5e21397c6afb01a" sha256="d0e24da819b18d3d92b23d2f01d4a76d768a848b8378f8c7c0a8fdc733f1d62a"/>
+	</game>
+	<game name="Sample Cheat Cartridge (USA) (v2.0) (Unl)" id="0700">
+		<category>Applications</category>
+		<description>Sample Cheat Cartridge (USA) (v2.0) (Unl)</description>
+		<rom name="Sample Cheat Cartridge (USA) (v2.0) (Unl).bin" size="262144" crc="f6834a73" md5="d2dd509101799680738ffc815023c89f" sha1="d845f02224cc3ae4183b2956d8d1c8b7437c6405"/>
+	</game>
+	<game name="Synthetic Puzzle Garden (Japan)" id="0800">
+		<description>Synthetic Puzzle Garden (Japan)</description>
+		<rom name="Synthetic Puzzle Garden (Japan).z64" size="4194304" crc="420c6b42" md5="544270cd3e78ad8dcdd24f19e117f06f" sha1="ab9ce130decd4db05cbd78117dfd42d0bc9a45d4" sha256="192e851b9ff4930209d5ded5406ac786e4875854575bd7abf5c63d3e73ccd000" status="verified"/>
+	</game>
+	<game name="Synthetic Puzzle Garden (USA) (Kiosk)" id="0801" cloneofid="0800">
+		<category>Games</category>
+		<description>Synthetic Puzzle Garden (USA) (Kiosk)</description>
+		<rom name="Synthetic Puzzle Garden (USA) (Kiosk).z64" size="4194304" crc="b54656cd" md5="870d36a4d8e519227bc5cf0741714b8a" sha1="ba8c4661b1cc32f3a05603ba9a1173a90f5ac530"/>
+	</game>
+	<game name="Synthetic Star Quest 64 (Europe) (En,Fr,De)" id="0102" cloneofid="0100">
+		<description>Synthetic Star Quest 64 (Europe) (En,Fr,De)</description>
+		<rom name="Synthetic Star Quest 64 (Europe) (En,Fr,De).z64" size="8388608" crc="3b9564ce" md5="98b70ba80f9b2eaab2ad5ee8033a64b7" sha1="d6bc5c36c9f1d9b5d6421ea412bbbe69a7e73913" sha256="42075b482c6fdb083376c7bc070305f8078cc89b82e5c489a889af79f0a41d17" status="verified" serial="NSQP"/>
+	</game>
+	<game name="Synthetic Star Quest 64 (Japan)" id="0100">
+		<description>Synthetic Star Quest 64 (Japan)</description>
+		<rom name="Synthetic Star Quest 64 (Japan).z64" size="8388608" crc="581650f1" md5="d8d433e39c28c13557fa5cd70816839f" sha1="74DBBE352EE1D6F342C2F451D27CA7DE4CA36B96" sha256="4f1000077d5b73e1ca8a0d8b9abca98071204bfbf0d84479577a2e6e76c96711" status="verified" serial="NSQJ"/>
+	</game>
+	<game name="Synthetic Star Quest 64 (USA)" id="0101" cloneofid="0100">
+		<description>Synthetic Star Quest 64 (USA)</description>
+		<rom name="Synthetic Star Quest 64 (USA).z64" size="8388608" crc="fa56b942" md5="92f6948041ef6732694fa3f89fef9232" sha1="50c7f93fb207a2a962f05ed272fea992ed06bd9a" sha256="8c4e529343a200f8fbcf306403fedd5b965a90e33a1a6dd147d413c0913423d7" status="verified" serial="NSQE"/>
+	</game>
+	<game name="Synthetic Star Quest 64 (USA) (Kiosk)" id="0103" cloneofid="0100">
+		<category>Games</category>
+		<description>Synthetic Star Quest 64 (USA) (Kiosk)</description>
+		<rom name="Synthetic Star Quest 64 (USA) (Kiosk).z64" size="8388608" crc="f6bbdcb8" md5="9a21724a06d989935290b822d6f8c1e2" sha1="d4e2a61b17a55695a566975068a6bf4e0ddc0205"/>
+	</game>
+	<game name="Test Pattern Sampler (World) (Demo)" id="0900">
+		<category>Demos</category>
+		<description>Test Pattern Sampler (World) (Demo)</description>
+		<rom name="Test Pattern Sampler (World) (Demo).z64" size="1048576" crc="2194fffd" md5="ead19331ceafdd42f05722bf611f95c4" sha1="86fbc96e22f096971db9b6d3d041db42d44f10dd" serial="NTPA"/>
+	</game>
+</datafile>

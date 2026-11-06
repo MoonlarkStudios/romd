@@ -1,0 +1,8 @@
+.list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--mantine-color-default-border); }
+.row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .8fr) minmax(0, 1fr); gap: 20px; align-items: center; padding: 16px 8px; border-bottom: 1px solid var(--mantine-color-default-border); overflow-wrap: anywhere; }
+.row:hover { background: var(--mantine-color-default-hover); }
+.name { color: inherit; font-weight: 600; font-size: 14px; text-decoration: none; }
+.name:hover { text-decoration: underline; }
+.entry { padding: 14px 0; border-bottom: 1px solid var(--mantine-color-default-border); min-width: 0; }
+.section { padding: 16px 0; border-bottom: 1px solid var(--mantine-color-default-border); }
+@media (max-width: 800px) { .row { grid-template-columns: minmax(0, 1fr); gap: 10px; } }

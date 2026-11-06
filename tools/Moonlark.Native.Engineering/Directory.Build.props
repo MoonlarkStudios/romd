@@ -1,0 +1,4 @@
+<Project>
+  <!-- Imported romd-native code keeps its strict analyzer settings without affecting Romd.* projects. -->
+  <Import Project="../../build/Moonlark.Native.props" />
+</Project>

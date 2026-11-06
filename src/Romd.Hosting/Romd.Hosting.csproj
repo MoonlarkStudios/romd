@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Romd.Hosting.IntegrationTests" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <EmbeddedResource Include="../../brand/romd-lockup-horizontal.svg" LogicalName="Romd.Hosting.Brand.RomdLockup.svg" />
+    <EmbeddedResource Include="../../brand/romd-lockup-horizontal-dark.svg" LogicalName="Romd.Hosting.Brand.RomdLockupDark.svg" />
+    <EmbeddedResource Include="../../web/packages/romd-foundation/src/portal-theme.js" LogicalName="Romd.Hosting.Theme.Bootstrap.js" />
+    <EmbeddedResource Include="../../web/packages/romd-foundation/src/portal-theme.css" LogicalName="Romd.Hosting.Theme.Portal.css" />
+    <EmbeddedResource Include="../../web/packages/romd-foundation/src/auth.css" LogicalName="Romd.Hosting.Theme.Auth.css" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Romd.Admin.Application\Romd.Admin.Application.csproj" />
+    <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj" />
+    <ProjectReference Include="..\Romd.Contracts.Common\Romd.Contracts.Common.csproj" />
+    <ProjectReference Include="..\Romd.Contracts.Consumer\Romd.Contracts.Consumer.csproj" />
+    <ProjectReference Include="..\Romd.Contracts.Management\Romd.Contracts.Management.csproj" />
+    <ProjectReference Include="..\Romd.Consumer.Application\Romd.Consumer.Application.csproj" />
+    <ProjectReference Include="..\Romd.Infrastructure\Romd.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
+    <PackageReference Include="OpenIddict.AspNetCore" />
+    <PackageReference Include="Serilog.AspNetCore" />
+  </ItemGroup>
+
+</Project>

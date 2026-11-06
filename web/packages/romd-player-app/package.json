@@ -1,0 +1,22 @@
+{
+  "name": "romd-player-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@romd/foundation": "workspace:*",
+    "@romd/player-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.7",
+    "jsdom": "27.4.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.3.7",
+    "vitest": "^4.1.12"
+  }
+}

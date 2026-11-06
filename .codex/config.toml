@@ -1,0 +1,3 @@
+[agents]
+# Delegation is opt-in under AGENTS.md; this cap excludes the primary agent.
+max_concurrent_threads_per_session = 4
