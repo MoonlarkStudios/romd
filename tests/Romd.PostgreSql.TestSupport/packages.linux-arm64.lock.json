@@ -321,6 +321,7 @@
         "type": "Project",
         "dependencies": {
           "ErrorOr": "[2.1.1, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )",
           "Romd.Application.Common": "[1.0.0, )",
           "Romd.Contracts.Common": "[1.0.0, )",
           "Romd.Contracts.Consumer": "[1.0.0, )",
