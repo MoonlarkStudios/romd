@@ -108,6 +108,8 @@ Release and repository operations.
   SBOMs and provenance.
 - [Dependency updates](maintainers/dependency-updates.md): advisory checks and
   reviewed upgrades.
+- [Continuous integration](maintainers/continuous-integration.md): early checks,
+  CHD drill selection, frontend build reuse and weekly security maintenance.
 - [Publication audit](maintainers/publication-audit.md) and
   [repository settings](maintainers/repository-settings.md): what was checked and
   configured before publishing.

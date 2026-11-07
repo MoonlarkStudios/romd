@@ -21,8 +21,7 @@ def check(root, runtime=True):
     if package != 'pnpm@' + tools['pnpm']:
         errors.append('mise pnpm must match web/package.json packageManager')
     workflow = (root / '.github/workflows/ci.yml').read_text()
-    workflows = '\n'.join((root / '.github/workflows' / name).read_text()
-                          for name in ('ci.yml', 'dependencies.yml', 'release.yml'))
+    workflows = '\n'.join(path.read_text() for path in sorted((root / '.github/workflows').glob('*.y*ml')))
     if f'DOTNET_VERSION: "{tools["dotnet"]}"' not in workflow:
         errors.append('CI SDK disagrees with mise')
     for version in re.findall(r'^\s*dotnet-version:\s*(.+)$', workflows, re.MULTILINE):
