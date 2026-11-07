@@ -15,6 +15,7 @@ class ToolchainTests(unittest.TestCase):
         self.root = Path(temporary.name)
         for name in ('.mise.toml', 'global.json', 'web/package.json', '.github/workflows/ci.yml',
                      '.github/workflows/dependencies.yml', '.github/workflows/release.yml',
+                     '.github/workflows/security-maintenance.yml',
                      'clients/romd_console/.mise.toml', 'Dockerfile'):
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -23,6 +24,11 @@ class ToolchainTests(unittest.TestCase):
 
     def test_declared_toolchains_agree(self):
         self.assertEqual([], check(self.root, runtime=False))
+
+    def test_maintenance_sdk_must_match_the_strict_pin(self):
+        workflow = self.root / '.github/workflows/security-maintenance.yml'
+        workflow.write_text(workflow.read_text().replace('global-json-file: global.json', 'dotnet-version: 0.0.1'))
+        self.assertIn('CI step SDK disagrees with mise', check(self.root, runtime=False))
 
     def test_stale_hardcoded_ci_step_sdk_is_rejected(self):
         workflow = self.root / '.github/workflows/ci.yml'

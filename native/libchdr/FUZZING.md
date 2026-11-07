@@ -1,6 +1,9 @@
 # libchdr fuzzing
 
-`mise run fuzz:libchdr` fuzzes the pinned libchdr with libFuzzer. It is a local check, not part of CI.
+`mise run fuzz:libchdr` fuzzes the pinned libchdr with libFuzzer. The
+[weekly/manual security workflow](../../docs/maintainers/continuous-integration.md#weekly-and-manual-security-maintenance)
+runs the same sanitizer, parity and campaign gate on a standard Linux x64 runner.
+Long campaigns remain outside required PR CI; PRs still run the fuzz-runner's contract tests.
 The M5 gate, `mise run fuzz:libchdr:gate`, runs it for 30 minutes per target after the
 [sanitizer canary](#sanitizer-canary) and the [guard parity check](#guard-parity) pass. The target, its build and its container live in
 `native/libchdr/fuzz/` ([what each file does](fuzz/README.md)).

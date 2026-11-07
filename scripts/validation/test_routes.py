@@ -142,7 +142,9 @@ class RouteTests(unittest.TestCase):
                                       'run: python3 scripts/deployment/other.py')
         self.assertTrue(any('command changed from allowlisted' in e for e in self.parity_errors(repurposed)))
         removed = workflow.replace('      - name: Build images and exercise production deployment\n'
-                                   '        run: python3 scripts/deployment/smoke.py --build --vfs\n', '')
+                                   "        if: ${{ needs.source-checks.outputs.chd == 'true' }}\n"
+                                   '        run: python3 scripts/deployment/smoke.py --build --vfs --evidence-dir "$RUNNER_TEMP/production-smoke"\n', '')
+        self.assertNotEqual(workflow, removed)
         self.assertTrue(any('stale allowlist entry' in e for e in self.parity_errors(removed)))
         mise = copy.deepcopy(self.mise)
         mise['tasks']['native:test-inputs']['run'] = 'scripts/native/build.sh libchdr'

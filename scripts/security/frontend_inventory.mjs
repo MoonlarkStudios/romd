@@ -11,7 +11,7 @@ export function inventory(tree, application, emulatorPin) {
       if (typeof version !== 'string') throw new Error('Installed dependency version is missing');
       if (!version.startsWith('link:')) {
         if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.+-]+)?$/.test(version)) throw new Error('Installed dependency version is not immutable');
-        const purl = `pkg:npm/${name.replace('@', '%40')}@${version}`;
+        const purl = `pkg:npm/${name.split('/').map(encodeURIComponent).join('/')}@${version}`;
         components.set(purl, { type: 'library', name, version, purl, 'bom-ref': purl,
           properties: [{ name: 'romd:inventory-source', value: 'installed-production-dependency-closure' }] });
       }

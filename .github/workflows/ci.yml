@@ -20,6 +20,69 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
+  source-checks:
+    name: Early policy, secrets, dependency locks and C# style
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      chd: ${{ steps.scope.outputs.chd }}
+    env:
+      ROMD_CI_EVENT: ${{ github.event_name }}
+      ROMD_CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '0000000000000000000000000000000000000000' }}
+      ROMD_DOTNET_STYLE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '0000000000000000000000000000000000000000' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Prepare hash-locked workflow parser
+        run: python3 scripts/ci/prepare.py
+      - name: Enforce workflow security policy
+        run: .artifacts/ci-python/bin/python scripts/ci/lint_workflows.py
+      - name: Install authenticated secret scanner
+        run: python3 scripts/publication/install_scanner.py "$RUNNER_TEMP/gitleaks"
+      - name: Test workflow security and CI helpers with the actual scanner
+        env:
+          ROMD_TEST_GITLEAKS: ${{ runner.temp }}/gitleaks/gitleaks
+        run: .artifacts/ci-python/bin/python -B -W error -m unittest discover -s scripts/ci -p 'test_*.py'
+      - name: Scan new commits for secrets
+        run: python3 scripts/ci/secret_scan.py --gitleaks "$RUNNER_TEMP/gitleaks/gitleaks"
+      - name: Select expensive CHD verification
+        id: scope
+        run: python3 scripts/ci/change_scope.py
+      - name: Lint workflows
+        run: |
+          curl --fail --location --proto '=https' --proto-redir '=https' -o /tmp/actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz" | sha256sum --check --strict -
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          /tmp/actionlint
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj', '**/packages*.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+      - name: Verify portable and Linux image dependency locks
+        run: python3 scripts/ci/nuget_locks.py
+      - name: Run registered early source checks
+        run: python3 scripts/validation/run.py --ci --job source-checks --evidence-parent coverage/source-checks
+      - name: Retain early source receipts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: source-checks-${{ github.run_id }}
+          path: coverage/source-checks/**/results.json
+          if-no-files-found: ignore
+          retention-days: 3
+
   agent-infrastructure:
     name: Agent guidance, validation routing and release contracts
     runs-on: ubuntu-24.04
@@ -36,16 +99,6 @@ jobs:
           node-version: "24.22.0"
       - name: Prepare hash-locked workflow parser
         run: python3 scripts/ci/prepare.py
-      - name: Enforce workflow security policy
-        run: .artifacts/ci-python/bin/python scripts/ci/lint_workflows.py
-      - name: Test workflow security policy
-        run: .artifacts/ci-python/bin/python -B -m unittest discover -s scripts/ci -p 'test_*.py'
-      - name: Lint workflows
-        run: |
-          curl --fail --location --proto '=https' --proto-redir '=https' -o /tmp/actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
-          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  /tmp/actionlint.tar.gz" | sha256sum --check --strict -
-          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
-          /tmp/actionlint
       - name: Check agent infrastructure
         run: .artifacts/ci-python/bin/python scripts/agents/check.py
       - name: Test infrastructure checker
@@ -56,6 +109,7 @@ jobs:
         run: python3 scripts/validation/run.py --ci --job agent-infrastructure --evidence-parent coverage/agent-infrastructure
 
   console:
+    needs: source-checks
     name: Console analysis, theme governance and tests
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -97,12 +151,9 @@ jobs:
 
   backend:
     name: Backend deterministic tests
-    needs: native
+    needs: [source-checks, native]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      # New refs have no previous tip; the zero ID checks every maintained C# file.
-      ROMD_DOTNET_STYLE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '0000000000000000000000000000000000000000' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -128,11 +179,15 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Verify portable and Linux image dependency locks
-        run: python3 scripts/ci/nuget_locks.py
-
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj', '**/packages*.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
       - name: Build backend
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build --configuration Release
 
       - name: Run registered deterministic backend checks
         run: python3 scripts/validation/run.py --ci --job backend --evidence-parent coverage/deterministic
@@ -148,7 +203,7 @@ jobs:
 
   infrastructure:
     name: Backend infrastructure tests (${{ matrix.part }})
-    needs: native
+    needs: [source-checks, native]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # The suite is split by namespace; the two filters are exact complements.
@@ -179,6 +234,13 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj', '**/packages*.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
       - name: Restore infrastructure test dependencies
         run: dotnet restore tests/Romd.Infrastructure.Tests/Romd.Infrastructure.Tests.csproj
 
@@ -201,6 +263,7 @@ jobs:
           retention-days: 5
 
   native:
+    needs: source-checks
     name: Native libchdr wrapper and tools
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -273,7 +336,7 @@ jobs:
 
   integration:
     name: Backend integration tests (${{ matrix.part }})
-    needs: native
+    needs: [source-checks, native]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # The serial suite is split by namespace; the two filters are exact complements.
@@ -304,6 +367,13 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj', '**/packages*.lock.json') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
       - name: Restore integration dependencies
         run: >-
           dotnet restore
@@ -328,6 +398,7 @@ jobs:
           retention-days: 5
 
   web:
+    needs: source-checks
     name: Web lint, test, build and OpenAPI drift
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -343,10 +414,10 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Cache NuGet packages
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', 'Directory.Packages.props', '**/*.csproj', '**/packages*.lock.json') }}
           restore-keys: |
             nuget-${{ runner.os }}-
 
@@ -371,13 +442,17 @@ jobs:
         id: web-checks
         run: python3 scripts/validation/run.py --ci --job web --evidence-parent coverage/web
 
-      - name: Build production hosts with frontend
+      - name: Stage the once-built frontend assets
+        run: python3 scripts/ci/frontend_assets.py --stage
+      - name: Build production hosts with staged frontend
         env:
           CI: "true"
-        run: dotnet build -c Release -m:1 -p:BuildFrontend=true
+        run: dotnet build -c Release -m:1
+      - name: Verify current frontend publication bindings
+        run: python3 scripts/ci/frontend_assets.py
 
       - name: Upload web check evidence and regenerated clients
-        if: ${{ failure() && steps.web-checks.outcome == 'failure' }}
+        if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: web-checks-and-regenerated-clients
@@ -391,6 +466,7 @@ jobs:
           retention-days: 7
 
   production-compose:
+    needs: source-checks
     name: Production Compose and recovery drill
     runs-on: ubuntu-24.04
     # Image build and smoke drill (about 30 minutes), then the bounded synthetic CHD step below.
@@ -404,24 +480,29 @@ jobs:
       - name: Run registered production topology and CHD harness contracts
         run: python3 scripts/validation/run.py --ci --job production-compose --evidence-parent coverage/production-compose
       - name: Build images and exercise production deployment
-        run: python3 scripts/deployment/smoke.py --build --vfs
+        if: ${{ needs.source-checks.outputs.chd == 'true' }}
+        run: python3 scripts/deployment/smoke.py --build --vfs --evidence-dir "$RUNNER_TEMP/production-smoke"
       - name: Reclaim disposable CI build cache
+        if: ${{ needs.source-checks.outputs.chd == 'true' }}
         timeout-minutes: 5
         run: bash scripts/ci/reclaim_build_cache.sh
       # Reuses the romd-*:test images smoke.py built. Generated inputs only; no media leaves the runner.
       # Recovery waits out a 5-minute execution lease. Harness budgets (15 + 15 + 10 minutes) cover the slow phases;
       # the step limit bounds the rest and leaves headroom inside the job timeout.
       - name: Synthetic PS2 DVD CHD end to end
+        if: ${{ needs.source-checks.outputs.chd == 'true' }}
         timeout-minutes: 45
         run: >-
           python3 scripts/e2e/chd.py --synthetic --checkpoint encoding --image-tag test --convergence-timeout 15 --upload-timeout 10
           --evidence "$RUNNER_TEMP/chd-e2e/evidence.json"
-      - name: Keep synthetic CHD end-to-end diagnostics
+      - name: Keep production and synthetic CHD diagnostics
         if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: chd-e2e-synthetic-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/chd-e2e
+          name: production-chd-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/production-smoke/lifecycle.json
+            ${{ runner.temp }}/chd-e2e
           if-no-files-found: ignore
           retention-days: 5
 
@@ -430,7 +511,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: ${{ always() }}
-    needs: [agent-infrastructure, console, native, backend, infrastructure, integration, web, production-compose]
+    needs: [source-checks, agent-infrastructure, console, native, backend, infrastructure, integration, web, production-compose]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
