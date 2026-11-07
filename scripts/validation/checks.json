@@ -578,6 +578,8 @@
         "60s",
         "--blame-hang-dump-type",
         "none",
+        "--logger",
+        "trx;LogFileName=integration.trx",
         "--collect:XPlat Code Coverage",
         "--results-directory",
         "{evidence}/integration"

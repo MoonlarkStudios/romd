@@ -6,6 +6,11 @@ import sys
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+NETWORK_SETUP = ('sudo apt-get update\n'
+                 'sudo apt-get install --yes --no-install-recommends nginx\n'
+                 'python3 scripts/ci/network_probes.py prepare "$RUNNER_TEMP/network-probes"\n')
+NETWORK_VERIFY = "python3 scripts/ci/network_probes.py verify '${{ matrix.part }}' coverage/integration"
+INTEGRATION_RUN = "python3 scripts/validation/run.py --ci --job integration --filter '${{ matrix.filter }}' --evidence-parent coverage/integration"
 
 
 class UniqueLoader(yaml.SafeLoader):
@@ -94,10 +99,33 @@ def main():
               for error in policy_errors(path.read_text(), path.name) + concurrency_errors(path.read_text(), path.name)
               + gate_errors(path.read_text(), path.name) + environment_errors(path.read_text(), path.name)
               + release_gate_errors(path.read_text(), path.name) + early_errors(path.read_text(), path.name)
-              + maintenance_errors(path.read_text(), path.name)]
+              + maintenance_errors(path.read_text(), path.name) + network_probe_errors(path.read_text(), path.name)]
     for error in errors:
         print(error, file=sys.stderr)
     return bool(errors)
+
+
+def network_probe_errors(text, name):
+    if name != 'ci.yml':
+        return []
+    try:
+        job = yaml.load(text, Loader=UniqueLoader)['jobs']['integration']
+        if ('if' in job or job.get('continue-on-error', False) is not False
+                or len(job['strategy']['matrix']['include']) != 2
+                or {part['part'] for part in job['strategy']['matrix']['include']} != {'hosting', 'endpoints'}):
+            return ['ci.yml/integration: both network-probe partitions must be required']
+        commands = [step.get('run') for step in job['steps']
+                    if 'if' not in step and step.get('continue-on-error', False) is False]
+        required = [NETWORK_SETUP, INTEGRATION_RUN, NETWORK_VERIFY]
+        if (not all(command in commands for command in required)
+                or [commands.index(command) for command in required] != sorted(commands.index(command) for command in required)):
+            return ['ci.yml/integration: prepare tools, run tests and verify executed network probes in that order']
+        upload = next(step for step in job['steps'] if step.get('name') == 'Upload integration coverage and hang diagnostics')
+        if '!coverage/integration/**/integration.trx' not in upload.get('with', {}).get('path', '').splitlines():
+            return ['ci.yml/integration: retain the small network receipt, not raw TRX transcripts']
+        return []
+    except (yaml.YAMLError, KeyError, ValueError, TypeError, AttributeError, StopIteration):
+        return ['ci.yml: invalid network-probe routing']
 
 
 def concurrency_errors(text, name):
