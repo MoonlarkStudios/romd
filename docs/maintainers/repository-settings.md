@@ -94,6 +94,10 @@ and the registered checks in [development](../development/getting-started.md)).
   dismissal of stale approvals after code changes; apply the rules to
   administrators as appropriate for the maintainer team. Confirm both required
   check names against the actual first run.
+- [CI operation and scope](continuous-integration.md) owns early checks, the
+  conservative PR-only CHD selection, once-built web assets, secret scanning
+  and weekly/manual CodeQL/native maintenance. Those maintenance jobs add no
+  required PR status check.
 - **Restrict `v*` tags to maintainers.** `.github/workflows/release.yml` runs on
   any pushed `v*` tag. Its `publish` and `publish-complete` jobs hold
   `contents: write` and `packages: write`, so a tag push publishes container

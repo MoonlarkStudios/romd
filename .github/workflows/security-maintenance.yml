@@ -1,0 +1,110 @@
+name: Weekly security maintenance
+
+on:
+  schedule:
+    - cron: '47 6 * * 0'
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Maintenance suite
+        type: choice
+        default: all
+        options: [all, secrets, codeql, native-fuzz]
+      fuzz_seconds:
+        description: Seconds per target (60 is a smoke run; weekly campaigns use 1800)
+        type: choice
+        default: '60'
+        options: ['60', '1800']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  secrets:
+    name: Full public-history secret scan
+    if: ${{ github.event_name == 'schedule' || inputs.suite == 'all' || inputs.suite == 'secrets' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+      - name: Scan all public history with the authenticated pinned scanner
+        run: python3 scripts/ci/secret_scan.py --full
+
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    if: ${{ github.event_name == 'schedule' || inputs.suite == 'all' || inputs.suite == 'codeql' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [csharp, javascript-typescript, python, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup pinned .NET for C# analysis
+        if: ${{ matrix.language == 'csharp' }}
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Initialize the pinned CodeQL release
+        uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.language == 'csharp' && 'manual' || 'none' }}
+      - name: Build C# source for analysis
+        if: ${{ matrix.language == 'csharp' }}
+        run: dotnet build Romd.sln -c Release --no-incremental -p:SkipMissingFrontendWarning=true
+      - name: Analyze and upload security findings
+        uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        with:
+          category: /language:${{ matrix.language }}
+
+  native-fuzz:
+    name: Native sanitizer, guard parity and fuzz campaign
+    if: ${{ github.event_name == 'schedule' || inputs.suite == 'all' || inputs.suite == 'native-fuzz' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      ROMD_CONTAINER_ENGINE: docker
+      ROMD_FUZZ_SECONDS: ${{ github.event_name == 'schedule' && '1800' || inputs.fuzz_seconds || '60' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          submodules: true
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Build the pinned native inputs and synthetic fixtures
+        run: scripts/native/build.sh test-inputs
+      - name: Run sanitizer canaries, guard parity and bounded fuzzing
+        run: scripts/native/fuzz.sh gate "$ROMD_FUZZ_SECONDS"
+      - name: Retain bounded sanitizer and parity failure diagnostics
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-fuzz-${{ github.run_id }}
+          path: |
+            artifacts/fuzz/linux-x64/canary/*.txt
+            artifacts/fuzz/linux-x64/canary/*.log
+            artifacts/fuzz/linux-x64/parity/*.txt
+            artifacts/fuzz/linux-x64/parity/*.log
+            artifacts/fuzz/linux-x64/*/findings/
+          if-no-files-found: ignore
+          retention-days: 3
