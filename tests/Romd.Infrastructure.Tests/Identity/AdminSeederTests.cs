@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Romd.Application.Common.Configuration;
 using Romd.Domain.Identity;
@@ -132,6 +132,61 @@ public sealed class AdminSeederTests
         (await users.IsInRoleAsync((await users.FindByEmailAsync(Fixture.Email))!, "Admin")).ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task StartAsync_CreatesAdministrator_LogsOpaqueIdentityWithoutEmailOrPassword()
+    {
+        await using var fixture = Fixture.Create();
+
+        await fixture.SeedAsync();
+
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<RomdUser>>();
+        var admin = (await users.FindByEmailAsync(Fixture.Email))!;
+        fixture.Logs.ShouldContain(message => message.Contains(admin.Id.ToString(), StringComparison.Ordinal));
+        fixture.Logs.ShouldAllBe(message => !message.Contains(Fixture.Email, StringComparison.Ordinal)
+            && !message.Contains(Fixture.Password, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StartAsync_IdentityFailure_ReportsCodesWithoutPrivateDescriptions(bool failRole)
+    {
+        await using var fixture = Fixture.Create(new PrivateDescriptionValidator(failRole));
+
+        var error = await Should.ThrowAsync<InvalidOperationException>(() => fixture.SeedAsync());
+
+        error.Message.ShouldContain("BootstrapRejected");
+        error.Message.ShouldNotContain(Fixture.Email);
+        error.Message.ShouldNotContain(Fixture.Password);
+        fixture.Logs.ShouldContain(message => message.Contains("BootstrapRejected", StringComparison.Ordinal));
+        fixture.Logs.ShouldAllBe(message => !message.Contains(Fixture.Email, StringComparison.Ordinal)
+            && !message.Contains(Fixture.Password, StringComparison.Ordinal));
+        await using var db = fixture.Database.CreateContext();
+        (await db.Users.AnyAsync()).ShouldBeFalse();
+    }
+
+    private sealed class PrivateDescriptionValidator(bool failRole) : IUserValidator<RomdUser>
+    {
+        private int _adminValidations;
+        public Task<IdentityResult> ValidateAsync(UserManager<RomdUser> manager, RomdUser user) =>
+            Task.FromResult(user.Email == Fixture.Email && ++_adminValidations == (failRole ? 2 : 1)
+                ? IdentityResult.Failed(new IdentityError
+                {
+                    Code = "BootstrapRejected",
+                    Description = $"Private validation details: {Fixture.Email}, {Fixture.Password}"
+                })
+                : IdentityResult.Success);
+    }
+
+    private sealed class CapturingLogger(List<string> messages) : ILogger<AdminSeeder>
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            messages.Add(formatter(state, exception));
+    }
+
     private sealed class FailRoleUpdateValidator : IUserValidator<RomdUser>
     {
         private int _adminValidations;
@@ -149,6 +204,7 @@ public sealed class AdminSeederTests
         public PostgreSqlTestDatabase Database => database;
         public ServiceProvider Provider => provider;
         public IRomdOptions Options => options;
+        public List<string> Logs { get; } = [];
 
         public static Fixture Create(IUserValidator<RomdUser>? validator = null)
         {
@@ -167,7 +223,7 @@ public sealed class AdminSeederTests
             return new Fixture(database, services.BuildServiceProvider(), options);
         }
 
-        public Task SeedAsync() => new AdminSeeder(provider, TimeProvider.System, NullLogger<AdminSeeder>.Instance).StartAsync(default);
+        public Task SeedAsync() => new AdminSeeder(provider, TimeProvider.System, new CapturingLogger(Logs)).StartAsync(default);
         public async ValueTask DisposeAsync()
         {
             await provider.DisposeAsync();

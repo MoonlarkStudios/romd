@@ -148,9 +148,10 @@ public sealed class AdminSeeder : IHostedService
 
         if (!createResult.Succeeded)
         {
-            var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
-            _logger.LogError("Failed to create admin user {Email}: {Errors}", adminEmail, errors);
-            throw new InvalidOperationException($"Could not initialize the administrator: {errors}");
+            // Identity descriptions can echo the configured email or other private input.
+            var errorCodes = string.Join(", ", createResult.Errors.Select(e => e.Code));
+            _logger.LogError("Failed to create bootstrap administrator: {ErrorCodes}", errorCodes);
+            throw new InvalidOperationException($"Could not initialize the administrator: {errorCodes}");
         }
 
         // Assign Admin role
@@ -159,14 +160,14 @@ public sealed class AdminSeeder : IHostedService
         if (roleResult.Succeeded)
         {
             _logger.LogInformation(
-                "Created default admin user {Email} with Admin role",
-                adminEmail);
+                "Created default admin user {UserId} with Admin role",
+                adminUser.Id);
         }
         else
         {
-            var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-            _logger.LogError("Failed to assign Admin role to {Email}: {Errors}", adminEmail, errors);
-            throw new InvalidOperationException($"Could not assign the initial administrator role: {errors}");
+            var errorCodes = string.Join(", ", roleResult.Errors.Select(e => e.Code));
+            _logger.LogError("Failed to assign Admin role to bootstrap user {UserId}: {ErrorCodes}", adminUser.Id, errorCodes);
+            throw new InvalidOperationException($"Could not assign the initial administrator role: {errorCodes}");
         }
     }
 }
