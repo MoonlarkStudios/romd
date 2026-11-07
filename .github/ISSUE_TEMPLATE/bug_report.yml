@@ -5,6 +5,12 @@ body:
   - type: markdown
     attributes:
       value: |
+        ROMD is maintained by one person with limited time for triage, support and review. Reproducible bug reports are welcome; responses and fixes are not guaranteed.
+
+        **External pull requests are accepted by invitation only**, including documentation changes. Wait for an explicit maintainer invitation on a specific issue before preparing a pull request. An open issue, label, reaction or discussion does not constitute an invitation. Unsolicited pull requests may be closed without review; an invitation does not guarantee acceptance or a review timeline. See the [contribution policy](https://github.com/MoonlarkStudios/romd/blob/main/CONTRIBUTING.md#pull-request-policy).
+  - type: markdown
+    attributes:
+      value: |
         Use this form for non-sensitive defects. Read SECURITY.md for security-reporting status. Do not include credentials, signed content URLs, private addresses, personal paths, ROMs or BIOS files.
   - type: input
     id: version
