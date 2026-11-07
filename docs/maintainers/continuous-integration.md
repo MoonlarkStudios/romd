@@ -87,7 +87,11 @@ findings appear in the repository's code-scanning view.
 - Full reachable-public-history secret scanning uses the same pinned scanner
   and exact exception policy.
 - CodeQL analyzes C#, JavaScript/TypeScript, Python and GitHub Actions using a
-  commit-pinned action. C# uses the pinned SDK and an explicit solution build.
+  commit-pinned action. C# uses the pinned SDK, cleans the complete solution
+  once, then performs a serial complete build for extraction. Per-project
+  rebuilds from `--no-incremental` can clean shared worker dependency outputs
+  again before their consumers compile, even with serial scheduling. The
+  workflow policy guards the separate clean/build commands.
   Only that job has `security-events: write`; it has no publication permissions.
 - Native maintenance runs the existing sanitizer canaries, guard parity and
   fuzz gate with generated fixtures. Weekly campaigns use 1,800 seconds per

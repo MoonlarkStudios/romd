@@ -32,8 +32,12 @@ class WorkflowPolicyTests(unittest.TestCase):
                         text.replace('scripts/ci/secret_scan.py --full', 'scripts/ci/secret_scan.py'),
                         text.replace('scripts/native/fuzz.sh gate', 'echo gate'),
                         text.replace("&& '1800'", "&& '60'"),
+                        text.replace(' -m:1', ''),
+                        text.replace('dotnet build Romd.sln', 'dotnet restore Romd.sln'),
+                        text.replace('dotnet clean Romd.sln -c Release -m:1\n', ''),
                         text.replace('github/codeql-action/analyze@', 'github/codeql-action/autobuild@')):
             with self.subTest(changed=changed):
+                self.assertNotEqual(text, changed)
                 self.assertTrue(maintenance_errors(changed, 'security-maintenance.yml'))
         self.assertTrue(policy_errors(text.replace('security-events: write', 'packages: write'), 'security-maintenance.yml'))
         self.assertTrue(policy_errors(text, 'other.yml'))
