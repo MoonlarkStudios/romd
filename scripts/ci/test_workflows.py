@@ -1,11 +1,34 @@
 from pathlib import Path
 import unittest
-from lint_workflows import GATE_CHECK, concurrency_errors, environment_errors, gate_errors, policy_errors, release_gate_errors, early_errors, maintenance_errors
+import yaml
+from lint_workflows import GATE_CHECK, NETWORK_SETUP, NETWORK_VERIFY, concurrency_errors, environment_errors, gate_errors, policy_errors, release_gate_errors, early_errors, maintenance_errors, network_probe_errors
 
 HEADER = 'permissions:\n  contents: read\njobs:\n  test:\n    steps:\n'
 
 
 class WorkflowPolicyTests(unittest.TestCase):
+    def test_network_probes_cannot_be_silently_skipped_or_verified_before_execution(self):
+        text = (Path(__file__).resolve().parents[2] / '.github/workflows/ci.yml').read_text()
+        self.assertEqual([], network_probe_errors(text, 'ci.yml'))
+        for changed in (text.replace('python3 scripts/ci/network_probes.py prepare', 'echo skipped'),
+                        text.replace(NETWORK_VERIFY, 'echo skipped'),
+                        text.replace('      - name: Prepare verified loopback network probe tools\n',
+                                     '      - name: Prepare verified loopback network probe tools\n        if: false\n'),
+                        text.replace('      - name: Require executed nginx and rclone protocol probes\n',
+                                     '      - name: Require executed nginx and rclone protocol probes\n        continue-on-error: true\n'),
+                        text.replace('  integration:\n', '  integration:\n    if: false\n'),
+                        text.replace('          - part: hosting\n', '          - part: renamed\n'),
+                        text.replace('            !coverage/integration/**/integration.trx\n', '')):
+            with self.subTest(changed=changed):
+                self.assertNotEqual(text, changed)
+                self.assertTrue(network_probe_errors(changed, 'ci.yml'))
+        workflow = yaml.safe_load(text)
+        steps = workflow['jobs']['integration']['steps']
+        prepare = next(i for i, step in enumerate(steps) if step.get('run') == NETWORK_SETUP)
+        verify = next(i for i, step in enumerate(steps) if step.get('run') == NETWORK_VERIFY)
+        steps[prepare], steps[verify] = steps[verify], steps[prepare]
+        self.assertTrue(network_probe_errors(yaml.safe_dump(workflow), 'ci.yml'))
+
     def test_early_checks_and_expensive_chd_conditions_cannot_be_bypassed(self):
         text = (Path(__file__).resolve().parents[2] / '.github/workflows/ci.yml').read_text()
         self.assertEqual([], early_errors(text, 'ci.yml'))

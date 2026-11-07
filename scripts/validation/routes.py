@@ -69,6 +69,10 @@ CI_ONLY_STEPS = {
         dict(command='dotnet restore', reason='dependency install'),
     ('integration', 'Build integration test surface'):
         dict(command='dotnet build', reason='build before registered checks'),
+    ('integration', 'Prepare verified loopback network probe tools'):
+        dict(command='sudo apt-get update', reason='Ubuntu runner package setup and checksum-pinned rclone in runner temporary storage'),
+    ('integration', 'Require executed nginx and rclone protocol probes'):
+        dict(command='python3 scripts/ci/network_probes.py verify', local='ci:network-probes'),
     ('native', 'Check the libchdr submodule against its pin'):
         dict(command='test "$(git -C native/libchdr/upstream rev-parse HEAD)"',
              reason='hosted checkout integrity gate; no local route (compare git submodule status with libchdr.json)'),

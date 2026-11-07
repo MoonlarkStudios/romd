@@ -75,7 +75,7 @@ public sealed class NginxIngressStreamingTests
         };
         policy.CustomTrustStore.Add(certificate);
         var origin = NginxTlsProxy.AllocateOrigin(tls);
-        await using var proxy = await NginxTlsProxy.StartAsync(upstreamOrigin, certificate, origin, tls);
+        await using var proxy = await NginxTlsProxy.StartAsync(upstreamOrigin, certificate, origin, tls, observeBuffering: true);
         using var client = new HttpClient(new SocketsHttpHandler
         {
             AllowAutoRedirect = false,
@@ -93,6 +93,13 @@ public sealed class NginxIngressStreamingTests
         })
         { BaseAddress = origin };
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "ingress-probe");
+        if (!tls)
+        {
+            using var missingVisitor = await client.GetAsync("/buffered-probe", ct);
+            missingVisitor.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+            // The loopback peer stands in for the pinned cloudflared connector.
+            client.DefaultRequestHeaders.Add("CF-Connecting-IP", "203.0.113.9");
+        }
 
         using (var control = await client.GetAsync("/buffered-probe", HttpCompletionOption.ResponseHeadersRead, ct))
         {
@@ -132,7 +139,7 @@ public sealed class NginxIngressStreamingTests
         range.Headers.GetValues("X-Probe-Raw-Target").Single().ShouldBe(path);
         range.Headers.GetValues("X-Probe-Forwarded-Host").Single().ShouldBe("localhost");
         range.Headers.GetValues("X-Probe-Forwarded-Proto").Single().ShouldBe("https");
-        range.Headers.GetValues("X-Probe-Forwarded-For").Single().ShouldBe("127.0.0.1");
+        range.Headers.GetValues("X-Probe-Forwarded-For").Single().ShouldBe(tls ? "127.0.0.1" : "203.0.113.9");
 
         using var headRequest = new HttpRequestMessage(HttpMethod.Head, path);
         using var head = await client.SendAsync(headRequest, ct);
