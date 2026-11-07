@@ -1,5 +1,5 @@
 import { notifications } from '@mantine/notifications';
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
@@ -26,7 +26,7 @@ function jobNotificationId(jobId: string): string {
   return `job-${jobId}`;
 }
 
-function buildProgressMessage(job: JobDto): string {
+function buildProgressMessage(job: Job): string {
   const parts: string[] = [];
   if (getJobOutcome(job) === 'deferred') parts.push('Deferred');
   else if (job.phase) parts.push(job.phase);
@@ -74,12 +74,12 @@ const runOutcomes: Partial<
 };
 
 /** Runs store a fixed placeholder in sourceFilename, so they are named by their job title instead. */
-function notificationSubject(job: JobDto): string {
+function notificationSubject(job: Job): string {
   return job.jobType === 'artwork-completion' ? getJobTitle(job) : job.sourceFilename;
 }
 
 function buildTerminalNotification(
-  job: JobDto,
+  job: Job,
   label: string,
 ): {
   title: string;
@@ -199,7 +199,7 @@ export function useJobNotifications() {
 
     let refreshWorkspaceImmediately = false;
     let workspaceProgressChanged = false;
-    const invalidateJobQueries = (job: JobDto) => {
+    const invalidateJobQueries = (job: Job) => {
       for (const key of getJobTypeConfig(job.jobType).invalidates(job)) {
         if (key[0] === 'enrichment-workspace') refreshWorkspaceImmediately = true;
         else

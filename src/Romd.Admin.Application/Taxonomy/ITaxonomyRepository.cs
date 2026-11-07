@@ -83,7 +83,7 @@ public interface ITaxonomyRepository<TEntity> where TEntity : class, ITaxonomyEn
     Task ReassignJunctionsAsync(int sourceId, int targetId, CancellationToken ct = default);
 
     /// <summary>What merging the source row moves: its aliases, DAT game links and catalog release links.</summary>
-    Task<TaxonomyMergeImpactDto> GetMergeImpactAsync(int sourceId, CancellationToken ct = default);
+    Task<TaxonomyMergeImpact> GetMergeImpactAsync(int sourceId, CancellationToken ct = default);
 
     // The admin management projection: every row, registered or not, matching the request's query, each with its first
     // alias page (avoids N+1).

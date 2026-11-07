@@ -151,7 +151,7 @@ public sealed class IgdbProviderIdentityTests
         if (state == "AutoAccepted")
         {
             platforms.ShouldContain("genesis");
-            game.Releases.ShouldNotBeNull().ShouldContain(new ProviderReleaseDto(1993, "genesis"));
+            game.Releases.ShouldNotBeNull().ShouldContain(new ProviderRelease(1993, "genesis"));
         }
         else
             platforms.ShouldNotContain("genesis");

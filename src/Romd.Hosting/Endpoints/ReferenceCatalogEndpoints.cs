@@ -16,7 +16,7 @@ public static class ReferenceCatalogEndpoints
     {
         var prefix = admin ? "Admin" : "Consumer";
         app.MapGet("catalog-snapshot", Current).WithTags("Catalog snapshots").WithName("Get" + prefix + "CatalogSnapshot")
-            .RequireAuthorization(AuthorizationPolicies.RequireUser).Produces<ReferenceCatalogDescriptorDto>().ConditionalRead().ProducesProblems(503);
+            .RequireAuthorization(AuthorizationPolicies.RequireUser).Produces<ReferenceCatalogDescriptor>().ConditionalRead().ProducesProblems(503);
         MapSnapshotPages(app, prefix);
 
         app.MapGet("assets/{hash}", Asset).WithTags("Reference assets").WithName("Get" + prefix + "ReferenceAsset")
@@ -54,22 +54,22 @@ public static class ReferenceCatalogEndpoints
             ? ProblemResults.Problem(503, ProblemCodes.ReferenceCatalogUnavailable, "No reference catalog has been published yet.")
             : Descriptor(context, catalog);
     }
-    private static IResult Descriptor(HttpContext context, ReferenceCatalogDto catalog)
+    private static IResult Descriptor(HttpContext context, ReferenceCatalog catalog)
     {
         var descriptor = ReferenceCatalogCanonicalJson.Describe(catalog);
         return Preconditions.ConditionalRead(context, descriptor, descriptor.Revision);
     }
     private static void MapSnapshotPages(IEndpointRouteBuilder app, string prefix)
     {
-        MapSnapshotPage(app, prefix, "systems", "Systems", (ReferenceCatalogDto x) => x.Systems, x => x.Key);
-        MapSnapshotPage(app, prefix, "companies", "Companies", (ReferenceCatalogDto x) => x.Companies, x => x.Key);
-        MapSnapshotPage(app, prefix, "regions", "Regions", (ReferenceCatalogDto x) => x.Regions, x => x.Key);
-        MapSnapshotPage(app, prefix, "languages", "Languages", (ReferenceCatalogDto x) => x.Languages, x => x.Key);
-        MapSnapshotPage(app, prefix, "rating-boards", "RatingBoards", (ReferenceCatalogDto x) => x.RatingBoards, x => x.Key);
-        MapSnapshotPage(app, prefix, "ratings", "Ratings", (ReferenceCatalogDto x) => x.Ratings, x => x.Board + ":" + x.Code);
+        MapSnapshotPage(app, prefix, "systems", "Systems", (ReferenceCatalog x) => x.Systems, x => x.Key);
+        MapSnapshotPage(app, prefix, "companies", "Companies", (ReferenceCatalog x) => x.Companies, x => x.Key);
+        MapSnapshotPage(app, prefix, "regions", "Regions", (ReferenceCatalog x) => x.Regions, x => x.Key);
+        MapSnapshotPage(app, prefix, "languages", "Languages", (ReferenceCatalog x) => x.Languages, x => x.Key);
+        MapSnapshotPage(app, prefix, "rating-boards", "RatingBoards", (ReferenceCatalog x) => x.RatingBoards, x => x.Key);
+        MapSnapshotPage(app, prefix, "ratings", "Ratings", (ReferenceCatalog x) => x.Ratings, x => x.Board + ":" + x.Code);
     }
     private static void MapSnapshotPage<T>(IEndpointRouteBuilder app, string prefix, string family, string name,
-        Func<ReferenceCatalogDto, IReadOnlyList<T>> select, Func<T, string> key)
+        Func<ReferenceCatalog, IReadOnlyList<T>> select, Func<T, string> key)
     {
         // A typed local delegate avoids Minimal API's generic method-group inference ambiguity.
         async Task<IResult> Read([FromServices] IReferenceCatalogService service, string revision, string? cursor = null,

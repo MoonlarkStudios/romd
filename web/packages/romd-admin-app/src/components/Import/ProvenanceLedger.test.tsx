@@ -1,4 +1,4 @@
-import type { PageOfJobItemDto } from '@romd/admin-api-client';
+import type { PageOfJobItem } from '@romd/admin-api-client';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,7 +26,7 @@ const mockGetCurrentUser = getMe as ReturnType<typeof vi.fn>;
 const mockGetJobItems = listJobItems as ReturnType<typeof vi.fn>;
 const mockDeleteRom = deleteRom as ReturnType<typeof vi.fn>;
 
-const page: PageOfJobItemDto = {
+const page: PageOfJobItem = {
   hasNextPage: false,
   items: [
     {

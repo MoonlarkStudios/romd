@@ -15,14 +15,14 @@ public static class DiagnosticsEndpoints
         group.MapGet("diagnostics", GetOperationalDiagnostics)
             .WithName("GetServerDiagnostics")
             .WithDescription("Get bounded operational diagnostics for catalog, jobs, queues, and storage")
-            .Produces<OperationalDiagnosticsDto>()
+            .Produces<OperationalDiagnostics>()
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 
         return app;
     }
 
     private static async Task<IResult> GetOperationalDiagnostics(
-        IQueryHandler<GetOperationalDiagnosticsQuery, OperationalDiagnosticsDto> handler,
+        IQueryHandler<GetOperationalDiagnosticsQuery, OperationalDiagnostics> handler,
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(new GetOperationalDiagnosticsQuery(), ct);

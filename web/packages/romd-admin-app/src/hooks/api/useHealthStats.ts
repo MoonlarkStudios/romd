@@ -1,4 +1,4 @@
-import type { SystemHealthDto } from '@romd/admin-api-client';
+import type { SystemHealth } from '@romd/admin-api-client';
 import { getServerHealth } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -18,7 +18,7 @@ export const healthStatsKeys = {
   ] as const,
 };
 
-export const mapHealthStats = (dto: SystemHealthDto): HealthStats => ({
+export const mapHealthStats = (dto: SystemHealth): HealthStats => ({
   totalRoms: dto.totalRoms,
   identifiedCount: dto.identifiedCount,
   unidentifiedCount: dto.unidentifiedCount,
@@ -37,7 +37,7 @@ export function useHealthStats() {
       if (response.error || !response.data) {
         throw new Error('Failed to fetch health stats');
       }
-      return mapHealthStats(response.data as SystemHealthDto);
+      return mapHealthStats(response.data as SystemHealth);
     },
     staleTime: Number.POSITIVE_INFINITY,
   });

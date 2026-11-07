@@ -1,17 +1,17 @@
 namespace Romd.Contracts.Management.Models;
 
 /// <summary>One media subject or a finite selection of subjects. Outcomes come from the committed reconciliation journal.</summary>
-public sealed record MediaReconciliationJobDto : JobDto
+public sealed record MediaReconciliationJob : Job
 {
     public required string RequestMode { get; init; }
-    public MediaReconciliationSubjectDto? Subject { get; init; }
-    public MediaReconciliationSelectionDto? Selection { get; init; }
+    public MediaReconciliationSubject? Subject { get; init; }
+    public MediaReconciliationSelection? Selection { get; init; }
     public Guid? OriginSelectionJobId { get; init; }
     public string? Outcome { get; init; }
     public string? OutcomeCode { get; init; }
 }
-public sealed record MediaReconciliationSubjectDto(string Kind, string Id);
-public sealed record MediaReconciliationSelectionDto
+public sealed record MediaReconciliationSubject(string Kind, string Id);
+public sealed record MediaReconciliationSelection
 {
     public required string Filter { get; init; }
     public string? KindId { get; init; }

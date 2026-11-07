@@ -5,11 +5,11 @@ using Romd.Domain.Taxonomy;
 
 namespace Romd.Admin.Application.Taxonomy.Queries.PreviewLanguageMerge;
 
-public sealed record PreviewLanguageMergeQuery(string SourceKey, string TargetKey) : IQuery<TaxonomyMergeImpactDto>;
+public sealed record PreviewLanguageMergeQuery(string SourceKey, string TargetKey) : IQuery<TaxonomyMergeImpact>;
 
 public sealed class PreviewLanguageMergeQueryHandler(TaxonomyService<GameLanguage> service)
-    : IQueryHandler<PreviewLanguageMergeQuery, TaxonomyMergeImpactDto>
+    : IQueryHandler<PreviewLanguageMergeQuery, TaxonomyMergeImpact>
 {
-    public Task<ErrorOr<TaxonomyMergeImpactDto>> HandleAsync(PreviewLanguageMergeQuery query, CancellationToken ct = default) =>
+    public Task<ErrorOr<TaxonomyMergeImpact>> HandleAsync(PreviewLanguageMergeQuery query, CancellationToken ct = default) =>
         service.PreviewMergeAsync(query.SourceKey, query.TargetKey, ct);
 }

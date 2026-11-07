@@ -8,13 +8,19 @@ using Romd.Application.Common.ReferenceCatalog;
 using Romd.Contracts.Management.Libraries;
 using Romd.Domain.Libraries;
 
+using ContractLibrary = Romd.Contracts.Management.Libraries.Library;
+
+using LibraryConfiguration = Romd.Domain.Libraries.LibraryConfiguration;
+
+using Library = Romd.Domain.Libraries.Library;
+
 namespace Romd.Admin.Application.Libraries.Commands.UpdateLibrary;
 
 public sealed record UpdateLibraryCommand(
     int LibraryId,
     string Name,
     LibraryConfiguration? Configuration,
-    bool? IsDefault) : ICommand<LibraryDto>;
+    bool? IsDefault) : ICommand<ContractLibrary>;
 
 public sealed class UpdateLibraryCommandHandler(IReferenceCatalogService referenceCatalog,
     ILibraryRepository libraryRepository,
@@ -23,9 +29,9 @@ public sealed class UpdateLibraryCommandHandler(IReferenceCatalogService referen
     ILogger<UpdateLibraryCommandHandler> logger,
     RomDeliveryPolicy deliveryPolicy,
     TimeProvider clock)
-    : ICommandHandler<UpdateLibraryCommand, LibraryDto>
+    : ICommandHandler<UpdateLibraryCommand, ContractLibrary>
 {
-    public async Task<ErrorOr<LibraryDto>> HandleAsync(
+    public async Task<ErrorOr<ContractLibrary>> HandleAsync(
         UpdateLibraryCommand command,
         CancellationToken ct = default)
     {

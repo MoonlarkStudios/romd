@@ -13,6 +13,12 @@ using Romd.Contracts.Management.Models;
 using Romd.Host.Authorization;
 using Models = Romd.Contracts.Management.Models;
 
+using ContractDatCatalogDirectory = Romd.Contracts.Management.Models.DatCatalogDirectory;
+using ContractDatCatalogSubscription = Romd.Contracts.Management.Models.DatCatalogSubscription;
+using ContractPublishedDatCatalog = Romd.Contracts.Management.Models.PublishedDatCatalog;
+
+using DatCatalogSubscription = Romd.Admin.Application.Source.Dat.DatCatalogSubscription;
+
 namespace Romd.Host.Endpoints;
 
 /// <summary>
@@ -31,14 +37,14 @@ public static class DatCatalogEnrollmentEndpoints
         app.MapGet("/dat-catalogs", async (IDatCatalogEnrollmentService service, CancellationToken ct) =>
         {
             var value = await service.ListCatalogsAsync(ct);
-            return Results.Ok(new DatCatalogDirectoryDto(value.Enabled, value.Message,
-                value.Catalogs.Select(x => new PublishedDatCatalogDto(x.CatalogId, x.SystemId, x.Name, x.Provider, x.Health,
+            return Results.Ok(new ContractDatCatalogDirectory(value.Enabled, value.Message,
+                value.Catalogs.Select(x => new ContractPublishedDatCatalog(x.CatalogId, x.SystemId, x.Name, x.Provider, x.Health,
                     x.DocumentHash, x.EntryCount, x.FileCount, x.LastChangedAt)).ToArray()));
         }).WithTags("DatSubscriptions").WithName("ListDatCatalogs")
             .WithDescription("The publisher's DAT catalog directory. Bounded by the publisher: at most one entry per published " +
                 "system catalog, read from its signed index. Answers 200 when subscriptions are disabled or the publisher " +
                 "is unavailable; message then says why the directory is empty.")
-            .Produces<DatCatalogDirectoryDto>()
+            .Produces<ContractDatCatalogDirectory>()
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 
         var group = app.MapGroup("/dat-subscriptions").WithTags("DatSubscriptions")
@@ -50,7 +56,7 @@ public static class DatCatalogEnrollmentEndpoints
             return Results.Ok(subscriptions.Select(item => Contract(item, systemKeys)).ToArray());
         }).WithName("ListDatSubscriptions")
             .WithDescription("Every local DAT subscription. Bounded by the publisher directory: one subscription per published catalog.")
-            .Produces<DatCatalogSubscriptionDto[]>();
+            .Produces<ContractDatCatalogSubscription[]>();
         group.MapPost("", async (CreateDatSubscriptionRequest request, ICommandHandler<CreateDatSubscriptionCommand, DatSubscriptionEnrollment> handler, [FromServices] IReferenceCatalogService referenceCatalog, CancellationToken ct) =>
         {
             var failures = new Dictionary<string, string[]>();
@@ -71,15 +77,15 @@ public static class DatCatalogEnrollmentEndpoints
             .WithDescription("Enrolls a publisher catalog and runs its first check. Idempotent on catalogId: an existing " +
                 "subscription answers 200 with its current state and is not checked again. datId binds one installed " +
                 "active source with the catalog's system and name; without it, enrollment binds only a unique name match.")
-            .ProducesCreated<DatCatalogSubscriptionDto>()
-            .Produces<DatCatalogSubscriptionDto>()
+            .ProducesCreated<ContractDatCatalogSubscription>()
+            .Produces<ContractDatCatalogSubscription>()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict);
         group.MapGet("/{subscriptionId}", async (Sqid subscriptionId, IDatCatalogEnrollmentService service, [FromServices] IReferenceCatalogService referenceCatalog, CancellationToken ct) =>
         {
             var result = await service.GetAsync(subscriptionId.Value, ct);
             var systemKeys = await referenceCatalog.GetSystemKeysAsync(ct);
             return result.Match(value => Results.Ok(Contract(value, systemKeys)), errors => errors.ToProblem());
-        }).WithName("GetDatSubscription").Produces<DatCatalogSubscriptionDto>().ProducesProblems(StatusCodes.Status404NotFound);
+        }).WithName("GetDatSubscription").Produces<ContractDatCatalogSubscription>().ProducesProblems(StatusCodes.Status404NotFound);
         group.MapDelete("/{subscriptionId}", async (Sqid subscriptionId, ICommandHandler<StopDatSubscriptionCommand, ErrorOr.Success> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new StopDatSubscriptionCommand(subscriptionId.Value), ct);
@@ -94,7 +100,7 @@ public static class DatCatalogEnrollmentEndpoints
             return result.Match(value => Results.Ok(Contract(value, systemKeys)), errors => errors.ToProblem());
         }).WithName("CheckDatSubscription")
             .WithDescription("Checks the publisher now, without waiting for the next scheduled check. A new candidate waits for review.")
-            .Produces<DatCatalogSubscriptionDto>().ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
+            .Produces<ContractDatCatalogSubscription>().ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         group.MapGet("/{subscriptionId}/preview", async (Sqid subscriptionId, IDatCatalogEnrollmentService service, CancellationToken ct) =>
         {
             var result = await service.PreviewAsync(subscriptionId.Value, ct);
@@ -151,7 +157,7 @@ public static class DatCatalogEnrollmentEndpoints
         return app;
     }
     private static string? Id(int? value) => value is int id ? new Sqid(id).ToString() : null;
-    private static DatCatalogSubscriptionDto Contract(DatCatalogSubscription value, SystemKeys systemKeys) => new(new Sqid(value.Id).ToString(),
+    private static ContractDatCatalogSubscription Contract(DatCatalogSubscription value, SystemKeys systemKeys) => new(new Sqid(value.Id).ToString(),
         value.CatalogId, value.SystemId, value.Name, systemKeys.Optional(value.PlatformId), Id(value.ActiveDatId), value.State,
         value.LastCheckedAt, value.Message, value.CandidateSha256, value.JobId, value.NextCheckAt, value.AutomaticChecksPaused);
 }

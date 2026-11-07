@@ -21,6 +21,9 @@ using Romd.Persistence.Entities;
 using Shouldly;
 using Xunit;
 
+using ContractManagedSystem = Romd.Contracts.Management.Models.ManagedSystem;
+using ContractSystemDatPreview = Romd.Contracts.Management.Models.SystemDatPreview;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 [Collection(IntegrationTestCollection.Name)]
@@ -67,13 +70,13 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
     public async Task Directory_EnableDisable_PreservesPlatformAndAliases()
     {
         using var client = fixture.CreateAuthenticatedClient();
-        var systems = await TestHelpers.ReadAllPageItemsAsync<ManagedSystemDto>(client, "/api/system-setup");
+        var systems = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup");
         var psx = systems!.Single(x => x.Key == "psx");
         (await client.PutAsJsonAsync($"/api/system-setup/{psx.Key}/enabled", new { enabled = true })).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (await client.PutAsJsonAsync($"/api/system-setup/{psx.Key}/enabled", new { enabled = false })).StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        var hidden = (await TestHelpers.ReadAllPageItemsAsync<ManagedSystemDto>(client, "/api/system-setup"))!.Single(x => x.Key == psx.Key);
+        var hidden = (await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup"))!.Single(x => x.Key == psx.Key);
         hidden.Enabled.ShouldBeFalse();
-        var aliasHit = await TestHelpers.ReadAllPageItemsAsync<ManagedSystemDto>(client, "/api/system-setup?query=PS1");
+        var aliasHit = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup?query=PS1");
         aliasHit.ShouldContain(x => x.Key == psx.Key);
         (await client.GetAsync($"/api/systems/{psx.Key}")).StatusCode.ShouldBe(HttpStatusCode.OK);
     }
@@ -86,7 +89,7 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
         using var form = TestHelpers.CreateMultipartContent(document, "catalog.dat");
         var response = await client.PostAsync("/api/system-setup/dat-preview", form);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var preview = (await response.Content.ReadFromJsonAsync<SystemDatPreviewDto>())!;
+        var preview = (await response.Content.ReadFromJsonAsync<ContractSystemDatPreview>())!;
         preview.SuggestedSystemKey.ShouldNotBeNull();
         preview.Preview.CandidateEntries.ShouldBe(1);
         using var changed = TestHelpers.CreateMultipartContent(document.Replace("size='1'", "size='2'"), "changed.dat");
@@ -114,7 +117,7 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
         using var previewForm = TestHelpers.CreateMultipartContent(document, "selected.dat");
         using var previewResponse = await client.PostAsync("/api/system-setup/dat-preview", previewForm);
         previewResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var preview = (await previewResponse.Content.ReadFromJsonAsync<SystemDatPreviewDto>()).ShouldNotBeNull();
+        var preview = (await previewResponse.Content.ReadFromJsonAsync<ContractSystemDatPreview>()).ShouldNotBeNull();
         preview.Preview.CandidateEntries.ShouldBe(1);
         using var upload = TestHelpers.CreateMultipartContent(document, "selected.dat");
 
@@ -174,7 +177,7 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
         using var previewForm = TestHelpers.CreateMultipartContent(document, "catalog.dat");
         using var response = await client.PostAsync("/api/system-setup/dat-preview", previewForm);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var preview = (await response.Content.ReadFromJsonAsync<SystemDatPreviewDto>()).ShouldNotBeNull();
+        var preview = (await response.Content.ReadFromJsonAsync<ContractSystemDatPreview>()).ShouldNotBeNull();
         string uppercase = preview.Preview.CandidateSha256.ToUpperInvariant();
         uppercase.ShouldNotBe(preview.Preview.CandidateSha256);
         using var form = TestHelpers.CreateMultipartContent(document, "catalog.dat");

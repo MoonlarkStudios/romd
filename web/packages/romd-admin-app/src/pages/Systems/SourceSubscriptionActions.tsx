@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Group, Modal, Stack, Text } from '@mantine/core';
-import type { DatCatalogSubscriptionDto, JobReference } from '@romd/admin-api-client';
+import type { DatCatalogSubscription, JobReference } from '@romd/admin-api-client';
 import {
   checkDatSubscription,
   deleteDatSubscription,
@@ -19,7 +19,7 @@ export function SourceSubscriptionActions({
   compact = false,
   settingsOnly = false,
 }: {
-  subscription: DatCatalogSubscriptionDto;
+  subscription: DatCatalogSubscription;
   manage?: boolean;
   compact?: boolean;
   settingsOnly?: boolean;

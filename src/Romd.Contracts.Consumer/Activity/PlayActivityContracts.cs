@@ -13,7 +13,7 @@ public sealed record UpsertPlaySessionRequest
     public int? ActiveDurationSeconds { get; init; }
 }
 
-public sealed record PlaySessionDto
+public sealed record PlaySession
 {
     public required Guid SessionId { get; init; }
     public required string ClientId { get; init; }
@@ -26,11 +26,11 @@ public sealed record PlaySessionDto
     public required DateTimeOffset UpdatedAt { get; init; }
 }
 
-public sealed record RecentlyPlayedTitleDto
+public sealed record RecentlyPlayedTitle
 {
-    public IReadOnlyList<ResolvedArtworkDto> Artwork { get; init; } = [];
+    public IReadOnlyList<ResolvedArtwork> Artwork { get; init; } = [];
     public required string Id { get; init; }
-    public required SystemSummaryDto System { get; init; }
+    public required SystemSummary System { get; init; }
     public required string Name { get; init; }
     public string? CoverUrl { get; init; }
     public string? Genre { get; init; }

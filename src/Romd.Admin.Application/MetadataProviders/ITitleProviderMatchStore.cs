@@ -9,8 +9,8 @@ using Romd.Domain.Jobs;
 namespace Romd.Admin.Application.MetadataProviders;
 
 public sealed record ProviderMatchState(string ProviderId, Guid Revision, bool SuppressAutomaticMatch,
-    bool IdentityChanged, string? Evidence, string? MatcherVersion, ProviderGameDto? Game,
-    ProviderIdentityDecisionDto? Decision);
+    bool IdentityChanged, string? Evidence, string? MatcherVersion, ProviderGame? Game,
+    ProviderIdentityDecision? Decision);
 public sealed record TitleProviderMatchFacts(IReadOnlyList<TitleExternalId> Links,
     IReadOnlyList<ProviderMatchState> States, IReadOnlyList<TitleMetadataLayer> Layers);
 public sealed record ProviderMatchTitle(int Id, string Name, int PlatformId);
@@ -25,7 +25,7 @@ public interface ITitleProviderMatchStore
     /// <summary>Reads and parses only the requested providers, keeping unrelated persisted data isolated.</summary>
     Task<TitleProviderMatchFacts> ReadFactsAsync(int titleId, IReadOnlyCollection<string> providerIds, CancellationToken ct);
     Task<ErrorOr<Success>> StageChangeAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
-        ProviderGameDto? game, bool unlink, CancellationToken ct);
+        ProviderGame? game, bool unlink, CancellationToken ct);
     Task<Guid?> FindPendingEnrichmentAsync(int titleId, CancellationToken ct);
     Task<ProviderMatchTitle> ReadTitleAsync(int titleId, CancellationToken ct);
     Task AddEnrichmentStagedAsync(EnrichmentJob job, CancellationToken ct);

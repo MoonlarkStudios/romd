@@ -1,10 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { MantineProvider } from '@mantine/core';
-import type {
-  ArchiveFormatDto,
-  EnrichmentAssessmentDto,
-  TitleDetail,
-} from '@romd/admin-api-client';
+import type { ArchiveFormat, EnrichmentAssessment, TitleDetail } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -43,7 +39,7 @@ import { startBrowserDownload } from '@romd/delivery';
 
 type AssessmentResult = Awaited<ReturnType<typeof getTitleEnrichmentAssessment>>;
 type Flags = Pick<
-  EnrichmentAssessmentDto,
+  EnrichmentAssessment,
   'needsReview' | 'hasOperationalBlocker' | 'hasActiveWork' | 'canEnrichAutomatically'
 >;
 
@@ -55,20 +51,20 @@ const title: TitleDetail = {
   genre: 'Role-playing (RPG)',
   releaseDate: '1995-03-11',
 };
-const original: ArchiveFormatDto = {
+const original: ArchiveFormat = {
   format: 'original',
   label: 'Original',
 };
-const rvz: ArchiveFormatDto = {
+const rvz: ArchiveFormat = {
   format: 'rvz',
   label: 'RVZ',
 };
-const chd: ArchiveFormatDto = {
+const chd: ArchiveFormat = {
   format: 'chd',
   label: 'CHD',
 };
 /** A title with a complete release, offering the archive formats the server lists. */
-const ownedTitle = (archiveFormats: ArchiveFormatDto[]) => ({
+const ownedTitle = (archiveFormats: ArchiveFormat[]) => ({
   ...title,
   archiveFormats,
   releases: [
@@ -84,7 +80,7 @@ const noFlags: Flags = {
   hasActiveWork: false,
   canEnrichAutomatically: false,
 };
-const assessment = (flags: Partial<Flags>): EnrichmentAssessmentDto => ({
+const assessment = (flags: Partial<Flags>): EnrichmentAssessment => ({
   titleId: 'chrono',
   titleName: 'Chrono Trigger',
   platformName: 'Super Nintendo',
@@ -94,7 +90,7 @@ const assessment = (flags: Partial<Flags>): EnrichmentAssessmentDto => ({
   requirements: [],
   acceptedOmissions: [],
 });
-const resolved = (data: EnrichmentAssessmentDto) =>
+const resolved = (data: EnrichmentAssessment) =>
   ({
     data,
     error: undefined,

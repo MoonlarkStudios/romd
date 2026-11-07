@@ -4,7 +4,7 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type AccountLinkDto = {
+export type AccountLink = {
     id: string;
     purpose: string;
     createdAt: string;
@@ -12,12 +12,12 @@ export type AccountLinkDto = {
     status: string;
 };
 
-export type AccountSecurityDto = {
-    links: PageOfAccountLinkDto;
-    sessions: PageOfAccountSessionDto;
+export type AccountSecurity = {
+    links: PageOfAccountLink;
+    sessions: PageOfAccountSession;
 };
 
-export type AccountSessionDto = {
+export type AccountSession = {
     id: string;
     client: string;
     createdAt: null | string;
@@ -46,7 +46,7 @@ export type AddPlatformAliasRequest = {
     provider?: null | string;
 };
 
-export type AdminAuditEventDto = {
+export type AdminAuditEvent = {
     id: string;
     actorId: string;
     actorEmail: null | string;
@@ -62,7 +62,7 @@ export type AdminDownloadTicket = {
     expiresAt: string;
 };
 
-export type AliasDto = {
+export type AliasResource = {
     ownership: string;
     id: string;
     alias: string;
@@ -85,24 +85,24 @@ export type ApplySourceLifecycle = {
     reviewToken: string;
 };
 
-export type ArchiveFormatDto = {
+export type ArchiveFormat = {
     format: 'original' | 'rvz' | 'chd';
     label: string;
 };
 
-export type ArtworkAcquisitionDto = {
+export type ArtworkAcquisition = {
     role: string;
     status: string;
     sourceId: null | string;
     updatedAt: string;
 };
 
-export type ArtworkAcquisitionStateDto = {
-    outcomes: Array<ArtworkAcquisitionDto>;
+export type ArtworkAcquisitionState = {
+    outcomes: Array<ArtworkAcquisition>;
     activeJobId: null | string;
 };
 
-export type ArtworkCandidateDto = {
+export type ArtworkCandidate = {
     reference: string;
     candidateId: string;
     providerAssetId: string;
@@ -116,7 +116,7 @@ export type ArtworkCandidateDto = {
     isSaved?: boolean;
 };
 
-export type ArtworkCompletionFilterDto = {
+export type ArtworkCompletionFilter = {
     query?: null | string;
     systemKey?: null | string;
     genre?: null | string;
@@ -127,28 +127,28 @@ export type ArtworkCompletionFilterDto = {
     enrichment?: null | Array<string>;
 };
 
-export type ArtworkCompletionItemDto = {
+export type ArtworkCompletionItem = {
     titleId: string;
     titleName: string;
     completion: ArtworkCompletionState;
-    roles: Array<ArtworkRoleCountDto>;
+    roles: Array<ArtworkRoleCount>;
     metadataOutcome: null | ArtworkCompletionMetadataOutcome;
-    now: null | EnrichmentSummaryDto;
+    now: null | EnrichmentSummary;
     followUpJobId: null | string;
 };
 
 export type ArtworkCompletionMetadataOutcome = 'Succeeded' | 'Failed' | 'NotAttempted';
 
-export type ArtworkCompletionPreviewDto = {
+export type ArtworkCompletionPreview = {
     titles: number;
-    roles: Array<ArtworkRoleCountDto>;
+    roles: Array<ArtworkRoleCount>;
 };
 
 export type ArtworkCompletionRequest = {
     requestId: string;
     titleIds?: null | Array<string>;
     scope?: string;
-    filters?: null | ArtworkCompletionFilterDto;
+    filters?: null | ArtworkCompletionFilter;
     retryJobId?: null | string;
     retryStatus?: null | string;
     mode?: string;
@@ -156,15 +156,15 @@ export type ArtworkCompletionRequest = {
 
 export type ArtworkCompletionState = 'Working' | 'Unfinished' | 'Done';
 
-export type ArtworkCompletionSummaryDto = {
-    roles: Array<ArtworkRoleCountDto>;
+export type ArtworkCompletionSummary = {
+    roles: Array<ArtworkRoleCount>;
     review: number;
     failed: number;
     unfinished: number;
     working: number;
 };
 
-export type ArtworkEnrichmentSettingsDto = {
+export type ArtworkEnrichmentSettings = {
     revision: string;
     fillPosters: boolean;
     fillHeroes: boolean;
@@ -176,12 +176,12 @@ export type ArtworkEnrichmentSettingsDto = {
 
 export type ArtworkMode = 'Automatic' | 'Empty' | 'Pinned';
 
-export type ArtworkProviderDto = {
+export type ArtworkProvider = {
     id: string;
     name: string;
     isAvailable: boolean;
     supportsLanguageFilter: boolean;
-    roles: Array<ArtworkRoleCapabilityDto>;
+    roles: Array<ArtworkRoleCapability>;
     gameId?: null | string;
     gameName?: null | string;
     gameUrl?: null | string;
@@ -190,19 +190,19 @@ export type ArtworkProviderDto = {
 
 export type ArtworkRole = 'Poster' | 'Hero' | 'Logo' | 'Backdrop';
 
-export type ArtworkRoleCapabilityDto = {
+export type ArtworkRoleCapability = {
     role: string;
     dimensions: Array<string>;
     styles: Array<string>;
 };
 
-export type ArtworkRoleCountDto = {
+export type ArtworkRoleCount = {
     role: string;
     status: string;
     count: number;
 };
 
-export type ArtworkSelectionStateDto = {
+export type ArtworkSelectionState = {
     role: string;
     mode: ArtworkMode;
     revision: string;
@@ -210,7 +210,7 @@ export type ArtworkSelectionStateDto = {
     pendingJobId: null | string;
 };
 
-export type ArtworkVariantDto = {
+export type ArtworkVariant = {
     name: string;
     url: string;
     contentVersion: string;
@@ -298,7 +298,7 @@ export type CatalogFilters = {
     enrichmentStatuses: Array<FacetItem>;
 };
 
-export type CatalogProjectionDiagnosticDto = {
+export type CatalogProjectionDiagnostic = {
     systemKey: string;
     platformName: string;
     platformShortName: string;
@@ -308,21 +308,21 @@ export type CatalogProjectionDiagnosticDto = {
     failedAt?: null | string;
 };
 
-export type CatalogProjectionDiagnosticsDto = {
+export type CatalogProjectionDiagnostics = {
     availability: DiagnosticAvailability;
     error?: null | string;
-    items: Array<CatalogProjectionDiagnosticDto>;
+    items: Array<CatalogProjectionDiagnostic>;
     isTruncated: boolean;
 };
 
 export type CatalogProjectionState = 'Clean' | 'Dirty' | 'Failed';
 
 export type CatalogTitle = {
-    artwork?: Array<ResolvedArtworkDto>;
+    artwork?: Array<ResolvedArtwork>;
     id: string;
     systemKey: string;
     name: string;
-    enrichmentAssessment?: null | EnrichmentSummaryDto;
+    enrichmentAssessment?: null | EnrichmentSummary;
     enrichmentStatus?: string;
     hasLocalPayload?: boolean;
     isTracked?: boolean;
@@ -334,7 +334,7 @@ export type CatalogTitle = {
     rating?: null | number;
 };
 
-export type CdStorageRecipeDto = {
+export type CdStorageRecipe = {
     available: boolean;
     recipeVersion: string;
     hunkBytes: number;
@@ -361,10 +361,10 @@ export type CollectionDetail = {
     isSystem?: boolean;
     sortOrder?: number;
     createdAt?: string;
-    items: PageOfCollectionItemDto;
+    items: PageOfCollectionItem;
 };
 
-export type CollectionItemDto = {
+export type CollectionItem = {
     titleId: string;
     titleName: string;
     systemKey: string;
@@ -374,7 +374,7 @@ export type CollectionItemDto = {
     addedAt?: string;
 };
 
-export type CollectionLibraryPlacementDto = {
+export type CollectionLibraryPlacement = {
     libraryId: string;
     name: string;
     isFeatured: boolean;
@@ -392,18 +392,18 @@ export type CollectionSummary = {
     createdAt?: string;
 };
 
-export type CompanyOverridesDto = {
+export type CompanyOverrides = {
     name: null | string;
     description: null | string;
     hasDescription: boolean;
 };
 
-export type CompanyPatchDto = {
+export type CompanyPatch = {
     name?: string;
     description?: null | string;
 };
 
-export type CompanyResourceDto = {
+export type CompanyResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
@@ -413,12 +413,12 @@ export type CompanyResourceDto = {
     revision: string;
 };
 
-export type CompanySummaryDto = {
+export type CompanySummary = {
     key: string;
     name: string;
 };
 
-export type ContentRatingPolicyDto = {
+export type ContentRatingPolicy = {
     basisSelection?: RatingBasisSelection;
     boardPreference?: Array<RatingBoard>;
     maxMinimumAge?: null | number;
@@ -426,7 +426,7 @@ export type ContentRatingPolicyDto = {
     unknownRatingPolicy?: UnknownMetadataPolicy;
 };
 
-export type CoverageStatsDto = {
+export type CoverageStats = {
     expectedTitleCount: number;
     localPayloadTitleCount: number;
     completeTitleCount: number;
@@ -442,7 +442,7 @@ export type CreateCollectionRequest = {
     coverMediaId?: null | string;
 };
 
-export type CreateCompanyDto = {
+export type CreateCompany = {
     key: string;
     name: string;
     description?: null | string;
@@ -461,11 +461,11 @@ export type CreateDownloadTicketRequest = {
 
 export type CreateLibraryRequest = {
     name: string;
-    configuration?: null | LibraryConfigurationDto;
+    configuration?: null | LibraryConfiguration;
     isDefault?: boolean;
 };
 
-export type CreateSystemDto = {
+export type CreateSystem = {
     key: string;
     name: string;
     compactLabel: string;
@@ -490,10 +490,10 @@ export type CurrentUserResponse = {
     libraryId: null | string;
 };
 
-export type DashboardStatusBarDto = {
-    storage: StorageStatsDto;
-    coverage: CoverageStatsDto;
-    health: SystemHealthDto;
+export type DashboardStatusBar = {
+    storage: StorageStats;
+    coverage: CoverageStats;
+    health: SystemHealth;
 };
 
 export type Dat = {
@@ -516,13 +516,13 @@ export type Dat = {
     sourceFile?: null | StoredFileRef;
 };
 
-export type DatCatalogDirectoryDto = {
+export type DatCatalogDirectory = {
     enabled: boolean;
     message: null | string;
-    catalogs: Array<PublishedDatCatalogDto>;
+    catalogs: Array<PublishedDatCatalog>;
 };
 
-export type DatCatalogSubscriptionDto = {
+export type DatCatalogSubscription = {
     id: string;
     catalogId: string;
     systemId: null | string;
@@ -640,28 +640,28 @@ export type DecideDiscSetRequest = {
 
 export type DiagnosticAvailability = 'Available' | 'Unavailable';
 
-export type DiscSetDefinitionDto = {
-    name: string;
-    expectedDiscCount: null | number;
-    members: Array<DiscSetMemberDto>;
-    reviewReasons: Array<string>;
-    ruleVersion: string;
-};
-
-export type DiscSetDto = {
+export type DiscSet = {
     id: string;
     catalogSourceId: string;
     systemKey: null | string;
     revision: string;
     decision: string;
-    proposal: DiscSetDefinitionDto;
-    correction: null | DiscSetDefinitionDto;
+    proposal: DiscSetDefinition;
+    correction: null | DiscSetDefinition;
     decidedBy: null | string;
     decidedAt: null | string;
     reason: null | string;
 };
 
-export type DiscSetMemberDto = {
+export type DiscSetDefinition = {
+    name: string;
+    expectedDiscCount: null | number;
+    members: Array<DiscSetMember>;
+    reviewReasons: Array<string>;
+    ruleVersion: string;
+};
+
+export type DiscSetMember = {
     entryKey: string;
     name: string;
     ordinal: number;
@@ -676,7 +676,7 @@ export type DiscSetMemberEdit = {
 
 export type DownloadTicketTarget = 'Title' | 'Release' | 'Rom' | 'ExportJob';
 
-export type EnrichmentAssessmentDto = {
+export type EnrichmentAssessment = {
     titleId: string;
     titleName: string;
     platformName: string;
@@ -685,7 +685,7 @@ export type EnrichmentAssessmentDto = {
     canEnrichAutomatically: boolean;
     hasActiveWork: boolean;
     hasOperationalBlocker: boolean;
-    requirements: Array<EnrichmentRequirementDto>;
+    requirements: Array<EnrichmentRequirement>;
     acceptedOmissions: Array<string>;
     thumbnailUrl?: null | string;
     platformCompactLabel?: null | string;
@@ -693,9 +693,7 @@ export type EnrichmentAssessmentDto = {
 
 export type EnrichmentIssueState = 'Satisfied' | 'Automatic' | 'NeedsReview' | 'Blocked' | 'Processing';
 
-export type EnrichmentRequirementCause = 'MatchDecisionRequired' | 'NoMatchFound' | 'ProviderUnconfigured' | 'ProviderDisabled' | 'ProviderUnavailable' | 'Discover' | 'Working' | 'NotProvided' | 'ProviderSuppressed' | 'AwaitingIdentity' | 'NotAttempted' | 'Stale' | 'ArtworkDecisionRequired' | 'NothingUsable' | 'AcquisitionFailed' | 'Importing' | 'Searching';
-
-export type EnrichmentRequirementDto = {
+export type EnrichmentRequirement = {
     key: string;
     kind: string;
     subject: string;
@@ -704,6 +702,8 @@ export type EnrichmentRequirementDto = {
     satisfiedBy: null | EnrichmentRequirementSatisfiedBy;
     actions: Array<string>;
 };
+
+export type EnrichmentRequirementCause = 'MatchDecisionRequired' | 'NoMatchFound' | 'ProviderUnconfigured' | 'ProviderDisabled' | 'ProviderUnavailable' | 'Discover' | 'Working' | 'NotProvided' | 'ProviderSuppressed' | 'AwaitingIdentity' | 'NotAttempted' | 'Stale' | 'ArtworkDecisionRequired' | 'NothingUsable' | 'AcquisitionFailed' | 'Importing' | 'Searching';
 
 export type EnrichmentRequirementSatisfiedBy = 'Present' | 'AcceptedOmission' | 'LeftEmpty' | 'UnavailableFallback' | 'Trusted' | 'ProviderSuppressed' | 'NotRequested' | 'Current' | 'Idle';
 
@@ -718,14 +718,14 @@ export type EnrichmentStatsResponse = {
     total?: number;
 };
 
-export type EnrichmentSummaryDto = {
+export type EnrichmentSummary = {
     needsReview: boolean;
     canEnrichAutomatically: boolean;
     hasActiveWork: boolean;
     hasOperationalBlocker: boolean;
 };
 
-export type EnrichmentWorkbenchCountsDto = {
+export type EnrichmentWorkbenchCounts = {
     total: number;
     needsReview: number;
     automatic: number;
@@ -738,30 +738,22 @@ export type ExportLibraryRequest = {
     format?: 'original' | 'rvz' | 'chd';
 };
 
-export type ExternalIdDto = {
-    provider: string;
-    externalId: string;
-    matchConfidence?: number;
-    isConfirmed?: boolean;
-    createdAt?: string;
-};
-
 export type FacetItem = {
     value: string;
     count: number;
 };
 
-export type HangfireDiagnosticsDto = {
+export type HangfireDiagnostics = {
     availability: DiagnosticAvailability;
     error?: null | string;
-    servers: Array<HangfireServerDiagnosticDto>;
+    servers: Array<HangfireServerDiagnostic>;
     serversTruncated: boolean;
-    recurringJobs: Array<RecurringJobDiagnosticDto>;
+    recurringJobs: Array<RecurringJobDiagnostic>;
     recurringJobsTruncated: boolean;
-    queueBacklogs: Array<QueueBacklogDiagnosticDto>;
+    queueBacklogs: Array<QueueBacklogDiagnostic>;
 };
 
-export type HangfireServerDiagnosticDto = {
+export type HangfireServerDiagnostic = {
     name: string;
     workerCount: number;
     queues: Array<string>;
@@ -776,7 +768,7 @@ export type HideArtworkCandidateRequest = {
 
 export type IFormFile = Blob | File;
 
-export type IgdbProviderSettingsDto = {
+export type IgdbProviderSettings = {
     enabled: boolean;
     clientId: null | string;
     hasClientSecret: boolean;
@@ -807,36 +799,36 @@ export type IssueAccountLinkRequest = {
     purpose: string;
 };
 
-export type IssuedAccountLinkDto = {
+export type IssuedAccountLink = {
     userId: string;
     token: string;
     expiresAt: string;
     id?: string;
 };
 
-export type JobDto = ({
+export type Job = ({
     jobType?: 'upload';
-} & JobDtoUploadJobDto) | ({
+} & JobUploadJob) | ({
     jobType?: 'replace_dat';
-} & JobDtoReplaceDatJobDto) | ({
+} & JobReplaceDatJob) | ({
     jobType?: 'enrichment';
-} & JobDtoEnrichmentJobDto) | ({
+} & JobEnrichmentJob) | ({
     jobType?: 'bulk_enrichment';
-} & JobDtoBulkEnrichmentJobDto) | ({
+} & JobBulkEnrichmentJob) | ({
     jobType?: 'artwork-completion';
-} & JobDtoArtworkCompletionOperationDto) | ({
+} & JobArtworkCompletionOperation) | ({
     jobType?: 'metadata-rematerialization';
-} & JobDtoMetadataRematerializationJobDto) | ({
+} & JobMetadataRematerializationJob) | ({
     jobType?: 'export';
-} & JobDtoExportJobDto) | ({
+} & JobExportJob) | ({
     jobType?: 'materialization';
-} & JobDtoMaterializationJobDto) | ({
+} & JobMaterializationJob) | ({
     jobType?: 'artwork-import';
-} & JobDtoArtworkImportJobDto) | ({
+} & JobArtworkImportJob) | ({
     jobType?: 'media-reconciliation';
-} & JobDtoMediaReconciliationJobDto);
+} & JobMediaReconciliationJob);
 
-export type JobDtoArtworkCompletionOperationDto = {
+export type JobArtworkCompletionOperation = {
     jobType?: 'artwork-completion';
     mode?: null | string;
     total?: number;
@@ -859,7 +851,7 @@ export type JobDtoArtworkCompletionOperationDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoArtworkImportJobDto = {
+export type JobArtworkImportJob = {
     jobType?: 'artwork-import';
     titleId: string;
     role: string;
@@ -884,7 +876,7 @@ export type JobDtoArtworkImportJobDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoBulkEnrichmentJobDto = {
+export type JobBulkEnrichmentJob = {
     jobType?: 'bulk_enrichment';
     totalTitles?: number;
     processedCount?: number;
@@ -910,7 +902,7 @@ export type JobDtoBulkEnrichmentJobDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoEnrichmentJobDto = {
+export type JobEnrichmentJob = {
     jobType?: 'enrichment';
     titleId: string;
     id: string;
@@ -931,7 +923,14 @@ export type JobDtoEnrichmentJobDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoExportJobDto = {
+export type JobError = {
+    item: string;
+    message: string;
+    occurredAt: string;
+    reason?: string;
+};
+
+export type JobExportJob = {
     jobType?: 'export';
     format?: 'original' | 'rvz' | 'chd';
     totalTitles?: number;
@@ -959,7 +958,29 @@ export type JobDtoExportJobDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoMaterializationJobDto = {
+export type JobItem = {
+    id: string;
+    kind: string;
+    fileName: string;
+    sizeBytes: ByteCount;
+    outcome: string;
+    romFileId?: null | string;
+    datFileId?: null | string;
+    systemKey?: null | string;
+    platformName?: null | string;
+    matchedTitles: Array<JobItemTitle>;
+    gameCount?: null | number;
+    archiveOnly?: null | boolean;
+    error?: null | string;
+    createdAt?: string;
+};
+
+export type JobItemTitle = {
+    id: string;
+    name: string;
+};
+
+export type JobMaterializationJob = {
     jobType?: 'materialization';
     libraryId?: null | string;
     totalTitles?: number;
@@ -984,11 +1005,11 @@ export type JobDtoMaterializationJobDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoMediaReconciliationJobDto = {
+export type JobMediaReconciliationJob = {
     jobType?: 'media-reconciliation';
     requestMode: string;
-    subject?: null | MediaReconciliationSubjectDto;
-    selection?: null | MediaReconciliationSelectionDto;
+    subject?: null | MediaReconciliationSubject;
+    selection?: null | MediaReconciliationSelection;
     originSelectionJobId?: null | string;
     outcome?: null | string;
     outcomeCode?: null | string;
@@ -1010,7 +1031,7 @@ export type JobDtoMediaReconciliationJobDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoMetadataRematerializationJobDto = {
+export type JobMetadataRematerializationJob = {
     jobType?: 'metadata-rematerialization';
     totalTitles?: number;
     processedCount?: number;
@@ -1033,7 +1054,11 @@ export type JobDtoMetadataRematerializationJobDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoReplaceDatJobDto = {
+export type JobReference = {
+    jobId: string;
+};
+
+export type JobReplaceDatJob = {
     jobType?: 'replace_dat';
     existingDatId: string;
     newDatId?: null | string;
@@ -1055,7 +1080,7 @@ export type JobDtoReplaceDatJobDto = {
     isArchived?: boolean;
 };
 
-export type JobDtoUploadJobDto = {
+export type JobUploadJob = {
     jobType?: 'upload';
     importSourcePath?: null | string;
     importMove?: boolean;
@@ -1086,40 +1111,7 @@ export type JobDtoUploadJobDto = {
     isArchived?: boolean;
 };
 
-export type JobError = {
-    item: string;
-    message: string;
-    occurredAt: string;
-    reason?: string;
-};
-
-export type JobItemDto = {
-    id: string;
-    kind: string;
-    fileName: string;
-    sizeBytes: ByteCount;
-    outcome: string;
-    romFileId?: null | string;
-    datFileId?: null | string;
-    systemKey?: null | string;
-    platformName?: null | string;
-    matchedTitles: Array<JobItemTitleDto>;
-    gameCount?: null | number;
-    archiveOnly?: null | boolean;
-    error?: null | string;
-    createdAt?: string;
-};
-
-export type JobItemTitleDto = {
-    id: string;
-    name: string;
-};
-
-export type JobReference = {
-    jobId: string;
-};
-
-export type LanguageDto = {
+export type Language = {
     key: string;
     ownership: null | string;
     builtInVersion: null | number;
@@ -1130,10 +1122,26 @@ export type LanguageDto = {
     retired: boolean;
     isAutoCreated: boolean;
     canMerge: boolean;
-    aliases: PageOfAliasDto;
+    aliases: PageOfAliasResource;
 };
 
-export type LibraryAttachmentDto = {
+export type Library = {
+    id: string;
+    name: string;
+    collectionIds?: null | Array<string>;
+    configuration?: null | LibraryConfiguration;
+    configurationState: string;
+    configurationError?: null | string;
+    isDefault: boolean;
+    needsMaterialization: boolean;
+    lastMaterializedAt?: null | string;
+    itemCount: number;
+    exportFormats: Array<ArchiveFormat>;
+    createdAt: string;
+    updatedAt?: null | string;
+};
+
+export type LibraryAttachment = {
     collectionId: string;
     name: string;
     description: null | string;
@@ -1150,19 +1158,19 @@ export type LibraryAttachmentRequest = {
     isFeatured: boolean;
 };
 
-export type LibraryCollectionDto = {
+export type LibraryCollection = {
     id: string;
     name: string;
     matchingCount: number;
     totalCount: number;
 };
 
-export type LibraryConfigurationDto = {
+export type LibraryConfiguration = {
     includeUntrackedTitles?: boolean;
     titleSelectionMode?: LibraryTitleSelectionMode;
     allowedSystemKeys?: Array<string>;
     excludedDatIds?: Array<string>;
-    contentRatingPolicy?: null | ContentRatingPolicyDto;
+    contentRatingPolicy?: null | ContentRatingPolicy;
     allowedGenres?: Array<string>;
     unknownGenrePolicy?: UnknownMetadataPolicy;
     selectedDiscSetIds?: Array<string>;
@@ -1171,7 +1179,7 @@ export type LibraryConfigurationDto = {
     excludeTitleIds?: Array<string>;
 };
 
-export type LibraryDiscSetOptionDto = {
+export type LibraryDiscSetOption = {
     id: string;
     name: string;
     titleId: null | string;
@@ -1182,52 +1190,36 @@ export type LibraryDiscSetOptionDto = {
     issue: null | string;
 };
 
-export type LibraryDiscSetOptionsDto = {
+export type LibraryDiscSetOptions = {
     selectedIds: Array<string>;
-    selected: Array<LibraryDiscSetOptionDto>;
-    page: PageOfLibraryDiscSetOptionDto;
+    selected: Array<LibraryDiscSetOption>;
+    page: PageOfLibraryDiscSetOption;
 };
 
-export type LibraryDto = {
-    id: string;
-    name: string;
-    collectionIds?: null | Array<string>;
-    configuration?: null | LibraryConfigurationDto;
-    configurationState: string;
-    configurationError?: null | string;
-    isDefault: boolean;
-    needsMaterialization: boolean;
-    lastMaterializedAt?: null | string;
-    itemCount: number;
-    exportFormats: Array<ArchiveFormatDto>;
-    createdAt: string;
-    updatedAt?: null | string;
-};
-
-export type LibraryEvaluationDto = {
+export type LibraryEvaluation = {
     evaluatedAt: string;
     savedCount: number;
     matchingCount: number;
     addedCount: number;
     removedCount: number;
-    removalReasons: Array<LibraryEvaluationReasonDto>;
-    page: PageOfLibraryEvaluationTitleDto;
+    removalReasons: Array<LibraryEvaluationReason>;
+    page: PageOfLibraryEvaluationTitle;
 };
 
-export type LibraryEvaluationReasonDto = {
+export type LibraryEvaluationReason = {
     reason: string;
     count: number;
 };
 
 export type LibraryEvaluationRequest = {
-    configuration: LibraryConfigurationDto;
+    configuration: LibraryConfiguration;
     view?: string;
     query?: null | string;
     cursor?: null | string;
     limit?: number;
 };
 
-export type LibraryEvaluationTitleDto = {
+export type LibraryEvaluationTitle = {
     id: string;
     name: string;
     platformName: string;
@@ -1243,13 +1235,13 @@ export type LibraryEvaluationTitleDto = {
     attachedCollectionCount: number;
 };
 
-export type LibraryFacetDto = {
+export type LibraryFacet = {
     id: string;
     name: string;
     count: number;
 };
 
-export type LibraryPreviewTitleDto = {
+export type LibraryPreviewTitle = {
     id: string;
     name: string;
     platformName: string;
@@ -1268,7 +1260,7 @@ export type LibraryStats = {
     platformBreakdown: Array<PlatformBreakdown>;
 };
 
-export type LibraryTitleReleaseDiagnosticsDto = {
+export type LibraryTitleReleaseDiagnostics = {
     id: string;
     datId: string;
     name: string;
@@ -1282,7 +1274,7 @@ export type LibraryTitleReleaseDiagnosticsDto = {
 
 export type LibraryTitleSelectionMode = 'Rules' | 'IncludeOnly';
 
-export type ManagedSystemDto = {
+export type ManagedSystem = {
     key: string;
     name: string;
     shortName: string;
@@ -1295,7 +1287,7 @@ export type ManagedSystemDto = {
     trackedTitles?: number;
 };
 
-export type MediaReconciliationPolicyDto = {
+export type MediaReconciliationPolicy = {
     kindId: string;
     recipeId: string;
     conversionMode: string;
@@ -1306,7 +1298,7 @@ export type MediaReconciliationPolicyDto = {
     qualifiedRuntime: null | string;
 };
 
-export type MediaReconciliationSelectionDto = {
+export type MediaReconciliationSelection = {
     filter: string;
     kindId?: null | string;
     systemKey?: null | string;
@@ -1321,7 +1313,7 @@ export type MediaReconciliationSelectionDto = {
     enumerationComplete: boolean;
 };
 
-export type MediaReconciliationSubjectDto = {
+export type MediaReconciliationSubject = {
     kind: string;
     id: string;
 };
@@ -1337,7 +1329,7 @@ export type MergeTitlesRequest = {
     sourceTitleRevision: string;
 };
 
-export type MetadataLayerDto = {
+export type MetadataLayer = {
     sourceId: string;
     sourceType: string;
     description?: null | string;
@@ -1362,25 +1354,32 @@ export type MoveGameResponse = {
     oldTitleDeleted?: boolean;
 };
 
-export type OperationalDiagnosticsDto = {
+export type OperationalDiagnostics = {
     generatedAt: string;
-    catalogProjections: CatalogProjectionDiagnosticsDto;
-    jobs: OperationalJobDiagnosticsDto;
-    outbox: OutboxDiagnosticsDto;
-    hangfire: HangfireDiagnosticsDto;
-    storage: StorageDiagnosticsDto;
+    catalogProjections: CatalogProjectionDiagnostics;
+    jobs: OperationalJobDiagnostics;
+    outbox: OutboxDiagnostics;
+    hangfire: HangfireDiagnostics;
+    storage: StorageDiagnostics;
 };
 
-export type OperationalJobDiagnosticsDto = {
+export type OperationalJobDiagnostics = {
     availability: DiagnosticAvailability;
     error?: null | string;
-    wedgedReplaceDatJobs: Array<WedgedReplaceDatJobDto>;
+    wedgedReplaceDatJobs: Array<WedgedReplaceDatJob>;
     wedgedReplaceDatJobsTruncated: boolean;
-    strandedBulkEnrichmentJobs: Array<StrandedBulkEnrichmentJobDto>;
+    strandedBulkEnrichmentJobs: Array<StrandedBulkEnrichmentJob>;
     strandedBulkEnrichmentJobsTruncated: boolean;
 };
 
-export type OriginalDiscDependencyCandidateDto = {
+export type OriginalDiscDependency = {
+    path: string;
+    romId: null | string;
+    sha256: null | string;
+    sizeBytes: null | ByteCount;
+};
+
+export type OriginalDiscDependencyCandidate = {
     romId: string;
     name: string;
     sha256: string;
@@ -1392,14 +1391,24 @@ export type OriginalDiscDependencyChoice = {
     romId: string;
 };
 
-export type OriginalDiscDependencyDto = {
-    path: string;
-    romId: null | string;
-    sha256: null | string;
-    sizeBytes: null | ByteCount;
+export type OriginalDiscLayout = {
+    id: string;
+    revision: string;
+    state: string;
+    issue: null | string;
+    entryPoint: string;
+    descriptorSha256: string;
+    descriptorSizeBytes: ByteCount;
+    sourceJobId: string;
+    sourceRelativePath: string;
+    systemKey: null | string;
+    releaseId: null | string;
+    fingerprint: null | string;
+    dependencies: Array<OriginalDiscDependency>;
+    audit: PageOfOriginalDiscLayoutAudit;
 };
 
-export type OriginalDiscLayoutAuditDto = {
+export type OriginalDiscLayoutAudit = {
     revision: string;
     action: string;
     actor: null | string;
@@ -1407,14 +1416,14 @@ export type OriginalDiscLayoutAuditDto = {
     reason: null | string;
 };
 
-export type OriginalDiscLayoutCandidateDto = {
+export type OriginalDiscLayoutCandidate = {
     releaseId: string;
     name: string;
     fingerprint: string;
     systemKey: null | string;
     systemName: string;
-    files: Array<OriginalDiscDependencyCandidateDto>;
-    requirements: Array<OriginalDiscRequirementDto>;
+    files: Array<OriginalDiscDependencyCandidate>;
+    requirements: Array<OriginalDiscRequirement>;
     currentLayoutId: null | string;
     currentLayoutRevision: null | string;
 };
@@ -1428,24 +1437,7 @@ export type OriginalDiscLayoutDecisionRequest = {
     replacesRevision?: null | string;
 };
 
-export type OriginalDiscLayoutDto = {
-    id: string;
-    revision: string;
-    state: string;
-    issue: null | string;
-    entryPoint: string;
-    descriptorSha256: string;
-    descriptorSizeBytes: ByteCount;
-    sourceJobId: string;
-    sourceRelativePath: string;
-    systemKey: null | string;
-    releaseId: null | string;
-    fingerprint: null | string;
-    dependencies: Array<OriginalDiscDependencyDto>;
-    audit: PageOfOriginalDiscLayoutAuditDto;
-};
-
-export type OriginalDiscRequirementDto = {
+export type OriginalDiscRequirement = {
     name: string;
     sha1: null | string;
     sizeBytes: ByteCount;
@@ -1453,7 +1445,7 @@ export type OriginalDiscRequirementDto = {
     satisfiedByDescriptor: boolean;
 };
 
-export type OutboxDiagnosticsDto = {
+export type OutboxDiagnostics = {
     availability: DiagnosticAvailability;
     error?: null | string;
     pendingCount: number;
@@ -1462,38 +1454,38 @@ export type OutboxDiagnosticsDto = {
     lastProcessedAt?: null | string;
 };
 
-export type PageOfAccountLinkDto = {
-    items: Array<AccountLinkDto>;
+export type PageOfAccountLink = {
+    items: Array<AccountLink>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfAccountSessionDto = {
-    items: Array<AccountSessionDto>;
+export type PageOfAccountSession = {
+    items: Array<AccountSession>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfAdminAuditEventDto = {
-    items: Array<AdminAuditEventDto>;
+export type PageOfAdminAuditEvent = {
+    items: Array<AdminAuditEvent>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfAliasDto = {
-    items: Array<AliasDto>;
+export type PageOfAliasResource = {
+    items: Array<AliasResource>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfArtworkCandidateDto = {
-    items: Array<ArtworkCandidateDto>;
+export type PageOfArtworkCandidate = {
+    items: Array<ArtworkCandidate>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfArtworkCompletionItemDto = {
-    items: Array<ArtworkCompletionItemDto>;
+export type PageOfArtworkCompletionItem = {
+    items: Array<ArtworkCompletionItem>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1510,14 +1502,14 @@ export type PageOfCatalogTitle = {
     hasNextPage: boolean;
 };
 
-export type PageOfCollectionItemDto = {
-    items: Array<CollectionItemDto>;
+export type PageOfCollectionItem = {
+    items: Array<CollectionItem>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfCollectionLibraryPlacementDto = {
-    items: Array<CollectionLibraryPlacementDto>;
+export type PageOfCollectionLibraryPlacement = {
+    items: Array<CollectionLibraryPlacement>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1528,8 +1520,8 @@ export type PageOfCollectionSummary = {
     hasNextPage: boolean;
 };
 
-export type PageOfCompanyResourceDto = {
-    items: Array<CompanyResourceDto>;
+export type PageOfCompanyResource = {
+    items: Array<CompanyResource>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1558,98 +1550,98 @@ export type PageOfDatGame = {
     hasNextPage: boolean;
 };
 
-export type PageOfDiscSetDto = {
-    items: Array<DiscSetDto>;
+export type PageOfDiscSet = {
+    items: Array<DiscSet>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfEnrichmentAssessmentDto = {
-    items: Array<EnrichmentAssessmentDto>;
+export type PageOfEnrichmentAssessment = {
+    items: Array<EnrichmentAssessment>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfJobDto = {
-    items: Array<JobDto>;
+export type PageOfJob = {
+    items: Array<Job>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfJobItemDto = {
-    items: Array<JobItemDto>;
+export type PageOfJobItem = {
+    items: Array<JobItem>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfLanguageDto = {
-    items: Array<LanguageDto>;
+export type PageOfLanguage = {
+    items: Array<Language>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfLibraryCollectionDto = {
-    items: Array<LibraryCollectionDto>;
+export type PageOfLibrary = {
+    items: Array<Library>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfLibraryDiscSetOptionDto = {
-    items: Array<LibraryDiscSetOptionDto>;
+export type PageOfLibraryCollection = {
+    items: Array<LibraryCollection>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfLibraryDto = {
-    items: Array<LibraryDto>;
+export type PageOfLibraryDiscSetOption = {
+    items: Array<LibraryDiscSetOption>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfLibraryEvaluationTitleDto = {
-    items: Array<LibraryEvaluationTitleDto>;
+export type PageOfLibraryEvaluationTitle = {
+    items: Array<LibraryEvaluationTitle>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfLibraryFacetDto = {
-    items: Array<LibraryFacetDto>;
+export type PageOfLibraryFacet = {
+    items: Array<LibraryFacet>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfLibraryPreviewTitleDto = {
-    items: Array<LibraryPreviewTitleDto>;
+export type PageOfLibraryPreviewTitle = {
+    items: Array<LibraryPreviewTitle>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfLibraryTitleReleaseDiagnosticsDto = {
-    items: Array<LibraryTitleReleaseDiagnosticsDto>;
+export type PageOfLibraryTitleReleaseDiagnostics = {
+    items: Array<LibraryTitleReleaseDiagnostics>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfManagedSystemDto = {
-    items: Array<ManagedSystemDto>;
+export type PageOfManagedSystem = {
+    items: Array<ManagedSystem>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfOriginalDiscLayoutAuditDto = {
-    items: Array<OriginalDiscLayoutAuditDto>;
+export type PageOfOriginalDiscLayout = {
+    items: Array<OriginalDiscLayout>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfOriginalDiscLayoutCandidateDto = {
-    items: Array<OriginalDiscLayoutCandidateDto>;
+export type PageOfOriginalDiscLayoutAudit = {
+    items: Array<OriginalDiscLayoutAudit>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfOriginalDiscLayoutDto = {
-    items: Array<OriginalDiscLayoutDto>;
+export type PageOfOriginalDiscLayoutCandidate = {
+    items: Array<OriginalDiscLayoutCandidate>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1660,44 +1652,44 @@ export type PageOfPlatformAlias = {
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceNamedDto = {
-    items: Array<ReferenceNamedDto>;
+export type PageOfReferenceNamed = {
+    items: Array<ReferenceNamed>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceRatingBoardDto = {
-    items: Array<ReferenceRatingBoardDto>;
+export type PageOfReferenceRating = {
+    items: Array<ReferenceRating>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceRatingDto = {
-    items: Array<ReferenceRatingDto>;
+export type PageOfReferenceRatingBoard = {
+    items: Array<ReferenceRatingBoard>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceSystemDto = {
-    items: Array<ReferenceSystemDto>;
+export type PageOfReferenceSystem = {
+    items: Array<ReferenceSystem>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceTaxonomyDto = {
-    items: Array<ReferenceTaxonomyDto>;
+export type PageOfReferenceTaxonomy = {
+    items: Array<ReferenceTaxonomy>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfRegionDto = {
-    items: Array<RegionDto>;
+export type PageOfRegion = {
+    items: Array<Region>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfRejectedArtworkDto = {
-    items: Array<RejectedArtworkDto>;
+export type PageOfRejectedArtwork = {
+    items: Array<RejectedArtwork>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1708,8 +1700,8 @@ export type PageOfRom = {
     hasNextPage: boolean;
 };
 
-export type PageOfSavedArtworkDto = {
-    items: Array<SavedArtworkDto>;
+export type PageOfSavedArtwork = {
+    items: Array<SavedArtwork>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1720,8 +1712,8 @@ export type PageOfSourceEntryReference = {
     hasNextPage: boolean;
 };
 
-export type PageOfSystemResourceDto = {
-    items: Array<SystemResourceDto>;
+export type PageOfSystemResource = {
+    items: Array<SystemResource>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1756,14 +1748,14 @@ export type PageOfTitleSourceReference = {
     hasNextPage: boolean;
 };
 
-export type PageOfTrackedCollectionTitleDto = {
-    items: Array<TrackedCollectionTitleDto>;
+export type PageOfTrackedCollectionTitle = {
+    items: Array<TrackedCollectionTitle>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfUserDto = {
-    items: Array<UserDto>;
+export type PageOfUser = {
+    items: Array<User>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1788,7 +1780,7 @@ export type PlatformBreakdown = {
     totalCount: number;
 };
 
-export type PlatformMetadataPolicyDto = {
+export type PlatformMetadataPolicy = {
     revision: string;
     defaults: {
         [key: string]: string;
@@ -1815,7 +1807,15 @@ export type ProblemDetails = {
     traceId: string;
 };
 
-export type ProviderGameDto = {
+export type ProviderExternalId = {
+    provider: string;
+    externalId: string;
+    matchConfidence?: number;
+    isConfirmed?: boolean;
+    createdAt?: string;
+};
+
+export type ProviderGame = {
     id: string;
     name: string;
     url: string;
@@ -1823,54 +1823,54 @@ export type ProviderGameDto = {
     year?: null | number;
     platforms?: null | Array<string>;
     aliases?: null | Array<string>;
-    releases?: null | Array<ProviderReleaseDto>;
+    releases?: null | Array<ProviderRelease>;
 };
 
 export type ProviderGameSearchCompleteness = 'Complete' | 'ProviderLimited' | 'BudgetLimited';
 
-export type ProviderGameSearchResultDto = {
-    items: Array<ProviderGameDto>;
+export type ProviderGameSearchResult = {
+    items: Array<ProviderGame>;
     completeness: ProviderGameSearchCompleteness;
     limit: number;
 };
 
-export type ProviderIdentityCandidateDto = {
-    game: ProviderGameDto;
+export type ProviderIdentityCandidate = {
+    game: ProviderGame;
     score: number;
     eligible: boolean;
     evidence: Array<string>;
     conflicts: Array<string>;
 };
 
-export type ProviderIdentityDecisionDto = {
+export type ProviderIdentityDecision = {
     state: string;
     explanation: string;
     provenance: string;
     inputFingerprint: string;
-    candidates: Array<ProviderIdentityCandidateDto>;
-    dependencies?: null | Array<ProviderIdentityDependencyDto>;
-    localEvidence?: null | ProviderIdentityFactsDto;
+    candidates: Array<ProviderIdentityCandidate>;
+    dependencies?: null | Array<ProviderIdentityDependency>;
+    localEvidence?: null | ProviderIdentityFacts;
 };
 
-export type ProviderIdentityDependencyDto = {
+export type ProviderIdentityDependency = {
     providerId: string;
     gameId: string;
     revision: string;
 };
 
-export type ProviderIdentityFactsDto = {
+export type ProviderIdentityFacts = {
     name: string;
     names: Array<string>;
     years: Array<number>;
     platforms: Array<string>;
 };
 
-export type ProviderReleaseDto = {
+export type ProviderRelease = {
     year: null | number;
     platform: null | string;
 };
 
-export type PublishedDatCatalogDto = {
+export type PublishedDatCatalog = {
     catalogId: string;
     systemId: string;
     name: string;
@@ -1887,7 +1887,7 @@ export type PurgeUnidentifiedResponse = {
     reclaimedFileCount: number;
 };
 
-export type QueueBacklogDiagnosticDto = {
+export type QueueBacklogDiagnostic = {
     queue: string;
     enqueuedCount: string;
     fetchedCount: string;
@@ -1897,7 +1897,7 @@ export type RatingBasisSelection = 'Strictest' | 'Preferred';
 
 export type RatingBoard = 'Esrb' | 'Pegi' | 'Cero' | 'Usk' | 'Grac' | 'ClassInd' | 'Acb';
 
-export type RatingBoardResourceDto = {
+export type RatingBoardResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
@@ -1908,7 +1908,7 @@ export type RatingBoardResourceDto = {
 
 export type RatingDesignation = 'Rated' | 'RatingPending' | 'RefusedClassification';
 
-export type RatingResourceDto = {
+export type RatingResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
@@ -1918,11 +1918,11 @@ export type RatingResourceDto = {
     code: string;
     designation: null | string;
     minimumAge: null | number;
-    icon: null | ReferenceAssetDto;
+    icon: null | ReferenceAsset;
     retired: boolean;
 };
 
-export type RecurringJobDiagnosticDto = {
+export type RecurringJobDiagnostic = {
     id: string;
     queue: string;
     cron: string;
@@ -1939,14 +1939,14 @@ export type RedeemAccountLinkRequest = {
     password: string;
 };
 
-export type ReferenceAssetDto = {
+export type ReferenceAsset = {
     url: string;
     sha256: string;
     contentType: string;
     monochrome: boolean;
 };
 
-export type ReferenceCatalogCountsDto = {
+export type ReferenceCatalogCounts = {
     systems: number;
     companies: number;
     regions: number;
@@ -1955,52 +1955,52 @@ export type ReferenceCatalogCountsDto = {
     ratings: number;
 };
 
-export type ReferenceCatalogDescriptorDto = {
+export type ReferenceCatalogDescriptor = {
     schemaVersion: number;
     builtInVersion: number;
     revision: string;
     catalogRevision: string;
     contentHash: string;
-    counts: ReferenceCatalogCountsDto;
+    counts: ReferenceCatalogCounts;
 };
 
-export type ReferenceNamedDto = {
+export type ReferenceNamed = {
     key: string;
     name: string;
     description: null | string;
     retired?: boolean;
 };
 
-export type ReferenceRatingBoardDto = {
-    key: string;
-    name: string;
-    description: null | string;
-    retired?: boolean;
-};
-
-export type ReferenceRatingDto = {
+export type ReferenceRating = {
     board: string;
     code: string;
     name: string;
     description: null | string;
-    icon: null | ReferenceAssetDto;
+    icon: null | ReferenceAsset;
     designation?: null | string;
     minimumAge?: null | number;
     retired?: boolean;
 };
 
-export type ReferenceSystemDto = {
+export type ReferenceRatingBoard = {
+    key: string;
+    name: string;
+    description: null | string;
+    retired?: boolean;
+};
+
+export type ReferenceSystem = {
     key: string;
     name: string;
     compactLabel: string;
     description: null | string;
-    icon: null | ReferenceAssetDto;
+    icon: null | ReferenceAsset;
     manufacturerKeys?: null | Array<string>;
     retired?: boolean;
-    manufacturers?: null | Array<CompanySummaryDto>;
+    manufacturers?: null | Array<CompanySummary>;
 };
 
-export type ReferenceTaxonomyDto = {
+export type ReferenceTaxonomy = {
     key: string;
     name: string;
     description: null | string;
@@ -2009,7 +2009,7 @@ export type ReferenceTaxonomyDto = {
     retired?: boolean;
 };
 
-export type RegionDto = {
+export type Region = {
     key: string;
     ownership: null | string;
     builtInVersion: null | number;
@@ -2019,10 +2019,10 @@ export type RegionDto = {
     retired: boolean;
     isAutoCreated: boolean;
     canMerge: boolean;
-    aliases: PageOfAliasDto;
+    aliases: PageOfAliasResource;
 };
 
-export type RejectedArtworkDto = {
+export type RejectedArtwork = {
     id: string;
     role: string;
     sourceId: string;
@@ -2043,7 +2043,7 @@ export type ReplaceArtworkSelectionRequest = {
 
 export type ReplaceDatDiagnosticPhase = 'Pending' | 'Ingesting' | 'Replacing';
 
-export type ResolvedArtworkDto = {
+export type ResolvedArtwork = {
     role: string;
     assetId: null | string;
     contentVersion: null | string;
@@ -2054,7 +2054,7 @@ export type ResolvedArtworkDto = {
     originalHeight: null | number;
     fit: string;
     fallbackReason: string;
-    variants: Array<ArtworkVariantDto>;
+    variants: Array<ArtworkVariant>;
     focalX?: number;
     focalY?: number;
 };
@@ -2077,10 +2077,10 @@ export type Rom = {
     importedAt?: string;
     status: string;
     matches?: null | Array<RomMatch>;
-    formats?: null | Array<RomDeliveryFormatDto>;
+    formats?: null | Array<RomDeliveryFormat>;
 };
 
-export type RomDeliveryFormatDto = {
+export type RomDeliveryFormat = {
     format: 'original' | 'rvz' | 'chd';
     label: string;
     fileExtension?: null | string;
@@ -2106,14 +2106,14 @@ export type RomMatch = {
     titleName?: null | string;
 };
 
-export type SavedArtworkDto = {
+export type SavedArtwork = {
     id: string;
     role: string;
     sourceId: string;
     attribution: null | string;
     sourcePageUrl: null | string;
     mediaIds: Array<string>;
-    artwork: ResolvedArtworkDto;
+    artwork: ResolvedArtwork;
 };
 
 export type SetAccountSuspensionRequest = {
@@ -2208,7 +2208,7 @@ export type StartMediaReconciliationSubjectRequest = {
     conversionRequested: boolean;
 };
 
-export type SteamGridDbSettingsDto = {
+export type SteamGridDbSettings = {
     revision: string;
     enabled: boolean;
     hasApiKey: boolean;
@@ -2220,28 +2220,28 @@ export type SteamGridDbSettingsDto = {
     lastTestMessage: null | string;
 };
 
-export type StorageCategoryDto = {
+export type StorageCategory = {
     category: string;
     fileCount: number;
     sizeBytes: ByteCount;
     sizeOnDiskBytes: ByteCount;
 };
 
-export type StorageDiagnosticsDto = {
+export type StorageDiagnostics = {
     dataVolumeAvailability: DiagnosticAvailability;
     dataVolumeFreeBytes?: null | ByteCount;
     casAvailability: DiagnosticAvailability;
     error?: null | string;
 };
 
-export type StorageStatsDto = {
+export type StorageStats = {
     totalStorageBytes: ByteCount;
     totalStorageBytesOnDisk: ByteCount;
     compressedFileCount: number;
     uncompressedFileCount: number;
     averageCompressionRatio: number;
     bytesSaved: ByteCount;
-    breakdown: Array<StorageCategoryDto>;
+    breakdown: Array<StorageCategory>;
 };
 
 export type StoredFileRef = {
@@ -2250,7 +2250,7 @@ export type StoredFileRef = {
     isCompressed: boolean;
 };
 
-export type StrandedBulkEnrichmentJobDto = {
+export type StrandedBulkEnrichmentJob = {
     jobId: string;
     systemKey?: null | string;
     platformLabel: string;
@@ -2259,7 +2259,7 @@ export type StrandedBulkEnrichmentJobDto = {
     strandedForSeconds: number;
 };
 
-export type SystemDatPreviewDto = {
+export type SystemDatPreview = {
     name: string;
     bytes: number;
     suggestedSystemKey: null | string;
@@ -2267,7 +2267,7 @@ export type SystemDatPreviewDto = {
     preview: DatReplacementPreview;
 };
 
-export type SystemHealthDto = {
+export type SystemHealth = {
     totalRoms: number;
     identifiedCount: number;
     unidentifiedCount: number;
@@ -2276,7 +2276,7 @@ export type SystemHealthDto = {
     failedJobCount: number;
 };
 
-export type SystemOverridesDto = {
+export type SystemOverrides = {
     name: null | string;
     compactLabel: null | string;
     description: null | string;
@@ -2286,7 +2286,7 @@ export type SystemOverridesDto = {
     hasIcon: boolean;
 };
 
-export type SystemPatchDto = {
+export type SystemPatch = {
     manufacturerKeys?: Array<string>;
     compactLabel?: string;
     icon?: null | string;
@@ -2295,20 +2295,20 @@ export type SystemPatchDto = {
     description?: null | string;
 };
 
-export type SystemResourceDto = {
+export type SystemResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
     name: string;
     compactLabel: string;
     description: null | string;
-    icon: null | ReferenceAssetDto;
+    icon: null | ReferenceAsset;
     retired: boolean;
-    manufacturers: Array<CompanySummaryDto>;
+    manufacturers: Array<CompanySummary>;
     revision: string;
 };
 
-export type TaxonomyMergeImpactDto = {
+export type TaxonomyMergeImpact = {
     aliases: number;
     sourceGames: number;
     catalogReleases: number;
@@ -2331,9 +2331,9 @@ export type Title = {
     lastEnrichedAt?: null | string;
 };
 
-export type TitleArtworkDto = {
+export type TitleArtwork = {
     revision: string;
-    roles: Array<ArtworkSelectionStateDto>;
+    roles: Array<ArtworkSelectionState>;
 };
 
 export type TitleContentRating = {
@@ -2348,7 +2348,7 @@ export type TitleContentRating = {
 };
 
 export type TitleDetail = {
-    artwork?: Array<ResolvedArtworkDto>;
+    artwork?: Array<ResolvedArtwork>;
     id: string;
     revision: string;
     systemKey: string;
@@ -2375,7 +2375,7 @@ export type TitleDetail = {
     preferredReleaseName?: null | string;
     releaseRegionPriority?: Array<string>;
     completionPercent?: number;
-    archiveFormats?: Array<ArchiveFormatDto>;
+    archiveFormats?: Array<ArchiveFormat>;
     releases?: PageOfTitleRelease;
 };
 
@@ -2390,8 +2390,8 @@ export type TitleEnrichmentStateResponse = {
     fieldSourceOverrides?: null | {
         [key: string]: string;
     };
-    layers: Array<MetadataLayerDto>;
-    externalIds: Array<ExternalIdDto>;
+    layers: Array<MetadataLayer>;
+    externalIds: Array<ProviderExternalId>;
     lastEnrichedAt?: null | string;
 };
 
@@ -2418,7 +2418,7 @@ export type TitleMediaRef = {
     file?: null | StoredFileRef;
 };
 
-export type TitleProviderMatchDto = {
+export type TitleProviderMatch = {
     providerId: string;
     providerName: string;
     isAvailable: boolean;
@@ -2426,13 +2426,13 @@ export type TitleProviderMatchDto = {
     revision: string;
     state: string;
     externalId: null | string;
-    game: null | ProviderGameDto;
+    game: null | ProviderGame;
     confidence: null | number;
     lastError: null | string;
     metadataNeedsRefresh: boolean;
     evidence?: null | string;
     matcherVersion?: null | string;
-    decision?: null | ProviderIdentityDecisionDto;
+    decision?: null | ProviderIdentityDecision;
     pendingJobId?: null | string;
 };
 
@@ -2449,7 +2449,7 @@ export type TitleRelease = {
     revisionLabel?: null | string;
     isComplete?: boolean;
     files?: Array<TitleFileRequirement>;
-    archiveFormats?: Array<ArchiveFormatDto>;
+    archiveFormats?: Array<ArchiveFormat>;
     sources?: PageOfTitleReleaseSource;
 };
 
@@ -2471,7 +2471,7 @@ export type TitleSourceReference = {
     hasActiveDefinition?: boolean;
 };
 
-export type TrackedCollectionPlatformStatsDto = {
+export type TrackedCollectionPlatformStats = {
     systemKey: string;
     platformName: string;
     trackedTitleCount: number;
@@ -2481,23 +2481,23 @@ export type TrackedCollectionPlatformStatsDto = {
     completionPercent: number;
 };
 
-export type TrackedCollectionReleaseDto = {
+export type TrackedCollectionRelease = {
     catalogReleaseId: string;
     name: string;
     region?: null | string;
     revision?: null | string;
 };
 
-export type TrackedCollectionStatsDto = {
+export type TrackedCollectionStats = {
     trackedTitleCount: number;
     satisfiedTitleCount: number;
     missingTitleCount: number;
     upgradeTitleCount: number;
     completionPercent: number;
-    platforms: Array<TrackedCollectionPlatformStatsDto>;
+    platforms: Array<TrackedCollectionPlatformStats>;
 };
 
-export type TrackedCollectionTitleDto = {
+export type TrackedCollectionTitle = {
     titleId: string;
     systemKey: string;
     platformName: string;
@@ -2506,8 +2506,8 @@ export type TrackedCollectionTitleDto = {
     hasUpgrade: boolean;
     isPinned: boolean;
     satisfiedAt?: null | string;
-    desiredRelease?: null | TrackedCollectionReleaseDto;
-    ownedRelease?: null | TrackedCollectionReleaseDto;
+    desiredRelease?: null | TrackedCollectionRelease;
+    ownedRelease?: null | TrackedCollectionRelease;
 };
 
 export type UnknownMetadataPolicy = 'Allow' | 'Hide' | 'NeedsReview';
@@ -2544,7 +2544,7 @@ export type UpdateJobRequest = {
 
 export type UpdateLibraryRequest = {
     name: string;
-    configuration?: null | LibraryConfigurationDto;
+    configuration?: null | LibraryConfiguration;
     isDefault?: null | boolean;
 };
 
@@ -2574,7 +2574,7 @@ export type UpdateUserRequest = {
     newPassword: null | string;
 };
 
-export type UserDto = {
+export type User = {
     id: string;
     email: string;
     roles: Array<string>;
@@ -2586,7 +2586,7 @@ export type UserDto = {
     lastSignedInAt?: null | string;
 };
 
-export type WedgedReplaceDatJobDto = {
+export type WedgedReplaceDatJob = {
     jobId: string;
     existingDatId: string;
     systemKey?: null | string;
@@ -2764,7 +2764,7 @@ export type ListMySessionsResponses = {
     /**
      * OK
      */
-    200: PageOfAccountSessionDto;
+    200: PageOfAccountSession;
 };
 
 export type ListMySessionsResponse = ListMySessionsResponses[keyof ListMySessionsResponses];
@@ -2796,7 +2796,7 @@ export type ListUsersResponses = {
     /**
      * OK
      */
-    200: PageOfUserDto;
+    200: PageOfUser;
 };
 
 export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
@@ -2825,7 +2825,7 @@ export type CreateUserResponses = {
     /**
      * Created
      */
-    201: UserDto;
+    201: User;
 };
 
 export type CreateUserResponse = CreateUserResponses[keyof CreateUserResponses];
@@ -2891,7 +2891,7 @@ export type GetUserResponses = {
     /**
      * OK
      */
-    200: UserDto;
+    200: User;
 };
 
 export type GetUserResponse = GetUserResponses[keyof GetUserResponses];
@@ -2922,7 +2922,7 @@ export type UpdateUserResponses = {
     /**
      * OK
      */
-    200: UserDto;
+    200: User;
 };
 
 export type UpdateUserResponse = UpdateUserResponses[keyof UpdateUserResponses];
@@ -2953,7 +2953,7 @@ export type AssignUserRoleResponses = {
     /**
      * OK
      */
-    200: UserDto;
+    200: User;
 };
 
 export type AssignUserRoleResponse = AssignUserRoleResponses[keyof AssignUserRoleResponses];
@@ -2988,7 +2988,7 @@ export type AssignUserLibraryResponses = {
     /**
      * OK
      */
-    200: UserDto;
+    200: User;
 };
 
 export type AssignUserLibraryResponse = AssignUserLibraryResponses[keyof AssignUserLibraryResponses];
@@ -3048,7 +3048,7 @@ export type GetAccountSecurityResponses = {
     /**
      * OK
      */
-    200: AccountSecurityDto;
+    200: AccountSecurity;
 };
 
 export type GetAccountSecurityResponse = GetAccountSecurityResponses[keyof GetAccountSecurityResponses];
@@ -3082,7 +3082,7 @@ export type ListAccountLinksResponses = {
     /**
      * OK
      */
-    200: PageOfAccountLinkDto;
+    200: PageOfAccountLink;
 };
 
 export type ListAccountLinksResponse = ListAccountLinksResponses[keyof ListAccountLinksResponses];
@@ -3117,7 +3117,7 @@ export type CreateAccountLinkResponses = {
     /**
      * Created
      */
-    201: IssuedAccountLinkDto;
+    201: IssuedAccountLink;
 };
 
 export type CreateAccountLinkResponse = CreateAccountLinkResponses[keyof CreateAccountLinkResponses];
@@ -3188,7 +3188,7 @@ export type ListAccountSessionsResponses = {
     /**
      * OK
      */
-    200: PageOfAccountSessionDto;
+    200: PageOfAccountSession;
 };
 
 export type ListAccountSessionsResponse = ListAccountSessionsResponses[keyof ListAccountSessionsResponses];
@@ -3310,7 +3310,7 @@ export type ListAuditEventsResponses = {
     /**
      * OK
      */
-    200: PageOfAdminAuditEventDto;
+    200: PageOfAdminAuditEvent;
 };
 
 export type ListAuditEventsResponse = ListAuditEventsResponses[keyof ListAuditEventsResponses];
@@ -3344,7 +3344,7 @@ export type ListCollectionLibraryPlacementsResponses = {
     /**
      * OK
      */
-    200: PageOfCollectionLibraryPlacementDto;
+    200: PageOfCollectionLibraryPlacement;
 };
 
 export type ListCollectionLibraryPlacementsResponse = ListCollectionLibraryPlacementsResponses[keyof ListCollectionLibraryPlacementsResponses];
@@ -3373,7 +3373,7 @@ export type ListOriginalDiscLayoutsResponses = {
     /**
      * OK
      */
-    200: PageOfOriginalDiscLayoutDto;
+    200: PageOfOriginalDiscLayout;
 };
 
 export type ListOriginalDiscLayoutsResponse = ListOriginalDiscLayoutsResponses[keyof ListOriginalDiscLayoutsResponses];
@@ -3404,7 +3404,7 @@ export type GetOriginalDiscLayoutResponses = {
     /**
      * OK
      */
-    200: OriginalDiscLayoutDto;
+    200: OriginalDiscLayout;
 };
 
 export type GetOriginalDiscLayoutResponse = GetOriginalDiscLayoutResponses[keyof GetOriginalDiscLayoutResponses];
@@ -3453,7 +3453,7 @@ export type UpdateOriginalDiscLayoutResponses = {
     /**
      * OK
      */
-    200: OriginalDiscLayoutDto;
+    200: OriginalDiscLayout;
 };
 
 export type UpdateOriginalDiscLayoutResponse = UpdateOriginalDiscLayoutResponses[keyof UpdateOriginalDiscLayoutResponses];
@@ -3488,7 +3488,7 @@ export type ListOriginalDiscLayoutCandidatesResponses = {
     /**
      * OK
      */
-    200: PageOfOriginalDiscLayoutCandidateDto;
+    200: PageOfOriginalDiscLayoutCandidate;
 };
 
 export type ListOriginalDiscLayoutCandidatesResponse = ListOriginalDiscLayoutCandidatesResponses[keyof ListOriginalDiscLayoutCandidatesResponses];
@@ -3522,7 +3522,7 @@ export type ListOriginalDiscLayoutAuditResponses = {
     /**
      * OK
      */
-    200: PageOfOriginalDiscLayoutAuditDto;
+    200: PageOfOriginalDiscLayoutAudit;
 };
 
 export type ListOriginalDiscLayoutAuditResponse = ListOriginalDiscLayoutAuditResponses[keyof ListOriginalDiscLayoutAuditResponses];
@@ -3547,7 +3547,7 @@ export type GetCdStorageRecipeResponses = {
     /**
      * OK
      */
-    200: CdStorageRecipeDto;
+    200: CdStorageRecipe;
 };
 
 export type GetCdStorageRecipeResponse = GetCdStorageRecipeResponses[keyof GetCdStorageRecipeResponses];
@@ -3630,7 +3630,7 @@ export type ListDatCatalogsResponses = {
     /**
      * OK
      */
-    200: DatCatalogDirectoryDto;
+    200: DatCatalogDirectory;
 };
 
 export type ListDatCatalogsResponse = ListDatCatalogsResponses[keyof ListDatCatalogsResponses];
@@ -3662,7 +3662,7 @@ export type ListArtworkProvidersResponses = {
     /**
      * OK
      */
-    200: Array<ArtworkProviderDto>;
+    200: Array<ArtworkProvider>;
 };
 
 export type ListArtworkProvidersResponse = ListArtworkProvidersResponses[keyof ListArtworkProvidersResponses];
@@ -3687,7 +3687,7 @@ export type GetServerStorageResponses = {
     /**
      * OK
      */
-    200: StorageStatsDto;
+    200: StorageStats;
 };
 
 export type GetServerStorageResponse = GetServerStorageResponses[keyof GetServerStorageResponses];
@@ -3712,7 +3712,7 @@ export type GetCatalogCoverageStatsResponses = {
     /**
      * OK
      */
-    200: CoverageStatsDto;
+    200: CoverageStats;
 };
 
 export type GetCatalogCoverageStatsResponse = GetCatalogCoverageStatsResponses[keyof GetCatalogCoverageStatsResponses];
@@ -3737,7 +3737,7 @@ export type GetServerHealthResponses = {
     /**
      * OK
      */
-    200: SystemHealthDto;
+    200: SystemHealth;
 };
 
 export type GetServerHealthResponse = GetServerHealthResponses[keyof GetServerHealthResponses];
@@ -3762,7 +3762,7 @@ export type GetDashboardStatusBarResponses = {
     /**
      * OK
      */
-    200: DashboardStatusBarDto;
+    200: DashboardStatusBar;
 };
 
 export type GetDashboardStatusBarResponse = GetDashboardStatusBarResponses[keyof GetDashboardStatusBarResponses];
@@ -3791,7 +3791,7 @@ export type GetAdminCatalogSnapshotResponses = {
     /**
      * OK
      */
-    200: ReferenceCatalogDescriptorDto;
+    200: ReferenceCatalogDescriptor;
 };
 
 export type GetAdminCatalogSnapshotResponse = GetAdminCatalogSnapshotResponses[keyof GetAdminCatalogSnapshotResponses];
@@ -3828,7 +3828,7 @@ export type ListAdminCatalogSnapshotSystemsResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceSystemDto;
+    200: PageOfReferenceSystem;
 };
 
 export type ListAdminCatalogSnapshotSystemsResponse = ListAdminCatalogSnapshotSystemsResponses[keyof ListAdminCatalogSnapshotSystemsResponses];
@@ -3865,7 +3865,7 @@ export type ListAdminCatalogSnapshotCompaniesResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceNamedDto;
+    200: PageOfReferenceNamed;
 };
 
 export type ListAdminCatalogSnapshotCompaniesResponse = ListAdminCatalogSnapshotCompaniesResponses[keyof ListAdminCatalogSnapshotCompaniesResponses];
@@ -3902,7 +3902,7 @@ export type ListAdminCatalogSnapshotRegionsResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceTaxonomyDto;
+    200: PageOfReferenceTaxonomy;
 };
 
 export type ListAdminCatalogSnapshotRegionsResponse = ListAdminCatalogSnapshotRegionsResponses[keyof ListAdminCatalogSnapshotRegionsResponses];
@@ -3939,7 +3939,7 @@ export type ListAdminCatalogSnapshotLanguagesResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceTaxonomyDto;
+    200: PageOfReferenceTaxonomy;
 };
 
 export type ListAdminCatalogSnapshotLanguagesResponse = ListAdminCatalogSnapshotLanguagesResponses[keyof ListAdminCatalogSnapshotLanguagesResponses];
@@ -3976,7 +3976,7 @@ export type ListAdminCatalogSnapshotRatingBoardsResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceRatingBoardDto;
+    200: PageOfReferenceRatingBoard;
 };
 
 export type ListAdminCatalogSnapshotRatingBoardsResponse = ListAdminCatalogSnapshotRatingBoardsResponses[keyof ListAdminCatalogSnapshotRatingBoardsResponses];
@@ -4013,7 +4013,7 @@ export type ListAdminCatalogSnapshotRatingsResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceRatingDto;
+    200: PageOfReferenceRating;
 };
 
 export type ListAdminCatalogSnapshotRatingsResponse = ListAdminCatalogSnapshotRatingsResponses[keyof ListAdminCatalogSnapshotRatingsResponses];
@@ -4100,7 +4100,7 @@ export type ListLibrariesResponses = {
     /**
      * OK
      */
-    200: PageOfLibraryDto;
+    200: PageOfLibrary;
 };
 
 export type ListLibrariesResponse = ListLibrariesResponses[keyof ListLibrariesResponses];
@@ -4125,7 +4125,7 @@ export type CreateLibraryResponses = {
     /**
      * Created
      */
-    201: LibraryDto;
+    201: Library;
 };
 
 export type CreateLibraryResponse = CreateLibraryResponses[keyof CreateLibraryResponses];
@@ -4191,7 +4191,7 @@ export type GetLibraryResponses = {
     /**
      * OK
      */
-    200: LibraryDto;
+    200: Library;
 };
 
 export type GetLibraryResponse = GetLibraryResponses[keyof GetLibraryResponses];
@@ -4222,7 +4222,7 @@ export type UpdateLibraryResponses = {
     /**
      * OK
      */
-    200: LibraryDto;
+    200: Library;
 };
 
 export type UpdateLibraryResponse = UpdateLibraryResponses[keyof UpdateLibraryResponses];
@@ -4257,7 +4257,7 @@ export type GetLibraryDiscSetOptionsResponses = {
     /**
      * OK
      */
-    200: LibraryDiscSetOptionsDto;
+    200: LibraryDiscSetOptions;
 };
 
 export type GetLibraryDiscSetOptionsResponse = GetLibraryDiscSetOptionsResponses[keyof GetLibraryDiscSetOptionsResponses];
@@ -4321,7 +4321,7 @@ export type ListLibrarySystemFacetsResponses = {
     /**
      * OK
      */
-    200: Array<LibraryFacetDto>;
+    200: Array<LibraryFacet>;
 };
 
 export type ListLibrarySystemFacetsResponse = ListLibrarySystemFacetsResponses[keyof ListLibrarySystemFacetsResponses];
@@ -4356,7 +4356,7 @@ export type ListLibraryGenreFacetsResponses = {
     /**
      * OK
      */
-    200: PageOfLibraryFacetDto;
+    200: PageOfLibraryFacet;
 };
 
 export type ListLibraryGenreFacetsResponse = ListLibraryGenreFacetsResponses[keyof ListLibraryGenreFacetsResponses];
@@ -4391,7 +4391,7 @@ export type ListLibraryCollectionsResponses = {
     /**
      * OK
      */
-    200: PageOfLibraryCollectionDto;
+    200: PageOfLibraryCollection;
 };
 
 export type ListLibraryCollectionsResponse = ListLibraryCollectionsResponses[keyof ListLibraryCollectionsResponses];
@@ -4426,7 +4426,7 @@ export type ListLibraryTitleReleaseDiagnosticsResponses = {
     /**
      * OK
      */
-    200: PageOfLibraryTitleReleaseDiagnosticsDto;
+    200: PageOfLibraryTitleReleaseDiagnostics;
 };
 
 export type ListLibraryTitleReleaseDiagnosticsResponse = ListLibraryTitleReleaseDiagnosticsResponses[keyof ListLibraryTitleReleaseDiagnosticsResponses];
@@ -4457,7 +4457,7 @@ export type ListLibraryAttachmentsResponses = {
     /**
      * OK
      */
-    200: Array<LibraryAttachmentDto>;
+    200: Array<LibraryAttachment>;
 };
 
 export type ListLibraryAttachmentsResponse = ListLibraryAttachmentsResponses[keyof ListLibraryAttachmentsResponses];
@@ -4523,7 +4523,7 @@ export type ListLibraryPreviewTitlesResponses = {
     /**
      * OK
      */
-    200: PageOfLibraryPreviewTitleDto;
+    200: PageOfLibraryPreviewTitle;
 };
 
 export type ListLibraryPreviewTitlesResponse = ListLibraryPreviewTitlesResponses[keyof ListLibraryPreviewTitlesResponses];
@@ -4558,7 +4558,7 @@ export type PreviewLibraryConfigurationResponses = {
     /**
      * OK
      */
-    200: LibraryEvaluationDto;
+    200: LibraryEvaluation;
 };
 
 export type PreviewLibraryConfigurationResponse = PreviewLibraryConfigurationResponses[keyof PreviewLibraryConfigurationResponses];
@@ -4727,7 +4727,7 @@ export type ListJobsResponses = {
     /**
      * OK
      */
-    200: PageOfJobDto;
+    200: PageOfJob;
 };
 
 export type ListJobsResponse = ListJobsResponses[keyof ListJobsResponses];
@@ -4797,7 +4797,7 @@ export type GetJobResponses = {
     /**
      * OK
      */
-    200: JobDto;
+    200: Job;
 };
 
 export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
@@ -4832,7 +4832,7 @@ export type UpdateJobResponses = {
     /**
      * OK
      */
-    200: JobDto;
+    200: Job;
 };
 
 export type UpdateJobResponse = UpdateJobResponses[keyof UpdateJobResponses];
@@ -4868,7 +4868,7 @@ export type ListJobItemsResponses = {
     /**
      * OK
      */
-    200: PageOfJobItemDto;
+    200: PageOfJobItem;
 };
 
 export type ListJobItemsResponse = ListJobItemsResponses[keyof ListJobItemsResponses];
@@ -4903,7 +4903,7 @@ export type ListJobArtworkItemsResponses = {
     /**
      * OK
      */
-    200: PageOfArtworkCompletionItemDto;
+    200: PageOfArtworkCompletionItem;
 };
 
 export type ListJobArtworkItemsResponse = ListJobArtworkItemsResponses[keyof ListJobArtworkItemsResponses];
@@ -4934,7 +4934,7 @@ export type GetJobArtworkSummaryResponses = {
     /**
      * OK
      */
-    200: ArtworkCompletionSummaryDto;
+    200: ArtworkCompletionSummary;
 };
 
 export type GetJobArtworkSummaryResponse = GetJobArtworkSummaryResponses[keyof GetJobArtworkSummaryResponses];
@@ -5598,7 +5598,7 @@ export type ListAdminDiscSetsResponses = {
     /**
      * OK
      */
-    200: PageOfDiscSetDto;
+    200: PageOfDiscSet;
 };
 
 export type ListAdminDiscSetsResponse = ListAdminDiscSetsResponses[keyof ListAdminDiscSetsResponses];
@@ -5629,7 +5629,7 @@ export type GetAdminDiscSetResponses = {
     /**
      * OK
      */
-    200: DiscSetDto;
+    200: DiscSet;
 };
 
 export type GetAdminDiscSetResponse = GetAdminDiscSetResponses[keyof GetAdminDiscSetResponses];
@@ -5678,7 +5678,7 @@ export type UpdateAdminDiscSetResponses = {
     /**
      * OK
      */
-    200: DiscSetDto;
+    200: DiscSet;
 };
 
 export type UpdateAdminDiscSetResponse = UpdateAdminDiscSetResponses[keyof UpdateAdminDiscSetResponses];
@@ -6156,7 +6156,7 @@ export type ListManagedSystemsResponses = {
     /**
      * OK
      */
-    200: PageOfManagedSystemDto;
+    200: PageOfManagedSystem;
 };
 
 export type ListManagedSystemsResponse = ListManagedSystemsResponses[keyof ListManagedSystemsResponses];
@@ -6214,7 +6214,7 @@ export type PreviewSystemDatResponses = {
     /**
      * OK
      */
-    200: SystemDatPreviewDto;
+    200: SystemDatPreview;
 };
 
 export type PreviewSystemDatResponse = PreviewSystemDatResponses[keyof PreviewSystemDatResponses];
@@ -6963,7 +6963,7 @@ export type ListTrackedTitlesResponses = {
     /**
      * OK
      */
-    200: PageOfTrackedCollectionTitleDto;
+    200: PageOfTrackedCollectionTitle;
 };
 
 export type ListTrackedTitlesResponse = ListTrackedTitlesResponses[keyof ListTrackedTitlesResponses];
@@ -6988,7 +6988,7 @@ export type GetTrackedCollectionStatsResponses = {
     /**
      * OK
      */
-    200: TrackedCollectionStatsDto;
+    200: TrackedCollectionStats;
 };
 
 export type GetTrackedCollectionStatsResponse = GetTrackedCollectionStatsResponses[keyof GetTrackedCollectionStatsResponses];
@@ -7170,7 +7170,7 @@ export type ListCollectionItemsResponses = {
     /**
      * OK
      */
-    200: PageOfCollectionItemDto;
+    200: PageOfCollectionItem;
 };
 
 export type ListCollectionItemsResponse = ListCollectionItemsResponses[keyof ListCollectionItemsResponses];
@@ -7205,7 +7205,7 @@ export type CreateCollectionItemResponses = {
     /**
      * Created
      */
-    201: CollectionItemDto;
+    201: CollectionItem;
 };
 
 export type CreateCollectionItemResponse = CreateCollectionItemResponses[keyof CreateCollectionItemResponses];
@@ -7269,7 +7269,7 @@ export type GetCollectionItemResponses = {
     /**
      * OK
      */
-    200: CollectionItemDto;
+    200: CollectionItem;
 };
 
 export type GetCollectionItemResponse = GetCollectionItemResponses[keyof GetCollectionItemResponses];
@@ -7362,7 +7362,7 @@ export type ListEnrichmentWorkbenchResponses = {
     /**
      * OK
      */
-    200: PageOfEnrichmentAssessmentDto;
+    200: PageOfEnrichmentAssessment;
 };
 
 export type ListEnrichmentWorkbenchResponse = ListEnrichmentWorkbenchResponses[keyof ListEnrichmentWorkbenchResponses];
@@ -7389,7 +7389,7 @@ export type GetEnrichmentWorkbenchStatsResponses = {
     /**
      * OK
      */
-    200: EnrichmentWorkbenchCountsDto;
+    200: EnrichmentWorkbenchCounts;
 };
 
 export type GetEnrichmentWorkbenchStatsResponse = GetEnrichmentWorkbenchStatsResponses[keyof GetEnrichmentWorkbenchStatsResponses];
@@ -7414,7 +7414,7 @@ export type GetArtworkEnrichmentSettingsResponses = {
     /**
      * OK
      */
-    200: ArtworkEnrichmentSettingsDto;
+    200: ArtworkEnrichmentSettings;
 };
 
 export type GetArtworkEnrichmentSettingsResponse = GetArtworkEnrichmentSettingsResponses[keyof GetArtworkEnrichmentSettingsResponses];
@@ -7453,7 +7453,7 @@ export type ReplaceArtworkEnrichmentSettingsResponses = {
     /**
      * OK
      */
-    200: ArtworkEnrichmentSettingsDto;
+    200: ArtworkEnrichmentSettings;
 };
 
 export type ReplaceArtworkEnrichmentSettingsResponse = ReplaceArtworkEnrichmentSettingsResponses[keyof ReplaceArtworkEnrichmentSettingsResponses];
@@ -7639,7 +7639,7 @@ export type GetTitleArtworkAcquisitionResponses = {
     /**
      * OK
      */
-    200: ArtworkAcquisitionStateDto;
+    200: ArtworkAcquisitionState;
 };
 
 export type GetTitleArtworkAcquisitionResponse = GetTitleArtworkAcquisitionResponses[keyof GetTitleArtworkAcquisitionResponses];
@@ -7701,7 +7701,7 @@ export type GetTitleEnrichmentAssessmentResponses = {
     /**
      * OK
      */
-    200: EnrichmentAssessmentDto;
+    200: EnrichmentAssessment;
 };
 
 export type GetTitleEnrichmentAssessmentResponse = GetTitleEnrichmentAssessmentResponses[keyof GetTitleEnrichmentAssessmentResponses];
@@ -7732,7 +7732,7 @@ export type GetSystemEnrichmentDefaultsResponses = {
     /**
      * OK
      */
-    200: PlatformMetadataPolicyDto;
+    200: PlatformMetadataPolicy;
 };
 
 export type GetSystemEnrichmentDefaultsResponse = GetSystemEnrichmentDefaultsResponses[keyof GetSystemEnrichmentDefaultsResponses];
@@ -7777,7 +7777,7 @@ export type UpdateSystemEnrichmentDefaultsResponses = {
     /**
      * OK
      */
-    200: PlatformMetadataPolicyDto;
+    200: PlatformMetadataPolicy;
 };
 
 export type UpdateSystemEnrichmentDefaultsResponse = UpdateSystemEnrichmentDefaultsResponses[keyof UpdateSystemEnrichmentDefaultsResponses];
@@ -8071,7 +8071,7 @@ export type ListDatSubscriptionsResponses = {
     /**
      * OK
      */
-    200: Array<DatCatalogSubscriptionDto>;
+    200: Array<DatCatalogSubscription>;
 };
 
 export type ListDatSubscriptionsResponse = ListDatSubscriptionsResponses[keyof ListDatSubscriptionsResponses];
@@ -8100,11 +8100,11 @@ export type CreateDatSubscriptionResponses = {
     /**
      * OK
      */
-    200: DatCatalogSubscriptionDto;
+    200: DatCatalogSubscription;
     /**
      * Created
      */
-    201: DatCatalogSubscriptionDto;
+    201: DatCatalogSubscription;
 };
 
 export type CreateDatSubscriptionResponse = CreateDatSubscriptionResponses[keyof CreateDatSubscriptionResponses];
@@ -8170,7 +8170,7 @@ export type GetDatSubscriptionResponses = {
     /**
      * OK
      */
-    200: DatCatalogSubscriptionDto;
+    200: DatCatalogSubscription;
 };
 
 export type GetDatSubscriptionResponse = GetDatSubscriptionResponses[keyof GetDatSubscriptionResponses];
@@ -8205,7 +8205,7 @@ export type CheckDatSubscriptionResponses = {
     /**
      * OK
      */
-    200: DatCatalogSubscriptionDto;
+    200: DatCatalogSubscription;
 };
 
 export type CheckDatSubscriptionResponse = CheckDatSubscriptionResponses[keyof CheckDatSubscriptionResponses];
@@ -8441,7 +8441,7 @@ export type GetMediaReconciliationPoliciesResponses = {
     /**
      * OK
      */
-    200: Array<MediaReconciliationPolicyDto>;
+    200: Array<MediaReconciliationPolicy>;
 };
 
 export type GetMediaReconciliationPoliciesResponse = GetMediaReconciliationPoliciesResponses[keyof GetMediaReconciliationPoliciesResponses];
@@ -8590,7 +8590,7 @@ export type GetIgdbProviderSettingsResponses = {
     /**
      * OK
      */
-    200: IgdbProviderSettingsDto;
+    200: IgdbProviderSettings;
 };
 
 export type GetIgdbProviderSettingsResponse = GetIgdbProviderSettingsResponses[keyof GetIgdbProviderSettingsResponses];
@@ -8633,7 +8633,7 @@ export type UpdateIgdbProviderSettingsResponses = {
     /**
      * OK
      */
-    200: IgdbProviderSettingsDto;
+    200: IgdbProviderSettings;
 };
 
 export type UpdateIgdbProviderSettingsResponse = UpdateIgdbProviderSettingsResponses[keyof UpdateIgdbProviderSettingsResponses];
@@ -8672,7 +8672,7 @@ export type TestIgdbProviderConnectionResponses = {
     /**
      * OK
      */
-    200: IgdbProviderSettingsDto;
+    200: IgdbProviderSettings;
 };
 
 export type TestIgdbProviderConnectionResponse = TestIgdbProviderConnectionResponses[keyof TestIgdbProviderConnectionResponses];
@@ -8697,7 +8697,7 @@ export type GetSteamGridDbSettingsResponses = {
     /**
      * OK
      */
-    200: SteamGridDbSettingsDto;
+    200: SteamGridDbSettings;
 };
 
 export type GetSteamGridDbSettingsResponse = GetSteamGridDbSettingsResponses[keyof GetSteamGridDbSettingsResponses];
@@ -8740,7 +8740,7 @@ export type ReplaceSteamGridDbSettingsResponses = {
     /**
      * OK
      */
-    200: SteamGridDbSettingsDto;
+    200: SteamGridDbSettings;
 };
 
 export type ReplaceSteamGridDbSettingsResponse = ReplaceSteamGridDbSettingsResponses[keyof ReplaceSteamGridDbSettingsResponses];
@@ -8779,7 +8779,7 @@ export type TestSteamGridDbConnectionResponses = {
     /**
      * OK
      */
-    200: SteamGridDbSettingsDto;
+    200: SteamGridDbSettings;
 };
 
 export type TestSteamGridDbConnectionResponse = TestSteamGridDbConnectionResponses[keyof TestSteamGridDbConnectionResponses];
@@ -8808,7 +8808,7 @@ export type PreviewArtworkCompletionResponses = {
     /**
      * OK
      */
-    200: ArtworkCompletionPreviewDto;
+    200: ArtworkCompletionPreview;
 };
 
 export type PreviewArtworkCompletionResponse = PreviewArtworkCompletionResponses[keyof PreviewArtworkCompletionResponses];
@@ -8872,7 +8872,7 @@ export type GetTitleArtworkResponses = {
     /**
      * OK
      */
-    200: TitleArtworkDto;
+    200: TitleArtwork;
 };
 
 export type GetTitleArtworkResponse = GetTitleArtworkResponses[keyof GetTitleArtworkResponses];
@@ -8904,7 +8904,7 @@ export type GetTitleArtworkRoleResponses = {
     /**
      * OK
      */
-    200: ArtworkSelectionStateDto;
+    200: ArtworkSelectionState;
 };
 
 export type GetTitleArtworkRoleResponse = GetTitleArtworkRoleResponses[keyof GetTitleArtworkRoleResponses];
@@ -8954,7 +8954,7 @@ export type ReplaceTitleArtworkRoleResponses = {
     /**
      * OK
      */
-    200: ArtworkSelectionStateDto;
+    200: ArtworkSelectionState;
 };
 
 export type ReplaceTitleArtworkRoleResponse = ReplaceTitleArtworkRoleResponses[keyof ReplaceTitleArtworkRoleResponses];
@@ -9038,7 +9038,7 @@ export type ListTitleArtworkAssetsResponses = {
     /**
      * OK
      */
-    200: PageOfSavedArtworkDto;
+    200: PageOfSavedArtwork;
 };
 
 export type ListTitleArtworkAssetsResponse = ListTitleArtworkAssetsResponses[keyof ListTitleArtworkAssetsResponses];
@@ -9084,7 +9084,7 @@ export type DeleteTitleArtworkAssetResponses = {
     /**
      * OK
      */
-    200: TitleArtworkDto;
+    200: TitleArtwork;
 };
 
 export type DeleteTitleArtworkAssetResponse = DeleteTitleArtworkAssetResponses[keyof DeleteTitleArtworkAssetResponses];
@@ -9118,7 +9118,7 @@ export type ListTitleArtworkRejectionsResponses = {
     /**
      * OK
      */
-    200: PageOfRejectedArtworkDto;
+    200: PageOfRejectedArtwork;
 };
 
 export type ListTitleArtworkRejectionsResponse = ListTitleArtworkRejectionsResponses[keyof ListTitleArtworkRejectionsResponses];
@@ -9164,7 +9164,7 @@ export type DeleteTitleArtworkRejectionResponses = {
     /**
      * OK
      */
-    200: TitleArtworkDto;
+    200: TitleArtwork;
 };
 
 export type DeleteTitleArtworkRejectionResponse = DeleteTitleArtworkRejectionResponses[keyof DeleteTitleArtworkRejectionResponses];
@@ -9210,7 +9210,7 @@ export type ReplaceTitleArtworkRejectionResponses = {
     /**
      * OK
      */
-    200: TitleArtworkDto;
+    200: TitleArtwork;
 };
 
 export type ReplaceTitleArtworkRejectionResponse = ReplaceTitleArtworkRejectionResponses[keyof ReplaceTitleArtworkRejectionResponses];
@@ -9260,7 +9260,7 @@ export type ReplaceHiddenArtworkCandidateResponses = {
     /**
      * OK
      */
-    200: TitleArtworkDto;
+    200: TitleArtwork;
 };
 
 export type ReplaceHiddenArtworkCandidateResponse = ReplaceHiddenArtworkCandidateResponses[keyof ReplaceHiddenArtworkCandidateResponses];
@@ -9311,7 +9311,7 @@ export type ListTitleArtworkCandidatesResponses = {
     /**
      * OK
      */
-    200: PageOfArtworkCandidateDto;
+    200: PageOfArtworkCandidate;
 };
 
 export type ListTitleArtworkCandidatesResponse = ListTitleArtworkCandidatesResponses[keyof ListTitleArtworkCandidatesResponses];
@@ -9445,7 +9445,7 @@ export type ListTitleProviderMatchesResponses = {
     /**
      * OK
      */
-    200: Array<TitleProviderMatchDto>;
+    200: Array<TitleProviderMatch>;
 };
 
 export type ListTitleProviderMatchesResponse = ListTitleProviderMatchesResponses[keyof ListTitleProviderMatchesResponses];
@@ -9495,7 +9495,7 @@ export type DeleteTitleProviderMatchResponses = {
     /**
      * OK
      */
-    200: TitleProviderMatchDto;
+    200: TitleProviderMatch;
 };
 
 export type DeleteTitleProviderMatchResponse = DeleteTitleProviderMatchResponses[keyof DeleteTitleProviderMatchResponses];
@@ -9531,7 +9531,7 @@ export type GetTitleProviderMatchResponses = {
     /**
      * OK
      */
-    200: TitleProviderMatchDto;
+    200: TitleProviderMatch;
 };
 
 export type GetTitleProviderMatchResponse = GetTitleProviderMatchResponses[keyof GetTitleProviderMatchResponses];
@@ -9589,7 +9589,7 @@ export type ReplaceTitleProviderMatchResponses = {
     /**
      * OK
      */
-    200: TitleProviderMatchDto;
+    200: TitleProviderMatch;
 };
 
 export type ReplaceTitleProviderMatchResponse = ReplaceTitleProviderMatchResponses[keyof ReplaceTitleProviderMatchResponses];
@@ -9639,7 +9639,7 @@ export type ConfirmTitleProviderMatchResponses = {
     /**
      * OK
      */
-    200: TitleProviderMatchDto;
+    200: TitleProviderMatch;
 };
 
 export type ConfirmTitleProviderMatchResponse = ConfirmTitleProviderMatchResponses[keyof ConfirmTitleProviderMatchResponses];
@@ -9684,7 +9684,7 @@ export type SearchMetadataProviderResponses = {
     /**
      * OK
      */
-    200: ProviderGameSearchResultDto;
+    200: ProviderGameSearchResult;
 };
 
 export type SearchMetadataProviderResponse = SearchMetadataProviderResponses[keyof SearchMetadataProviderResponses];
@@ -9729,7 +9729,7 @@ export type ResolveMetadataProviderGameResponses = {
     /**
      * OK
      */
-    200: ProviderGameDto;
+    200: ProviderGame;
 };
 
 export type ResolveMetadataProviderGameResponse = ResolveMetadataProviderGameResponses[keyof ResolveMetadataProviderGameResponses];
@@ -9754,7 +9754,7 @@ export type GetServerDiagnosticsResponses = {
     /**
      * OK
      */
-    200: OperationalDiagnosticsDto;
+    200: OperationalDiagnostics;
 };
 
 export type GetServerDiagnosticsResponse = GetServerDiagnosticsResponses[keyof GetServerDiagnosticsResponses];
@@ -9784,13 +9784,13 @@ export type ListAdminSystemsResponses = {
     /**
      * OK
      */
-    200: PageOfSystemResourceDto;
+    200: PageOfSystemResource;
 };
 
 export type ListAdminSystemsResponse = ListAdminSystemsResponses[keyof ListAdminSystemsResponses];
 
 export type CreateSystemData = {
-    body: CreateSystemDto;
+    body: CreateSystem;
     path?: never;
     query?: never;
     url: '/api/systems';
@@ -9813,7 +9813,7 @@ export type CreateSystemResponses = {
     /**
      * Created
      */
-    201: SystemResourceDto;
+    201: SystemResource;
 };
 
 export type CreateSystemResponse = CreateSystemResponses[keyof CreateSystemResponses];
@@ -9893,13 +9893,13 @@ export type GetAdminSystemResponses = {
     /**
      * OK
      */
-    200: SystemResourceDto;
+    200: SystemResource;
 };
 
 export type GetAdminSystemResponse = GetAdminSystemResponses[keyof GetAdminSystemResponses];
 
 export type UpdateSystemData = {
-    body: SystemPatchDto;
+    body: SystemPatch;
     headers: {
         /**
          * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.
@@ -9942,7 +9942,7 @@ export type UpdateSystemResponses = {
     /**
      * OK
      */
-    200: SystemResourceDto;
+    200: SystemResource;
 };
 
 export type UpdateSystemResponse = UpdateSystemResponses[keyof UpdateSystemResponses];
@@ -10022,7 +10022,7 @@ export type GetSystemOverridesResponses = {
     /**
      * OK
      */
-    200: SystemOverridesDto;
+    200: SystemOverrides;
 };
 
 export type GetSystemOverridesResponse = GetSystemOverridesResponses[keyof GetSystemOverridesResponses];
@@ -10102,13 +10102,13 @@ export type ListAdminCompaniesResponses = {
     /**
      * OK
      */
-    200: PageOfCompanyResourceDto;
+    200: PageOfCompanyResource;
 };
 
 export type ListAdminCompaniesResponse = ListAdminCompaniesResponses[keyof ListAdminCompaniesResponses];
 
 export type CreateCompanyData = {
-    body: CreateCompanyDto;
+    body: CreateCompany;
     path?: never;
     query?: never;
     url: '/api/companies';
@@ -10131,7 +10131,7 @@ export type CreateCompanyResponses = {
     /**
      * Created
      */
-    201: CompanyResourceDto;
+    201: CompanyResource;
 };
 
 export type CreateCompanyResponse = CreateCompanyResponses[keyof CreateCompanyResponses];
@@ -10211,13 +10211,13 @@ export type GetAdminCompanyResponses = {
     /**
      * OK
      */
-    200: CompanyResourceDto;
+    200: CompanyResource;
 };
 
 export type GetAdminCompanyResponse = GetAdminCompanyResponses[keyof GetAdminCompanyResponses];
 
 export type UpdateCompanyData = {
-    body: CompanyPatchDto;
+    body: CompanyPatch;
     headers: {
         /**
          * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.
@@ -10260,7 +10260,7 @@ export type UpdateCompanyResponses = {
     /**
      * OK
      */
-    200: CompanyResourceDto;
+    200: CompanyResource;
 };
 
 export type UpdateCompanyResponse = UpdateCompanyResponses[keyof UpdateCompanyResponses];
@@ -10340,7 +10340,7 @@ export type GetCompanyOverridesResponses = {
     /**
      * OK
      */
-    200: CompanyOverridesDto;
+    200: CompanyOverrides;
 };
 
 export type GetCompanyOverridesResponse = GetCompanyOverridesResponses[keyof GetCompanyOverridesResponses];
@@ -10419,7 +10419,7 @@ export type ListRegionsResponses = {
     /**
      * OK
      */
-    200: PageOfRegionDto;
+    200: PageOfRegion;
 };
 
 export type ListRegionsResponse = ListRegionsResponses[keyof ListRegionsResponses];
@@ -10450,7 +10450,7 @@ export type GetRegionResponses = {
     /**
      * OK
      */
-    200: RegionDto;
+    200: Region;
 };
 
 export type GetRegionResponse = GetRegionResponses[keyof GetRegionResponses];
@@ -10484,7 +10484,7 @@ export type ListRegionAliasesResponses = {
     /**
      * OK
      */
-    200: PageOfAliasDto;
+    200: PageOfAliasResource;
 };
 
 export type ListRegionAliasesResponse = ListRegionAliasesResponses[keyof ListRegionAliasesResponses];
@@ -10519,7 +10519,7 @@ export type CreateRegionAliasResponses = {
     /**
      * Created
      */
-    201: AliasDto;
+    201: AliasResource;
 };
 
 export type CreateRegionAliasResponse = CreateRegionAliasResponses[keyof CreateRegionAliasResponses];
@@ -10589,7 +10589,7 @@ export type PreviewRegionMergeResponses = {
     /**
      * OK
      */
-    200: TaxonomyMergeImpactDto;
+    200: TaxonomyMergeImpact;
 };
 
 export type PreviewRegionMergeResponse = PreviewRegionMergeResponses[keyof PreviewRegionMergeResponses];
@@ -10654,7 +10654,7 @@ export type ListLanguagesResponses = {
     /**
      * OK
      */
-    200: PageOfLanguageDto;
+    200: PageOfLanguage;
 };
 
 export type ListLanguagesResponse = ListLanguagesResponses[keyof ListLanguagesResponses];
@@ -10685,7 +10685,7 @@ export type GetLanguageResponses = {
     /**
      * OK
      */
-    200: LanguageDto;
+    200: Language;
 };
 
 export type GetLanguageResponse = GetLanguageResponses[keyof GetLanguageResponses];
@@ -10719,7 +10719,7 @@ export type ListLanguageAliasesResponses = {
     /**
      * OK
      */
-    200: PageOfAliasDto;
+    200: PageOfAliasResource;
 };
 
 export type ListLanguageAliasesResponse = ListLanguageAliasesResponses[keyof ListLanguageAliasesResponses];
@@ -10754,7 +10754,7 @@ export type CreateLanguageAliasResponses = {
     /**
      * Created
      */
-    201: AliasDto;
+    201: AliasResource;
 };
 
 export type CreateLanguageAliasResponse = CreateLanguageAliasResponses[keyof CreateLanguageAliasResponses];
@@ -10824,7 +10824,7 @@ export type PreviewLanguageMergeResponses = {
     /**
      * OK
      */
-    200: TaxonomyMergeImpactDto;
+    200: TaxonomyMergeImpact;
 };
 
 export type PreviewLanguageMergeResponse = PreviewLanguageMergeResponses[keyof PreviewLanguageMergeResponses];
@@ -10885,7 +10885,7 @@ export type ListRatingBoardsResponses = {
     /**
      * OK
      */
-    200: Array<RatingBoardResourceDto>;
+    200: Array<RatingBoardResource>;
 };
 
 export type ListRatingBoardsResponse = ListRatingBoardsResponses[keyof ListRatingBoardsResponses];
@@ -10916,7 +10916,7 @@ export type GetRatingBoardResponses = {
     /**
      * OK
      */
-    200: RatingBoardResourceDto;
+    200: RatingBoardResource;
 };
 
 export type GetRatingBoardResponse = GetRatingBoardResponses[keyof GetRatingBoardResponses];
@@ -10947,7 +10947,7 @@ export type ListRatingsResponses = {
     /**
      * OK
      */
-    200: Array<RatingResourceDto>;
+    200: Array<RatingResource>;
 };
 
 export type ListRatingsResponse = ListRatingsResponses[keyof ListRatingsResponses];
@@ -10979,7 +10979,7 @@ export type GetRatingResponses = {
     /**
      * OK
      */
-    200: RatingResourceDto;
+    200: RatingResource;
 };
 
 export type GetRatingResponse = GetRatingResponses[keyof GetRatingResponses];

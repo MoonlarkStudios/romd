@@ -10,7 +10,7 @@ import {
   Text,
   Tooltip,
 } from '@mantine/core';
-import type { ArtworkCandidateDto } from '@romd/admin-api-client';
+import type { ArtworkCandidate } from '@romd/admin-api-client';
 import { IconRestore } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import type { TitleDetailView as TitleDetail } from '../../hooks/api/useTitleDetail';
@@ -25,7 +25,7 @@ import { PreviewDeviceSwitcher, usePreviewDevice } from './preview/PreviewDevice
 export interface ArtworkDraft {
   role: ArtworkRole;
   target?: SavedArtworkTarget;
-  candidate?: ArtworkCandidateDto;
+  candidate?: ArtworkCandidate;
   file?: File;
   url: string;
   revision: string;

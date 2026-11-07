@@ -47,6 +47,23 @@ Use `internal` implementations when composition permits it and `sealed` by
 default. Add project or module boundaries when they enforce a needed dependency
 rule, rather than to reach a prescribed number of layers.
 
+## Contract type names
+
+Types in `Romd.Contracts.*` omit the `Dto` suffix; their project and namespace
+already identify them as contracts. Name each type for its meaning and shape,
+such as `Library`, `CollectionItem`, `SystemSummary`, or `ConsumerTitleDetail`.
+Keep meaningful qualifiers and suffixes, including `Consumer`, `Request`,
+`Response`, `Summary`, `Detail`, and `Manifest`; do not replace `Dto` with a
+blanket `Response` or `Contract` suffix.
+
+Contract types remain separate from domain and persistence types even when
+their names match. Resolve ambiguous names with explicit namespace or type
+aliases at mapping boundaries. Renames must update backend references, OpenAPI
+snapshots, generated clients, and affected callers together through the
+[API client workflow](../../.agents/skills/romd-web-api-client/SKILL.md), while
+preserving JSON member names, enum values, and discriminator values unless a
+wire change is explicitly intended.
+
 ## Pure decisions and explicit effects
 
 Prefer a functional core with imperative orchestration:

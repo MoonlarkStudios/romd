@@ -71,9 +71,9 @@ public sealed class RegionLanguageEndpointsTests(IntegrationTestFixture fixture)
     {
         string key = await AddUnregisteredAsync("regions");
         var response = await _client.GetAsync($"/api/regions/{key}");
-        var region = (await response.Content.ReadFromJsonAsync<RegionDto>())!;
+        var region = (await response.Content.ReadFromJsonAsync<Region>())!;
         (region.Key, region.Ownership, region.CanMerge, region.IsAutoCreated).ShouldBe((key, null, true, true));
-        var registered = (await _client.GetFromJsonAsync<RegionDto>("/api/regions/asia"))!;
+        var registered = (await _client.GetFromJsonAsync<Region>("/api/regions/asia"))!;
         (registered.Ownership, registered.CanMerge).ShouldBe(("Romd", false));
         registered.Aliases.Items.ShouldContain(alias => alias.Ownership == "Romd");
 
@@ -102,7 +102,7 @@ public sealed class RegionLanguageEndpointsTests(IntegrationTestFixture fixture)
         var created = await _client.PostAsJsonAsync($"/api/{collection}/{key}/aliases", new { alias = "  " + aliasText.ToUpperInvariant() });
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var alias = (await created.Content.ReadFromJsonAsync<AliasDto>())!;
+        var alias = (await created.Content.ReadFromJsonAsync<AliasResource>())!;
         (alias.Alias, alias.Ownership).ShouldBe((aliasText, "Installation"));
         IdCoder.TryDecode(alias.Id, out _).ShouldBeTrue();
         created.Headers.Location!.ToString().ShouldBe($"/api/{collection}/{key}/aliases/{alias.Id}");
@@ -153,7 +153,7 @@ public sealed class RegionLanguageEndpointsTests(IntegrationTestFixture fixture)
 
         var preview = await _client.PostAsJsonAsync($"/api/{collection}/{source}/merge/preview", new MergeTaxonomyRequest { TargetKey = target });
         preview.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await preview.Content.ReadFromJsonAsync<TaxonomyMergeImpactDto>())!.Aliases.ShouldBe(2);
+        (await preview.Content.ReadFromJsonAsync<TaxonomyMergeImpact>())!.Aliases.ShouldBe(2);
         (await _client.GetAsync($"/api/{collection}/{source}")).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         (await _client.PostAsJsonAsync($"/api/{collection}/{source}/merge", new MergeTaxonomyRequest { TargetKey = target }))
@@ -171,18 +171,18 @@ public sealed class RegionLanguageEndpointsTests(IntegrationTestFixture fixture)
         string key = await AddUnregisteredAsync(collection, "paged", TaxonomyAliasPageRequest.EmbeddedLimit + 4);
         string other = await AddUnregisteredAsync(collection, "other", 1);
         var response = await _client.GetAsync($"/api/{collection}/{key}");
-        var embedded = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("aliases").Deserialize<Page<AliasDto>>(Json)!;
+        var embedded = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("aliases").Deserialize<Page<AliasResource>>(Json)!;
 
         embedded.Items.Count.ShouldBe(TaxonomyAliasPageRequest.EmbeddedLimit);
         embedded.HasNextPage.ShouldBeTrue();
-        var rest = (await _client.GetFromJsonAsync<Page<AliasDto>>($"/api/{collection}/{key}/aliases?limit=100&cursor={embedded.NextCursor}"))!;
+        var rest = (await _client.GetFromJsonAsync<Page<AliasResource>>($"/api/{collection}/{key}/aliases?limit=100&cursor={embedded.NextCursor}"))!;
         rest.Items.Count.ShouldBe(5);
         rest.HasNextPage.ShouldBeFalse();
         var all = await ReadAliasesAsync(collection, key, 7);
         all.Select(alias => alias.Id).ShouldBe(embedded.Items.Concat(rest.Items).Select(alias => alias.Id));
         all.Select(alias => IdCoder.TryDecode(alias.Id, out int id) ? id : 0).ShouldBeInOrder();
 
-        var otherRows = (await _client.GetFromJsonAsync<Page<AliasDto>>($"/api/{collection}/{other}/aliases?limit=1"))!.NextCursor;
+        var otherRows = (await _client.GetFromJsonAsync<Page<AliasResource>>($"/api/{collection}/{other}/aliases?limit=1"))!.NextCursor;
         var rows = (await _client.GetFromJsonAsync<Page<JsonElement>>($"/api/{collection}?limit=1"))!.NextCursor;
         foreach (string? cursor in new[] { otherRows, rows })
         {
@@ -212,14 +212,14 @@ public sealed class RegionLanguageEndpointsTests(IntegrationTestFixture fixture)
         string target = await AddUnregisteredAsync(collection, "traversed-target", 5);
         var before = await ReadAliasesAsync(collection, target);
         var moved = await ReadAliasesAsync(collection, source);
-        var first = (await _client.GetFromJsonAsync<Page<AliasDto>>($"/api/{collection}/{target}/aliases?limit=2"))!;
+        var first = (await _client.GetFromJsonAsync<Page<AliasResource>>($"/api/{collection}/{target}/aliases?limit=2"))!;
 
         (await _client.PostAsJsonAsync($"/api/{collection}/{source}/merge", new MergeTaxonomyRequest { TargetKey = target }))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
         var traversed = first.Items.ToList();
         for (string? cursor = first.NextCursor; cursor is not null;)
         {
-            var page = (await _client.GetFromJsonAsync<Page<AliasDto>>($"/api/{collection}/{target}/aliases?limit=2&cursor={cursor}"))!;
+            var page = (await _client.GetFromJsonAsync<Page<AliasResource>>($"/api/{collection}/{target}/aliases?limit=2&cursor={cursor}"))!;
             traversed.AddRange(page.Items);
             cursor = page.NextCursor;
         }
@@ -286,13 +286,13 @@ public sealed class RegionLanguageEndpointsTests(IntegrationTestFixture fixture)
     }
 
     /// <summary>Every alias of the row, read through its alias collection in id order.</summary>
-    private async Task<List<AliasDto>> ReadAliasesAsync(string collection, string key, int limit = 100)
+    private async Task<List<AliasResource>> ReadAliasesAsync(string collection, string key, int limit = 100)
     {
-        var aliases = new List<AliasDto>();
+        var aliases = new List<AliasResource>();
         string? cursor = null;
         do
         {
-            var page = (await _client.GetFromJsonAsync<Page<AliasDto>>(
+            var page = (await _client.GetFromJsonAsync<Page<AliasResource>>(
                 $"/api/{collection}/{key}/aliases?limit={limit}" + (cursor is null ? "" : "&cursor=" + cursor)))!;
             page.Items.Count.ShouldBeLessThanOrEqualTo(limit);
             aliases.AddRange(page.Items);

@@ -63,7 +63,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     public async Task UnhandledException_Returns500EnvelopeWithoutExceptionDetails()
     {
         const string secretExceptionMessage = "secret-consumer-identity-failure-detail";
-        var handler = Substitute.For<IQueryHandler<GetCurrentConsumerUserQuery, CurrentUserDto>>();
+        var handler = Substitute.For<IQueryHandler<GetCurrentConsumerUserQuery, CurrentUser>>();
         handler.HandleAsync(Arg.Any<GetCurrentConsumerUserQuery>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException(secretExceptionMessage));
         await using var factory = CreateFactory(services => services.ReplaceWith(handler));
@@ -81,7 +81,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     public async Task UpdateSettings_MalformedJsonBody_Returns400Envelope()
     {
         await using var factory = CreateFactory(services => services.ReplaceWith(
-            Substitute.For<ICommandHandler<UpdateConsumerUserSettingsCommand, ConsumerUserSettingsDto>>()));
+            Substitute.For<ICommandHandler<UpdateConsumerUserSettingsCommand, ConsumerUserSettings>>()));
         using var client = CreateUserClient(factory);
         using var content = new StringContent("{\"theme\":", Encoding.UTF8, "application/json");
 
@@ -94,7 +94,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     public async Task UpsertPlaySession_QuotedNumericValue_Returns400Envelope()
     {
         await using var factory = CreateFactory(services => services.ReplaceWith(
-            Substitute.For<ICommandHandler<UpsertPlaySessionCommand, PlaySessionDto>>()));
+            Substitute.For<ICommandHandler<UpsertPlaySessionCommand, PlaySession>>()));
         using var client = CreateUserClient(factory);
         using var content = new StringContent(
             "{\"clientId\":\"console\",\"titleId\":\"abc\",\"releaseId\":\"abc\"," +
@@ -111,7 +111,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     public async Task GetTitle_MalformedRouteIdentity_Returns400Envelope()
     {
         await using var factory = CreateFactory(services => services.ReplaceWith(
-            Substitute.For<IQueryHandler<GetConsumerTitleQuery, ConsumerTitleDetailDto>>()));
+            Substitute.For<IQueryHandler<GetConsumerTitleQuery, ConsumerTitleDetail>>()));
         using var client = CreateUserClient(factory);
 
         using var response = await client.GetAsync("/api/titles/not-a-sqid!");
@@ -123,7 +123,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     [Fact]
     public async Task GetReleaseAccess_MalformedReleaseId_Returns400EnvelopeWithFieldError()
     {
-        var handler = Substitute.For<IQueryHandler<GetConsumerReleaseAccessQuery, ConsumerReleaseAccessDto>>();
+        var handler = Substitute.For<IQueryHandler<GetConsumerReleaseAccessQuery, ConsumerReleaseAccess>>();
         await using var factory = CreateFactory(services => services.ReplaceWith(handler));
         using var client = CreateUserClient(factory);
 
@@ -192,8 +192,8 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     {
         var reader = Substitute.For<ICompanyReferenceReader>();
         reader.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns((ReferenceResourceResult<Romd.Contracts.Common.ReferenceCatalog.CompanyResourceDto,
-                Romd.Contracts.Common.ReferenceCatalog.CompanyOverridesDto>?)null);
+            .Returns((ReferenceResourceResult<Romd.Contracts.Common.ReferenceCatalog.CompanyResource,
+                Romd.Contracts.Common.ReferenceCatalog.CompanyOverrides>?)null);
         await using var factory = CreateFactory(services => services.ReplaceWith(reader));
         using var client = CreateUserClient(factory);
 
@@ -238,7 +238,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     public async Task SnapshotChildren_ReadOnePublishedDocument_KeepSequenceAndRejectOldPinEvenWithConditionalHeader()
     {
         var catalog = Substitute.For<IReferenceCatalogService>();
-        var published = new Romd.Contracts.Common.ReferenceCatalog.ReferenceCatalogDto
+        var published = new Romd.Contracts.Common.ReferenceCatalog.ReferenceCatalog
         {
             Revision = new string('a', 64),
             BuiltInVersion = 7,
@@ -249,7 +249,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
         catalog.GetCurrentAsync(Arg.Any<CancellationToken>()).Returns(published);
         await using var factory = CreateFactory(services => services.ReplaceWith(catalog));
         using var client = CreateUserClient(factory);
-        var descriptor = (await client.GetFromJsonAsync<Romd.Contracts.Common.ReferenceCatalog.ReferenceCatalogDescriptorDto>("/api/catalog-snapshot"))!;
+        var descriptor = (await client.GetFromJsonAsync<Romd.Contracts.Common.ReferenceCatalog.ReferenceCatalogDescriptor>("/api/catalog-snapshot"))!;
         descriptor.CatalogRevision.ShouldBe(published.Revision);
         descriptor.Counts.Systems.ShouldBe(2);
         descriptor.Revision.ShouldNotBe(descriptor.CatalogRevision);
@@ -259,10 +259,10 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
         using var response = await client.SendAsync(request);
         response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK);
         response.Headers.ETag.ShouldBeNull();
-        var first = (await response.Content.ReadFromJsonAsync<Romd.Contracts.Common.Models.Page<Romd.Contracts.Common.ReferenceCatalog.ReferenceSystemDto>>())!;
+        var first = (await response.Content.ReadFromJsonAsync<Romd.Contracts.Common.Models.Page<Romd.Contracts.Common.ReferenceCatalog.ReferenceSystem>>())!;
         first.Items.ShouldHaveSingleItem().Key.ShouldBe("local-z");
         await catalog.Received(1).GetCurrentAsync(Arg.Any<CancellationToken>());
-        var next = (await client.GetFromJsonAsync<Romd.Contracts.Common.Models.Page<Romd.Contracts.Common.ReferenceCatalog.ReferenceSystemDto>>(
+        var next = (await client.GetFromJsonAsync<Romd.Contracts.Common.Models.Page<Romd.Contracts.Common.ReferenceCatalog.ReferenceSystem>>(
             "/api/catalog-snapshot/systems?revision=" + published.Revision + "&cursor=" + Uri.EscapeDataString(first.NextCursor!)))!;
         next.Items.ShouldHaveSingleItem().Key.ShouldBe("local-a");
         next.HasNextPage.ShouldBeFalse();
@@ -286,7 +286,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     {
         var catalog = Substitute.For<IReferenceCatalogService>();
         catalog.GetCurrentAsync(Arg.Any<CancellationToken>())
-            .Returns((Romd.Contracts.Common.ReferenceCatalog.ReferenceCatalogDto?)null);
+            .Returns((Romd.Contracts.Common.ReferenceCatalog.ReferenceCatalog?)null);
         await using var factory = CreateFactory(services => services.ReplaceWith(catalog));
         using var client = CreateUserClient(factory);
 
@@ -299,7 +299,7 @@ public sealed class ConsumerErrorEnvelopeTests : IDisposable
     public async Task PersistenceConflictException_IsAdminOnly_Returns500Envelope()
     {
         const string privateDetail = "secret-consumer-persistence-conflict-detail";
-        var handler = Substitute.For<IQueryHandler<GetCurrentConsumerUserQuery, CurrentUserDto>>();
+        var handler = Substitute.For<IQueryHandler<GetCurrentConsumerUserQuery, CurrentUser>>();
         handler.HandleAsync(Arg.Any<GetCurrentConsumerUserQuery>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new PersistenceConflictException(new InvalidOperationException(privateDetail)));
         await using var factory = CreateFactory(services => services.ReplaceWith(handler));

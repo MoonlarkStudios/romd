@@ -16,7 +16,7 @@ import {
 import { Dropzone } from '@mantine/dropzone';
 import { useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import type { JobDto, Rom } from '@romd/admin-api-client';
+import type { Job, Rom } from '@romd/admin-api-client';
 import {
   IconAlertTriangle,
   IconInfoCircle,
@@ -58,7 +58,7 @@ type ListItem =
     }
   | {
       type: 'job';
-      data: JobDto;
+      data: Job;
     };
 
 // Queue metadata for Inbox mode framing

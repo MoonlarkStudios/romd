@@ -1,6 +1,6 @@
 import { Anchor, Badge, Button, Checkbox, Group, Paper, Select, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type { Dat, SystemResourceDto } from '@romd/admin-api-client';
+import type { Dat, SystemResource } from '@romd/admin-api-client';
 import { IconDatabase, IconPlus } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -9,7 +9,7 @@ import { useAddPlatformAlias } from '../../hooks/api/usePlatformManagement';
 
 export interface UnroutedDatCardProps {
   summary: Dat;
-  platforms: SystemResourceDto[];
+  platforms: SystemResource[];
   /** Whether the current user can route DATs (Manager+) */
   canRoute: boolean;
   /** Opens the new-system modal seeded with this DAT */

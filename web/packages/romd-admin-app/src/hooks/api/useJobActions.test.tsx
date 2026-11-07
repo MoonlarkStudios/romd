@@ -1,4 +1,4 @@
-import { client, type JobDto } from '@romd/admin-api-client';
+import { client, type Job } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
@@ -106,7 +106,7 @@ describe('typed job retries', () => {
       }),
     );
     const { result } = setup();
-    const job: JobDto = {
+    const job: Job = {
       jobType: 'bulk_enrichment',
       id: 'ordinary',
       correlationId: 'ordinary',

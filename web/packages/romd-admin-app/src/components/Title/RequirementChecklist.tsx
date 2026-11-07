@@ -1,8 +1,8 @@
 import { Accordion, Badge, Button, Group, Text, Title } from '@mantine/core';
 import type {
-  EnrichmentAssessmentDto,
-  EnrichmentRequirementDto,
-  ProviderGameDto,
+  EnrichmentAssessment,
+  EnrichmentRequirement,
+  ProviderGame,
 } from '@romd/admin-api-client';
 import { IconCheck } from '@tabler/icons-react';
 import { type ReactNode, useId } from 'react';
@@ -29,12 +29,12 @@ import { type ChecklistGroup, checklistGroups, isReviewAction } from './titleWor
 import { type ConfirmedAction, confirmedActions } from './useRequirementDecisions';
 
 export interface RequirementActions {
-  review: (row: EnrichmentRequirementDto, action: string) => void;
+  review: (row: EnrichmentRequirement, action: string) => void;
   enrich: () => void;
-  confirm: (action: ConfirmedAction, row: EnrichmentRequirementDto) => void;
-  confirmLabel: (action: ConfirmedAction, row: EnrichmentRequirementDto) => string;
-  revisit: (row: EnrichmentRequirementDto) => void;
-  returnToAutomatic: (row: EnrichmentRequirementDto) => void;
+  confirm: (action: ConfirmedAction, row: EnrichmentRequirement) => void;
+  confirmLabel: (action: ConfirmedAction, row: EnrichmentRequirement) => string;
+  revisit: (row: EnrichmentRequirement) => void;
+  returnToAutomatic: (row: EnrichmentRequirement) => void;
 }
 
 /**
@@ -51,16 +51,16 @@ export function RequirementChecklist({
   actions,
   collapseCompleted = false,
 }: {
-  assessment: EnrichmentAssessmentDto;
+  assessment: EnrichmentAssessment;
   collapseCompleted?: boolean;
   currentKey?: string;
   headingOrder: 2 | 3;
-  matchedGames: ReadonlyMap<string, ProviderGameDto>;
+  matchedGames: ReadonlyMap<string, ProviderGame>;
   pendingSubject?: string;
   registerRow: (key: string, element: HTMLLIElement | null) => void;
   actions: RequirementActions;
 }) {
-  const renderGroups = (requirements: EnrichmentRequirementDto[]) => (
+  const renderGroups = (requirements: EnrichmentRequirement[]) => (
     <div className={classes.groups}>
       {checklistGroups(requirements).map((group) => (
         <RequirementGroup
@@ -154,10 +154,10 @@ function RequirementRow({
   registerRow,
   actions,
 }: {
-  row: EnrichmentRequirementDto;
+  row: EnrichmentRequirement;
   current: boolean;
   hasActiveWork: boolean;
-  game?: ProviderGameDto;
+  game?: ProviderGame;
   pending: boolean;
   registerRow: (key: string, element: HTMLLIElement | null) => void;
   actions: RequirementActions;
@@ -242,7 +242,7 @@ function OpenActions({
   hasActiveWork,
   actions,
 }: {
-  row: EnrichmentRequirementDto;
+  row: EnrichmentRequirement;
   current: boolean;
   hasActiveWork: boolean;
   actions: RequirementActions;
@@ -313,7 +313,7 @@ function SatisfiedActions({
   pending,
   actions,
 }: {
-  row: EnrichmentRequirementDto;
+  row: EnrichmentRequirement;
   pending: boolean;
   actions: RequirementActions;
 }) {

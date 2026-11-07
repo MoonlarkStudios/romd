@@ -46,8 +46,8 @@ public sealed class SetFieldOverridesEndpointTests
         var handler = Substitute.For<ICommandHandler<SetFieldOverridesCommand, Models.TitleDetail>>();
         handler.HandleAsync(Arg.Any<SetFieldOverridesCommand>(), cancellation.Token).Returns(detail);
         var offered = new ArchiveFormats([
-            new ArchiveFormatDto { Format = "original", Label = "Original" }, new ArchiveFormatDto { Format = "rvz", Label = "RVZ" }
-        ], new Dictionary<int, IReadOnlyList<ArchiveFormatDto>>());
+            new ArchiveFormat { Format = "original", Label = "Original" }, new ArchiveFormat { Format = "rvz", Label = "RVZ" }
+        ], new Dictionary<int, IReadOnlyList<ArchiveFormat>>());
         var archiveFormats = Substitute.For<IQueryHandler<GetArchiveFormatsQuery, ArchiveFormats>>();
         archiveFormats.HandleAsync(Arg.Any<GetArchiveFormatsQuery>(), Arg.Any<CancellationToken>()).Returns(offered);
         var context = Context("\"read-revision\"", archiveFormats);
@@ -137,7 +137,7 @@ public sealed class SetFieldOverridesEndpointTests
         builder.Services.AddSingleton(Substitute.For<Romd.Admin.Application.Artwork.IArtworkAcquisitionStore>());
         builder.Services.AddSingleton(Substitute.For<ICommandHandler<
             Romd.Admin.Application.Artwork.Commands.ReplaceArtworkEnrichmentSettings.ReplaceArtworkEnrichmentSettingsCommand,
-            Romd.Contracts.Management.Artwork.ArtworkEnrichmentSettingsDto>>());
+            Romd.Contracts.Management.Artwork.ArtworkEnrichmentSettings>>());
         builder.Services.AddSingleton(Substitute.For<Romd.Admin.Application.MetadataProviders.IIgdbProviderSettingsService>());
         builder.Services.AddSingleton(Substitute.For<ICommandHandler<Romd.Admin.Application.Titles.Commands.TriggerTitleEnrichment.TriggerTitleEnrichmentCommand, Guid>>());
         builder.Services.AddSingleton(Substitute.For<ITitleAggregateReader>());
@@ -146,8 +146,8 @@ public sealed class SetFieldOverridesEndpointTests
         builder.Services.AddSingleton(Substitute.For<ITitleEnrichmentStatusReader>());
         builder.Services.AddSingleton(Substitute.For<IPlatformRepository>());
         builder.Services.AddSingleton(Substitute.For<IPlatformFieldDefaultRepository>());
-        builder.Services.AddSingleton(Substitute.For<IQueryHandler<Romd.Admin.Application.Source.Platform.Queries.GetMetadataPolicy.GetMetadataPolicyQuery, Romd.Contracts.Management.Enrichment.PlatformMetadataPolicyDto>>());
-        builder.Services.AddSingleton(Substitute.For<ICommandHandler<Romd.Admin.Application.Source.Platform.Commands.SetMetadataPolicy.SetMetadataPolicyCommand, Romd.Contracts.Management.Enrichment.PlatformMetadataPolicyDto>>());
+        builder.Services.AddSingleton(Substitute.For<IQueryHandler<Romd.Admin.Application.Source.Platform.Queries.GetMetadataPolicy.GetMetadataPolicyQuery, Romd.Contracts.Management.Enrichment.PlatformMetadataPolicy>>());
+        builder.Services.AddSingleton(Substitute.For<ICommandHandler<Romd.Admin.Application.Source.Platform.Commands.SetMetadataPolicy.SetMetadataPolicyCommand, Romd.Contracts.Management.Enrichment.PlatformMetadataPolicy>>());
         builder.Services.AddSingleton(Substitute.For<IRematerializationScheduler>());
         builder.Services.AddSingleton(Substitute.For<Romd.Admin.Application.Common.Persistence.IUnitOfWork>());
         builder.Services.AddSingleton(Substitute.For<ICommandHandler<QueueBulkEnrichmentJobCommand, Guid>>());

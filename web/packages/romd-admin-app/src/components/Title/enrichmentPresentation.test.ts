@@ -1,7 +1,7 @@
 import type {
   EnrichmentIssueState,
+  EnrichmentRequirement,
   EnrichmentRequirementCause,
-  EnrichmentRequirementDto,
   EnrichmentRequirementSatisfiedBy,
 } from '@romd/admin-api-client';
 import { describe, expect, it } from 'vitest';
@@ -727,7 +727,7 @@ describe('actions', () => {
       unsatisfied('Artwork:Hero', 'Automatic', 'NotAttempted'),
       undefined,
     ],
-  ])('labels %s for %s', (action, requirement: EnrichmentRequirementDto, label) => {
+  ])('labels %s for %s', (action, requirement: EnrichmentRequirement, label) => {
     expect(reviewActionLabel(action, requirement)).toBe(label);
   });
 
@@ -762,7 +762,7 @@ describe('actions', () => {
       satisfied('Metadata:Refresh', 'Current'),
       undefined,
     ],
-  ])('labels satisfied %s for %s', (action, requirement: EnrichmentRequirementDto, label) => {
+  ])('labels satisfied %s for %s', (action, requirement: EnrichmentRequirement, label) => {
     expect(satisfiedActionLabel(action, requirement)).toBe(label);
   });
 

@@ -10,7 +10,7 @@ import {
   TextInput,
 } from '@mantine/core';
 import {
-  type DiscSetDto,
+  type DiscSet,
   type DiscSetMemberEdit,
   listAdminDiscSets,
   updateAdminDiscSet,
@@ -103,7 +103,7 @@ export function DiscSetsPanel({ titleId }: { titleId: string }) {
   );
 }
 
-function DiscSetEditor({ set }: { set: DiscSetDto }) {
+function DiscSetEditor({ set }: { set: DiscSet }) {
   const queryClient = useQueryClient();
   const effective = set.correction ?? set.proposal;
   const [editing, setEditing] = useState(false);

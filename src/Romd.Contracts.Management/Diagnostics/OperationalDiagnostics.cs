@@ -42,25 +42,25 @@ public enum RecurringJobDiagnosticState
     Deleted = 7
 }
 
-public sealed record OperationalDiagnosticsDto
+public sealed record OperationalDiagnostics
 {
     public required DateTimeOffset GeneratedAt { get; init; }
-    public required CatalogProjectionDiagnosticsDto CatalogProjections { get; init; }
-    public required OperationalJobDiagnosticsDto Jobs { get; init; }
-    public required OutboxDiagnosticsDto Outbox { get; init; }
-    public required HangfireDiagnosticsDto Hangfire { get; init; }
-    public required StorageDiagnosticsDto Storage { get; init; }
+    public required CatalogProjectionDiagnostics CatalogProjections { get; init; }
+    public required OperationalJobDiagnostics Jobs { get; init; }
+    public required OutboxDiagnostics Outbox { get; init; }
+    public required HangfireDiagnostics Hangfire { get; init; }
+    public required StorageDiagnostics Storage { get; init; }
 }
 
-public sealed record CatalogProjectionDiagnosticsDto
+public sealed record CatalogProjectionDiagnostics
 {
     public required DiagnosticAvailability Availability { get; init; }
     public string? Error { get; init; }
-    public required IReadOnlyList<CatalogProjectionDiagnosticDto> Items { get; init; }
+    public required IReadOnlyList<CatalogProjectionDiagnostic> Items { get; init; }
     public required bool IsTruncated { get; init; }
 }
 
-public sealed record CatalogProjectionDiagnosticDto
+public sealed record CatalogProjectionDiagnostic
 {
     public required string SystemKey { get; init; }
     public required string PlatformName { get; init; }
@@ -71,17 +71,17 @@ public sealed record CatalogProjectionDiagnosticDto
     public DateTimeOffset? FailedAt { get; init; }
 }
 
-public sealed record OperationalJobDiagnosticsDto
+public sealed record OperationalJobDiagnostics
 {
     public required DiagnosticAvailability Availability { get; init; }
     public string? Error { get; init; }
-    public required IReadOnlyList<WedgedReplaceDatJobDto> WedgedReplaceDatJobs { get; init; }
+    public required IReadOnlyList<WedgedReplaceDatJob> WedgedReplaceDatJobs { get; init; }
     public required bool WedgedReplaceDatJobsTruncated { get; init; }
-    public required IReadOnlyList<StrandedBulkEnrichmentJobDto> StrandedBulkEnrichmentJobs { get; init; }
+    public required IReadOnlyList<StrandedBulkEnrichmentJob> StrandedBulkEnrichmentJobs { get; init; }
     public required bool StrandedBulkEnrichmentJobsTruncated { get; init; }
 }
 
-public sealed record WedgedReplaceDatJobDto
+public sealed record WedgedReplaceDatJob
 {
     public required Guid JobId { get; init; }
     public required string ExistingDatId { get; init; }
@@ -95,7 +95,7 @@ public sealed record WedgedReplaceDatJobDto
     public required bool AttemptErrorTruncated { get; init; }
 }
 
-public sealed record StrandedBulkEnrichmentJobDto
+public sealed record StrandedBulkEnrichmentJob
 {
     public required Guid JobId { get; init; }
     public string? SystemKey { get; init; }
@@ -105,7 +105,7 @@ public sealed record StrandedBulkEnrichmentJobDto
     public required long StrandedForSeconds { get; init; }
 }
 
-public sealed record OutboxDiagnosticsDto
+public sealed record OutboxDiagnostics
 {
     public required DiagnosticAvailability Availability { get; init; }
     public string? Error { get; init; }
@@ -115,18 +115,18 @@ public sealed record OutboxDiagnosticsDto
     public DateTimeOffset? LastProcessedAt { get; init; }
 }
 
-public sealed record HangfireDiagnosticsDto
+public sealed record HangfireDiagnostics
 {
     public required DiagnosticAvailability Availability { get; init; }
     public string? Error { get; init; }
-    public required IReadOnlyList<HangfireServerDiagnosticDto> Servers { get; init; }
+    public required IReadOnlyList<HangfireServerDiagnostic> Servers { get; init; }
     public required bool ServersTruncated { get; init; }
-    public required IReadOnlyList<RecurringJobDiagnosticDto> RecurringJobs { get; init; }
+    public required IReadOnlyList<RecurringJobDiagnostic> RecurringJobs { get; init; }
     public required bool RecurringJobsTruncated { get; init; }
-    public required IReadOnlyList<QueueBacklogDiagnosticDto> QueueBacklogs { get; init; }
+    public required IReadOnlyList<QueueBacklogDiagnostic> QueueBacklogs { get; init; }
 }
 
-public sealed record HangfireServerDiagnosticDto
+public sealed record HangfireServerDiagnostic
 {
     public required string Name { get; init; }
     public required int WorkerCount { get; init; }
@@ -136,7 +136,7 @@ public sealed record HangfireServerDiagnosticDto
     public long? HeartbeatAgeSeconds { get; init; }
 }
 
-public sealed record RecurringJobDiagnosticDto
+public sealed record RecurringJobDiagnostic
 {
     public required string Id { get; init; }
     public required string Queue { get; init; }
@@ -147,7 +147,7 @@ public sealed record RecurringJobDiagnosticDto
     public string? Error { get; init; }
 }
 
-public sealed record QueueBacklogDiagnosticDto
+public sealed record QueueBacklogDiagnostic
 {
     public required string Queue { get; init; }
     [JsonConverter(typeof(CanonicalInt64StringJsonConverter))]
@@ -156,7 +156,7 @@ public sealed record QueueBacklogDiagnosticDto
     public required long FetchedCount { get; init; }
 }
 
-public sealed record StorageDiagnosticsDto
+public sealed record StorageDiagnostics
 {
     public required DiagnosticAvailability DataVolumeAvailability { get; init; }
     public ByteCount? DataVolumeFreeBytes { get; init; }

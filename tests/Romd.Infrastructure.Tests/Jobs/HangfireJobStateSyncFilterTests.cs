@@ -78,7 +78,7 @@ public sealed class HangfireJobStateSyncFilterTests : IDisposable
         errors[0].OccurredAt.ShouldBe(failedAt);
 
         var outboxEvent = assertDb.AdminRealtimeOutboxEvents.Single();
-        var payload = AdminRealtimePayloadSerializer.Deserialize<Romd.Contracts.Management.Models.JobDto>(
+        var payload = AdminRealtimePayloadSerializer.Deserialize<Romd.Contracts.Management.Models.Job>(
             outboxEvent.PayloadJson);
 
         outboxEvent.EventType.ShouldBe(AdminRealtimeEventTypes.JobUpdated);
@@ -121,8 +121,8 @@ public sealed class HangfireJobStateSyncFilterTests : IDisposable
         events.Count.ShouldBe(2);
         events.ShouldAllBe(x => x.SchemaVersion == 2);
         foreach (var evt in events)
-            AdminRealtimePayloadSerializer.Deserialize<Romd.Contracts.Management.Models.JobDto>(evt.PayloadJson)
-                .ShouldBeOfType<Romd.Contracts.Management.Models.ArtworkCompletionOperationDto>().Mode.ShouldBe(expected);
+            AdminRealtimePayloadSerializer.Deserialize<Romd.Contracts.Management.Models.Job>(evt.PayloadJson)
+                .ShouldBeOfType<Romd.Contracts.Management.Models.ArtworkCompletionOperation>().Mode.ShouldBe(expected);
     }
 
     public void Dispose() => _connection.Dispose();

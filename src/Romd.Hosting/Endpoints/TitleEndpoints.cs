@@ -30,6 +30,8 @@ using Romd.Domain.Source.Rom;
 using Romd.Host.Authorization;
 using Models = Romd.Contracts.Management.Models;
 
+using RomDeliveryFormat = Romd.Domain.Source.Rom.RomDeliveryFormat;
+
 namespace Romd.Host.Endpoints;
 
 /// <summary>
@@ -225,7 +227,7 @@ public static class TitleEndpoints
     ///     The archive formats of the title, when one is named, and each release with its own. A release without a
     ///     canonical id has no release ZIP, so it offers only original, like any ZIP the user cannot download.
     /// </summary>
-    private static async Task<(IReadOnlyList<ArchiveFormatDto>? Title, IReadOnlyList<Models.TitleRelease> Releases)>
+    private static async Task<(IReadOnlyList<ArchiveFormat>? Title, IReadOnlyList<Models.TitleRelease> Releases)>
         WithArchiveFormatsAsync(HttpContext context, int? titleId, IReadOnlyList<Models.TitleRelease> releases)
     {
         var services = context.RequestServices;

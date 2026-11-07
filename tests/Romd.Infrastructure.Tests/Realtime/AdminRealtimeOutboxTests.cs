@@ -17,6 +17,12 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using ContractJob = Romd.Contracts.Management.Models.Job;
+using ContractUploadJob = Romd.Contracts.Management.Models.UploadJob;
+
+using Job = Romd.Domain.Jobs.Job;
+using UploadJob = Romd.Domain.Jobs.UploadJob;
+
 namespace Romd.Infrastructure.Tests.Realtime;
 
 public sealed class AdminRealtimeOutboxTests : IDisposable
@@ -336,9 +342,9 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
         await notifier.NotifyJobUpdatedAsync(job, CancellationToken.None);
 
         var message = (await outbox.ClaimPendingAsync(10, TimeSpan.FromMinutes(1), CancellationToken.None)).Single();
-        var payload = AdminRealtimePayloadSerializer.Deserialize<JobDto>(message.PayloadJson);
+        var payload = AdminRealtimePayloadSerializer.Deserialize<ContractJob>(message.PayloadJson);
         message.SchemaVersion.ShouldBe(2);
-        var upload = payload.ShouldBeOfType<UploadJobDto>();
+        var upload = payload.ShouldBeOfType<ContractUploadJob>();
         upload.Id.ShouldBe(job.Id);
         upload.SystemKey.ShouldNotBeNull();
         upload.Phase.ShouldBe(job.Phase);
@@ -881,7 +887,7 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
     {
         var sink = new RecordingAdminRealtimeSink();
         await using var provider = await CreateServiceProvider(sink);
-        JobDto dto = new ArtworkCompletionOperationDto
+        ContractJob dto = new ArtworkCompletionOperation
         {
             Id = Guid.NewGuid(),
             CorrelationId = Guid.NewGuid(),
@@ -900,7 +906,7 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
         await new AdminRealtimeOutboxDispatcher(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<AdminRealtimeOutboxDispatcher>.Instance)
             .DispatchPendingAsync();
         sink.SchemaVersions.ShouldBe([1]);
-        sink.JobUpdates.Single().ShouldBeOfType<ArtworkCompletionOperationDto>().Mode.ShouldBeNull();
+        sink.JobUpdates.Single().ShouldBeOfType<ArtworkCompletionOperation>().Mode.ShouldBeNull();
         AdminRealtimePayloadSerializer.Serialize(sink.JobUpdates.Single()).ShouldNotContain("mode");
         await using var assert = CreateDb();
         var row = await assert.AdminRealtimeOutboxEvents.SingleAsync();
@@ -947,7 +953,7 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
         await using var scope = provider.GetRequiredService<IServiceScopeFactory>().CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
         var job = UploadJob.Create("library.zip", createdAt: scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow());
-        JobDto jobDto = Romd.Admin.Application.Ingestion.Jobs.JobMapping.ToContract((Job)job, new Romd.Application.Common.Systems.SystemKeys(new Dictionary<int, string>()));
+        ContractJob jobDto = Romd.Admin.Application.Ingestion.Jobs.JobMapping.ToContract((Job)job, new Romd.Application.Common.Systems.SystemKeys(new Dictionary<int, string>()));
 
         db.AdminRealtimeOutboxEvents.AddRange(
             CreatePersistedEvent(AdminRealtimeEventTypes.JobUpdated, AdminRealtimePayloadSerializer.Serialize(jobDto)),
@@ -999,7 +1005,7 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
 
     private class RecordingAdminRealtimeSink : IAdminRealtimeEventSink
     {
-        public List<JobDto> JobUpdates { get; } = [];
+        public List<ContractJob> JobUpdates { get; } = [];
         public List<AdminRealtimeTitleEnrichedOutboxPayload> TitleEnrichedPayloads { get; } = [];
         public List<AdminRealtimeLibraryUpdatedPayload> LibraryUpdatedPayloads { get; } = [];
         public List<int> SchemaVersions { get; } = [];
@@ -1007,7 +1013,7 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
         public int CoverageChangedCount { get; private set; }
         public int HealthChangedCount { get; private set; }
 
-        public virtual Task SendJobUpdatedAsync(JobDto job, int schemaVersion, CancellationToken ct = default)
+        public virtual Task SendJobUpdatedAsync(ContractJob job, int schemaVersion, CancellationToken ct = default)
         {
             JobUpdates.Add(job);
             SchemaVersions.Add(schemaVersion);

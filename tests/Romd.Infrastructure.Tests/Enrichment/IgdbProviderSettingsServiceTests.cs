@@ -321,7 +321,7 @@ public sealed class IgdbProviderSettingsServiceTests : IDisposable
         oldRun.IsConfigured.ShouldBeTrue();
     }
 
-    private static async Task<ErrorOr.ErrorOr<IgdbProviderSettingsDto>> UpdateThroughCommandsAsync(IServiceProvider provider, UpdateIgdbProviderSettingsRequest request)
+    private static async Task<ErrorOr.ErrorOr<IgdbProviderSettings>> UpdateThroughCommandsAsync(IServiceProvider provider, UpdateIgdbProviderSettingsRequest request)
     {
         var service = provider.GetRequiredService<IIgdbProviderSettingsService>();
         return await new UpdateIgdbSettingsCommandHandler(service, new EfUnitOfWork(provider.GetRequiredService<RomdDbContext>()), Microsoft.Extensions.Logging.Abstractions.NullLogger<UpdateIgdbSettingsCommandHandler>.Instance)
@@ -366,14 +366,14 @@ public sealed class IgdbProviderSettingsServiceTests : IDisposable
 
 internal sealed class IgdbSettingsTestCommands(IIgdbProviderSettingsService service, IUnitOfWork unitOfWork)
 {
-    public Task<IgdbProviderSettingsDto> GetAsync() => service.GetAsync();
-    public Task<ErrorOr.ErrorOr<IgdbProviderSettingsDto>> UpdateAsync(UpdateIgdbProviderSettingsRequest request, RevisionPrecondition precondition) =>
+    public Task<IgdbProviderSettings> GetAsync() => service.GetAsync();
+    public Task<ErrorOr.ErrorOr<IgdbProviderSettings>> UpdateAsync(UpdateIgdbProviderSettingsRequest request, RevisionPrecondition precondition) =>
         new UpdateIgdbSettingsCommandHandler(service, unitOfWork, Microsoft.Extensions.Logging.Abstractions.NullLogger<UpdateIgdbSettingsCommandHandler>.Instance).HandleAsync(new(request, precondition));
-    public async Task<ErrorOr.ErrorOr<IgdbProviderSettingsDto>> UpdateLatestAsync(UpdateIgdbProviderSettingsRequest request) =>
+    public async Task<ErrorOr.ErrorOr<IgdbProviderSettings>> UpdateLatestAsync(UpdateIgdbProviderSettingsRequest request) =>
         await UpdateAsync(request, RevisionPrecondition.For((await service.GetAsync()).Revision.ToString()));
-    public async Task<ErrorOr.ErrorOr<IgdbProviderSettingsDto>> TestConnectionResultAsync(CancellationToken ct = default) =>
+    public async Task<ErrorOr.ErrorOr<IgdbProviderSettings>> TestConnectionResultAsync(CancellationToken ct = default) =>
         await new TestIgdbConnectionCommandHandler(service, unitOfWork, Microsoft.Extensions.Logging.Abstractions.NullLogger<TestIgdbConnectionCommandHandler>.Instance).HandleAsync(new(RevisionPrecondition.For((await service.GetAsync()).Revision.ToString())), ct);
-    public async Task<IgdbProviderSettingsDto> TestConnectionAsync(CancellationToken ct = default)
+    public async Task<IgdbProviderSettings> TestConnectionAsync(CancellationToken ct = default)
     {
         var result = await TestConnectionResultAsync(ct);
         result.IsError.ShouldBeFalse();

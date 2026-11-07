@@ -6,12 +6,12 @@ using Romd.Contracts.Management.Libraries;
 namespace Romd.Admin.Application.Libraries.Queries.GetLibraryPlatformFacets;
 
 public sealed record GetLibraryPlatformFacetsQuery(int LibraryId, int MinimumItems)
-    : IQuery<IReadOnlyList<LibraryFacetDto>>;
+    : IQuery<IReadOnlyList<LibraryFacet>>;
 
 public sealed class GetLibraryPlatformFacetsQueryHandler(IReferenceCatalogService referenceCatalog, ILibraryRepository libraryRepository)
-    : IQueryHandler<GetLibraryPlatformFacetsQuery, IReadOnlyList<LibraryFacetDto>>
+    : IQueryHandler<GetLibraryPlatformFacetsQuery, IReadOnlyList<LibraryFacet>>
 {
-    public async Task<ErrorOr<IReadOnlyList<LibraryFacetDto>>> HandleAsync(
+    public async Task<ErrorOr<IReadOnlyList<LibraryFacet>>> HandleAsync(
         GetLibraryPlatformFacetsQuery query,
         CancellationToken ct = default)
     {

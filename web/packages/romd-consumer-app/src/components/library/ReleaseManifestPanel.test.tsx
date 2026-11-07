@@ -1,4 +1,4 @@
-import type { ConsumerReleaseDto, ConsumerReleaseManifestDto } from '@romd/consumer-api-client';
+import type { ConsumerRelease, ConsumerReleaseManifest } from '@romd/consumer-api-client';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,7 +12,7 @@ vi.mock('../../hooks/useConsumerLibrary', () => ({
 
 const helloSha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824';
 
-const release: ConsumerReleaseDto = {
+const release: ConsumerRelease = {
   id: 'release-1',
   name: 'World',
   revision: null,
@@ -373,7 +373,7 @@ describe('ReleaseManifestPanel', () => {
           ],
         },
       ],
-    } satisfies ConsumerReleaseManifestDto;
+    } satisfies ConsumerReleaseManifest;
     issue.mockResolvedValue(next);
     return {
       issue,
@@ -1000,7 +1000,7 @@ describe('ReleaseManifestPanel', () => {
   });
 });
 
-function generatedManifest(): ConsumerReleaseManifestDto {
+function generatedManifest(): ConsumerReleaseManifest {
   return {
     serverInstanceId: '11111111-1111-4111-8111-111111111111',
     releaseId: release.id,

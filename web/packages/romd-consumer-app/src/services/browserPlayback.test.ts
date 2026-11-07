@@ -1,4 +1,4 @@
-import type { ConsumerReleaseDto, ConsumerReleaseManifestDto } from '@romd/consumer-api-client';
+import type { ConsumerRelease, ConsumerReleaseManifest } from '@romd/consumer-api-client';
 import emulatorJsPin from '../../../../tools/emulatorjs/pin.json';
 import type { ConsumerTitleDetail } from '../types/consumerTitle';
 import {
@@ -40,7 +40,7 @@ const release = {
   ],
   sizeBytes: '3145728',
   isComplete: true,
-} satisfies ConsumerReleaseDto;
+} satisfies ConsumerRelease;
 
 describe('getBrowserPlaybackPreflight', () => {
   it('uses stable keys rather than editable labels for runtime selection', () => {
@@ -520,7 +520,7 @@ describe('getBrowserPlaybackSupport', () => {
   });
 });
 
-function createManifest(relativePath: string, sizeBytes: string): ConsumerReleaseManifestDto {
+function createManifest(relativePath: string, sizeBytes: string): ConsumerReleaseManifest {
   return {
     isDeliveryComplete: true,
     serverInstanceId: '11111111-1111-4111-8111-111111111111',

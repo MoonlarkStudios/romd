@@ -1,4 +1,4 @@
-import type { ArtworkCompletionFilterDto, ArtworkCompletionRequest } from '@romd/admin-api-client';
+import type { ArtworkCompletionFilter, ArtworkCompletionRequest } from '@romd/admin-api-client';
 
 export type EnrichmentLaunchScope = 'Selected' | 'Filtered' | 'Automatic' | 'AllTracked';
 export type EnrichmentLaunchMode = 'Enrich' | 'Artwork';
@@ -61,7 +61,7 @@ export function effectiveScope(
 function launchFilters({
   enrichment,
   ...filters
-}: ArtworkCompletionFilterDto): ArtworkCompletionFilterDto {
+}: ArtworkCompletionFilter): ArtworkCompletionFilter {
   const flags = enrichment?.filter((flag) => flag.trim()) ?? [];
   return flags.length
     ? {
@@ -76,7 +76,7 @@ interface LaunchRequestInput {
   scope: EnrichmentLaunchScope;
   mode: EnrichmentLaunchMode;
   titleIds: string[];
-  filters?: ArtworkCompletionFilterDto;
+  filters?: ArtworkCompletionFilter;
 }
 
 /** Each scope carries only its own inputs: ids for Selected, filters for Filtered and Automatic. */

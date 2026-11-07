@@ -5,12 +5,12 @@ using Romd.Contracts.Management.TrackedCollection;
 
 namespace Romd.Admin.Application.TrackedCollection.Queries.ListSatisfiedTrackedTitles;
 
-public sealed record ListSatisfiedTrackedTitlesQuery : IQuery<IReadOnlyList<TrackedCollectionTitleDto>>;
+public sealed record ListSatisfiedTrackedTitlesQuery : IQuery<IReadOnlyList<TrackedCollectionTitle>>;
 
 public sealed class ListSatisfiedTrackedTitlesQueryHandler(IReferenceCatalogService referenceCatalog, ITrackedCollectionReadRepository repository)
-    : IQueryHandler<ListSatisfiedTrackedTitlesQuery, IReadOnlyList<TrackedCollectionTitleDto>>
+    : IQueryHandler<ListSatisfiedTrackedTitlesQuery, IReadOnlyList<TrackedCollectionTitle>>
 {
-    public async Task<ErrorOr<IReadOnlyList<TrackedCollectionTitleDto>>> HandleAsync(
+    public async Task<ErrorOr<IReadOnlyList<TrackedCollectionTitle>>> HandleAsync(
         ListSatisfiedTrackedTitlesQuery query,
         CancellationToken ct = default)
     {

@@ -1,4 +1,4 @@
-import { type ArchiveFormatDto, createDownloadTicket } from '@romd/admin-api-client';
+import { type ArchiveFormat, createDownloadTicket } from '@romd/admin-api-client';
 import { startBrowserDownload } from '@romd/delivery';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -27,7 +27,7 @@ const files = [
     romFileId: 'rom-two',
   },
 ];
-const allFormats: ArchiveFormatDto[] = [
+const allFormats: ArchiveFormat[] = [
   {
     format: 'original',
     label: 'Original',

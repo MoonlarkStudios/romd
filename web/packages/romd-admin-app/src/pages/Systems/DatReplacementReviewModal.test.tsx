@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { Dat, DatCatalogSubscriptionDto, DatReplacementPreview } from '@romd/admin-api-client';
+import type { Dat, DatCatalogSubscription, DatReplacementPreview } from '@romd/admin-api-client';
 import {
   applyDatSubscription,
   createDatReplacement,
@@ -29,7 +29,7 @@ const dat: Dat = {
   sourceStatus: 'Active',
   type: 'Redump',
 };
-const subscription: DatCatalogSubscriptionDto = {
+const subscription: DatCatalogSubscription = {
   id: 'sub1',
   catalogId: 'no-intro/snes/standard',
   systemId: 'snes',

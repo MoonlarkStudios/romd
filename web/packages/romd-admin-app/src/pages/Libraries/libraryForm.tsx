@@ -1,8 +1,8 @@
 import { ActionIcon, Badge, Group, Stack, Text } from '@mantine/core';
 import type {
   CatalogTitle,
-  LibraryConfigurationDto,
-  LibraryDto,
+  Library,
+  LibraryConfiguration,
   RatingBasisSelection,
   RatingBoard,
 } from '@romd/admin-api-client';
@@ -76,7 +76,7 @@ function normalizeUnknownMetadataPolicy(
   return isUnknownMetadataPolicyValue(normalized) ? normalized : fallback;
 }
 
-export function toFormState(library: LibraryDto | null): LibraryFormState {
+export function toFormState(library: Library | null): LibraryFormState {
   const configuration = library?.configuration ?? defaultLibraryConfiguration;
   const contentRatingPolicy = configuration.contentRatingPolicy ?? defaultContentRatingPolicy;
 
@@ -121,7 +121,7 @@ export function toFormState(library: LibraryDto | null): LibraryFormState {
   };
 }
 
-export function toConfiguration(form: LibraryFormState): LibraryConfigurationDto {
+export function toConfiguration(form: LibraryFormState): LibraryConfiguration {
   const contentRatingPolicy = {
     basisSelection: form.contentRatingBasisSelection,
     boardPreference: form.contentRatingBoardPreference,

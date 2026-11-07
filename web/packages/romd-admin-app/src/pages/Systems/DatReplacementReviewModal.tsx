@@ -13,7 +13,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks';
 import type {
   Dat,
-  DatCatalogSubscriptionDto,
+  DatCatalogSubscription,
   DatReplacementPreview,
   JobReference,
 } from '@romd/admin-api-client';
@@ -56,7 +56,7 @@ export function DatReplacementReviewModal({
       file: File;
     }
   | {
-      subscription: DatCatalogSubscriptionDto;
+      subscription: DatCatalogSubscription;
       dat?: never;
       file?: never;
     }

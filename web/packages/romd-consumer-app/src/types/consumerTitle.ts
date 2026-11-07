@@ -1,10 +1,10 @@
 import type {
-  ConsumerMediaRefDto,
-  ConsumerReleaseDto,
-  ConsumerTitleDetailDto,
+  ConsumerMediaRef,
+  ConsumerRelease,
+  ConsumerTitleDetail as ConsumerTitleDetailContract,
 } from '@romd/consumer-api-client';
 
-export type ConsumerTitleDetail = Omit<ConsumerTitleDetailDto, 'media' | 'releases'> & {
-  media: ConsumerMediaRefDto[];
-  releases: ConsumerReleaseDto[];
+export type ConsumerTitleDetail = Omit<ConsumerTitleDetailContract, 'media' | 'releases'> & {
+  media: ConsumerMediaRef[];
+  releases: ConsumerRelease[];
 };

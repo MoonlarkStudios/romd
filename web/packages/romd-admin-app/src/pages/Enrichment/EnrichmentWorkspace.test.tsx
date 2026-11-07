@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { MantineProvider } from '@mantine/core';
 import {
   client,
-  type EnrichmentAssessmentDto,
-  type EnrichmentRequirementDto,
+  type EnrichmentAssessment,
+  type EnrichmentRequirement,
 } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -229,8 +229,8 @@ const steamGridDbReview = unsatisfied('Identity:steamgriddb', 'NeedsReview', 'No
 const metadataCopy = 'Description is missing after enrichment.';
 /** Turok with every row the facts function emits: the given rows plus satisfied ones. */
 function titleWith(
-  rows: EnrichmentRequirementDto[] = [],
-  overrides: Partial<EnrichmentAssessmentDto> = {},
+  rows: EnrichmentRequirement[] = [],
+  overrides: Partial<EnrichmentAssessment> = {},
 ) {
   return assessmentFixture(withRequirements(...rows), {
     titleId: 'turok',
@@ -2507,7 +2507,7 @@ describe('draft-safe selection', () => {
     titleId: 'tron',
     titleName: 'Tron',
   };
-  const serveTitles = (order: () => EnrichmentAssessmentDto[]) =>
+  const serveTitles = (order: () => EnrichmentAssessment[]) =>
     server.use(
       http.get(endpoint, () =>
         HttpResponse.json({
@@ -2872,7 +2872,7 @@ describe('keyboard', () => {
     titleName: 'Tron',
   };
   const serveTitles = (
-    items: EnrichmentAssessmentDto[] = [
+    items: EnrichmentAssessment[] = [
       turok,
       tron,
     ],

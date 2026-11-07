@@ -9,14 +9,14 @@ public static class DashboardEndpoints
     public static IEndpointRouteBuilder MapDashboardEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/server/storage", GetStorage).WithTags("Server").WithName("GetServerStorage")
-            .Produces<StorageStatsDto>().RequireAuthorization(AuthorizationPolicies.RequireUser);
+            .Produces<StorageStats>().RequireAuthorization(AuthorizationPolicies.RequireUser);
         app.MapGet("/catalog/stats/coverage", GetCoverage).WithTags("Catalog").WithName("GetCatalogCoverageStats")
-            .Produces<CoverageStatsDto>().RequireAuthorization(AuthorizationPolicies.RequireUser);
+            .Produces<CoverageStats>().RequireAuthorization(AuthorizationPolicies.RequireUser);
         app.MapGet("/server/health", GetHealth).WithTags("Server").WithName("GetServerHealth")
-            .Produces<SystemHealthDto>().RequireAuthorization(AuthorizationPolicies.RequireUser);
+            .Produces<SystemHealth>().RequireAuthorization(AuthorizationPolicies.RequireUser);
         app.MapGet("/dashboard/status-bar", GetStatusBar).WithTags("Dashboard").WithName("GetDashboardStatusBar")
             .WithDescription("Current storage, catalog coverage and host health projections.")
-            .Produces<DashboardStatusBarDto>().RequireAuthorization(AuthorizationPolicies.RequireUser);
+            .Produces<DashboardStatusBar>().RequireAuthorization(AuthorizationPolicies.RequireUser);
 
         return app;
     }
@@ -30,7 +30,7 @@ public static class DashboardEndpoints
         if (coverage.IsError)
             return coverage.Errors.ToProblem();
         var health = await cache.GetHealthAsync(ct);
-        return health.Match<IResult>(value => Results.Ok(new DashboardStatusBarDto(storage.Value, coverage.Value, value)),
+        return health.Match<IResult>(value => Results.Ok(new DashboardStatusBar(storage.Value, coverage.Value, value)),
             errors => errors.ToProblem());
     }
 

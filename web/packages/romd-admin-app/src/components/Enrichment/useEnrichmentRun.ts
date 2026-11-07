@@ -1,10 +1,10 @@
 import {
-  type ArtworkCompletionSummaryDto,
+  type ArtworkCompletionSummary,
   getJob,
   getJobArtworkSummary,
-  type JobDto,
+  type Job,
   listJobArtworkItems,
-  type PageOfArtworkCompletionItemDto,
+  type PageOfArtworkCompletionItem,
   queueArtworkCompletion,
 } from '@romd/admin-api-client';
 import {
@@ -26,14 +26,14 @@ import { createRequestId } from '../../utils/requestId';
 import { isRunActive } from './runPresentation';
 
 type ArtworkOperation = Extract<
-  JobDto,
+  Job,
   {
     jobType?: 'artwork-completion';
   }
 >;
 
 /** The UI combines cheap execution state with the separately loaded review summary. */
-export type EnrichmentRun = ArtworkCompletionSummaryDto &
+export type EnrichmentRun = ArtworkCompletionSummary &
   Pick<ArtworkOperation, 'phase' | 'mode'> & {
     jobId: string;
     total: number;
@@ -72,7 +72,7 @@ export const enrichmentRunKeys = {
  * later pages reload when the curator pages to them again, so each tick does bounded work.
  */
 async function refreshActiveRun(cache: QueryClient, jobId: string): Promise<void> {
-  cache.setQueriesData<InfiniteData<PageOfArtworkCompletionItemDto>>(
+  cache.setQueriesData<InfiniteData<PageOfArtworkCompletionItem>>(
     {
       queryKey: [
         ...enrichmentRunKeys.run(jobId),

@@ -2,7 +2,7 @@ import {
   confirmTitleProviderMatch,
   deleteTitleProviderMatch,
   listTitleProviderMatches,
-  type TitleProviderMatchDto,
+  type TitleProviderMatch,
 } from '@romd/admin-api-client';
 import {
   type QueryClient,
@@ -45,12 +45,8 @@ export class ProviderMatchConflictError extends Error {
 /**
  * Records a match a write returned, so the next write to it sends its new revision before the refetch lands.
  */
-export function storeProviderMatch(
-  cache: QueryClient,
-  titleId: string,
-  match: TitleProviderMatchDto,
-) {
-  cache.setQueryData<TitleProviderMatchDto[]>(providerMatchKeys.title(titleId), (rows) =>
+export function storeProviderMatch(cache: QueryClient, titleId: string, match: TitleProviderMatch) {
+  cache.setQueryData<TitleProviderMatch[]>(providerMatchKeys.title(titleId), (rows) =>
     rows?.map((row) => (row.providerId === match.providerId ? match : row)),
   );
 }
@@ -63,7 +59,7 @@ export function storeProviderMatch(
 export function useProviderMatchDecision(titleId: string) {
   const cache = useQueryClient();
   return useMutation({
-    mutationFn: async ({ row, unlink }: { row: TitleProviderMatchDto; unlink: boolean }) => {
+    mutationFn: async ({ row, unlink }: { row: TitleProviderMatch; unlink: boolean }) => {
       const input = {
         path: {
           titleId,

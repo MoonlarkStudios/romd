@@ -1,10 +1,10 @@
 import type {
-  EnrichmentAssessmentDto,
+  EnrichmentAssessment,
   EnrichmentIssueState,
+  EnrichmentRequirement,
   EnrichmentRequirementCause,
-  EnrichmentRequirementDto,
   EnrichmentRequirementSatisfiedBy,
-  ProviderGameDto,
+  ProviderGame,
 } from '@romd/admin-api-client';
 import { artworkRoleLabel } from '../artworkPresentation';
 
@@ -17,15 +17,15 @@ const requirementKinds = [
   'Operation',
 ] as const;
 type RequirementKind = (typeof requirementKinds)[number];
-type Copy = (requirement: EnrichmentRequirementDto) => string | undefined;
+type Copy = (requirement: EnrichmentRequirement) => string | undefined;
 type CopyByKind = Partial<Record<RequirementKind, Copy>>;
 
 export type TitleStatus = 'NeedsReview' | 'Blocked' | 'Processing' | 'Automatic' | 'Settled';
 type StatusFlags = Pick<
-  EnrichmentAssessmentDto,
+  EnrichmentAssessment,
   'needsReview' | 'hasOperationalBlocker' | 'hasActiveWork' | 'canEnrichAutomatically'
 >;
-type AssessmentSummary = StatusFlags & Pick<EnrichmentAssessmentDto, 'requirements'>;
+type AssessmentSummary = StatusFlags & Pick<EnrichmentAssessment, 'requirements'>;
 
 export interface DecisionConfirmationCopy {
   title: string;
@@ -96,7 +96,7 @@ function isRequirementKind(kind: string): kind is RequirementKind {
 
 /** The provider a requirement concerns, when one is known: its own for identity, IGDB for core metadata. */
 export function requirementProviderId(
-  requirement: Pick<EnrichmentRequirementDto, 'kind' | 'subject'>,
+  requirement: Pick<EnrichmentRequirement, 'kind' | 'subject'>,
 ): string | undefined {
   if (requirement.kind === 'Identity') return requirement.subject.toLowerCase();
   if (requirement.kind === 'Metadata') return 'igdb';
@@ -104,18 +104,18 @@ export function requirementProviderId(
   return undefined;
 }
 
-export function requirementSubjectLabel(requirement: EnrichmentRequirementDto): string {
+export function requirementSubjectLabel(requirement: EnrichmentRequirement): string {
   if (requirement.kind === 'Identity') return providerLabel(requirement.subject);
   if (requirement.kind === 'Metadata') return fieldLabel(requirement.subject);
   if (requirement.kind === 'Artwork') return artworkRoleLabel(requirement.subject);
   return requirement.subject;
 }
 
-const lower = (requirement: EnrichmentRequirementDto) =>
+const lower = (requirement: EnrichmentRequirement) =>
   requirementSubjectLabel(requirement).toLowerCase();
-const provider = (requirement: EnrichmentRequirementDto) => providerLabel(requirement.subject);
+const provider = (requirement: EnrichmentRequirement) => providerLabel(requirement.subject);
 const igdb = providerLabel('igdb');
-const roleProvider = (requirement: EnrichmentRequirementDto) => {
+const roleProvider = (requirement: EnrichmentRequirement) => {
   const providerId = roleProviders[requirement.subject];
   return providerId && providerLabel(providerId);
 };
@@ -299,7 +299,7 @@ const neutralStateCopy: Record<EnrichmentIssueState, string> = {
   Satisfied: 'No action needed',
 };
 
-export function requirementCopy(requirement: EnrichmentRequirementDto): string {
+export function requirementCopy(requirement: EnrichmentRequirement): string {
   const neutral: string | undefined = neutralStateCopy[requirement.state];
   const fallback = neutral ?? neutralStateCopy.NeedsReview;
   if (!isRequirementKind(requirement.kind)) return fallback;
@@ -323,7 +323,7 @@ export function requirementCopy(requirement: EnrichmentRequirementDto): string {
 }
 
 /** Checklist work: unsatisfied identity, metadata (including Refresh) and artwork rows. Operation rows drive the Processing chip instead. */
-export function isOutstanding(requirement: EnrichmentRequirementDto): boolean {
+export function isOutstanding(requirement: EnrichmentRequirement): boolean {
   return (
     requirement.state !== 'Satisfied' &&
     isRequirementKind(requirement.kind) &&
@@ -332,12 +332,12 @@ export function isOutstanding(requirement: EnrichmentRequirementDto): boolean {
 }
 
 export function outstandingRequirements(
-  requirements: EnrichmentRequirementDto[],
-): EnrichmentRequirementDto[] {
+  requirements: EnrichmentRequirement[],
+): EnrichmentRequirement[] {
   return requirements.filter(isOutstanding);
 }
 
-export function outstandingCount(requirements: EnrichmentRequirementDto[]): number {
+export function outstandingCount(requirements: EnrichmentRequirement[]): number {
   return outstandingRequirements(requirements).length;
 }
 
@@ -353,8 +353,8 @@ export function revisitOmissionLabel(field: string): string {
   return `Revisit ${fieldLabel(field).toLowerCase()}`;
 }
 
-type GapPhrases = (rows: EnrichmentRequirementDto[]) => string[];
-const fallbackPhrase = (row: EnrichmentRequirementDto) => {
+type GapPhrases = (rows: EnrichmentRequirement[]) => string[];
+const fallbackPhrase = (row: EnrichmentRequirement) => {
   const copy = unavailableFallbacks[row.subject] ?? 'Nothing usable found';
   return `${artworkRoleLabel(row.subject)}: ${copy.charAt(0).toLowerCase()}${copy.slice(1)}`;
 };
@@ -435,7 +435,7 @@ const reviewActionLabels: Partial<Record<string, Copy>> = {
 
 export function reviewActionLabel(
   action: string,
-  requirement: EnrichmentRequirementDto,
+  requirement: EnrichmentRequirement,
 ): string | undefined {
   return reviewActionLabels[action]?.(requirement);
 }
@@ -452,7 +452,7 @@ const satisfiedActionLabels: Partial<Record<string, Copy>> = {
 /** A satisfied row's review action: changing what is there, or finding a match the curator went without. */
 export function satisfiedActionLabel(
   action: string,
-  requirement: EnrichmentRequirementDto,
+  requirement: EnrichmentRequirement,
 ): string | undefined {
   return satisfiedActionLabels[action]?.(requirement);
 }
@@ -466,7 +466,7 @@ export function returnToAutomaticLabel(role: string): string {
 }
 
 /** Identity copy naming the matched game when provider-match data is already loaded. */
-export function matchedGameCopy(game: Pick<ProviderGameDto, 'name' | 'year'>): string {
+export function matchedGameCopy(game: Pick<ProviderGame, 'name' | 'year'>): string {
   return `Matched to ${game.name}${game.year ? ` (${game.year})` : ''}`;
 }
 
@@ -480,7 +480,7 @@ export function trackingLabel(isTracked: boolean): string {
   return isTracked ? 'Tracked' : 'Untracked';
 }
 
-export function enrichActionLabel(requirement: EnrichmentRequirementDto): string {
+export function enrichActionLabel(requirement: EnrichmentRequirement): string {
   return requirement.actions.includes('Retry') ? 'Retry enrichment' : 'Enrich this title';
 }
 
@@ -512,7 +512,7 @@ export function continueWithoutProviderConfirmation(providerId: string): Decisio
 }
 
 /** What a Manager sees instead of provider settings, which only Admins can open. */
-export function configureProviderHint(requirement: EnrichmentRequirementDto): string {
+export function configureProviderHint(requirement: EnrichmentRequirement): string {
   const providerId = requirementProviderId(requirement);
   if (requirement.cause === 'ProviderDisabled') {
     return `An administrator can enable ${providerId ? providerLabel(providerId) : 'an artwork provider'}`;

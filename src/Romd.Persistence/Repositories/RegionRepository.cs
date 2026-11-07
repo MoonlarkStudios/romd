@@ -8,6 +8,8 @@ using Romd.Domain.Taxonomy;
 using Romd.Persistence.Entities;
 using Romd.Persistence.ReferenceData;
 
+using Region = Romd.Domain.Taxonomy.Region;
+
 namespace Romd.Persistence.Repositories;
 
 public sealed class RegionRepository : IRegionRepository
@@ -165,7 +167,7 @@ public sealed class RegionRepository : IRegionRepository
         });
     }
 
-    public async Task<TaxonomyMergeImpactDto> GetMergeImpactAsync(int sourceId, CancellationToken ct = default) =>
+    public async Task<TaxonomyMergeImpact> GetMergeImpactAsync(int sourceId, CancellationToken ct = default) =>
         new(await _context.RegionAliases.CountAsync(item => item.RegionId == sourceId, ct),
             await _context.DatGameRegions.CountAsync(item => item.RegionId == sourceId, ct),
             await _context.CatalogReleaseRegions.CountAsync(item => item.RegionId == sourceId, ct));

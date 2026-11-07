@@ -1,7 +1,7 @@
 import type {
   RatingBoard,
   RatingDesignation,
-  ReferenceRatingDto,
+  ReferenceRating,
   TitleDetail,
 } from '@romd/admin-api-client';
 import { deleteTitleContentRating, replaceTitleContentRating } from '@romd/admin-api-client';
@@ -38,7 +38,7 @@ function isRatingDesignation(value: string | null | undefined): value is RatingD
 }
 
 // The snapshot carries boards and designations as plain strings; only values the title write accepts are offered.
-function toCategory(rating: ReferenceRatingDto): RatingCategoryOption[] {
+function toCategory(rating: ReferenceRating): RatingCategoryOption[] {
   return !rating.retired && isRatingDesignation(rating.designation)
     ? [
         {

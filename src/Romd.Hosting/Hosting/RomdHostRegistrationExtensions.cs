@@ -542,7 +542,7 @@ public static class RomdHostRegistrationExtensions
     private static void ApplyAdminOpenApiSchemaFixes(OpenApiDocument document)
     {
         var schemas = document.Components?.Schemas;
-        if (schemas is null || !schemas.TryGetValue("LibraryDto", out var librarySchema))
+        if (schemas is null || !schemas.TryGetValue("Library", out var librarySchema))
             return;
 
         var properties = librarySchema.Properties;
@@ -554,7 +554,7 @@ public static class RomdHostRegistrationExtensions
             OneOf =
             [
                 new OpenApiSchema { Type = JsonSchemaType.Null },
-                new OpenApiSchemaReference("LibraryConfigurationDto", document, null)
+                new OpenApiSchemaReference("LibraryConfiguration", document, null)
             ]
         };
     }
@@ -630,9 +630,9 @@ public static class RomdHostRegistrationExtensions
 
     private static Task ApplyReferencePatchSchemaAsync(OpenApiSchema schema, OpenApiSchemaTransformerContext context, CancellationToken ct)
     {
-        if (!typeof(ReferencePatchDto).IsAssignableFrom(context.JsonTypeInfo.Type))
+        if (!typeof(ReferencePatch).IsAssignableFrom(context.JsonTypeInfo.Type))
             return Task.CompletedTask;
-        var clearable = ((ReferencePatchDto)Activator.CreateInstance(context.JsonTypeInfo.Type)!).ClearableFields;
+        var clearable = ((ReferencePatch)Activator.CreateInstance(context.JsonTypeInfo.Type)!).ClearableFields;
         schema.Type = JsonSchemaType.Object;
         schema.Required = new HashSet<string>();
         schema.AdditionalPropertiesAllowed = false;
@@ -656,7 +656,7 @@ public static class RomdHostRegistrationExtensions
     private static Task ApplyReferenceRelationshipSchemaAsync(OpenApiSchema schema, OpenApiSchemaTransformerContext context, CancellationToken ct)
     {
         if (context.JsonPropertyInfo?.AttributeProvider is PropertyInfo property &&
-            (property.DeclaringType == typeof(SystemResourceDto) || property.DeclaringType == typeof(ReferenceSystemDto) || property.DeclaringType == typeof(CreateSystemDto)) &&
+            (property.DeclaringType == typeof(SystemResource) || property.DeclaringType == typeof(ReferenceSystem) || property.DeclaringType == typeof(CreateSystem)) &&
             property.Name is "Manufacturers" or "ManufacturerKeys")
         {
             schema.MaxItems = 16;
@@ -748,18 +748,18 @@ public static class RomdHostRegistrationExtensions
         if (context.JsonPropertyInfo?.AttributeProvider is not PropertyInfo property)
             return Task.CompletedTask;
 
-        string[]? values = property.DeclaringType == typeof(RomDeliveryFormatMetadataDto)
+        string[]? values = property.DeclaringType == typeof(RomDeliveryFormatMetadata)
             ? property.Name switch
             {
-                nameof(RomDeliveryFormatMetadataDto.Format) => ["original", "rvz", "chd"],
-                nameof(RomDeliveryFormatMetadataDto.State) => ["available", "preparing", "unsupported"],
+                nameof(RomDeliveryFormatMetadata.Format) => ["original", "rvz", "chd"],
+                nameof(RomDeliveryFormatMetadata.State) => ["available", "preparing", "unsupported"],
                 _ => null
             }
             : property.Name == nameof(ExportLibraryRequest.Format) &&
               (property.DeclaringType == typeof(ExportLibraryRequest) ||
                property.DeclaringType == typeof(CreateDownloadTicketRequest) ||
-               property.DeclaringType == typeof(ArchiveFormatDto) ||
-               property.DeclaringType == typeof(Romd.Contracts.Management.Models.ExportJobDto))
+               property.DeclaringType == typeof(ArchiveFormat) ||
+               property.DeclaringType == typeof(Romd.Contracts.Management.Models.ExportJob))
                 ? ["original", "rvz", "chd"]
                 : null;
         if (values is null)
@@ -856,14 +856,14 @@ public static class RomdHostRegistrationExtensions
         CancellationToken cancellationToken)
     {
         if (context.JsonPropertyInfo?.AttributeProvider is not PropertyInfo property ||
-            property.DeclaringType != typeof(ConsumerReleasePreferenceDto) ||
-            property.Name is not (nameof(ConsumerReleasePreferenceDto.PreferredRegionKeys)
-                or nameof(ConsumerReleasePreferenceDto.PreferredLanguageKeys)))
+            property.DeclaringType != typeof(ConsumerReleasePreference) ||
+            property.Name is not (nameof(ConsumerReleasePreference.PreferredRegionKeys)
+                or nameof(ConsumerReleasePreference.PreferredLanguageKeys)))
         {
             return Task.CompletedTask;
         }
 
-        schema.MaxItems = ConsumerReleasePreferenceDto.MaximumPreferredKeys;
+        schema.MaxItems = ConsumerReleasePreference.MaximumPreferredKeys;
         schema.UniqueItems = true;
         return Task.CompletedTask;
     }

@@ -6,13 +6,13 @@ using Romd.Contracts.Management.Libraries;
 
 namespace Romd.Admin.Application.Libraries.Queries.GetLibraryById;
 
-public sealed record GetLibraryByIdQuery(int LibraryId) : IQuery<LibraryDto>;
+public sealed record GetLibraryByIdQuery(int LibraryId) : IQuery<Library>;
 
 public sealed class GetLibraryByIdQueryHandler(IReferenceCatalogService referenceCatalog, ILibraryRepository libraryRepository,
     RomDeliveryPolicy deliveryPolicy)
-    : IQueryHandler<GetLibraryByIdQuery, LibraryDto>
+    : IQueryHandler<GetLibraryByIdQuery, Library>
 {
-    public async Task<ErrorOr<LibraryDto>> HandleAsync(
+    public async Task<ErrorOr<Library>> HandleAsync(
         GetLibraryByIdQuery query,
         CancellationToken ct = default)
     {

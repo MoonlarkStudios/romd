@@ -29,7 +29,7 @@ public sealed class ArtworkCurationEndpointsTests(IntegrationTestFixture fixture
         invalid.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         using var preview = await client.PostAsJsonAsync("/api/artwork/completion/preview", new ArtworkCompletionRequest(Guid.NewGuid(), Scope: "AllTracked"));
         preview.StatusCode.ShouldBe(HttpStatusCode.OK, await preview.Content.ReadAsStringAsync());
-        (await preview.Content.ReadFromJsonAsync<ArtworkCompletionPreviewDto>())!.Roles.Count.ShouldBe(4);
+        (await preview.Content.ReadFromJsonAsync<ArtworkCompletionPreview>())!.Roles.Count.ShouldBe(4);
         using var history = await client.GetAsync("/api/jobs?jobType=artwork-completion");
         history.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
@@ -100,7 +100,7 @@ public sealed class ArtworkCurationEndpointsTests(IntegrationTestFixture fixture
     public async Task CompletionPreview_EnrichmentFilters_UseCatalogVocabulary()
     {
         using var client = fixture.CreateAuthenticatedClient();
-        ArtworkCompletionFilterDto[] invalid = [new(Enrichment: []), new(Enrichment: [""]), new(Enrichment: ["Bogus"]),
+        ArtworkCompletionFilter[] invalid = [new(Enrichment: []), new(Enrichment: [""]), new(Enrichment: ["Bogus"]),
             new(Enrichment: ["Settled", "Processing"]), new(EnrichmentStatus: "NeedsReview")];
         foreach (var scope in new[] { "Filtered", "Automatic" })
         {
@@ -159,12 +159,12 @@ public sealed class ArtworkCurationEndpointsTests(IntegrationTestFixture fixture
         readFields.ShouldContain("nextAttemptAt");
         readFields.ShouldNotContain("ready");
         readFields.ShouldNotContain("needsAttention");
-        var job = (await statusResponse.Content.ReadFromJsonAsync<ArtworkCompletionOperationDto>(RunJson))!;
+        var job = (await statusResponse.Content.ReadFromJsonAsync<ArtworkCompletionOperation>(RunJson))!;
         (job.Total, job.Processed, job.NextAttemptAt).ShouldBe((1, 1, (DateTimeOffset?)null));
-        var summary = (await client.GetFromJsonAsync<ArtworkCompletionSummaryDto>($"/api/jobs/{jobId}/artwork-summary", RunJson))!;
+        var summary = (await client.GetFromJsonAsync<ArtworkCompletionSummary>($"/api/jobs/{jobId}/artwork-summary", RunJson))!;
         foreach (var (status, count) in new[] { ("Review", summary.Review), ("Failed", summary.Failed), ("Unfinished", summary.Unfinished), ("Working", summary.Working) })
-            (await client.GetFromJsonAsync<Page<ArtworkCompletionItemDto>>($"/api/jobs/{jobId}/artwork-items?status={status}", RunJson))!.Items.Count.ShouldBe(count, status);
-        var item = (await client.GetFromJsonAsync<Page<ArtworkCompletionItemDto>>($"/api/jobs/{jobId}/artwork-items", RunJson))!.Items.ShouldHaveSingleItem();
+            (await client.GetFromJsonAsync<Page<ArtworkCompletionItem>>($"/api/jobs/{jobId}/artwork-items?status={status}", RunJson))!.Items.Count.ShouldBe(count, status);
+        var item = (await client.GetFromJsonAsync<Page<ArtworkCompletionItem>>($"/api/jobs/{jobId}/artwork-items", RunJson))!.Items.ShouldHaveSingleItem();
         (item.TitleId, item.Completion).ShouldBe((titleId, ArtworkCompletionState.Done));
         // The item ran after schema 44, so its metadata execution is recorded rather than unknown.
         item.MetadataOutcome.ShouldNotBeNull();
@@ -187,7 +187,7 @@ public sealed class ArtworkCurationEndpointsTests(IntegrationTestFixture fixture
             new ArtworkCompletionRequest(Guid.NewGuid(), Scope: "Retry", RetryJobId: Guid.Parse(jobId), RetryStatus: "Failed"));
         retry.StatusCode.ShouldBe(HttpStatusCode.Accepted, await retry.Content.ReadAsStringAsync());
         var reference = (await retry.Content.ReadFromJsonAsync<Romd.Contracts.Management.Models.JobReference>())!;
-        var retried = (await client.GetFromJsonAsync<ArtworkCompletionOperationDto>($"/api/jobs/{reference.JobId}", RunJson))!;
+        var retried = (await client.GetFromJsonAsync<ArtworkCompletionOperation>($"/api/jobs/{reference.JobId}", RunJson))!;
         (retried.Total, retried.Mode).ShouldBe((1, "Enrich"));
     }
 
@@ -201,7 +201,7 @@ public sealed class ArtworkCurationEndpointsTests(IntegrationTestFixture fixture
         using var client = fixture.CreateAuthenticatedClient();
         using var response = await client.GetAsync("/api/artwork-providers");
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        var providers = (await response.Content.ReadFromJsonAsync<ArtworkProviderDto[]>())!;
+        var providers = (await response.Content.ReadFromJsonAsync<ArtworkProvider[]>())!;
         providers!.Select(provider => provider.Id).ShouldContain("igdb");
         providers.Select(provider => provider.Id).ShouldContain("steamgriddb");
         using var invalid = await client.GetAsync($"/api/artwork-providers?titleId={IdCoder.Encode(1)}&role=invalid");
@@ -290,7 +290,7 @@ public sealed class ArtworkCurationEndpointsTests(IntegrationTestFixture fixture
     public async Task Settings_Admin_StoresWriteOnlySecretAndChecksRevision()
     {
         using var client = fixture.CreateAuthenticatedClient();
-        var initial = (await client.GetFromJsonAsync<SteamGridDbSettingsDto>(Settings))!;
+        var initial = (await client.GetFromJsonAsync<SteamGridDbSettings>(Settings))!;
         const string key = "controlled-steamgriddb-secret";
         try
         {
@@ -299,7 +299,7 @@ public sealed class ArtworkCurationEndpointsTests(IntegrationTestFixture fixture
             using var saved = await client.SendAsync(saveRequest);
             saved.StatusCode.ShouldBe(HttpStatusCode.OK);
             (await saved.Content.ReadAsStringAsync()).ShouldNotContain(key);
-            var state = (await saved.Content.ReadFromJsonAsync<SteamGridDbSettingsDto>())!;
+            var state = (await saved.Content.ReadFromJsonAsync<SteamGridDbSettings>())!;
             state.HasApiKey.ShouldBeTrue();
             state.Revision.ShouldNotBe(initial.Revision);
             using var staleRequest = Request(HttpMethod.Put, Settings, $"\"{initial.Revision}\"",
@@ -309,7 +309,7 @@ public sealed class ArtworkCurationEndpointsTests(IntegrationTestFixture fixture
         }
         finally
         {
-            var current = (await client.GetFromJsonAsync<SteamGridDbSettingsDto>(Settings))!;
+            var current = (await client.GetFromJsonAsync<SteamGridDbSettings>(Settings))!;
             using var clearRequest = Request(HttpMethod.Put, Settings, $"\"{current.Revision}\"",
                 new UpdateSteamGridDbSettingsRequest(false, null, true));
             using var cleared = await client.SendAsync(clearRequest);

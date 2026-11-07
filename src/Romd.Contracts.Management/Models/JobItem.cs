@@ -5,12 +5,12 @@ namespace Romd.Contracts.Management.Models;
 /// <summary>
 ///     A title a ROM matched during import.
 /// </summary>
-public sealed record JobItemTitleDto(string Id, string Name);
+public sealed record JobItemTitle(string Id, string Name);
 
 /// <summary>
 ///     Per-file provenance for an upload job: what happened to one ROM or DAT and where it landed.
 /// </summary>
-public sealed record JobItemDto
+public sealed record JobItem
 {
     public required string Id { get; init; }
 
@@ -30,7 +30,7 @@ public sealed record JobItemDto
     public string? SystemKey { get; init; }
     public string? PlatformName { get; init; }
 
-    public required IReadOnlyList<JobItemTitleDto> MatchedTitles { get; init; }
+    public required IReadOnlyList<JobItemTitle> MatchedTitles { get; init; }
 
     /// <summary>Number of games in an imported DAT catalog.</summary>
     public int? GameCount { get; init; }

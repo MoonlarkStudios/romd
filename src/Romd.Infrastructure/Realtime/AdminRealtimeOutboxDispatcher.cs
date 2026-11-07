@@ -99,7 +99,7 @@ public sealed class AdminRealtimeOutboxDispatcher(
         message.EventType switch
         {
             AdminRealtimeEventTypes.JobUpdated => sink.SendJobUpdatedAsync(
-                AdminRealtimePayloadSerializer.Deserialize<JobDto>(message.PayloadJson),
+                AdminRealtimePayloadSerializer.Deserialize<Job>(message.PayloadJson),
                 message.SchemaVersion,
                 ct),
             AdminRealtimeEventTypes.TitleEnriched => sink.SendTitleEnrichedAsync(

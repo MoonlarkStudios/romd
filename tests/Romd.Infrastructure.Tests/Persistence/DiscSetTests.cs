@@ -125,14 +125,14 @@ public sealed partial class DiscSetTests : IDisposable
         await service.RefreshStagedAsync(1, Romd.Infrastructure.Source.DiscSetProposalBuilder.Create(claims), default);
         await new EfUnitOfWork(db).FlushAsync();
     }
-    private async Task<DiscSetDto> First()
+    private async Task<DiscSet> First()
     {
         await using var db = database.CreateContext();
         var result = await new DiscSetService(db).ListAsync(1, null, 100, default);
         result.IsError.ShouldBeFalse();
         return result.Value.Items[0];
     }
-    private async Task<DiscSetDto> Decide(DiscSetDto set, string decision, IReadOnlyList<DiscSetMemberEdit>? members = null, int? total = null, bool publish = true)
+    private async Task<DiscSet> Decide(DiscSet set, string decision, IReadOnlyList<DiscSetMemberEdit>? members = null, int? total = null, bool publish = true)
     {
         await using var db = database.CreateContext();
         var result = await DecideAsync(db, DecodeId(set.Id), new(set.Revision, decision, "Manual Game", total, members, "Reviewed"), actor, default);
@@ -141,7 +141,7 @@ public sealed partial class DiscSetTests : IDisposable
             await Publish(result.Value);
         return result.Value;
     }
-    private async Task Publish(DiscSetDto set)
+    private async Task Publish(DiscSet set)
     {
         await using var db = database.CreateContext();
         var selected = set.Decision == "accepted" ? new[] { DecodeId(set.Id) } : Array.Empty<int>();
@@ -158,14 +158,14 @@ public sealed partial class DiscSetTests : IDisposable
     private sealed record VersionedDecision(Guid Revision, string Decision, string? Name, int? ExpectedDiscCount,
         IReadOnlyList<DiscSetMemberEdit>? Members, string? Reason);
 
-    private static Task<ErrorOr.ErrorOr<DiscSetDto>> DecideAsync(RomdDbContext db, int id, VersionedDecision decision, Guid actor, CancellationToken ct) =>
+    private static Task<ErrorOr.ErrorOr<DiscSet>> DecideAsync(RomdDbContext db, int id, VersionedDecision decision, Guid actor, CancellationToken ct) =>
         new DecideDiscSetCommandHandler(new DiscSetService(db), new EfUnitOfWork(db), TimeProvider.System, NullLogger<DecideDiscSetCommandHandler>.Instance).HandleAsync(
             new(id, new(decision.Decision, decision.Name, decision.ExpectedDiscCount, decision.Members, decision.Reason),
                 RevisionPrecondition.For(decision.Revision.ToString()), actor), ct);
 
     private static int DecodeId(string id) { Romd.Application.Common.Ids.IdCoder.TryDecode(id, out int result).ShouldBeTrue(); return result; }
     /// <summary>The published plan of <paramref name="set" />'s revision; another published revision reads as not found.</summary>
-    private async Task<ConsumerLibraryReadResult<ConsumerDiscSetPlan>> Read(DiscSetDto set, RomdDbContext? context = null)
+    private async Task<ConsumerLibraryReadResult<ConsumerDiscSetPlan>> Read(DiscSet set, RomdDbContext? context = null)
     {
         var db = context ?? database.CreateContext();
         try

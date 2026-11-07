@@ -1,6 +1,6 @@
 import {
   client,
-  type MediaReconciliationPolicyDto,
+  type MediaReconciliationPolicy,
   type StartMediaReconciliationSelectionRequest,
 } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
@@ -12,7 +12,7 @@ import { server } from '../../test/msw/server';
 import { render } from '../../test/utils/render';
 import { MediaReconciliation } from './MediaReconciliation';
 
-const policies: MediaReconciliationPolicyDto[] = [
+const policies: MediaReconciliationPolicy[] = [
   {
     kindId: 'gamecube-disc',
     recipeId: 'rvz/v1',

@@ -395,7 +395,7 @@ source call sites does not update installed console builds.
     safety budgets, not a provider cardinality guarantee.
 - **External game identity suggestions are explicitly bounded.** Provider
   autocomplete is an advisory query, not an enumerable catalog. It returns
-  `ProviderGameSearchResultDto`: `items`, `completeness` and the fixed `limit`.
+  `ProviderGameSearchResult`: `items`, `completeness` and the fixed `limit`.
   This narrow exception exists because a provider may expose neither
   continuation nor a completeness guarantee. It does not apply to saved
   matches, reference data, facets or other ROMD-owned lists.

@@ -40,6 +40,10 @@ using Romd.Persistence;
 using Shouldly;
 using Xunit;
 
+using ContractLibrary = Romd.Contracts.Management.Libraries.Library;
+using ContractLibraryConfiguration = Romd.Contracts.Management.Libraries.LibraryConfiguration;
+using ContractLibraryTitleReleaseDiagnostics = Romd.Contracts.Management.Libraries.LibraryTitleReleaseDiagnostics;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 public sealed class LibraryEndpointsTests
@@ -47,13 +51,13 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Evaluate_MapsDraftWithoutCallingSave()
     {
-        var handler = Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluationDto>>();
+        var handler = Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluation>>();
         handler.HandleAsync(Arg.Any<EvaluateLibraryQuery>(), Arg.Any<CancellationToken>())
-            .Returns(new LibraryEvaluationDto(DateTimeOffset.UtcNow, 2, 1, 0, 1, [], new Page<LibraryEvaluationTitleDto> { Items = [], HasNextPage = false }));
+            .Returns(new LibraryEvaluation(DateTimeOffset.UtcNow, 2, 1, 0, 1, [], new Page<LibraryEvaluationTitle> { Items = [], HasNextPage = false }));
         var result = await InvokeAsync("Evaluate", new Sqid(7),
-            new LibraryEvaluationRequest(new LibraryConfigurationDto { ShowMissingGames = true, IncludeUntrackedTitles = true }, "removed", "Mario", "opaque-draft-cursor", 37),
+            new LibraryEvaluationRequest(new ContractLibraryConfiguration { ShowMissingGames = true, IncludeUntrackedTitles = true }, "removed", "Mario", "opaque-draft-cursor", 37),
             handler, CancellationToken.None);
-        result.ShouldBeOfType<Ok<LibraryEvaluationDto>>();
+        result.ShouldBeOfType<Ok<LibraryEvaluation>>();
         await handler.Received(1).HandleAsync(Arg.Is<EvaluateLibraryQuery>(q =>
             q.LibraryId == 7 && q.Configuration.ShowMissingGames && q.Configuration.IncludeUntrackedTitles && q.View == "removed" && q.Search == "Mario" &&
             q.AfterId == 0 && q.Cursor == "opaque-draft-cursor" && q.Limit == 37),
@@ -79,9 +83,9 @@ public sealed class LibraryEndpointsTests
     [InlineData("3:eED9Qbk")]
     public async Task Preview_MapsOpaqueCursorAndPreservesHandlerCursorRejection(string cursor)
     {
-        var handler = Substitute.For<IQueryHandler<GetLibraryPreviewQuery, Page<LibraryPreviewTitleDto>>>();
+        var handler = Substitute.For<IQueryHandler<GetLibraryPreviewQuery, Page<LibraryPreviewTitle>>>();
         handler.HandleAsync(Arg.Any<GetLibraryPreviewQuery>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ErrorOr<Page<LibraryPreviewTitleDto>>>(
+            .Returns(Task.FromResult<ErrorOr<Page<LibraryPreviewTitle>>>(
                 FieldErrors.Validation("Libraries.InvalidCursor", "The cursor is invalid for this query.", "cursor")));
         var result = await InvokeAsync("GetPreview", new Sqid(7), handler, new Sqid(9), cursor, 23, CancellationToken.None);
         AssertFieldProblem(result, "Libraries.InvalidCursor", "cursor");
@@ -102,9 +106,9 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Evaluate_InvalidConfigurationId_IsRejectedWithItsField()
     {
-        var handler = Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluationDto>>();
+        var handler = Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluation>>();
         var result = await InvokeAsync("Evaluate", new Sqid(7),
-            new LibraryEvaluationRequest(new LibraryConfigurationDto { ExcludeTitleIds = ["not-a-sqid"] }, "all", null),
+            new LibraryEvaluationRequest(new ContractLibraryConfiguration { ExcludeTitleIds = ["not-a-sqid"] }, "all", null),
             handler, CancellationToken.None);
         AssertFieldProblem(result, "Libraries.InvalidConfiguration", "configuration.excludeTitleIds");
         await handler.DidNotReceiveWithAnyArgs().HandleAsync(default!, default);
@@ -113,9 +117,9 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Evaluate_InvalidConfiguration_PrecedesOpaqueCursorValidation()
     {
-        var handler = Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluationDto>>();
+        var handler = Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluation>>();
         var result = await InvokeAsync("Evaluate", new Sqid(7),
-            new LibraryEvaluationRequest(new LibraryConfigurationDto { ExcludeTitleIds = ["not-a-sqid"] }, "all", null, "eED9Qbk"),
+            new LibraryEvaluationRequest(new ContractLibraryConfiguration { ExcludeTitleIds = ["not-a-sqid"] }, "all", null, "eED9Qbk"),
             handler, CancellationToken.None);
         AssertFieldProblem(result, "Libraries.InvalidConfiguration", "configuration.excludeTitleIds");
         await handler.DidNotReceiveWithAnyArgs().HandleAsync(default!, default);
@@ -124,12 +128,12 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Evaluate_MapsOpaqueCursorAndPreservesHandlerCursorRejection()
     {
-        var handler = Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluationDto>>();
+        var handler = Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluation>>();
         handler.HandleAsync(Arg.Any<EvaluateLibraryQuery>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ErrorOr<LibraryEvaluationDto>>(
+            .Returns(Task.FromResult<ErrorOr<LibraryEvaluation>>(
                 FieldErrors.Validation("Libraries.InvalidCursor", "The cursor is invalid for this configuration preview.", "cursor")));
         var result = await InvokeAsync("Evaluate", new Sqid(7),
-            new LibraryEvaluationRequest(new LibraryConfigurationDto(), "all", null, "not-a-sqid"),
+            new LibraryEvaluationRequest(new ContractLibraryConfiguration(), "all", null, "not-a-sqid"),
             handler, CancellationToken.None);
         AssertFieldProblem(result, "Libraries.InvalidCursor", "cursor");
         await handler.Received(1).HandleAsync(Arg.Is<EvaluateLibraryQuery>(query =>
@@ -140,8 +144,8 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Create_MissingNameAndInvalidConfiguration_ReportsBothInOneEnvelope()
     {
-        var handler = Substitute.For<ICommandHandler<CreateLibraryCommand, LibraryDto>>();
-        var configuration = new LibraryConfigurationDto { AllowedSystemKeys = ["no-such-system"] };
+        var handler = Substitute.For<ICommandHandler<CreateLibraryCommand, ContractLibrary>>();
+        var configuration = new ContractLibraryConfiguration { AllowedSystemKeys = ["no-such-system"] };
 
         var result = await InvokeAsync("Create", new CreateLibraryRequest(" ", configuration), handler, CancellationToken.None);
 
@@ -152,8 +156,8 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Update_MissingNameAndInvalidConfiguration_ReportsBothInOneEnvelope()
     {
-        var handler = Substitute.For<ICommandHandler<UpdateLibraryCommand, LibraryDto>>();
-        var configuration = new LibraryConfigurationDto { AllowedSystemKeys = ["no-such-system"] };
+        var handler = Substitute.For<ICommandHandler<UpdateLibraryCommand, ContractLibrary>>();
+        var configuration = new ContractLibraryConfiguration { AllowedSystemKeys = ["no-such-system"] };
 
         var result = await InvokeAsync("Update", new Sqid(7), new UpdateLibraryRequest(" ", configuration), handler,
             CancellationToken.None);
@@ -165,8 +169,8 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Create_SeveralInvalidConfigurationFields_ReportsEveryFieldInOneEnvelope()
     {
-        var handler = Substitute.For<ICommandHandler<CreateLibraryCommand, LibraryDto>>();
-        var configuration = new LibraryConfigurationDto
+        var handler = Substitute.For<ICommandHandler<CreateLibraryCommand, ContractLibrary>>();
+        var configuration = new ContractLibraryConfiguration
         {
             AllowedSystemKeys = ["no-such-system"],
             ExcludedDatIds = ["not-a-sqid"],
@@ -184,23 +188,23 @@ public sealed class LibraryEndpointsTests
     public void InScopeMethods_UseOnlyFocusedApplicationHandlers()
     {
         AssertParameters("GetAll",
-            typeof(IQueryHandler<ListLibrariesQuery, Page<LibraryDto>>),
+            typeof(IQueryHandler<ListLibrariesQuery, Page<ContractLibrary>>),
             typeof(string),
             typeof(string),
             typeof(CancellationToken),
             typeof(int));
         AssertParameters("GetById",
             typeof(Sqid),
-            typeof(IQueryHandler<GetLibraryByIdQuery, LibraryDto>),
+            typeof(IQueryHandler<GetLibraryByIdQuery, ContractLibrary>),
             typeof(CancellationToken));
         AssertParameters("Create",
             typeof(CreateLibraryRequest),
-            typeof(ICommandHandler<CreateLibraryCommand, LibraryDto>),
+            typeof(ICommandHandler<CreateLibraryCommand, ContractLibrary>),
             typeof(CancellationToken));
         AssertParameters("Update",
             typeof(Sqid),
             typeof(UpdateLibraryRequest),
-            typeof(ICommandHandler<UpdateLibraryCommand, LibraryDto>),
+            typeof(ICommandHandler<UpdateLibraryCommand, ContractLibrary>),
             typeof(CancellationToken));
         AssertParameters("Delete",
             typeof(Sqid),
@@ -212,19 +216,19 @@ public sealed class LibraryEndpointsTests
             typeof(CancellationToken));
         AssertParameters("GetPlatformFacets",
             typeof(Sqid),
-            typeof(IQueryHandler<GetLibraryPlatformFacetsQuery, IReadOnlyList<LibraryFacetDto>>),
+            typeof(IQueryHandler<GetLibraryPlatformFacetsQuery, IReadOnlyList<LibraryFacet>>),
             typeof(int),
             typeof(CancellationToken));
         AssertParameters("GetGenreFacets",
             typeof(Sqid),
-            typeof(IQueryHandler<GetLibraryGenreFacetsQuery, Page<LibraryFacetDto>>),
+            typeof(IQueryHandler<GetLibraryGenreFacetsQuery, Page<LibraryFacet>>),
             typeof(string),
             typeof(CancellationToken),
             typeof(int),
             typeof(int));
         AssertParameters("GetCollections",
             typeof(Sqid),
-            typeof(IQueryHandler<GetLibraryCollectionsQuery, Page<LibraryCollectionDto>>),
+            typeof(IQueryHandler<GetLibraryCollectionsQuery, Page<LibraryCollection>>),
             typeof(string),
             typeof(CancellationToken),
             typeof(int),
@@ -234,7 +238,7 @@ public sealed class LibraryEndpointsTests
             typeof(Sqid),
             typeof(IQueryHandler<
                 GetLibraryTitleReleaseDiagnosticsQuery,
-                Page<LibraryTitleReleaseDiagnosticsDto>>),
+                Page<ContractLibraryTitleReleaseDiagnostics>>),
             typeof(string),
             typeof(CancellationToken),
             typeof(int));
@@ -254,14 +258,14 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Create_MapsRequestToCommandAndUsesGeneratedIdForLocation()
     {
-        var handler = Substitute.For<ICommandHandler<CreateLibraryCommand, LibraryDto>>();
+        var handler = Substitute.For<ICommandHandler<CreateLibraryCommand, ContractLibrary>>();
         string id = IdCoder.Encode(17);
         var created = NewDto(id, "Arcade", isDefault: true);
         handler.HandleAsync(Arg.Any<CreateLibraryCommand>(), Arg.Any<CancellationToken>())
             .Returns(created);
         var request = new CreateLibraryRequest(
             "Arcade",
-            new LibraryConfigurationDto
+            new ContractLibraryConfiguration
             {
                 TitleSelectionMode = Romd.Contracts.Management.Libraries.LibraryTitleSelectionMode.IncludeOnly,
                 IncludeTitleIds = [IdCoder.Encode(42)],
@@ -271,7 +275,7 @@ public sealed class LibraryEndpointsTests
 
         var result = await InvokeAsync("Create", request, handler, CancellationToken.None);
 
-        var response = result.ShouldBeOfType<Created<LibraryDto>>();
+        var response = result.ShouldBeOfType<Created<ContractLibrary>>();
         response.Location.ShouldBe($"/api/libraries/{id}");
         response.Value.ShouldBe(created);
         await handler.Received(1).HandleAsync(
@@ -288,7 +292,7 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Update_MapsRouteAndOptionalDefaultToCommand()
     {
-        var handler = Substitute.For<ICommandHandler<UpdateLibraryCommand, LibraryDto>>();
+        var handler = Substitute.For<ICommandHandler<UpdateLibraryCommand, ContractLibrary>>();
         handler.HandleAsync(Arg.Any<UpdateLibraryCommand>(), Arg.Any<CancellationToken>())
             .Returns(NewDto(IdCoder.Encode(7), "Updated", isDefault: false));
 
@@ -299,7 +303,7 @@ public sealed class LibraryEndpointsTests
             handler,
             CancellationToken.None);
 
-        result.ShouldBeOfType<Ok<LibraryDto>>();
+        result.ShouldBeOfType<Ok<ContractLibrary>>();
         await handler.Received(1).HandleAsync(
             Arg.Is<UpdateLibraryCommand>(command =>
                 command.LibraryId == 7 &&
@@ -314,9 +318,9 @@ public sealed class LibraryEndpointsTests
     {
         var handler = Substitute.For<IQueryHandler<
             GetLibraryPlatformFacetsQuery,
-            IReadOnlyList<LibraryFacetDto>>>();
+            IReadOnlyList<LibraryFacet>>>();
         handler.HandleAsync(Arg.Any<GetLibraryPlatformFacetsQuery>(), Arg.Any<CancellationToken>())
-            .Returns(Array.Empty<LibraryFacetDto>());
+            .Returns(Array.Empty<LibraryFacet>());
 
         var result = await InvokeAsync(
             "GetPlatformFacets",
@@ -325,7 +329,7 @@ public sealed class LibraryEndpointsTests
             3,
             CancellationToken.None);
 
-        result.ShouldBeOfType<Ok<IReadOnlyList<LibraryFacetDto>>>();
+        result.ShouldBeOfType<Ok<IReadOnlyList<LibraryFacet>>>();
         await handler.Received(1).HandleAsync(
             new GetLibraryPlatformFacetsQuery(7, 3),
             Arg.Any<CancellationToken>());
@@ -335,11 +339,11 @@ public sealed class LibraryEndpointsTests
     public async Task GetTitleReleaseDiagnostics_PassesBothOpaqueIdsToQuery()
     {
         var handler = Substitute.For<IQueryHandler<
-            GetLibraryTitleReleaseDiagnosticsQuery, Page<LibraryTitleReleaseDiagnosticsDto>>>();
+            GetLibraryTitleReleaseDiagnosticsQuery, Page<ContractLibraryTitleReleaseDiagnostics>>>();
         handler.HandleAsync(
                 Arg.Any<GetLibraryTitleReleaseDiagnosticsQuery>(),
                 Arg.Any<CancellationToken>())
-            .Returns(new Page<LibraryTitleReleaseDiagnosticsDto> { Items = [], HasNextPage = false });
+            .Returns(new Page<ContractLibraryTitleReleaseDiagnostics> { Items = [], HasNextPage = false });
 
         await InvokeAsync(
             "GetTitleReleaseDiagnostics",
@@ -394,7 +398,7 @@ public sealed class LibraryEndpointsTests
     [Fact]
     public async Task Create_MissingName_IsRejectedBeforeTheHandlerWithTheSharedFieldProblem()
     {
-        var handler = Substitute.For<ICommandHandler<CreateLibraryCommand, LibraryDto>>();
+        var handler = Substitute.For<ICommandHandler<CreateLibraryCommand, ContractLibrary>>();
 
         var result = await InvokeAsync(
             "Create",
@@ -450,22 +454,22 @@ public sealed class LibraryEndpointsTests
 
         EndpointExpectation[] expected =
         [
-            new("/libraries/{libraryId}/configuration/preview", "POST", "PreviewLibraryConfiguration", [200, 400, 404, 409], typeof(LibraryEvaluationDto)),
-            new("/libraries/{libraryId}/attachments", "GET", "ListLibraryAttachments", [200, 404], typeof(IReadOnlyList<LibraryAttachmentDto>)),
+            new("/libraries/{libraryId}/configuration/preview", "POST", "PreviewLibraryConfiguration", [200, 400, 404, 409], typeof(LibraryEvaluation)),
+            new("/libraries/{libraryId}/attachments", "GET", "ListLibraryAttachments", [200, 404], typeof(IReadOnlyList<LibraryAttachment>)),
             new("/libraries/{libraryId}/attachments", "PUT", "ReplaceLibraryAttachments", [204, 400, 404], typeof(void)),
-            new("/libraries/{libraryId}/preview", "GET", "ListLibraryPreviewTitles", [200, 400, 404], typeof(Page<LibraryPreviewTitleDto>)),
-            new("/collections/{collectionId}/library-placements", "GET", "ListCollectionLibraryPlacements", [200, 400, 404], typeof(Page<CollectionLibraryPlacementDto>)),
-            new("/libraries", "GET", "ListLibraries", [200, 400], typeof(Page<LibraryDto>)),
-            new("/libraries/{libraryId}", "GET", "GetLibrary", [200, 404], typeof(LibraryDto)),
-            new("/libraries/{libraryId}/disc-set-options", "GET", "GetLibraryDiscSetOptions", [200, 400, 404], typeof(LibraryDiscSetOptionsDto)),
-            new("/libraries", "POST", "CreateLibrary", [201, 400], typeof(LibraryDto)),
-            new("/libraries/{libraryId}", "PATCH", "UpdateLibrary", [200, 400, 404], typeof(LibraryDto)),
+            new("/libraries/{libraryId}/preview", "GET", "ListLibraryPreviewTitles", [200, 400, 404], typeof(Page<LibraryPreviewTitle>)),
+            new("/collections/{collectionId}/library-placements", "GET", "ListCollectionLibraryPlacements", [200, 400, 404], typeof(Page<CollectionLibraryPlacement>)),
+            new("/libraries", "GET", "ListLibraries", [200, 400], typeof(Page<ContractLibrary>)),
+            new("/libraries/{libraryId}", "GET", "GetLibrary", [200, 404], typeof(ContractLibrary)),
+            new("/libraries/{libraryId}/disc-set-options", "GET", "GetLibraryDiscSetOptions", [200, 400, 404], typeof(LibraryDiscSetOptions)),
+            new("/libraries", "POST", "CreateLibrary", [201, 400], typeof(ContractLibrary)),
+            new("/libraries/{libraryId}", "PATCH", "UpdateLibrary", [200, 400, 404], typeof(ContractLibrary)),
             new("/libraries/{libraryId}", "DELETE", "DeleteLibrary", [204, 404, 409], typeof(void)),
             new("/libraries/{libraryId}/materialize", "POST", "MaterializeLibrary", [202, 404], typeof(JobReference)),
-            new("/libraries/{libraryId}/facets/systems", "GET", "ListLibrarySystemFacets", [200, 404], typeof(IEnumerable<LibraryFacetDto>)),
-            new("/libraries/{libraryId}/facets/genres", "GET", "ListLibraryGenreFacets", [200, 400, 404], typeof(Page<LibraryFacetDto>)),
-            new("/libraries/{libraryId}/collections", "GET", "ListLibraryCollections", [200, 400, 404], typeof(Page<LibraryCollectionDto>)),
-            new("/libraries/{libraryId}/titles/{titleId}/releases", "GET", "ListLibraryTitleReleaseDiagnostics", [200, 400, 404], typeof(Page<LibraryTitleReleaseDiagnosticsDto>))
+            new("/libraries/{libraryId}/facets/systems", "GET", "ListLibrarySystemFacets", [200, 404], typeof(IEnumerable<LibraryFacet>)),
+            new("/libraries/{libraryId}/facets/genres", "GET", "ListLibraryGenreFacets", [200, 400, 404], typeof(Page<LibraryFacet>)),
+            new("/libraries/{libraryId}/collections", "GET", "ListLibraryCollections", [200, 400, 404], typeof(Page<LibraryCollection>)),
+            new("/libraries/{libraryId}/titles/{titleId}/releases", "GET", "ListLibraryTitleReleaseDiagnostics", [200, 400, 404], typeof(Page<ContractLibraryTitleReleaseDiagnostics>))
         ];
 
         endpoints.Count.ShouldBe(expected.Length);
@@ -525,23 +529,23 @@ public sealed class LibraryEndpointsTests
     {
         return methodName switch
         {
-            "GetById" => await InvokeMissingQuery<GetLibraryByIdQuery, LibraryDto>(methodName, new Sqid(7)),
+            "GetById" => await InvokeMissingQuery<GetLibraryByIdQuery, ContractLibrary>(methodName, new Sqid(7)),
             "GetPlatformFacets" => await InvokeMissingQuery<
                 GetLibraryPlatformFacetsQuery,
-                IReadOnlyList<LibraryFacetDto>>(methodName, [new Sqid(7)], [1, CancellationToken.None]),
+                IReadOnlyList<LibraryFacet>>(methodName, [new Sqid(7)], [1, CancellationToken.None]),
             "GetGenreFacets" => await InvokeMissingQuery<
                 GetLibraryGenreFacetsQuery,
-                Page<LibraryFacetDto>>(methodName, [new Sqid(7)], [null, CancellationToken.None, 1, 50]),
+                Page<LibraryFacet>>(methodName, [new Sqid(7)], [null, CancellationToken.None, 1, 50]),
             "GetCollections" => await InvokeMissingQuery<
                 GetLibraryCollectionsQuery,
-                Page<LibraryCollectionDto>>(methodName, [new Sqid(7)], [null, CancellationToken.None, 1, 50]),
+                Page<LibraryCollection>>(methodName, [new Sqid(7)], [null, CancellationToken.None, 1, 50]),
             "GetTitleReleaseDiagnostics" => await InvokeMissingQuery<
                 GetLibraryTitleReleaseDiagnosticsQuery,
-                Page<LibraryTitleReleaseDiagnosticsDto>>(
+                Page<ContractLibraryTitleReleaseDiagnostics>>(
                     methodName,
                     [new Sqid(7), new Sqid(9)],
                     [null, CancellationToken.None, 50]),
-            "Update" => await InvokeMissingCommand<UpdateLibraryCommand, LibraryDto>(
+            "Update" => await InvokeMissingCommand<UpdateLibraryCommand, ContractLibrary>(
                 methodName,
                 new Sqid(7),
                 new UpdateLibraryRequest("Missing")),
@@ -584,27 +588,27 @@ public sealed class LibraryEndpointsTests
 
     private static void RegisterRouteDependencies(IServiceCollection services)
     {
-        services.AddSingleton(Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluationDto>>());
-        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryAttachmentsQuery, IReadOnlyList<LibraryAttachmentDto>>>());
-        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryPreviewQuery, Page<LibraryPreviewTitleDto>>>());
-        services.AddSingleton(Substitute.For<IQueryHandler<GetCollectionPlacementsQuery, Page<CollectionLibraryPlacementDto>>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<EvaluateLibraryQuery, LibraryEvaluation>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryAttachmentsQuery, IReadOnlyList<LibraryAttachment>>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryPreviewQuery, Page<LibraryPreviewTitle>>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<GetCollectionPlacementsQuery, Page<CollectionLibraryPlacement>>>());
         services.AddSingleton(Substitute.For<ICommandHandler<SetLibraryAttachmentsCommand, Success>>());
-        services.AddSingleton(Substitute.For<IQueryHandler<ListLibrariesQuery, Page<LibraryDto>>>());
-        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryByIdQuery, LibraryDto>>());
-        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryDiscSetOptionsQuery, LibraryDiscSetOptionsDto>>());
-        services.AddSingleton(Substitute.For<ICommandHandler<CreateLibraryCommand, LibraryDto>>());
-        services.AddSingleton(Substitute.For<ICommandHandler<UpdateLibraryCommand, LibraryDto>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<ListLibrariesQuery, Page<ContractLibrary>>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryByIdQuery, ContractLibrary>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryDiscSetOptionsQuery, LibraryDiscSetOptions>>());
+        services.AddSingleton(Substitute.For<ICommandHandler<CreateLibraryCommand, ContractLibrary>>());
+        services.AddSingleton(Substitute.For<ICommandHandler<UpdateLibraryCommand, ContractLibrary>>());
         services.AddSingleton(Substitute.For<ICommandHandler<DeleteLibraryCommand, Deleted>>());
         services.AddSingleton(Substitute.For<ICommandHandler<ForceMaterializeLibraryCommand, Guid>>());
         services.AddSingleton(Substitute.For<IQueryHandler<
             GetLibraryPlatformFacetsQuery,
-            IReadOnlyList<LibraryFacetDto>>>());
+            IReadOnlyList<LibraryFacet>>>());
         services.AddSingleton(Substitute.For<IQueryHandler<
-            GetLibraryGenreFacetsQuery, Page<LibraryFacetDto>>>());
+            GetLibraryGenreFacetsQuery, Page<LibraryFacet>>>());
         services.AddSingleton(Substitute.For<IQueryHandler<
-            GetLibraryCollectionsQuery, Page<LibraryCollectionDto>>>());
+            GetLibraryCollectionsQuery, Page<LibraryCollection>>>());
         services.AddSingleton(Substitute.For<IQueryHandler<
-            GetLibraryTitleReleaseDiagnosticsQuery, Page<LibraryTitleReleaseDiagnosticsDto>>>());
+            GetLibraryTitleReleaseDiagnosticsQuery, Page<ContractLibraryTitleReleaseDiagnostics>>>());
     }
 
     private static async Task<IResult> InvokeAsync(string methodName, params object?[] args)
@@ -643,12 +647,12 @@ public sealed class LibraryEndpointsTests
     private static string NormalizeRoute(string? route) =>
         (route ?? string.Empty).TrimEnd('/');
 
-    private static LibraryDto NewDto(string id, string name, bool isDefault) =>
+    private static ContractLibrary NewDto(string id, string name, bool isDefault) =>
         new()
         {
             Id = id,
             Name = name,
-            Configuration = new LibraryConfigurationDto(),
+            Configuration = new ContractLibraryConfiguration(),
             ConfigurationState = LibraryConfigurationState.Valid.ToString(),
             IsDefault = isDefault,
             NeedsMaterialization = true,

@@ -61,7 +61,7 @@ public sealed class MetadataProviderEndpointsTests(IntegrationTestFixture fixtur
             using var read = await client.GetAsync(SettingsPath);
             read.StatusCode.ShouldBe(HttpStatusCode.OK);
             (await read.Content.ReadAsStringAsync()).ShouldNotContain(secret);
-            var settings = await read.Content.ReadFromJsonAsync<IgdbProviderSettingsDto>();
+            var settings = await read.Content.ReadFromJsonAsync<IgdbProviderSettings>();
             settings.ShouldNotBeNull();
             settings.ClientId.ShouldBe("integration-client");
             settings.HasClientSecret.ShouldBeTrue();
@@ -71,18 +71,18 @@ public sealed class MetadataProviderEndpointsTests(IntegrationTestFixture fixtur
             using var retained = await PutAsync(client,
                 new UpdateIgdbProviderSettingsRequest(false, "integration-client", null));
             retained.StatusCode.ShouldBe(HttpStatusCode.OK);
-            (await retained.Content.ReadFromJsonAsync<IgdbProviderSettingsDto>())!.HasClientSecret.ShouldBeTrue();
+            (await retained.Content.ReadFromJsonAsync<IgdbProviderSettings>())!.HasClientSecret.ShouldBeTrue();
         }
         finally
         {
             using var cleared = await PutAsync(client,
                 new UpdateIgdbProviderSettingsRequest(false, null, null, ClearClientSecret: true));
             cleared.StatusCode.ShouldBe(HttpStatusCode.OK);
-            (await cleared.Content.ReadFromJsonAsync<IgdbProviderSettingsDto>())!.HasClientSecret.ShouldBeFalse();
+            (await cleared.Content.ReadFromJsonAsync<IgdbProviderSettings>())!.HasClientSecret.ShouldBeFalse();
 
             using var tested = await TestAsync(client);
             tested.StatusCode.ShouldBe(HttpStatusCode.OK);
-            var testResult = await tested.Content.ReadFromJsonAsync<IgdbProviderSettingsDto>();
+            var testResult = await tested.Content.ReadFromJsonAsync<IgdbProviderSettings>();
             testResult.ShouldNotBeNull();
             testResult.LastTestedAt.ShouldNotBeNull();
             testResult.LastTestSucceeded.ShouldBe(false);

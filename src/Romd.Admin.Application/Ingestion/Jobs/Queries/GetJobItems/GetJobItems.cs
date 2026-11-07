@@ -9,17 +9,21 @@ using Romd.Application.Common.Security;
 using Romd.Contracts.Common.Models;
 using Romd.Contracts.Management.Models;
 using Romd.Domain.Jobs;
+using ContractJobItem = Romd.Contracts.Management.Models.JobItem;
+
+using UploadJob = Romd.Domain.Jobs.UploadJob;
+
 namespace Romd.Admin.Application.Ingestion.Jobs.Queries.GetJobItems;
 
 public sealed record GetJobItemsQuery(Guid JobId, string? Outcome = null, int Limit = 100,
-    string? Cursor = null, string? Query = null) : IQuery<Page<JobItemDto>>
+    string? Cursor = null, string? Query = null) : IQuery<Page<ContractJobItem>>
 { public const int MaxLimit = 100; }
 
 public sealed class GetJobItemsQueryHandler(IJobItemRepository repository, IReadSnapshotTransactionFactory readSnapshots,
     IJobRepository jobs, ICurrentUser user, IReferenceCatalogService referenceCatalog,
-    ILogger<GetJobItemsQueryHandler>? logger = null) : IQueryHandler<GetJobItemsQuery, Page<JobItemDto>>
+    ILogger<GetJobItemsQueryHandler>? logger = null) : IQueryHandler<GetJobItemsQuery, Page<ContractJobItem>>
 {
-    public async Task<ErrorOr<Page<JobItemDto>>> HandleAsync(GetJobItemsQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<Page<ContractJobItem>>> HandleAsync(GetJobItemsQuery query, CancellationToken ct = default)
     {
         if (query.Limit is < 1 or > MaxLimit || query.Query?.Length > 200 || !JobFilters.Allows(query.Outcome, JobFilters.ItemOutcomes))
             return Error.Validation("Jobs.InvalidFilter", "Use a supported item outcome, query of at most 200 characters, and limit from 1 to 100.");
@@ -44,7 +48,7 @@ public sealed class GetJobItemsQueryHandler(IJobItemRepository repository, IRead
             var keys = await referenceCatalog.GetSystemKeysAsync(ct);
             await transaction.CompleteAsync(ct);
             completed = true;
-            return new Page<JobItemDto>
+            return new Page<ContractJobItem>
             {
                 Items = page.Items.Select(item => item.ToContract(keys)).ToArray(),
                 HasNextPage = page.HasMore,

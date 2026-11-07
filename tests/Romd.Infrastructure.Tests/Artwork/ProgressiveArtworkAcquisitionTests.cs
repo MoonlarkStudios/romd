@@ -226,15 +226,15 @@ public sealed class ProgressiveArtworkAcquisitionTests
 
         public Rig(bool withFallback = false, ArtworkRole role = ArtworkRole.Poster)
         {
-            Acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(new ArtworkEnrichmentSettingsDto(Guid.Empty, role == ArtworkRole.Poster, false, false, [], role == ArtworkRole.Backdrop, false));
+            Acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(new ArtworkEnrichmentSettings(Guid.Empty, role == ArtworkRole.Poster, false, false, [], role == ArtworkRole.Backdrop, false));
             Acquisition.LockMissingAsync(1, role, 0, Arg.Any<CancellationToken>()).Returns(true);
             Curation.GetStatesAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkCurationState>>(
                 Enum.GetValues<ArtworkRole>().Select(role => new ArtworkCurationState(role, ArtworkSelectionMode.Automatic, 0, null, null)).ToArray()));
             Curation.GetGalleryAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
             var revision = Guid.NewGuid();
-            Matches.GetAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatchDto>>(
+            Matches.GetAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(
                 (withFallback ? new[] { "steamgriddb", "igdb" } : [role == ArtworkRole.Backdrop ? "igdb" : "steamgriddb"]).Select(id =>
-                    new TitleProviderMatchDto(id, id, true, ["artwork"], revision, "Confirmed", "42", null, null, null, false)).ToArray()));
+                    new TitleProviderMatch(id, id, true, ["artwork"], revision, "Confirmed", "42", null, null, null, false)).ToArray()));
             Matches.GetLinkRevisionAsync(1, Arg.Any<string>(), "42", Arg.Any<CancellationToken>()).Returns(revision);
             Browser.Capabilities.Returns(new ArtworkProviderCapabilities(role == ArtworkRole.Backdrop ? "igdb" : "steamgriddb", "SteamGridDB", [new(role, [], [])]));
             Fallback.Capabilities.Returns(new ArtworkProviderCapabilities("igdb", "IGDB", [new(role, [], [])]));

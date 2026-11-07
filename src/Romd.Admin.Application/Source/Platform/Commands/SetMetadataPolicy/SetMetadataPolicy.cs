@@ -16,7 +16,7 @@ using Romd.Domain.Jobs;
 namespace Romd.Admin.Application.Source.Platform.Commands.SetMetadataPolicy;
 
 public sealed record SetMetadataPolicyCommand(int PlatformId, RevisionPrecondition IfMatch,
-    IReadOnlyDictionary<string, string?> Defaults) : ICommand<PlatformMetadataPolicyDto>;
+    IReadOnlyDictionary<string, string?> Defaults) : ICommand<PlatformMetadataPolicy>;
 
 public sealed class SetMetadataPolicyCommandHandler(
     IPlatformRepository platforms,
@@ -29,9 +29,9 @@ public sealed class SetMetadataPolicyCommandHandler(
     IOptions<EnrichmentOptions> options,
     IUnitOfWork unitOfWork,
     ILogger<SetMetadataPolicyCommandHandler> logger,
-    TimeProvider clock) : ICommandHandler<SetMetadataPolicyCommand, PlatformMetadataPolicyDto>
+    TimeProvider clock) : ICommandHandler<SetMetadataPolicyCommand, PlatformMetadataPolicy>
 {
-    public async Task<ErrorOr<PlatformMetadataPolicyDto>> HandleAsync(SetMetadataPolicyCommand command, CancellationToken ct = default)
+    public async Task<ErrorOr<PlatformMetadataPolicy>> HandleAsync(SetMetadataPolicyCommand command, CancellationToken ct = default)
     {
         if (command.Defaults.Any(pair => !MetadataPolicy.Fields.Contains(pair.Key) ||
             (!string.IsNullOrEmpty(pair.Value) && pair.Value != "user" &&
@@ -39,10 +39,10 @@ public sealed class SetMetadataPolicyCommandHandler(
             return Error.Validation("MetadataPolicy.InvalidPreference", "Choose a supported metadata field and source.");
 
         Guid? accelerate = null;
-        ErrorOr<PlatformMetadataPolicyDto> result;
+        ErrorOr<PlatformMetadataPolicy> result;
         try
         {
-            result = await unitOfWork.ExecuteInTransactionAsync<PlatformMetadataPolicyDto>(async token =>
+            result = await unitOfWork.ExecuteInTransactionAsync<PlatformMetadataPolicy>(async token =>
             {
                 var platform = await platforms.GetByIdAsync(command.PlatformId, token);
                 if (platform is null)
@@ -83,7 +83,7 @@ public sealed class SetMetadataPolicyCommandHandler(
                     }
                     pending = accelerate = job.Id;
                 }
-                return new PlatformMetadataPolicyDto(MetadataPolicy.Revision(updated, options.Value.GlobalSourcePriority), updated,
+                return new PlatformMetadataPolicy(MetadataPolicy.Revision(updated, options.Value.GlobalSourcePriority), updated,
                     options.Value.GlobalSourcePriority, await defaults.CountTitlesAsync(command.PlatformId, token), pending);
             }, logger, ct);
         }

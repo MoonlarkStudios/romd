@@ -42,7 +42,7 @@ public sealed class ConsumerCollectionEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", scenario.LibraryId);
 
         var response = await client.GetAsync("/api/collections");
-        var body = (await response.Content.ReadFromJsonAsync<Page<ConsumerCollectionDto>>())?.Items;
+        var body = (await response.Content.ReadFromJsonAsync<Page<ConsumerCollection>>())?.Items;
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -75,7 +75,7 @@ public sealed class ConsumerCollectionEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", scenario.LibraryId);
 
         var response = await client.GetAsync($"/api/collections/{IdCoder.Encode(scenario.CollectionId)}");
-        var body = await response.Content.ReadFromJsonAsync<ConsumerCollectionDto>();
+        var body = await response.Content.ReadFromJsonAsync<ConsumerCollection>();
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -92,7 +92,7 @@ public sealed class ConsumerCollectionEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", scenario.LibraryId);
 
         var firstResponse = await client.GetAsync($"/api/collections/{IdCoder.Encode(scenario.CollectionId)}/titles?limit=1");
-        var firstPage = await firstResponse.Content.ReadFromJsonAsync<Page<ConsumerCollectionTitleDto>>();
+        var firstPage = await firstResponse.Content.ReadFromJsonAsync<Page<ConsumerCollectionTitle>>();
 
         firstResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         firstPage.ShouldNotBeNull();
@@ -106,7 +106,7 @@ public sealed class ConsumerCollectionEndpointsTests
 
         var secondResponse = await client.GetAsync(
             $"/api/collections/{IdCoder.Encode(scenario.CollectionId)}/titles?limit=1&cursor={Uri.EscapeDataString(nextCursor)}");
-        var secondPage = await secondResponse.Content.ReadFromJsonAsync<Page<ConsumerCollectionTitleDto>>();
+        var secondPage = await secondResponse.Content.ReadFromJsonAsync<Page<ConsumerCollectionTitle>>();
 
         secondResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         secondPage.ShouldNotBeNull();

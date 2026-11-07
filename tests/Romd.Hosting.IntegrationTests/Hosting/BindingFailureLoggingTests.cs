@@ -74,7 +74,7 @@ public sealed class BindingFailureLoggingTests : IDisposable
             TestJwtSecret,
             services => CapturingLogSink.Register(services, sink)
                 .AddTestAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
-                .ReplaceWith(Substitute.For<IQueryHandler<GetConsumerTitleQuery, ConsumerTitleDetailDto>>())
+                .ReplaceWith(Substitute.For<IQueryHandler<GetConsumerTitleQuery, ConsumerTitleDetail>>())
                 .ReplaceWith(Substitute.For<IConsumerMediaArtifactResolver>()));
 
     private WebApplicationFactory<Romd.Admin.Host.Program> CreateAdminHost(CapturingLogSink sink) =>
@@ -83,5 +83,5 @@ public sealed class BindingFailureLoggingTests : IDisposable
             TestJwtSecret,
             services => CapturingLogSink.Register(services, sink)
                 .AddTestAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
-                .ReplaceWith(Substitute.For<IQueryHandler<GetLibraryByIdQuery, LibraryDto>>()));
+                .ReplaceWith(Substitute.For<IQueryHandler<GetLibraryByIdQuery, Library>>()));
 }

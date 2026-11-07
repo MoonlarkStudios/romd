@@ -1,4 +1,4 @@
-import type { PageOfPlaySessionDto, UpsertPlaySessionRequest } from '@romd/consumer-api-client';
+import type { PageOfPlaySession, UpsertPlaySessionRequest } from '@romd/consumer-api-client';
 import {
   deleteConsumerPlaySession,
   deleteConsumerPlaySessions,
@@ -74,7 +74,7 @@ export function usePlaySessions(limit = 50) {
       if (response.error || !response.data) {
         throw new Error('Unable to load play sessions');
       }
-      return response.data as PageOfPlaySessionDto;
+      return response.data as PageOfPlaySession;
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => (page.hasNextPage ? (page.nextCursor ?? undefined) : undefined),

@@ -19,7 +19,7 @@ import {
   listAccountLinks,
   listAccountSessions,
   replaceAccountSuspension,
-  type UserDto,
+  type User,
 } from '@romd/admin-api-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -76,7 +76,7 @@ export async function loadAccountSecurity(userId: string) {
   };
 }
 
-export function AccountSecurityPanel({ user }: { user: UserDto }) {
+export function AccountSecurityPanel({ user }: { user: User }) {
   const client = useQueryClient();
   const { user: current } = useAuth();
   const [pending, setPending] = useState(false);

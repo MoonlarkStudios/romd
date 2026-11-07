@@ -1,4 +1,4 @@
-import type { ResolvedArtworkDto } from '@romd/consumer-api-client';
+import type { ResolvedArtwork } from '@romd/consumer-api-client';
 import { artworkAspectRatios, artworkObjectStyle } from '@romd/consumer-ui';
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { userManager } from '../../auth/userManager';
@@ -6,7 +6,7 @@ import { artworkCacheKey, loadRecentArtwork } from '../../services/artworkCache'
 import { type ArtworkRole, artworkDeliveryUrl, selectArtwork } from '../../utils/artwork';
 
 interface ArtworkImageProps {
-  artwork?: ReadonlyArray<ResolvedArtworkDto>;
+  artwork?: ReadonlyArray<ResolvedArtwork>;
   artworkRole?: ArtworkRole;
   alt?: string;
   style?: CSSProperties;

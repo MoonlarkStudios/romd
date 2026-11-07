@@ -11,6 +11,8 @@ using Romd.Contracts.Management.Models;
 using Romd.Contracts.Management.Models.Media;
 using Romd.Host.Authorization;
 
+using ContractOriginalDiscLayout = Romd.Contracts.Management.Models.OriginalDiscLayout;
+
 namespace Romd.Host.Endpoints;
 
 public static class AdminOriginalDiscLayoutEndpoints
@@ -23,29 +25,29 @@ public static class AdminOriginalDiscLayoutEndpoints
             var result = await service.ListAsync(systemKey?.SystemId, cursor, limit, ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
         }).WithName("ListOriginalDiscLayouts").WithTags("Original Disc Layouts")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<Page<OriginalDiscLayoutDto>>().ProducesProblems(400);
+            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<Page<ContractOriginalDiscLayout>>().ProducesProblems(400);
         app.MapGet("original-disc-layouts/{layoutId}", async (Sqid layoutId, IOriginalDiscLayoutService service, HttpContext context, CancellationToken ct) =>
         {
             var result = await service.GetAsync(layoutId, ct);
             return result.Match(value => Results.Ok(value).WithETag(context, value.Revision.ToString()), errors => errors.ToProblem());
         }).WithName("GetOriginalDiscLayout").WithTags("Original Disc Layouts")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<OriginalDiscLayoutDto>().ProducesProblems(400, 404).ETagOnlyRead();
+            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<ContractOriginalDiscLayout>().ProducesProblems(400, 404).ETagOnlyRead();
         app.MapGet("original-disc-layouts/{layoutId}/candidates", async (Sqid layoutId, IOriginalDiscLayoutService service,
             SystemKeyParameter? systemKey = null, string? cursor = null, [Range(1, 100)] int limit = 50, CancellationToken ct = default) =>
         {
             var result = await service.CandidatesAsync(layoutId, systemKey?.SystemId, cursor, limit, ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
         }).WithName("ListOriginalDiscLayoutCandidates").WithTags("Original Disc Layouts")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<Page<OriginalDiscLayoutCandidateDto>>().ProducesProblems(400, 404);
+            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<Page<OriginalDiscLayoutCandidate>>().ProducesProblems(400, 404);
         app.MapGet("original-disc-layouts/{layoutId}/audit", async (Sqid layoutId, IOriginalDiscLayoutService service,
             string? cursor = null, [Range(1, 100)] int limit = 50, CancellationToken ct = default) =>
         {
             var result = await service.AuditAsync(layoutId, cursor, limit, ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
         }).WithName("ListOriginalDiscLayoutAudit").WithTags("Original Disc Layouts")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<Page<OriginalDiscLayoutAuditDto>>().ProducesProblems(400, 404);
+            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<Page<OriginalDiscLayoutAudit>>().ProducesProblems(400, 404);
         app.MapPatch("original-disc-layouts/{layoutId}", async (Sqid layoutId, OriginalDiscLayoutDecisionRequest request, HttpContext context,
-            ICommandHandler<DecideOriginalDiscLayoutCommand, OriginalDiscLayoutDto> handler, ICurrentUser user, CancellationToken ct) =>
+            ICommandHandler<DecideOriginalDiscLayoutCommand, ContractOriginalDiscLayout> handler, ICurrentUser user, CancellationToken ct) =>
         {
             var precondition = Preconditions.IfMatch(context, "OriginalLayout");
             if (precondition.IsError)
@@ -53,15 +55,15 @@ public static class AdminOriginalDiscLayoutEndpoints
             var result = await handler.HandleAsync(new(layoutId, request, precondition.Value, user.UserId!.Value), ct);
             return result.Match(value => Results.Ok(value).WithETag(context, value.Revision.ToString()), errors => errors.ToProblem());
         }).WithName("UpdateOriginalDiscLayout").WithTags("Original Disc Layouts")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<OriginalDiscLayoutDto>()
+            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<ContractOriginalDiscLayout>()
             .ProducesProblems(400, 404, 409).ConditionalWrite();
         // The admin host cannot see the worker's encoder, so availability is this host's qualified decode capability; the
         // worker refuses an encode it cannot perform. The composition requires a CD track kind to name its qualified runtime.
         app.MapGet("original-disc-layouts/compression-recipe", (RomCdStorageRecipe recipe, IMediaHostCapabilities capabilities) =>
-            Results.Ok(new CdStorageRecipeDto(capabilities.CanDecode(recipe.Kind), recipe.Id, checked((int)recipe.HunkBytes), recipe.CodecNames,
+            Results.Ok(new CdStorageRecipe(capabilities.CanDecode(recipe.Kind), recipe.Id, checked((int)recipe.HunkBytes), recipe.CodecNames,
                 capabilities.QualifiedRuntime(recipe.Kind)!)))
             .WithName("GetCdStorageRecipe").WithTags("Original Disc Layouts")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<CdStorageRecipeDto>();
+            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<CdStorageRecipe>();
         app.MapGet("original-disc-layouts/{layoutId}/archive", async (Sqid layoutId, IRomCdArchiveDownloadCatalog catalog,
             IRomCdArchiveDownloadReader reader, HttpContext context, CancellationToken ct) =>
             await catalog.FindForLayoutAsync(layoutId, ct) is { } target

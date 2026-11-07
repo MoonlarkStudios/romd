@@ -1,20 +1,20 @@
 import type {
-  JobDtoMediaReconciliationJobDto,
-  MediaReconciliationSelectionDto,
-  MediaReconciliationSubjectDto,
+  JobMediaReconciliationJob,
+  MediaReconciliationSelection,
+  MediaReconciliationSubject,
 } from '@romd/admin-api-client';
 
-type SubjectJob = JobDtoMediaReconciliationJobDto & {
+type SubjectJob = JobMediaReconciliationJob & {
   jobType: 'media-reconciliation';
   requestMode: 'Subject';
-  subject: MediaReconciliationSubjectDto;
+  subject: MediaReconciliationSubject;
   selection: null;
 };
-type SelectionJob = JobDtoMediaReconciliationJobDto & {
+type SelectionJob = JobMediaReconciliationJob & {
   jobType: 'media-reconciliation';
   requestMode: 'Selection';
   subject: null;
-  selection: MediaReconciliationSelectionDto;
+  selection: MediaReconciliationSelection;
 };
 
 export function subjectReconciliationJob(overrides: Partial<SubjectJob> = {}): SubjectJob {

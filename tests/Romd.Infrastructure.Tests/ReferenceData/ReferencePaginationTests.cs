@@ -185,7 +185,7 @@ public sealed class ReferencePaginationTests
         try
         {
             await gate.Reached.Task.WaitAsync(TimeSpan.FromSeconds(15));
-            (await commands.UpdateSystem("local-consistent", new SystemPatchDto { Name = "After" }, before.Revision)).IsError.ShouldBeFalse();
+            (await commands.UpdateSystem("local-consistent", new SystemPatch { Name = "After" }, before.Revision)).IsError.ShouldBeFalse();
             gate.Resume.TrySetResult();
             (await reading).Items.ShouldHaveSingleItem().Name.ShouldBe("Before");
             reader.Database.CurrentTransaction.ShouldBeNull();

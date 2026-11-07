@@ -1,7 +1,7 @@
 import type {
-  EnrichmentAssessmentDto,
-  MetadataLayerDto,
-  TitleDetail as TitleDetailDto,
+  EnrichmentAssessment,
+  MetadataLayer,
+  TitleDetail as TitleDetailContract,
   TitleEnrichmentStateResponse,
 } from '@romd/admin-api-client';
 import { focusManager } from '@tanstack/react-query';
@@ -111,7 +111,7 @@ const mockSetTitleTracking = replaceTitleTracking as ReturnType<typeof vi.fn>;
 const mockTriggerTitleEnrichment = triggerTitleEnrichment as ReturnType<typeof vi.fn>;
 const mockUpdateTitle = updateTitle as ReturnType<typeof vi.fn>;
 
-const title: TitleDetailDto = writtenTitleFixture({
+const title: TitleDetailContract = writtenTitleFixture({
   id: 'title-1',
   revision: 'title-revision-1',
   systemKey: 'plat-1',
@@ -169,7 +169,7 @@ const title: TitleDetailDto = writtenTitleFixture({
   ],
 });
 
-const userLayer: MetadataLayerDto = {
+const userLayer: MetadataLayer = {
   sourceId: 'user',
   sourceType: 'User',
   description: null,
@@ -182,7 +182,7 @@ const userLayer: MetadataLayerDto = {
   updatedAt: '2024-01-03T00:00:00Z',
 };
 
-const igdbLayer: MetadataLayerDto = {
+const igdbLayer: MetadataLayer = {
   sourceId: 'igdb',
   sourceType: 'Provider',
   description: 'Mario returns to Dinosaur Land.',
@@ -217,7 +217,7 @@ const enrichmentState: TitleEnrichmentStateResponse = {
   lastEnrichedAt: '2024-01-02T00:00:00Z',
 };
 
-const assessment: EnrichmentAssessmentDto = {
+const assessment: EnrichmentAssessment = {
   titleId: 'title-1',
   titleName: 'Super Mario World',
   platformName: 'Super Nintendo',
@@ -1310,7 +1310,7 @@ describe('TitleDetail', () => {
 
   it('merges against the target the form loaded on selection, never one read at click time', async () => {
     const user = userEvent.setup();
-    const target: TitleDetailDto = {
+    const target: TitleDetailContract = {
       ...title,
       id: 'title-2',
       revision: 'target-revision-1',
@@ -1427,7 +1427,7 @@ describe('TitleDetail', () => {
 
   it('keeps the target revision it showed when a background refetch changes the target', async () => {
     const user = userEvent.setup();
-    const target = (revision: string): TitleDetailDto => ({
+    const target = (revision: string): TitleDetailContract => ({
       ...title,
       id: 'title-2',
       revision,

@@ -49,7 +49,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
     public Task<ProviderIdentityDiscoveryResult> DiscoverAsync(int titleId, JobContext context, CancellationToken ct) =>
         _identities?.DiscoverAsync(titleId, context, ct) ?? Task.FromResult(ProviderIdentityDiscoveryResult.Empty);
 
-    public async Task<ErrorOr<IReadOnlyList<TitleProviderMatchDto>>> GetAsync(int titleId, CancellationToken ct)
+    public async Task<ErrorOr<IReadOnlyList<TitleProviderMatch>>> GetAsync(int titleId, CancellationToken ct)
     {
         if (!await _store.ExistsAsync(titleId, ct))
             return CatalogErrors.TitleNotFound();
@@ -61,16 +61,16 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
                 enabled.Add((adapter, availability));
         }
         if (enabled.Count == 0)
-            return new List<TitleProviderMatchDto>();
+            return new List<TitleProviderMatch>();
 
         var facts = await _store.ReadFactsAsync(titleId, enabled.Select(provider => provider.Adapter.Id).ToArray(), ct);
-        var rows = new List<TitleProviderMatchDto>(enabled.Count);
+        var rows = new List<TitleProviderMatch>(enabled.Count);
         foreach (var (adapter, availability) in enabled)
             rows.Add(await RowAsync(adapter, availability, facts, await ReadTrustedIdentityAsync(titleId, adapter.Id, ct), null, ct));
         return rows;
     }
 
-    public async Task<ErrorOr<TitleProviderMatchDto>> GetAsync(int titleId, string providerId, CancellationToken ct)
+    public async Task<ErrorOr<TitleProviderMatch>> GetAsync(int titleId, string providerId, CancellationToken ct)
     {
         if (!await _store.ExistsAsync(titleId, ct))
             return CatalogErrors.TitleNotFound();
@@ -83,7 +83,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
             await ReadTrustedIdentityAsync(titleId, providerId, ct), null, ct);
     }
 
-    public async Task<ErrorOr<ProviderGameSearchResultDto>> SearchAsync(string providerId, string query, CancellationToken ct)
+    public async Task<ErrorOr<ProviderGameSearchResult>> SearchAsync(string providerId, string query, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length > 200 || query.Any(char.IsControl))
             return InputErrors([ProviderMatchErrors.InvalidQuery], "query");
@@ -94,7 +94,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
         return games.IsError ? InputErrors(games.Errors, "query") : games;
     }
 
-    public async Task<ErrorOr<ProviderGameDto>> ResolveAsync(string providerId, string input, CancellationToken ct)
+    public async Task<ErrorOr<ProviderGame>> ResolveAsync(string providerId, string input, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(input) || input.Length > 500 || input.Any(char.IsControl))
             return InputErrors([ProviderMatchErrors.InvalidInput], "input");
@@ -105,7 +105,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
         return game.IsError ? InputErrors(game.Errors, "input") : game;
     }
 
-    public async Task<ErrorOr<TitleProviderMatchDto>> SetAsync(int titleId, string providerId, string externalId,
+    public async Task<ErrorOr<TitleProviderMatch>> SetAsync(int titleId, string providerId, string externalId,
         RevisionPrecondition ifMatch, CancellationToken ct)
     {
         var provider = await WritableAsync(titleId, providerId, ct);
@@ -120,14 +120,14 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
         return await ChangeAsync(titleId, provider.Value, ifMatch, game.Value, false, ct);
     }
 
-    public async Task<ErrorOr<TitleProviderMatchDto>> ConfirmAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
+    public async Task<ErrorOr<TitleProviderMatch>> ConfirmAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
         CancellationToken ct)
     {
         var provider = await WritableAsync(titleId, providerId, ct);
         return provider.IsError ? provider.Errors : await ChangeAsync(titleId, provider.Value, ifMatch, null, false, ct);
     }
 
-    public async Task<ErrorOr<TitleProviderMatchDto>> UnlinkAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
+    public async Task<ErrorOr<TitleProviderMatch>> UnlinkAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
         CancellationToken ct)
     {
         var provider = await WritableAsync(titleId, providerId, ct);
@@ -153,7 +153,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
     }
 
     /// <summary>Resolves one game by id or page URL; one the provider does not have is the caller's invalid input.</summary>
-    private static async Task<ErrorOr<ProviderGameDto>> ResolveAsync(IProviderIdentityAdapter adapter, string idOrUrl,
+    private static async Task<ErrorOr<ProviderGame>> ResolveAsync(IProviderIdentityAdapter adapter, string idOrUrl,
         CancellationToken ct)
     {
         var game = await adapter.ResolveAsync(idOrUrl, ct);
@@ -173,10 +173,10 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
             : error)
     ];
 
-    private async Task<ErrorOr<TitleProviderMatchDto>> ChangeAsync(int titleId, UsableProvider provider,
-        RevisionPrecondition ifMatch, ProviderGameDto? game, bool unlink, CancellationToken ct)
+    private async Task<ErrorOr<TitleProviderMatch>> ChangeAsync(int titleId, UsableProvider provider,
+        RevisionPrecondition ifMatch, ProviderGame? game, bool unlink, CancellationToken ct)
     {
-        var written = await _unitOfWork.ExecuteInTransactionAsync<TitleProviderMatchDto>(async token =>
+        var written = await _unitOfWork.ExecuteInTransactionAsync<TitleProviderMatch>(async token =>
         {
             var changed = await _store.StageChangeAsync(titleId, provider.Adapter.Id, ifMatch, game, unlink, token);
             if (changed.IsError)
@@ -203,15 +203,15 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
         return job.Id;
     }
 
-    private async Task<TitleProviderMatchDto> RowAsync(IProviderIdentityAdapter adapter, ProviderAvailability availability,
+    private async Task<TitleProviderMatch> RowAsync(IProviderIdentityAdapter adapter, ProviderAvailability availability,
         TitleProviderMatchFacts facts, string? trustedGameId, Guid? pendingJobId, CancellationToken ct) =>
         await ResolvePreviewAsync(adapter, availability, BuildRow(adapter, availability, facts, trustedGameId, pendingJobId), ct);
 
     private Task<string?> ReadTrustedIdentityAsync(int titleId, string providerId, CancellationToken ct) =>
         _identityStore?.ReadTrustedAsync(titleId, providerId, ct) ?? Task.FromResult<string?>(null);
 
-    private async Task<TitleProviderMatchDto> ResolvePreviewAsync(IProviderIdentityAdapter adapter,
-        ProviderAvailability availability, TitleProviderMatchDto row, CancellationToken ct, bool committed = false)
+    private async Task<TitleProviderMatch> ResolvePreviewAsync(IProviderIdentityAdapter adapter,
+        ProviderAvailability availability, TitleProviderMatch row, CancellationToken ct, bool committed = false)
     {
         if (row.Game is not null || row.ExternalId is null || !availability.Configured)
             return row;
@@ -228,7 +228,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
         }
     }
 
-    private static TitleProviderMatchDto BuildRow(IProviderIdentityAdapter adapter, ProviderAvailability availability,
+    private static TitleProviderMatch BuildRow(IProviderIdentityAdapter adapter, ProviderAvailability availability,
         TitleProviderMatchFacts facts, string? trustedGameId, Guid? pendingJobId)
     {
         var link = facts.Links.SingleOrDefault(x => x.Provider.Equals(adapter.Id, StringComparison.OrdinalIgnoreCase));

@@ -1,8 +1,8 @@
 import { Badge, Box, Button, Group, Paper, Stack, Text } from '@mantine/core';
 import type {
-  ConsumerCollectionTitleDto,
-  ConsumerTitleCardDto,
-  RecentlyPlayedTitleDto,
+  ConsumerCollectionTitle,
+  ConsumerTitleCard,
+  RecentlyPlayedTitle,
 } from '@romd/consumer-api-client';
 import { IconDownload, IconPlayerPlay, IconStar } from '@tabler/icons-react';
 import { useBrowserPlaybackAvailability } from '../../hooks/useBrowserPlaybackCapability';
@@ -11,7 +11,7 @@ import { TitleLink } from '../navigation/TitleLink';
 import { ArtworkFallback } from './ArtworkFallback';
 import { ArtworkImage } from './ArtworkImage';
 
-type TitleRowData = ConsumerTitleCardDto | ConsumerCollectionTitleDto | RecentlyPlayedTitleDto;
+type TitleRowData = ConsumerTitleCard | ConsumerCollectionTitle | RecentlyPlayedTitle;
 
 interface TitleListRowProps {
   title: TitleRowData;

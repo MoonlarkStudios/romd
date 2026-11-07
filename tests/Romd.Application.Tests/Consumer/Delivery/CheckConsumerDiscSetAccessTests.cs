@@ -13,6 +13,8 @@ using Romd.Contracts.Consumer.Releases;
 using Shouldly;
 using Xunit;
 
+using ConsumerReleaseManifest = Romd.Consumer.Application.Delivery.ConsumerReleaseManifest;
+
 namespace Romd.Application.Tests.Consumer.Delivery;
 
 public sealed class CheckConsumerDiscSetAccessTests
@@ -33,13 +35,13 @@ public sealed class CheckConsumerDiscSetAccessTests
         request = new(1, server.InstanceId.ToString("D"), plan.Revision, new string('a', 64), [IdCoder.Encode(11)], [new(IdCoder.Encode(11), null, null)], false);
         repository.ReadStatusAsync(Arg.Any<ConsumerLibraryScope>(), 3, Arg.Any<CancellationToken>()).Returns(new ConsumerLibraryReadResult<ConsumerDiscSetPlan>.Found(4, plan));
     }
-    private Task<ErrorOr<ConsumerDiscSetAccessDto>> Check(ConsumerDiscSetAccessRequest? value = null) =>
+    private Task<ErrorOr<ConsumerDiscSetAccess>> Check(ConsumerDiscSetAccessRequest? value = null) =>
         new CheckConsumerDiscSetAccessCommandHandler(user, server, repository, manifests).HandleAsync(new(3, value ?? request));
     [Fact]
     public async Task Access_ExactSnapshot_RevalidatesWithoutIssuingGrantsAndEchoesIdentity()
     {
         manifests.BuildAsync(Arg.Any<IssueConsumerDiscSetManifestCommand>(), Arg.Any<ConsumerDiscSetPlan>(), Arg.Any<int>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(
-            new ConsumerDiscSetManifestDto(request.ServerInstanceId, IdCoder.Encode(3), plan.Revision, request.DeliverySnapshotId,
+            new ConsumerDiscSetManifest(request.ServerInstanceId, IdCoder.Encode(3), plan.Revision, request.DeliverySnapshotId,
                 IdCoder.Encode(7), "psx", "Game", null, false, [new(IdCoder.Encode(11), 1, "Disc", "game.cue", [])], new("id", "playlist.m3u", "hash", (Romd.Contracts.Common.Models.ByteCount)0L, "utf-8", "")));
         var result = await Check();
         result.IsError.ShouldBeFalse();

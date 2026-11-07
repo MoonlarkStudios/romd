@@ -4,7 +4,7 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
-export type ArtworkVariantDto = {
+export type ArtworkVariant = {
     name: string;
     url: string;
     contentVersion: string;
@@ -20,7 +20,7 @@ export type ChangePasswordRequest = {
     newPassword: string;
 };
 
-export type CompanyResourceDto = {
+export type CompanyResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
@@ -30,27 +30,27 @@ export type CompanyResourceDto = {
     revision: string;
 };
 
-export type CompanySummaryDto = {
+export type CompanySummary = {
     key: string;
     name: string;
 };
 
-export type ConsumerCollectionDto = {
+export type ConsumerCollection = {
     id: string;
     name: string;
     description?: null | string;
-    system?: null | SystemSummaryDto;
+    system?: null | SystemSummary;
     coverUrl?: null | string;
     heroUrl?: null | string;
     itemCount?: number;
     isFeatured?: boolean;
 };
 
-export type ConsumerCollectionTitleDto = {
-    artwork?: Array<ResolvedArtworkDto>;
+export type ConsumerCollectionTitle = {
+    artwork?: Array<ResolvedArtwork>;
     id: string;
     name: string;
-    system: SystemSummaryDto;
+    system: SystemSummary;
     coverUrl?: null | string;
     genre?: null | string;
     releaseDate?: null | string;
@@ -59,16 +59,16 @@ export type ConsumerCollectionTitleDto = {
     defaultReleaseId?: null | string;
 };
 
-export type ConsumerContentRatingDto = {
+export type ConsumerContentRating = {
     board: string;
     code: string;
     boardName: string;
     name: string;
     description?: null | string;
-    icon?: null | ReferenceAssetDto;
+    icon?: null | ReferenceAsset;
 };
 
-export type ConsumerDerivedPlaylistDto = {
+export type ConsumerDerivedPlaylist = {
     artifactId: string;
     relativePath: string;
     sha256: string;
@@ -77,14 +77,14 @@ export type ConsumerDerivedPlaylistDto = {
     text: string;
 };
 
-export type ConsumerDiscSetAccessDto = {
+export type ConsumerDiscSetAccess = {
     contractVersion: number;
     serverInstanceId: string;
     discSetId: string;
     revision: string;
     deliverySnapshotId: string;
     selectedReleaseIds: Array<string>;
-    layoutVersions: Array<ConsumerDiscSetLayoutVersionDto>;
+    layoutVersions: Array<ConsumerDiscSetLayoutVersion>;
     allowed: boolean;
     titleId: null | string;
     systemKey: null | string;
@@ -96,35 +96,35 @@ export type ConsumerDiscSetAccessRequest = {
     revision: string;
     deliverySnapshotId: string;
     selectedReleaseIds: Array<string>;
-    layoutVersions: Array<ConsumerDiscSetLayoutVersionDto>;
+    layoutVersions: Array<ConsumerDiscSetLayoutVersion>;
     allowPartial: boolean;
 };
 
-export type ConsumerDiscSetDiscDto = {
+export type ConsumerDiscSetDisc = {
     releaseId: string;
     ordinal: number;
     name: string;
     entryPoint: string;
-    files: Array<ConsumerDiscSetFileDto>;
+    files: Array<ConsumerDiscSetFile>;
     layoutId?: null | string;
     layoutRevision?: null | string;
 };
 
-export type ConsumerDiscSetFileDto = {
+export type ConsumerDiscSetFile = {
     relativePath: string;
     sizeBytes: ByteCount;
     sha256: string;
     provenance: ConsumerReleaseFileProvenance;
-    contentGrant: ContentGrantDto;
+    contentGrant: ContentGrant;
 };
 
-export type ConsumerDiscSetLayoutVersionDto = {
+export type ConsumerDiscSetLayoutVersion = {
     releaseId: string;
     layoutId: null | string;
     layoutRevision: null | string;
 };
 
-export type ConsumerDiscSetManifestDto = {
+export type ConsumerDiscSetManifest = {
     serverInstanceId: string;
     discSetId: string;
     revision: string;
@@ -134,23 +134,23 @@ export type ConsumerDiscSetManifestDto = {
     name: string;
     expectedDiscCount: null | number;
     hasAllExpectedDiscs: boolean;
-    discs: Array<ConsumerDiscSetDiscDto>;
-    playlist: ConsumerDerivedPlaylistDto;
+    discs: Array<ConsumerDiscSetDisc>;
+    playlist: ConsumerDerivedPlaylist;
     contractVersion?: number;
     observationId?: string;
-    selection?: null | ConsumerDiscSetSelectionDto;
+    selection?: null | ConsumerDiscSetSelection;
 };
 
-export type ConsumerDiscSetOmittedDiscDto = {
+export type ConsumerDiscSetOmittedDisc = {
     releaseId: string;
     ordinal: number;
 };
 
-export type ConsumerDiscSetSelectionDto = {
+export type ConsumerDiscSetSelection = {
     kind: string;
     completeness: string;
     selectedReleaseIds: Array<string>;
-    omittedDiscs: Array<ConsumerDiscSetOmittedDiscDto>;
+    omittedDiscs: Array<ConsumerDiscSetOmittedDisc>;
     missingExpectedOrdinals: Array<number>;
 };
 
@@ -163,16 +163,7 @@ export type ConsumerDiscSetSelectionRequest = {
     requiredSnapshotId?: null | string;
 };
 
-export type ConsumerDiscSetStatusDiscDto = {
-    releaseId: string;
-    ordinal: number;
-    name: string;
-    layoutId: null | string;
-    layoutRevision: null | string;
-    readiness: string;
-};
-
-export type ConsumerDiscSetStatusDto = {
+export type ConsumerDiscSetStatus = {
     contractVersion: number;
     serverInstanceId: string;
     discSetId: string;
@@ -183,27 +174,36 @@ export type ConsumerDiscSetStatusDto = {
     observationId: string;
     expectedDiscCount: null | number;
     missingExpectedOrdinals: Array<number>;
-    discs: Array<ConsumerDiscSetStatusDiscDto>;
+    discs: Array<ConsumerDiscSetStatusDisc>;
 };
 
-export type ConsumerLaunchTargetDto = {
+export type ConsumerDiscSetStatusDisc = {
+    releaseId: string;
+    ordinal: number;
+    name: string;
+    layoutId: null | string;
+    layoutRevision: null | string;
+    readiness: string;
+};
+
+export type ConsumerLaunchTarget = {
     type: string;
     relativePath: string;
 };
 
-export type ConsumerMediaRefDto = {
+export type ConsumerMediaRef = {
     id: string;
     type: string;
     url: string;
     isPrimary: boolean;
 };
 
-export type ConsumerPlatformBiosDto = {
+export type ConsumerPlatformBios = {
     systemKey: string;
-    items: Array<ConsumerPlatformBiosItemDto>;
+    items: Array<ConsumerPlatformBiosItem>;
 };
 
-export type ConsumerPlatformBiosItemDto = {
+export type ConsumerPlatformBiosItem = {
     biosId: string;
     name: string;
     fileName: string;
@@ -212,19 +212,19 @@ export type ConsumerPlatformBiosItemDto = {
     md5?: null | string;
     sha256?: null | string;
     isAvailable: boolean;
-    contentGrant?: null | ContentGrantDto;
+    contentGrant?: null | ContentGrant;
 };
 
-export type ConsumerPlatformDetailDto = {
+export type ConsumerPlatformDetail = {
     key: string;
     name: string;
     shortName: string;
     manufacturer?: null | string;
     titleCount: number;
-    media: Array<ConsumerMediaRefDto>;
+    media: Array<ConsumerMediaRef>;
 };
 
-export type ConsumerPlatformSummaryDto = {
+export type ConsumerPlatformSummary = {
     key: string;
     name: string;
     shortName: string;
@@ -233,18 +233,11 @@ export type ConsumerPlatformSummaryDto = {
     coverUrl?: null | string;
 };
 
-export type ConsumerPlaybackConfigDto = {
+export type ConsumerPlaybackConfig = {
     playerOrigin: null | string;
 };
 
-export type ConsumerReleaseAccessDto = {
-    serverInstanceId: string;
-    releaseId: string;
-    allowed: boolean;
-    titleId?: null | string;
-};
-
-export type ConsumerReleaseDto = {
+export type ConsumerRelease = {
     id: string;
     name: string;
     revision?: null | string;
@@ -254,9 +247,16 @@ export type ConsumerReleaseDto = {
     isComplete: boolean;
 };
 
+export type ConsumerReleaseAccess = {
+    serverInstanceId: string;
+    releaseId: string;
+    allowed: boolean;
+    titleId?: null | string;
+};
+
 export type ConsumerReleaseFileProvenance = 'Original' | 'Derived';
 
-export type ConsumerReleaseManifestDto = {
+export type ConsumerReleaseManifest = {
     serverInstanceId: string;
     releaseId: string;
     titleId: string;
@@ -265,14 +265,14 @@ export type ConsumerReleaseManifestDto = {
     revision?: null | string;
     isComplete: boolean;
     isDeliveryComplete: boolean;
-    runtime: ConsumerReleaseRuntimeDto;
-    items: Array<ConsumerReleaseManifestItemDto>;
+    runtime: ConsumerReleaseRuntime;
+    items: Array<ConsumerReleaseManifestItem>;
 };
 
-export type ConsumerReleaseManifestFormatDto = {
+export type ConsumerReleaseManifestFormat = {
     relativePath: string;
-    runtime?: null | ConsumerReleaseRuntimeDto;
-    contentGrant?: null | ContentGrantDto;
+    runtime?: null | ConsumerReleaseRuntime;
+    contentGrant?: null | ContentGrant;
     format: 'original' | 'rvz' | 'chd';
     label: string;
     fileExtension?: null | string;
@@ -286,39 +286,39 @@ export type ConsumerReleaseManifestFormatDto = {
     runtimeApplicability: Array<string>;
 };
 
-export type ConsumerReleaseManifestItemDto = {
+export type ConsumerReleaseManifestItem = {
     relativePath: string;
     role: string;
     provenance: ConsumerReleaseFileProvenance;
     sizeBytes: ByteCount;
     sha256?: null | string;
     isAvailable: boolean;
-    contentGrant?: null | ContentGrantDto;
-    formats: Array<ConsumerReleaseManifestFormatDto>;
+    contentGrant?: null | ContentGrant;
+    formats: Array<ConsumerReleaseManifestFormat>;
 };
 
-export type ConsumerReleasePreferenceDto = {
+export type ConsumerReleasePreference = {
     preferredRegionKeys: Array<string>;
     preferredLanguageKeys: Array<string>;
     revisionStrategy: string;
 };
 
-export type ConsumerReleaseRuntimeDto = {
+export type ConsumerReleaseRuntime = {
     contentType: string;
-    launch?: null | ConsumerLaunchTargetDto;
+    launch?: null | ConsumerLaunchTarget;
     packaging: string;
     minimumInstallBytes: ByteCount;
 };
 
-export type ConsumerServerIdentityDto = {
+export type ConsumerServerIdentity = {
     instanceId: string;
 };
 
-export type ConsumerTitleCardDto = {
-    artwork?: Array<ResolvedArtworkDto>;
+export type ConsumerTitleCard = {
+    artwork?: Array<ResolvedArtwork>;
     id: string;
-    system: SystemSummaryDto;
-    contentRatings?: Array<ConsumerContentRatingDto>;
+    system: SystemSummary;
+    contentRatings?: Array<ConsumerContentRating>;
     name: string;
     coverUrl?: null | string;
     genre?: null | string;
@@ -330,11 +330,11 @@ export type ConsumerTitleCardDto = {
     defaultReleaseId?: null | string;
 };
 
-export type ConsumerTitleDetailDto = {
-    artwork?: Array<ResolvedArtworkDto>;
+export type ConsumerTitleDetail = {
+    artwork?: Array<ResolvedArtwork>;
     id: string;
-    system: SystemSummaryDto;
-    contentRatings?: Array<ConsumerContentRatingDto>;
+    system: SystemSummary;
+    contentRatings?: Array<ConsumerContentRating>;
     name: string;
     description?: null | string;
     publisher?: null | string;
@@ -343,29 +343,29 @@ export type ConsumerTitleDetailDto = {
     releaseDate?: null | string;
     players?: null | number;
     rating?: null | number;
-    media: PageOfConsumerMediaRefDto;
-    releases: PageOfConsumerReleaseDto;
+    media: PageOfConsumerMediaRef;
+    releases: PageOfConsumerRelease;
     defaultReleaseId?: null | string;
 };
 
-export type ConsumerUserSettingsDto = {
+export type ConsumerUserSettings = {
     theme: string;
-    releasePreference: ConsumerReleasePreferenceDto;
+    releasePreference: ConsumerReleasePreference;
 };
 
-export type ContentGrantDto = {
+export type ContentGrant = {
     downloadUrl: string;
     expiresAt: string;
 };
 
-export type CurrentUserDto = {
+export type CurrentUser = {
     id: string;
     email: string;
     username: string;
     roles: Array<string>;
 };
 
-export type LanguageResourceDto = {
+export type LanguageResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
@@ -376,124 +376,124 @@ export type LanguageResourceDto = {
     retired: boolean;
 };
 
-export type LibraryContentCountsDto = {
+export type LibraryContentCounts = {
     ownedTitleCount?: number;
     availableTitleCount?: number;
     collectionCount?: number;
 };
 
-export type LibraryContextDto = {
+export type LibraryContext = {
     name: string;
-    counts: LibraryContentCountsDto;
-    platforms: Array<LibraryFacetDto>;
-    genres: Array<LibraryFacetDto>;
-    featuredCollections: Array<ConsumerCollectionDto>;
+    counts: LibraryContentCounts;
+    platforms: Array<LibraryFacet>;
+    genres: Array<LibraryFacet>;
+    featuredCollections: Array<ConsumerCollection>;
 };
 
-export type LibraryFacetDto = {
+export type LibraryFacet = {
     id: string;
     name: string;
     count: number;
 };
 
-export type PageOfCompanyResourceDto = {
-    items: Array<CompanyResourceDto>;
+export type PageOfCompanyResource = {
+    items: Array<CompanyResource>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfConsumerCollectionDto = {
-    items: Array<ConsumerCollectionDto>;
+export type PageOfConsumerCollection = {
+    items: Array<ConsumerCollection>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfConsumerCollectionTitleDto = {
-    items: Array<ConsumerCollectionTitleDto>;
+export type PageOfConsumerCollectionTitle = {
+    items: Array<ConsumerCollectionTitle>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfConsumerDiscSetStatusDto = {
-    items: Array<ConsumerDiscSetStatusDto>;
+export type PageOfConsumerDiscSetStatus = {
+    items: Array<ConsumerDiscSetStatus>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfConsumerMediaRefDto = {
-    items: Array<ConsumerMediaRefDto>;
+export type PageOfConsumerMediaRef = {
+    items: Array<ConsumerMediaRef>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfConsumerPlatformSummaryDto = {
-    items: Array<ConsumerPlatformSummaryDto>;
+export type PageOfConsumerPlatformSummary = {
+    items: Array<ConsumerPlatformSummary>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfConsumerReleaseDto = {
-    items: Array<ConsumerReleaseDto>;
+export type PageOfConsumerRelease = {
+    items: Array<ConsumerRelease>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfConsumerTitleCardDto = {
-    items: Array<ConsumerTitleCardDto>;
+export type PageOfConsumerTitleCard = {
+    items: Array<ConsumerTitleCard>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfPlaySessionDto = {
-    items: Array<PlaySessionDto>;
+export type PageOfPlaySession = {
+    items: Array<PlaySession>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfRecentlyPlayedTitleDto = {
-    items: Array<RecentlyPlayedTitleDto>;
+export type PageOfRecentlyPlayedTitle = {
+    items: Array<RecentlyPlayedTitle>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceNamedDto = {
-    items: Array<ReferenceNamedDto>;
+export type PageOfReferenceNamed = {
+    items: Array<ReferenceNamed>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceRatingBoardDto = {
-    items: Array<ReferenceRatingBoardDto>;
+export type PageOfReferenceRating = {
+    items: Array<ReferenceRating>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceRatingDto = {
-    items: Array<ReferenceRatingDto>;
+export type PageOfReferenceRatingBoard = {
+    items: Array<ReferenceRatingBoard>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceSystemDto = {
-    items: Array<ReferenceSystemDto>;
+export type PageOfReferenceSystem = {
+    items: Array<ReferenceSystem>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfReferenceTaxonomyDto = {
-    items: Array<ReferenceTaxonomyDto>;
+export type PageOfReferenceTaxonomy = {
+    items: Array<ReferenceTaxonomy>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfSystemResourceDto = {
-    items: Array<SystemResourceDto>;
+export type PageOfSystemResource = {
+    items: Array<SystemResource>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
 
-export type PageOfVfsConnectionDto = {
-    items: Array<VfsConnectionDto>;
+export type PageOfVfsConnection = {
+    items: Array<VfsConnection>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -503,7 +503,7 @@ export type PatchVfsConnectionRequest = {
     format?: null | string;
 };
 
-export type PlaySessionDto = {
+export type PlaySession = {
     sessionId: string;
     clientId: string;
     titleId: string;
@@ -528,7 +528,7 @@ export type ProblemDetails = {
     traceId: string;
 };
 
-export type RatingBoardResourceDto = {
+export type RatingBoardResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
@@ -537,7 +537,7 @@ export type RatingBoardResourceDto = {
     retired: boolean;
 };
 
-export type RatingResourceDto = {
+export type RatingResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
@@ -547,14 +547,14 @@ export type RatingResourceDto = {
     code: string;
     designation: null | string;
     minimumAge: null | number;
-    icon: null | ReferenceAssetDto;
+    icon: null | ReferenceAsset;
     retired: boolean;
 };
 
-export type RecentlyPlayedTitleDto = {
-    artwork?: Array<ResolvedArtworkDto>;
+export type RecentlyPlayedTitle = {
+    artwork?: Array<ResolvedArtwork>;
     id: string;
-    system: SystemSummaryDto;
+    system: SystemSummary;
     name: string;
     coverUrl?: null | string;
     genre?: null | string;
@@ -566,14 +566,14 @@ export type RecentlyPlayedTitleDto = {
     playCount: number;
 };
 
-export type ReferenceAssetDto = {
+export type ReferenceAsset = {
     url: string;
     sha256: string;
     contentType: string;
     monochrome: boolean;
 };
 
-export type ReferenceCatalogCountsDto = {
+export type ReferenceCatalogCounts = {
     systems: number;
     companies: number;
     regions: number;
@@ -582,52 +582,52 @@ export type ReferenceCatalogCountsDto = {
     ratings: number;
 };
 
-export type ReferenceCatalogDescriptorDto = {
+export type ReferenceCatalogDescriptor = {
     schemaVersion: number;
     builtInVersion: number;
     revision: string;
     catalogRevision: string;
     contentHash: string;
-    counts: ReferenceCatalogCountsDto;
+    counts: ReferenceCatalogCounts;
 };
 
-export type ReferenceNamedDto = {
+export type ReferenceNamed = {
     key: string;
     name: string;
     description: null | string;
     retired?: boolean;
 };
 
-export type ReferenceRatingBoardDto = {
-    key: string;
-    name: string;
-    description: null | string;
-    retired?: boolean;
-};
-
-export type ReferenceRatingDto = {
+export type ReferenceRating = {
     board: string;
     code: string;
     name: string;
     description: null | string;
-    icon: null | ReferenceAssetDto;
+    icon: null | ReferenceAsset;
     designation?: null | string;
     minimumAge?: null | number;
     retired?: boolean;
 };
 
-export type ReferenceSystemDto = {
+export type ReferenceRatingBoard = {
+    key: string;
+    name: string;
+    description: null | string;
+    retired?: boolean;
+};
+
+export type ReferenceSystem = {
     key: string;
     name: string;
     compactLabel: string;
     description: null | string;
-    icon: null | ReferenceAssetDto;
+    icon: null | ReferenceAsset;
     manufacturerKeys?: null | Array<string>;
     retired?: boolean;
-    manufacturers?: null | Array<CompanySummaryDto>;
+    manufacturers?: null | Array<CompanySummary>;
 };
 
-export type ReferenceTaxonomyDto = {
+export type ReferenceTaxonomy = {
     key: string;
     name: string;
     description: null | string;
@@ -636,7 +636,7 @@ export type ReferenceTaxonomyDto = {
     retired?: boolean;
 };
 
-export type RegionResourceDto = {
+export type RegionResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
@@ -646,7 +646,7 @@ export type RegionResourceDto = {
     retired: boolean;
 };
 
-export type ResolvedArtworkDto = {
+export type ResolvedArtwork = {
     role: string;
     assetId: null | string;
     contentVersion: null | string;
@@ -657,7 +657,7 @@ export type ResolvedArtworkDto = {
     originalHeight: null | number;
     fit: string;
     fallbackReason: string;
-    variants: Array<ArtworkVariantDto>;
+    variants: Array<ArtworkVariant>;
     focalX?: number;
     focalY?: number;
 };
@@ -667,29 +667,29 @@ export type SaveVfsConnectionRequest = {
     format?: null | string;
 };
 
-export type SystemResourceDto = {
+export type SystemResource = {
     key: string;
     ownership: string;
     builtInVersion: null | number;
     name: string;
     compactLabel: string;
     description: null | string;
-    icon: null | ReferenceAssetDto;
+    icon: null | ReferenceAsset;
     retired: boolean;
-    manufacturers: Array<CompanySummaryDto>;
+    manufacturers: Array<CompanySummary>;
     revision: string;
 };
 
-export type SystemSummaryDto = {
+export type SystemSummary = {
     key: string;
     name: string;
     compactLabel: string;
-    icon?: null | ReferenceAssetDto;
+    icon?: null | ReferenceAsset;
 };
 
 export type UpdateConsumerUserSettingsRequest = {
     theme?: null | string;
-    releasePreference?: null | ConsumerReleasePreferenceDto;
+    releasePreference?: null | ConsumerReleasePreference;
 };
 
 export type UpsertPlaySessionRequest = {
@@ -701,14 +701,7 @@ export type UpsertPlaySessionRequest = {
     activeDurationSeconds?: null | number;
 };
 
-export type VfsConnectionCredentialDto = {
-    connection: VfsConnectionDto;
-    password: string;
-    endpoint: string;
-    rcloneConfig: string;
-};
-
-export type VfsConnectionDto = {
+export type VfsConnection = {
     id: string;
     name: string;
     username: string;
@@ -717,6 +710,13 @@ export type VfsConnectionDto = {
     credentialUpdatedAt: string;
     lastUsedAt: null | string;
     format?: string;
+};
+
+export type VfsConnectionCredential = {
+    connection: VfsConnection;
+    password: string;
+    endpoint: string;
+    rcloneConfig: string;
 };
 
 export type HealthCheckData = {
@@ -907,7 +907,7 @@ export type GetConsumerServerIdentityResponses = {
     /**
      * OK
      */
-    200: ConsumerServerIdentityDto;
+    200: ConsumerServerIdentity;
 };
 
 export type GetConsumerServerIdentityResponse = GetConsumerServerIdentityResponses[keyof GetConsumerServerIdentityResponses];
@@ -942,7 +942,7 @@ export type GetConsumerReleaseAccessResponses = {
     /**
      * OK
      */
-    200: ConsumerReleaseAccessDto;
+    200: ConsumerReleaseAccess;
 };
 
 export type GetConsumerReleaseAccessResponse = GetConsumerReleaseAccessResponses[keyof GetConsumerReleaseAccessResponses];
@@ -977,7 +977,7 @@ export type GetConsumerSystemBiosResponses = {
     /**
      * OK
      */
-    200: ConsumerPlatformBiosDto;
+    200: ConsumerPlatformBios;
 };
 
 export type GetConsumerSystemBiosResponse = GetConsumerSystemBiosResponses[keyof GetConsumerSystemBiosResponses];
@@ -1014,7 +1014,7 @@ export type ListConsumerDiscSetsResponses = {
     /**
      * OK
      */
-    200: PageOfConsumerDiscSetStatusDto;
+    200: PageOfConsumerDiscSetStatus;
 };
 
 export type ListConsumerDiscSetsResponse = ListConsumerDiscSetsResponses[keyof ListConsumerDiscSetsResponses];
@@ -1053,7 +1053,7 @@ export type GetConsumerDiscSetStatusResponses = {
     /**
      * OK
      */
-    200: ConsumerDiscSetStatusDto;
+    200: ConsumerDiscSetStatus;
 };
 
 export type GetConsumerDiscSetStatusResponse = GetConsumerDiscSetStatusResponses[keyof GetConsumerDiscSetStatusResponses];
@@ -1092,7 +1092,7 @@ export type IssueConsumerDiscSetSelectionManifestResponses = {
     /**
      * OK
      */
-    200: ConsumerDiscSetManifestDto;
+    200: ConsumerDiscSetManifest;
 };
 
 export type IssueConsumerDiscSetSelectionManifestResponse = IssueConsumerDiscSetSelectionManifestResponses[keyof IssueConsumerDiscSetSelectionManifestResponses];
@@ -1127,7 +1127,7 @@ export type CheckConsumerDiscSetAccessResponses = {
     /**
      * OK
      */
-    200: ConsumerDiscSetAccessDto;
+    200: ConsumerDiscSetAccess;
 };
 
 export type CheckConsumerDiscSetAccessResponse = CheckConsumerDiscSetAccessResponses[keyof CheckConsumerDiscSetAccessResponses];
@@ -1168,7 +1168,7 @@ export type IssueConsumerDiscSetManifestResponses = {
     /**
      * OK
      */
-    200: ConsumerDiscSetManifestDto;
+    200: ConsumerDiscSetManifest;
 };
 
 export type IssueConsumerDiscSetManifestResponse = IssueConsumerDiscSetManifestResponses[keyof IssueConsumerDiscSetManifestResponses];
@@ -1193,7 +1193,7 @@ export type GetConsumerPlaybackConfigResponses = {
     /**
      * OK
      */
-    200: ConsumerPlaybackConfigDto;
+    200: ConsumerPlaybackConfig;
 };
 
 export type GetConsumerPlaybackConfigResponse = GetConsumerPlaybackConfigResponses[keyof GetConsumerPlaybackConfigResponses];
@@ -1222,7 +1222,7 @@ export type GetConsumerCatalogSnapshotResponses = {
     /**
      * OK
      */
-    200: ReferenceCatalogDescriptorDto;
+    200: ReferenceCatalogDescriptor;
 };
 
 export type GetConsumerCatalogSnapshotResponse = GetConsumerCatalogSnapshotResponses[keyof GetConsumerCatalogSnapshotResponses];
@@ -1259,7 +1259,7 @@ export type ListConsumerCatalogSnapshotSystemsResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceSystemDto;
+    200: PageOfReferenceSystem;
 };
 
 export type ListConsumerCatalogSnapshotSystemsResponse = ListConsumerCatalogSnapshotSystemsResponses[keyof ListConsumerCatalogSnapshotSystemsResponses];
@@ -1296,7 +1296,7 @@ export type ListConsumerCatalogSnapshotCompaniesResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceNamedDto;
+    200: PageOfReferenceNamed;
 };
 
 export type ListConsumerCatalogSnapshotCompaniesResponse = ListConsumerCatalogSnapshotCompaniesResponses[keyof ListConsumerCatalogSnapshotCompaniesResponses];
@@ -1333,7 +1333,7 @@ export type ListConsumerCatalogSnapshotRegionsResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceTaxonomyDto;
+    200: PageOfReferenceTaxonomy;
 };
 
 export type ListConsumerCatalogSnapshotRegionsResponse = ListConsumerCatalogSnapshotRegionsResponses[keyof ListConsumerCatalogSnapshotRegionsResponses];
@@ -1370,7 +1370,7 @@ export type ListConsumerCatalogSnapshotLanguagesResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceTaxonomyDto;
+    200: PageOfReferenceTaxonomy;
 };
 
 export type ListConsumerCatalogSnapshotLanguagesResponse = ListConsumerCatalogSnapshotLanguagesResponses[keyof ListConsumerCatalogSnapshotLanguagesResponses];
@@ -1407,7 +1407,7 @@ export type ListConsumerCatalogSnapshotRatingBoardsResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceRatingBoardDto;
+    200: PageOfReferenceRatingBoard;
 };
 
 export type ListConsumerCatalogSnapshotRatingBoardsResponse = ListConsumerCatalogSnapshotRatingBoardsResponses[keyof ListConsumerCatalogSnapshotRatingBoardsResponses];
@@ -1444,7 +1444,7 @@ export type ListConsumerCatalogSnapshotRatingsResponses = {
     /**
      * OK
      */
-    200: PageOfReferenceRatingDto;
+    200: PageOfReferenceRating;
 };
 
 export type ListConsumerCatalogSnapshotRatingsResponse = ListConsumerCatalogSnapshotRatingsResponses[keyof ListConsumerCatalogSnapshotRatingsResponses];
@@ -1531,7 +1531,7 @@ export type GetConsumerUserSettingsResponses = {
     /**
      * OK
      */
-    200: ConsumerUserSettingsDto;
+    200: ConsumerUserSettings;
 };
 
 export type GetConsumerUserSettingsResponse = GetConsumerUserSettingsResponses[keyof GetConsumerUserSettingsResponses];
@@ -1560,7 +1560,7 @@ export type UpdateConsumerUserSettingsResponses = {
     /**
      * OK
      */
-    200: ConsumerUserSettingsDto;
+    200: ConsumerUserSettings;
 };
 
 export type UpdateConsumerUserSettingsResponse = UpdateConsumerUserSettingsResponses[keyof UpdateConsumerUserSettingsResponses];
@@ -1588,7 +1588,7 @@ export type ListConsumerConnectionsResponses = {
     /**
      * OK
      */
-    200: PageOfVfsConnectionDto;
+    200: PageOfVfsConnection;
 };
 
 export type ListConsumerConnectionsResponse = ListConsumerConnectionsResponses[keyof ListConsumerConnectionsResponses];
@@ -1621,7 +1621,7 @@ export type CreateConsumerConnectionResponses = {
     /**
      * Created
      */
-    201: VfsConnectionCredentialDto;
+    201: VfsConnectionCredential;
 };
 
 export type CreateConsumerConnectionResponse = CreateConsumerConnectionResponses[keyof CreateConsumerConnectionResponses];
@@ -1683,7 +1683,7 @@ export type UpdateConsumerConnectionResponses = {
     /**
      * OK
      */
-    200: VfsConnectionDto;
+    200: VfsConnection;
 };
 
 export type UpdateConsumerConnectionResponse = UpdateConsumerConnectionResponses[keyof UpdateConsumerConnectionResponses];
@@ -1722,7 +1722,7 @@ export type RotateConsumerConnectionResponses = {
     /**
      * OK
      */
-    200: VfsConnectionCredentialDto;
+    200: VfsConnectionCredential;
 };
 
 export type RotateConsumerConnectionResponse = RotateConsumerConnectionResponses[keyof RotateConsumerConnectionResponses];
@@ -1751,7 +1751,7 @@ export type GetConsumerCurrentUserResponses = {
     /**
      * OK
      */
-    200: CurrentUserDto;
+    200: CurrentUser;
 };
 
 export type GetConsumerCurrentUserResponse = GetConsumerCurrentUserResponses[keyof GetConsumerCurrentUserResponses];
@@ -1784,7 +1784,7 @@ export type GetConsumerCurrentLibraryResponses = {
     /**
      * OK
      */
-    200: LibraryContextDto;
+    200: LibraryContext;
 };
 
 export type GetConsumerCurrentLibraryResponse = GetConsumerCurrentLibraryResponses[keyof GetConsumerCurrentLibraryResponses];
@@ -1820,7 +1820,7 @@ export type ListConsumerLibrarySystemsResponses = {
     /**
      * OK
      */
-    200: PageOfConsumerPlatformSummaryDto;
+    200: PageOfConsumerPlatformSummary;
 };
 
 export type ListConsumerLibrarySystemsResponse = ListConsumerLibrarySystemsResponses[keyof ListConsumerLibrarySystemsResponses];
@@ -1855,7 +1855,7 @@ export type GetConsumerLibrarySystemResponses = {
     /**
      * OK
      */
-    200: ConsumerPlatformDetailDto;
+    200: ConsumerPlatformDetail;
 };
 
 export type GetConsumerLibrarySystemResponse = GetConsumerLibrarySystemResponses[keyof GetConsumerLibrarySystemResponses];
@@ -1896,7 +1896,7 @@ export type ListConsumerCatalogResponses = {
     /**
      * OK
      */
-    200: PageOfConsumerTitleCardDto;
+    200: PageOfConsumerTitleCard;
 };
 
 export type ListConsumerCatalogResponse = ListConsumerCatalogResponses[keyof ListConsumerCatalogResponses];
@@ -1931,7 +1931,7 @@ export type GetConsumerTitleResponses = {
     /**
      * OK
      */
-    200: ConsumerTitleDetailDto;
+    200: ConsumerTitleDetail;
 };
 
 export type GetConsumerTitleResponse = GetConsumerTitleResponses[keyof GetConsumerTitleResponses];
@@ -1969,7 +1969,7 @@ export type ListConsumerTitleMediaResponses = {
     /**
      * OK
      */
-    200: PageOfConsumerMediaRefDto;
+    200: PageOfConsumerMediaRef;
 };
 
 export type ListConsumerTitleMediaResponse = ListConsumerTitleMediaResponses[keyof ListConsumerTitleMediaResponses];
@@ -2007,7 +2007,7 @@ export type ListConsumerTitleReleasesResponses = {
     /**
      * OK
      */
-    200: PageOfConsumerReleaseDto;
+    200: PageOfConsumerRelease;
 };
 
 export type ListConsumerTitleReleasesResponse = ListConsumerTitleReleasesResponses[keyof ListConsumerTitleReleasesResponses];
@@ -2044,7 +2044,7 @@ export type ListConsumerCollectionsResponses = {
     /**
      * OK
      */
-    200: PageOfConsumerCollectionDto;
+    200: PageOfConsumerCollection;
 };
 
 export type ListConsumerCollectionsResponse = ListConsumerCollectionsResponses[keyof ListConsumerCollectionsResponses];
@@ -2079,7 +2079,7 @@ export type GetConsumerCollectionResponses = {
     /**
      * OK
      */
-    200: ConsumerCollectionDto;
+    200: ConsumerCollection;
 };
 
 export type GetConsumerCollectionResponse = GetConsumerCollectionResponses[keyof GetConsumerCollectionResponses];
@@ -2117,7 +2117,7 @@ export type ListConsumerCollectionTitlesResponses = {
     /**
      * OK
      */
-    200: PageOfConsumerCollectionTitleDto;
+    200: PageOfConsumerCollectionTitle;
 };
 
 export type ListConsumerCollectionTitlesResponse = ListConsumerCollectionTitlesResponses[keyof ListConsumerCollectionTitlesResponses];
@@ -2152,7 +2152,7 @@ export type IssueConsumerReleaseManifestResponses = {
     /**
      * OK
      */
-    200: ConsumerReleaseManifestDto;
+    200: ConsumerReleaseManifest;
 };
 
 export type IssueConsumerReleaseManifestResponse = IssueConsumerReleaseManifestResponses[keyof IssueConsumerReleaseManifestResponses];
@@ -2276,7 +2276,7 @@ export type GetConsumerPlaySessionResponses = {
     /**
      * OK
      */
-    200: PlaySessionDto;
+    200: PlaySession;
 };
 
 export type GetConsumerPlaySessionResponse = GetConsumerPlaySessionResponses[keyof GetConsumerPlaySessionResponses];
@@ -2315,7 +2315,7 @@ export type ReplaceConsumerPlaySessionResponses = {
     /**
      * OK
      */
-    200: PlaySessionDto;
+    200: PlaySession;
 };
 
 export type ReplaceConsumerPlaySessionResponse = ReplaceConsumerPlaySessionResponses[keyof ReplaceConsumerPlaySessionResponses];
@@ -2376,7 +2376,7 @@ export type ListConsumerPlaySessionsResponses = {
     /**
      * OK
      */
-    200: PageOfPlaySessionDto;
+    200: PageOfPlaySession;
 };
 
 export type ListConsumerPlaySessionsResponse = ListConsumerPlaySessionsResponses[keyof ListConsumerPlaySessionsResponses];
@@ -2412,7 +2412,7 @@ export type ListConsumerRecentlyPlayedResponses = {
     /**
      * OK
      */
-    200: PageOfRecentlyPlayedTitleDto;
+    200: PageOfRecentlyPlayedTitle;
 };
 
 export type ListConsumerRecentlyPlayedResponse = ListConsumerRecentlyPlayedResponses[keyof ListConsumerRecentlyPlayedResponses];
@@ -2442,7 +2442,7 @@ export type ListConsumerSystemsResponses = {
     /**
      * OK
      */
-    200: PageOfSystemResourceDto;
+    200: PageOfSystemResource;
 };
 
 export type ListConsumerSystemsResponse = ListConsumerSystemsResponses[keyof ListConsumerSystemsResponses];
@@ -2473,7 +2473,7 @@ export type GetConsumerSystemResponses = {
     /**
      * OK
      */
-    200: SystemResourceDto;
+    200: SystemResource;
 };
 
 export type GetConsumerSystemResponse = GetConsumerSystemResponses[keyof GetConsumerSystemResponses];
@@ -2503,7 +2503,7 @@ export type ListConsumerCompaniesResponses = {
     /**
      * OK
      */
-    200: PageOfCompanyResourceDto;
+    200: PageOfCompanyResource;
 };
 
 export type ListConsumerCompaniesResponse = ListConsumerCompaniesResponses[keyof ListConsumerCompaniesResponses];
@@ -2534,7 +2534,7 @@ export type GetConsumerCompanyResponses = {
     /**
      * OK
      */
-    200: CompanyResourceDto;
+    200: CompanyResource;
 };
 
 export type GetConsumerCompanyResponse = GetConsumerCompanyResponses[keyof GetConsumerCompanyResponses];
@@ -2559,7 +2559,7 @@ export type ListRegionsResponses = {
     /**
      * OK
      */
-    200: Array<RegionResourceDto>;
+    200: Array<RegionResource>;
 };
 
 export type ListRegionsResponse = ListRegionsResponses[keyof ListRegionsResponses];
@@ -2590,7 +2590,7 @@ export type GetRegionResponses = {
     /**
      * OK
      */
-    200: RegionResourceDto;
+    200: RegionResource;
 };
 
 export type GetRegionResponse = GetRegionResponses[keyof GetRegionResponses];
@@ -2615,7 +2615,7 @@ export type ListLanguagesResponses = {
     /**
      * OK
      */
-    200: Array<LanguageResourceDto>;
+    200: Array<LanguageResource>;
 };
 
 export type ListLanguagesResponse = ListLanguagesResponses[keyof ListLanguagesResponses];
@@ -2646,7 +2646,7 @@ export type GetLanguageResponses = {
     /**
      * OK
      */
-    200: LanguageResourceDto;
+    200: LanguageResource;
 };
 
 export type GetLanguageResponse = GetLanguageResponses[keyof GetLanguageResponses];
@@ -2671,7 +2671,7 @@ export type ListRatingBoardsResponses = {
     /**
      * OK
      */
-    200: Array<RatingBoardResourceDto>;
+    200: Array<RatingBoardResource>;
 };
 
 export type ListRatingBoardsResponse = ListRatingBoardsResponses[keyof ListRatingBoardsResponses];
@@ -2702,7 +2702,7 @@ export type GetRatingBoardResponses = {
     /**
      * OK
      */
-    200: RatingBoardResourceDto;
+    200: RatingBoardResource;
 };
 
 export type GetRatingBoardResponse = GetRatingBoardResponses[keyof GetRatingBoardResponses];
@@ -2733,7 +2733,7 @@ export type ListRatingsResponses = {
     /**
      * OK
      */
-    200: Array<RatingResourceDto>;
+    200: Array<RatingResource>;
 };
 
 export type ListRatingsResponse = ListRatingsResponses[keyof ListRatingsResponses];
@@ -2765,7 +2765,7 @@ export type GetRatingResponses = {
     /**
      * OK
      */
-    200: RatingResourceDto;
+    200: RatingResource;
 };
 
 export type GetRatingResponse = GetRatingResponses[keyof GetRatingResponses];

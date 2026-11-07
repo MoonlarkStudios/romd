@@ -325,11 +325,11 @@ public sealed class AccountLifecycleTests
             var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
             return await new EfUnitOfWork(db).ExecuteInTransactionAsync<T>(_ => operation(scope.ServiceProvider.GetRequiredService<IAccountLifecycle>()), NullLogger.Instance);
         }
-        public async Task<ErrorOr<IssuedAccountLinkDto>> RecoverAsync(string email)
+        public async Task<ErrorOr<IssuedAccountLink>> RecoverAsync(string email)
         {
             await using var scope = provider.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
-            return await new EfUnitOfWork(db).ExecuteInTransactionAsync<IssuedAccountLinkDto>(
+            return await new EfUnitOfWork(db).ExecuteInTransactionAsync<IssuedAccountLink>(
                 ct => scope.ServiceProvider.GetRequiredService<LocalAdminRecovery>().IssueAsync(email, ct), NullLogger.Instance);
         }
         public async ValueTask DisposeAsync() { await provider.DisposeAsync(); await database.DisposeAsync(); }

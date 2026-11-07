@@ -140,7 +140,7 @@ public sealed class ConsumerSecurityTransactionTests
     }
 
     private static IssuedVfsCredential Credential() => new(
-        new VfsConnectionDto(Guid.NewGuid(), "Deck", "romd-user", "Active", DateTimeOffset.UnixEpoch,
+        new VfsConnection(Guid.NewGuid(), "Deck", "romd-user", "Active", DateTimeOffset.UnixEpoch,
             DateTimeOffset.UnixEpoch, null, "stored"), "secret-never-to-be-logged");
 
     private sealed class RecordingLogger : ILogger<ConsumerSecurityTransaction>

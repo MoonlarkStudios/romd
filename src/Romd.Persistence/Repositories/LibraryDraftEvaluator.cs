@@ -12,6 +12,8 @@ using Romd.Domain.Libraries;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 
+using LibraryConfiguration = Romd.Domain.Libraries.LibraryConfiguration;
+
 namespace Romd.Persistence.Repositories;
 
 /// <summary>Read-only comparison of two policies over one PostgreSQL snapshot.</summary>
@@ -40,7 +42,7 @@ public sealed class LibraryDraftEvaluator : ILibraryDraftEvaluator
         this.titleBatchSize = titleBatchSize;
     }
 
-    public async Task<ErrorOr<LibraryEvaluationDto>> EvaluateAsync(int libraryId,
+    public async Task<ErrorOr<LibraryEvaluation>> EvaluateAsync(int libraryId,
         LibraryConfiguration configuration, string view, string? search, int afterId, CancellationToken ct, string? cursor = null, int limit = 48)
     {
         if (LibraryConfigurationValidator.Validate(configuration) is not null ||
@@ -72,7 +74,7 @@ public sealed class LibraryDraftEvaluator : ILibraryDraftEvaluator
         int savedCount = 0, matchingCount = 0, addedCount = 0, removedCount = 0;
         int lastTitleId = 0;
         var removalReasons = new Dictionary<string, int>(StringComparer.Ordinal);
-        var filtered = new List<(int Id, LibraryEvaluationTitleDto Item)>(limit + 1);
+        var filtered = new List<(int Id, LibraryEvaluationTitle Item)>(limit + 1);
         string? term = search?.Trim();
 
         // Exact comparison counts still inspect every title. Only one bounded title batch
@@ -136,7 +138,7 @@ public sealed class LibraryDraftEvaluator : ILibraryDraftEvaluator
                     !string.IsNullOrEmpty(term) && !title.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
                     continue;
                 var basis = ContentRatingPolicyEvaluator.Evaluate(configuration.ContentRatingPolicy, candidate.ContentRatings).Basis;
-                filtered.Add((title.Id, new LibraryEvaluationTitleDto(IdCoder.Encode(title.Id), title.Name,
+                filtered.Add((title.Id, new LibraryEvaluationTitle(IdCoder.Encode(title.Id), title.Name,
                     string.Empty, null, wasEligible, isEligible, projected?.IsOwned ?? false, projected?.IsPlayable ?? false,
                     reason, basis?.Board.ToString(), basis?.Code, basis?.MinimumAge, 0)));
             }
@@ -166,10 +168,10 @@ public sealed class LibraryDraftEvaluator : ILibraryDraftEvaluator
                 AttachedCollectionCount = detail.Collections
             };
         }).ToList();
-        return new LibraryEvaluationDto(evaluatedAt, savedCount, matchingCount, addedCount, removedCount,
-            removalReasons.Select(reason => new LibraryEvaluationReasonDto(reason.Key, reason.Value))
+        return new LibraryEvaluation(evaluatedAt, savedCount, matchingCount, addedCount, removedCount,
+            removalReasons.Select(reason => new LibraryEvaluationReason(reason.Key, reason.Value))
                 .OrderByDescending(reason => reason.Count).ToList(),
-            new Page<LibraryEvaluationTitleDto>
+            new Page<LibraryEvaluationTitle>
             {
                 Items = items,
                 HasNextPage = filtered.Count > limit,

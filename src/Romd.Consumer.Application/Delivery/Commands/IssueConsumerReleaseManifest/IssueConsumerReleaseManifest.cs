@@ -9,9 +9,15 @@ using Romd.Contracts.Common.Models;
 using Romd.Contracts.Consumer.Releases;
 using Romd.Domain.Source.Rom;
 
+using ContractConsumerLaunchTarget = Romd.Contracts.Consumer.Releases.ConsumerLaunchTarget;
+using ContractConsumerReleaseManifest = Romd.Contracts.Consumer.Releases.ConsumerReleaseManifest;
+using ContractConsumerReleaseManifestFormat = Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestFormat;
+using ContractConsumerReleaseManifestItem = Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestItem;
+using ContractConsumerReleaseRuntime = Romd.Contracts.Consumer.Releases.ConsumerReleaseRuntime;
+
 namespace Romd.Consumer.Application.Delivery.Commands.IssueConsumerReleaseManifest;
 
-public sealed record IssueConsumerReleaseManifestCommand(int ReleaseId) : ICommand<ConsumerReleaseManifestDto>;
+public sealed record IssueConsumerReleaseManifestCommand(int ReleaseId) : ICommand<ContractConsumerReleaseManifest>;
 
 public sealed class IssueConsumerReleaseManifestCommandHandler(
     ICurrentUser currentUser,
@@ -20,9 +26,9 @@ public sealed class IssueConsumerReleaseManifestCommandHandler(
     IConsumerDerivedDescriptorGrantIssuer derivedGrantIssuer,
     IServerInstanceIdentity serverInstanceIdentity,
     RomDeliveryPolicy deliveryPolicy)
-    : ICommandHandler<IssueConsumerReleaseManifestCommand, ConsumerReleaseManifestDto>
+    : ICommandHandler<IssueConsumerReleaseManifestCommand, ContractConsumerReleaseManifest>
 {
-    public async Task<ErrorOr<ConsumerReleaseManifestDto>> HandleAsync(
+    public async Task<ErrorOr<ContractConsumerReleaseManifest>> HandleAsync(
         IssueConsumerReleaseManifestCommand command,
         CancellationToken ct = default)
     {
@@ -55,7 +61,7 @@ public sealed class IssueConsumerReleaseManifestCommandHandler(
         };
     }
 
-    private ConsumerReleaseManifestDto ToContract(int libraryId, ConsumerReleaseManifest manifest) =>
+    private ContractConsumerReleaseManifest ToContract(int libraryId, ConsumerReleaseManifest manifest) =>
         new()
         {
             ServerInstanceId = serverInstanceIdentity.InstanceId.ToString("D"),
@@ -70,7 +76,7 @@ public sealed class IssueConsumerReleaseManifestCommandHandler(
             Items = manifest.Items.Select(item => ToContract(libraryId, manifest, item)).ToList()
         };
 
-    private static ConsumerReleaseRuntimeDto ToContract(ConsumerReleaseRuntime runtime) =>
+    private static ContractConsumerReleaseRuntime ToContract(ConsumerReleaseRuntime runtime) =>
         new()
         {
             ContentType = runtime.ContentType,
@@ -79,14 +85,14 @@ public sealed class IssueConsumerReleaseManifestCommandHandler(
             MinimumInstallBytes = (ByteCount)runtime.MinimumInstallBytes
         };
 
-    private static ConsumerLaunchTargetDto ToContract(ConsumerLaunchTarget launch) =>
+    private static ContractConsumerLaunchTarget ToContract(ConsumerLaunchTarget launch) =>
         new()
         {
             Type = launch.Type,
             RelativePath = launch.RelativePath
         };
 
-    private ConsumerReleaseManifestItemDto ToContract(
+    private ContractConsumerReleaseManifestItem ToContract(
         int libraryId,
         ConsumerReleaseManifest manifest,
         ConsumerReleaseManifestItem item) =>
@@ -102,7 +108,7 @@ public sealed class IssueConsumerReleaseManifestCommandHandler(
             Formats = item.Formats.Select(format => ToContract(libraryId, manifest, format)).ToArray()
         };
 
-    private ConsumerReleaseManifestFormatDto ToContract(int libraryId, ConsumerReleaseManifest manifest,
+    private ContractConsumerReleaseManifestFormat ToContract(int libraryId, ConsumerReleaseManifest manifest,
         ConsumerReleaseManifestFormat format)
     {
         bool available = format.Delivery.State == RomDeliveryState.Available
@@ -132,14 +138,14 @@ public sealed class IssueConsumerReleaseManifestCommandHandler(
         };
     }
 
-    private ContentGrantDto CreateContentGrant(int libraryId, ConsumerReleaseManifest manifest, RomDeliveryTarget target)
+    private ContentGrant CreateContentGrant(int libraryId, ConsumerReleaseManifest manifest, RomDeliveryTarget target)
     {
         var issued = contentGrantIssuer.IssueDownloadGrant(new(manifest.UserId, libraryId, manifest.TitleId,
             manifest.ReleaseId, target));
         return new() { DownloadUrl = issued.DownloadUrl, ExpiresAt = issued.ExpiresAt };
     }
 
-    private ContentGrantDto? CreateContentGrant(
+    private ContentGrant? CreateContentGrant(
         int libraryId,
         ConsumerReleaseManifest manifest,
         ConsumerReleaseManifestItem item)

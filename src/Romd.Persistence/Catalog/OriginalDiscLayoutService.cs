@@ -15,6 +15,10 @@ using Romd.Domain.Paths;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Queries;
 
+using ContractOriginalDiscLayout = Romd.Contracts.Management.Models.OriginalDiscLayout;
+
+using OriginalDiscLayout = Romd.Application.Common.Content.OriginalDiscLayout;
+
 namespace Romd.Persistence.Catalog;
 
 public sealed class OriginalDiscLayoutService(RomdDbContext db, IFileMutationLock fileLocks, TimeProvider? timeProvider = null) : IOriginalDiscLayoutService, IOriginalDiscDescriptorRepository, IOriginalDiscLayoutReader
@@ -102,7 +106,7 @@ public sealed class OriginalDiscLayoutService(RomdDbContext db, IFileMutationLoc
         return changed.Order().ToArray();
     }
 
-    public async Task<ErrorOr<Page<OriginalDiscLayoutDto>>> ListAsync(int? platformId, string? cursor, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<ContractOriginalDiscLayout>>> ListAsync(int? platformId, string? cursor, int limit, CancellationToken ct)
     {
         string fingerprint = KeysetCursor.Fingerprint("admin.original-disc-layouts", platformId, "id:asc");
         var position = KeysetCursor.Decode<IntegerPosition>(cursor, fingerprint, value => value.IsValid);
@@ -111,23 +115,23 @@ public sealed class OriginalDiscLayoutService(RomdDbContext db, IFileMutationLoc
         int after = position.Value?.Id ?? 0;
         var rows = await Rows.Where(x => (platformId == null || x.PlatformId == null || x.PlatformId == platformId)
             && x.Id > after).OrderBy(x => x.Id).Take(limit + 1).ToListAsync(ct);
-        var result = new List<OriginalDiscLayoutDto>();
+        var result = new List<ContractOriginalDiscLayout>();
         foreach (var row in rows.Take(limit))
             result.Add(await ToDtoAsync(row, ct));
-        return new Page<OriginalDiscLayoutDto>
+        return new Page<ContractOriginalDiscLayout>
         {
             Items = result,
             HasNextPage = rows.Count > limit,
             NextCursor = rows.Count > limit ? KeysetCursor.Encode(new IntegerPosition(rows[limit - 1].Id), fingerprint) : null
         };
     }
-    public async Task<ErrorOr<OriginalDiscLayoutDto>> GetAsync(int id, CancellationToken ct)
+    public async Task<ErrorOr<ContractOriginalDiscLayout>> GetAsync(int id, CancellationToken ct)
     {
         var row = await Rows.SingleOrDefaultAsync(x => x.Id == id, ct);
         return row is null ? Error.NotFound("OriginalLayout.Missing", "Original layout not found.") : await ToDtoAsync(row, ct);
     }
 
-    public async Task<ErrorOr<Page<OriginalDiscLayoutCandidateDto>>> CandidatesAsync(int id, int? platformId, string? cursor, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<OriginalDiscLayoutCandidate>>> CandidatesAsync(int id, int? platformId, string? cursor, int limit, CancellationToken ct)
     {
         var descriptor = await (from layout in db.OriginalDiscLayouts
                                 join file in db.Files on layout.DescriptorFileId equals file.Id
@@ -149,7 +153,7 @@ public sealed class OriginalDiscLayoutService(RomdDbContext db, IFileMutationLoc
         int[] romIds = await db.RomFiles.Where(x => hashes.Contains(x.Sha1)).Select(x => x.Id).ToArrayAsync(ct);
         // One CD-aware backing read for the page: archived originals remain exact candidates.
         var originals = (await OriginalDiscLayoutBacking.ReadAsync(db, romIds, ct)).DistinctBy(x => x.RomId).ToArray();
-        var result = new List<OriginalDiscLayoutCandidateDto>();
+        var result = new List<OriginalDiscLayoutCandidate>();
         foreach (var release in releases.Take(limit))
         {
             var requirements = required.Where(x => x.CatalogReleaseId == release.Id).ToList();
@@ -161,13 +165,13 @@ public sealed class OriginalDiscLayoutService(RomdDbContext db, IFileMutationLoc
                 .Select(x => new { x.Id, x.Revision }).SingleOrDefaultAsync(ct);
             var platform = await db.Platforms.SingleAsync(x => x.Id == release.PlatformId, ct);
             result.Add(new(IdCoder.Encode(release.Id), release.Name, release.Fingerprint, platform.CanonicalKey, platform.Name,
-                candidates.Select(x => new OriginalDiscDependencyCandidateDto(IdCoder.Encode(x.Id), x.Name, x.Sha256.ToString(), (ByteCount)x.Size)).ToArray(),
-                requirements.Select(x => new OriginalDiscRequirementDto(x.Name, x.Sha1?.ToString(), (ByteCount)x.Size,
+                candidates.Select(x => new OriginalDiscDependencyCandidate(IdCoder.Encode(x.Id), x.Name, x.Sha256.ToString(), (ByteCount)x.Size)).ToArray(),
+                requirements.Select(x => new OriginalDiscRequirement(x.Name, x.Sha1?.ToString(), (ByteCount)x.Size,
                     candidates.Any(c => c.Name == x.Name && c.Size == x.Size),
                     OriginalDiscLayoutCatalogCoverage.SatisfiedByDescriptor(x, descriptor))).ToArray(),
                 current is null ? null : IdCoder.Encode(current.Id), current?.Revision));
         }
-        return new Page<OriginalDiscLayoutCandidateDto>
+        return new Page<OriginalDiscLayoutCandidate>
         {
             Items = result,
             HasNextPage = releases.Count > limit,
@@ -288,7 +292,7 @@ public sealed class OriginalDiscLayoutService(RomdDbContext db, IFileMutationLoc
 
     private sealed record AuditPosition(DateTimeOffset At, int Id);
 
-    public async Task<ErrorOr<Page<OriginalDiscLayoutAuditDto>>> AuditAsync(int id, string? cursor, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<OriginalDiscLayoutAudit>>> AuditAsync(int id, string? cursor, int limit, CancellationToken ct)
     {
         if (!await db.OriginalDiscLayouts.AnyAsync(x => x.Id == id, ct))
             return Error.NotFound("OriginalLayout.Missing", "Original layout not found.");
@@ -300,16 +304,16 @@ public sealed class OriginalDiscLayoutService(RomdDbContext db, IFileMutationLoc
         if (position.Value is { } after)
             rows = rows.Where(x => x.At < after.At || x.At == after.At && x.Id < after.Id);
         var items = await rows.OrderByDescending(x => x.At).ThenByDescending(x => x.Id).Take(limit + 1).ToListAsync(ct);
-        return new Page<OriginalDiscLayoutAuditDto>
+        return new Page<OriginalDiscLayoutAudit>
         {
-            Items = items.Take(limit).Select(x => new OriginalDiscLayoutAuditDto(x.Revision, x.Action, x.Actor, x.At, x.Reason)).ToArray(),
+            Items = items.Take(limit).Select(x => new OriginalDiscLayoutAudit(x.Revision, x.Action, x.Actor, x.At, x.Reason)).ToArray(),
             HasNextPage = items.Count > limit,
             NextCursor = items.Count > limit
                 ? KeysetCursor.Encode(new AuditPosition(items[limit - 1].At, items[limit - 1].Id), fingerprint) : null
         };
     }
 
-    private async Task<OriginalDiscLayoutDto> ToDtoAsync(OriginalDiscLayoutEntity row, CancellationToken ct)
+    private async Task<ContractOriginalDiscLayout> ToDtoAsync(OriginalDiscLayoutEntity row, CancellationToken ct)
     {
         var descriptor = await db.Files.SingleAsync(x => x.Id == row.DescriptorFileId, ct);
         var candidates = row.Files.Where(x => x.BindingRevision == (row.State == "accepted" ? row.Revision : Guid.Empty)).ToArray();
@@ -332,7 +336,7 @@ public sealed class OriginalDiscLayoutService(RomdDbContext db, IFileMutationLoc
             {
                 var candidate = candidates.SingleOrDefault(x => x.Path == path);
                 var file = candidate == null ? null : boundOriginals.SingleOrDefault(x => x.RomId == candidate.RomId && x.FileId == candidate.FileId);
-                return new OriginalDiscDependencyDto(path, candidate is null ? null : IdCoder.Encode(candidate.RomId), file?.Sha256.ToString(), file is null ? null : (ByteCount)file.Size);
+                return new OriginalDiscDependency(path, candidate is null ? null : IdCoder.Encode(candidate.RomId), file?.Sha256.ToString(), file is null ? null : (ByteCount)file.Size);
             }).ToArray(),
             (await AuditAsync(row.Id, null, 50, ct)).Value);
     }

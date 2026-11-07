@@ -41,7 +41,7 @@ public sealed class GetTitleEnrichmentStateQueryHandler
         var layers = title.MetadataLayers.Select(l =>
         {
             var payload = l.GetPayload();
-            return new MetadataLayerDto
+            return new MetadataLayer
             {
                 SourceId = l.SourceId,
                 SourceType = l.SourceType.ToString(),
@@ -56,7 +56,7 @@ public sealed class GetTitleEnrichmentStateQueryHandler
             };
         }).ToList();
 
-        var externalIds = title.ExternalIds.Select(e => new ExternalIdDto
+        var externalIds = title.ExternalIds.Select(e => new ProviderExternalId
         {
             Provider = e.Provider,
             ExternalId = e.ExternalId,

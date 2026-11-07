@@ -7,11 +7,11 @@ namespace Romd.Consumer.Application.Vfs;
 
 public interface IVfsConnections
 {
-    Task<IReadOnlyList<VfsConnectionDto>> ListAsync(Guid userId, CancellationToken ct);
-    Task<ErrorOr<Page<VfsConnectionDto>>> ListPageAsync(Guid userId, string? cursor, int limit, CancellationToken ct);
+    Task<IReadOnlyList<VfsConnection>> ListAsync(Guid userId, CancellationToken ct);
+    Task<ErrorOr<Page<VfsConnection>>> ListPageAsync(Guid userId, string? cursor, int limit, CancellationToken ct);
     /// <summary>Stages the credential mutation in the caller's required active transaction; does not flush or commit.</summary>
     Task<ErrorOr<IssuedVfsCredential>> CreateAsync(Guid userId, string name, CancellationToken ct, VfsFormat format = VfsFormat.Stored);
-    Task<ErrorOr<VfsConnectionDto>> RenameAsync(Guid userId, Guid id, string? name, CancellationToken ct, VfsFormat? format = null);
+    Task<ErrorOr<VfsConnection>> RenameAsync(Guid userId, Guid id, string? name, CancellationToken ct, VfsFormat? format = null);
     /// <summary>Stages the credential mutation in the caller's required active transaction; does not flush or commit.</summary>
     Task<ErrorOr<IssuedVfsCredential>> RotateAsync(Guid userId, Guid id, CancellationToken ct);
     /// <summary>Stages the credential mutation in the caller's required active transaction; does not flush or commit.</summary>
@@ -22,7 +22,7 @@ public interface IVfsConnections
 public sealed record AuthenticatedVfsConnection(Guid UserId, Guid ConnectionId, VfsFormat Format = VfsFormat.Stored);
 
 // Only issuance returns a secret. Listing and authentication cannot recover one.
-public sealed record IssuedVfsCredential(VfsConnectionDto Connection, string Password);
+public sealed record IssuedVfsCredential(VfsConnection Connection, string Password);
 
 public static class VfsConnectionErrors
 {

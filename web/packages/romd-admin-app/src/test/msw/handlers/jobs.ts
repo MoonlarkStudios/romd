@@ -1,8 +1,8 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { HttpResponse, http } from 'msw';
 import { jobFixtures } from '../fixtures/jobs';
 
-let jobs: JobDto[] = structuredClone(jobFixtures.list);
+let jobs: Job[] = structuredClone(jobFixtures.list);
 export function resetJobHandlers() {
   jobs = structuredClone(jobFixtures.list);
 }

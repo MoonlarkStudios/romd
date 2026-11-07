@@ -7,7 +7,7 @@ namespace Romd.Admin.Application.TrackedCollection;
 
 internal static class TrackedCollectionContractMapper
 {
-    public static TrackedCollectionTitleDto ToContract(TrackedCollectionTitleData data, SystemKeys systemKeys) => new()
+    public static TrackedCollectionTitle ToContract(TrackedCollectionTitleData data, SystemKeys systemKeys) => new()
     {
         TitleId = IdCoder.Encode(data.TitleId),
         SystemKey = systemKeys.Required(data.PlatformId),
@@ -21,14 +21,14 @@ internal static class TrackedCollectionContractMapper
         OwnedRelease = ToContract(data.OwnedRelease)
     };
 
-    public static TrackedCollectionStatsDto ToContract(TrackedCollectionStatsData data, SystemKeys systemKeys) => new()
+    public static TrackedCollectionStats ToContract(TrackedCollectionStatsData data, SystemKeys systemKeys) => new()
     {
         TrackedTitleCount = data.TrackedTitleCount,
         SatisfiedTitleCount = data.SatisfiedTitleCount,
         MissingTitleCount = data.MissingTitleCount,
         UpgradeTitleCount = data.UpgradeTitleCount,
         CompletionPercent = data.CompletionPercent,
-        Platforms = data.Platforms.Select(platform => new TrackedCollectionPlatformStatsDto
+        Platforms = data.Platforms.Select(platform => new TrackedCollectionPlatformStats
         {
             SystemKey = systemKeys.Required(platform.PlatformId),
             PlatformName = platform.PlatformName,
@@ -40,10 +40,10 @@ internal static class TrackedCollectionContractMapper
         }).ToList()
     };
 
-    private static TrackedCollectionReleaseDto? ToContract(TrackedCollectionReleaseData? release) =>
+    private static TrackedCollectionRelease? ToContract(TrackedCollectionReleaseData? release) =>
         release is null
             ? null
-            : new TrackedCollectionReleaseDto
+            : new TrackedCollectionRelease
             {
                 CatalogReleaseId = IdCoder.Encode(release.CatalogReleaseId),
                 Name = release.Name,

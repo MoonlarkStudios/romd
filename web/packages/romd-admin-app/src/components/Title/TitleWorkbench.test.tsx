@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { MantineProvider } from '@mantine/core';
 import {
   client,
-  type EnrichmentAssessmentDto,
-  type EnrichmentRequirementDto,
+  type EnrichmentAssessment,
+  type EnrichmentRequirement,
 } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
@@ -149,8 +149,8 @@ const backdrop = unsatisfied('Artwork:Backdrop', 'NeedsReview', 'ArtworkDecision
   'ReviewArtwork',
 ]);
 function titleWith(
-  rows: EnrichmentRequirementDto[] = [],
-  overrides: Partial<EnrichmentAssessmentDto> = {},
+  rows: EnrichmentRequirement[] = [],
+  overrides: Partial<EnrichmentAssessment> = {},
 ) {
   return assessmentFixture(withRequirements(...rows), {
     titleId: 'turok',
@@ -176,7 +176,7 @@ const chronoSaved = assessmentFixture(
   },
 );
 
-let state: EnrichmentAssessmentDto;
+let state: EnrichmentAssessment;
 let titleName: string;
 let titleFails: boolean;
 const assessmentReads = vi.fn();
@@ -2456,7 +2456,7 @@ describe('review hardening', () => {
     // Hold time still at each observable clear boundary; auto-advancing timers
     // can run the announcement before the assertion under full-suite load.
     vi.useFakeTimers();
-    const publish = (assessment: EnrichmentAssessmentDto) =>
+    const publish = (assessment: EnrichmentAssessment) =>
       act(async () => {
         cache.setQueryData(enrichmentWorkspaceKeys.title('turok'), assessment);
         await vi.advanceTimersByTimeAsync(0);

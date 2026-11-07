@@ -8,16 +8,16 @@ using Romd.Consumer.Application.Libraries;
 
 namespace Romd.Consumer.Application.Activity.Queries.ListRecentlyPlayed;
 
-public sealed record ListRecentlyPlayedQuery(int Limit, string? Cursor = null) : IQuery<Page<RecentlyPlayedTitleDto>>
+public sealed record ListRecentlyPlayedQuery(int Limit, string? Cursor = null) : IQuery<Page<RecentlyPlayedTitle>>
 {
     /// <summary>The largest page the operation serves; the endpoint publishes and enforces it.</summary>
     public const int MaxLimit = 50;
 }
 
 public sealed class ListRecentlyPlayedQueryHandler(ICurrentUser currentUser, IPlayActivityRepository repository)
-    : IQueryHandler<ListRecentlyPlayedQuery, Page<RecentlyPlayedTitleDto>>
+    : IQueryHandler<ListRecentlyPlayedQuery, Page<RecentlyPlayedTitle>>
 {
-    public async Task<ErrorOr<Page<RecentlyPlayedTitleDto>>> HandleAsync(
+    public async Task<ErrorOr<Page<RecentlyPlayedTitle>>> HandleAsync(
         ListRecentlyPlayedQuery query,
         CancellationToken ct = default)
     {
@@ -34,7 +34,7 @@ public sealed class ListRecentlyPlayedQueryHandler(ICurrentUser currentUser, IPl
         var result = await repository.ListRecentlyPlayedPageAsync(userId, query.Cursor, query.Limit, ct);
         return result switch
         {
-            ConsumerLibraryReadResult<PagedList<RecentlyPlayedData>>.Found found => new Page<RecentlyPlayedTitleDto>
+            ConsumerLibraryReadResult<PagedList<RecentlyPlayedData>>.Found found => new Page<RecentlyPlayedTitle>
             {
                 Items = found.Value.Items.Select(PlayActivityMapping.ToContract).ToArray(),
                 NextCursor = found.Value.NextCursor,

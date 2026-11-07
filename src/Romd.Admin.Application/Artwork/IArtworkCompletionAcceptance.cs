@@ -3,6 +3,8 @@ using ErrorOr;
 using Romd.Contracts.Management.Artwork;
 using Romd.Domain.Jobs;
 
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Admin.Application.Artwork;
 
 /// <summary>Database-only acceptance capabilities. Every lock/read after retry-mode lookup requires the owner's ReadCommitted transaction.</summary>

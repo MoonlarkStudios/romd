@@ -27,7 +27,7 @@ public sealed class GetCollectionDetailQueryHandler(IReferenceCatalogService ref
         return detail with
         {
             ItemCount = await collectionRepository.CountItemsAsync(query.CollectionId, ct),
-            Items = new Romd.Contracts.Common.Models.Page<CollectionItemDto>
+            Items = new Romd.Contracts.Common.Models.Page<CollectionItem>
             { Items = page.Value.Items.ToItemDtos(systemKeys), NextCursor = page.Value.NextCursor, HasNextPage = page.Value.HasNextPage }
         };
     }

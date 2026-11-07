@@ -26,5 +26,5 @@ public sealed record Rom
     /// </summary>
     public IReadOnlyList<RomMatch>? Matches { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public IReadOnlyList<RomDeliveryFormatDto>? Formats { get; init; }
+    public IReadOnlyList<RomDeliveryFormat>? Formats { get; init; }
 }

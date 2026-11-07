@@ -5,10 +5,10 @@ using Romd.Contracts.Management.Libraries;
 
 namespace Romd.Admin.Application.Libraries.Queries.GetLibraryExperience;
 
-public sealed record GetLibraryPreviewQuery(int LibraryId, int? CollectionId, string? Cursor = null, int Limit = 48) : IQuery<Page<LibraryPreviewTitleDto>>;
-public sealed class GetLibraryPreviewQueryHandler(ILibraryRepository libraries, ILibraryExperienceRepository experience) : IQueryHandler<GetLibraryPreviewQuery, Page<LibraryPreviewTitleDto>>
+public sealed record GetLibraryPreviewQuery(int LibraryId, int? CollectionId, string? Cursor = null, int Limit = 48) : IQuery<Page<LibraryPreviewTitle>>;
+public sealed class GetLibraryPreviewQueryHandler(ILibraryRepository libraries, ILibraryExperienceRepository experience) : IQueryHandler<GetLibraryPreviewQuery, Page<LibraryPreviewTitle>>
 {
-    public async Task<ErrorOr<Page<LibraryPreviewTitleDto>>> HandleAsync(GetLibraryPreviewQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<Page<LibraryPreviewTitle>>> HandleAsync(GetLibraryPreviewQuery query, CancellationToken ct = default)
     {
         if (await libraries.GetByIdAsync(query.LibraryId, ct) is null)
             return LibraryErrors.NotFound();

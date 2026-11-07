@@ -6,11 +6,11 @@ using Romd.Domain.Libraries;
 
 namespace Romd.Admin.Application.Libraries.Queries.GetLibraryDiscSetOptions;
 
-public sealed record GetLibraryDiscSetOptionsQuery(int LibraryId, string? Cursor = null, int Limit = 100, string? Query = null) : IQuery<LibraryDiscSetOptionsDto>;
+public sealed record GetLibraryDiscSetOptionsQuery(int LibraryId, string? Cursor = null, int Limit = 100, string? Query = null) : IQuery<LibraryDiscSetOptions>;
 public sealed class GetLibraryDiscSetOptionsQueryHandler(ILibraryRepository libraries, ILibraryCandidateReader candidates, IDiscSetService sets)
-    : IQueryHandler<GetLibraryDiscSetOptionsQuery, LibraryDiscSetOptionsDto>
+    : IQueryHandler<GetLibraryDiscSetOptionsQuery, LibraryDiscSetOptions>
 {
-    public async Task<ErrorOr<LibraryDiscSetOptionsDto>> HandleAsync(GetLibraryDiscSetOptionsQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<LibraryDiscSetOptions>> HandleAsync(GetLibraryDiscSetOptionsQuery query, CancellationToken ct = default)
     {
         var library = await libraries.GetByIdAsync(query.LibraryId, ct);
         if (library is null)

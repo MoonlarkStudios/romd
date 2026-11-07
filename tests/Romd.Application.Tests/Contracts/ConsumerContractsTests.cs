@@ -42,18 +42,18 @@ public class ConsumerContractsTests
     private static readonly HashSet<string> AllowedConsumerDeliveryProperties =
     [
         // Explicit delivery markers and verification fields; administrative provenance stays forbidden.
-        "ConsumerDiscSetFileDto.Provenance",
-        "ConsumerReleaseManifestItemDto.Provenance",
-        "ConsumerDerivedPlaylistDto.Sha256",
-        "ConsumerDiscSetFileDto.Sha256",
-        "ConsumerReleaseManifestItemDto.Sha256",
-        "ConsumerReleaseManifestFormatDto.State",
-        "ConsumerReleaseManifestFormatDto.Sha256",
-        "ConsumerReleaseManifestFormatDto.Md5",
-        "ConsumerReleaseManifestFormatDto.Sha1",
-        "ConsumerPlatformBiosItemDto.Md5",
-        "ConsumerPlatformBiosItemDto.Sha1",
-        "ConsumerPlatformBiosItemDto.Sha256"
+        "ConsumerDiscSetFile.Provenance",
+        "ConsumerReleaseManifestItem.Provenance",
+        "ConsumerDerivedPlaylist.Sha256",
+        "ConsumerDiscSetFile.Sha256",
+        "ConsumerReleaseManifestItem.Sha256",
+        "ConsumerReleaseManifestFormat.State",
+        "ConsumerReleaseManifestFormat.Sha256",
+        "ConsumerReleaseManifestFormat.Md5",
+        "ConsumerReleaseManifestFormat.Sha1",
+        "ConsumerPlatformBiosItem.Md5",
+        "ConsumerPlatformBiosItem.Sha1",
+        "ConsumerPlatformBiosItem.Sha256"
     ];
 
     [Fact]
@@ -92,7 +92,7 @@ public class ConsumerContractsTests
             .Where(candidate => candidate.Property.Name.Contains("provenance", StringComparison.OrdinalIgnoreCase))
             .OrderBy(candidate => candidate.Type.Name, StringComparer.Ordinal).ToArray();
         markers.Select(marker => $"{marker.Type.Name}.{marker.Property.Name}").ShouldBe([
-            "ConsumerDiscSetFileDto.Provenance", "ConsumerReleaseManifestItemDto.Provenance"]);
+            "ConsumerDiscSetFile.Provenance", "ConsumerReleaseManifestItem.Provenance"]);
         markers.ShouldAllBe(marker => marker.Property.PropertyType == typeof(ConsumerReleaseFileProvenance));
         Enum.GetNames<ConsumerReleaseFileProvenance>().ShouldBe(["Original", "Derived"]);
         ForbiddenConsumerPropertyTerms.ShouldContain("provenance");
@@ -166,7 +166,7 @@ public class ConsumerContractsTests
     }
 
     private static IReadOnlyList<Type> GetConsumerDtoTypes() =>
-        typeof(CurrentUserDto)
+        typeof(CurrentUser)
             .Assembly
             .GetExportedTypes()
             .Where(type => type.Namespace?.StartsWith("Romd.Contracts.Consumer", StringComparison.Ordinal) is true)

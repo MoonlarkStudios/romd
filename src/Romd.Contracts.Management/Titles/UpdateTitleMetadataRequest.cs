@@ -10,7 +10,7 @@ namespace Romd.Contracts.Management.Titles;
 ///     Empty strings clear the field entirely.
 /// </summary>
 [JsonConverter(typeof(ReferencePatchJsonConverter))]
-public sealed class UpdateTitleMetadataRequest : ReferencePatchDto
+public sealed class UpdateTitleMetadataRequest : ReferencePatch
 {
     /// <summary>Every editable field clears its user override with null, so the set follows the properties.</summary>
     private static readonly HashSet<string> EveryFieldClears = ReferencePatchJsonConverter

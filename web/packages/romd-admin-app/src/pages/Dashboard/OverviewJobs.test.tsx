@@ -1,10 +1,10 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { render } from '../../test/utils/render';
 import { OverviewJobs } from './OverviewJobs';
 
-function makeJob(overrides: Record<string, unknown>): JobDto {
+function makeJob(overrides: Record<string, unknown>): Job {
   return {
     id: '1',
     correlationId: 'c1',
@@ -15,7 +15,7 @@ function makeJob(overrides: Record<string, unknown>): JobDto {
     isTerminal: true,
     hasErrors: false,
     ...overrides,
-  } as JobDto;
+  } as Job;
 }
 
 describe('OverviewJobs', () => {

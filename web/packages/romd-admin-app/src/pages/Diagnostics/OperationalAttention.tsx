@@ -1,8 +1,8 @@
 import { Alert, Anchor, Group, Stack, Text } from '@mantine/core';
-import type { OperationalDiagnosticsDto } from '@romd/admin-api-client';
+import type { OperationalDiagnostics } from '@romd/admin-api-client';
 import { Link } from 'react-router';
 
-export function OperationalAttention({ snapshot }: { snapshot: OperationalDiagnosticsDto }) {
+export function OperationalAttention({ snapshot }: { snapshot: OperationalDiagnostics }) {
   const findings: {
     key: string;
     message: string;

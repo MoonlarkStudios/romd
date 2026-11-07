@@ -23,7 +23,7 @@ public sealed class VfsConnectionStore : IVfsConnections
         this.clock = clock;
     }
 
-    public async Task<IReadOnlyList<VfsConnectionDto>> ListAsync(Guid userId, CancellationToken ct)
+    public async Task<IReadOnlyList<VfsConnection>> ListAsync(Guid userId, CancellationToken ct)
     {
         var activeIds = await ActiveConnections().Where(item => item.UserId == userId)
             .Select(item => item.Id).ToArrayAsync(ct);
@@ -34,7 +34,7 @@ public sealed class VfsConnectionStore : IVfsConnections
         return entries.Select(item => Describe(item, activeIds.Contains(item.Id))).ToArray();
     }
 
-    public async Task<ErrorOr<Page<VfsConnectionDto>>> ListPageAsync(Guid userId, string? cursor, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<VfsConnection>>> ListPageAsync(Guid userId, string? cursor, int limit, CancellationToken ct)
     {
         string fingerprint = KeysetCursor.Fingerprint("consumer.connections", userId);
         var decoded = KeysetCursor.Decode<ConnectionPosition>(cursor, fingerprint,
@@ -52,7 +52,7 @@ public sealed class VfsConnectionStore : IVfsConnections
             .ThenByDescending(row => row.Item.Id).Take(limit + 1).ToListAsync(ct);
         bool more = rows.Count > limit;
         rows = rows.Take(limit).ToList();
-        return new Page<VfsConnectionDto>
+        return new Page<VfsConnection>
         {
             Items = rows.Select(row => Describe(row.Item, row.Active)).ToArray(),
             HasNextPage = more,
@@ -82,7 +82,7 @@ public sealed class VfsConnectionStore : IVfsConnections
         return new IssuedVfsCredential(Describe(item, true), password);
     }
 
-    public async Task<ErrorOr<VfsConnectionDto>> RenameAsync(Guid userId, Guid id, string? name, CancellationToken ct, VfsFormat? format = null)
+    public async Task<ErrorOr<VfsConnection>> RenameAsync(Guid userId, Guid id, string? name, CancellationToken ct, VfsFormat? format = null)
     {
         if (name is not null && !VfsConnectionErrors.IsValidName(name))
             return VfsConnectionErrors.InvalidName();
@@ -187,7 +187,7 @@ public sealed class VfsConnectionStore : IVfsConnections
         return password;
     }
 
-    private static VfsConnectionDto Describe(VfsConnectionEntity item, bool active) => new(
+    private static VfsConnection Describe(VfsConnectionEntity item, bool active) => new(
         item.Id, item.Name, $"romd-{item.Id:N}", item.RevokedAt is not null ? "Revoked" :
             active ? "Active" : "Invalidated",
         item.CreatedAt, item.CredentialUpdatedAt, item.LastUsedAt, item.Format);

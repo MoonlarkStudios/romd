@@ -1,4 +1,4 @@
-import type { DashboardStatusBarDto, OperationalDiagnosticsDto } from '@romd/admin-api-client';
+import type { DashboardStatusBar, OperationalDiagnostics } from '@romd/admin-api-client';
 
 export const dashboardStatusBarFixture = {
   storage: {
@@ -33,7 +33,7 @@ export const dashboardStatusBarFixture = {
     unroutedCount: 1,
     failedJobCount: 0,
   },
-} satisfies DashboardStatusBarDto;
+} satisfies DashboardStatusBar;
 
 export const operationalDiagnosticsFixture = {
   generatedAt: '2026-08-26T18:00:00Z',
@@ -149,7 +149,7 @@ export const operationalDiagnosticsFixture = {
     casAvailability: 'Available',
     error: null,
   },
-} satisfies OperationalDiagnosticsDto;
+} satisfies OperationalDiagnostics;
 
 export const emptyOperationalDiagnosticsFixture = {
   ...operationalDiagnosticsFixture,
@@ -174,4 +174,4 @@ export const emptyOperationalDiagnosticsFixture = {
     recurringJobs: [],
     queueBacklogs: [],
   },
-} satisfies OperationalDiagnosticsDto;
+} satisfies OperationalDiagnostics;

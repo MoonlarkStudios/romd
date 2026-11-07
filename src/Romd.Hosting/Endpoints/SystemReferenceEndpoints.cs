@@ -9,6 +9,8 @@ using Romd.Contracts.Common.ReferenceCatalog;
 using Romd.Domain.ReferenceData;
 using Romd.Host.Authorization;
 
+using ContractSystemOverrides = Romd.Contracts.Common.ReferenceCatalog.SystemOverrides;
+
 namespace Romd.Host.Endpoints;
 
 public static class SystemReferenceEndpoints
@@ -24,24 +26,24 @@ public static class SystemReferenceEndpoints
             return request.IsError ? request.Errors.ToProblem() : Results.Ok(await reader.ListAsync(request.Value, ct));
         }).WithName("List" + prefix + "Systems")
             .WithDescription("Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order. Bounded keyset traversal; query matches normalized display facts. Default/max limit 100; sortBy supports key:asc. Each page is one coherent observation, not a complete-traversal snapshot.")
-            .Produces<Page<SystemResourceDto>>();
+            .Produces<Page<SystemResource>>();
         group.MapGet("{systemKey}", async (SystemKeyParameter systemKey, [FromServices] ISystemReferenceReader reader, HttpContext context, CancellationToken ct) =>
             await reader.GetAsync(systemKey.Key, ct) is { } system
                 ? Preconditions.ConditionalRead(context, system.Resource, system.Revision)
                 : ReferenceCatalogEndpoints.UnknownSystem())
-            .WithName("Get" + prefix + "System").Produces<SystemResourceDto>().ConditionalRead();
+            .WithName("Get" + prefix + "System").Produces<SystemResource>().ConditionalRead();
         if (!admin)
             return;
         group.MapPost("", Create).WithName("CreateSystem").RequireAuthorization(AuthorizationPolicies.RequireManager)
-            .ProducesCreated<SystemResourceDto>().ProducesProblems(400, 409).ConditionalCreate();
+            .ProducesCreated<SystemResource>().ProducesProblems(400, 409).ConditionalCreate();
         // The system-key seam declares the unknown-key 404 of every {systemKey} route.
         group.MapPatch("{systemKey}", Update).WithName("UpdateSystem").RequireAuthorization(AuthorizationPolicies.RequireAdmin)
-            .Produces<SystemResourceDto>().ProducesProblems(400, 409).ConditionalWrite();
+            .Produces<SystemResource>().ProducesProblems(400, 409).ConditionalWrite();
         group.MapGet("{systemKey}/overrides", async (SystemKeyParameter systemKey, [FromServices] ISystemReferenceReader reader, HttpContext context, CancellationToken ct) =>
             await reader.GetAsync(systemKey.Key, ct) is { } system
                 ? Preconditions.ConditionalRead(context, system.Overrides, system.Revision)
                 : ReferenceCatalogEndpoints.UnknownSystem())
-            .WithName("GetSystemOverrides").RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<SystemOverridesDto>()
+            .WithName("GetSystemOverrides").RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<ContractSystemOverrides>()
             .ConditionalRead();
         group.MapDelete("{systemKey}/overrides", Reset).WithName("DeleteSystemOverrides").RequireAuthorization(AuthorizationPolicies.RequireAdmin)
             .Produces(204).ProducesProblems(409).ConditionalWrite();
@@ -50,15 +52,15 @@ public static class SystemReferenceEndpoints
         group.MapDelete("{systemKey}", Delete).WithName("DeleteSystem").RequireAuthorization(AuthorizationPolicies.RequireAdmin)
             .Produces(204).ProducesProblems(409).ConditionalWriteWithoutETag();
     }
-    private static async Task<IResult> Create(CreateSystemDto request, [FromServices] ICommandHandler<CreateSystemCommand, ReferenceResourceResult<SystemResourceDto, SystemOverridesDto>> handler, HttpContext context, CancellationToken ct)
+    private static async Task<IResult> Create(CreateSystem request, [FromServices] ICommandHandler<CreateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, HttpContext context, CancellationToken ct)
     {
         var result = await handler.HandleAsync(new(request.Key, new(request.Name, request.CompactLabel, request.Description, request.Icon, request.Monochrome), request.ManufacturerKeys), ct);
         return result.Match(
             created => Results.Created("/api/systems/" + Uri.EscapeDataString(created.Resource.Key), created.Resource).WithETag(context, created.Revision),
             errors => errors.ToProblem());
     }
-    private static async Task<IResult> Update(SystemKeyParameter systemKey, SystemPatchDto patch, HttpContext context,
-        [FromServices] ICommandHandler<UpdateSystemCommand, ReferenceResourceResult<SystemResourceDto, SystemOverridesDto>> handler, CancellationToken ct)
+    private static async Task<IResult> Update(SystemKeyParameter systemKey, SystemPatch patch, HttpContext context,
+        [FromServices] ICommandHandler<UpdateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, CancellationToken ct)
     {
         if (patch.Changes.ContainsKey("manufacturerKeys") && patch.ManufacturerKeys is null)
             return ProblemResults.Problem(400, "ReferenceResource.Invalid", "Manufacturer keys cannot be null.");
@@ -75,7 +77,7 @@ public static class SystemReferenceEndpoints
         return result.Match(updated => Results.Ok(updated.Resource).WithETag(context, updated.Revision), errors => errors.ToProblem());
     }
     private static async Task<IResult> Reset(SystemKeyParameter systemKey, HttpContext context,
-        [FromServices] ICommandHandler<ResetSystemOverridesCommand, ReferenceResourceResult<SystemResourceDto, SystemOverridesDto>> handler, CancellationToken ct)
+        [FromServices] ICommandHandler<ResetSystemOverridesCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, CancellationToken ct)
     {
         var ifMatch = Preconditions.IfMatch(context, ReferenceCatalogEndpoints.PreconditionArea);
         if (ifMatch.IsError)
@@ -84,7 +86,7 @@ public static class SystemReferenceEndpoints
         return result.Match(reset => Results.NoContent().WithETag(context, reset.Revision), errors => errors.ToProblem());
     }
     private static async Task<IResult> ResetField(SystemKeyParameter systemKey, string field, HttpContext context,
-        [FromServices] ICommandHandler<ResetSystemOverridesCommand, ReferenceResourceResult<SystemResourceDto, SystemOverridesDto>> handler, CancellationToken ct)
+        [FromServices] ICommandHandler<ResetSystemOverridesCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, CancellationToken ct)
     {
         if (!Enum.GetNames<SystemOverrideField>().Contains(field, StringComparer.OrdinalIgnoreCase))
             return ProblemResults.Problem(400, "ReferenceResource.Invalid", "Unknown override field.");

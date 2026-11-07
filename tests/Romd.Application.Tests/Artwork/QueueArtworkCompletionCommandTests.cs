@@ -10,6 +10,8 @@ using Romd.Domain.Jobs;
 using Shouldly;
 using Xunit;
 
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Application.Tests.Artwork;
 
 public sealed class QueueArtworkCompletionCommandTests
@@ -73,8 +75,9 @@ public sealed class QueueArtworkCompletionCommandTests
     public async Task HandleAsync_RetryOriginalMissing_RejectsBeforeTransactionEvenWhenRequestIdCouldReplay()
     {
         var fixture = new Fixture();
-        fixture.Request = new(Guid.NewGuid(), Scope: "Retry", RetryJobId: Guid.NewGuid(), RetryStatus: "Failed");
-        fixture.Acceptance.ReadRetryModeAsync(fixture.Request.RetryJobId.Value, Arg.Any<CancellationToken>())
+        var retryJobId = Guid.NewGuid();
+        fixture.Request = new(Guid.NewGuid(), Scope: "Retry", RetryJobId: retryJobId, RetryStatus: "Failed");
+        fixture.Acceptance.ReadRetryModeAsync(retryJobId, Arg.Any<CancellationToken>())
             .Returns((string?)null);
 
         (await fixture.HandleAsync()).FirstError.Code.ShouldBe("Artwork.TitleNotFound");

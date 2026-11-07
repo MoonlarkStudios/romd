@@ -5,7 +5,7 @@ namespace Romd.Application.Common.Content;
 public static class RomDeliveryMapping
 {
     /// <summary>The option's contract, labelled from the format catalog.</summary>
-    public static RomDeliveryFormatDto ToContract(this RomDeliveryOption option, RomDeliveryFormatCatalog formats)
+    public static RomDeliveryFormat ToContract(this RomDeliveryOption option, RomDeliveryFormatCatalog formats)
     {
         var display = formats.Entry(option.Format);
         return new()

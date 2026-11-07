@@ -1,5 +1,5 @@
 import type {
-  ArtworkCompletionItemDto,
+  ArtworkCompletionItem,
   ArtworkCompletionMetadataOutcome,
 } from '@romd/admin-api-client';
 import { artworkRoleLabel } from '../artworkPresentation';
@@ -111,7 +111,7 @@ export function roleOutcomeLabel(role: string, outcome: string): string {
 export function recordedLine({
   metadataOutcome,
   roles,
-}: Pick<ArtworkCompletionItemDto, 'metadataOutcome' | 'roles'>): string {
+}: Pick<ArtworkCompletionItem, 'metadataOutcome' | 'roles'>): string {
   return `Recorded: ${[
     metadataOutcomeLabel(metadataOutcome),
     ...roles.map((row) => roleOutcomeLabel(row.role, row.status)),

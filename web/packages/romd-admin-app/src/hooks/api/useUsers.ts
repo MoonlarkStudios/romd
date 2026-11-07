@@ -3,7 +3,7 @@ import type {
   CreateUserRequest,
   ProblemDetails,
   UpdateUserRequest,
-  UserDto,
+  User,
 } from '@romd/admin-api-client';
 import {
   assignDefaultLibraryToUsers,
@@ -178,7 +178,7 @@ export function useCreateUser() {
       if (response.error) {
         throw new Error(getApiErrorMessage(response.error, 'Failed to create user'));
       }
-      return response.data as UserDto;
+      return response.data as User;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -202,7 +202,7 @@ export function useUpdateUser() {
       if (response.error) {
         throw new Error(getApiErrorMessage(response.error, 'Failed to update user'));
       }
-      return response.data as UserDto;
+      return response.data as User;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -228,7 +228,7 @@ export function useAssignUserRole() {
       if (response.error) {
         throw new Error(getApiErrorMessage(response.error, 'Failed to assign role'));
       }
-      return response.data as UserDto;
+      return response.data as User;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -254,7 +254,7 @@ export function useAssignUserLibrary() {
       if (response.error) {
         throw new Error(getApiErrorMessage(response.error, 'Failed to assign library'));
       }
-      return response.data as UserDto;
+      return response.data as User;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

@@ -29,6 +29,9 @@ using Romd.Infrastructure.Storage;
 using Shouldly;
 using Xunit;
 
+using MediaReconciliationJob = Romd.Domain.Jobs.MediaReconciliationJob;
+using MediaReconciliationSubject = Romd.Domain.Source.Rom.MediaReconciliationSubject;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 public sealed class MediaReconciliationEndpointsTests
@@ -59,7 +62,7 @@ public sealed class MediaReconciliationEndpointsTests
         await using var app = BuildApp();
         await app.StartAsync();
         using var client = app.GetTestClient().WithTestUser(Guid.NewGuid(), roles: [RomdRoleType.Admin]);
-        var policies = (await client.GetFromJsonAsync<MediaReconciliationPolicyDto[]>("/api/media/reconciliation/policies")).ShouldNotBeNull();
+        var policies = (await client.GetFromJsonAsync<MediaReconciliationPolicy[]>("/api/media/reconciliation/policies")).ShouldNotBeNull();
         var gameCube = policies.Single(policy => policy.KindId == "gamecube-disc");
         gameCube.SystemKeys.ShouldBe(["gc"]);
         gameCube.CanDecode.ShouldBeTrue();

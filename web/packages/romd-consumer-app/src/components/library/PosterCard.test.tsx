@@ -1,4 +1,4 @@
-import type { ConsumerTitleCardDto } from '@romd/consumer-api-client';
+import type { ConsumerTitleCard } from '@romd/consumer-api-client';
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from '../../test/utils/render';
@@ -91,7 +91,7 @@ describe('PosterCard', () => {
   });
 });
 
-function createTitle(): ConsumerTitleCardDto {
+function createTitle(): ConsumerTitleCard {
   return {
     id: 'title-1',
     system: {

@@ -281,7 +281,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerServerIdentityDto"
+                  "$ref": "#/components/schemas/ConsumerServerIdentity"
                 }
               }
             }
@@ -322,7 +322,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerReleaseAccessDto"
+                  "$ref": "#/components/schemas/ConsumerReleaseAccess"
                 }
               }
             }
@@ -385,7 +385,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerPlatformBiosDto"
+                  "$ref": "#/components/schemas/ConsumerPlatformBios"
                 }
               }
             }
@@ -445,7 +445,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfConsumerDiscSetStatusDto"
+                  "$ref": "#/components/schemas/PageOfConsumerDiscSetStatus"
                 }
               }
             }
@@ -498,7 +498,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerDiscSetStatusDto"
+                  "$ref": "#/components/schemas/ConsumerDiscSetStatus"
                 }
               }
             }
@@ -571,7 +571,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerDiscSetManifestDto"
+                  "$ref": "#/components/schemas/ConsumerDiscSetManifest"
                 }
               }
             }
@@ -644,7 +644,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerDiscSetAccessDto"
+                  "$ref": "#/components/schemas/ConsumerDiscSetAccess"
                 }
               }
             }
@@ -706,7 +706,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerDiscSetManifestDto"
+                  "$ref": "#/components/schemas/ConsumerDiscSetManifest"
                 }
               }
             }
@@ -759,7 +759,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerPlaybackConfigDto"
+                  "$ref": "#/components/schemas/ConsumerPlaybackConfig"
                 }
               }
             }
@@ -798,7 +798,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReferenceCatalogDescriptorDto"
+                  "$ref": "#/components/schemas/ReferenceCatalogDescriptor"
                 }
               }
             }
@@ -870,7 +870,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceSystemDto"
+                  "$ref": "#/components/schemas/PageOfReferenceSystem"
                 }
               }
             }
@@ -949,7 +949,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceNamedDto"
+                  "$ref": "#/components/schemas/PageOfReferenceNamed"
                 }
               }
             }
@@ -1028,7 +1028,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceTaxonomyDto"
+                  "$ref": "#/components/schemas/PageOfReferenceTaxonomy"
                 }
               }
             }
@@ -1107,7 +1107,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceTaxonomyDto"
+                  "$ref": "#/components/schemas/PageOfReferenceTaxonomy"
                 }
               }
             }
@@ -1186,7 +1186,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceRatingBoardDto"
+                  "$ref": "#/components/schemas/PageOfReferenceRatingBoard"
                 }
               }
             }
@@ -1265,7 +1265,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceRatingDto"
+                  "$ref": "#/components/schemas/PageOfReferenceRating"
                 }
               }
             }
@@ -1395,7 +1395,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerUserSettingsDto"
+                  "$ref": "#/components/schemas/ConsumerUserSettings"
                 }
               }
             }
@@ -1436,7 +1436,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerUserSettingsDto"
+                  "$ref": "#/components/schemas/ConsumerUserSettings"
                 }
               }
             }
@@ -1489,7 +1489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfVfsConnectionDto"
+                  "$ref": "#/components/schemas/PageOfVfsConnection"
                 }
               }
             }
@@ -1536,7 +1536,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/VfsConnectionCredentialDto"
+                  "$ref": "#/components/schemas/VfsConnectionCredential"
                 }
               }
             }
@@ -1607,7 +1607,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/VfsConnectionDto"
+                  "$ref": "#/components/schemas/VfsConnection"
                 }
               }
             }
@@ -1700,7 +1700,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/VfsConnectionCredentialDto"
+                  "$ref": "#/components/schemas/VfsConnectionCredential"
                 }
               }
             }
@@ -1760,7 +1760,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CurrentUserDto"
+                  "$ref": "#/components/schemas/CurrentUser"
                 }
               }
             }
@@ -1793,7 +1793,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LibraryContextDto"
+                  "$ref": "#/components/schemas/LibraryContext"
                 }
               }
             }
@@ -1856,7 +1856,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfConsumerPlatformSummaryDto"
+                  "$ref": "#/components/schemas/PageOfConsumerPlatformSummary"
                 }
               }
             }
@@ -1919,7 +1919,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerPlatformDetailDto"
+                  "$ref": "#/components/schemas/ConsumerPlatformDetail"
                 }
               }
             }
@@ -2026,7 +2026,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfConsumerTitleCardDto"
+                  "$ref": "#/components/schemas/PageOfConsumerTitleCard"
                 }
               }
             }
@@ -2069,7 +2069,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerTitleDetailDto"
+                  "$ref": "#/components/schemas/ConsumerTitleDetail"
                 }
               }
             }
@@ -2140,7 +2140,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfConsumerMediaRefDto"
+                  "$ref": "#/components/schemas/PageOfConsumerMediaRef"
                 }
               }
             }
@@ -2211,7 +2211,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfConsumerReleaseDto"
+                  "$ref": "#/components/schemas/PageOfConsumerRelease"
                 }
               }
             }
@@ -2291,7 +2291,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfConsumerCollectionDto"
+                  "$ref": "#/components/schemas/PageOfConsumerCollection"
                 }
               }
             }
@@ -2334,7 +2334,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerCollectionDto"
+                  "$ref": "#/components/schemas/ConsumerCollection"
                 }
               }
             }
@@ -2404,7 +2404,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfConsumerCollectionTitleDto"
+                  "$ref": "#/components/schemas/PageOfConsumerCollectionTitle"
                 }
               }
             }
@@ -2457,7 +2457,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerReleaseManifestDto"
+                  "$ref": "#/components/schemas/ConsumerReleaseManifest"
                 }
               }
             }
@@ -2607,7 +2607,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlaySessionDto"
+                  "$ref": "#/components/schemas/PlaySession"
                 }
               }
             }
@@ -2669,7 +2669,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlaySessionDto"
+                  "$ref": "#/components/schemas/PlaySession"
                 }
               }
             }
@@ -2766,7 +2766,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfPlaySessionDto"
+                  "$ref": "#/components/schemas/PageOfPlaySession"
                 }
               }
             }
@@ -2842,7 +2842,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfRecentlyPlayedTitleDto"
+                  "$ref": "#/components/schemas/PageOfRecentlyPlayedTitle"
                 }
               }
             }
@@ -2920,7 +2920,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfSystemResourceDto"
+                  "$ref": "#/components/schemas/PageOfSystemResource"
                 }
               }
             }
@@ -2978,7 +2978,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SystemResourceDto"
+                  "$ref": "#/components/schemas/SystemResource"
                 }
               }
             }
@@ -3046,7 +3046,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfCompanyResourceDto"
+                  "$ref": "#/components/schemas/PageOfCompanyResource"
                 }
               }
             }
@@ -3094,7 +3094,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CompanyResourceDto"
+                  "$ref": "#/components/schemas/CompanyResource"
                 }
               }
             }
@@ -3140,7 +3140,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RegionResourceDto"
+                    "$ref": "#/components/schemas/RegionResource"
                   }
                 }
               }
@@ -3189,7 +3189,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegionResourceDto"
+                  "$ref": "#/components/schemas/RegionResource"
                 }
               }
             }
@@ -3235,7 +3235,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/LanguageResourceDto"
+                    "$ref": "#/components/schemas/LanguageResource"
                   }
                 }
               }
@@ -3284,7 +3284,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LanguageResourceDto"
+                  "$ref": "#/components/schemas/LanguageResource"
                 }
               }
             }
@@ -3330,7 +3330,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RatingBoardResourceDto"
+                    "$ref": "#/components/schemas/RatingBoardResource"
                   }
                 }
               }
@@ -3379,7 +3379,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RatingBoardResourceDto"
+                  "$ref": "#/components/schemas/RatingBoardResource"
                 }
               }
             }
@@ -3435,7 +3435,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RatingResourceDto"
+                    "$ref": "#/components/schemas/RatingResource"
                   }
                 }
               }
@@ -3502,7 +3502,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RatingResourceDto"
+                  "$ref": "#/components/schemas/RatingResource"
                 }
               }
             }
@@ -3536,7 +3536,7 @@
   },
   "components": {
     "schemas": {
-      "ArtworkVariantDto": {
+      "ArtworkVariant": {
         "required": [
           "name",
           "url",
@@ -3588,7 +3588,7 @@
           }
         }
       },
-      "CompanyResourceDto": {
+      "CompanyResource": {
         "required": [
           "key",
           "ownership",
@@ -3630,7 +3630,7 @@
           }
         }
       },
-      "CompanySummaryDto": {
+      "CompanySummary": {
         "required": [
           "key",
           "name"
@@ -3645,7 +3645,7 @@
           }
         }
       },
-      "ConsumerCollectionDto": {
+      "ConsumerCollection": {
         "required": [
           "id",
           "name"
@@ -3670,7 +3670,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/SystemSummaryDto"
+                "$ref": "#/components/schemas/SystemSummary"
               }
             ]
           },
@@ -3695,7 +3695,7 @@
           }
         }
       },
-      "ConsumerCollectionTitleDto": {
+      "ConsumerCollectionTitle": {
         "required": [
           "id",
           "name",
@@ -3707,7 +3707,7 @@
           "artwork": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ResolvedArtworkDto"
+              "$ref": "#/components/schemas/ResolvedArtwork"
             }
           },
           "id": {
@@ -3717,7 +3717,7 @@
             "type": "string"
           },
           "system": {
-            "$ref": "#/components/schemas/SystemSummaryDto"
+            "$ref": "#/components/schemas/SystemSummary"
           },
           "coverUrl": {
             "type": [
@@ -3757,7 +3757,7 @@
           }
         }
       },
-      "ConsumerContentRatingDto": {
+      "ConsumerContentRating": {
         "required": [
           "board",
           "code",
@@ -3790,13 +3790,13 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           }
         }
       },
-      "ConsumerDerivedPlaylistDto": {
+      "ConsumerDerivedPlaylist": {
         "required": [
           "artifactId",
           "relativePath",
@@ -3827,7 +3827,7 @@
           }
         }
       },
-      "ConsumerDiscSetAccessDto": {
+      "ConsumerDiscSetAccess": {
         "required": [
           "contractVersion",
           "serverInstanceId",
@@ -3868,7 +3868,7 @@
           "layoutVersions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerDiscSetLayoutVersionDto"
+              "$ref": "#/components/schemas/ConsumerDiscSetLayoutVersion"
             }
           },
           "allowed": {
@@ -3923,7 +3923,7 @@
           "layoutVersions": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerDiscSetLayoutVersionDto"
+              "$ref": "#/components/schemas/ConsumerDiscSetLayoutVersion"
             }
           },
           "allowPartial": {
@@ -3931,7 +3931,7 @@
           }
         }
       },
-      "ConsumerDiscSetDiscDto": {
+      "ConsumerDiscSetDisc": {
         "required": [
           "releaseId",
           "ordinal",
@@ -3957,7 +3957,7 @@
           "files": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerDiscSetFileDto"
+              "$ref": "#/components/schemas/ConsumerDiscSetFile"
             }
           },
           "layoutId": {
@@ -3974,7 +3974,7 @@
           }
         }
       },
-      "ConsumerDiscSetFileDto": {
+      "ConsumerDiscSetFile": {
         "required": [
           "relativePath",
           "sizeBytes",
@@ -3997,11 +3997,11 @@
             "$ref": "#/components/schemas/ConsumerReleaseFileProvenance"
           },
           "contentGrant": {
-            "$ref": "#/components/schemas/ContentGrantDto"
+            "$ref": "#/components/schemas/ContentGrant"
           }
         }
       },
-      "ConsumerDiscSetLayoutVersionDto": {
+      "ConsumerDiscSetLayoutVersion": {
         "required": [
           "releaseId",
           "layoutId",
@@ -4026,7 +4026,7 @@
           }
         }
       },
-      "ConsumerDiscSetManifestDto": {
+      "ConsumerDiscSetManifest": {
         "required": [
           "serverInstanceId",
           "discSetId",
@@ -4077,11 +4077,11 @@
           "discs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerDiscSetDiscDto"
+              "$ref": "#/components/schemas/ConsumerDiscSetDisc"
             }
           },
           "playlist": {
-            "$ref": "#/components/schemas/ConsumerDerivedPlaylistDto"
+            "$ref": "#/components/schemas/ConsumerDerivedPlaylist"
           },
           "contractVersion": {
             "type": "integer",
@@ -4096,13 +4096,13 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ConsumerDiscSetSelectionDto"
+                "$ref": "#/components/schemas/ConsumerDiscSetSelection"
               }
             ]
           }
         }
       },
-      "ConsumerDiscSetOmittedDiscDto": {
+      "ConsumerDiscSetOmittedDisc": {
         "required": [
           "releaseId",
           "ordinal"
@@ -4118,7 +4118,7 @@
           }
         }
       },
-      "ConsumerDiscSetSelectionDto": {
+      "ConsumerDiscSetSelection": {
         "required": [
           "kind",
           "completeness",
@@ -4143,7 +4143,7 @@
           "omittedDiscs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerDiscSetOmittedDiscDto"
+              "$ref": "#/components/schemas/ConsumerDiscSetOmittedDisc"
             }
           },
           "missingExpectedOrdinals": {
@@ -4193,45 +4193,7 @@
           }
         }
       },
-      "ConsumerDiscSetStatusDiscDto": {
-        "required": [
-          "releaseId",
-          "ordinal",
-          "name",
-          "layoutId",
-          "layoutRevision",
-          "readiness"
-        ],
-        "type": "object",
-        "properties": {
-          "releaseId": {
-            "type": "string"
-          },
-          "ordinal": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "name": {
-            "type": "string"
-          },
-          "layoutId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "layoutRevision": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "readiness": {
-            "type": "string"
-          }
-        }
-      },
-      "ConsumerDiscSetStatusDto": {
+      "ConsumerDiscSetStatus": {
         "required": [
           "contractVersion",
           "serverInstanceId",
@@ -4290,12 +4252,50 @@
           "discs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerDiscSetStatusDiscDto"
+              "$ref": "#/components/schemas/ConsumerDiscSetStatusDisc"
             }
           }
         }
       },
-      "ConsumerLaunchTargetDto": {
+      "ConsumerDiscSetStatusDisc": {
+        "required": [
+          "releaseId",
+          "ordinal",
+          "name",
+          "layoutId",
+          "layoutRevision",
+          "readiness"
+        ],
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string"
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "layoutId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "layoutRevision": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "readiness": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerLaunchTarget": {
         "required": [
           "type",
           "relativePath"
@@ -4310,7 +4310,7 @@
           }
         }
       },
-      "ConsumerMediaRefDto": {
+      "ConsumerMediaRef": {
         "required": [
           "id",
           "type",
@@ -4333,7 +4333,7 @@
           }
         }
       },
-      "ConsumerPlatformBiosDto": {
+      "ConsumerPlatformBios": {
         "required": [
           "systemKey",
           "items"
@@ -4346,12 +4346,12 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerPlatformBiosItemDto"
+              "$ref": "#/components/schemas/ConsumerPlatformBiosItem"
             }
           }
         }
       },
-      "ConsumerPlatformBiosItemDto": {
+      "ConsumerPlatformBiosItem": {
         "required": [
           "biosId",
           "name",
@@ -4400,13 +4400,13 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ContentGrantDto"
+                "$ref": "#/components/schemas/ContentGrant"
               }
             ]
           }
         }
       },
-      "ConsumerPlatformDetailDto": {
+      "ConsumerPlatformDetail": {
         "required": [
           "key",
           "name",
@@ -4438,12 +4438,12 @@
           "media": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerMediaRefDto"
+              "$ref": "#/components/schemas/ConsumerMediaRef"
             }
           }
         }
       },
-      "ConsumerPlatformSummaryDto": {
+      "ConsumerPlatformSummary": {
         "required": [
           "key",
           "name",
@@ -4479,7 +4479,7 @@
           }
         }
       },
-      "ConsumerPlaybackConfigDto": {
+      "ConsumerPlaybackConfig": {
         "required": [
           "playerOrigin"
         ],
@@ -4493,32 +4493,7 @@
           }
         }
       },
-      "ConsumerReleaseAccessDto": {
-        "required": [
-          "serverInstanceId",
-          "releaseId",
-          "allowed"
-        ],
-        "type": "object",
-        "properties": {
-          "serverInstanceId": {
-            "type": "string"
-          },
-          "releaseId": {
-            "type": "string"
-          },
-          "allowed": {
-            "type": "boolean"
-          },
-          "titleId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "ConsumerReleaseDto": {
+      "ConsumerRelease": {
         "required": [
           "id",
           "name",
@@ -4561,13 +4536,38 @@
           }
         }
       },
+      "ConsumerReleaseAccess": {
+        "required": [
+          "serverInstanceId",
+          "releaseId",
+          "allowed"
+        ],
+        "type": "object",
+        "properties": {
+          "serverInstanceId": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": "string"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "titleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ConsumerReleaseFileProvenance": {
         "enum": [
           "Original",
           "Derived"
         ]
       },
-      "ConsumerReleaseManifestDto": {
+      "ConsumerReleaseManifest": {
         "required": [
           "serverInstanceId",
           "releaseId",
@@ -4609,17 +4609,17 @@
             "type": "boolean"
           },
           "runtime": {
-            "$ref": "#/components/schemas/ConsumerReleaseRuntimeDto"
+            "$ref": "#/components/schemas/ConsumerReleaseRuntime"
           },
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerReleaseManifestItemDto"
+              "$ref": "#/components/schemas/ConsumerReleaseManifestItem"
             }
           }
         }
       },
-      "ConsumerReleaseManifestFormatDto": {
+      "ConsumerReleaseManifestFormat": {
         "required": [
           "relativePath",
           "format",
@@ -4639,7 +4639,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ConsumerReleaseRuntimeDto"
+                "$ref": "#/components/schemas/ConsumerReleaseRuntime"
               }
             ]
           },
@@ -4649,7 +4649,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ContentGrantDto"
+                "$ref": "#/components/schemas/ContentGrant"
               }
             ]
           },
@@ -4723,7 +4723,7 @@
           }
         }
       },
-      "ConsumerReleaseManifestItemDto": {
+      "ConsumerReleaseManifestItem": {
         "required": [
           "relativePath",
           "role",
@@ -4761,19 +4761,19 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ContentGrantDto"
+                "$ref": "#/components/schemas/ContentGrant"
               }
             ]
           },
           "formats": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerReleaseManifestFormatDto"
+              "$ref": "#/components/schemas/ConsumerReleaseManifestFormat"
             }
           }
         }
       },
-      "ConsumerReleasePreferenceDto": {
+      "ConsumerReleasePreference": {
         "required": [
           "preferredRegionKeys",
           "preferredLanguageKeys",
@@ -4802,7 +4802,7 @@
           }
         }
       },
-      "ConsumerReleaseRuntimeDto": {
+      "ConsumerReleaseRuntime": {
         "required": [
           "contentType",
           "packaging",
@@ -4819,7 +4819,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ConsumerLaunchTargetDto"
+                "$ref": "#/components/schemas/ConsumerLaunchTarget"
               }
             ]
           },
@@ -4831,7 +4831,7 @@
           }
         }
       },
-      "ConsumerServerIdentityDto": {
+      "ConsumerServerIdentity": {
         "required": [
           "instanceId"
         ],
@@ -4842,7 +4842,7 @@
           }
         }
       },
-      "ConsumerTitleCardDto": {
+      "ConsumerTitleCard": {
         "required": [
           "id",
           "system",
@@ -4854,19 +4854,19 @@
           "artwork": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ResolvedArtworkDto"
+              "$ref": "#/components/schemas/ResolvedArtwork"
             }
           },
           "id": {
             "type": "string"
           },
           "system": {
-            "$ref": "#/components/schemas/SystemSummaryDto"
+            "$ref": "#/components/schemas/SystemSummary"
           },
           "contentRatings": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerContentRatingDto"
+              "$ref": "#/components/schemas/ConsumerContentRating"
             }
           },
           "name": {
@@ -4923,7 +4923,7 @@
           }
         }
       },
-      "ConsumerTitleDetailDto": {
+      "ConsumerTitleDetail": {
         "required": [
           "id",
           "system",
@@ -4936,19 +4936,19 @@
           "artwork": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ResolvedArtworkDto"
+              "$ref": "#/components/schemas/ResolvedArtwork"
             }
           },
           "id": {
             "type": "string"
           },
           "system": {
-            "$ref": "#/components/schemas/SystemSummaryDto"
+            "$ref": "#/components/schemas/SystemSummary"
           },
           "contentRatings": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerContentRatingDto"
+              "$ref": "#/components/schemas/ConsumerContentRating"
             }
           },
           "name": {
@@ -5000,10 +5000,10 @@
             "format": "double"
           },
           "media": {
-            "$ref": "#/components/schemas/PageOfConsumerMediaRefDto"
+            "$ref": "#/components/schemas/PageOfConsumerMediaRef"
           },
           "releases": {
-            "$ref": "#/components/schemas/PageOfConsumerReleaseDto"
+            "$ref": "#/components/schemas/PageOfConsumerRelease"
           },
           "defaultReleaseId": {
             "type": [
@@ -5013,7 +5013,7 @@
           }
         }
       },
-      "ConsumerUserSettingsDto": {
+      "ConsumerUserSettings": {
         "required": [
           "theme",
           "releasePreference"
@@ -5024,11 +5024,11 @@
             "type": "string"
           },
           "releasePreference": {
-            "$ref": "#/components/schemas/ConsumerReleasePreferenceDto"
+            "$ref": "#/components/schemas/ConsumerReleasePreference"
           }
         }
       },
-      "ContentGrantDto": {
+      "ContentGrant": {
         "required": [
           "downloadUrl",
           "expiresAt"
@@ -5044,7 +5044,7 @@
           }
         }
       },
-      "CurrentUserDto": {
+      "CurrentUser": {
         "required": [
           "id",
           "email",
@@ -5071,7 +5071,7 @@
           }
         }
       },
-      "LanguageResourceDto": {
+      "LanguageResource": {
         "required": [
           "key",
           "ownership",
@@ -5118,7 +5118,7 @@
           }
         }
       },
-      "LibraryContentCountsDto": {
+      "LibraryContentCounts": {
         "type": "object",
         "properties": {
           "ownedTitleCount": {
@@ -5135,7 +5135,7 @@
           }
         }
       },
-      "LibraryContextDto": {
+      "LibraryContext": {
         "required": [
           "name",
           "counts",
@@ -5149,29 +5149,29 @@
             "type": "string"
           },
           "counts": {
-            "$ref": "#/components/schemas/LibraryContentCountsDto"
+            "$ref": "#/components/schemas/LibraryContentCounts"
           },
           "platforms": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryFacetDto"
+              "$ref": "#/components/schemas/LibraryFacet"
             }
           },
           "genres": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryFacetDto"
+              "$ref": "#/components/schemas/LibraryFacet"
             }
           },
           "featuredCollections": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerCollectionDto"
+              "$ref": "#/components/schemas/ConsumerCollection"
             }
           }
         }
       },
-      "LibraryFacetDto": {
+      "LibraryFacet": {
         "required": [
           "id",
           "name",
@@ -5191,7 +5191,7 @@
           }
         }
       },
-      "PageOfCompanyResourceDto": {
+      "PageOfCompanyResource": {
         "required": [
           "items",
           "hasNextPage"
@@ -5201,7 +5201,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CompanyResourceDto"
+              "$ref": "#/components/schemas/CompanyResource"
             }
           },
           "nextCursor": {
@@ -5215,7 +5215,7 @@
           }
         }
       },
-      "PageOfConsumerCollectionDto": {
+      "PageOfConsumerCollection": {
         "required": [
           "items",
           "hasNextPage"
@@ -5225,7 +5225,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerCollectionDto"
+              "$ref": "#/components/schemas/ConsumerCollection"
             }
           },
           "nextCursor": {
@@ -5239,7 +5239,7 @@
           }
         }
       },
-      "PageOfConsumerCollectionTitleDto": {
+      "PageOfConsumerCollectionTitle": {
         "required": [
           "items",
           "hasNextPage"
@@ -5249,7 +5249,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerCollectionTitleDto"
+              "$ref": "#/components/schemas/ConsumerCollectionTitle"
             }
           },
           "nextCursor": {
@@ -5263,7 +5263,7 @@
           }
         }
       },
-      "PageOfConsumerDiscSetStatusDto": {
+      "PageOfConsumerDiscSetStatus": {
         "required": [
           "items",
           "hasNextPage"
@@ -5273,7 +5273,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerDiscSetStatusDto"
+              "$ref": "#/components/schemas/ConsumerDiscSetStatus"
             }
           },
           "nextCursor": {
@@ -5287,7 +5287,7 @@
           }
         }
       },
-      "PageOfConsumerMediaRefDto": {
+      "PageOfConsumerMediaRef": {
         "required": [
           "items",
           "hasNextPage"
@@ -5297,7 +5297,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerMediaRefDto"
+              "$ref": "#/components/schemas/ConsumerMediaRef"
             }
           },
           "nextCursor": {
@@ -5311,7 +5311,7 @@
           }
         }
       },
-      "PageOfConsumerPlatformSummaryDto": {
+      "PageOfConsumerPlatformSummary": {
         "required": [
           "items",
           "hasNextPage"
@@ -5321,7 +5321,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerPlatformSummaryDto"
+              "$ref": "#/components/schemas/ConsumerPlatformSummary"
             }
           },
           "nextCursor": {
@@ -5335,7 +5335,7 @@
           }
         }
       },
-      "PageOfConsumerReleaseDto": {
+      "PageOfConsumerRelease": {
         "required": [
           "items",
           "hasNextPage"
@@ -5345,7 +5345,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerReleaseDto"
+              "$ref": "#/components/schemas/ConsumerRelease"
             }
           },
           "nextCursor": {
@@ -5359,7 +5359,7 @@
           }
         }
       },
-      "PageOfConsumerTitleCardDto": {
+      "PageOfConsumerTitleCard": {
         "required": [
           "items",
           "hasNextPage"
@@ -5369,7 +5369,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ConsumerTitleCardDto"
+              "$ref": "#/components/schemas/ConsumerTitleCard"
             }
           },
           "nextCursor": {
@@ -5383,7 +5383,7 @@
           }
         }
       },
-      "PageOfPlaySessionDto": {
+      "PageOfPlaySession": {
         "required": [
           "items",
           "hasNextPage"
@@ -5393,7 +5393,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PlaySessionDto"
+              "$ref": "#/components/schemas/PlaySession"
             }
           },
           "nextCursor": {
@@ -5407,7 +5407,7 @@
           }
         }
       },
-      "PageOfRecentlyPlayedTitleDto": {
+      "PageOfRecentlyPlayedTitle": {
         "required": [
           "items",
           "hasNextPage"
@@ -5417,7 +5417,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RecentlyPlayedTitleDto"
+              "$ref": "#/components/schemas/RecentlyPlayedTitle"
             }
           },
           "nextCursor": {
@@ -5431,7 +5431,7 @@
           }
         }
       },
-      "PageOfReferenceNamedDto": {
+      "PageOfReferenceNamed": {
         "required": [
           "items",
           "hasNextPage"
@@ -5441,7 +5441,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceNamedDto"
+              "$ref": "#/components/schemas/ReferenceNamed"
             }
           },
           "nextCursor": {
@@ -5455,7 +5455,7 @@
           }
         }
       },
-      "PageOfReferenceRatingBoardDto": {
+      "PageOfReferenceRating": {
         "required": [
           "items",
           "hasNextPage"
@@ -5465,7 +5465,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceRatingBoardDto"
+              "$ref": "#/components/schemas/ReferenceRating"
             }
           },
           "nextCursor": {
@@ -5479,7 +5479,7 @@
           }
         }
       },
-      "PageOfReferenceRatingDto": {
+      "PageOfReferenceRatingBoard": {
         "required": [
           "items",
           "hasNextPage"
@@ -5489,7 +5489,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceRatingDto"
+              "$ref": "#/components/schemas/ReferenceRatingBoard"
             }
           },
           "nextCursor": {
@@ -5503,7 +5503,7 @@
           }
         }
       },
-      "PageOfReferenceSystemDto": {
+      "PageOfReferenceSystem": {
         "required": [
           "items",
           "hasNextPage"
@@ -5513,7 +5513,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceSystemDto"
+              "$ref": "#/components/schemas/ReferenceSystem"
             }
           },
           "nextCursor": {
@@ -5527,7 +5527,7 @@
           }
         }
       },
-      "PageOfReferenceTaxonomyDto": {
+      "PageOfReferenceTaxonomy": {
         "required": [
           "items",
           "hasNextPage"
@@ -5537,7 +5537,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceTaxonomyDto"
+              "$ref": "#/components/schemas/ReferenceTaxonomy"
             }
           },
           "nextCursor": {
@@ -5551,7 +5551,7 @@
           }
         }
       },
-      "PageOfSystemResourceDto": {
+      "PageOfSystemResource": {
         "required": [
           "items",
           "hasNextPage"
@@ -5561,7 +5561,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SystemResourceDto"
+              "$ref": "#/components/schemas/SystemResource"
             }
           },
           "nextCursor": {
@@ -5575,7 +5575,7 @@
           }
         }
       },
-      "PageOfVfsConnectionDto": {
+      "PageOfVfsConnection": {
         "required": [
           "items",
           "hasNextPage"
@@ -5585,7 +5585,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/VfsConnectionDto"
+              "$ref": "#/components/schemas/VfsConnection"
             }
           },
           "nextCursor": {
@@ -5616,7 +5616,7 @@
           }
         }
       },
-      "PlaySessionDto": {
+      "PlaySession": {
         "required": [
           "sessionId",
           "clientId",
@@ -5724,7 +5724,7 @@
           }
         }
       },
-      "RatingBoardResourceDto": {
+      "RatingBoardResource": {
         "required": [
           "key",
           "ownership",
@@ -5762,7 +5762,7 @@
           }
         }
       },
-      "RatingResourceDto": {
+      "RatingResource": {
         "required": [
           "key",
           "ownership",
@@ -5825,7 +5825,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           },
@@ -5834,7 +5834,7 @@
           }
         }
       },
-      "RecentlyPlayedTitleDto": {
+      "RecentlyPlayedTitle": {
         "required": [
           "id",
           "system",
@@ -5848,14 +5848,14 @@
           "artwork": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ResolvedArtworkDto"
+              "$ref": "#/components/schemas/ResolvedArtwork"
             }
           },
           "id": {
             "type": "string"
           },
           "system": {
-            "$ref": "#/components/schemas/SystemSummaryDto"
+            "$ref": "#/components/schemas/SystemSummary"
           },
           "name": {
             "type": "string"
@@ -5906,7 +5906,7 @@
           }
         }
       },
-      "ReferenceAssetDto": {
+      "ReferenceAsset": {
         "required": [
           "url",
           "sha256",
@@ -5929,7 +5929,7 @@
           }
         }
       },
-      "ReferenceCatalogCountsDto": {
+      "ReferenceCatalogCounts": {
         "required": [
           "systems",
           "companies",
@@ -5966,7 +5966,7 @@
           }
         }
       },
-      "ReferenceCatalogDescriptorDto": {
+      "ReferenceCatalogDescriptor": {
         "required": [
           "schemaVersion",
           "builtInVersion",
@@ -5995,11 +5995,11 @@
             "type": "string"
           },
           "counts": {
-            "$ref": "#/components/schemas/ReferenceCatalogCountsDto"
+            "$ref": "#/components/schemas/ReferenceCatalogCounts"
           }
         }
       },
-      "ReferenceNamedDto": {
+      "ReferenceNamed": {
         "required": [
           "key",
           "name",
@@ -6025,33 +6025,7 @@
           }
         }
       },
-      "ReferenceRatingBoardDto": {
-        "required": [
-          "key",
-          "name",
-          "description"
-        ],
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "retired": {
-            "type": "boolean",
-            "default": false
-          }
-        }
-      },
-      "ReferenceRatingDto": {
+      "ReferenceRating": {
         "required": [
           "board",
           "code",
@@ -6082,7 +6056,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           },
@@ -6105,7 +6079,33 @@
           }
         }
       },
-      "ReferenceSystemDto": {
+      "ReferenceRatingBoard": {
+        "required": [
+          "key",
+          "name",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retired": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ReferenceSystem": {
         "required": [
           "key",
           "name",
@@ -6136,7 +6136,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           },
@@ -6163,12 +6163,12 @@
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/CompanySummaryDto"
+              "$ref": "#/components/schemas/CompanySummary"
             }
           }
         }
       },
-      "ReferenceTaxonomyDto": {
+      "ReferenceTaxonomy": {
         "required": [
           "key",
           "name",
@@ -6206,7 +6206,7 @@
           }
         }
       },
-      "RegionResourceDto": {
+      "RegionResource": {
         "required": [
           "key",
           "ownership",
@@ -6249,7 +6249,7 @@
           }
         }
       },
-      "ResolvedArtworkDto": {
+      "ResolvedArtwork": {
         "required": [
           "role",
           "assetId",
@@ -6323,7 +6323,7 @@
           "variants": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkVariantDto"
+              "$ref": "#/components/schemas/ArtworkVariant"
             }
           },
           "focalX": {
@@ -6355,7 +6355,7 @@
           }
         }
       },
-      "SystemResourceDto": {
+      "SystemResource": {
         "required": [
           "key",
           "ownership",
@@ -6401,7 +6401,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           },
@@ -6413,7 +6413,7 @@
             "uniqueItems": true,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CompanySummaryDto"
+              "$ref": "#/components/schemas/CompanySummary"
             }
           },
           "revision": {
@@ -6421,7 +6421,7 @@
           }
         }
       },
-      "SystemSummaryDto": {
+      "SystemSummary": {
         "required": [
           "key",
           "name",
@@ -6444,7 +6444,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           }
@@ -6465,7 +6465,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ConsumerReleasePreferenceDto"
+                "$ref": "#/components/schemas/ConsumerReleasePreference"
               }
             ]
           }
@@ -6509,30 +6509,7 @@
           }
         }
       },
-      "VfsConnectionCredentialDto": {
-        "required": [
-          "connection",
-          "password",
-          "endpoint",
-          "rcloneConfig"
-        ],
-        "type": "object",
-        "properties": {
-          "connection": {
-            "$ref": "#/components/schemas/VfsConnectionDto"
-          },
-          "password": {
-            "type": "string"
-          },
-          "endpoint": {
-            "type": "string"
-          },
-          "rcloneConfig": {
-            "type": "string"
-          }
-        }
-      },
-      "VfsConnectionDto": {
+      "VfsConnection": {
         "required": [
           "id",
           "name",
@@ -6575,6 +6552,29 @@
           "format": {
             "type": "string",
             "default": "stored"
+          }
+        }
+      },
+      "VfsConnectionCredential": {
+        "required": [
+          "connection",
+          "password",
+          "endpoint",
+          "rcloneConfig"
+        ],
+        "type": "object",
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/VfsConnection"
+          },
+          "password": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "rcloneConfig": {
+            "type": "string"
           }
         }
       }

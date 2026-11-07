@@ -1,4 +1,4 @@
-import { client, type JobDto } from '@romd/admin-api-client';
+import { client, type Job } from '@romd/admin-api-client';
 import { startBrowserDownload } from '@romd/delivery';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
@@ -28,13 +28,13 @@ const first = {
   isTerminal: true,
   errors: [],
   progressPercent: 100,
-} as JobDto;
+} as Job;
 const second = {
   ...first,
   id: '11111111-2222-4333-8444-777777777777',
   sourceFilename: 'second.zip',
-} as JobDto;
-const page = (items: JobDto[], nextCursor: string | null = null) => ({
+} as Job;
+const page = (items: Job[], nextCursor: string | null = null) => ({
   items,
   nextCursor,
   hasNextPage: nextCursor !== null,
@@ -332,7 +332,7 @@ it('composes the canonical artwork job with a separate summary that job cache up
     mode: null,
     total: 2,
     processed: 2,
-  } as JobDto;
+  } as Job;
   const summary = {
     roles: [],
     review: 2,

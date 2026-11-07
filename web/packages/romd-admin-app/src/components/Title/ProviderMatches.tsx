@@ -18,9 +18,9 @@ import {
 } from '@mantine/core';
 import {
   listTitleProviderMatches,
-  type ProviderGameDto,
+  type ProviderGame,
   replaceTitleProviderMatch,
-  type TitleProviderMatchDto,
+  type TitleProviderMatch,
 } from '@romd/admin-api-client';
 import { useReferenceCatalog } from '@romd/consumer-ui';
 import { IconDots, IconExternalLink, IconSearch, IconUnlink } from '@tabler/icons-react';
@@ -51,13 +51,7 @@ function usePlatformLabels() {
   ];
 }
 
-function GamePreview({
-  game,
-  showDetails = true,
-}: {
-  game: ProviderGameDto;
-  showDetails?: boolean;
-}) {
+function GamePreview({ game, showDetails = true }: { game: ProviderGame; showDetails?: boolean }) {
   const platformLabels = usePlatformLabels();
   return (
     <Group
@@ -127,7 +121,7 @@ function GamePreview({
 interface ProviderMatchPickerProps {
   titleId: string;
   titleName: string;
-  row: TitleProviderMatchDto;
+  row: TitleProviderMatch;
   onClose: (saved: boolean) => void;
   inline?: boolean;
 }
@@ -162,7 +156,7 @@ function ProviderMatchPickerContent({
   const [conflicted, setConflicted] = useState(false);
   const [mode, setMode] = useState<'search' | 'resolve'>('search');
   const [text, setText] = useState(titleName);
-  const [selected, setSelected] = useState<ProviderGameDto | null>(null);
+  const [selected, setSelected] = useState<ProviderGame | null>(null);
   const [showEvidence, setShowEvidence] = useState(true);
   const search = useProviderGameLookup(row.providerId);
   const save = useMutation({
@@ -571,8 +565,8 @@ export function ProviderMatches({
   providerRequestKey?: string;
 } & TitleEditorOutcome) {
   const query = useProviderMatches(titleId);
-  const [editing, setEditing] = useState<TitleProviderMatchDto | null>(null);
-  const [unlinking, setUnlinking] = useState<TitleProviderMatchDto | null>(null);
+  const [editing, setEditing] = useState<TitleProviderMatch | null>(null);
+  const [unlinking, setUnlinking] = useState<TitleProviderMatch | null>(null);
   const openedRequest = useRef<string | null>(null);
   useEffect(() => {
     if (!initialProviderId) {
@@ -598,7 +592,7 @@ export function ProviderMatches({
     editing,
   ]);
   const mutation = useProviderMatchDecision(titleId);
-  const decide = (row: TitleProviderMatchDto, unlink: boolean, onSuccess?: () => void) =>
+  const decide = (row: TitleProviderMatch, unlink: boolean, onSuccess?: () => void) =>
     mutation.mutate(
       {
         row,

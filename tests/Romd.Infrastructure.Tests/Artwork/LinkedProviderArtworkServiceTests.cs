@@ -31,7 +31,7 @@ public sealed class LinkedProviderArtworkServiceTests
     {
         var acquisition = Substitute.For<IArtworkAcquisitionStore>();
         acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(
-            new ArtworkEnrichmentSettingsDto(Guid.Empty, true, true, true, ["steamgriddb"]));
+            new ArtworkEnrichmentSettings(Guid.Empty, true, true, true, ["steamgriddb"]));
         acquisition.LockMissingAsync(1, ArtworkRole.Logo, 0, Arg.Any<CancellationToken>()).Returns(true);
         var curation = Substitute.For<IArtworkCurationRepository>();
         curation.GetStatesAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkCurationState>>(value: [
@@ -43,7 +43,7 @@ public sealed class LinkedProviderArtworkServiceTests
             .Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
         var revision = Guid.NewGuid();
         var matches = Substitute.For<ITitleProviderMatchService>();
-        matches.GetAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatchDto>>(value: [
+        matches.GetAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(value: [
             new("steamgriddb", "SteamGridDB", true, ["artwork"], revision, state, "42",
                 new("42", "Game", "https://www.steamgriddb.com/game/42"), null, null, false)]));
         matches.GetLinkRevisionAsync(1, "steamgriddb", "42", Arg.Any<CancellationToken>()).Returns(revision);
@@ -84,15 +84,15 @@ public sealed class LinkedProviderArtworkServiceTests
     public async Task FillAsync_FirstProviderHasUnsuitableCandidate_FallsThroughInRolePolicyOrder()
     {
         var acquisition = Substitute.For<IArtworkAcquisitionStore>();
-        acquisition.GetSettingsAsync(default).ReturnsForAnyArgs(new ArtworkEnrichmentSettingsDto(Guid.Empty, true, false, false, [], false));
+        acquisition.GetSettingsAsync(default).ReturnsForAnyArgs(new ArtworkEnrichmentSettings(Guid.Empty, true, false, false, [], false));
         acquisition.GetProviderOrderAsync(ArtworkRole.Poster, default).ReturnsForAnyArgs(new[] { "steamgriddb", "igdb" });
         var curation = Substitute.For<IArtworkCurationRepository>();
         curation.GetStatesAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<ArtworkCurationState>>(
             Enum.GetValues<ArtworkRole>().Select(x => new ArtworkCurationState(x, ArtworkSelectionMode.Automatic, 0, null, null)).ToArray()));
         curation.GetGalleryAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
         var matches = Substitute.For<ITitleProviderMatchService>();
-        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatchDto>>(
-            new[] { "steamgriddb", "igdb" }.Select(x => new TitleProviderMatchDto(x, x, true, ["artwork"], Guid.NewGuid(), "Confirmed", "42", null, null, null, false)).ToArray()));
+        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(
+            new[] { "steamgriddb", "igdb" }.Select(x => new TitleProviderMatch(x, x, true, ["artwork"], Guid.NewGuid(), "Confirmed", "42", null, null, null, false)).ToArray()));
         var calls = new List<string>();
         var browsers = new[] { "igdb", "steamgriddb" }.Select(id =>
         {
@@ -121,8 +121,8 @@ public sealed class LinkedProviderArtworkServiceTests
         await service.FillAsync(title, platform, new JobContext(null, _ => Task.CompletedTask, default), default);
         calls.ShouldBeEmpty();
         // A changed association must immediately search again, even within the empty-result cache window.
-        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatchDto>>(
-            new[] { "steamgriddb", "igdb" }.Select(x => new TitleProviderMatchDto(x, x, true, ["artwork"], Guid.NewGuid(), "Confirmed", "43", null, null, null, false)).ToArray()));
+        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(
+            new[] { "steamgriddb", "igdb" }.Select(x => new TitleProviderMatch(x, x, true, ["artwork"], Guid.NewGuid(), "Confirmed", "43", null, null, null, false)).ToArray()));
         await service.FillAsync(title, platform, new JobContext(null, _ => Task.CompletedTask, default), default);
         calls.ShouldBe(["steamgriddb", "igdb"]);
         calls.Clear();
@@ -138,13 +138,13 @@ public sealed class LinkedProviderArtworkServiceTests
     public async Task FillAsync_UnassociatedProviders_UsesSharedIdentityDiscovery()
     {
         var acquisition = Substitute.For<IArtworkAcquisitionStore>();
-        acquisition.GetSettingsAsync(default).ReturnsForAnyArgs(new ArtworkEnrichmentSettingsDto(Guid.Empty, true, false, false, [], false));
+        acquisition.GetSettingsAsync(default).ReturnsForAnyArgs(new ArtworkEnrichmentSettings(Guid.Empty, true, false, false, [], false));
         var curation = Substitute.For<IArtworkCurationRepository>();
         curation.GetStatesAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<ArtworkCurationState>>(
             Enum.GetValues<ArtworkRole>().Select(x => new ArtworkCurationState(x, ArtworkSelectionMode.Automatic, 0, null, null)).ToArray()));
         curation.GetGalleryAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
         var matches = Substitute.For<ITitleProviderMatchService>();
-        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatchDto>>(value: []));
+        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(value: []));
         var service = new LinkedProviderArtworkService([], Substitute.For<IArtworkAssetSource>(), matches,
             acquisition, curation, Substitute.For<IArtworkImageProcessor>(), Substitute.For<IFileStorageService>(), Substitute.For<IUnitOfWork>(),
             Options.Create(new EnrichmentOptions()));

@@ -50,7 +50,7 @@ public sealed class TitleProviderMatchStore : ITitleProviderMatchStore
         await _db.TitleExternalIds.SingleOrDefaultAsync(x => x.TitleId == titleId && x.Provider.ToLower() == providerId, ct));
 
     public async Task<ErrorOr<Success>> StageChangeAsync(int titleId, string providerId,
-        RevisionPrecondition ifMatch, ProviderGameDto? game, bool unlink, CancellationToken ct)
+        RevisionPrecondition ifMatch, ProviderGame? game, bool unlink, CancellationToken ct)
     {
         RequireTransaction();
         await JobAcceptanceLock.AcquireAsync(_db, 12901, titleId, ct);
@@ -102,7 +102,7 @@ public sealed class TitleProviderMatchStore : ITitleProviderMatchStore
         state.Evidence = unlink ? "Explicitly unlinked; automatic matching is suppressed." : "Manually confirmed.";
         if (state.DecisionJson is { } priorDecision)
         {
-            var decision = JsonSerializer.Deserialize<ProviderIdentityDecisionDto>(priorDecision);
+            var decision = JsonSerializer.Deserialize<ProviderIdentityDecision>(priorDecision);
             if (decision is not null)
                 state.DecisionJson = JsonSerializer.Serialize(decision with { State = unlink ? "Unlinked" : "Confirmed", Explanation = state.Evidence });
         }
@@ -146,8 +146,8 @@ public sealed class TitleProviderMatchStore : ITitleProviderMatchStore
         var layers = await _db.TitleMetadataLayers.Where(x => x.TitleId == titleId && ids.Contains(x.SourceId)).ToListAsync(ct);
         return new(links.Select(x => x.ToDomain()).ToArray(), states.Select(x => new ProviderMatchState(
             x.ProviderId, x.Revision, x.SuppressAutomaticMatch, x.IdentityChanged, x.Evidence, x.MatcherVersion,
-            x.GameJson is { } game ? JsonSerializer.Deserialize<ProviderGameDto>(game) : null,
-            x.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecisionDto>(decision) : null)).ToArray(),
+            x.GameJson is { } game ? JsonSerializer.Deserialize<ProviderGame>(game) : null,
+            x.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecision>(decision) : null)).ToArray(),
             layers.Select(x => x.ToDomain()).ToArray());
     }
 

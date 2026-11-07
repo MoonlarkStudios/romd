@@ -1,6 +1,6 @@
 import { Alert, Button, Group, Modal, Select, Stack, Text } from '@mantine/core';
 import {
-  type ArtworkCompletionFilterDto,
+  type ArtworkCompletionFilter,
   previewArtworkCompletion,
   queueArtworkCompletion,
 } from '@romd/admin-api-client';
@@ -46,7 +46,7 @@ interface ScopedLaunch extends LaunchCommon {
   /** Offered as the Selected scope when not empty. */
   titleIds?: string[];
   /** Offered as the Filtered scope and narrows Automatic. */
-  filters?: ArtworkCompletionFilterDto;
+  filters?: ArtworkCompletionFilter;
   /** Defaults to AllTracked; a scope the entry point cannot offer falls back to Filtered, then AllTracked. */
   initialScope?: EnrichmentLaunchScope;
 }

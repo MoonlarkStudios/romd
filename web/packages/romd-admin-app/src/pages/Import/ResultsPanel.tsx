@@ -1,16 +1,10 @@
 import { ActionIcon, Alert, Badge, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
-import type { JobDtoUploadJobDto } from '@romd/admin-api-client';
+import type { JobUploadJob } from '@romd/admin-api-client';
 import { IconX } from '@tabler/icons-react';
 import { ProvenanceLedger } from '../../components/Import/ProvenanceLedger';
 import workspace from '../../components/Workspace/Workspace.module.css';
 
-export function ResultsPanel({
-  job,
-  onDismiss,
-}: {
-  job: JobDtoUploadJobDto;
-  onDismiss: () => void;
-}) {
+export function ResultsPanel({ job, onDismiss }: { job: JobUploadJob; onDismiss: () => void }) {
   const cancelled = job.phase === 'Cancelled';
   const failed = job.phase === 'Failed';
   const issues = job.hasErrors || (!job.trackedOnly && Number(job.romsRejected) > 0);

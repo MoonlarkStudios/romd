@@ -1,4 +1,4 @@
-import type { ManagedSystemDto } from '@romd/admin-api-client';
+import type { ManagedSystem } from '@romd/admin-api-client';
 import {
   createDatSubscription,
   getJob,
@@ -30,7 +30,7 @@ vi.mock('@romd/admin-api-client', async () => ({
   getJob: vi.fn(),
   createDatSubscription: vi.fn(),
 }));
-const psx: ManagedSystemDto = {
+const psx: ManagedSystem = {
   key: 'psx',
   name: 'PlayStation',
   shortName: 'psx',

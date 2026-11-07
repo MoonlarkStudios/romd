@@ -21,6 +21,8 @@ using Romd.Media.PlayStation;
 using Shouldly;
 using Xunit;
 
+using ContractOriginalDiscLayout = Romd.Contracts.Management.Models.OriginalDiscLayout;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 public sealed class CdConvergenceRecipeEndpointTests
@@ -92,7 +94,7 @@ public sealed class CdConvergenceRecipeEndpointTests
         builder.Services.AddSingleton<IMediaHostCapabilities>(capabilities);
         builder.Services.AddSingleton<IReferenceCatalogService>(TestReferenceCatalog.Create());
         builder.Services.AddSingleton(Substitute.For<IOriginalDiscLayoutService>());
-        builder.Services.AddSingleton(Substitute.For<ICommandHandler<DecideOriginalDiscLayoutCommand, OriginalDiscLayoutDto>>());
+        builder.Services.AddSingleton(Substitute.For<ICommandHandler<DecideOriginalDiscLayoutCommand, ContractOriginalDiscLayout>>());
         builder.Services.AddSingleton(Substitute.For<IRomCdArchiveDownloadCatalog>());
         builder.Services.AddSingleton(Substitute.For<IRomCdArchiveDownloadReader>());
         var app = builder.Build();

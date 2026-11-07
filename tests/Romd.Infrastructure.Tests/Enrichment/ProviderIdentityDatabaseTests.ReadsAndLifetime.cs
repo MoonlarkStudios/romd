@@ -113,7 +113,7 @@ public sealed partial class ProviderIdentityDatabaseTests
         adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
         adapter.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
         adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(
-            new ProviderGameSearchResultDto([new("42", "Game", "https://example.test/game")], ProviderGameSearchCompleteness.Complete, 500));
+            new ProviderGameSearchResult([new("42", "Game", "https://example.test/game")], ProviderGameSearchCompleteness.Complete, 500));
         return adapter;
     }
 

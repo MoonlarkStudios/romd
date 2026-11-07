@@ -12,7 +12,7 @@ namespace Romd.Persistence.Repositories;
 
 public sealed partial class LibraryExperienceRepository
 {
-    public async Task<ErrorOr<Page<CollectionLibraryPlacementDto>>> GetCollectionPlacementsPageAsync(int collectionId, string? cursor, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<CollectionLibraryPlacement>>> GetCollectionPlacementsPageAsync(int collectionId, string? cursor, int limit, CancellationToken ct)
     {
         if (!await context.Collections.AnyAsync(c => c.Id == collectionId, ct))
             return CollectionErrors.NotFound();
@@ -25,10 +25,10 @@ public sealed partial class LibraryExperienceRepository
         int after = decoded.Value?.Id ?? 0;
         var rows = await context.LibraryCollections.Where(a => a.CollectionId == collectionId && a.LibraryId > after)
             .Join(context.Libraries, a => a.LibraryId, l => l.Id, (a, l) => new { l.Id, l.Name, a.IsFeatured }).OrderBy(l => l.Id).Take(limit + 1).ToListAsync(ct);
-        return new Page<CollectionLibraryPlacementDto> { Items = rows.Take(limit).Select(l => new CollectionLibraryPlacementDto(IdCoder.Encode(l.Id), l.Name, l.IsFeatured)).ToArray(), HasNextPage = rows.Count > limit, NextCursor = rows.Count > limit ? KeysetCursor.Encode(new IntegerPosition(rows[limit - 1].Id), fingerprint) : null };
+        return new Page<CollectionLibraryPlacement> { Items = rows.Take(limit).Select(l => new CollectionLibraryPlacement(IdCoder.Encode(l.Id), l.Name, l.IsFeatured)).ToArray(), HasNextPage = rows.Count > limit, NextCursor = rows.Count > limit ? KeysetCursor.Encode(new IntegerPosition(rows[limit - 1].Id), fingerprint) : null };
     }
 
-    public async Task<ErrorOr<Page<LibraryPreviewTitleDto>>> GetPreviewPageAsync(int libraryId, int? collectionId, string? cursor, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<LibraryPreviewTitle>>> GetPreviewPageAsync(int libraryId, int? collectionId, string? cursor, int limit, CancellationToken ct)
     {
         var library = await context.Libraries.SingleOrDefaultAsync(l => l.Id == libraryId, ct);
         if (library is null)
@@ -49,7 +49,7 @@ public sealed partial class LibraryExperienceRepository
         var ordered = titles.Join(context.Titles, m => m.TitleId, t => t.Id, (m, t) => new { Title = t, SortOrder = collectionId == null ? 0 : context.CollectionItems.Where(i => i.CollectionId == collectionId && i.TitleId == t.Id).Select(i => i.SortOrder).First() });
         var rows = await ordered.Where(x => x.SortOrder > afterOrder || x.SortOrder == afterOrder && x.Title.Id > after).OrderBy(x => x.SortOrder).ThenBy(x => x.Title.Id)
             .Select(x => new { x.Title.Id, x.Title.Name, x.SortOrder, PlatformName = context.Platforms.Where(p => p.Id == x.Title.PlatformId).Select(p => p.Name).First(), Cover = x.Title.Media.Where(m => m.Type == "Cover" && m.IsPrimary).Select(m => (int?)m.Id).FirstOrDefault() }).Take(limit + 1).ToListAsync(ct);
-        return new Page<LibraryPreviewTitleDto> { Items = rows.Take(limit).Select(t => new LibraryPreviewTitleDto(IdCoder.Encode(t.Id), t.Name, t.PlatformName, t.Cover is int cover ? $"/media/{IdCoder.Encode(cover)}" : null)).ToArray(), HasNextPage = rows.Count > limit, NextCursor = rows.Count > limit ? KeysetCursor.Encode(new PreviewPosition(rows[limit - 1].SortOrder, rows[limit - 1].Id), fingerprint) : null };
+        return new Page<LibraryPreviewTitle> { Items = rows.Take(limit).Select(t => new LibraryPreviewTitle(IdCoder.Encode(t.Id), t.Name, t.PlatformName, t.Cover is int cover ? $"/media/{IdCoder.Encode(cover)}" : null)).ToArray(), HasNextPage = rows.Count > limit, NextCursor = rows.Count > limit ? KeysetCursor.Encode(new PreviewPosition(rows[limit - 1].SortOrder, rows[limit - 1].Id), fingerprint) : null };
     }
     private static Error InvalidLimit() => FieldErrors.Validation("Libraries.InvalidLimit", "Use a limit between 1 and 100.", "limit");
     private static Error InvalidCursor() => FieldErrors.Validation("Libraries.InvalidCursor", "The cursor is invalid for this query.", "cursor");

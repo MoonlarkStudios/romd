@@ -213,8 +213,8 @@ public sealed class HostErrorEnvelopeParityTests : IDisposable
             services =>
             {
                 services.AddTestAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
-                services.ReplaceWith(Substitute.For<IQueryHandler<GetLibraryByIdQuery, LibraryDto>>());
-                var list = Substitute.For<IQueryHandler<ListLibrariesQuery, Page<LibraryDto>>>();
+                services.ReplaceWith(Substitute.For<IQueryHandler<GetLibraryByIdQuery, Library>>());
+                var list = Substitute.For<IQueryHandler<ListLibrariesQuery, Page<Library>>>();
                 list.HandleAsync(Arg.Any<ListLibrariesQuery>(), Arg.Any<CancellationToken>())
                     .ThrowsAsync(new InvalidOperationException("admin-cors-unhandled"));
                 services.ReplaceWith(list);
@@ -229,8 +229,8 @@ public sealed class HostErrorEnvelopeParityTests : IDisposable
             services =>
             {
                 services.AddTestAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
-                services.ReplaceWith(Substitute.For<IQueryHandler<GetConsumerTitleQuery, ConsumerTitleDetailDto>>());
-                var me = Substitute.For<IQueryHandler<GetCurrentConsumerUserQuery, CurrentUserDto>>();
+                services.ReplaceWith(Substitute.For<IQueryHandler<GetConsumerTitleQuery, ConsumerTitleDetail>>());
+                var me = Substitute.For<IQueryHandler<GetCurrentConsumerUserQuery, CurrentUser>>();
                 me.HandleAsync(Arg.Any<GetCurrentConsumerUserQuery>(), Arg.Any<CancellationToken>())
                     .ThrowsAsync(new InvalidOperationException("consumer-cors-unhandled"));
                 services.ReplaceWith(me);

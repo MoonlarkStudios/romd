@@ -37,7 +37,7 @@ public sealed class AutomaticArtworkServiceTests
 
     public AutomaticArtworkServiceTests()
     {
-        _acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(new ArtworkEnrichmentSettingsDto(Guid.Empty, true, true, true, ["igdb"]));
+        _acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(new ArtworkEnrichmentSettings(Guid.Empty, true, true, true, ["igdb"]));
         _acquisition.LockMissingAsync(1, Arg.Any<ArtworkRole>(), 0, Arg.Any<CancellationToken>()).Returns(true);
         _curation.GetStatesAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkCurationState>>(value: [
             new(ArtworkRole.Poster, ArtworkSelectionMode.Automatic, 0, null, null),
@@ -84,7 +84,7 @@ public sealed class AutomaticArtworkServiceTests
     [Fact]
     public async Task FillAsync_SettingsDisabled_DoesNotDownload()
     {
-        _acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(new ArtworkEnrichmentSettingsDto(Guid.Empty, false, false, false, ["igdb"], FillBackdrops: false));
+        _acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(new ArtworkEnrichmentSettings(Guid.Empty, false, false, false, ["igdb"], FillBackdrops: false));
         await Fill(Result());
         _http.Urls.ShouldBeEmpty();
         await _acquisition.Received(3).RecordAsync(1, Arg.Any<ArtworkRole>(), "Disabled", null, Arg.Any<CancellationToken>());
@@ -177,7 +177,7 @@ public sealed class AutomaticArtworkServiceTests
     public async Task FillAsync_BackdropExplicitReview_ReportsCandidatesWithoutDownloading()
     {
         _acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(
-            new ArtworkEnrichmentSettingsDto(Guid.Empty, true, true, true, ["igdb"], ReviewBackdrops: true));
+            new ArtworkEnrichmentSettings(Guid.Empty, true, true, true, ["igdb"], ReviewBackdrops: true));
         await Fill(Result() with { Artwork = [new("scene", ArtworkRole.Backdrop, Url("scene"), 1920, 1080)] });
         _http.Urls.ShouldBeEmpty();
         await _acquisition.Received().RecordAsync(1, ArtworkRole.Backdrop, "NeedsReview", null, Arg.Any<CancellationToken>());
@@ -188,7 +188,7 @@ public sealed class AutomaticArtworkServiceTests
     public async Task FillAsync_BackdropAutomaticDefault_PublishesMeasuredLandscapeWithoutPinning()
     {
         _acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(
-            new ArtworkEnrichmentSettingsDto(Guid.Empty, true, true, true, ["igdb"]));
+            new ArtworkEnrichmentSettings(Guid.Empty, true, true, true, ["igdb"]));
         _processor.ProcessAsync(Arg.Any<ReadOnlyMemory<byte>>(), ArtworkRole.Backdrop, Arg.Any<CancellationToken>())
             .Returns(new ProcessedArtworkImage("image/jpeg", 1920, 1080, [new("backdrop", "image/webp", 1920, 1080, [4, 5, 6])]));
         await Fill(Result() with

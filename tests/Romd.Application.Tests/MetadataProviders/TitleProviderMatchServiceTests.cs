@@ -29,7 +29,7 @@ public sealed class TitleProviderMatchServiceTests
         _provider.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
         _store.ExistsAsync(1, Arg.Any<CancellationToken>()).Returns(true);
         _store.ReadRevisionAsync(1, "provider", Arg.Any<CancellationToken>()).Returns(_revision);
-        _store.StageChangeAsync(1, "provider", Arg.Any<RevisionPrecondition>(), Arg.Any<ProviderGameDto?>(),
+        _store.StageChangeAsync(1, "provider", Arg.Any<RevisionPrecondition>(), Arg.Any<ProviderGame?>(),
             Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Result.Success);
         _store.FindPendingEnrichmentAsync(1, Arg.Any<CancellationToken>()).Returns(_pending);
         _store.ReadFactsAsync(1, Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(new TitleProviderMatchFacts(
@@ -47,7 +47,7 @@ public sealed class TitleProviderMatchServiceTests
         _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(_ =>
         {
             _transaction.Started.ShouldBeFalse();
-            return new ProviderGameDto("42", "Game", "https://provider.test/42");
+            return new ProviderGame("42", "Game", "https://provider.test/42");
         });
         _store.ReadFactsAsync(1, Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(_ =>
         {
@@ -86,7 +86,7 @@ public sealed class TitleProviderMatchServiceTests
         _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(_ =>
         {
             _transaction.Committed.ShouldBeTrue();
-            return Task.FromException<ErrorOr<ProviderGameDto>>(cancellation
+            return Task.FromException<ErrorOr<ProviderGame>>(cancellation
                 ? new OperationCanceledException() : new HttpRequestException("preview unavailable"));
         });
 
@@ -103,7 +103,7 @@ public sealed class TitleProviderMatchServiceTests
     {
         _transaction.FailDisposal = true;
         _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(
-            new ProviderGameDto("42", "Game", "https://provider.test/42"));
+            new ProviderGame("42", "Game", "https://provider.test/42"));
 
         var result = await Create().ConfirmAsync(1, "provider", Precondition(), default);
 
@@ -128,7 +128,7 @@ public sealed class TitleProviderMatchServiceTests
     [Fact]
     public async Task ConfirmAsync_StageRejected_DoesNotQueueOrCommit()
     {
-        _store.StageChangeAsync(1, "provider", Arg.Any<RevisionPrecondition>(), Arg.Any<ProviderGameDto?>(),
+        _store.StageChangeAsync(1, "provider", Arg.Any<RevisionPrecondition>(), Arg.Any<ProviderGame?>(),
             false, Arg.Any<CancellationToken>()).Returns(ProviderMatchErrors.PreconditionFailed);
 
         var result = await Create().ConfirmAsync(1, "provider", Precondition(), default);
@@ -148,7 +148,7 @@ public sealed class TitleProviderMatchServiceTests
         disabled.Name.Returns("Disabled");
         disabled.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(false, true));
         var identity = Substitute.For<IProviderIdentityStore>();
-        _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(new ProviderGameDto("42", "Game", "https://provider.test/42"));
+        _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(new ProviderGame("42", "Game", "https://provider.test/42"));
         var service = new TitleProviderMatchService(_store, [_provider, disabled], _unit, TimeProvider.System,
             NullLogger<TitleProviderMatchService>.Instance, identityStore: identity);
 
@@ -188,7 +188,7 @@ public sealed class TitleProviderMatchServiceTests
     {
         var identity = Substitute.For<IProviderIdentityStore>();
         identity.ReadTrustedAsync(1, "provider", Arg.Any<CancellationToken>()).Returns(trustedGameId);
-        _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(new ProviderGameDto("42", "Game", "https://provider.test/42"));
+        _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(new ProviderGame("42", "Game", "https://provider.test/42"));
         var service = new TitleProviderMatchService(_store, [_provider], _unit, TimeProvider.System,
             NullLogger<TitleProviderMatchService>.Instance, identityStore: identity);
 

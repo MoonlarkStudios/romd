@@ -173,12 +173,12 @@ public sealed class DatSubscriptionApplyOwnershipTests(IntegrationTestFixture fi
             client.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value).ShouldBeTrue();
         return client;
     }
-    private static async Task<Models.DatCatalogSubscriptionDto> EnrollAsync(HttpClient client, CatalogClient signed, int? installedId)
+    private static async Task<Models.DatCatalogSubscription> EnrollAsync(HttpClient client, CatalogClient signed, int? installedId)
     {
         using var response = await client.PostAsJsonAsync("/api/dat-subscriptions", new
         { signed.CatalogId, DatId = installedId is int id ? new Romd.Application.Common.Ids.Sqid(id).ToString() : null });
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
-        return (await response.Content.ReadFromJsonAsync<Models.DatCatalogSubscriptionDto>()).ShouldNotBeNull();
+        return (await response.Content.ReadFromJsonAsync<Models.DatCatalogSubscription>()).ShouldNotBeNull();
     }
     private static async Task<int> InstallAsync(IntegrationTestFixture host, byte[] bytes)
     {

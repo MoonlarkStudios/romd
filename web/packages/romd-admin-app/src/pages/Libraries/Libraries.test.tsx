@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { LibraryDto } from '@romd/admin-api-client';
+import type { Library } from '@romd/admin-api-client';
 import { getLibrary, updateCollection } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render as renderBare, screen, waitFor, within } from '@testing-library/react';
@@ -67,7 +67,7 @@ import {
   updateLibrary,
 } from '@romd/admin-api-client';
 
-const library: LibraryDto = {
+const library: Library = {
   id: 'kids',
   name: 'Kids',
   collectionIds: [
@@ -367,7 +367,7 @@ it.each([
   expect(selection).toHaveValue('chd');
 });
 
-function renderExportWorkspace(exportFormats: LibraryDto['exportFormats']) {
+function renderExportWorkspace(exportFormats: Library['exportFormats']) {
   vi.mocked(getLibrary).mockResolvedValue({
     data: {
       ...library,

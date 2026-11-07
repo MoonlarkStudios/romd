@@ -1,12 +1,12 @@
 import type {
-  AccountLinkDto,
-  AccountSecurityDto,
-  AccountSessionDto,
+  AccountLink,
+  AccountSecurity,
+  AccountSession,
   CollectionDetail,
-  LibraryDiscSetOptionDto,
-  LibraryDiscSetOptionsDto,
-  LibraryEvaluationDto,
-  LibraryEvaluationTitleDto,
+  LibraryDiscSetOption,
+  LibraryDiscSetOptions,
+  LibraryEvaluation,
+  LibraryEvaluationTitle,
 } from '@romd/admin-api-client';
 import type { CollectionDetailView } from '../hooks/api/useCollectionManagement';
 
@@ -41,13 +41,13 @@ export function collectionPage(value: CollectionDetailView | CollectionDetail): 
 
 export function evaluationPage(
   value:
-    | LibraryEvaluationDto
-    | (Omit<LibraryEvaluationDto, 'page'> & {
-        items: LibraryEvaluationTitleDto[];
+    | LibraryEvaluation
+    | (Omit<LibraryEvaluation, 'page'> & {
+        items: LibraryEvaluationTitle[];
         nextCursor?: string | null;
         hasNextPage?: boolean;
       }),
-): LibraryEvaluationDto {
+): LibraryEvaluation {
   if ('page' in value) return value;
   const { items, nextCursor, hasNextPage, ...summary } = value;
   return {
@@ -62,12 +62,12 @@ export function evaluationPage(
 
 export function securityPages(
   value:
-    | AccountSecurityDto
+    | AccountSecurity
     | {
-        links: AccountLinkDto[];
-        sessions: AccountSessionDto[];
+        links: AccountLink[];
+        sessions: AccountSession[];
       },
-): AccountSecurityDto {
+): AccountSecurity {
   return {
     links: finalPage(value.links),
     sessions: finalPage(value.sessions),
@@ -76,10 +76,10 @@ export function securityPages(
 
 export function discSetPage(value: {
   selectedDiscSetIds: string[];
-  selectedItems: LibraryDiscSetOptionDto[];
-  items: LibraryDiscSetOptionDto[];
+  selectedItems: LibraryDiscSetOption[];
+  items: LibraryDiscSetOption[];
   nextAfter: string | null;
-}): LibraryDiscSetOptionsDto {
+}): LibraryDiscSetOptions {
   return {
     selectedIds: value.selectedDiscSetIds,
     selected: value.selectedItems,

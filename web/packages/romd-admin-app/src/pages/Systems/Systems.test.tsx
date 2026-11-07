@@ -1,4 +1,4 @@
-import type { ManagedSystemDto } from '@romd/admin-api-client';
+import type { ManagedSystem } from '@romd/admin-api-client';
 import { listDatCatalogs, listDatSubscriptions, listManagedSystems } from '@romd/admin-api-client';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -17,7 +17,7 @@ vi.mock('./AddSystemFlow', async () => ({
   ...(await vi.importActual('./AddSystemFlow')),
   AddSystemFlow: () => <div>Guided setup</div>,
 }));
-const systems: ManagedSystemDto[] = [
+const systems: ManagedSystem[] = [
   {
     key: 'psx',
     name: 'PlayStation',

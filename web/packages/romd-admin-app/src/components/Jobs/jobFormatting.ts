@@ -1,6 +1,6 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 
-export function formatJobDuration(job: JobDto): string {
+export function formatJobDuration(job: Job): string {
   if (!job.startedAt) return '-';
   const start = new Date(job.startedAt).getTime();
   const end = job.completedAt ? new Date(job.completedAt).getTime() : Date.now();

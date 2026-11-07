@@ -1,5 +1,5 @@
 import type {
-  LibraryConfigurationDto,
+  LibraryConfiguration,
   LibraryTitleSelectionMode,
   UnknownMetadataPolicy,
 } from '@romd/admin-api-client';
@@ -97,25 +97,24 @@ export const unknownMetadataPolicyOptions: {
   },
 ];
 
-export const defaultContentRatingPolicy: NonNullable<
-  LibraryConfigurationDto['contentRatingPolicy']
-> = {
-  basisSelection: 'Strictest',
-  boardPreference: [
-    'Esrb',
-    'Pegi',
-    'Cero',
-    'Usk',
-    'Grac',
-    'ClassInd',
-    'Acb',
-  ],
-  maxMinimumAge: 18,
-  allowRefusedClassification: false,
-  unknownRatingPolicy: 'NeedsReview',
-};
+export const defaultContentRatingPolicy: NonNullable<LibraryConfiguration['contentRatingPolicy']> =
+  {
+    basisSelection: 'Strictest',
+    boardPreference: [
+      'Esrb',
+      'Pegi',
+      'Cero',
+      'Usk',
+      'Grac',
+      'ClassInd',
+      'Acb',
+    ],
+    maxMinimumAge: 18,
+    allowRefusedClassification: false,
+    unknownRatingPolicy: 'NeedsReview',
+  };
 
-export const defaultLibraryConfiguration: Required<LibraryConfigurationDto> = {
+export const defaultLibraryConfiguration: Required<LibraryConfiguration> = {
   titleSelectionMode: 'Rules',
   allowedSystemKeys: [],
   excludedDatIds: [],

@@ -19,7 +19,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import type {
-  MetadataLayerDto,
+  MetadataLayer,
   TitleEnrichmentStateResponse,
   UpdateTitleMetadataRequest,
 } from '@romd/admin-api-client';
@@ -281,7 +281,7 @@ function getTitleValue(title: TitleDetail, field: MetadataFieldDefinition): stri
 }
 
 function getLayerValue(
-  layer: MetadataLayerDto | null | undefined,
+  layer: MetadataLayer | null | undefined,
   field: MetadataFieldDefinition,
 ): string | null {
   if (!layer) return null;
@@ -336,14 +336,11 @@ function isSameSource(left: string | null | undefined, right: string): boolean {
   return left?.toLowerCase() === right.toLowerCase();
 }
 
-function getUserLayer(layers: MetadataLayerDto[]): MetadataLayerDto | undefined {
+function getUserLayer(layers: MetadataLayer[]): MetadataLayer | undefined {
   return layers.find((layer) => layer.sourceId.toLowerCase() === 'user');
 }
 
-function getLayerBySource(
-  layers: MetadataLayerDto[],
-  sourceId: string,
-): MetadataLayerDto | undefined {
+function getLayerBySource(layers: MetadataLayer[], sourceId: string): MetadataLayer | undefined {
   return layers.find((layer) => isSameSource(layer.sourceId, sourceId));
 }
 
@@ -415,12 +412,12 @@ function formatFieldValue(field: MetadataFieldDefinition, value: string | null):
   return value;
 }
 
-function sourceHasFieldValue(layer: MetadataLayerDto, field: MetadataFieldDefinition): boolean {
+function sourceHasFieldValue(layer: MetadataLayer, field: MetadataFieldDefinition): boolean {
   return getLayerValue(layer, field) !== null;
 }
 
 function getAutomaticCascadePreview(
-  layers: MetadataLayerDto[],
+  layers: MetadataLayer[],
   field: MetadataFieldDefinition,
   activeSource: string | null,
 ): {
@@ -453,7 +450,7 @@ function getAutomaticCascadePreview(
 }
 
 function getSourceSelectionPreview(
-  layers: MetadataLayerDto[],
+  layers: MetadataLayer[],
   field: MetadataFieldDefinition,
   sourceOverride: string,
   activeSource: string | null,

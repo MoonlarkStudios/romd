@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { getJob } from '@romd/admin-api-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -42,7 +42,7 @@ export function useJob(
     },
     enabled: !!jobId,
     refetchInterval: (query) => {
-      const data = query.state.data as JobDto | undefined;
+      const data = query.state.data as Job | undefined;
       if (data?.isTerminal) {
         return false;
       }

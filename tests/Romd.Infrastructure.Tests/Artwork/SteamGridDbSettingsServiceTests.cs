@@ -244,7 +244,7 @@ public sealed class SteamGridDbSettingsServiceTests : IDisposable
         var saved = (await first.UpdateAsync(new(Guid.Empty, true, "key"))).Value;
         var firstProbe = first.TestWithPreconditionAsync(saved.Revision);
         var secondProbe = second.TestWithPreconditionAsync(saved.Revision);
-        ErrorOr<SteamGridDbSettingsDto> accepted;
+        ErrorOr<SteamGridDbSettings> accepted;
         try
         {
             await firstEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -279,15 +279,15 @@ public sealed class SteamGridDbSettingsServiceTests : IDisposable
 
     private sealed class SettingsHarness(SteamGridDbSettingsService service, EfUnitOfWork unitOfWork)
     {
-        public Task<SteamGridDbSettingsDto> GetAsync() => service.GetAsync();
+        public Task<SteamGridDbSettings> GetAsync() => service.GetAsync();
         public Task<string?> GetApiKeyAsync() => service.GetApiKeyAsync();
-        public Task<ErrorOr<SteamGridDbSettingsDto>> UpdateAsync(SettingsUpdate request) =>
+        public Task<ErrorOr<SteamGridDbSettings>> UpdateAsync(SettingsUpdate request) =>
             new ReplaceSteamGridDbSettingsCommandHandler(service, unitOfWork, NullLogger<ReplaceSteamGridDbSettingsCommandHandler>.Instance)
                 .HandleAsync(new(new(request.Enabled, request.ApiKey, request.ClearApiKey), RevisionPrecondition.For(request.Revision.ToString())));
-        public Task<ErrorOr<SteamGridDbSettingsDto>> TestWithPreconditionAsync(Guid revision, CancellationToken ct = default) =>
+        public Task<ErrorOr<SteamGridDbSettings>> TestWithPreconditionAsync(Guid revision, CancellationToken ct = default) =>
             new TestSteamGridDbConnectionCommandHandler(service, unitOfWork, NullLogger<TestSteamGridDbConnectionCommandHandler>.Instance)
                 .HandleAsync(new(RevisionPrecondition.For(revision.ToString())), ct);
-        public async Task<SteamGridDbSettingsDto> TestConnectionAsync(CancellationToken ct = default) =>
+        public async Task<SteamGridDbSettings> TestConnectionAsync(CancellationToken ct = default) =>
             (await TestWithPreconditionAsync((await GetAsync()).Revision, ct)).Value;
     }
 

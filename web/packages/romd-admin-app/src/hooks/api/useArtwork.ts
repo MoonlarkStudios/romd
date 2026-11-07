@@ -1,8 +1,4 @@
-import type {
-  ArtworkRole,
-  ArtworkSelectionStateDto,
-  TitleArtworkDto,
-} from '@romd/admin-api-client';
+import type { ArtworkRole, ArtworkSelectionState, TitleArtwork } from '@romd/admin-api-client';
 import {
   getTitleArtwork,
   listArtworkProviders,
@@ -126,12 +122,12 @@ export function useArtworkSelections(titleId: string) {
 export async function storeArtwork(
   cache: QueryClient,
   titleId: string,
-  written: TitleArtworkDto | ArtworkSelectionStateDto,
+  written: TitleArtwork | ArtworkSelectionState,
 ): Promise<void> {
   await cache.cancelQueries({
     queryKey: artworkKeys.selections(titleId),
   });
-  cache.setQueryData<TitleArtworkDto>(artworkKeys.selections(titleId), (family) =>
+  cache.setQueryData<TitleArtwork>(artworkKeys.selections(titleId), (family) =>
     'roles' in written
       ? written
       : family && {

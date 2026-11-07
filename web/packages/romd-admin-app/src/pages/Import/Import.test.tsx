@@ -1,4 +1,4 @@
-import type { JobDto, LibraryStats, SystemResourceDto } from '@romd/admin-api-client';
+import type { Job, LibraryStats, SystemResource } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,7 +61,7 @@ const stats: LibraryStats = {
   platformBreakdown: [],
 };
 
-const platforms: SystemResourceDto[] = [
+const platforms: SystemResource[] = [
   {
     key: 'plat-1',
     name: 'Super Nintendo Entertainment System',
@@ -90,7 +90,7 @@ const platforms: SystemResourceDto[] = [
   },
 ];
 
-const recentJob: JobDto = {
+const recentJob: Job = {
   jobType: 'upload',
   id: 'job-1',
   correlationId: 'corr-1',
@@ -117,7 +117,7 @@ const recentJob: JobDto = {
   romsRejected: '1',
 };
 
-const runningJob: JobDto = {
+const runningJob: Job = {
   ...recentJob,
   id: 'job-auto',
   sourceFilename: 'snes.dat',

@@ -88,7 +88,7 @@ public sealed class DecideDiscSetCommandTests
         public Store Store { get; }
         public Work Work { get; }
         public Fixture() { Store = new(Events); Work = new(Events); }
-        public Task<ErrorOr.ErrorOr<DiscSetDto>> Handle(string decision = "accept", bool stale = false) =>
+        public Task<ErrorOr.ErrorOr<DiscSet>> Handle(string decision = "accept", bool stale = false) =>
             new DecideDiscSetCommandHandler(Store, Work, new Clock(Now), NullLogger<DecideDiscSetCommandHandler>.Instance)
                 .HandleAsync(new(1, new(decision, null, null, null, "Reviewed"),
                     RevisionPrecondition.For((stale ? Guid.NewGuid() : Store.Row.Revision).ToString()), Actor));

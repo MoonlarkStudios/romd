@@ -1,6 +1,6 @@
 import {
-  type EnrichmentAssessmentDto,
-  type EnrichmentRequirementDto,
+  type EnrichmentAssessment,
+  type EnrichmentRequirement,
   replaceTitleArtworkRole,
 } from '@romd/admin-api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -27,10 +27,10 @@ export const confirmedActions = [
 export type ConfirmedAction = (typeof confirmedActions)[number];
 
 interface Confirmation {
-  copy: (row: EnrichmentRequirementDto) => DecisionConfirmationCopy;
+  copy: (row: EnrichmentRequirement) => DecisionConfirmationCopy;
   /** Called when the confirmation opens, so the revision the write sends is already read when the curator confirms. */
   prepare?: () => void;
-  apply: (row: EnrichmentRequirementDto) => Promise<unknown>;
+  apply: (row: EnrichmentRequirement) => Promise<unknown>;
 }
 
 /**
@@ -38,7 +38,7 @@ interface Confirmation {
  * revision of the assessment the curator decided on; reversals undo a satisfied decision. Every success
  * refreshes each surface of the title.
  */
-export function useRequirementDecisions(assessment: EnrichmentAssessmentDto) {
+export function useRequirementDecisions(assessment: EnrichmentAssessment) {
   const { titleId } = assessment;
   const cache = useQueryClient();
   const omission = useEnrichmentOmission();
@@ -139,8 +139,8 @@ export function useRequirementDecisions(assessment: EnrichmentAssessmentDto) {
       : undefined;
   return {
     confirmations,
-    revisit: (row: EnrichmentRequirementDto) => revisit.mutateAsync(row.subject),
-    returnToAutomatic: (row: EnrichmentRequirementDto) => automatic.mutateAsync(row.subject),
+    revisit: (row: EnrichmentRequirement) => revisit.mutateAsync(row.subject),
+    returnToAutomatic: (row: EnrichmentRequirement) => automatic.mutateAsync(row.subject),
     /** The subject of the reversal in flight, so only its row shows progress. */
     pendingSubject: reversal,
     error: revisit.error ?? automatic.error,

@@ -1,5 +1,5 @@
 import { Anchor, Group, Text, Title } from '@mantine/core';
-import type { EnrichmentAssessmentDto } from '@romd/admin-api-client';
+import type { EnrichmentAssessment } from '@romd/admin-api-client';
 import type { ReactNode, Ref } from 'react';
 import { Link } from 'react-router';
 import workspace from '../Workspace/Workspace.module.css';
@@ -23,7 +23,7 @@ export function TitleWorkbenchHeader({
   summaryRef,
 }: {
   frame: 'workspace' | 'page';
-  assessment: EnrichmentAssessmentDto;
+  assessment: EnrichmentAssessment;
   titleName: string;
   isTracked?: boolean;
   noLongerInView: boolean;

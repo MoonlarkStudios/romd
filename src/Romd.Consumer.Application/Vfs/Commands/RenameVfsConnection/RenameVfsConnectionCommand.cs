@@ -7,4 +7,4 @@ using Romd.Contracts.Consumer.Account;
 
 namespace Romd.Consumer.Application.Vfs.Commands.RenameVfsConnection;
 
-public sealed record RenameVfsConnectionCommand(Guid Id, string? Name, VfsFormat? Format = null) : ICommand<VfsConnectionDto>;
+public sealed record RenameVfsConnectionCommand(Guid Id, string? Name, VfsFormat? Format = null) : ICommand<VfsConnection>;

@@ -38,7 +38,7 @@ internal static class EnrichmentRequirementInvariants
     private static readonly string[] MetadataSubjects = ["Description", "Genre", "ReleaseDate", "Refresh"];
     private static readonly string[] ArtworkSubjects = ["Poster", "Backdrop", "Hero", "Logo"];
 
-    public static void AssertWellFormed(EnrichmentAssessmentDto assessment)
+    public static void AssertWellFormed(EnrichmentAssessment assessment)
     {
         var rows = assessment.Requirements;
         rows.Select(row => row.Key).ShouldBeUnique();
@@ -64,7 +64,7 @@ internal static class EnrichmentRequirementInvariants
         assessment.HasOperationalBlocker.ShouldBe(rows.Any(row => row.State == State.Blocked));
     }
 
-    private static int Rank(EnrichmentRequirementDto row)
+    private static int Rank(EnrichmentRequirement row)
     {
         string[] subjects = row.Kind switch
         {

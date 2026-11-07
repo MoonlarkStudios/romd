@@ -1,11 +1,11 @@
 import { Button, Group, Modal, Progress, Stack, Text, ThemeIcon } from '@mantine/core';
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { IconCheck, IconX } from '@tabler/icons-react';
 
 interface UploadProgressModalProps {
   opened: boolean;
   onClose: () => void;
-  job: JobDto | undefined;
+  job: Job | undefined;
   isLoading: boolean;
 }
 

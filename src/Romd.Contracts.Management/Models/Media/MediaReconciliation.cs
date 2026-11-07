@@ -7,5 +7,5 @@ public sealed record StartMediaReconciliationSelectionRequest([property: JsonReq
     string? SystemKey, [property: JsonRequired] long Limit, [property: JsonRequired] bool ConversionRequested);
 public sealed record RetryMediaReconciliationRequest([property: JsonRequired] Guid RequestId);
 
-public sealed record MediaReconciliationPolicyDto(string KindId, string RecipeId, string ConversionMode,
+public sealed record MediaReconciliationPolicy(string KindId, string RecipeId, string ConversionMode,
     IReadOnlyList<string> SystemKeys, string ManifestType, string StoredFormatLabel, bool CanDecode, string? QualifiedRuntime);

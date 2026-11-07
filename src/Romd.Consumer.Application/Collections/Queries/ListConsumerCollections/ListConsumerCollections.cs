@@ -9,7 +9,7 @@ using Romd.Contracts.Consumer.Collections;
 namespace Romd.Consumer.Application.Collections.Queries.ListConsumerCollections;
 
 public sealed record ListConsumerCollectionsQuery(int? PlatformId = null, string? Cursor = null, int Limit = 50)
-    : IQuery<Page<ConsumerCollectionDto>>
+    : IQuery<Page<ConsumerCollection>>
 {
     public const int MaxLimit = 100;
 }
@@ -17,9 +17,9 @@ public sealed record ListConsumerCollectionsQuery(int? PlatformId = null, string
 public sealed class ListConsumerCollectionsQueryHandler(
     ICurrentUser currentUser,
     IConsumerCollectionReadRepository collectionRepository)
-    : IQueryHandler<ListConsumerCollectionsQuery, Page<ConsumerCollectionDto>>
+    : IQueryHandler<ListConsumerCollectionsQuery, Page<ConsumerCollection>>
 {
-    public async Task<ErrorOr<Page<ConsumerCollectionDto>>> HandleAsync(
+    public async Task<ErrorOr<Page<ConsumerCollection>>> HandleAsync(
         ListConsumerCollectionsQuery query,
         CancellationToken ct = default)
     {
@@ -38,7 +38,7 @@ public sealed class ListConsumerCollectionsQueryHandler(
         return collections switch
         {
             ConsumerLibraryReadResult<PagedList<ConsumerCollectionReadModel>>.Found found =>
-                new Page<ConsumerCollectionDto> { Items = found.Value.Items.Select(collection => collection.ToDto()).ToArray(), NextCursor = found.Value.NextCursor, HasNextPage = found.Value.HasNextPage },
+                new Page<ConsumerCollection> { Items = found.Value.Items.Select(collection => collection.ToDto()).ToArray(), NextCursor = found.Value.NextCursor, HasNextPage = found.Value.HasNextPage },
             ConsumerLibraryReadResult<PagedList<ConsumerCollectionReadModel>>.Rejected rejected => rejected.Error,
             ConsumerLibraryReadResult<PagedList<ConsumerCollectionReadModel>>.ItemNotFound =>
                 ConsumerErrors.LibraryNotFound(),

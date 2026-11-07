@@ -1,7 +1,7 @@
 import { Carousel } from '@mantine/carousel';
 import { Box, Button, UnstyledButton, VisuallyHidden } from '@mantine/core';
 import { useReducedMotion } from '@mantine/hooks';
-import type { ConsumerTitleCardDto } from '@romd/consumer-api-client';
+import type { ConsumerTitleCard } from '@romd/consumer-api-client';
 import { GameSpotlight } from '@romd/consumer-ui';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import type { EmblaCarouselType } from 'embla-carousel';
@@ -11,7 +11,7 @@ import { ArtworkFallback } from './ArtworkFallback';
 import { ArtworkImage } from './ArtworkImage';
 import { SpotlightMetadata } from './SpotlightMetadata';
 
-export function SpotlightCarousel({ titles }: { titles: ConsumerTitleCardDto[] }) {
+export function SpotlightCarousel({ titles }: { titles: ConsumerTitleCard[] }) {
   const [active, setActive] = useState(0);
   const [embla, setEmbla] = useState<EmblaCarouselType | null>(null);
   const reducedMotion = useReducedMotion();
@@ -87,7 +87,7 @@ export function SpotlightCarousel({ titles }: { titles: ConsumerTitleCardDto[] }
   );
 }
 
-function TitleSpotlight({ title }: { title: ConsumerTitleCardDto }) {
+function TitleSpotlight({ title }: { title: ConsumerTitleCard }) {
   const hasHero = title.artwork?.some((item) => item.role === 'Hero' && item.url);
   return (
     <GameSpotlight

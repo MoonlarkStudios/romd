@@ -20,21 +20,21 @@ public static class AdminDiscSetEndpoints
         {
             var result = await service.ListAsync(titleId?.Value, cursor, limit, ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
-        }).WithName("ListAdminDiscSets").Produces<Page<DiscSetDto>>().ProducesProblems(400, 404);
+        }).WithName("ListAdminDiscSets").Produces<Page<DiscSet>>().ProducesProblems(400, 404);
         group.MapGet("{discSetId}", async (Sqid discSetId, IDiscSetService service, HttpContext context, CancellationToken ct) =>
         {
             var result = await service.GetAsync(discSetId, ct);
             return result.Match(value => Results.Ok(value).WithETag(context, value.Revision.ToString()), errors => errors.ToProblem());
-        }).WithName("GetAdminDiscSet").Produces<DiscSetDto>().ProducesProblems(400, 404).ETagOnlyRead();
+        }).WithName("GetAdminDiscSet").Produces<DiscSet>().ProducesProblems(400, 404).ETagOnlyRead();
         group.MapPatch("{discSetId}", async (Sqid discSetId, DecideDiscSetRequest request, HttpContext context,
-            ICommandHandler<DecideDiscSetCommand, DiscSetDto> handler, ICurrentUser user, CancellationToken ct) =>
+            ICommandHandler<DecideDiscSetCommand, DiscSet> handler, ICurrentUser user, CancellationToken ct) =>
         {
             var precondition = Preconditions.IfMatch(context, "DiscSet");
             if (precondition.IsError)
                 return precondition.Errors.ToProblem();
             var result = await handler.HandleAsync(new(discSetId, request, precondition.Value, user.UserId!.Value), ct);
             return result.Match(value => Results.Ok(value).WithETag(context, value.Revision.ToString()), errors => errors.ToProblem());
-        }).WithName("UpdateAdminDiscSet").Produces<DiscSetDto>().ProducesProblems(400, 404, 409).ConditionalWrite();
+        }).WithName("UpdateAdminDiscSet").Produces<DiscSet>().ProducesProblems(400, 404, 409).ConditionalWrite();
         return app;
     }
 }

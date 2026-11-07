@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -12,7 +12,7 @@ const { retryMutate, cancelMutate, archiveMutate } = vi.hoisted(() => ({
 }));
 
 vi.mock('../../hooks/api/useJobs', () => {
-  const base = (over: Record<string, unknown>): JobDto =>
+  const base = (over: Record<string, unknown>): Job =>
     ({
       id: 'x',
       correlationId: 'c',
@@ -23,7 +23,7 @@ vi.mock('../../hooks/api/useJobs', () => {
       isTerminal: true,
       hasErrors: false,
       ...over,
-    }) as JobDto;
+    }) as Job;
 
   const jobs = [
     base({

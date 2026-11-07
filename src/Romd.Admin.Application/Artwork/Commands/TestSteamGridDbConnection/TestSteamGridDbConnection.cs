@@ -8,12 +8,12 @@ using Romd.Contracts.Management.Artwork;
 
 namespace Romd.Admin.Application.Artwork.Commands.TestSteamGridDbConnection;
 
-public sealed record TestSteamGridDbConnectionCommand(RevisionPrecondition IfMatch) : ICommand<SteamGridDbSettingsDto>;
+public sealed record TestSteamGridDbConnectionCommand(RevisionPrecondition IfMatch) : ICommand<SteamGridDbSettings>;
 
 public sealed class TestSteamGridDbConnectionCommandHandler(ISteamGridDbSettingsService service, IUnitOfWork unitOfWork,
-    ILogger<TestSteamGridDbConnectionCommandHandler> logger) : ICommandHandler<TestSteamGridDbConnectionCommand, SteamGridDbSettingsDto>
+    ILogger<TestSteamGridDbConnectionCommandHandler> logger) : ICommandHandler<TestSteamGridDbConnectionCommand, SteamGridDbSettings>
 {
-    public async Task<ErrorOr<SteamGridDbSettingsDto>> HandleAsync(TestSteamGridDbConnectionCommand command, CancellationToken ct = default)
+    public async Task<ErrorOr<SteamGridDbSettings>> HandleAsync(TestSteamGridDbConnectionCommand command, CancellationToken ct = default)
     {
         // A probe can take twenty seconds. Only its final CAS belongs in the short owned transaction.
         var probe = await service.ProbeAsync(command.IfMatch, ct);

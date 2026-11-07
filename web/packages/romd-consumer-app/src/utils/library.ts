@@ -1,18 +1,15 @@
-import type { ConsumerMediaRefDto } from '@romd/consumer-api-client';
+import type { ConsumerMediaRef } from '@romd/consumer-api-client';
 
-export function getMediaByType(
-  media: ConsumerMediaRefDto[],
-  types: string[],
-): ConsumerMediaRefDto[] {
+export function getMediaByType(media: ConsumerMediaRef[], types: string[]): ConsumerMediaRef[] {
   const normalizedTypes = types.map((type) => type.toLowerCase());
 
   return media.filter((item) => normalizedTypes.includes(item.type.toLowerCase()));
 }
 
 export function getPreferredMedia(
-  media: ConsumerMediaRefDto[],
+  media: ConsumerMediaRef[],
   types: string[],
-): ConsumerMediaRefDto | null {
+): ConsumerMediaRef | null {
   const typedMedia = getMediaByType(media, types);
 
   return (

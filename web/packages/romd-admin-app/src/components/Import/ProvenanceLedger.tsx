@@ -15,7 +15,7 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import type { JobItemDto } from '@romd/admin-api-client';
+import type { JobItem } from '@romd/admin-api-client';
 import { IconChevronLeft, IconChevronRight, IconDownload, IconSearch } from '@tabler/icons-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -56,7 +56,7 @@ const OUTCOMES: Record<
   },
 };
 
-function Matches({ item }: { item: JobItemDto }) {
+function Matches({ item }: { item: JobItem }) {
   if (item.kind === 'dat')
     return item.systemKey ? (
       <Anchor

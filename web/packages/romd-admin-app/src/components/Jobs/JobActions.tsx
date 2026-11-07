@@ -1,6 +1,6 @@
 import { ActionIcon, Menu } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import {
   IconArchive,
   IconDotsVertical,
@@ -15,10 +15,10 @@ import { canPerformJobAction } from './jobActionEligibility';
 import { getJobTitle } from './jobTypeRegistry';
 
 export interface JobActionsProps {
-  job: JobDto;
-  onCancel: (job: JobDto) => void;
-  onArchive: (job: JobDto) => void;
-  onRetry: (job: JobDto) => void;
+  job: Job;
+  onCancel: (job: Job) => void;
+  onArchive: (job: Job) => void;
+  onRetry: (job: Job) => void;
   retryingId: string | null;
   actionsPending: boolean;
 }

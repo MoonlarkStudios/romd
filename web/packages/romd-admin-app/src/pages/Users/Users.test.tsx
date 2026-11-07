@@ -1,4 +1,4 @@
-import type { LibraryDto, UserDto } from '@romd/admin-api-client';
+import type { Library, User } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +23,7 @@ import {
   listUsers,
 } from '@romd/admin-api-client';
 
-const users: UserDto[] = [
+const users: User[] = [
   {
     id: 'admin',
     email: 'admin@example.com',
@@ -45,7 +45,7 @@ const users: UserDto[] = [
     updatedAt: null,
   },
 ];
-const libraries: LibraryDto[] = [
+const libraries: Library[] = [
   {
     id: 'family',
     name: 'Family library',

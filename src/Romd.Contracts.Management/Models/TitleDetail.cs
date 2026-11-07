@@ -10,7 +10,7 @@ namespace Romd.Contracts.Management.Models;
 /// </summary>
 public sealed record TitleDetail
 {
-    public IReadOnlyList<ResolvedArtworkDto> Artwork { get; init; } = [];
+    public IReadOnlyList<ResolvedArtwork> Artwork { get; init; } = [];
     // === Catalog Layer (Title) ===
     public required string Id { get; init; }
 
@@ -78,7 +78,7 @@ public sealed record TitleDetail
     ///     The formats this title's ZIP can be requested in: original, then each format the ZIP would hold at least one
     ///     of its files in. Another format falls back to each file's original.
     /// </summary>
-    public IReadOnlyList<ArchiveFormatDto> ArchiveFormats { get; init; } = [];
+    public IReadOnlyList<ArchiveFormat> ArchiveFormats { get; init; } = [];
 
     // === Registry Layer (Releases) ===
 
@@ -127,7 +127,7 @@ public sealed record TitleRelease
     ///     The formats this release's ZIP can be requested in: original, then each format the ZIP would hold at least one
     ///     of its files in. Another format falls back to each file's original.
     /// </summary>
-    public IReadOnlyList<ArchiveFormatDto> ArchiveFormats { get; init; } = [];
+    public IReadOnlyList<ArchiveFormat> ArchiveFormats { get; init; } = [];
 
     /// <summary>
     ///     The individual DAT entries that declare this canonical release (its provenance).

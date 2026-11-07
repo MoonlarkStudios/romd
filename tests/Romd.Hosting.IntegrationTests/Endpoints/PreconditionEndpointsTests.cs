@@ -108,7 +108,7 @@ public sealed class PreconditionEndpointsTests(IntegrationTestFixture fixture)
 
         using var second = await client.SendAsync(Patch(path, "Second", chained));
         second.StatusCode.ShouldBe(HttpStatusCode.OK, await second.Content.ReadAsStringAsync());
-        (await second.Content.ReadFromJsonAsync<SystemResourceDto>())!.Name.ShouldBe("Second");
+        (await second.Content.ReadFromJsonAsync<SystemResource>())!.Name.ShouldBe("Second");
         (await ReadAsync(client, path)).ETag.ShouldBe(StrongETag(second));
     }
 
@@ -141,8 +141,8 @@ public sealed class PreconditionEndpointsTests(IntegrationTestFixture fixture)
         using var client = fixture.CreateAuthenticatedClient();
         var key = "local-pre-" + Guid.NewGuid().ToString("N");
         using var created = collection == "/api/systems"
-            ? await client.PostAsJsonAsync(collection, new CreateSystemDto(key, "Created System", CompactLabel: "NEW"))
-            : await client.PostAsJsonAsync(collection, new CreateCompanyDto(key, "Created Company"));
+            ? await client.PostAsJsonAsync(collection, new CreateSystem(key, "Created System", CompactLabel: "NEW"))
+            : await client.PostAsJsonAsync(collection, new CreateCompany(key, "Created Company"));
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
         using var read = await client.GetAsync(collection + "/" + key);
@@ -152,21 +152,21 @@ public sealed class PreconditionEndpointsTests(IntegrationTestFixture fixture)
     private static async Task<(string Path, string ETag)> CreateSystemAsync(HttpClient client)
     {
         var key = "local-pre-" + Guid.NewGuid().ToString("N");
-        using var created = await client.PostAsJsonAsync("/api/systems", new CreateSystemDto(key, "Precondition System", CompactLabel: "PRE"));
+        using var created = await client.PostAsJsonAsync("/api/systems", new CreateSystem(key, "Precondition System", CompactLabel: "PRE"));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
         return ("/api/systems/" + key, StrongETag(created));
     }
 
-    private static async Task<(string ETag, SystemResourceDto Resource)> ReadAsync(HttpClient client, string path)
+    private static async Task<(string ETag, SystemResource Resource)> ReadAsync(HttpClient client, string path)
     {
         using var response = await client.GetAsync(path);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        return (StrongETag(response), (await response.Content.ReadFromJsonAsync<SystemResourceDto>())!);
+        return (StrongETag(response), (await response.Content.ReadFromJsonAsync<SystemResource>())!);
     }
 
     private static HttpRequestMessage Patch(string path, string name, string? ifMatch)
     {
-        var request = new HttpRequestMessage(HttpMethod.Patch, path) { Content = JsonContent.Create(new SystemPatchDto { Name = name }) };
+        var request = new HttpRequestMessage(HttpMethod.Patch, path) { Content = JsonContent.Create(new SystemPatch { Name = name }) };
         if (ifMatch is not null)
             request.Headers.TryAddWithoutValidation("If-Match", ifMatch).ShouldBeTrue();
         return request;

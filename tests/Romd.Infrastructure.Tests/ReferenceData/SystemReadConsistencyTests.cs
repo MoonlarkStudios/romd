@@ -33,7 +33,7 @@ public sealed class SystemReadConsistencyTests
         try
         {
             await gate.Reached.Task.WaitAsync(TimeSpan.FromSeconds(15));
-            var after = await commands.UpdateSystem("local-test", new SystemPatchDto { Name = "After", ManufacturerKeys = ["local-sega"] }, before.Revision);
+            var after = await commands.UpdateSystem("local-test", new SystemPatch { Name = "After", ManufacturerKeys = ["local-sega"] }, before.Revision);
             after.IsError.ShouldBeFalse();
             gate.Resume.TrySetResult();
             if (list)

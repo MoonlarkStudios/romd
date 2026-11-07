@@ -1,4 +1,4 @@
-import type { StorageStatsDto } from '@romd/admin-api-client';
+import type { StorageStats as StorageStatsContract } from '@romd/admin-api-client';
 import { getServerStorage } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -26,7 +26,7 @@ export const storageStatsKeys = {
   ] as const,
 };
 
-export const mapStorageStats = (dto: StorageStatsDto): StorageStats => ({
+export const mapStorageStats = (dto: StorageStatsContract): StorageStats => ({
   totalStorageBytes: dto.totalStorageBytes,
   totalStorageBytesOnDisk: dto.totalStorageBytesOnDisk,
   compressedFileCount: dto.compressedFileCount,
@@ -51,7 +51,7 @@ export function useStorageStats() {
       if (response.error || !response.data) {
         throw new Error('Failed to fetch storage stats');
       }
-      return mapStorageStats(response.data as StorageStatsDto);
+      return mapStorageStats(response.data as StorageStatsContract);
     },
     staleTime: Number.POSITIVE_INFINITY,
   });

@@ -6,16 +6,16 @@ using Romd.Contracts.Management.Models;
 
 namespace Romd.Admin.Application.Dashboard.Queries.GetStorageStats;
 
-public sealed record GetStorageStatsQuery : IQuery<StorageStatsDto>;
+public sealed record GetStorageStatsQuery : IQuery<StorageStats>;
 
 public sealed class GetStorageStatsQueryHandler(IFileRepository fileRepository)
-    : IQueryHandler<GetStorageStatsQuery, StorageStatsDto>
+    : IQueryHandler<GetStorageStatsQuery, StorageStats>
 {
-    public async Task<ErrorOr<StorageStatsDto>> HandleAsync(GetStorageStatsQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<StorageStats>> HandleAsync(GetStorageStatsQuery query, CancellationToken ct = default)
     {
         var stats = await fileRepository.GetStorageStatsAsync(ct);
 
-        return new StorageStatsDto
+        return new StorageStats
         {
             TotalStorageBytes = (ByteCount)stats.TotalSize,
             TotalStorageBytesOnDisk = (ByteCount)stats.TotalSizeOnDisk,
@@ -24,7 +24,7 @@ public sealed class GetStorageStatsQueryHandler(IFileRepository fileRepository)
             AverageCompressionRatio = Math.Round(stats.AverageCompressionRatio, 3),
             BytesSaved = (ByteCount)stats.BytesSaved,
             Breakdown = stats.Breakdown
-                .Select(c => new StorageCategoryDto
+                .Select(c => new StorageCategory
                 {
                     Category = c.Category,
                     FileCount = c.FileCount,
