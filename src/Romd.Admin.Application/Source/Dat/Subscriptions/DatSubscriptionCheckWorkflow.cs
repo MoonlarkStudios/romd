@@ -31,10 +31,12 @@ internal abstract record DatSubscriptionCheckOutcome : IAsyncDisposable
         }
         catch (Exception error) when (committed || failed)
         {
+            // Structured arguments may still render as raw text in a log sink.
+            string loggedCatalogId = catalogId.ReplaceLineEndings(" ");
             if (committed)
-                logger.LogWarning(error, "Subscription check for {CatalogId} committed but cleanup failed", catalogId);
+                logger.LogWarning(error, "Subscription check for {CatalogId} committed but cleanup failed", loggedCatalogId);
             else
-                logger.LogWarning(error, "Subscription check for {CatalogId} failed and cleanup also failed", catalogId);
+                logger.LogWarning(error, "Subscription check for {CatalogId} failed and cleanup also failed", loggedCatalogId);
         }
     }
     internal static Rejected Reject(Error error) => new([error]);
