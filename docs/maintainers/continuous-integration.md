@@ -103,3 +103,9 @@ test coverage and bounded failure diagnostics retain their short lifetimes.
 Native maintenance uploads selected failure logs/findings for three days, not
 build trees or the whole corpus. Keep packaged-release evidence under the
 separate [release readiness](release-readiness.md) policy.
+
+Production drill failures retain the sanitized lifecycle receipt alongside CHD
+diagnostics; raw container output stays private. The lifecycle collector replays
+Docker's bounded retained history for each fresh project before its first probe,
+then observes continuously. Initial/final acknowledgments, deadlines, ownership
+checks and service-coverage assertions remain mandatory.

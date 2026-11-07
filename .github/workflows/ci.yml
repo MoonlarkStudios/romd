@@ -481,7 +481,7 @@ jobs:
         run: python3 scripts/validation/run.py --ci --job production-compose --evidence-parent coverage/production-compose
       - name: Build images and exercise production deployment
         if: ${{ needs.source-checks.outputs.chd == 'true' }}
-        run: python3 scripts/deployment/smoke.py --build --vfs
+        run: python3 scripts/deployment/smoke.py --build --vfs --evidence-dir "$RUNNER_TEMP/production-smoke"
       - name: Reclaim disposable CI build cache
         if: ${{ needs.source-checks.outputs.chd == 'true' }}
         timeout-minutes: 5
@@ -495,12 +495,14 @@ jobs:
         run: >-
           python3 scripts/e2e/chd.py --synthetic --checkpoint encoding --image-tag test --convergence-timeout 15 --upload-timeout 10
           --evidence "$RUNNER_TEMP/chd-e2e/evidence.json"
-      - name: Keep synthetic CHD end-to-end diagnostics
+      - name: Keep production and synthetic CHD diagnostics
         if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: chd-e2e-synthetic-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/chd-e2e
+          name: production-chd-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/production-smoke/lifecycle.json
+            ${{ runner.temp }}/chd-e2e
           if-no-files-found: ignore
           retention-days: 5
 
