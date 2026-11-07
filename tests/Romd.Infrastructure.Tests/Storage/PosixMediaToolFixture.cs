@@ -12,6 +12,7 @@ public sealed class PosixMediaToolFixture : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("romd-posix-tool-fixture-").FullName;
     private readonly string _assembly;
+    internal string TemporaryDirectory => _root;
 
     public PosixMediaToolFixture()
     {
@@ -34,6 +35,9 @@ public sealed class PosixMediaToolFixture : IDisposable
             start.ArgumentList.Add(argument);
         start.Environment.Clear();
         start.Environment["ROMD_POSIX_TOOL_FIXTURE"] = "explicit value";
+        // macOS .NET needs TMPDIR for named mutexes used by covered payloads.
+        if (OperatingSystem.IsMacOS())
+            start.Environment["TMPDIR"] = TemporaryDirectory;
         return start;
     }
 

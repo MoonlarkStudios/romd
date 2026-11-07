@@ -1828,3 +1828,37 @@ unchanged with `TMPDIR=/private/tmp`; the default alias produced
 `InvalidOperationException` instead of the expected
 `PlatformNotSupportedException`. Use a canonical temporary parent for local
 `mise run test` as well. Preserve the real-path safety checks and both outcomes.
+
+## Coverlet hit writers can collide across process sessions
+
+Status: MITIGATED
+
+Command: `python3 scripts/validation/run.py --ci --job infrastructure` (storage
+partition), public CI run `42352364088`.
+
+Observed: the isolated owner for
+`EnsureJobStoppedAsync_IndependentlyAcquiredLease_ReapsOnlyMatchedAdoptedZombie`
+exited 134 from Coverlet's `UnloadModule`: a `Romd.Media_*` hit file was already
+open. This is distinct from concurrent instrumentation of one output tree.
+Coverlet 6.0.4 uses a session-scoped named mutex around a shared hit file;
+instrumented tools in separate POSIX sessions can therefore write concurrently.
+A private reproduction using the official tracker sources and four concurrent
+separate-session writers failed all three trials on 6.0.4. Version 10.1.0 retained
+every writer's hits and exited cleanly in all three trials.
+
+Change: pin the test-only collector to 10.1.0 and regenerate the complete lock
+inventory. Its [upstream fix](https://github.com/coverlet-coverage/coverlet/releases/tag/v10.1.0)
+adds an exclusive lock file with bounded acquisition and atomic hit-file writes.
+
+The covered POSIX fixture also needs an explicit owned `TMPDIR` on macOS:
+without it, both old and new trackers fail creating their named mutex with
+`lstat("", ...)` and exit 134. A cleared-environment control reproduced this
+for both versions; a minimal `TMPDIR` control passed, while `HOME` or
+`XDG_RUNTIME_DIR` alone did not. The fixture supplies its own temporary directory
+on macOS and asserts that exact environment; no user settings are inherited.
+Child-exit assertions now retain bounded stderr for future diagnosis.
+
+Agent guidance: retain the original child diagnostics and distinguish tracker
+exit failures from custody assertions. Keep coverage and process-session tests
+enabled; do not suppress child exits, discard hits, change production process
+handling or disable suite parallelism to hide a collector failure.
