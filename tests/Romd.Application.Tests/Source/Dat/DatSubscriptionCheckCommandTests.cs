@@ -1,5 +1,5 @@
 using ErrorOr;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Source.Dat;
@@ -350,6 +350,42 @@ public sealed class DatSubscriptionCheckCommandTests
         await context.Transaction.Received(1).DisposeAsync();
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Handle_CatalogContainsLineBreaks_CleanupLogCannotForgeAnotherEntry(bool create, bool fail)
+    {
+        const string catalogId = "catalog\r\nforged\nentry\rnext\u0085line\u2028more\u2029last";
+        var context = new Context(catalogId);
+        var cause = new IOException("primary failure");
+        if (fail)
+            context.Transaction.CommitAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(cause));
+        context.StagedFile.DisposeAsync().Returns(_ => ValueTask.FromException(new IOException("staged cleanup")));
+
+        var error = await CaptureAsync(async () =>
+        {
+            if (create)
+                (await context.Create().HandleAsync(new(catalogId))).IsError.ShouldBeFalse();
+            else
+                (await context.Check().HandleAsync(new(1))).IsError.ShouldBeFalse();
+        });
+
+        error.ShouldBeSameAs(fail ? cause : null);
+        context.Logs.Count.ShouldBe(1);
+        context.Logs[0].ShouldContain("catalog");
+        context.Logs[0].ShouldContain("forged");
+        context.Logs[0].ShouldContain(fail ? "failed and cleanup also failed" : "committed but cleanup failed");
+        context.Logs[0].ShouldNotContain(catalogId);
+        context.Logs[0].ShouldNotContain("\r");
+        context.Logs[0].ShouldNotContain("\n");
+        context.Logs[0].ShouldNotContain("\u0085");
+        context.Logs[0].ShouldNotContain("\u2028");
+        context.Logs[0].ShouldNotContain("\u2029");
+        await context.Store.Received(1).TryLockCatalogStagedAsync(catalogId, Arg.Any<CancellationToken>());
+    }
+
     private static async Task<Exception?> CaptureAsync(Func<Task> operation)
     {
         try
@@ -373,16 +409,18 @@ public sealed class DatSubscriptionCheckCommandTests
             CandidateSha256: "old-candidate", ActiveSha256: "old-active", JobId: Guid.NewGuid(), ConsecutiveCheckFailures: 2));
         public DatSubscriptionCheckValues? Written { get; private set; }
         public List<string> Events { get; } = [];
+        public List<string> Logs { get; } = [];
         private readonly TimeProvider time = new SequenceClock();
-        public Context()
+        public Context(string catalogId = "catalog")
         {
+            Row = Row with { CatalogId = catalogId };
             Reader.ReadAsync(1, Arg.Any<CancellationToken>()).Returns(Row);
-            Reader.ReadCatalogAsync("catalog", Arg.Any<CancellationToken>()).Returns(Array.Empty<DatSubscriptionCheckSnapshot>());
+            Reader.ReadCatalogAsync(catalogId, Arg.Any<CancellationToken>()).Returns(Array.Empty<DatSubscriptionCheckSnapshot>());
             Reader.ReadPlatformDefinitionAsync("psx", Arg.Any<CancellationToken>()).Returns(new DatSubscriptionCheckPlatform(7, false));
             Reader.ReadActiveDatIdsForNameAsync(7, "Sony", Arg.Any<CancellationToken>()).Returns(Array.Empty<int>());
             Reader.ReadActiveDatIdsForDocumentAsync(90, Arg.Any<int?>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<int>());
             Reader.IsCheckDueAsync(1, Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>()).Returns(true);
-            Store.TryLockCatalogStagedAsync("catalog", Arg.Any<CancellationToken>()).Returns(true);
+            Store.TryLockCatalogStagedAsync(catalogId, Arg.Any<CancellationToken>()).Returns(true);
             Store.TryLockSourceStagedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(true);
             Store.StageNewAsync(Arg.Any<string>(), Arg.Any<DatSubscriptionCheckValues>(), Arg.Any<CancellationToken>()).Returns(call => Stage(call.Arg<DatSubscriptionCheckValues>()));
             Store.StageExistingAsync(Arg.Any<int>(), Arg.Any<DatSubscriptionCheckValues>(), Arg.Any<CancellationToken>()).Returns(call => Stage(call.Arg<DatSubscriptionCheckValues>()));
@@ -394,8 +432,8 @@ public sealed class DatSubscriptionCheckCommandTests
             });
             Reader.ReadReplayStatusAsync(Arg.Any<DatSubscriptionCheckSnapshot>(), Arg.Any<CancellationToken>()).Returns(call => Status(call.Arg<DatSubscriptionCheckSnapshot>().Values));
             Client.Enabled.Returns(true);
-            Client.DiscoverAsync(Arg.Any<CancellationToken>()).Returns(new[] { new PublishedDatCatalog("catalog", "psx", "Sony", "test", "healthy", "hash", 1, 1, null) });
-            Client.FetchAsync("catalog", "psx", "Sony", Arg.Any<CancellationToken>()).Returns(new byte[] { 1, 2, 3 });
+            Client.DiscoverAsync(Arg.Any<CancellationToken>()).Returns(new[] { new PublishedDatCatalog(catalogId, "psx", "Sony", "test", "healthy", "hash", 1, 1, null) });
+            Client.FetchAsync(catalogId, "psx", "Sony", Arg.Any<CancellationToken>()).Returns(new byte[] { 1, 2, 3 });
             var preview = new DatReplacementPreview("", "new-candidate", null, null, false, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, [], false);
             Review.PreviewInitialAsync("Sony", Arg.Any<Stream>(), Arg.Any<CancellationToken>()).Returns(preview);
             var staged = StagedFile;
@@ -417,9 +455,17 @@ public sealed class DatSubscriptionCheckCommandTests
         private static DatCatalogSubscription Status(DatSubscriptionCheckValues values) => new(1, "catalog", values.SystemId,
             values.ExpectedName ?? "catalog", values.PlatformId, null, values.State, values.LastCheckedAt, values.Message,
             values.CandidateSha256, values.JobId, values.NextCheckAt);
-        public CreateDatSubscriptionCommandHandler Create() => new(Reader, Store, Dats, Client, Review, Storage, Unit, time, NullLogger<CreateDatSubscriptionCommandHandler>.Instance);
-        public CheckDatSubscriptionCommandHandler Check() => new(Reader, Store, Dats, Client, Review, Storage, Unit, time, NullLogger<CheckDatSubscriptionCommandHandler>.Instance);
+        public CreateDatSubscriptionCommandHandler Create() => new(Reader, Store, Dats, Client, Review, Storage, Unit, time, new CapturingLogger<CreateDatSubscriptionCommandHandler>(Logs));
+        public CheckDatSubscriptionCommandHandler Check() => new(Reader, Store, Dats, Client, Review, Storage, Unit, time, new CapturingLogger<CheckDatSubscriptionCommandHandler>(Logs));
     }
+    private sealed class CapturingLogger<T>(List<string> messages) : ILogger<T>
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            messages.Add(formatter(state, exception));
+    }
+
     private sealed class SequenceClock : TimeProvider
     {
         private int calls;
