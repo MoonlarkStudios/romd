@@ -177,17 +177,31 @@ class FakeLifecycleDocker:
         self.streams, self.containers, self.calls = {}, {}, []
         self.sequence = 0
         self.bad_probe = False
+        self.delay_subscription = False
+        self.pending_subscriptions, self.history = {}, []
 
     def popen(self, command, **kwargs):
         project = command[-1].split('=', 2)[-1]
         process = PipeEventProcess()
         self.streams[project] = process
+        if self.delay_subscription:
+            self.pending_subscriptions[project] = '--since' in command
         return process
 
     def event(self, project, identifier, action, attributes=None):
         labels = self.containers[identifier]['labels']
         event = {'Type': 'container', 'Action': action, 'timeNano': time.time_ns(), 'Actor': {'ID': identifier,
                  'Attributes': dict(labels, **(attributes or {}))}}
+        self.history.append((project, event))
+        self.history = self.history[-256:]
+        if project in self.pending_subscriptions:
+            # The first create reaches Docker before its events request subscribes.
+            # Only an explicit history window can replay that already emitted event.
+            if self.pending_subscriptions.pop(project):
+                for recorded_project, recorded in self.history:
+                    if recorded_project == project:
+                        self.streams[project].emit(recorded)
+            return
         self.streams[project].emit(event)
 
     def create(self, project, service=None, session=None, name=None):
@@ -281,6 +295,33 @@ class ContainerLifecycleTests(unittest.TestCase):
     def cleanups(self):
         return [(project, lambda selected=project: self.engine.stop(selected),
                  lambda selected=project: self.engine.down(selected)) for project in self.projects]
+
+    def test_delayed_event_subscription_replays_initial_probe_before_workload(self):
+        self.engine.delay_subscription = True
+        with self.environment(), self.gate.monitor(self.cleanups()):
+            for project in self.projects:
+                self.engine.populate(project)
+                self.gate.checkpoint(project)
+        self.assertEqual('passed', self.gate.receipt['result'])
+        self.assertTrue(all(ledger.ready and ledger.drained for ledger in self.gate.ledgers.values()))
+        self.assertEqual({}, self.engine.containers)
+
+    def test_missing_startup_replay_still_fails_before_any_workload(self):
+        from container_lifecycle import LifecycleError
+        self.engine.delay_subscription = True
+        popen = self.engine.popen
+        def without_history(command, **kwargs):
+            command = list(command)
+            if '--since' in command:
+                index = command.index('--since')
+                del command[index:index + 2]
+            return popen(command, **kwargs)
+        with self.environment(), patch('container_lifecycle.subprocess.Popen', side_effect=without_history):
+            with self.assertRaisesRegex(LifecycleError, 'collector-probe-timeout'), self.gate.monitor(self.cleanups()):
+                self.fail('an unacknowledged initial probe cannot admit the workload')
+        self.assertEqual('failed', self.gate.receipt['result'])
+        self.assertFalse(self.gate.receipt['complete'])
+        self.assertEqual({}, self.engine.containers)
 
     def test_continuous_pipes_cover_both_projects_manual_restart_backup_and_final_cleanup(self):
         from container_lifecycle import HOSTS

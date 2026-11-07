@@ -102,7 +102,7 @@ public sealed class ZipArchiveExtractor : IArchiveExtractor
             var absolutePath = Path.GetFullPath(Path.Combine(targetDirectory, relativePath));
 
             // Ensure the path is within the target directory (zip slip protection)
-            if (!absolutePath.StartsWith(Path.GetFullPath(targetDirectory) + Path.DirectorySeparatorChar)
+            if (!absolutePath.StartsWith(Path.GetFullPath(targetDirectory) + Path.DirectorySeparatorChar, StringComparison.Ordinal)
                 && absolutePath != Path.GetFullPath(targetDirectory))
             {
                 continue; // Skip entries that would extract outside target

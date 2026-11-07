@@ -233,6 +233,11 @@ def maintenance_errors(text, name):
             return ['security-maintenance.yml: preserve the explicit CodeQL scope and limited SARIF permission']
         if any(job.get('continue-on-error', False) is not False for job in workflow['jobs'].values()):
             return ['security-maintenance.yml: maintenance failures must remain visible']
+        build = ('dotnet clean Romd.sln -c Release -m:1\n'
+                 'dotnet build Romd.sln -c Release -m:1 -p:SkipMissingFrontendWarning=true\n')
+        if not any(step.get('run') == build and step.get('if') == "${{ matrix.language == 'csharp' }}"
+                   and step.get('continue-on-error', False) is False for step in codeql['steps']):
+            return ['security-maintenance.yml: C# must clean once before the complete serial solution build']
         def runs(job, command):
             return any(step.get('run') == command and 'if' not in step
                        and step.get('continue-on-error', False) is False for step in job['steps'])

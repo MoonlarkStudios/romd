@@ -87,7 +87,11 @@ findings appear in the repository's code-scanning view.
 - Full reachable-public-history secret scanning uses the same pinned scanner
   and exact exception policy.
 - CodeQL analyzes C#, JavaScript/TypeScript, Python and GitHub Actions using a
-  commit-pinned action. C# uses the pinned SDK and an explicit solution build.
+  commit-pinned action. C# uses the pinned SDK, cleans the complete solution
+  once, then performs a serial complete build for extraction. Per-project
+  rebuilds from `--no-incremental` can clean shared worker dependency outputs
+  again before their consumers compile, even with serial scheduling. The
+  workflow policy guards the separate clean/build commands.
   Only that job has `security-events: write`; it has no publication permissions.
 - Native maintenance runs the existing sanitizer canaries, guard parity and
   fuzz gate with generated fixtures. Weekly campaigns use 1,800 seconds per
@@ -99,3 +103,9 @@ test coverage and bounded failure diagnostics retain their short lifetimes.
 Native maintenance uploads selected failure logs/findings for three days, not
 build trees or the whole corpus. Keep packaged-release evidence under the
 separate [release readiness](release-readiness.md) policy.
+
+Production drill failures retain the sanitized lifecycle receipt alongside CHD
+diagnostics; raw container output stays private. The lifecycle collector replays
+Docker's bounded retained history for each fresh project before its first probe,
+then observes continuously. Initial/final acknowledgments, deadlines, ownership
+checks and service-coverage assertions remain mandatory.

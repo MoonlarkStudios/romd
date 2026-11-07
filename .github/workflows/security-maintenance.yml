@@ -68,7 +68,9 @@ jobs:
           build-mode: ${{ matrix.language == 'csharp' && 'manual' || 'none' }}
       - name: Build C# source for analysis
         if: ${{ matrix.language == 'csharp' }}
-        run: dotnet build Romd.sln -c Release --no-incremental -p:SkipMissingFrontendWarning=true
+        run: |
+          dotnet clean Romd.sln -c Release -m:1
+          dotnet build Romd.sln -c Release -m:1 -p:SkipMissingFrontendWarning=true
       - name: Analyze and upload security findings
         uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:

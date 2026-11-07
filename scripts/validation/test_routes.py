@@ -143,7 +143,7 @@ class RouteTests(unittest.TestCase):
         self.assertTrue(any('command changed from allowlisted' in e for e in self.parity_errors(repurposed)))
         removed = workflow.replace('      - name: Build images and exercise production deployment\n'
                                    "        if: ${{ needs.source-checks.outputs.chd == 'true' }}\n"
-                                   '        run: python3 scripts/deployment/smoke.py --build --vfs\n', '')
+                                   '        run: python3 scripts/deployment/smoke.py --build --vfs --evidence-dir "$RUNNER_TEMP/production-smoke"\n', '')
         self.assertNotEqual(workflow, removed)
         self.assertTrue(any('stale allowlist entry' in e for e in self.parity_errors(removed)))
         mise = copy.deepcopy(self.mise)

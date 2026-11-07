@@ -1862,3 +1862,32 @@ Agent guidance: retain the original child diagnostics and distinguish tracker
 exit failures from custody assertions. Keep coverage and process-session tests
 enabled; do not suppress child exits, discard hits, change production process
 handling or disable suite parallelism to hide a collector failure.
+
+## Docker lifecycle startup can miss its first probe event
+
+Status: MITIGATED
+
+Command: `python3 scripts/deployment/smoke.py --build --vfs`, hosted production
+drill run `42387121031`.
+
+Observed: images built, but the initial lifecycle barrier timed out with
+`collector-probe-timeout`. Its sanitized receipt was not retained because the
+failure artifact covered only the later CHD workspace. The missing receipt
+limits retrospective attribution of that particular run.
+
+Confirmed defect: launching `docker events` does not prove its subscription is
+active before the first `docker create`. A delayed-subscription regression
+reproduced the lost acknowledgment. A synchronized real-Docker control admitted
+subscription only after create completed: live-only collection timed out;
+bounded-history replay acknowledged both projects, with no owned resources left.
+
+Change: request Docker's retained event history for each fresh project before
+following its live stream. Docker [retains at most 256 events](https://docs.docker.com/reference/cli/docker/system/events/);
+the initial and final probe acknowledgments, event limits, ownership checks,
+service coverage and default 20-second deadline are unchanged. CI now retains
+only the sanitized lifecycle receipt alongside generated CHD diagnostics.
+
+Agent guidance: preserve the receipt before diagnosing another startup failure.
+Do not raise the deadline, skip acknowledgments or accept a retry-only green
+run. The real control verifies startup barriers, not a complete deployment drill.
+Raw container output remains private and must not be included in CI artifacts.

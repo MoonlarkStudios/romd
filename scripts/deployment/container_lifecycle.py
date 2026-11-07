@@ -245,7 +245,10 @@ class ContainerLifecycle:
             raise LifecycleError('probe-image-declares-volumes')
         for project, ledger in self.ledgers.items():
             # Separate streams: repeated Docker label filters use AND, not OR.
-            ledger.process = subprocess.Popen(['docker', 'events', '--format', '{{json .}}',
+            # Replay Docker's bounded retained history for these fresh namespaces:
+            # the first probe can otherwise precede the events CLI's subscription.
+            # The probe acknowledgment remains mandatory before any host starts.
+            ledger.process = subprocess.Popen(['docker', 'events', '--since', '1970-01-01T00:00:00Z', '--format', '{{json .}}',
                 '--filter', 'type=container', '--filter', f'label={PROJECT_LABEL}={project}'],
                 env=self.env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
             ledger.thread = threading.Thread(target=ledger.read, daemon=True)
