@@ -377,7 +377,7 @@ jobs:
       - name: Prepare verified loopback network probe tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nginx-core
+          sudo apt-get install --yes --no-install-recommends nginx
           python3 scripts/ci/network_probes.py prepare "$RUNNER_TEMP/network-probes"
 
       - name: Restore integration dependencies

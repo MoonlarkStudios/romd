@@ -7,7 +7,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 NETWORK_SETUP = ('sudo apt-get update\n'
-                 'sudo apt-get install --yes --no-install-recommends nginx-core\n'
+                 'sudo apt-get install --yes --no-install-recommends nginx\n'
                  'python3 scripts/ci/network_probes.py prepare "$RUNNER_TEMP/network-probes"\n')
 NETWORK_VERIFY = "python3 scripts/ci/network_probes.py verify '${{ matrix.part }}' coverage/integration"
 INTEGRATION_RUN = "python3 scripts/validation/run.py --ci --job integration --filter '${{ matrix.filter }}' --evidence-parent coverage/integration"

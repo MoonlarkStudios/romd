@@ -27,8 +27,9 @@ unnecessary. A failed or skipped job cannot produce a passing gate.
 
 The two existing integration partitions install Ubuntu's nginx package and
 checksum-verified Linux x64 rclone 1.75.1. The rclone version matches the existing
-qualification baseline; its archive digest is pinned in
-`scripts/ci/network_probes.py`, from the upstream versioned checksum manifest.
+qualification baseline; its versioned GitHub release asset and archive digest
+are pinned in `scripts/ci/network_probes.py`, matching the publisher checksum.
+The direct download host returned HTTP 403 to hosted runners during qualification.
 Tool paths are exported only to those jobs. No runner, external service or
 additional artifact retention is added.
 

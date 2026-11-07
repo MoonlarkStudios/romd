@@ -16,7 +16,9 @@ import zipfile
 RCLONE_VERSION = '1.75.1'
 RCLONE_ARCHIVE = f'rclone-v{RCLONE_VERSION}-linux-amd64.zip'
 RCLONE_SHA256 = '982b5aa772841168f8e380f139e9e787b2a105403e32b94da8676a0e1c0a13ab'
-RCLONE_URL = f'https://downloads.rclone.org/v{RCLONE_VERSION}/{RCLONE_ARCHIVE}'
+# The versioned GitHub asset matches the publisher checksum. The direct download
+# host returned HTTP 403 to hosted runners during qualification.
+RCLONE_URL = f'https://github.com/rclone/rclone/releases/download/v{RCLONE_VERSION}/{RCLONE_ARCHIVE}'
 MAX_BYTES = 128 * 1024 * 1024
 ENDPOINT = 'Romd.Hosting.IntegrationTests.Endpoints.ConsumerIdentityEndpointsTests.'
 STREAMING = 'Romd.Hosting.IntegrationTests.Vfs.NginxIngressStreamingTests.'
