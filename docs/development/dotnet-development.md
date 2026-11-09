@@ -243,7 +243,7 @@ change broadens the checked files conservatively. This gate does not certify
 untouched files, enforce IDE style suggestions or turn general analyzer warnings
 into errors; backend builds and behavior checks remain separate.
 
-For a newly created Git ref, including the initial public root commit, CI passes
+For a newly created Git ref, CI passes
 the all-zero previous object ID. This checks every maintained C# file without
 requiring a parent commit. Reproduce that selection with
 `mise run dotnet:style -- --base 0000000000000000000000000000000000000000`.

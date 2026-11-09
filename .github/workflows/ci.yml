@@ -47,7 +47,7 @@ jobs:
       - name: Enforce workflow security policy
         run: .artifacts/ci-python/bin/python scripts/ci/lint_workflows.py
       - name: Install authenticated secret scanner
-        run: python3 scripts/publication/install_scanner.py "$RUNNER_TEMP/gitleaks"
+        run: python3 scripts/ci/install_scanner.py "$RUNNER_TEMP/gitleaks"
       - name: Test workflow security and CI helpers with the actual scanner
         env:
           ROMD_TEST_GITLEAKS: ${{ runner.temp }}/gitleaks/gitleaks

@@ -28,7 +28,6 @@ obtained collection. To evaluate the project, start with
 
 | Priority | What completion means |
 | --- | --- |
-| Public source launch | An audited source snapshot, working contributor CI, private security reporting and reviewed asset provenance |
 | First qualified server release | A downloaded Linux amd64 candidate passes installation, sign-in, browser playback, restart and backup/restore qualification, with verified security metadata |
 | Predictable upgrades | Each release states a tested upgrade path or an explicit fresh-install requirement, with a documented recovery procedure |
 | Ottercade qualification | Packaged console builds pass their claimed OS, architecture, emulator and physical-controller scenarios before those combinations are advertised as supported |
