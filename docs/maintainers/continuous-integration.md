@@ -23,6 +23,65 @@ web/OpenAPI and deployment contract suites remain required. The gate requires
 every job to succeed, including the deployment job when its expensive steps are
 unnecessary. A failed or skipped job cannot produce a passing gate.
 
+## Network qualification probes
+
+The two existing integration partitions install Ubuntu's nginx package and
+checksum-verified Linux x64 rclone 1.75.1. The rclone version matches the existing
+qualification baseline; its versioned GitHub release asset and archive digest
+are pinned in `scripts/ci/network_probes.py`, matching the publisher checksum.
+The direct download host returned HTTP 403 to hosted runners during qualification.
+Tool paths are exported only to those jobs. No runner, external service or
+additional artifact retention is added.
+
+Eight previously optional probes now run on every PR, main push and reusable
+release verification:
+
+- Two real nginx streaming probes exercise both shipped ingress templates:
+  bounded backpressure, no VFS disk spooling, ranges, conditional reads,
+  encoded paths and replacement of forged forwarding headers. A buffered
+  control must spool, proving the test can detect buffering regressions.
+- Two nginx HTTPS endpoint probes check the actual application behind the
+  shipped template, certificate validation, authentication and revocation,
+  including a real rclone client.
+- Four rclone protocol probes cover loopback device login/listing/ranges,
+  TLS trust, exported registered connections with credential rotation and
+  revocation, and token-command recovery after an unauthorized response.
+  Bearer/token-command cases retain regression coverage for the parked helper;
+  they do not qualify it as a supported mounted client.
+
+The registered integration command emits a runner-local `integration.trx`.
+A required follow-up checks the exact probe names for that partition
+and requires one passing result each. Missing reports, skipped/failed probes
+and duplicate results fail the job. The workflow policy prevents omission,
+conditional execution or reordering of preparation, tests and receipt checks.
+Existing coverage artifacts retain only a small `network-probes.json` receipt
+of selected names, outcomes and durations; raw TRX transcripts are excluded.
+
+The other 22 opt-in probes remain manual:
+
+| Probes | Why they stay outside regular CI |
+| --- | --- |
+| 19 native mount, keychain, FSKit, cache/disk-pressure and packaged-client probes | Need a representative macOS host, user credential store, mount support and sometimes installed/signed packages or large source files. A loopback Linux protocol check cannot establish those guarantees. |
+| 1 real-disc media delivery probe | Requires private disc/DAT fixtures and private evidence. Generated archive/media fixtures remain covered by the normal storage and CHD gates. |
+| 2 load/throughput measurements | Require controlled duration, concurrency and storage conditions. Shared-runner timings are not deployment capacity evidence; deterministic admission/queue tests remain required. |
+
+For local nginx/rclone probes, supply absolute `ROMD_VFS_NGINX` and
+`ROMD_VFS_RCLONE` paths; the token-command case also uses `ROMD_VFS_PYTHON`
+(default `/usr/bin/python3`). Missing local tools still produce explicit skips.
+Native-client and real-media results belong in the existing
+[media qualification matrix](../architecture/media-status.md), with private raw
+evidence, rather than being inferred from these CI protocol checks.
+
+To verify an existing partition receipt locally:
+
+```bash
+mise run ci:network-probes -- hosting PATH_TO_RESULTS
+mise run ci:network-probes -- endpoints PATH_TO_RESULTS
+```
+
+Create receipts with `dotnet test --logger 'trx;LogFileName=integration.trx'`
+and an explicit `--results-directory`; use a new results directory for each run.
+
 ## CHD drill selection
 
 `scripts/ci/change_scope.py` permits omission of the real image/recovery/CHD

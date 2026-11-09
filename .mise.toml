@@ -218,6 +218,10 @@ run = "python3 scripts/e2e/chd.py --synthetic --checkpoint encoding"
 description = "Lint workflows with pinned actionlint and enforce immutable action references"
 run = ["python3 scripts/ci/prepare.py", ".artifacts/ci-python/bin/python scripts/ci/lint_workflows.py", ".artifacts/ci-python/bin/python -B -W error -m unittest discover -s scripts/ci -p 'test_*.py'", "actionlint"]
 
+[tasks."ci:network-probes"]
+description = "Verify executed network probes from TRX (hosting|endpoints RESULTS_DIRECTORY)"
+run = "python3 scripts/ci/network_probes.py verify"
+
 [tasks."toolchain:check"]
 description = "Verify exact local and CI toolchain selection"
 run = "python3 scripts/ci/toolchain.py"
