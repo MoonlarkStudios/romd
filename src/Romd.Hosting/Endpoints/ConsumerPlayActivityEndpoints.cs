@@ -24,7 +24,7 @@ public static class ConsumerPlayActivityEndpoints
 
         group.MapPut("play-sessions/{sessionId:guid}", UpsertSession)
             .WithName("ReplaceConsumerPlaySession")
-            .Produces<PlaySessionDto>()
+            .Produces<PlaySession>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(
                 StatusCodes.Status400BadRequest,
@@ -33,13 +33,13 @@ public static class ConsumerPlayActivityEndpoints
 
         group.MapGet("play-sessions/{sessionId:guid}", GetSession)
             .WithName("GetConsumerPlaySession")
-            .Produces<PlaySessionDto>()
+            .Produces<PlaySession>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status404NotFound);
 
         group.MapGet("play-sessions", ListSessions)
             .WithName("ListConsumerPlaySessions")
-            .Produces<Page<PlaySessionDto>>()
+            .Produces<Page<PlaySession>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest);
 
@@ -55,7 +55,7 @@ public static class ConsumerPlayActivityEndpoints
 
         group.MapGet("recently-played", ListRecentlyPlayed)
             .WithName("ListConsumerRecentlyPlayed")
-            .Produces<Page<RecentlyPlayedTitleDto>>()
+            .Produces<Page<RecentlyPlayedTitle>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict);
 
@@ -65,7 +65,7 @@ public static class ConsumerPlayActivityEndpoints
     private static async Task<IResult> UpsertSession(
         Guid sessionId,
         [FromBody] UpsertPlaySessionRequest request,
-        ICommandHandler<UpsertPlaySessionCommand, PlaySessionDto> handler,
+        ICommandHandler<UpsertPlaySessionCommand, PlaySession> handler,
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(new UpsertPlaySessionCommand(sessionId, request), ct);
@@ -74,7 +74,7 @@ public static class ConsumerPlayActivityEndpoints
 
     private static async Task<IResult> GetSession(
         Guid sessionId,
-        IQueryHandler<GetPlaySessionQuery, PlaySessionDto> handler,
+        IQueryHandler<GetPlaySessionQuery, PlaySession> handler,
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(new GetPlaySessionQuery(sessionId), ct);
@@ -84,7 +84,7 @@ public static class ConsumerPlayActivityEndpoints
     private static async Task<IResult> ListSessions(
         string? cursor,
         [Range(1, ListPlaySessionsQuery.MaxLimit)] int? limit,
-        IQueryHandler<ListPlaySessionsQuery, Page<PlaySessionDto>> handler,
+        IQueryHandler<ListPlaySessionsQuery, Page<PlaySession>> handler,
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(new ListPlaySessionsQuery(cursor, limit ?? 50), ct);
@@ -111,7 +111,7 @@ public static class ConsumerPlayActivityEndpoints
     private static async Task<IResult> ListRecentlyPlayed(
         [Range(1, ListRecentlyPlayedQuery.MaxLimit)] int? limit,
         string? cursor,
-        IQueryHandler<ListRecentlyPlayedQuery, Page<RecentlyPlayedTitleDto>> handler,
+        IQueryHandler<ListRecentlyPlayedQuery, Page<RecentlyPlayedTitle>> handler,
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(new ListRecentlyPlayedQuery(limit ?? 18, cursor), ct);

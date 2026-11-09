@@ -22,6 +22,8 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using CollectionItem = Romd.Domain.Collections.CollectionItem;
+
 namespace Romd.Infrastructure.Tests.Persistence;
 
 /// <summary>

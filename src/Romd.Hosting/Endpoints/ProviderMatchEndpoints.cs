@@ -30,28 +30,28 @@ public static class ProviderMatchEndpoints
         var matches = app.MapGroup("/titles/{titleId}/provider-matches").WithTags("ProviderMatches")
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
         matches.MapGet("", List).WithName("ListTitleProviderMatches")
-            .Produces<IReadOnlyList<TitleProviderMatchDto>>()
+            .Produces<IReadOnlyList<TitleProviderMatch>>()
             .ProducesProblems(StatusCodes.Status404NotFound);
         // The derived revision does not cover the live game preview, availability or background decisions, so the
         // GET emits the validator without revalidating.
         matches.MapGet("{providerId}", Get).WithName("GetTitleProviderMatch")
-            .Produces<TitleProviderMatchDto>()
+            .Produces<TitleProviderMatch>()
             .ETagOnlyRead()
             .ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         matches.MapPut("{providerId}", Replace).WithName("ReplaceTitleProviderMatch")
             .WithDescription("Match the title to a provider game, chosen by its id or page URL")
-            .Produces<TitleProviderMatchDto>()
+            .Produces<TitleProviderMatch>()
             .ConditionalWrite()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict,
                 StatusCodes.Status502BadGateway, StatusCodes.Status503ServiceUnavailable);
         matches.MapPost("{providerId}/confirm", Confirm).WithName("ConfirmTitleProviderMatch")
             .WithDescription("Confirm the automatic match, making it immutable to automatic matching")
-            .Produces<TitleProviderMatchDto>()
+            .Produces<TitleProviderMatch>()
             .ConditionalWrite()
             .ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         matches.MapDelete("{providerId}", Unlink).WithName("DeleteTitleProviderMatch")
             .WithDescription("Unlink the provider and suppress automatic matching for this title, answering the unlinked match")
-            .Produces<TitleProviderMatchDto>()
+            .Produces<TitleProviderMatch>()
             .ConditionalWrite()
             .ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
 
@@ -63,12 +63,12 @@ public static class ProviderMatchEndpoints
                 "BudgetLimited. SteamGridDB reads at most 100 raw autocomplete records, 2 MiB, within 30 seconds " +
                 "and is always ProviderLimited, even when empty. Complete describes only observed query exhaustion; " +
                 "there is no snapshot guarantee. Incomplete results require a narrower query or explicit id/URL resolution.")
-            .Produces<ProviderGameSearchResultDto>()
+            .Produces<ProviderGameSearchResult>()
             .ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict,
                 StatusCodes.Status502BadGateway, StatusCodes.Status503ServiceUnavailable);
         providers.MapGet("{providerId}/game-resolution", Resolve).WithName("ResolveMetadataProviderGame")
             .WithDescription("Resolve exactly one provider game by its id or page URL, independently of free-text suggestions")
-            .Produces<ProviderGameDto>()
+            .Produces<ProviderGame>()
             .ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict,
                 StatusCodes.Status502BadGateway, StatusCodes.Status503ServiceUnavailable);
         return app;
@@ -102,14 +102,14 @@ public static class ProviderMatchEndpoints
         (await service.ResolveAsync(providerId, input, ct)).Match(Results.Ok, errors => errors.ToProblem());
 
     private static async Task<IResult> WriteAsync(HttpContext context,
-        Func<RevisionPrecondition, Task<ErrorOr<TitleProviderMatchDto>>> write)
+        Func<RevisionPrecondition, Task<ErrorOr<TitleProviderMatch>>> write)
     {
         var ifMatch = Preconditions.IfMatch(context, PreconditionArea);
         return ifMatch.IsError ? ifMatch.Errors.ToProblem() : Tagged(context, await write(ifMatch.Value));
     }
 
     /// <summary>The match stamped with its own validator.</summary>
-    private static IResult Tagged(HttpContext context, ErrorOr<TitleProviderMatchDto> result) =>
+    private static IResult Tagged(HttpContext context, ErrorOr<TitleProviderMatch> result) =>
         result.Match(match => Results.Ok(match).WithETag(context, match.Revision.ToString()),
             errors => errors.ToProblem());
 }

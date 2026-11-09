@@ -21,16 +21,16 @@ public static class TrackedCollectionEndpoints
             .WithTags("Tracked Collection")
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
 
-        group.MapGet("", List).WithName("ListTrackedTitles").Produces<Page<TrackedCollectionTitleDto>>().ProducesProblems(400);
+        group.MapGet("", List).WithName("ListTrackedTitles").Produces<Page<TrackedCollectionTitle>>().ProducesProblems(400);
 
         group.MapGet("stats", GetStats)
             .WithName("GetTrackedCollectionStats")
-            .Produces<TrackedCollectionStatsDto>();
+            .Produces<TrackedCollectionStats>();
 
         return app;
     }
 
-    private static async Task<IResult> List(IQueryHandler<ListTrackedTitlesQuery, Page<TrackedCollectionTitleDto>> handler,
+    private static async Task<IResult> List(IQueryHandler<ListTrackedTitlesQuery, Page<TrackedCollectionTitle>> handler,
         [ClosedValues("satisfied", "missing", "upgrades")] string? status, string? query, string? cursor,
         CancellationToken ct, [Range(1, 100)] int limit = 50)
     {
@@ -39,7 +39,7 @@ public static class TrackedCollectionEndpoints
     }
 
     private static async Task<IResult> GetStats(
-        IQueryHandler<GetTrackedCollectionStatsQuery, TrackedCollectionStatsDto> handler,
+        IQueryHandler<GetTrackedCollectionStatsQuery, TrackedCollectionStats> handler,
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(new GetTrackedCollectionStatsQuery(), ct);

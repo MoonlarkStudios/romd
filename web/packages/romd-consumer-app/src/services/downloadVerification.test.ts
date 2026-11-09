@@ -1,4 +1,4 @@
-import type { ConsumerReleaseManifestItemDto } from '@romd/consumer-api-client';
+import type { ConsumerReleaseManifestItem } from '@romd/consumer-api-client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getDownloadFileName,
@@ -152,7 +152,7 @@ describe('download helpers', () => {
   });
 });
 
-function createItem(): ConsumerReleaseManifestItemDto {
+function createItem(): ConsumerReleaseManifestItem {
   return {
     provenance: 'Original' as const,
     formats: [

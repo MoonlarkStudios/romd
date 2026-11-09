@@ -13,7 +13,7 @@ public sealed record AddTitleToCollectionCommand(
     int CollectionId,
     int TitleId,
     string? Note
-) : ICommand<CollectionItemDto>;
+) : ICommand<CollectionItem>;
 
 public sealed class AddTitleToCollectionCommandHandler(IReferenceCatalogService referenceCatalog,
     ICollectionRepository collectionRepository,
@@ -21,9 +21,9 @@ public sealed class AddTitleToCollectionCommandHandler(IReferenceCatalogService 
     IUnitOfWork unitOfWork,
     TimeProvider clock,
     ILogger<AddTitleToCollectionCommandHandler> logger
-) : ICommandHandler<AddTitleToCollectionCommand, CollectionItemDto>
+) : ICommandHandler<AddTitleToCollectionCommand, CollectionItem>
 {
-    public async Task<ErrorOr<CollectionItemDto>> HandleAsync(
+    public async Task<ErrorOr<CollectionItem>> HandleAsync(
         AddTitleToCollectionCommand command,
         CancellationToken ct = default)
     {
@@ -35,7 +35,7 @@ public sealed class AddTitleToCollectionCommandHandler(IReferenceCatalogService 
         if (title is null)
             return CatalogErrors.TitleNotFound();
 
-        return await unitOfWork.ExecuteInTransactionAsync<CollectionItemDto>(async token =>
+        return await unitOfWork.ExecuteInTransactionAsync<CollectionItem>(async token =>
         {
             var collection = await collectionRepository.LockForItemMutationStagedAsync(command.CollectionId, token);
             if (collection is null)

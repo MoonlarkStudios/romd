@@ -1,11 +1,11 @@
 import { Anchor, Progress, Table, Text } from '@mantine/core';
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { Link } from 'react-router';
 import { JobStatusBadge } from '../../components/Jobs/JobStatusBadge';
 import { getJobTitle, getJobTypeConfig } from '../../components/Jobs/jobTypeRegistry';
 import { formatRelativeTime } from './utils';
 
-export function OverviewJobs({ jobs }: { jobs: JobDto[] }) {
+export function OverviewJobs({ jobs }: { jobs: Job[] }) {
   return (
     <Table.ScrollContainer minWidth={440}>
       <Table verticalSpacing="sm">

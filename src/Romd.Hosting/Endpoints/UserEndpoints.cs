@@ -23,6 +23,8 @@ using Romd.Application.Common.Ids;
 using Romd.Contracts.Management.Users;
 using Romd.Host.Authorization;
 
+using ContractAccountSession = Romd.Contracts.Management.Users.AccountSession;
+
 namespace Romd.Host.Endpoints;
 
 /// <summary>
@@ -38,23 +40,23 @@ public static class UserEndpoints
 
         group.MapGet("", GetDirectory)
             .WithName("ListUsers")
-            .Produces<Page<UserDto>>().ProducesProblems(400);
+            .Produces<Page<User>>().ProducesProblems(400);
 
 
         group.MapGet("{userId}", GetById)
             .WithName("GetUser")
-            .Produces<UserDto>()
+            .Produces<User>()
             .ProducesProblems(StatusCodes.Status404NotFound);
 
         group.MapPost("", Create)
             .WithName("CreateUser")
-            .ProducesCreated<UserDto>()
+            .ProducesCreated<User>()
             .ProducesProblems(StatusCodes.Status400BadRequest)
             .ProducesProblems(StatusCodes.Status409Conflict);
 
         group.MapPut("{userId}", Update)
             .WithName("UpdateUser")
-            .Produces<UserDto>()
+            .Produces<User>()
             .ProducesProblems(StatusCodes.Status404NotFound)
             .ProducesProblems(StatusCodes.Status400BadRequest);
 
@@ -66,13 +68,13 @@ public static class UserEndpoints
 
         group.MapPut("{userId}/role", AssignRole)
             .WithName("AssignUserRole")
-            .Produces<UserDto>()
+            .Produces<User>()
             .ProducesProblems(StatusCodes.Status404NotFound)
             .ProducesProblems(StatusCodes.Status400BadRequest);
 
         group.MapPut("{userId}/library", AssignLibrary)
             .WithName("AssignUserLibrary")
-            .Produces<UserDto>()
+            .Produces<User>()
             .ProducesProblems(StatusCodes.Status404NotFound)
             .ProducesProblems(StatusCodes.Status400BadRequest)
             .ProducesProblems(StatusCodes.Status409Conflict);
@@ -82,27 +84,27 @@ public static class UserEndpoints
             .Produces<AssignDefaultLibraryResponse>()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict);
 
-        group.MapGet("{userId}/security", GetSecurity).WithName("GetAccountSecurity").Produces<AccountSecurityDto>().ProducesProblems(404);
-        group.MapGet("{userId}/links", GetLinks).WithName("ListAccountLinks").Produces<Page<AccountLinkDto>>().ProducesProblems(400, 404);
-        group.MapGet("{userId}/sessions", GetSessions).WithName("ListAccountSessions").Produces<Page<AccountSessionDto>>().ProducesProblems(400, 404);
-        group.MapPost("{userId}/links", IssueLink).WithName("CreateAccountLink").ProducesCreated<IssuedAccountLinkDto>().ProducesProblems(400, 404, 409);
+        group.MapGet("{userId}/security", GetSecurity).WithName("GetAccountSecurity").Produces<AccountSecurity>().ProducesProblems(404);
+        group.MapGet("{userId}/links", GetLinks).WithName("ListAccountLinks").Produces<Page<AccountLink>>().ProducesProblems(400, 404);
+        group.MapGet("{userId}/sessions", GetSessions).WithName("ListAccountSessions").Produces<Page<ContractAccountSession>>().ProducesProblems(400, 404);
+        group.MapPost("{userId}/links", IssueLink).WithName("CreateAccountLink").ProducesCreated<IssuedAccountLink>().ProducesProblems(400, 404, 409);
         group.MapDelete("{userId}/links/{linkId}", RevokeLink).WithName("DeleteAccountLink").Produces(204).ProducesProblems(404);
         group.MapPut("{userId}/suspension", SetSuspension).WithName("ReplaceAccountSuspension").Produces(204).ProducesProblems(400, 404, 409);
         group.MapDelete("{userId}/sessions", RevokeSessions).WithName("DeleteAccountSessions").Produces(204).ProducesProblems(400, 404, 409);
         app.MapPost("/auth/account-link", RedeemLink).AllowAnonymous().WithTags("Auth")
             .WithName("RedeemAccountLink").Produces(204).ProducesProblem(400);
         app.MapGet("/audit", GetAudit).WithName("ListAuditEvents").WithTags("Administration")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<Page<AdminAuditEventDto>>().ProducesProblems(400);
+            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<Page<AdminAuditEvent>>().ProducesProblems(400);
         return app;
     }
 
     private static async Task<IResult> GetDirectory(string? query, [ClosedValues("User", "Contributor", "Manager", "Admin")] string? role,
         [ClosedValues("Active", "Suspended", "Pending activation")] string? status, string? libraryId, string? cursor,
-        IQueryHandler<GetUserDirectoryQuery, Page<UserDto>> handler, CancellationToken ct, [Range(1, 100)] int limit = 50) =>
+        IQueryHandler<GetUserDirectoryQuery, Page<User>> handler, CancellationToken ct, [Range(1, 100)] int limit = 50) =>
         ToResult(await handler.HandleAsync(new(query, role, status, libraryId, cursor, limit), ct), Results.Ok);
 
     private static async Task<IResult> GetAudit(string? cursor, string? targetType, string? targetId,
-        IQueryHandler<GetAdminAuditQuery, Page<AdminAuditEventDto>> handler, CancellationToken ct, [Range(1, 100)] int limit = 50) =>
+        IQueryHandler<GetAdminAuditQuery, Page<AdminAuditEvent>> handler, CancellationToken ct, [Range(1, 100)] int limit = 50) =>
         ToResult(await handler.HandleAsync(new(cursor, targetType, targetId, limit), ct), Results.Ok);
 
     private static async Task<IResult> GetLinks(Guid userId, string? cursor, IAccountLifecycle lifecycle,
@@ -110,16 +112,16 @@ public static class UserEndpoints
         ToResult(await lifecycle.GetLinksAsync(userId, cursor, limit, ct), Results.Ok);
 
     private static async Task<IResult> GetSessions(Guid userId, string? cursor, HttpContext context,
-        IQueryHandler<GetAccountSessionsQuery, Page<AccountSessionDto>> handler, CancellationToken ct, [Range(1, 100)] int limit = 50) =>
+        IQueryHandler<GetAccountSessionsQuery, Page<ContractAccountSession>> handler, CancellationToken ct, [Range(1, 100)] int limit = 50) =>
         ToResult(await handler.HandleAsync(new(userId, cursor, limit,
             Guid.TryParse(context.User.GetClaim(SessionClaims.Id), out var sessionId) ? sessionId : null), ct), Results.Ok);
 
     private static async Task<IResult> GetSecurity(Guid userId, HttpContext context,
-        IQueryHandler<GetAccountSecurityQuery, AccountSecurityDto> handler, CancellationToken ct) =>
+        IQueryHandler<GetAccountSecurityQuery, AccountSecurity> handler, CancellationToken ct) =>
         ToResult(await handler.HandleAsync(new(userId, Guid.TryParse(context.User.GetClaim(SessionClaims.Id), out var sessionId) ? sessionId : null), ct), Results.Ok);
 
     private static async Task<IResult> IssueLink(Guid userId, IssueAccountLinkRequest request,
-        ICommandHandler<IssueAccountLinkCommand, IssuedAccountLinkDto> handler, HttpContext context, CancellationToken ct)
+        ICommandHandler<IssueAccountLinkCommand, IssuedAccountLink> handler, HttpContext context, CancellationToken ct)
     {
         context.Response.Headers.CacheControl = "no-store";
         return ToResult(await handler.HandleAsync(new(userId, request.Purpose), ct), link => Results.Created($"/api/users/{userId}/links/{link.Id}", link));
@@ -265,7 +267,7 @@ public static class UserEndpoints
         };
     }
 
-    private static UserDto ToDto(ManagedUser user) =>
+    private static User ToDto(ManagedUser user) =>
         new(
             user.Id,
             user.Email,

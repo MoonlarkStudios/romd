@@ -7,7 +7,7 @@ namespace Romd.Admin.Application.Catalog;
 
 public interface IDiscSetService
 {
-    Task<ErrorOr<LibraryDiscSetOptionsDto>> ListLibraryOptionsAsync(int libraryId, IReadOnlySet<int> eligibleReleaseIds, IReadOnlyList<int> selectedIds, string? query, string? cursor, int limit, CancellationToken ct);
-    Task<ErrorOr<Page<DiscSetDto>>> ListAsync(int? titleId, string? cursor, int limit, CancellationToken ct);
-    Task<ErrorOr<DiscSetDto>> GetAsync(int id, CancellationToken ct);
+    Task<ErrorOr<LibraryDiscSetOptions>> ListLibraryOptionsAsync(int libraryId, IReadOnlySet<int> eligibleReleaseIds, IReadOnlyList<int> selectedIds, string? query, string? cursor, int limit, CancellationToken ct);
+    Task<ErrorOr<Page<DiscSet>>> ListAsync(int? titleId, string? cursor, int limit, CancellationToken ct);
+    Task<ErrorOr<DiscSet>> GetAsync(int id, CancellationToken ct);
 }

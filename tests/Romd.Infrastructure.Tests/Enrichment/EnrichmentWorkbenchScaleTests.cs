@@ -28,6 +28,10 @@ using Xunit;
 using Xunit.Abstractions;
 using EnrichmentRequirementSatisfiedBy = Romd.Contracts.Management.Enrichment.EnrichmentRequirementSatisfiedBy;
 
+using ContractEnrichmentRequirement = Romd.Contracts.Management.Enrichment.EnrichmentRequirement;
+
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Infrastructure.Tests.Enrichment;
 
 /// <summary>Observes real fingerprint/trust assessment cost without machine-dependent timing assertions.</summary>
@@ -93,7 +97,7 @@ public sealed class EnrichmentWorkbenchScaleTests(ITestOutputHelper output) : ID
         output.WriteLine("Fixture: 10,000 tracked (2,000 automatic identities, 6,000 confirmed, 2,000 no-match), " +
             "1,000 untracked controls, 22,000 active non-BIOS DAT releases with local names and years.");
 
-        void AssertPage(Page<EnrichmentAssessmentDto> page)
+        void AssertPage(Page<EnrichmentAssessment> page)
         {
             page.Items.Count.ShouldBe(50);
             page.NextCursor.ShouldNotBeNull();
@@ -231,7 +235,7 @@ public sealed class EnrichmentWorkbenchScaleTests(ITestOutputHelper output) : ID
         {
             watch.Restart();
             var filteredPreview = await store.PreviewScopeAsync(new(Guid.NewGuid(), Scope: "Filtered", Mode: "Enrich",
-                Filters: new ArtworkCompletionFilterDto(Tracked: "tracked", Enrichment: ["NeedsReview"])), default);
+                Filters: new ArtworkCompletionFilter(Tracked: "tracked", Enrichment: ["NeedsReview"])), default);
             output.WriteLine($"MEASURE[{repeat}] filtered preview enrichment=NeedsReview: {watch.ElapsedMilliseconds} ms ({filteredPreview.Value.Titles} titles)");
             filteredPreview.Value.Titles.ShouldBe(initialStats.NeedsReview);
         }
@@ -384,10 +388,10 @@ public sealed class EnrichmentWorkbenchScaleTests(ITestOutputHelper output) : ID
         }
     }
 
-    private static EnrichmentRequirementDto[] Open(EnrichmentAssessmentDto assessment) =>
+    private static ContractEnrichmentRequirement[] Open(EnrichmentAssessment assessment) =>
         assessment.Requirements.Where(x => x.State != EnrichmentIssueState.Satisfied).ToArray();
 
-    private static bool Carries(EnrichmentSummaryDto summary, EnrichmentFlagFilter flag) => flag switch
+    private static bool Carries(EnrichmentSummary summary, EnrichmentFlagFilter flag) => flag switch
     {
         EnrichmentFlagFilter.NeedsReview => summary.NeedsReview,
         EnrichmentFlagFilter.Blocked => summary.HasOperationalBlocker,
@@ -396,7 +400,7 @@ public sealed class EnrichmentWorkbenchScaleTests(ITestOutputHelper output) : ID
         _ => !summary.NeedsReview && !summary.HasOperationalBlocker && !summary.HasActiveWork && !summary.CanEnrichAutomatically
     };
 
-    private static string[] TrustedIdentities(EnrichmentAssessmentDto assessment) =>
+    private static string[] TrustedIdentities(EnrichmentAssessment assessment) =>
         assessment.Requirements.Where(x => x.Kind == "Identity" && x.SatisfiedBy == EnrichmentRequirementSatisfiedBy.Trusted)
             .Select(x => x.Subject).ToArray();
 

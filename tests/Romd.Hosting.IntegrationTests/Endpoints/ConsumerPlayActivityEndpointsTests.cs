@@ -33,7 +33,7 @@ public sealed class ConsumerPlayActivityEndpointsTests
         var closed = open with { EndedAt = endedAt, ActiveDurationSeconds = 240 };
         var closedResponse = await client.PutAsJsonAsync(path, closed);
         closedResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var stored = await closedResponse.Content.ReadFromJsonAsync<PlaySessionDto>();
+        var stored = await closedResponse.Content.ReadFromJsonAsync<PlaySession>();
         stored.ShouldNotBeNull();
         stored.SessionId.ShouldBe(sessionId);
         stored.ClientId.ShouldBe("org.example.third-party");
@@ -42,16 +42,16 @@ public sealed class ConsumerPlayActivityEndpointsTests
 
         // A late open retry is accepted but cannot reopen the ended session.
         var lateOpen = await client.PutAsJsonAsync(path, open);
-        (await lateOpen.Content.ReadFromJsonAsync<PlaySessionDto>())!.EndedAt.ShouldBe(endedAt);
+        (await lateOpen.Content.ReadFromJsonAsync<PlaySession>())!.EndedAt.ShouldBe(endedAt);
         var conflict = await client.PutAsJsonAsync(
             path,
             closed with { EndedAt = endedAt.AddMinutes(1) });
         conflict.StatusCode.ShouldBe(HttpStatusCode.Conflict);
 
-        var page = await client.GetFromJsonAsync<Page<PlaySessionDto>>("/api/me/activity/play-sessions?limit=1");
+        var page = await client.GetFromJsonAsync<Page<PlaySession>>("/api/me/activity/play-sessions?limit=1");
         page.ShouldNotBeNull();
         page.Items.Select(item => item.SessionId).ShouldBe([sessionId]);
-        var recent = (await client.GetFromJsonAsync<Page<RecentlyPlayedTitleDto>>(
+        var recent = (await client.GetFromJsonAsync<Page<RecentlyPlayedTitle>>(
             "/api/me/activity/recently-played"))?.Items;
         recent.ShouldNotBeNull();
         recent.Single().Id.ShouldBe(IdCoder.Encode(seed.OwnedTitleId));
@@ -63,7 +63,7 @@ public sealed class ConsumerPlayActivityEndpointsTests
         // Deletion leaves no tombstone: the same compatible client UUID can be stored again.
         (await client.PutAsJsonAsync(path, closed)).StatusCode.ShouldBe(HttpStatusCode.OK);
         (await client.DeleteAsync("/api/me/activity/play-sessions")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        var empty = await client.GetFromJsonAsync<Page<PlaySessionDto>>("/api/me/activity/play-sessions");
+        var empty = await client.GetFromJsonAsync<Page<PlaySession>>("/api/me/activity/play-sessions");
         empty!.Items.ShouldBeEmpty();
     }
 
@@ -114,7 +114,7 @@ public sealed class ConsumerPlayActivityEndpointsTests
         closedReplay.EndedAt.ShouldBe(StoredTime(endedAt));
         (await PutAsync(open)).EndedAt.ShouldBe(StoredTime(endedAt));
         using var client = fixture.CreateAuthenticatedClient(userId, "activity-precision@localhost", seed.LibraryId);
-        var read = (await client.GetFromJsonAsync<PlaySessionDto>(path)).ShouldNotBeNull();
+        var read = (await client.GetFromJsonAsync<PlaySession>(path)).ShouldNotBeNull();
         read.StartedAt.ShouldBe(StoredTime(startedAt));
         read.EndedAt.ShouldBe(StoredTime(endedAt));
         read.ActiveDurationSeconds.ShouldBe(240);
@@ -126,15 +126,15 @@ public sealed class ConsumerPlayActivityEndpointsTests
             closed with { ActiveDurationSeconds = 241 }
         })
             (await client.PutAsJsonAsync(path, conflict)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        var page = (await client.GetFromJsonAsync<Page<PlaySessionDto>>("/api/me/activity/play-sessions")).ShouldNotBeNull();
+        var page = (await client.GetFromJsonAsync<Page<PlaySession>>("/api/me/activity/play-sessions")).ShouldNotBeNull();
         page.Items.ShouldHaveSingleItem().SessionId.ShouldBe(created.SessionId);
 
-        async Task<PlaySessionDto> PutAsync(UpsertPlaySessionRequest request)
+        async Task<PlaySession> PutAsync(UpsertPlaySessionRequest request)
         {
             using var requestClient = fixture.CreateAuthenticatedClient(userId, "activity-precision@localhost", seed.LibraryId);
             using var response = await requestClient.PutAsJsonAsync(path, request);
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
-            return (await response.Content.ReadFromJsonAsync<PlaySessionDto>()).ShouldNotBeNull();
+            return (await response.Content.ReadFromJsonAsync<PlaySession>()).ShouldNotBeNull();
         }
     }
 

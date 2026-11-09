@@ -5,7 +5,7 @@ namespace Romd.Contracts.Common.ReferenceCatalog;
 
 /// <summary>Setters preserve omitted versus explicitly null fields during deserialization.</summary>
 [JsonConverter(typeof(ReferencePatchJsonConverter))]
-public class ReferencePatchDto
+public class ReferencePatch
 {
     private static readonly HashSet<string> DescriptionClears = ["description"];
     private static readonly HashSet<string> NameResets = ["name"];
@@ -25,7 +25,7 @@ public class ReferencePatchDto
 }
 
 [JsonConverter(typeof(ReferencePatchJsonConverter))]
-public class ArtworkReferencePatchDto : ReferencePatchDto
+public class ArtworkReferencePatch : ReferencePatch
 {
     private static readonly HashSet<string> ArtworkClears = ["description", "icon"];
     private static readonly HashSet<string> ArtworkResets = ["name", "monochrome"];
@@ -39,7 +39,7 @@ public class ArtworkReferencePatchDto : ReferencePatchDto
 }
 
 [JsonConverter(typeof(ReferencePatchJsonConverter))]
-public sealed class SystemPatchDto : ArtworkReferencePatchDto
+public sealed class SystemPatch : ArtworkReferencePatch
 {
     private static readonly HashSet<string> SystemResets = ["name", "monochrome", "compactLabel"];
     private string? _compactLabel;

@@ -13,8 +13,8 @@ public sealed class S5cJobOpenApiTests(ApiContractPolicyGuardrailTests.LiveOpenA
     {
         var paths = documents.Documents["admin"].RootElement.GetProperty("paths");
         var schemas = documents.Documents["admin"].RootElement.GetProperty("components").GetProperty("schemas");
-        foreach (var (path, itemSchema) in new[] { ("/api/jobs", "JobDto"), ("/api/jobs/{jobId}/items", "JobItemDto"),
-            ("/api/jobs/{jobId}/artwork-items", "ArtworkCompletionItemDto") })
+        foreach (var (path, itemSchema) in new[] { ("/api/jobs", "Job"), ("/api/jobs/{jobId}/items", "JobItem"),
+            ("/api/jobs/{jobId}/artwork-items", "ArtworkCompletionItem") })
         {
             var get = paths.GetProperty(path).GetProperty("get");
             get.GetProperty("responses").GetProperty("200").GetProperty("content").GetProperty("application/json").GetProperty("schema")
@@ -25,11 +25,11 @@ public sealed class S5cJobOpenApiTests(ApiContractPolicyGuardrailTests.LiveOpenA
             limit.GetProperty("minimum").GetInt32().ShouldBe(1);
             limit.GetProperty("maximum").GetInt32().ShouldBe(100);
         }
-        schemas.GetProperty("JobDto").GetProperty("discriminator").GetProperty("mapping").EnumerateObject().Select(member => member.Name).Order()
+        schemas.GetProperty("Job").GetProperty("discriminator").GetProperty("mapping").EnumerateObject().Select(member => member.Name).Order()
             .ShouldBe(JobFilters.Types.Order());
-        schemas.GetProperty("JobDtoMediaReconciliationJobDto").GetProperty("properties")
+        schemas.GetProperty("JobMediaReconciliationJob").GetProperty("properties")
             .TryGetProperty("selection", out _).ShouldBeTrue();
-        schemas.GetProperty("MediaReconciliationSubjectDto").GetProperty("properties")
+        schemas.GetProperty("MediaReconciliationSubject").GetProperty("properties")
             .TryGetProperty("id", out _).ShouldBeTrue();
         var list = paths.GetProperty("/api/jobs").GetProperty("get");
         Parameter(list, "archive").GetProperty("schema").GetProperty("default").GetString().ShouldBe("active");
@@ -57,7 +57,7 @@ public sealed class S5cJobOpenApiTests(ApiContractPolicyGuardrailTests.LiveOpenA
             paths.TryGetProperty(path, out _).ShouldBeFalse(path);
         paths.GetProperty("/api/artwork/completion").TryGetProperty("get", out _).ShouldBeFalse();
         var schemas = documents.Documents["admin"].RootElement.GetProperty("components").GetProperty("schemas");
-        foreach (string schema in new[] { "JobHistoryPage", "JobItemPage", "ArtworkCompletionItemsDto", "ChdReverificationItemsDto", "ChdReverificationItemDto", "PageOfChdReverificationItemDto" })
+        foreach (string schema in new[] { "JobHistoryPage", "JobItemPage", "ArtworkCompletionItems", "ChdReverificationItemsDto", "ChdReverificationItemDto", "PageOfChdReverificationItemDto" })
             schemas.TryGetProperty(schema, out _).ShouldBeFalse(schema);
     }
     private static void AssertValues(JsonElement operation, string name, IReadOnlyList<string> values) =>

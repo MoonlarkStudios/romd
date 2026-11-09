@@ -47,10 +47,10 @@ public sealed class NumericOpenApiBoundaryTests
         AssertNumericSchema(Property(schemas, "BatchDeleteResponse", "deletedCount"), "integer", "int32");
         AssertNullableNumericSchema(Property(schemas, "TitleDetail", "players"), "integer", "int32");
         AssertNullableNumericSchema(Property(schemas, "TitleDetail", "rating"), "number", "double");
-        AssertNumericSchema(Property(schemas, "CoverageStatsDto", "coverageHealthPercent"), "number", "double");
-        AssertNumericSchema(Property(schemas, "WedgedReplaceDatJobDto", "stalledForSeconds"), "integer", "int64");
+        AssertNumericSchema(Property(schemas, "CoverageStats", "coverageHealthPercent"), "number", "double");
+        AssertNumericSchema(Property(schemas, "WedgedReplaceDatJob", "stalledForSeconds"), "integer", "int64");
         AssertCanonicalUnsignedIntegerString(Resolve(Property(schemas, "Rom", "size"), schemas));
-        AssertCanonicalIntegerString(Property(schemas, "QueueBacklogDiagnosticDto", "enqueuedCount"));
+        AssertCanonicalIntegerString(Property(schemas, "QueueBacklogDiagnostic", "enqueuedCount"));
     }
 
     [Fact]
@@ -59,9 +59,9 @@ public sealed class NumericOpenApiBoundaryTests
         using var document = ReadSchema("web/schemas/consumer-v1.json");
         JsonElement schemas = Schemas(document);
 
-        AssertNumericSchema(Property(schemas, "ConsumerPlatformSummaryDto", "titleCount"), "integer", "int32");
-        AssertNullableNumericSchema(Property(schemas, "ConsumerTitleCardDto", "rating"), "number", "double");
-        AssertCanonicalUnsignedIntegerString(Resolve(Property(schemas, "ConsumerReleaseDto", "sizeBytes"), schemas));
+        AssertNumericSchema(Property(schemas, "ConsumerPlatformSummary", "titleCount"), "integer", "int32");
+        AssertNullableNumericSchema(Property(schemas, "ConsumerTitleCard", "rating"), "number", "double");
+        AssertCanonicalUnsignedIntegerString(Resolve(Property(schemas, "ConsumerRelease", "sizeBytes"), schemas));
     }
 
     [Fact]
@@ -91,9 +91,9 @@ public sealed class NumericOpenApiBoundaryTests
     public void ConsumerOpenApi_PreferenceKeyListsPublishCollectionInvariants(string property)
     {
         using var document = ReadSchema("web/schemas/consumer-v1.json");
-        JsonElement keys = Property(Schemas(document), "ConsumerReleasePreferenceDto", property);
+        JsonElement keys = Property(Schemas(document), "ConsumerReleasePreference", property);
 
-        keys.GetProperty("maxItems").GetInt32().ShouldBe(ConsumerReleasePreferenceDto.MaximumPreferredKeys);
+        keys.GetProperty("maxItems").GetInt32().ShouldBe(ConsumerReleasePreference.MaximumPreferredKeys);
         keys.GetProperty("uniqueItems").GetBoolean().ShouldBeTrue();
     }
 

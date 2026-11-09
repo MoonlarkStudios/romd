@@ -82,7 +82,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         using var response = await client.GetAsync($"/api/titles/{titleId}/provider-matches/{Provider}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var match = (await response.Content.ReadFromJsonAsync<TitleProviderMatchDto>())!;
+        var match = (await response.Content.ReadFromJsonAsync<TitleProviderMatch>())!;
         response.Headers.ETag!.Tag.ShouldBe($"\"{match.Revision}\"");
         response.Headers.ETag.IsWeak.ShouldBeFalse();
         match.PendingJobId.ShouldBeNull();
@@ -128,7 +128,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         using var set = await client.SendAsync(Request(HttpMethod.Put, path, await ETagAsync(client, titleId),
             new { externalId = "42" }));
         set.StatusCode.ShouldBe(HttpStatusCode.OK, await set.Content.ReadAsStringAsync());
-        var linked = (await set.Content.ReadFromJsonAsync<TitleProviderMatchDto>())!;
+        var linked = (await set.Content.ReadFromJsonAsync<TitleProviderMatch>())!;
         set.Headers.ETag!.Tag.ShouldBe($"\"{linked.Revision}\"");
         (linked.State, linked.ExternalId).ShouldBe(("Confirmed", "42"));
         // The write queued the enrichment that applies the match, and rotated the title's revision.
@@ -139,7 +139,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
 
         using var confirm = await client.SendAsync(Request(HttpMethod.Post, $"{path}/confirm", set.Headers.ETag.Tag));
         confirm.StatusCode.ShouldBe(HttpStatusCode.OK, await confirm.Content.ReadAsStringAsync());
-        var confirmed = (await confirm.Content.ReadFromJsonAsync<TitleProviderMatchDto>())!;
+        var confirmed = (await confirm.Content.ReadFromJsonAsync<TitleProviderMatch>())!;
         confirm.Headers.ETag!.Tag.ShouldBe($"\"{confirmed.Revision}\"");
         confirmed.Revision.ShouldNotBe(linked.Revision);
 
@@ -149,7 +149,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         // Unlinking answers the unlinked match with its new validator.
         using var unlink = await client.SendAsync(Request(HttpMethod.Delete, path, confirm.Headers.ETag.Tag));
         unlink.StatusCode.ShouldBe(HttpStatusCode.OK, await unlink.Content.ReadAsStringAsync());
-        var unlinked = (await unlink.Content.ReadFromJsonAsync<TitleProviderMatchDto>())!;
+        var unlinked = (await unlink.Content.ReadFromJsonAsync<TitleProviderMatch>())!;
         (unlinked.State, unlinked.ExternalId, unlinked.PendingJobId).ShouldBe(("Unlinked", null, null));
         unlink.Headers.ETag!.Tag.ShouldBe($"\"{unlinked.Revision}\"");
         (await ETagAsync(client, titleId)).ShouldBe(unlink.Headers.ETag.Tag);
@@ -194,7 +194,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         await using var host = WithProvider(resolve: id =>
         {
             Interlocked.Increment(ref resolved);
-            return new ProviderGameDto(id, "Game", "https://example.com/game");
+            return new ProviderGame(id, "Game", "https://example.com/game");
         });
         var titleId = await SeedTitleAsync();
 
@@ -297,13 +297,13 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
     public async Task Resolve_IsIndependentOfSearch_UnknownProviderIs404_AndUnresolvableInputIs400()
     {
         await using var host = WithProvider(resolve: id => id == "42"
-            ? new ProviderGameDto(id, "Game", "https://example.com/game")
+            ? new ProviderGame(id, "Game", "https://example.com/game")
             : ProviderMatchErrors.NotFound);
         var client = host.Client;
 
         using var found = await client.GetAsync($"/api/metadata-providers/{Provider}/game-resolution?input=42");
         found.StatusCode.ShouldBe(HttpStatusCode.OK, await found.Content.ReadAsStringAsync());
-        (await found.Content.ReadFromJsonAsync<ProviderGameDto>())!.Id.ShouldBe("42");
+        (await found.Content.ReadFromJsonAsync<ProviderGame>())!.Id.ShouldBe("42");
         using var unknown = await client.GetAsync("/api/metadata-providers/no-such-provider/games?query=Metroid");
         using (await ProblemEnvelope.ReadAsync(unknown, 404, "ProviderMatch.UnknownProvider"))
         { }
@@ -328,7 +328,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         {
             query.ShouldBe("Game");
             searched++;
-            return new ProviderGameSearchResultDto([new("42", "Game", "https://example.com/game")], completeness, 500);
+            return new ProviderGameSearchResult([new("42", "Game", "https://example.com/game")], completeness, 500);
         });
 
         using var response = await host.Client.GetAsync($"/api/metadata-providers/{Provider}/games?query=Game");
@@ -352,7 +352,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         await using var host = WithProvider(search: _ =>
         {
             searched++;
-            return new ProviderGameSearchResultDto([], ProviderGameSearchCompleteness.ProviderLimited, 100);
+            return new ProviderGameSearchResult([], ProviderGameSearchCompleteness.ProviderLimited, 100);
         });
 
         using var response = await host.Client.GetAsync($"/api/metadata-providers/{Provider}/games?query=Game&{extra}");
@@ -376,7 +376,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         }, search: _ =>
         {
             calls++;
-            return new ProviderGameSearchResultDto([], ProviderGameSearchCompleteness.ProviderLimited, 100);
+            return new ProviderGameSearchResult([], ProviderGameSearchCompleteness.ProviderLimited, 100);
         });
 
         using var response = await host.Client.GetAsync($"/api/metadata-providers/{Provider}/{route}?{field}={Uri.EscapeDataString(value)}");
@@ -406,7 +406,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         await using var host = WithProvider(resolve: id =>
         {
             calls++;
-            return new ProviderGameDto(id, "Game", "https://example.com/game");
+            return new ProviderGame(id, "Game", "https://example.com/game");
         });
 
         using var response = await host.Client.GetAsync($"/api/metadata-providers/{Provider}/game-resolution{suffix}");
@@ -429,7 +429,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         }, search: _ =>
         {
             calls++;
-            return new ProviderGameSearchResultDto([], ProviderGameSearchCompleteness.ProviderLimited, 100);
+            return new ProviderGameSearchResult([], ProviderGameSearchCompleteness.ProviderLimited, 100);
         });
 
         using var response = await host.Client.GetAsync($"/api/metadata-providers/{Provider}/{route}?{field}=Game&{field}=Other");
@@ -466,18 +466,18 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
     ///     that resolves any id to a game unless <paramref name="resolve" /> answers instead.
     /// </summary>
     private ProviderHost WithProvider(ProviderAvailability? availability = null,
-        Func<string, ErrorOr<ProviderGameDto>>? resolve = null,
-        Func<string, ErrorOr<ProviderGameSearchResultDto>>? search = null)
+        Func<string, ErrorOr<ProviderGame>>? resolve = null,
+        Func<string, ErrorOr<ProviderGameSearchResult>>? search = null)
     {
         var adapter = Substitute.For<IProviderIdentityAdapter>();
         adapter.Id.Returns(Provider);
         adapter.Name.Returns("Fake provider");
         adapter.Capabilities.Returns(["artwork"]);
         adapter.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(availability ?? new ProviderAvailability(true, true));
-        resolve ??= id => new ProviderGameDto(id, "Game", "https://example.com/game");
+        resolve ??= id => new ProviderGame(id, "Game", "https://example.com/game");
         adapter.ResolveAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             Task.FromResult(resolve(call.Arg<string>())));
-        search ??= _ => new ProviderGameSearchResultDto([], ProviderGameSearchCompleteness.ProviderLimited, 100);
+        search ??= _ => new ProviderGameSearchResult([], ProviderGameSearchCompleteness.ProviderLimited, 100);
         adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
             Task.FromResult(search(call.Arg<string>())));
         var factory = fixture.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>

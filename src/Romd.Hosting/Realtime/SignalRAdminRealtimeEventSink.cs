@@ -14,7 +14,7 @@ public sealed class SignalRAdminRealtimeEventSink(
     SignalRStatsNotifier statsNotifier,
     DashboardStatsCache cache) : IAdminRealtimeEventSink
 {
-    public Task SendJobUpdatedAsync(JobDto job, int schemaVersion, CancellationToken ct = default) =>
+    public Task SendJobUpdatedAsync(Job job, int schemaVersion, CancellationToken ct = default) =>
         jobNotifier.SendJobUpdatedAsync(job, schemaVersion, ct);
 
     public async Task SendTitleEnrichedAsync(

@@ -10,12 +10,16 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using ContractSystemOverrides = Romd.Contracts.Common.ReferenceCatalog.SystemOverrides;
+
+using SystemOverrides = Romd.Domain.ReferenceData.SystemOverrides;
+
 namespace Romd.Infrastructure.Tests.ReferenceData;
 
 public sealed class EffectiveReferenceCatalogTests
 {
     private static RomdDbContext Open(PostgreSqlTestDatabase database) => new(new DbContextOptionsBuilder<RomdDbContext>().UseNpgsql(database.ConnectionString).Options);
-    private static SystemPatchDto Patch(string json) => JsonSerializer.Deserialize<SystemPatchDto>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+    private static SystemPatch Patch(string json) => JsonSerializer.Deserialize<SystemPatch>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
 
 
     private static JsonObject NextCatalog()
@@ -148,7 +152,7 @@ public sealed class EffectiveReferenceCatalogTests
         var created = await new TypedReferenceTestCommands(db).CreateSystem(new("local-future-system", "Future System", CompactLabel: "FUT"), default);
         created.Value.Resource.Ownership.ShouldBe("Installation");
         var edited = await new TypedReferenceTestCommands(db).UpdateSystem("local-future-system", Patch("""{"name":"Changed"}"""), created.Value.Revision, default);
-        edited.Value.Overrides.ShouldBe(new SystemOverridesDto(null, null, null, null, null, false, false));
+        edited.Value.Overrides.ShouldBe(new ContractSystemOverrides(null, null, null, null, null, false, false));
         var row = await db.Platforms.SingleAsync(x => x.CanonicalKey == "local-future-system");
         row.Ownership.ShouldBe(ReferenceOwnership.Installation);
         row.BaseName.ShouldBe("Changed");
@@ -191,8 +195,8 @@ public sealed class EffectiveReferenceCatalogTests
         await using var first = Open(database);
         await using var second = Open(database);
         var results = await Task.WhenAll(
-            new TypedReferenceTestCommands(first).UpdateSystem("snes", new SystemPatchDto { Name = "First editor" }, original.Revision, default),
-            new TypedReferenceTestCommands(second).UpdateSystem("snes", new SystemPatchDto { Name = "Second editor" }, original.Revision, default));
+            new TypedReferenceTestCommands(first).UpdateSystem("snes", new SystemPatch { Name = "First editor" }, original.Revision, default),
+            new TypedReferenceTestCommands(second).UpdateSystem("snes", new SystemPatch { Name = "Second editor" }, original.Revision, default));
         results.Count(result => !result.IsError).ShouldBe(1);
         results.Single(result => result.IsError).FirstError.Code.ShouldBe("ReferenceResource.PreconditionFailed");
     }
@@ -230,7 +234,7 @@ public sealed class EffectiveReferenceCatalogTests
     [Fact]
     public void Patch_RoundTrip_PreservesOnlySuppliedFieldsIncludingNull()
     {
-        var patch = new SystemPatchDto { Name = "Changed", Icon = null };
+        var patch = new SystemPatch { Name = "Changed", Icon = null };
         var roundTrip = Patch(JsonSerializer.Serialize(patch));
         roundTrip.Changes.Keys.Order().ShouldBe(new[] { "icon", "name" });
         roundTrip.Changes["icon"].ValueKind.ShouldBe(JsonValueKind.Null);

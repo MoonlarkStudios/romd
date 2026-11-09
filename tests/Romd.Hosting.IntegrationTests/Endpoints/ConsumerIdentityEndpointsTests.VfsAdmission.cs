@@ -48,11 +48,11 @@ public sealed partial class ConsumerIdentityEndpointsTests
         Guid ownerId = ownerUser.Id;
         using var owner = fixture.CreateAuthenticatedClient(ownerId, ownerUser.Email!, library);
         using var other = fixture.CreateAuthenticatedClient(otherUser.Id, otherUser.Email!, library);
-        async Task<VfsConnectionCredentialDto> IssueAsync(HttpClient account)
+        async Task<VfsConnectionCredential> IssueAsync(HttpClient account)
         {
             using var response = await account.PostAsJsonAsync("/api/me/connections", new SaveVfsConnectionRequest("Admission"));
             response.StatusCode.ShouldBe(HttpStatusCode.Created);
-            return (await response.Content.ReadFromJsonAsync<VfsConnectionCredentialDto>())!;
+            return (await response.Content.ReadFromJsonAsync<VfsConnectionCredential>())!;
         }
         var ownerCredential = await IssueAsync(owner);
         var otherCredential = await IssueAsync(other);
@@ -66,7 +66,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         var held = new List<IDisposable>();
         var pending = new List<Task<HttpResponseMessage>>();
 
-        async Task<HttpResponseMessage> ReadAsync(VfsConnectionCredentialDto credential, CancellationToken token)
+        async Task<HttpResponseMessage> ReadAsync(VfsConnectionCredential credential, CancellationToken token)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, route);
             request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(

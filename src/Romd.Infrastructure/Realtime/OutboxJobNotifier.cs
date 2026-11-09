@@ -6,6 +6,10 @@ using Romd.Domain.Jobs;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 
+using ContractJob = Romd.Contracts.Management.Models.Job;
+
+using Job = Romd.Domain.Jobs.Job;
+
 namespace Romd.Infrastructure.Realtime;
 
 public sealed class OutboxJobNotifier(
@@ -17,7 +21,7 @@ public sealed class OutboxJobNotifier(
     public Task NotifyJobUpdatedAsync(Job job, CancellationToken ct = default) =>
         commitGate.RunNotifierCommitAsync(async () =>
         {
-            JobDto payload = job.ToContract(await new Romd.Persistence.Queries.SystemSummaryReader(context).ReadKeysAsync(ct));
+            ContractJob payload = job.ToContract(await new Romd.Persistence.Queries.SystemSummaryReader(context).ReadKeysAsync(ct));
             var previouslyTrackedEvents = CaptureTrackedEvents();
 
             try

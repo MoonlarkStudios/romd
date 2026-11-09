@@ -13,8 +13,8 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
-  type LibraryConfigurationDto,
-  type LibraryDto,
+  type Library,
+  type LibraryConfiguration,
   previewLibraryConfiguration,
 } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
@@ -30,12 +30,12 @@ export function LibraryGames({
   library,
   onDirtyChange,
 }: {
-  library: LibraryDto;
+  library: Library;
   onDirtyChange: (dirty: boolean) => void;
 }) {
   // Start from the configuration LibraryRules reports on mount, so opening Games evaluates once
   // instead of re-evaluating its normalized copy after the draft debounce.
-  const [configuration, setConfiguration] = useState<LibraryConfigurationDto>(() =>
+  const [configuration, setConfiguration] = useState<LibraryConfiguration>(() =>
     toConfiguration(toFormState(library)),
   );
   const [panel, setPanel] = useState('rules');
@@ -82,8 +82,8 @@ function DraftResults({
   library,
   configuration,
 }: {
-  library: LibraryDto;
-  configuration: LibraryConfigurationDto;
+  library: Library;
+  configuration: LibraryConfiguration;
 }) {
   const [search, setSearch] = useState('');
   const [view, setView] = useState('matching');
@@ -119,7 +119,7 @@ function DraftResults({
           libraryId: library.id,
         },
         body: {
-          configuration: JSON.parse(debounced) as LibraryConfigurationDto,
+          configuration: JSON.parse(debounced) as LibraryConfiguration,
           view,
           query: debouncedSearch,
           cursor: activeCursor,

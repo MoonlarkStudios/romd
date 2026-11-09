@@ -1,11 +1,11 @@
-import type { ConsumerTitleCardDto } from '@romd/consumer-api-client';
+import type { ConsumerTitleCard } from '@romd/consumer-api-client';
 import { act, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from '../../test/utils/render';
 import { TitleRail } from './TitleRail';
 
 vi.mock('./PosterCard', () => ({
-  PosterCard: ({ title }: { title: ConsumerTitleCardDto }) => <div>{title.name}</div>,
+  PosterCard: ({ title }: { title: ConsumerTitleCard }) => <div>{title.name}</div>,
 }));
 const titles = Array.from(
   {
@@ -15,7 +15,7 @@ const titles = Array.from(
     id: String(i),
     name: `Game ${i}`,
   }),
-) as ConsumerTitleCardDto[];
+) as ConsumerTitleCard[];
 afterEach(() => vi.unstubAllGlobals());
 
 function setup() {

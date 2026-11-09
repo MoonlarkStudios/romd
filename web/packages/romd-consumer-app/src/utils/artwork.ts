@@ -1,11 +1,11 @@
-import type { ResolvedArtworkDto } from '@romd/consumer-api-client';
+import type { ResolvedArtwork } from '@romd/consumer-api-client';
 import { artworkCrop } from '@romd/consumer-ui';
 
 export type ArtworkRole = 'Poster' | 'Hero' | 'Logo' | 'Backdrop';
 
 /** Select delivery variants only; source originals are never fetched by the client. */
 export function selectArtwork(
-  artwork: ReadonlyArray<ResolvedArtworkDto> | undefined,
+  artwork: ReadonlyArray<ResolvedArtwork> | undefined,
   role: ArtworkRole,
   displayWidth: number,
   pixelRatio = 1,

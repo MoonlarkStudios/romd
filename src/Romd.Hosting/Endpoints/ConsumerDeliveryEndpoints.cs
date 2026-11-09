@@ -11,6 +11,9 @@ using Romd.Contracts.Consumer.Delivery;
 using Romd.Contracts.Consumer.Releases;
 using Romd.Host.Authorization;
 
+using ContractConsumerPlatformBios = Romd.Contracts.Consumer.Delivery.ConsumerPlatformBios;
+using ContractConsumerReleaseManifest = Romd.Contracts.Consumer.Releases.ConsumerReleaseManifest;
+
 namespace Romd.Host.Endpoints;
 
 public static class ConsumerDeliveryEndpoints
@@ -23,7 +26,7 @@ public static class ConsumerDeliveryEndpoints
 
         group.MapPost("manifest", IssueReleaseManifest)
             .WithName("IssueConsumerReleaseManifest")
-            .Produces<ConsumerReleaseManifestDto>()
+            .Produces<ContractConsumerReleaseManifest>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
 
@@ -41,7 +44,7 @@ public static class ConsumerDeliveryEndpoints
             .WithTags("Consumer Delivery")
             .RequireAuthorization(AuthorizationPolicies.RequireUser)
             .WithName("GetConsumerSystemBios")
-            .Produces<ConsumerPlatformBiosDto>()
+            .Produces<ContractConsumerPlatformBios>()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status401Unauthorized);
 
@@ -61,7 +64,7 @@ public static class ConsumerDeliveryEndpoints
 
     private static async Task<IResult> GetPlatformBios(
         SystemKeyParameter systemKey,
-        IQueryHandler<GetConsumerPlatformBiosQuery, ConsumerPlatformBiosDto> handler,
+        IQueryHandler<GetConsumerPlatformBiosQuery, ContractConsumerPlatformBios> handler,
         CancellationToken ct)
     {
         var query = new GetConsumerPlatformBiosQuery(systemKey.SystemId);
@@ -74,7 +77,7 @@ public static class ConsumerDeliveryEndpoints
 
     private static async Task<IResult> IssueReleaseManifest(
         Sqid releaseId,
-        ICommandHandler<IssueConsumerReleaseManifestCommand, ConsumerReleaseManifestDto> handler,
+        ICommandHandler<IssueConsumerReleaseManifestCommand, ContractConsumerReleaseManifest> handler,
         CancellationToken ct)
     {
         var command = new IssueConsumerReleaseManifestCommand(releaseId);

@@ -25,6 +25,8 @@ using Romd.Persistence.Repositories;
 using Shouldly;
 using Xunit;
 
+using MaterializationJob = Romd.Domain.Jobs.MaterializationJob;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 [Collection(IntegrationTestCollection.Name)]
@@ -51,14 +53,14 @@ public sealed class UserLibraryTransactionSettlementTests
         string persistedId = (await AssertEffectsAsync(host, surface, name, before, durable: true)).ShouldNotBeNull();
         if (surface == "user")
         {
-            var body = (await response.Content.ReadFromJsonAsync<UserDto>(host.Json)).ShouldNotBeNull();
+            var body = (await response.Content.ReadFromJsonAsync<User>(host.Json)).ShouldNotBeNull();
             body.Id.ToString().ShouldBe(persistedId);
             body.Email.ShouldBe(name);
             body.Roles.ShouldBe(["User"]);
         }
         else
         {
-            var body = (await response.Content.ReadFromJsonAsync<LibraryDto>(host.Json)).ShouldNotBeNull();
+            var body = (await response.Content.ReadFromJsonAsync<Library>(host.Json)).ShouldNotBeNull();
             body.Id.ShouldBe(persistedId);
             body.Name.ShouldBe(name);
             body.NeedsMaterialization.ShouldBeTrue();
@@ -158,11 +160,11 @@ public sealed class UserLibraryTransactionSettlementTests
         using var libraryResponse = await client.PostAsJsonAsync("/api/libraries", new CreateLibraryRequest(
             Name("library"), IsDefault: true));
         libraryResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var library = (await libraryResponse.Content.ReadFromJsonAsync<LibraryDto>(host.Json)).ShouldNotBeNull();
+        var library = (await libraryResponse.Content.ReadFromJsonAsync<Library>(host.Json)).ShouldNotBeNull();
         using var userResponse = await client.PostAsJsonAsync("/api/users", new CreateUserRequest(
             Name("user"), "Password123", "User", library.Id));
         userResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var user = (await userResponse.Content.ReadFromJsonAsync<UserDto>(host.Json)).ShouldNotBeNull();
+        var user = (await userResponse.Content.ReadFromJsonAsync<User>(host.Json)).ShouldNotBeNull();
         var before = await SnapshotAsync(host);
         host.Probe.Arm(null, false, CleanupFault(cancellation: true));
 
@@ -191,7 +193,7 @@ public sealed class UserLibraryTransactionSettlementTests
         using var client = host.CreateAuthenticatedClient();
         using var libraryResponse = await client.PostAsJsonAsync("/api/libraries", new CreateLibraryRequest(Name("library")));
         libraryResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var library = (await libraryResponse.Content.ReadFromJsonAsync<LibraryDto>(host.Json)).ShouldNotBeNull();
+        var library = (await libraryResponse.Content.ReadFromJsonAsync<Library>(host.Json)).ShouldNotBeNull();
         string route = $"/api/libraries/{library.Id}/materialize";
         using var first = await client.PostAsync(route, null);
         first.StatusCode.ShouldBe(HttpStatusCode.Accepted, await first.Content.ReadAsStringAsync());

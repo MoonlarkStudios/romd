@@ -19,6 +19,11 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using ContractOriginalDiscLayout = Romd.Contracts.Management.Models.OriginalDiscLayout;
+
+using JobItem = Romd.Domain.Jobs.JobItem;
+using UploadJob = Romd.Domain.Jobs.UploadJob;
+
 namespace Romd.Infrastructure.Tests.Persistence;
 
 public sealed partial class OriginalDiscLayoutTests : IDisposable
@@ -49,7 +54,7 @@ public sealed partial class OriginalDiscLayoutTests : IDisposable
         db.SaveChanges();
     }
     private static FileEntityPersistence File(int id, byte[] bytes) => new() { Id = id, Sha256 = Sha256.FromBytes(SHA256.HashData(bytes)), Size = bytes.Length, SizeOnDisk = bytes.Length };
-    private async Task<OriginalDiscLayoutDto> Intake(string path = "game.cue", int file = 2)
+    private async Task<ContractOriginalDiscLayout> Intake(string path = "game.cue", int file = 2)
     {
         await using var db = database.CreateContext();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -59,7 +64,7 @@ public sealed partial class OriginalDiscLayoutTests : IDisposable
         await tx.CommitAsync();
         return (await service.ListAsync(null, null, 100, default)).Value.Items.Last();
     }
-    private async Task<OriginalDiscLayoutDto> Confirm(OriginalDiscLayoutDto layout, OriginalDiscLayoutDto? replaces = null)
+    private async Task<ContractOriginalDiscLayout> Confirm(ContractOriginalDiscLayout layout, ContractOriginalDiscLayout? replaces = null)
     {
         await using var db = database.CreateContext();
         var result = await DecideAsync(db, Decode(layout.Id), new(layout.Revision, "confirm", IdCoder.Encode(1),
@@ -330,7 +335,7 @@ public sealed partial class OriginalDiscLayoutTests : IDisposable
     private sealed record VersionedDecision(Guid Revision, string Action, string? ReleaseId,
         IReadOnlyList<OriginalDiscDependencyChoice>? Dependencies, string? Reason, string? ReplacesLayoutId = null, Guid? ReplacesRevision = null);
 
-    private static Task<ErrorOr.ErrorOr<OriginalDiscLayoutDto>> DecideAsync(RomdDbContext db, int id, VersionedDecision decision, Guid actor, CancellationToken ct) =>
+    private static Task<ErrorOr.ErrorOr<ContractOriginalDiscLayout>> DecideAsync(RomdDbContext db, int id, VersionedDecision decision, Guid actor, CancellationToken ct) =>
         new DecideOriginalDiscLayoutCommandHandler(new OriginalDiscLayoutService(db, new FileMutationLock(db)), new EfUnitOfWork(db), MediaTestServices.CreateReconciliationRequests(db, TimeProvider.System), Microsoft.Extensions.Logging.Abstractions.NullLogger<DecideOriginalDiscLayoutCommandHandler>.Instance).HandleAsync(
             new(id, new(decision.Action, decision.ReleaseId, decision.Dependencies, decision.Reason, decision.ReplacesLayoutId, decision.ReplacesRevision),
                 RevisionPrecondition.For(decision.Revision.ToString()), actor), ct);

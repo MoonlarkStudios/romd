@@ -1,11 +1,11 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
 import { waitFor } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import { storeJobSnapshot } from './jobCache';
 import { jobKeys } from './useJobs';
 
-const job = (index: number): JobDto => ({
+const job = (index: number): Job => ({
   id: `${index.toString().padStart(8, '0')}-0000-4000-8000-000000000000`,
   correlationId: 'batch',
   jobType: 'upload',

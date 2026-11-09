@@ -13,7 +13,7 @@ import {
   Title,
   VisuallyHidden,
 } from '@mantine/core';
-import type { PlaySessionDto } from '@romd/consumer-api-client';
+import type { PlaySession } from '@romd/consumer-api-client';
 import { IconDots } from '@tabler/icons-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -273,7 +273,7 @@ export function Activity() {
   );
 }
 
-function SessionRow({ session, onDelete }: { session: PlaySessionDto; onDelete: () => void }) {
+function SessionRow({ session, onDelete }: { session: PlaySession; onDelete: () => void }) {
   // The shared query cache deduplicates repeated games across sessions and pages.
   const title = useTitleDetail(session.titleId);
   const name = title.data?.name ?? (title.isLoading ? 'Loading game…' : 'Game unavailable');

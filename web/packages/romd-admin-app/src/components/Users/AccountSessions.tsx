@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Group, Stack, Table, Tabs, Text } from '@mantine/core';
-import type { AccountSessionDto } from '@romd/admin-api-client';
+import type { AccountSession } from '@romd/admin-api-client';
 import { useState } from 'react';
 
 export function AccountSessions({
@@ -8,7 +8,7 @@ export function AccountSessions({
   onRevokeOthers,
   pending,
 }: {
-  sessions: AccountSessionDto[];
+  sessions: AccountSession[];
   onRevoke: (id: string | null) => void;
   onRevokeOthers?: () => void;
   pending: boolean;

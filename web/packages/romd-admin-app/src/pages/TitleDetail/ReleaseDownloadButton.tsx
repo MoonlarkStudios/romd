@@ -1,7 +1,7 @@
 import { Button, Group, NativeSelect, Tooltip } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
-  type ArchiveFormatDto,
+  type ArchiveFormat,
   type CreateDownloadTicketRequest,
   createDownloadTicket,
   type TitleFileRequirement,
@@ -19,7 +19,7 @@ export function ReleaseDownloadButton({
   releaseId,
 }: {
   files: TitleFileRequirement[];
-  formats: ArchiveFormatDto[];
+  formats: ArchiveFormat[];
   name: string;
   releaseId?: string | null;
 }) {

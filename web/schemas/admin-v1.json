@@ -186,7 +186,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfAccountSessionDto"
+                  "$ref": "#/components/schemas/PageOfAccountSession"
                 }
               }
             }
@@ -332,7 +332,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfUserDto"
+                  "$ref": "#/components/schemas/PageOfUser"
                 }
               }
             }
@@ -379,7 +379,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserDto"
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
@@ -430,7 +430,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserDto"
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
@@ -489,7 +489,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserDto"
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
@@ -602,7 +602,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserDto"
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
@@ -663,7 +663,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserDto"
+                  "$ref": "#/components/schemas/User"
                 }
               }
             }
@@ -774,7 +774,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AccountSecurityDto"
+                  "$ref": "#/components/schemas/AccountSecurity"
                 }
               }
             }
@@ -843,7 +843,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfAccountLinkDto"
+                  "$ref": "#/components/schemas/PageOfAccountLink"
                 }
               }
             }
@@ -911,7 +911,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IssuedAccountLinkDto"
+                  "$ref": "#/components/schemas/IssuedAccountLink"
                 }
               }
             }
@@ -990,7 +990,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfAccountSessionDto"
+                  "$ref": "#/components/schemas/PageOfAccountSession"
                 }
               }
             }
@@ -1274,7 +1274,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfAdminAuditEventDto"
+                  "$ref": "#/components/schemas/PageOfAdminAuditEvent"
                 }
               }
             }
@@ -1332,7 +1332,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfCollectionLibraryPlacementDto"
+                  "$ref": "#/components/schemas/PageOfCollectionLibraryPlacement"
                 }
               }
             }
@@ -1409,7 +1409,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfOriginalDiscLayoutDto"
+                  "$ref": "#/components/schemas/PageOfOriginalDiscLayout"
                 }
               }
             }
@@ -1447,7 +1447,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OriginalDiscLayoutDto"
+                  "$ref": "#/components/schemas/OriginalDiscLayout"
                 }
               }
             }
@@ -1522,7 +1522,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OriginalDiscLayoutDto"
+                  "$ref": "#/components/schemas/OriginalDiscLayout"
                 }
               }
             }
@@ -1637,7 +1637,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfOriginalDiscLayoutCandidateDto"
+                  "$ref": "#/components/schemas/PageOfOriginalDiscLayoutCandidate"
                 }
               }
             }
@@ -1695,7 +1695,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfOriginalDiscLayoutAuditDto"
+                  "$ref": "#/components/schemas/PageOfOriginalDiscLayoutAudit"
                 }
               }
             }
@@ -1735,7 +1735,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CdStorageRecipeDto"
+                  "$ref": "#/components/schemas/CdStorageRecipe"
                 }
               }
             }
@@ -1852,7 +1852,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatCatalogDirectoryDto"
+                  "$ref": "#/components/schemas/DatCatalogDirectory"
                 }
               }
             }
@@ -1901,7 +1901,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/ArtworkProviderDto"
+                    "$ref": "#/components/schemas/ArtworkProvider"
                   }
                 }
               }
@@ -1942,7 +1942,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StorageStatsDto"
+                  "$ref": "#/components/schemas/StorageStats"
                 }
               }
             }
@@ -1972,7 +1972,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CoverageStatsDto"
+                  "$ref": "#/components/schemas/CoverageStats"
                 }
               }
             }
@@ -2002,7 +2002,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SystemHealthDto"
+                  "$ref": "#/components/schemas/SystemHealth"
                 }
               }
             }
@@ -2033,7 +2033,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DashboardStatusBarDto"
+                  "$ref": "#/components/schemas/DashboardStatusBar"
                 }
               }
             }
@@ -2071,7 +2071,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReferenceCatalogDescriptorDto"
+                  "$ref": "#/components/schemas/ReferenceCatalogDescriptor"
                 }
               }
             }
@@ -2143,7 +2143,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceSystemDto"
+                  "$ref": "#/components/schemas/PageOfReferenceSystem"
                 }
               }
             }
@@ -2222,7 +2222,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceNamedDto"
+                  "$ref": "#/components/schemas/PageOfReferenceNamed"
                 }
               }
             }
@@ -2301,7 +2301,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceTaxonomyDto"
+                  "$ref": "#/components/schemas/PageOfReferenceTaxonomy"
                 }
               }
             }
@@ -2380,7 +2380,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceTaxonomyDto"
+                  "$ref": "#/components/schemas/PageOfReferenceTaxonomy"
                 }
               }
             }
@@ -2459,7 +2459,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceRatingBoardDto"
+                  "$ref": "#/components/schemas/PageOfReferenceRatingBoard"
                 }
               }
             }
@@ -2538,7 +2538,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfReferenceRatingDto"
+                  "$ref": "#/components/schemas/PageOfReferenceRating"
                 }
               }
             }
@@ -2708,7 +2708,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfLibraryDto"
+                  "$ref": "#/components/schemas/PageOfLibrary"
                 }
               }
             }
@@ -2755,7 +2755,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LibraryDto"
+                  "$ref": "#/components/schemas/Library"
                 }
               }
             }
@@ -2795,7 +2795,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LibraryDto"
+                  "$ref": "#/components/schemas/Library"
                 }
               }
             }
@@ -2853,7 +2853,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LibraryDto"
+                  "$ref": "#/components/schemas/Library"
                 }
               }
             }
@@ -2978,7 +2978,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LibraryDiscSetOptionsDto"
+                  "$ref": "#/components/schemas/LibraryDiscSetOptions"
                 }
               }
             }
@@ -3099,7 +3099,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/LibraryFacetDto"
+                    "$ref": "#/components/schemas/LibraryFacet"
                   }
                 }
               }
@@ -3179,7 +3179,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfLibraryFacetDto"
+                  "$ref": "#/components/schemas/PageOfLibraryFacet"
                 }
               }
             }
@@ -3258,7 +3258,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfLibraryCollectionDto"
+                  "$ref": "#/components/schemas/PageOfLibraryCollection"
                 }
               }
             }
@@ -3334,7 +3334,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfLibraryTitleReleaseDiagnosticsDto"
+                  "$ref": "#/components/schemas/PageOfLibraryTitleReleaseDiagnostics"
                 }
               }
             }
@@ -3387,7 +3387,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/LibraryAttachmentDto"
+                    "$ref": "#/components/schemas/LibraryAttachment"
                   }
                 }
               }
@@ -3514,7 +3514,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfLibraryPreviewTitleDto"
+                  "$ref": "#/components/schemas/PageOfLibraryPreviewTitle"
                 }
               }
             }
@@ -3574,7 +3574,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LibraryEvaluationDto"
+                  "$ref": "#/components/schemas/LibraryEvaluation"
                 }
               }
             }
@@ -4054,7 +4054,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfJobDto"
+                  "$ref": "#/components/schemas/PageOfJob"
                 }
               }
             }
@@ -4095,7 +4095,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobDto"
+                  "$ref": "#/components/schemas/Job"
                 }
               }
             }
@@ -4154,7 +4154,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobDto"
+                  "$ref": "#/components/schemas/Job"
                 }
               }
             }
@@ -4319,7 +4319,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfJobItemDto"
+                  "$ref": "#/components/schemas/PageOfJobItem"
                 }
               }
             }
@@ -4401,7 +4401,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfArtworkCompletionItemDto"
+                  "$ref": "#/components/schemas/PageOfArtworkCompletionItem"
                 }
               }
             }
@@ -4452,7 +4452,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtworkCompletionSummaryDto"
+                  "$ref": "#/components/schemas/ArtworkCompletionSummary"
                 }
               }
             }
@@ -5826,7 +5826,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfDiscSetDto"
+                  "$ref": "#/components/schemas/PageOfDiscSet"
                 }
               }
             }
@@ -5884,7 +5884,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DiscSetDto"
+                  "$ref": "#/components/schemas/DiscSet"
                 }
               }
             }
@@ -5959,7 +5959,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DiscSetDto"
+                  "$ref": "#/components/schemas/DiscSet"
                 }
               }
             }
@@ -6891,7 +6891,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfManagedSystemDto"
+                  "$ref": "#/components/schemas/PageOfManagedSystem"
                 }
               }
             }
@@ -6992,7 +6992,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SystemDatPreviewDto"
+                  "$ref": "#/components/schemas/SystemDatPreview"
                 }
               }
             }
@@ -8597,7 +8597,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfTrackedCollectionTitleDto"
+                  "$ref": "#/components/schemas/PageOfTrackedCollectionTitle"
                 }
               }
             }
@@ -8627,7 +8627,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TrackedCollectionStatsDto"
+                  "$ref": "#/components/schemas/TrackedCollectionStats"
                 }
               }
             }
@@ -8945,7 +8945,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfCollectionItemDto"
+                  "$ref": "#/components/schemas/PageOfCollectionItem"
                 }
               }
             }
@@ -9012,7 +9012,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CollectionItemDto"
+                  "$ref": "#/components/schemas/CollectionItem"
                 }
               }
             }
@@ -9080,7 +9080,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CollectionItemDto"
+                  "$ref": "#/components/schemas/CollectionItem"
                 }
               }
             }
@@ -9348,7 +9348,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfEnrichmentAssessmentDto"
+                  "$ref": "#/components/schemas/PageOfEnrichmentAssessment"
                 }
               }
             }
@@ -9388,7 +9388,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EnrichmentWorkbenchCountsDto"
+                  "$ref": "#/components/schemas/EnrichmentWorkbenchCounts"
                 }
               }
             }
@@ -9426,7 +9426,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtworkEnrichmentSettingsDto"
+                  "$ref": "#/components/schemas/ArtworkEnrichmentSettings"
                 }
               }
             }
@@ -9483,7 +9483,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtworkEnrichmentSettingsDto"
+                  "$ref": "#/components/schemas/ArtworkEnrichmentSettings"
                 }
               }
             }
@@ -9855,7 +9855,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtworkAcquisitionStateDto"
+                  "$ref": "#/components/schemas/ArtworkAcquisitionState"
                 }
               }
             }
@@ -9965,7 +9965,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/EnrichmentAssessmentDto"
+                  "$ref": "#/components/schemas/EnrichmentAssessment"
                 }
               }
             }
@@ -10033,7 +10033,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlatformMetadataPolicyDto"
+                  "$ref": "#/components/schemas/PlatformMetadataPolicy"
                 }
               }
             }
@@ -10109,7 +10109,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlatformMetadataPolicyDto"
+                  "$ref": "#/components/schemas/PlatformMetadataPolicy"
                 }
               }
             }
@@ -10861,7 +10861,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/DatCatalogSubscriptionDto"
+                    "$ref": "#/components/schemas/DatCatalogSubscription"
                   }
                 }
               }
@@ -10910,7 +10910,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatCatalogSubscriptionDto"
+                  "$ref": "#/components/schemas/DatCatalogSubscription"
                 }
               }
             }
@@ -10920,7 +10920,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatCatalogSubscriptionDto"
+                  "$ref": "#/components/schemas/DatCatalogSubscription"
                 }
               }
             }
@@ -10970,7 +10970,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatCatalogSubscriptionDto"
+                  "$ref": "#/components/schemas/DatCatalogSubscription"
                 }
               }
             }
@@ -11073,7 +11073,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatCatalogSubscriptionDto"
+                  "$ref": "#/components/schemas/DatCatalogSubscription"
                 }
               }
             }
@@ -11549,7 +11549,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MediaReconciliationPolicyDto"
+                    "$ref": "#/components/schemas/MediaReconciliationPolicy"
                   }
                 }
               }
@@ -11897,7 +11897,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IgdbProviderSettingsDto"
+                  "$ref": "#/components/schemas/IgdbProviderSettings"
                 }
               }
             }
@@ -11954,7 +11954,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IgdbProviderSettingsDto"
+                  "$ref": "#/components/schemas/IgdbProviderSettings"
                 }
               }
             }
@@ -12033,7 +12033,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/IgdbProviderSettingsDto"
+                  "$ref": "#/components/schemas/IgdbProviderSettings"
                 }
               }
             }
@@ -12091,7 +12091,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SteamGridDbSettingsDto"
+                  "$ref": "#/components/schemas/SteamGridDbSettings"
                 }
               }
             }
@@ -12148,7 +12148,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SteamGridDbSettingsDto"
+                  "$ref": "#/components/schemas/SteamGridDbSettings"
                 }
               }
             }
@@ -12227,7 +12227,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SteamGridDbSettingsDto"
+                  "$ref": "#/components/schemas/SteamGridDbSettings"
                 }
               }
             }
@@ -12287,7 +12287,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtworkCompletionPreviewDto"
+                  "$ref": "#/components/schemas/ArtworkCompletionPreview"
                 }
               }
             }
@@ -12415,7 +12415,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleArtworkDto"
+                  "$ref": "#/components/schemas/TitleArtwork"
                 }
               }
             }
@@ -12487,7 +12487,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtworkSelectionStateDto"
+                  "$ref": "#/components/schemas/ArtworkSelectionState"
                 }
               }
             }
@@ -12577,7 +12577,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArtworkSelectionStateDto"
+                  "$ref": "#/components/schemas/ArtworkSelectionState"
                 }
               }
             }
@@ -12807,7 +12807,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfSavedArtworkDto"
+                  "$ref": "#/components/schemas/PageOfSavedArtwork"
                 }
               }
             }
@@ -12883,7 +12883,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleArtworkDto"
+                  "$ref": "#/components/schemas/TitleArtwork"
                 }
               }
             }
@@ -12980,7 +12980,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfRejectedArtworkDto"
+                  "$ref": "#/components/schemas/PageOfRejectedArtwork"
                 }
               }
             }
@@ -13056,7 +13056,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleArtworkDto"
+                  "$ref": "#/components/schemas/TitleArtwork"
                 }
               }
             }
@@ -13150,7 +13150,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleArtworkDto"
+                  "$ref": "#/components/schemas/TitleArtwork"
                 }
               }
             }
@@ -13256,7 +13256,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleArtworkDto"
+                  "$ref": "#/components/schemas/TitleArtwork"
                 }
               }
             }
@@ -13389,7 +13389,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfArtworkCandidateDto"
+                  "$ref": "#/components/schemas/PageOfArtworkCandidate"
                 }
               }
             }
@@ -13715,7 +13715,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/TitleProviderMatchDto"
+                    "$ref": "#/components/schemas/TitleProviderMatch"
                   }
                 }
               }
@@ -13782,7 +13782,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleProviderMatchDto"
+                  "$ref": "#/components/schemas/TitleProviderMatch"
                 }
               }
             }
@@ -13876,7 +13876,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleProviderMatchDto"
+                  "$ref": "#/components/schemas/TitleProviderMatch"
                 }
               }
             }
@@ -14000,7 +14000,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleProviderMatchDto"
+                  "$ref": "#/components/schemas/TitleProviderMatch"
                 }
               }
             }
@@ -14106,7 +14106,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TitleProviderMatchDto"
+                  "$ref": "#/components/schemas/TitleProviderMatch"
                 }
               }
             }
@@ -14195,7 +14195,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderGameSearchResultDto"
+                  "$ref": "#/components/schemas/ProviderGameSearchResult"
                 }
               }
             }
@@ -14284,7 +14284,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProviderGameDto"
+                  "$ref": "#/components/schemas/ProviderGame"
                 }
               }
             }
@@ -14355,7 +14355,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationalDiagnosticsDto"
+                  "$ref": "#/components/schemas/OperationalDiagnostics"
                 }
               }
             }
@@ -14420,7 +14420,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfSystemResourceDto"
+                  "$ref": "#/components/schemas/PageOfSystemResource"
                 }
               }
             }
@@ -14446,7 +14446,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateSystemDto"
+                "$ref": "#/components/schemas/CreateSystem"
               }
             }
           },
@@ -14473,7 +14473,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SystemResourceDto"
+                  "$ref": "#/components/schemas/SystemResource"
                 }
               }
             }
@@ -14541,7 +14541,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SystemResourceDto"
+                  "$ref": "#/components/schemas/SystemResource"
                 }
               }
             }
@@ -14589,7 +14589,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SystemPatchDto"
+                "$ref": "#/components/schemas/SystemPatch"
               }
             }
           },
@@ -14619,7 +14619,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SystemResourceDto"
+                  "$ref": "#/components/schemas/SystemResource"
                 }
               }
             }
@@ -14787,7 +14787,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SystemOverridesDto"
+                  "$ref": "#/components/schemas/SystemOverrides"
                 }
               }
             }
@@ -15041,7 +15041,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfCompanyResourceDto"
+                  "$ref": "#/components/schemas/PageOfCompanyResource"
                 }
               }
             }
@@ -15067,7 +15067,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateCompanyDto"
+                "$ref": "#/components/schemas/CreateCompany"
               }
             }
           },
@@ -15094,7 +15094,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CompanyResourceDto"
+                  "$ref": "#/components/schemas/CompanyResource"
                 }
               }
             }
@@ -15152,7 +15152,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CompanyResourceDto"
+                  "$ref": "#/components/schemas/CompanyResource"
                 }
               }
             }
@@ -15210,7 +15210,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CompanyPatchDto"
+                "$ref": "#/components/schemas/CompanyPatch"
               }
             }
           },
@@ -15230,7 +15230,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CompanyResourceDto"
+                  "$ref": "#/components/schemas/CompanyResource"
                 }
               }
             }
@@ -15398,7 +15398,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CompanyOverridesDto"
+                  "$ref": "#/components/schemas/CompanyOverrides"
                 }
               }
             }
@@ -15655,7 +15655,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfRegionDto"
+                  "$ref": "#/components/schemas/PageOfRegion"
                 }
               }
             }
@@ -15704,7 +15704,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RegionDto"
+                  "$ref": "#/components/schemas/Region"
                 }
               }
             }
@@ -15776,7 +15776,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfAliasDto"
+                  "$ref": "#/components/schemas/PageOfAliasResource"
                 }
               }
             }
@@ -15844,7 +15844,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AliasDto"
+                  "$ref": "#/components/schemas/AliasResource"
                 }
               }
             }
@@ -15979,7 +15979,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaxonomyMergeImpactDto"
+                  "$ref": "#/components/schemas/TaxonomyMergeImpact"
                 }
               }
             }
@@ -16118,7 +16118,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfLanguageDto"
+                  "$ref": "#/components/schemas/PageOfLanguage"
                 }
               }
             }
@@ -16167,7 +16167,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LanguageDto"
+                  "$ref": "#/components/schemas/Language"
                 }
               }
             }
@@ -16239,7 +16239,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageOfAliasDto"
+                  "$ref": "#/components/schemas/PageOfAliasResource"
                 }
               }
             }
@@ -16307,7 +16307,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AliasDto"
+                  "$ref": "#/components/schemas/AliasResource"
                 }
               }
             }
@@ -16442,7 +16442,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaxonomyMergeImpactDto"
+                  "$ref": "#/components/schemas/TaxonomyMergeImpact"
                 }
               }
             }
@@ -16556,7 +16556,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RatingBoardResourceDto"
+                    "$ref": "#/components/schemas/RatingBoardResource"
                   }
                 }
               }
@@ -16605,7 +16605,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RatingBoardResourceDto"
+                  "$ref": "#/components/schemas/RatingBoardResource"
                 }
               }
             }
@@ -16661,7 +16661,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RatingResourceDto"
+                    "$ref": "#/components/schemas/RatingResource"
                   }
                 }
               }
@@ -16728,7 +16728,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RatingResourceDto"
+                  "$ref": "#/components/schemas/RatingResource"
                 }
               }
             }
@@ -16762,7 +16762,7 @@
   },
   "components": {
     "schemas": {
-      "AccountLinkDto": {
+      "AccountLink": {
         "required": [
           "id",
           "purpose",
@@ -16792,7 +16792,7 @@
           }
         }
       },
-      "AccountSecurityDto": {
+      "AccountSecurity": {
         "required": [
           "links",
           "sessions"
@@ -16800,14 +16800,14 @@
         "type": "object",
         "properties": {
           "links": {
-            "$ref": "#/components/schemas/PageOfAccountLinkDto"
+            "$ref": "#/components/schemas/PageOfAccountLink"
           },
           "sessions": {
-            "$ref": "#/components/schemas/PageOfAccountSessionDto"
+            "$ref": "#/components/schemas/PageOfAccountSession"
           }
         }
       },
-      "AccountSessionDto": {
+      "AccountSession": {
         "required": [
           "id",
           "client",
@@ -16920,7 +16920,7 @@
           }
         }
       },
-      "AdminAuditEventDto": {
+      "AdminAuditEvent": {
         "required": [
           "id",
           "actorId",
@@ -16980,7 +16980,7 @@
           }
         }
       },
-      "AliasDto": {
+      "AliasResource": {
         "required": [
           "ownership",
           "id",
@@ -17055,7 +17055,7 @@
           }
         }
       },
-      "ArchiveFormatDto": {
+      "ArchiveFormat": {
         "required": [
           "format",
           "label"
@@ -17075,7 +17075,7 @@
           }
         }
       },
-      "ArtworkAcquisitionDto": {
+      "ArtworkAcquisition": {
         "required": [
           "role",
           "status",
@@ -17102,7 +17102,7 @@
           }
         }
       },
-      "ArtworkAcquisitionStateDto": {
+      "ArtworkAcquisitionState": {
         "required": [
           "outcomes",
           "activeJobId"
@@ -17112,7 +17112,7 @@
           "outcomes": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkAcquisitionDto"
+              "$ref": "#/components/schemas/ArtworkAcquisition"
             }
           },
           "activeJobId": {
@@ -17124,7 +17124,7 @@
           }
         }
       },
-      "ArtworkCandidateDto": {
+      "ArtworkCandidate": {
         "required": [
           "reference",
           "candidateId",
@@ -17185,7 +17185,7 @@
           }
         }
       },
-      "ArtworkCompletionFilterDto": {
+      "ArtworkCompletionFilter": {
         "type": "object",
         "properties": {
           "query": {
@@ -17237,7 +17237,7 @@
           }
         }
       },
-      "ArtworkCompletionItemDto": {
+      "ArtworkCompletionItem": {
         "required": [
           "titleId",
           "titleName",
@@ -17261,7 +17261,7 @@
           "roles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkRoleCountDto"
+              "$ref": "#/components/schemas/ArtworkRoleCount"
             }
           },
           "metadataOutcome": {
@@ -17280,7 +17280,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/EnrichmentSummaryDto"
+                "$ref": "#/components/schemas/EnrichmentSummary"
               }
             ]
           },
@@ -17301,7 +17301,7 @@
           null
         ]
       },
-      "ArtworkCompletionPreviewDto": {
+      "ArtworkCompletionPreview": {
         "required": [
           "titles",
           "roles"
@@ -17315,7 +17315,7 @@
           "roles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkRoleCountDto"
+              "$ref": "#/components/schemas/ArtworkRoleCount"
             }
           }
         }
@@ -17349,7 +17349,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ArtworkCompletionFilterDto"
+                "$ref": "#/components/schemas/ArtworkCompletionFilter"
               }
             ]
           },
@@ -17379,7 +17379,7 @@
           "Done"
         ]
       },
-      "ArtworkCompletionSummaryDto": {
+      "ArtworkCompletionSummary": {
         "required": [
           "roles",
           "review",
@@ -17392,7 +17392,7 @@
           "roles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkRoleCountDto"
+              "$ref": "#/components/schemas/ArtworkRoleCount"
             }
           },
           "review": {
@@ -17413,7 +17413,7 @@
           }
         }
       },
-      "ArtworkEnrichmentSettingsDto": {
+      "ArtworkEnrichmentSettings": {
         "required": [
           "revision",
           "fillPosters",
@@ -17459,7 +17459,7 @@
           "Pinned"
         ]
       },
-      "ArtworkProviderDto": {
+      "ArtworkProvider": {
         "required": [
           "id",
           "name",
@@ -17484,7 +17484,7 @@
           "roles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkRoleCapabilityDto"
+              "$ref": "#/components/schemas/ArtworkRoleCapability"
             }
           },
           "gameId": {
@@ -17525,7 +17525,7 @@
           null
         ]
       },
-      "ArtworkRoleCapabilityDto": {
+      "ArtworkRoleCapability": {
         "required": [
           "role",
           "dimensions",
@@ -17550,7 +17550,7 @@
           }
         }
       },
-      "ArtworkRoleCountDto": {
+      "ArtworkRoleCount": {
         "required": [
           "role",
           "status",
@@ -17570,7 +17570,7 @@
           }
         }
       },
-      "ArtworkSelectionStateDto": {
+      "ArtworkSelectionState": {
         "required": [
           "role",
           "mode",
@@ -17605,7 +17605,7 @@
           }
         }
       },
-      "ArtworkVariantDto": {
+      "ArtworkVariant": {
         "required": [
           "name",
           "url",
@@ -17939,7 +17939,7 @@
           }
         }
       },
-      "CatalogProjectionDiagnosticDto": {
+      "CatalogProjectionDiagnostic": {
         "required": [
           "systemKey",
           "platformName",
@@ -17982,7 +17982,7 @@
           }
         }
       },
-      "CatalogProjectionDiagnosticsDto": {
+      "CatalogProjectionDiagnostics": {
         "required": [
           "availability",
           "items",
@@ -18002,7 +18002,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CatalogProjectionDiagnosticDto"
+              "$ref": "#/components/schemas/CatalogProjectionDiagnostic"
             }
           },
           "isTruncated": {
@@ -18028,7 +18028,7 @@
           "artwork": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ResolvedArtworkDto"
+              "$ref": "#/components/schemas/ResolvedArtwork"
             }
           },
           "id": {
@@ -18046,7 +18046,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/EnrichmentSummaryDto"
+                "$ref": "#/components/schemas/EnrichmentSummary"
               }
             ]
           },
@@ -18095,7 +18095,7 @@
           }
         }
       },
-      "CdStorageRecipeDto": {
+      "CdStorageRecipe": {
         "required": [
           "available",
           "recipeVersion",
@@ -18201,11 +18201,11 @@
             "format": "date-time"
           },
           "items": {
-            "$ref": "#/components/schemas/PageOfCollectionItemDto"
+            "$ref": "#/components/schemas/PageOfCollectionItem"
           }
         }
       },
-      "CollectionItemDto": {
+      "CollectionItem": {
         "required": [
           "titleId",
           "titleName",
@@ -18244,7 +18244,7 @@
           }
         }
       },
-      "CollectionLibraryPlacementDto": {
+      "CollectionLibraryPlacement": {
         "required": [
           "libraryId",
           "name",
@@ -18311,7 +18311,7 @@
           }
         }
       },
-      "CompanyOverridesDto": {
+      "CompanyOverrides": {
         "required": [
           "name",
           "description",
@@ -18336,7 +18336,7 @@
           }
         }
       },
-      "CompanyPatchDto": {
+      "CompanyPatch": {
         "type": "object",
         "properties": {
           "name": {
@@ -18351,7 +18351,7 @@
         },
         "additionalProperties": false
       },
-      "CompanyResourceDto": {
+      "CompanyResource": {
         "required": [
           "key",
           "ownership",
@@ -18393,7 +18393,7 @@
           }
         }
       },
-      "CompanySummaryDto": {
+      "CompanySummary": {
         "required": [
           "key",
           "name"
@@ -18408,7 +18408,7 @@
           }
         }
       },
-      "ContentRatingPolicyDto": {
+      "ContentRatingPolicy": {
         "type": "object",
         "properties": {
           "basisSelection": {
@@ -18435,7 +18435,7 @@
           }
         }
       },
-      "CoverageStatsDto": {
+      "CoverageStats": {
         "required": [
           "expectedTitleCount",
           "localPayloadTitleCount",
@@ -18503,7 +18503,7 @@
           }
         }
       },
-      "CreateCompanyDto": {
+      "CreateCompany": {
         "required": [
           "key",
           "name"
@@ -18580,7 +18580,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/LibraryConfigurationDto"
+                "$ref": "#/components/schemas/LibraryConfiguration"
               }
             ]
           },
@@ -18590,7 +18590,7 @@
           }
         }
       },
-      "CreateSystemDto": {
+      "CreateSystem": {
         "required": [
           "key",
           "name",
@@ -18696,7 +18696,7 @@
           }
         }
       },
-      "DashboardStatusBarDto": {
+      "DashboardStatusBar": {
         "required": [
           "storage",
           "coverage",
@@ -18705,13 +18705,13 @@
         "type": "object",
         "properties": {
           "storage": {
-            "$ref": "#/components/schemas/StorageStatsDto"
+            "$ref": "#/components/schemas/StorageStats"
           },
           "coverage": {
-            "$ref": "#/components/schemas/CoverageStatsDto"
+            "$ref": "#/components/schemas/CoverageStats"
           },
           "health": {
-            "$ref": "#/components/schemas/SystemHealthDto"
+            "$ref": "#/components/schemas/SystemHealth"
           }
         }
       },
@@ -18804,7 +18804,7 @@
           }
         }
       },
-      "DatCatalogDirectoryDto": {
+      "DatCatalogDirectory": {
         "required": [
           "enabled",
           "message",
@@ -18824,12 +18824,12 @@
           "catalogs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PublishedDatCatalogDto"
+              "$ref": "#/components/schemas/PublishedDatCatalog"
             }
           }
         }
       },
-      "DatCatalogSubscriptionDto": {
+      "DatCatalogSubscription": {
         "required": [
           "id",
           "catalogId",
@@ -19353,44 +19353,7 @@
           "Unavailable"
         ]
       },
-      "DiscSetDefinitionDto": {
-        "required": [
-          "name",
-          "expectedDiscCount",
-          "members",
-          "reviewReasons",
-          "ruleVersion"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "expectedDiscCount": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int32"
-          },
-          "members": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DiscSetMemberDto"
-            }
-          },
-          "reviewReasons": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "ruleVersion": {
-            "type": "string"
-          }
-        }
-      },
-      "DiscSetDto": {
+      "DiscSet": {
         "required": [
           "id",
           "catalogSourceId",
@@ -19425,7 +19388,7 @@
             "type": "string"
           },
           "proposal": {
-            "$ref": "#/components/schemas/DiscSetDefinitionDto"
+            "$ref": "#/components/schemas/DiscSetDefinition"
           },
           "correction": {
             "oneOf": [
@@ -19433,7 +19396,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/DiscSetDefinitionDto"
+                "$ref": "#/components/schemas/DiscSetDefinition"
               }
             ]
           },
@@ -19459,7 +19422,44 @@
           }
         }
       },
-      "DiscSetMemberDto": {
+      "DiscSetDefinition": {
+        "required": [
+          "name",
+          "expectedDiscCount",
+          "members",
+          "reviewReasons",
+          "ruleVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "expectedDiscCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscSetMember"
+            }
+          },
+          "reviewReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ruleVersion": {
+            "type": "string"
+          }
+        }
+      },
+      "DiscSetMember": {
         "required": [
           "entryKey",
           "name",
@@ -19517,7 +19517,7 @@
           "ExportJob"
         ]
       },
-      "EnrichmentAssessmentDto": {
+      "EnrichmentAssessment": {
         "required": [
           "titleId",
           "titleName",
@@ -19560,7 +19560,7 @@
           "requirements": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/EnrichmentRequirementDto"
+              "$ref": "#/components/schemas/EnrichmentRequirement"
             }
           },
           "acceptedOmissions": {
@@ -19592,29 +19592,7 @@
           "Processing"
         ]
       },
-      "EnrichmentRequirementCause": {
-        "enum": [
-          "MatchDecisionRequired",
-          "NoMatchFound",
-          "ProviderUnconfigured",
-          "ProviderDisabled",
-          "ProviderUnavailable",
-          "Discover",
-          "Working",
-          "NotProvided",
-          "ProviderSuppressed",
-          "AwaitingIdentity",
-          "NotAttempted",
-          "Stale",
-          "ArtworkDecisionRequired",
-          "NothingUsable",
-          "AcquisitionFailed",
-          "Importing",
-          "Searching",
-          null
-        ]
-      },
-      "EnrichmentRequirementDto": {
+      "EnrichmentRequirement": {
         "required": [
           "key",
           "kind",
@@ -19666,6 +19644,28 @@
           }
         }
       },
+      "EnrichmentRequirementCause": {
+        "enum": [
+          "MatchDecisionRequired",
+          "NoMatchFound",
+          "ProviderUnconfigured",
+          "ProviderDisabled",
+          "ProviderUnavailable",
+          "Discover",
+          "Working",
+          "NotProvided",
+          "ProviderSuppressed",
+          "AwaitingIdentity",
+          "NotAttempted",
+          "Stale",
+          "ArtworkDecisionRequired",
+          "NothingUsable",
+          "AcquisitionFailed",
+          "Importing",
+          "Searching",
+          null
+        ]
+      },
       "EnrichmentRequirementSatisfiedBy": {
         "enum": [
           "Present",
@@ -19715,7 +19715,7 @@
           }
         }
       },
-      "EnrichmentSummaryDto": {
+      "EnrichmentSummary": {
         "required": [
           "needsReview",
           "canEnrichAutomatically",
@@ -19738,7 +19738,7 @@
           }
         }
       },
-      "EnrichmentWorkbenchCountsDto": {
+      "EnrichmentWorkbenchCounts": {
         "required": [
           "total",
           "needsReview",
@@ -19789,32 +19789,6 @@
           }
         }
       },
-      "ExternalIdDto": {
-        "required": [
-          "provider",
-          "externalId"
-        ],
-        "type": "object",
-        "properties": {
-          "provider": {
-            "type": "string"
-          },
-          "externalId": {
-            "type": "string"
-          },
-          "matchConfidence": {
-            "type": "number",
-            "format": "float"
-          },
-          "isConfirmed": {
-            "type": "boolean"
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "FacetItem": {
         "required": [
           "value",
@@ -19831,7 +19805,7 @@
           }
         }
       },
-      "HangfireDiagnosticsDto": {
+      "HangfireDiagnostics": {
         "required": [
           "availability",
           "servers",
@@ -19854,7 +19828,7 @@
           "servers": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/HangfireServerDiagnosticDto"
+              "$ref": "#/components/schemas/HangfireServerDiagnostic"
             }
           },
           "serversTruncated": {
@@ -19863,7 +19837,7 @@
           "recurringJobs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RecurringJobDiagnosticDto"
+              "$ref": "#/components/schemas/RecurringJobDiagnostic"
             }
           },
           "recurringJobsTruncated": {
@@ -19872,12 +19846,12 @@
           "queueBacklogs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/QueueBacklogDiagnosticDto"
+              "$ref": "#/components/schemas/QueueBacklogDiagnostic"
             }
           }
         }
       },
-      "HangfireServerDiagnosticDto": {
+      "HangfireServerDiagnostic": {
         "required": [
           "name",
           "workerCount",
@@ -19936,7 +19910,7 @@
         "type": "string",
         "format": "binary"
       },
-      "IgdbProviderSettingsDto": {
+      "IgdbProviderSettings": {
         "required": [
           "enabled",
           "clientId",
@@ -20070,7 +20044,7 @@
           }
         }
       },
-      "IssuedAccountLinkDto": {
+      "IssuedAccountLink": {
         "required": [
           "userId",
           "token",
@@ -20095,60 +20069,60 @@
           }
         }
       },
-      "JobDto": {
+      "Job": {
         "required": [
           "jobType"
         ],
         "type": "object",
         "anyOf": [
           {
-            "$ref": "#/components/schemas/JobDtoUploadJobDto"
+            "$ref": "#/components/schemas/JobUploadJob"
           },
           {
-            "$ref": "#/components/schemas/JobDtoReplaceDatJobDto"
+            "$ref": "#/components/schemas/JobReplaceDatJob"
           },
           {
-            "$ref": "#/components/schemas/JobDtoEnrichmentJobDto"
+            "$ref": "#/components/schemas/JobEnrichmentJob"
           },
           {
-            "$ref": "#/components/schemas/JobDtoBulkEnrichmentJobDto"
+            "$ref": "#/components/schemas/JobBulkEnrichmentJob"
           },
           {
-            "$ref": "#/components/schemas/JobDtoArtworkCompletionOperationDto"
+            "$ref": "#/components/schemas/JobArtworkCompletionOperation"
           },
           {
-            "$ref": "#/components/schemas/JobDtoMetadataRematerializationJobDto"
+            "$ref": "#/components/schemas/JobMetadataRematerializationJob"
           },
           {
-            "$ref": "#/components/schemas/JobDtoExportJobDto"
+            "$ref": "#/components/schemas/JobExportJob"
           },
           {
-            "$ref": "#/components/schemas/JobDtoMaterializationJobDto"
+            "$ref": "#/components/schemas/JobMaterializationJob"
           },
           {
-            "$ref": "#/components/schemas/JobDtoArtworkImportJobDto"
+            "$ref": "#/components/schemas/JobArtworkImportJob"
           },
           {
-            "$ref": "#/components/schemas/JobDtoMediaReconciliationJobDto"
+            "$ref": "#/components/schemas/JobMediaReconciliationJob"
           }
         ],
         "discriminator": {
           "propertyName": "jobType",
           "mapping": {
-            "upload": "#/components/schemas/JobDtoUploadJobDto",
-            "replace_dat": "#/components/schemas/JobDtoReplaceDatJobDto",
-            "enrichment": "#/components/schemas/JobDtoEnrichmentJobDto",
-            "bulk_enrichment": "#/components/schemas/JobDtoBulkEnrichmentJobDto",
-            "artwork-completion": "#/components/schemas/JobDtoArtworkCompletionOperationDto",
-            "metadata-rematerialization": "#/components/schemas/JobDtoMetadataRematerializationJobDto",
-            "export": "#/components/schemas/JobDtoExportJobDto",
-            "materialization": "#/components/schemas/JobDtoMaterializationJobDto",
-            "artwork-import": "#/components/schemas/JobDtoArtworkImportJobDto",
-            "media-reconciliation": "#/components/schemas/JobDtoMediaReconciliationJobDto"
+            "upload": "#/components/schemas/JobUploadJob",
+            "replace_dat": "#/components/schemas/JobReplaceDatJob",
+            "enrichment": "#/components/schemas/JobEnrichmentJob",
+            "bulk_enrichment": "#/components/schemas/JobBulkEnrichmentJob",
+            "artwork-completion": "#/components/schemas/JobArtworkCompletionOperation",
+            "metadata-rematerialization": "#/components/schemas/JobMetadataRematerializationJob",
+            "export": "#/components/schemas/JobExportJob",
+            "materialization": "#/components/schemas/JobMaterializationJob",
+            "artwork-import": "#/components/schemas/JobArtworkImportJob",
+            "media-reconciliation": "#/components/schemas/JobMediaReconciliationJob"
           }
         }
       },
-      "JobDtoArtworkCompletionOperationDto": {
+      "JobArtworkCompletionOperation": {
         "required": [
           "id",
           "correlationId",
@@ -20256,7 +20230,7 @@
           }
         }
       },
-      "JobDtoArtworkImportJobDto": {
+      "JobArtworkImportJob": {
         "required": [
           "titleId",
           "role",
@@ -20371,7 +20345,7 @@
           }
         }
       },
-      "JobDtoBulkEnrichmentJobDto": {
+      "JobBulkEnrichmentJob": {
         "required": [
           "id",
           "correlationId",
@@ -20489,7 +20463,7 @@
           }
         }
       },
-      "JobDtoEnrichmentJobDto": {
+      "JobEnrichmentJob": {
         "required": [
           "titleId",
           "id",
@@ -20587,7 +20561,31 @@
           }
         }
       },
-      "JobDtoExportJobDto": {
+      "JobError": {
+        "required": [
+          "item",
+          "message",
+          "occurredAt"
+        ],
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "default": "Unknown"
+          }
+        }
+      },
+      "JobExportJob": {
         "required": [
           "id",
           "correlationId",
@@ -20718,7 +20716,103 @@
           }
         }
       },
-      "JobDtoMaterializationJobDto": {
+      "JobItem": {
+        "required": [
+          "id",
+          "kind",
+          "fileName",
+          "sizeBytes",
+          "outcome",
+          "matchedTitles"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "$ref": "#/components/schemas/ByteCount"
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "romFileId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "datFileId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "systemKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "platformName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "matchedTitles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobItemTitle"
+            }
+          },
+          "gameCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "archiveOnly": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "error": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "JobItemTitle": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "JobMaterializationJob": {
         "required": [
           "id",
           "correlationId",
@@ -20834,7 +20928,7 @@
           }
         }
       },
-      "JobDtoMediaReconciliationJobDto": {
+      "JobMediaReconciliationJob": {
         "required": [
           "requestMode",
           "id",
@@ -20860,7 +20954,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/MediaReconciliationSubjectDto"
+                "$ref": "#/components/schemas/MediaReconciliationSubject"
               }
             ]
           },
@@ -20870,7 +20964,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/MediaReconciliationSelectionDto"
+                "$ref": "#/components/schemas/MediaReconciliationSelection"
               }
             ]
           },
@@ -20971,7 +21065,7 @@
           }
         }
       },
-      "JobDtoMetadataRematerializationJobDto": {
+      "JobMetadataRematerializationJob": {
         "required": [
           "id",
           "correlationId",
@@ -21077,7 +21171,19 @@
           }
         }
       },
-      "JobDtoReplaceDatJobDto": {
+      "JobReference": {
+        "required": [
+          "jobId"
+        ],
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "JobReplaceDatJob": {
         "required": [
           "existingDatId",
           "id",
@@ -21181,7 +21287,7 @@
           }
         }
       },
-      "JobDtoUploadJobDto": {
+      "JobUploadJob": {
         "required": [
           "id",
           "correlationId",
@@ -21319,139 +21425,7 @@
           }
         }
       },
-      "JobError": {
-        "required": [
-          "item",
-          "message",
-          "occurredAt"
-        ],
-        "type": "object",
-        "properties": {
-          "item": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "occurredAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "reason": {
-            "type": "string",
-            "default": "Unknown"
-          }
-        }
-      },
-      "JobItemDto": {
-        "required": [
-          "id",
-          "kind",
-          "fileName",
-          "sizeBytes",
-          "outcome",
-          "matchedTitles"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "fileName": {
-            "type": "string"
-          },
-          "sizeBytes": {
-            "$ref": "#/components/schemas/ByteCount"
-          },
-          "outcome": {
-            "type": "string"
-          },
-          "romFileId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "datFileId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "systemKey": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "platformName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "matchedTitles": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/JobItemTitleDto"
-            }
-          },
-          "gameCount": {
-            "type": [
-              "null",
-              "integer"
-            ],
-            "format": "int32"
-          },
-          "archiveOnly": {
-            "type": [
-              "null",
-              "boolean"
-            ]
-          },
-          "error": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "JobItemTitleDto": {
-        "required": [
-          "id",
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "JobReference": {
-        "required": [
-          "jobId"
-        ],
-        "type": "object",
-        "properties": {
-          "jobId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "LanguageDto": {
+      "Language": {
         "required": [
           "key",
           "ownership",
@@ -21509,11 +21483,94 @@
             "type": "boolean"
           },
           "aliases": {
-            "$ref": "#/components/schemas/PageOfAliasDto"
+            "$ref": "#/components/schemas/PageOfAliasResource"
           }
         }
       },
-      "LibraryAttachmentDto": {
+      "Library": {
+        "required": [
+          "id",
+          "name",
+          "configurationState",
+          "isDefault",
+          "needsMaterialization",
+          "itemCount",
+          "exportFormats",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "collectionIds": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "configuration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LibraryConfiguration"
+              }
+            ]
+          },
+          "configurationState": {
+            "type": "string"
+          },
+          "configurationError": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "needsMaterialization": {
+            "type": "boolean"
+          },
+          "lastMaterializedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "itemCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "exportFormats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArchiveFormat"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "LibraryAttachment": {
         "required": [
           "collectionId",
           "name",
@@ -21581,7 +21638,7 @@
           }
         }
       },
-      "LibraryCollectionDto": {
+      "LibraryCollection": {
         "required": [
           "id",
           "name",
@@ -21606,7 +21663,7 @@
           }
         }
       },
-      "LibraryConfigurationDto": {
+      "LibraryConfiguration": {
         "type": "object",
         "properties": {
           "includeUntrackedTitles": {
@@ -21633,7 +21690,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ContentRatingPolicyDto"
+                "$ref": "#/components/schemas/ContentRatingPolicy"
               }
             ]
           },
@@ -21669,7 +21726,7 @@
           }
         }
       },
-      "LibraryDiscSetOptionDto": {
+      "LibraryDiscSetOption": {
         "required": [
           "id",
           "name",
@@ -21722,7 +21779,7 @@
           }
         }
       },
-      "LibraryDiscSetOptionsDto": {
+      "LibraryDiscSetOptions": {
         "required": [
           "selectedIds",
           "selected",
@@ -21739,98 +21796,15 @@
           "selected": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryDiscSetOptionDto"
+              "$ref": "#/components/schemas/LibraryDiscSetOption"
             }
           },
           "page": {
-            "$ref": "#/components/schemas/PageOfLibraryDiscSetOptionDto"
+            "$ref": "#/components/schemas/PageOfLibraryDiscSetOption"
           }
         }
       },
-      "LibraryDto": {
-        "required": [
-          "id",
-          "name",
-          "configurationState",
-          "isDefault",
-          "needsMaterialization",
-          "itemCount",
-          "exportFormats",
-          "createdAt"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "collectionIds": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "type": "string"
-            }
-          },
-          "configuration": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/LibraryConfigurationDto"
-              }
-            ]
-          },
-          "configurationState": {
-            "type": "string"
-          },
-          "configurationError": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "isDefault": {
-            "type": "boolean"
-          },
-          "needsMaterialization": {
-            "type": "boolean"
-          },
-          "lastMaterializedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          },
-          "itemCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "exportFormats": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ArchiveFormatDto"
-            }
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          }
-        }
-      },
-      "LibraryEvaluationDto": {
+      "LibraryEvaluation": {
         "required": [
           "evaluatedAt",
           "savedCount",
@@ -21865,15 +21839,15 @@
           "removalReasons": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryEvaluationReasonDto"
+              "$ref": "#/components/schemas/LibraryEvaluationReason"
             }
           },
           "page": {
-            "$ref": "#/components/schemas/PageOfLibraryEvaluationTitleDto"
+            "$ref": "#/components/schemas/PageOfLibraryEvaluationTitle"
           }
         }
       },
-      "LibraryEvaluationReasonDto": {
+      "LibraryEvaluationReason": {
         "required": [
           "reason",
           "count"
@@ -21896,7 +21870,7 @@
         "type": "object",
         "properties": {
           "configuration": {
-            "$ref": "#/components/schemas/LibraryConfigurationDto"
+            "$ref": "#/components/schemas/LibraryConfiguration"
           },
           "view": {
             "type": "string",
@@ -21921,7 +21895,7 @@
           }
         }
       },
-      "LibraryEvaluationTitleDto": {
+      "LibraryEvaluationTitle": {
         "required": [
           "id",
           "name",
@@ -21997,7 +21971,7 @@
           }
         }
       },
-      "LibraryFacetDto": {
+      "LibraryFacet": {
         "required": [
           "id",
           "name",
@@ -22017,7 +21991,7 @@
           }
         }
       },
-      "LibraryPreviewTitleDto": {
+      "LibraryPreviewTitle": {
         "required": [
           "id",
           "name",
@@ -22094,7 +22068,7 @@
           }
         }
       },
-      "LibraryTitleReleaseDiagnosticsDto": {
+      "LibraryTitleReleaseDiagnostics": {
         "required": [
           "id",
           "datId",
@@ -22149,7 +22123,7 @@
           "IncludeOnly"
         ]
       },
-      "ManagedSystemDto": {
+      "ManagedSystem": {
         "required": [
           "key",
           "name",
@@ -22205,7 +22179,7 @@
           }
         }
       },
-      "MediaReconciliationPolicyDto": {
+      "MediaReconciliationPolicy": {
         "required": [
           "kindId",
           "recipeId",
@@ -22250,7 +22224,7 @@
           }
         }
       },
-      "MediaReconciliationSelectionDto": {
+      "MediaReconciliationSelection": {
         "required": [
           "filter",
           "limit",
@@ -22316,7 +22290,7 @@
           }
         }
       },
-      "MediaReconciliationSubjectDto": {
+      "MediaReconciliationSubject": {
         "required": [
           "kind",
           "id"
@@ -22370,7 +22344,7 @@
           }
         }
       },
-      "MetadataLayerDto": {
+      "MetadataLayer": {
         "required": [
           "sourceId",
           "sourceType"
@@ -22478,7 +22452,7 @@
           }
         }
       },
-      "OperationalDiagnosticsDto": {
+      "OperationalDiagnostics": {
         "required": [
           "generatedAt",
           "catalogProjections",
@@ -22494,23 +22468,23 @@
             "format": "date-time"
           },
           "catalogProjections": {
-            "$ref": "#/components/schemas/CatalogProjectionDiagnosticsDto"
+            "$ref": "#/components/schemas/CatalogProjectionDiagnostics"
           },
           "jobs": {
-            "$ref": "#/components/schemas/OperationalJobDiagnosticsDto"
+            "$ref": "#/components/schemas/OperationalJobDiagnostics"
           },
           "outbox": {
-            "$ref": "#/components/schemas/OutboxDiagnosticsDto"
+            "$ref": "#/components/schemas/OutboxDiagnostics"
           },
           "hangfire": {
-            "$ref": "#/components/schemas/HangfireDiagnosticsDto"
+            "$ref": "#/components/schemas/HangfireDiagnostics"
           },
           "storage": {
-            "$ref": "#/components/schemas/StorageDiagnosticsDto"
+            "$ref": "#/components/schemas/StorageDiagnostics"
           }
         }
       },
-      "OperationalJobDiagnosticsDto": {
+      "OperationalJobDiagnostics": {
         "required": [
           "availability",
           "wedgedReplaceDatJobs",
@@ -22532,7 +22506,7 @@
           "wedgedReplaceDatJobs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/WedgedReplaceDatJobDto"
+              "$ref": "#/components/schemas/WedgedReplaceDatJob"
             }
           },
           "wedgedReplaceDatJobsTruncated": {
@@ -22541,7 +22515,7 @@
           "strandedBulkEnrichmentJobs": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StrandedBulkEnrichmentJobDto"
+              "$ref": "#/components/schemas/StrandedBulkEnrichmentJob"
             }
           },
           "strandedBulkEnrichmentJobsTruncated": {
@@ -22549,7 +22523,43 @@
           }
         }
       },
-      "OriginalDiscDependencyCandidateDto": {
+      "OriginalDiscDependency": {
+        "required": [
+          "path",
+          "romId",
+          "sha256",
+          "sizeBytes"
+        ],
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "romId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sha256": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sizeBytes": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ByteCount"
+              }
+            ]
+          }
+        }
+      },
+      "OriginalDiscDependencyCandidate": {
         "required": [
           "romId",
           "name",
@@ -22587,186 +22597,7 @@
           }
         }
       },
-      "OriginalDiscDependencyDto": {
-        "required": [
-          "path",
-          "romId",
-          "sha256",
-          "sizeBytes"
-        ],
-        "type": "object",
-        "properties": {
-          "path": {
-            "type": "string"
-          },
-          "romId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "sha256": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "sizeBytes": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ByteCount"
-              }
-            ]
-          }
-        }
-      },
-      "OriginalDiscLayoutAuditDto": {
-        "required": [
-          "revision",
-          "action",
-          "actor",
-          "at",
-          "reason"
-        ],
-        "type": "object",
-        "properties": {
-          "revision": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "action": {
-            "type": "string"
-          },
-          "actor": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "reason": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        }
-      },
-      "OriginalDiscLayoutCandidateDto": {
-        "required": [
-          "releaseId",
-          "name",
-          "fingerprint",
-          "systemKey",
-          "systemName",
-          "files",
-          "requirements",
-          "currentLayoutId",
-          "currentLayoutRevision"
-        ],
-        "type": "object",
-        "properties": {
-          "releaseId": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "fingerprint": {
-            "type": "string"
-          },
-          "systemKey": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "systemName": {
-            "type": "string"
-          },
-          "files": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/OriginalDiscDependencyCandidateDto"
-            }
-          },
-          "requirements": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/OriginalDiscRequirementDto"
-            }
-          },
-          "currentLayoutId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "currentLayoutRevision": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          }
-        }
-      },
-      "OriginalDiscLayoutDecisionRequest": {
-        "required": [
-          "action",
-          "releaseId",
-          "dependencies",
-          "reason"
-        ],
-        "type": "object",
-        "properties": {
-          "action": {
-            "type": "string"
-          },
-          "releaseId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "dependencies": {
-            "type": [
-              "null",
-              "array"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/OriginalDiscDependencyChoice"
-            }
-          },
-          "reason": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "replacesLayoutId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "replacesRevision": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          }
-        }
-      },
-      "OriginalDiscLayoutDto": {
+      "OriginalDiscLayout": {
         "required": [
           "id",
           "revision",
@@ -22838,15 +22669,158 @@
           "dependencies": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/OriginalDiscDependencyDto"
+              "$ref": "#/components/schemas/OriginalDiscDependency"
             }
           },
           "audit": {
-            "$ref": "#/components/schemas/PageOfOriginalDiscLayoutAuditDto"
+            "$ref": "#/components/schemas/PageOfOriginalDiscLayoutAudit"
           }
         }
       },
-      "OriginalDiscRequirementDto": {
+      "OriginalDiscLayoutAudit": {
+        "required": [
+          "revision",
+          "action",
+          "actor",
+          "at",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string"
+          },
+          "actor": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "OriginalDiscLayoutCandidate": {
+        "required": [
+          "releaseId",
+          "name",
+          "fingerprint",
+          "systemKey",
+          "systemName",
+          "files",
+          "requirements",
+          "currentLayoutId",
+          "currentLayoutRevision"
+        ],
+        "type": "object",
+        "properties": {
+          "releaseId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "systemKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "systemName": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OriginalDiscDependencyCandidate"
+            }
+          },
+          "requirements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OriginalDiscRequirement"
+            }
+          },
+          "currentLayoutId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currentLayoutRevision": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "OriginalDiscLayoutDecisionRequest": {
+        "required": [
+          "action",
+          "releaseId",
+          "dependencies",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "releaseId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dependencies": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/OriginalDiscDependencyChoice"
+            }
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "replacesLayoutId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "replacesRevision": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "OriginalDiscRequirement": {
         "required": [
           "name",
           "sha1",
@@ -22876,7 +22850,7 @@
           }
         }
       },
-      "OutboxDiagnosticsDto": {
+      "OutboxDiagnostics": {
         "required": [
           "availability",
           "pendingCount",
@@ -22917,7 +22891,7 @@
           }
         }
       },
-      "PageOfAccountLinkDto": {
+      "PageOfAccountLink": {
         "required": [
           "items",
           "hasNextPage"
@@ -22927,7 +22901,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AccountLinkDto"
+              "$ref": "#/components/schemas/AccountLink"
             }
           },
           "nextCursor": {
@@ -22941,7 +22915,7 @@
           }
         }
       },
-      "PageOfAccountSessionDto": {
+      "PageOfAccountSession": {
         "required": [
           "items",
           "hasNextPage"
@@ -22951,7 +22925,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AccountSessionDto"
+              "$ref": "#/components/schemas/AccountSession"
             }
           },
           "nextCursor": {
@@ -22965,7 +22939,7 @@
           }
         }
       },
-      "PageOfAdminAuditEventDto": {
+      "PageOfAdminAuditEvent": {
         "required": [
           "items",
           "hasNextPage"
@@ -22975,7 +22949,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AdminAuditEventDto"
+              "$ref": "#/components/schemas/AdminAuditEvent"
             }
           },
           "nextCursor": {
@@ -22989,7 +22963,7 @@
           }
         }
       },
-      "PageOfAliasDto": {
+      "PageOfAliasResource": {
         "required": [
           "items",
           "hasNextPage"
@@ -22999,7 +22973,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/AliasDto"
+              "$ref": "#/components/schemas/AliasResource"
             }
           },
           "nextCursor": {
@@ -23013,7 +22987,7 @@
           }
         }
       },
-      "PageOfArtworkCandidateDto": {
+      "PageOfArtworkCandidate": {
         "required": [
           "items",
           "hasNextPage"
@@ -23023,7 +22997,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkCandidateDto"
+              "$ref": "#/components/schemas/ArtworkCandidate"
             }
           },
           "nextCursor": {
@@ -23037,7 +23011,7 @@
           }
         }
       },
-      "PageOfArtworkCompletionItemDto": {
+      "PageOfArtworkCompletionItem": {
         "required": [
           "items",
           "hasNextPage"
@@ -23047,7 +23021,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkCompletionItemDto"
+              "$ref": "#/components/schemas/ArtworkCompletionItem"
             }
           },
           "nextCursor": {
@@ -23109,7 +23083,7 @@
           }
         }
       },
-      "PageOfCollectionItemDto": {
+      "PageOfCollectionItem": {
         "required": [
           "items",
           "hasNextPage"
@@ -23119,7 +23093,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CollectionItemDto"
+              "$ref": "#/components/schemas/CollectionItem"
             }
           },
           "nextCursor": {
@@ -23133,7 +23107,7 @@
           }
         }
       },
-      "PageOfCollectionLibraryPlacementDto": {
+      "PageOfCollectionLibraryPlacement": {
         "required": [
           "items",
           "hasNextPage"
@@ -23143,7 +23117,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CollectionLibraryPlacementDto"
+              "$ref": "#/components/schemas/CollectionLibraryPlacement"
             }
           },
           "nextCursor": {
@@ -23181,7 +23155,7 @@
           }
         }
       },
-      "PageOfCompanyResourceDto": {
+      "PageOfCompanyResource": {
         "required": [
           "items",
           "hasNextPage"
@@ -23191,7 +23165,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CompanyResourceDto"
+              "$ref": "#/components/schemas/CompanyResource"
             }
           },
           "nextCursor": {
@@ -23301,7 +23275,7 @@
           }
         }
       },
-      "PageOfDiscSetDto": {
+      "PageOfDiscSet": {
         "required": [
           "items",
           "hasNextPage"
@@ -23311,7 +23285,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DiscSetDto"
+              "$ref": "#/components/schemas/DiscSet"
             }
           },
           "nextCursor": {
@@ -23325,7 +23299,7 @@
           }
         }
       },
-      "PageOfEnrichmentAssessmentDto": {
+      "PageOfEnrichmentAssessment": {
         "required": [
           "items",
           "hasNextPage"
@@ -23335,7 +23309,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/EnrichmentAssessmentDto"
+              "$ref": "#/components/schemas/EnrichmentAssessment"
             }
           },
           "nextCursor": {
@@ -23349,7 +23323,7 @@
           }
         }
       },
-      "PageOfJobDto": {
+      "PageOfJob": {
         "required": [
           "items",
           "hasNextPage"
@@ -23359,7 +23333,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/JobDto"
+              "$ref": "#/components/schemas/Job"
             }
           },
           "nextCursor": {
@@ -23373,7 +23347,7 @@
           }
         }
       },
-      "PageOfJobItemDto": {
+      "PageOfJobItem": {
         "required": [
           "items",
           "hasNextPage"
@@ -23383,7 +23357,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/JobItemDto"
+              "$ref": "#/components/schemas/JobItem"
             }
           },
           "nextCursor": {
@@ -23397,7 +23371,7 @@
           }
         }
       },
-      "PageOfLanguageDto": {
+      "PageOfLanguage": {
         "required": [
           "items",
           "hasNextPage"
@@ -23407,7 +23381,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LanguageDto"
+              "$ref": "#/components/schemas/Language"
             }
           },
           "nextCursor": {
@@ -23421,7 +23395,7 @@
           }
         }
       },
-      "PageOfLibraryCollectionDto": {
+      "PageOfLibrary": {
         "required": [
           "items",
           "hasNextPage"
@@ -23431,7 +23405,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryCollectionDto"
+              "$ref": "#/components/schemas/Library"
             }
           },
           "nextCursor": {
@@ -23445,7 +23419,7 @@
           }
         }
       },
-      "PageOfLibraryDiscSetOptionDto": {
+      "PageOfLibraryCollection": {
         "required": [
           "items",
           "hasNextPage"
@@ -23455,7 +23429,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryDiscSetOptionDto"
+              "$ref": "#/components/schemas/LibraryCollection"
             }
           },
           "nextCursor": {
@@ -23469,7 +23443,7 @@
           }
         }
       },
-      "PageOfLibraryDto": {
+      "PageOfLibraryDiscSetOption": {
         "required": [
           "items",
           "hasNextPage"
@@ -23479,7 +23453,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryDto"
+              "$ref": "#/components/schemas/LibraryDiscSetOption"
             }
           },
           "nextCursor": {
@@ -23493,7 +23467,7 @@
           }
         }
       },
-      "PageOfLibraryEvaluationTitleDto": {
+      "PageOfLibraryEvaluationTitle": {
         "required": [
           "items",
           "hasNextPage"
@@ -23503,7 +23477,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryEvaluationTitleDto"
+              "$ref": "#/components/schemas/LibraryEvaluationTitle"
             }
           },
           "nextCursor": {
@@ -23517,7 +23491,7 @@
           }
         }
       },
-      "PageOfLibraryFacetDto": {
+      "PageOfLibraryFacet": {
         "required": [
           "items",
           "hasNextPage"
@@ -23527,7 +23501,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryFacetDto"
+              "$ref": "#/components/schemas/LibraryFacet"
             }
           },
           "nextCursor": {
@@ -23541,7 +23515,7 @@
           }
         }
       },
-      "PageOfLibraryPreviewTitleDto": {
+      "PageOfLibraryPreviewTitle": {
         "required": [
           "items",
           "hasNextPage"
@@ -23551,7 +23525,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryPreviewTitleDto"
+              "$ref": "#/components/schemas/LibraryPreviewTitle"
             }
           },
           "nextCursor": {
@@ -23565,7 +23539,7 @@
           }
         }
       },
-      "PageOfLibraryTitleReleaseDiagnosticsDto": {
+      "PageOfLibraryTitleReleaseDiagnostics": {
         "required": [
           "items",
           "hasNextPage"
@@ -23575,7 +23549,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/LibraryTitleReleaseDiagnosticsDto"
+              "$ref": "#/components/schemas/LibraryTitleReleaseDiagnostics"
             }
           },
           "nextCursor": {
@@ -23589,7 +23563,7 @@
           }
         }
       },
-      "PageOfManagedSystemDto": {
+      "PageOfManagedSystem": {
         "required": [
           "items",
           "hasNextPage"
@@ -23599,7 +23573,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ManagedSystemDto"
+              "$ref": "#/components/schemas/ManagedSystem"
             }
           },
           "nextCursor": {
@@ -23613,7 +23587,7 @@
           }
         }
       },
-      "PageOfOriginalDiscLayoutAuditDto": {
+      "PageOfOriginalDiscLayout": {
         "required": [
           "items",
           "hasNextPage"
@@ -23623,7 +23597,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/OriginalDiscLayoutAuditDto"
+              "$ref": "#/components/schemas/OriginalDiscLayout"
             }
           },
           "nextCursor": {
@@ -23637,7 +23611,7 @@
           }
         }
       },
-      "PageOfOriginalDiscLayoutCandidateDto": {
+      "PageOfOriginalDiscLayoutAudit": {
         "required": [
           "items",
           "hasNextPage"
@@ -23647,7 +23621,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/OriginalDiscLayoutCandidateDto"
+              "$ref": "#/components/schemas/OriginalDiscLayoutAudit"
             }
           },
           "nextCursor": {
@@ -23661,7 +23635,7 @@
           }
         }
       },
-      "PageOfOriginalDiscLayoutDto": {
+      "PageOfOriginalDiscLayoutCandidate": {
         "required": [
           "items",
           "hasNextPage"
@@ -23671,7 +23645,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/OriginalDiscLayoutDto"
+              "$ref": "#/components/schemas/OriginalDiscLayoutCandidate"
             }
           },
           "nextCursor": {
@@ -23709,7 +23683,7 @@
           }
         }
       },
-      "PageOfReferenceNamedDto": {
+      "PageOfReferenceNamed": {
         "required": [
           "items",
           "hasNextPage"
@@ -23719,7 +23693,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceNamedDto"
+              "$ref": "#/components/schemas/ReferenceNamed"
             }
           },
           "nextCursor": {
@@ -23733,7 +23707,7 @@
           }
         }
       },
-      "PageOfReferenceRatingBoardDto": {
+      "PageOfReferenceRating": {
         "required": [
           "items",
           "hasNextPage"
@@ -23743,7 +23717,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceRatingBoardDto"
+              "$ref": "#/components/schemas/ReferenceRating"
             }
           },
           "nextCursor": {
@@ -23757,7 +23731,7 @@
           }
         }
       },
-      "PageOfReferenceRatingDto": {
+      "PageOfReferenceRatingBoard": {
         "required": [
           "items",
           "hasNextPage"
@@ -23767,7 +23741,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceRatingDto"
+              "$ref": "#/components/schemas/ReferenceRatingBoard"
             }
           },
           "nextCursor": {
@@ -23781,7 +23755,7 @@
           }
         }
       },
-      "PageOfReferenceSystemDto": {
+      "PageOfReferenceSystem": {
         "required": [
           "items",
           "hasNextPage"
@@ -23791,7 +23765,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceSystemDto"
+              "$ref": "#/components/schemas/ReferenceSystem"
             }
           },
           "nextCursor": {
@@ -23805,7 +23779,7 @@
           }
         }
       },
-      "PageOfReferenceTaxonomyDto": {
+      "PageOfReferenceTaxonomy": {
         "required": [
           "items",
           "hasNextPage"
@@ -23815,7 +23789,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ReferenceTaxonomyDto"
+              "$ref": "#/components/schemas/ReferenceTaxonomy"
             }
           },
           "nextCursor": {
@@ -23829,7 +23803,7 @@
           }
         }
       },
-      "PageOfRegionDto": {
+      "PageOfRegion": {
         "required": [
           "items",
           "hasNextPage"
@@ -23839,7 +23813,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RegionDto"
+              "$ref": "#/components/schemas/Region"
             }
           },
           "nextCursor": {
@@ -23853,7 +23827,7 @@
           }
         }
       },
-      "PageOfRejectedArtworkDto": {
+      "PageOfRejectedArtwork": {
         "required": [
           "items",
           "hasNextPage"
@@ -23863,7 +23837,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/RejectedArtworkDto"
+              "$ref": "#/components/schemas/RejectedArtwork"
             }
           },
           "nextCursor": {
@@ -23901,7 +23875,7 @@
           }
         }
       },
-      "PageOfSavedArtworkDto": {
+      "PageOfSavedArtwork": {
         "required": [
           "items",
           "hasNextPage"
@@ -23911,7 +23885,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SavedArtworkDto"
+              "$ref": "#/components/schemas/SavedArtwork"
             }
           },
           "nextCursor": {
@@ -23949,7 +23923,7 @@
           }
         }
       },
-      "PageOfSystemResourceDto": {
+      "PageOfSystemResource": {
         "required": [
           "items",
           "hasNextPage"
@@ -23959,7 +23933,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/SystemResourceDto"
+              "$ref": "#/components/schemas/SystemResource"
             }
           },
           "nextCursor": {
@@ -24093,7 +24067,7 @@
           }
         }
       },
-      "PageOfTrackedCollectionTitleDto": {
+      "PageOfTrackedCollectionTitle": {
         "required": [
           "items",
           "hasNextPage"
@@ -24103,7 +24077,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/TrackedCollectionTitleDto"
+              "$ref": "#/components/schemas/TrackedCollectionTitle"
             }
           },
           "nextCursor": {
@@ -24117,7 +24091,7 @@
           }
         }
       },
-      "PageOfUserDto": {
+      "PageOfUser": {
         "required": [
           "items",
           "hasNextPage"
@@ -24127,7 +24101,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UserDto"
+              "$ref": "#/components/schemas/User"
             }
           },
           "nextCursor": {
@@ -24213,7 +24187,7 @@
           }
         }
       },
-      "PlatformMetadataPolicyDto": {
+      "PlatformMetadataPolicy": {
         "required": [
           "revision",
           "defaults",
@@ -24316,7 +24290,33 @@
           }
         }
       },
-      "ProviderGameDto": {
+      "ProviderExternalId": {
+        "required": [
+          "provider",
+          "externalId"
+        ],
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "externalId": {
+            "type": "string"
+          },
+          "matchConfidence": {
+            "type": "number",
+            "format": "float"
+          },
+          "isConfirmed": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProviderGame": {
         "required": [
           "id",
           "name",
@@ -24370,7 +24370,7 @@
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/ProviderReleaseDto"
+              "$ref": "#/components/schemas/ProviderRelease"
             }
           }
         }
@@ -24382,7 +24382,7 @@
           "BudgetLimited"
         ]
       },
-      "ProviderGameSearchResultDto": {
+      "ProviderGameSearchResult": {
         "required": [
           "items",
           "completeness",
@@ -24393,7 +24393,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ProviderGameDto"
+              "$ref": "#/components/schemas/ProviderGame"
             }
           },
           "completeness": {
@@ -24405,7 +24405,7 @@
           }
         }
       },
-      "ProviderIdentityCandidateDto": {
+      "ProviderIdentityCandidate": {
         "required": [
           "game",
           "score",
@@ -24416,7 +24416,7 @@
         "type": "object",
         "properties": {
           "game": {
-            "$ref": "#/components/schemas/ProviderGameDto"
+            "$ref": "#/components/schemas/ProviderGame"
           },
           "score": {
             "type": "integer",
@@ -24439,7 +24439,7 @@
           }
         }
       },
-      "ProviderIdentityDecisionDto": {
+      "ProviderIdentityDecision": {
         "required": [
           "state",
           "explanation",
@@ -24464,7 +24464,7 @@
           "candidates": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ProviderIdentityCandidateDto"
+              "$ref": "#/components/schemas/ProviderIdentityCandidate"
             }
           },
           "dependencies": {
@@ -24473,7 +24473,7 @@
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/ProviderIdentityDependencyDto"
+              "$ref": "#/components/schemas/ProviderIdentityDependency"
             }
           },
           "localEvidence": {
@@ -24482,13 +24482,13 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ProviderIdentityFactsDto"
+                "$ref": "#/components/schemas/ProviderIdentityFacts"
               }
             ]
           }
         }
       },
-      "ProviderIdentityDependencyDto": {
+      "ProviderIdentityDependency": {
         "required": [
           "providerId",
           "gameId",
@@ -24508,7 +24508,7 @@
           }
         }
       },
-      "ProviderIdentityFactsDto": {
+      "ProviderIdentityFacts": {
         "required": [
           "name",
           "names",
@@ -24541,7 +24541,7 @@
           }
         }
       },
-      "ProviderReleaseDto": {
+      "ProviderRelease": {
         "required": [
           "year",
           "platform"
@@ -24563,7 +24563,7 @@
           }
         }
       },
-      "PublishedDatCatalogDto": {
+      "PublishedDatCatalog": {
         "required": [
           "catalogId",
           "systemId",
@@ -24632,7 +24632,7 @@
           }
         }
       },
-      "QueueBacklogDiagnosticDto": {
+      "QueueBacklogDiagnostic": {
         "required": [
           "queue",
           "enqueuedCount",
@@ -24670,7 +24670,7 @@
           "Acb"
         ]
       },
-      "RatingBoardResourceDto": {
+      "RatingBoardResource": {
         "required": [
           "key",
           "ownership",
@@ -24715,7 +24715,7 @@
           "RefusedClassification"
         ]
       },
-      "RatingResourceDto": {
+      "RatingResource": {
         "required": [
           "key",
           "ownership",
@@ -24778,7 +24778,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           },
@@ -24787,7 +24787,7 @@
           }
         }
       },
-      "RecurringJobDiagnosticDto": {
+      "RecurringJobDiagnostic": {
         "required": [
           "id",
           "queue",
@@ -24864,7 +24864,7 @@
           }
         }
       },
-      "ReferenceAssetDto": {
+      "ReferenceAsset": {
         "required": [
           "url",
           "sha256",
@@ -24887,7 +24887,7 @@
           }
         }
       },
-      "ReferenceCatalogCountsDto": {
+      "ReferenceCatalogCounts": {
         "required": [
           "systems",
           "companies",
@@ -24924,7 +24924,7 @@
           }
         }
       },
-      "ReferenceCatalogDescriptorDto": {
+      "ReferenceCatalogDescriptor": {
         "required": [
           "schemaVersion",
           "builtInVersion",
@@ -24953,11 +24953,11 @@
             "type": "string"
           },
           "counts": {
-            "$ref": "#/components/schemas/ReferenceCatalogCountsDto"
+            "$ref": "#/components/schemas/ReferenceCatalogCounts"
           }
         }
       },
-      "ReferenceNamedDto": {
+      "ReferenceNamed": {
         "required": [
           "key",
           "name",
@@ -24983,33 +24983,7 @@
           }
         }
       },
-      "ReferenceRatingBoardDto": {
-        "required": [
-          "key",
-          "name",
-          "description"
-        ],
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "retired": {
-            "type": "boolean",
-            "default": false
-          }
-        }
-      },
-      "ReferenceRatingDto": {
+      "ReferenceRating": {
         "required": [
           "board",
           "code",
@@ -25040,7 +25014,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           },
@@ -25063,7 +25037,33 @@
           }
         }
       },
-      "ReferenceSystemDto": {
+      "ReferenceRatingBoard": {
+        "required": [
+          "key",
+          "name",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "retired": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "ReferenceSystem": {
         "required": [
           "key",
           "name",
@@ -25094,7 +25094,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           },
@@ -25121,12 +25121,12 @@
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/CompanySummaryDto"
+              "$ref": "#/components/schemas/CompanySummary"
             }
           }
         }
       },
-      "ReferenceTaxonomyDto": {
+      "ReferenceTaxonomy": {
         "required": [
           "key",
           "name",
@@ -25164,7 +25164,7 @@
           }
         }
       },
-      "RegionDto": {
+      "Region": {
         "required": [
           "key",
           "ownership",
@@ -25218,11 +25218,11 @@
             "type": "boolean"
           },
           "aliases": {
-            "$ref": "#/components/schemas/PageOfAliasDto"
+            "$ref": "#/components/schemas/PageOfAliasResource"
           }
         }
       },
-      "RejectedArtworkDto": {
+      "RejectedArtwork": {
         "required": [
           "id",
           "role",
@@ -25306,7 +25306,7 @@
           "Replacing"
         ]
       },
-      "ResolvedArtworkDto": {
+      "ResolvedArtwork": {
         "required": [
           "role",
           "assetId",
@@ -25380,7 +25380,7 @@
           "variants": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkVariantDto"
+              "$ref": "#/components/schemas/ArtworkVariant"
             }
           },
           "focalX": {
@@ -25475,12 +25475,12 @@
               "array"
             ],
             "items": {
-              "$ref": "#/components/schemas/RomDeliveryFormatDto"
+              "$ref": "#/components/schemas/RomDeliveryFormat"
             }
           }
         }
       },
-      "RomDeliveryFormatDto": {
+      "RomDeliveryFormat": {
         "required": [
           "format",
           "label",
@@ -25613,7 +25613,7 @@
           }
         }
       },
-      "SavedArtworkDto": {
+      "SavedArtwork": {
         "required": [
           "id",
           "role",
@@ -25653,7 +25653,7 @@
             }
           },
           "artwork": {
-            "$ref": "#/components/schemas/ResolvedArtworkDto"
+            "$ref": "#/components/schemas/ResolvedArtwork"
           }
         }
       },
@@ -25971,7 +25971,7 @@
           }
         }
       },
-      "SteamGridDbSettingsDto": {
+      "SteamGridDbSettings": {
         "required": [
           "revision",
           "enabled",
@@ -26028,7 +26028,7 @@
           }
         }
       },
-      "StorageCategoryDto": {
+      "StorageCategory": {
         "required": [
           "category",
           "fileCount",
@@ -26052,7 +26052,7 @@
           }
         }
       },
-      "StorageDiagnosticsDto": {
+      "StorageDiagnostics": {
         "required": [
           "dataVolumeAvailability",
           "casAvailability"
@@ -26083,7 +26083,7 @@
           }
         }
       },
-      "StorageStatsDto": {
+      "StorageStats": {
         "required": [
           "totalStorageBytes",
           "totalStorageBytesOnDisk",
@@ -26119,7 +26119,7 @@
           "breakdown": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/StorageCategoryDto"
+              "$ref": "#/components/schemas/StorageCategory"
             }
           }
         }
@@ -26143,7 +26143,7 @@
           }
         }
       },
-      "StrandedBulkEnrichmentJobDto": {
+      "StrandedBulkEnrichmentJob": {
         "required": [
           "jobId",
           "platformLabel",
@@ -26179,7 +26179,7 @@
           }
         }
       },
-      "SystemDatPreviewDto": {
+      "SystemDatPreview": {
         "required": [
           "name",
           "bytes",
@@ -26213,7 +26213,7 @@
           }
         }
       },
-      "SystemHealthDto": {
+      "SystemHealth": {
         "required": [
           "totalRoms",
           "identifiedCount",
@@ -26250,7 +26250,7 @@
           }
         }
       },
-      "SystemOverridesDto": {
+      "SystemOverrides": {
         "required": [
           "name",
           "compactLabel",
@@ -26300,7 +26300,7 @@
           }
         }
       },
-      "SystemPatchDto": {
+      "SystemPatch": {
         "type": "object",
         "properties": {
           "manufacturerKeys": {
@@ -26335,7 +26335,7 @@
         },
         "additionalProperties": false
       },
-      "SystemResourceDto": {
+      "SystemResource": {
         "required": [
           "key",
           "ownership",
@@ -26381,7 +26381,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ReferenceAssetDto"
+                "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
           },
@@ -26393,7 +26393,7 @@
             "uniqueItems": true,
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CompanySummaryDto"
+              "$ref": "#/components/schemas/CompanySummary"
             }
           },
           "revision": {
@@ -26401,7 +26401,7 @@
           }
         }
       },
-      "TaxonomyMergeImpactDto": {
+      "TaxonomyMergeImpact": {
         "required": [
           "aliases",
           "sourceGames",
@@ -26505,7 +26505,7 @@
           }
         }
       },
-      "TitleArtworkDto": {
+      "TitleArtwork": {
         "required": [
           "revision",
           "roles"
@@ -26518,7 +26518,7 @@
           "roles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArtworkSelectionStateDto"
+              "$ref": "#/components/schemas/ArtworkSelectionState"
             }
           }
         }
@@ -26584,7 +26584,7 @@
           "artwork": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ResolvedArtworkDto"
+              "$ref": "#/components/schemas/ResolvedArtwork"
             }
           },
           "id": {
@@ -26713,7 +26713,7 @@
           "archiveFormats": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArchiveFormatDto"
+              "$ref": "#/components/schemas/ArchiveFormat"
             }
           },
           "releases": {
@@ -26765,13 +26765,13 @@
           "layers": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/MetadataLayerDto"
+              "$ref": "#/components/schemas/MetadataLayer"
             }
           },
           "externalIds": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ExternalIdDto"
+              "$ref": "#/components/schemas/ProviderExternalId"
             }
           },
           "lastEnrichedAt": {
@@ -26883,7 +26883,7 @@
           }
         }
       },
-      "TitleProviderMatchDto": {
+      "TitleProviderMatch": {
         "required": [
           "providerId",
           "providerName",
@@ -26933,7 +26933,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ProviderGameDto"
+                "$ref": "#/components/schemas/ProviderGame"
               }
             ]
           },
@@ -26971,7 +26971,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/ProviderIdentityDecisionDto"
+                "$ref": "#/components/schemas/ProviderIdentityDecision"
               }
             ]
           },
@@ -27055,7 +27055,7 @@
           "archiveFormats": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/ArchiveFormatDto"
+              "$ref": "#/components/schemas/ArchiveFormat"
             }
           },
           "sources": {
@@ -27131,7 +27131,7 @@
           }
         }
       },
-      "TrackedCollectionPlatformStatsDto": {
+      "TrackedCollectionPlatformStats": {
         "required": [
           "systemKey",
           "platformName",
@@ -27171,7 +27171,7 @@
           }
         }
       },
-      "TrackedCollectionReleaseDto": {
+      "TrackedCollectionRelease": {
         "required": [
           "catalogReleaseId",
           "name"
@@ -27198,7 +27198,7 @@
           }
         }
       },
-      "TrackedCollectionStatsDto": {
+      "TrackedCollectionStats": {
         "required": [
           "trackedTitleCount",
           "satisfiedTitleCount",
@@ -27232,12 +27232,12 @@
           "platforms": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/TrackedCollectionPlatformStatsDto"
+              "$ref": "#/components/schemas/TrackedCollectionPlatformStats"
             }
           }
         }
       },
-      "TrackedCollectionTitleDto": {
+      "TrackedCollectionTitle": {
         "required": [
           "titleId",
           "systemKey",
@@ -27283,7 +27283,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/TrackedCollectionReleaseDto"
+                "$ref": "#/components/schemas/TrackedCollectionRelease"
               }
             ]
           },
@@ -27293,7 +27293,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/TrackedCollectionReleaseDto"
+                "$ref": "#/components/schemas/TrackedCollectionRelease"
               }
             ]
           }
@@ -27432,7 +27432,7 @@
                 "type": "null"
               },
               {
-                "$ref": "#/components/schemas/LibraryConfigurationDto"
+                "$ref": "#/components/schemas/LibraryConfiguration"
               }
             ]
           },
@@ -27555,7 +27555,7 @@
           }
         }
       },
-      "UserDto": {
+      "User": {
         "required": [
           "id",
           "email",
@@ -27613,7 +27613,7 @@
           }
         }
       },
-      "WedgedReplaceDatJobDto": {
+      "WedgedReplaceDatJob": {
         "required": [
           "jobId",
           "existingDatId",

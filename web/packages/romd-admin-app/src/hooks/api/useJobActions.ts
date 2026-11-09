@@ -1,6 +1,6 @@
 import {
   cancelJob,
-  type JobDto,
+  type Job,
   retryFailedJobItems,
   retryMediaReconciliation,
   updateJob,
@@ -91,7 +91,7 @@ export function useRetryJob() {
   return useMutation({
     retry: false,
     mutationFn: async (
-      job: JobDto,
+      job: Job,
     ): Promise<
       | {
           kind: 'media';

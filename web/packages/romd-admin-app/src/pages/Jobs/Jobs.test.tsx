@@ -1,4 +1,4 @@
-import type { JobDto, ListJobsData } from '@romd/admin-api-client';
+import type { Job, ListJobsData } from '@romd/admin-api-client';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,7 +13,7 @@ const { state, history, archive, retry, cancel, refetch } = vi.hoisted(() => ({
     manager: true,
     admin: true,
     nextCursor: 'next-page' as string | null,
-    items: null as JobDto[] | null,
+    items: null as Job[] | null,
   },
   history: vi.fn(),
   archive: vi.fn(),
@@ -31,7 +31,7 @@ const job = {
   hasErrors: false,
   errors: [],
   progressPercent: 100,
-} as JobDto;
+} as Job;
 vi.mock('../../hooks/api/useJobHistory', () => ({
   useJobHistory: (filters: ListJobsData['query']) => {
     history(filters);
@@ -320,14 +320,14 @@ describe('job table selection', () => {
     sourceFilename: 'active.zip',
     phase: 'Pending',
     isTerminal: false,
-  } as JobDto;
+  } as Job;
   const failed = {
     ...job,
     id: 'failed',
     sourceFilename: 'failed.zip',
     phase: 'Failed',
     hasErrors: true,
-  } as JobDto;
+  } as Job;
 
   it('archives only eligible selected jobs, reports failures, and keeps failures selected', async () => {
     state.items = [
@@ -472,7 +472,7 @@ describe('job table selection', () => {
         jobType: 'bulk_enrichment',
         hasErrors: true,
         failedCount: 2,
-      } as JobDto,
+      } as Job,
     ];
     state.manager = false;
     const { unmount } = render(<Jobs />);

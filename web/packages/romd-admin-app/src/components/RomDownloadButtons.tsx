@@ -4,7 +4,7 @@ import {
   createDownloadTicket,
   getRom,
   type Rom,
-  type RomDeliveryFormatDto,
+  type RomDeliveryFormat,
 } from '@romd/admin-api-client';
 import { startBrowserDownload } from '@romd/delivery';
 import { IconDownload } from '@tabler/icons-react';
@@ -16,7 +16,7 @@ import { workspaceActionProps } from './Workspace/workspaceActions';
 
 /** List projections fetch the detail contract before offering delivered formats. */
 export function RomDownloadButtons({ rom }: { rom: Rom }) {
-  const [pending, setPending] = useState<RomDeliveryFormatDto['format'] | null>(null);
+  const [pending, setPending] = useState<RomDeliveryFormat['format'] | null>(null);
   const query = useQuery({
     queryKey: romKeys.detail(rom.id),
     enabled: rom.formats == null,
@@ -32,7 +32,7 @@ export function RomDownloadButtons({ rom }: { rom: Rom }) {
     },
   });
   const formats = rom.formats == null ? query.data?.formats : rom.formats;
-  const download = async (format: RomDeliveryFormatDto['format'], filename: string) => {
+  const download = async (format: RomDeliveryFormat['format'], filename: string) => {
     if (pending) return;
     setPending(format);
     try {

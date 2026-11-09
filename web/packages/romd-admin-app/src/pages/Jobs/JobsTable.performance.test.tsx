@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
@@ -9,7 +9,7 @@ const { rowRender } = vi.hoisted(() => ({
   rowRender: vi.fn(),
 }));
 vi.mock('../../components/Jobs/JobActions', () => ({
-  JobActions: ({ job }: { job: JobDto }) => {
+  JobActions: ({ job }: { job: Job }) => {
     rowRender(job.id);
     return null;
   },
@@ -34,7 +34,7 @@ it('renders only the changed row on selection and retains every selection on ref
         isTerminal: true,
         hasErrors: false,
         errors: [],
-      }) as JobDto,
+      }) as Job,
   );
   const operations = {
     onCancel: vi.fn(),

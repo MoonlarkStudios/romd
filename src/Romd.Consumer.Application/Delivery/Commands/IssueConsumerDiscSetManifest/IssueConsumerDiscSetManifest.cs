@@ -13,16 +13,20 @@ using Romd.Domain.Catalog;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
 
+using ContractConsumerDiscSetDisc = Romd.Contracts.Consumer.Releases.ConsumerDiscSetDisc;
+
+using RomDeliveryFormat = Romd.Domain.Source.Rom.RomDeliveryFormat;
+
 namespace Romd.Consumer.Application.Delivery.Commands.IssueConsumerDiscSetManifest;
 
 public sealed record IssueConsumerDiscSetManifestCommand(int Id, Guid Revision,
-    ConsumerDiscSetSelectionRequest? Selection = null, bool IssueGrants = true) : ICommand<ConsumerDiscSetManifestDto>;
+    ConsumerDiscSetSelectionRequest? Selection = null, bool IssueGrants = true) : ICommand<ConsumerDiscSetManifest>;
 
 public sealed class IssueConsumerDiscSetManifestCommandHandler(ICurrentUser currentUser,
     IConsumerDiscSetRepository repository, IConsumerContentGrantIssuer issuer, IServerInstanceIdentity server,
     IRomContentReader reader, IConsumerOriginalLayoutGrantIssuer attachmentIssuer,
     IConsumerContentArtifactResolver artifacts, IConsumerDerivedDescriptorGrantIssuer derivedIssuer,
-    IConsumerDerivedDescriptorSource derivedSource) : ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifestDto>, IConsumerDiscSetManifestBuilder
+    IConsumerDerivedDescriptorSource derivedSource) : ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifest>, IConsumerDiscSetManifestBuilder
 {
     private abstract record FileSource
     {
@@ -36,7 +40,7 @@ public sealed class IssueConsumerDiscSetManifestCommandHandler(ICurrentUser curr
         public ConsumerReleaseFileProvenance Provenance => Source is FileSource.Derived
             ? ConsumerReleaseFileProvenance.Derived : ConsumerReleaseFileProvenance.Original;
     }
-    public async Task<ErrorOr<ConsumerDiscSetManifestDto>> HandleAsync(IssueConsumerDiscSetManifestCommand command, CancellationToken ct = default)
+    public async Task<ErrorOr<ConsumerDiscSetManifest>> HandleAsync(IssueConsumerDiscSetManifestCommand command, CancellationToken ct = default)
     {
         if (!currentUser.IsAuthenticated || currentUser.UserId is not { } userId)
             return ConsumerErrors.CurrentUserRequired();
@@ -52,7 +56,7 @@ public sealed class IssueConsumerDiscSetManifestCommandHandler(ICurrentUser curr
         return await BuildAsync(command, found.Value, found.LibraryId, userId, ct);
     }
 
-    public async Task<ErrorOr<ConsumerDiscSetManifestDto>> BuildAsync(IssueConsumerDiscSetManifestCommand command,
+    public async Task<ErrorOr<ConsumerDiscSetManifest>> BuildAsync(IssueConsumerDiscSetManifestCommand command,
         ConsumerDiscSetPlan plan, int libraryId, Guid userId, CancellationToken ct = default)
     {
         var status = DiscSetContracts.Status(plan, server.InstanceId);
@@ -66,7 +70,7 @@ public sealed class IssueConsumerDiscSetManifestCommandHandler(ICurrentUser curr
         if (selected.Length == 0 || selected.Length != selectedIds.Length
             || !selected.Select(x => IdCoder.Encode(x.Release.ReleaseId)).SequenceEqual(selectedIds, StringComparer.Ordinal))
             return Conflict("Selection", "Select unique authorized members in their published order.");
-        var omitted = plan.Discs.Except(selected).Select(x => new ConsumerDiscSetOmittedDiscDto(IdCoder.Encode(x.Release.ReleaseId), x.Ordinal)).ToArray();
+        var omitted = plan.Discs.Except(selected).Select(x => new ConsumerDiscSetOmittedDisc(IdCoder.Encode(x.Release.ReleaseId), x.Ordinal)).ToArray();
         bool partial = omitted.Length > 0 || status.MissingExpectedOrdinals.Count > 0;
         if (partial && request?.AllowPartial != true)
             return Conflict("PartialConsent", "Explicit partial-install consent is required for known omissions.");
@@ -148,7 +152,7 @@ public sealed class IssueConsumerDiscSetManifestCommandHandler(ICurrentUser curr
         }
         if (!DiscPlaylist.TryCreate(bound.Select(x => ((IReadOnlyList<string>)x.Files.Select(f => f.Path).ToArray(), x.Disc.EntryPoint)).ToArray(), out var playlist, out _))
             return Conflict("Layout", "This set has no portable delivery layout.");
-        var selection = new ConsumerDiscSetSelectionDto(partial ? "partial" : "all-known",
+        var selection = new ConsumerDiscSetSelection(partial ? "partial" : "all-known",
             partial ? "partial" : plan.ExpectedDiscCount is null ? "unknown-total" : "complete", selectedIds, omitted, status.MissingExpectedOrdinals);
         // Snapshot excludes URLs/readiness/observation, so renewal succeeds only for the same exact plan.
         string snapshot = DiscSetContracts.Hash(new
@@ -172,7 +176,7 @@ public sealed class IssueConsumerDiscSetManifestCommandHandler(ICurrentUser curr
         if (request?.RequiredSnapshotId is { } required && required != snapshot)
             return Conflict("Snapshot", "The selected delivery snapshot changed; an explicit install update is required.");
         // Every policy, selection, descriptor and snapshot check has succeeded before issuing any capability.
-        var discs = bound.Select((x, i) => new ConsumerDiscSetDiscDto(IdCoder.Encode(x.Disc.Release.ReleaseId), x.Disc.Ordinal,
+        var discs = bound.Select((x, i) => new ContractConsumerDiscSetDisc(IdCoder.Encode(x.Disc.Release.ReleaseId), x.Disc.Ordinal,
             x.Disc.Release.ReleaseName, playlist!.EntryPoints[i], x.Files.Select(file =>
             {
                 ConsumerIssuedContentGrant? grant = null;
@@ -187,14 +191,14 @@ public sealed class IssueConsumerDiscSetManifestCommandHandler(ICurrentUser curr
                         FileSource.Derived derived => derivedIssuer.Issue(new(userId, libraryId, x.Disc.Release.TitleId, derived.Descriptor)),
                         _ => throw new InvalidOperationException("Unknown disc delivery source.")
                     };
-                return new ConsumerDiscSetFileDto(DiscPlaylist.DirectoryFor(i + 1) + "/" + file.Path, (ByteCount)file.SizeBytes,
+                return new ConsumerDiscSetFile(DiscPlaylist.DirectoryFor(i + 1) + "/" + file.Path, (ByteCount)file.SizeBytes,
                     file.Sha256.ToString(), file.Provenance, new() { DownloadUrl = grant?.DownloadUrl ?? string.Empty, ExpiresAt = grant?.ExpiresAt ?? DateTimeOffset.MinValue });
             }).ToArray())
         {
             LayoutId = x.Disc.OriginalLayout is { } original ? IdCoder.Encode(original.Id) : null,
             LayoutRevision = x.Disc.OriginalLayout?.Revision.ToString("D")
         }).ToArray();
-        return new ConsumerDiscSetManifestDto(server.InstanceId.ToString("D"), IdCoder.Encode(plan.Id), plan.Revision, snapshot,
+        return new ConsumerDiscSetManifest(server.InstanceId.ToString("D"), IdCoder.Encode(plan.Id), plan.Revision, snapshot,
             IdCoder.Encode(plan.Discs[0].Release.TitleId), plan.Discs[0].Release.PlatformShortName, plan.Name, plan.ExpectedDiscCount,
             selection.Completeness == "complete", discs, new("m3u-sha256:" + playlist!.Sha256, "playlist.m3u", playlist.Sha256,
                 (ByteCount)Encoding.UTF8.GetByteCount(playlist.Text), "utf-8", playlist.Text))

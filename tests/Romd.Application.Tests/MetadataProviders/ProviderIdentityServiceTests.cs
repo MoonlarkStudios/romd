@@ -23,11 +23,11 @@ public sealed partial class ProviderIdentityServiceTests
     private readonly IProviderIdentityAdapter _adapter = Substitute.For<IProviderIdentityAdapter>();
     private readonly List<string> _queries = [];
     private readonly FixedClock _clock = new();
-    private ProviderIdentityDecisionDto? _decision;
-    private ProviderGameDto? _accepted;
+    private ProviderIdentityDecision? _decision;
+    private ProviderGame? _accepted;
 
     private ProviderIdentityService Create(string name, string[] aliases,
-        Func<string, ErrorOr<IReadOnlyList<ProviderGameDto>>> search,
+        Func<string, ErrorOr<IReadOnlyList<ProviderGame>>> search,
         IReadOnlyList<ProviderIdentityLink>? links = null, IReadOnlyList<IArtworkIdentityBridge>? bridges = null,
         ProviderGameSearchCompleteness completeness = ProviderGameSearchCompleteness.Complete)
     {
@@ -39,15 +39,15 @@ public sealed partial class ProviderIdentityServiceTests
             var query = call.ArgAt<string>(0);
             _queries.Add(query);
             var result = search(query);
-            return result.IsError ? (ErrorOr<ProviderGameSearchResultDto>)result.Errors : new ProviderGameSearchResultDto(result.Value, completeness, 500);
+            return result.IsError ? (ErrorOr<ProviderGameSearchResult>)result.Errors : new ProviderGameSearchResult(result.Value, completeness, 500);
         });
         _store.ReadAsync(1, Arg.Any<CancellationToken>()).Returns(new ProviderIdentitySnapshot(1, Guid.NewGuid(), "fingerprint",
             new(name, aliases, [1994], ["SNES"], "catalog"), links ?? []));
         _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), "provider", Guid.Empty,
-            Arg.Any<ProviderIdentityDecisionDto>(), Arg.Any<ProviderGameDto?>(), Arg.Any<CancellationToken>()).Returns(call =>
+            Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
-            _decision = call.ArgAt<ProviderIdentityDecisionDto>(3);
-            _accepted = call.ArgAt<ProviderGameDto?>(4);
+            _decision = call.ArgAt<ProviderIdentityDecision>(3);
+            _accepted = call.ArgAt<ProviderGame?>(4);
             var receipt = Substitute.For<IStagedProviderIdentityDecision>();
             receipt.Applied.Returns(true);
             return receipt;
@@ -55,7 +55,7 @@ public sealed partial class ProviderIdentityServiceTests
         return new(_store, [_adapter], bridges ?? [], _clock, _work, NullLogger<ProviderIdentityService>.Instance);
     }
 
-    private static ProviderGameDto Game(string id, string name) => new(id, name, "https://provider.test/game", Year: 1994, Platforms: ["SNES"]);
+    private static ProviderGame Game(string id, string name) => new(id, name, "https://provider.test/game", Year: 1994, Platforms: ["SNES"]);
 
     [Fact]
     public async Task GetTrustedAsync_TrustChanges_RechecksCurrentIdentityWithoutLoadingDiscoveryFacts()
@@ -75,7 +75,7 @@ public sealed partial class ProviderIdentityServiceTests
     [InlineData(ProviderIdentityScope.Release, "NeedsReview")]
     public async Task DiscoverAsync_ExactNameWithoutCorroboration_UsesProviderScope(ProviderIdentityScope scope, string state)
     {
-        var service = Create("Flushed Away", [], _ => new[] { new ProviderGameDto("36590", "Flushed Away", "https://provider.test/game") });
+        var service = Create("Flushed Away", [], _ => new[] { new ProviderGame("36590", "Flushed Away", "https://provider.test/game") });
         _adapter.IdentityScope.Returns(scope);
 
         await service.DiscoverAsync(1, null, default);
@@ -88,7 +88,7 @@ public sealed partial class ProviderIdentityServiceTests
     public async Task DiscoverAsync_LocalAliasFindsGame_CombinesQueriesBeforeAcceptance()
     {
         var service = Create("Local title", ["Regional title"], query =>
-            query == "REGIONAL TITLE" ? new[] { Game("1", "Regional title") } : Array.Empty<ProviderGameDto>());
+            query == "REGIONAL TITLE" ? new[] { Game("1", "Regional title") } : Array.Empty<ProviderGame>());
 
         await service.DiscoverAsync(1, null, default);
 
@@ -149,7 +149,7 @@ public sealed partial class ProviderIdentityServiceTests
     [Fact]
     public async Task DiscoverAsync_ManyAliases_UsesDeterministicBoundedQueries()
     {
-        var service = Create("Game+", ["Z", "F", "E", "D", "C", "B", "A", "Game+"], _ => Array.Empty<ProviderGameDto>());
+        var service = Create("Game+", ["Z", "F", "E", "D", "C", "B", "A", "Game+"], _ => Array.Empty<ProviderGame>());
 
         await service.DiscoverAsync(1, null, default);
 
@@ -193,7 +193,7 @@ public sealed partial class ProviderIdentityServiceTests
     [Fact]
     public async Task DiscoverAsync_NoSearchableName_RequiresReviewWithoutProviderIo()
     {
-        var service = Create("   ", [], _ => Array.Empty<ProviderGameDto>());
+        var service = Create("   ", [], _ => Array.Empty<ProviderGame>());
 
         await service.DiscoverAsync(1, null, default);
 
@@ -210,7 +210,7 @@ public sealed partial class ProviderIdentityServiceTests
         bridge.TargetProviderId.Returns("provider");
         bridge.ResolveAsync("42", Arg.Any<CancellationToken>())
             .Returns((ErrorOr<ArtworkBridgeMatch?>)new ArtworkBridgeMatch(Game("1", "Game"), "Trusted Steam bridge."));
-        var service = Create("Game", [], _ => Array.Empty<ProviderGameDto>(),
+        var service = Create("Game", [], _ => Array.Empty<ProviderGame>(),
             [new("source", "42", true, false, true, Guid.NewGuid(), null, null, null)], [bridge],
             ProviderGameSearchCompleteness.ProviderLimited);
 
@@ -240,7 +240,7 @@ public sealed partial class ProviderIdentityServiceTests
         _decision.ShouldBeNull();
         _accepted.ShouldBeNull();
         await _store.DidNotReceive().StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), Arg.Any<string>(), Arg.Any<Guid>(),
-            Arg.Any<ProviderIdentityDecisionDto>(), Arg.Any<ProviderGameDto?>(), Arg.Any<CancellationToken>());
+            Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), Arg.Any<CancellationToken>());
 
         throttled = false;
         await service.DiscoverAsync(1, new JobContext(null, _ => Task.CompletedTask, default), default);
@@ -301,7 +301,7 @@ public sealed partial class ProviderIdentityServiceTests
         later.Capabilities.Returns(new[] { "metadata" });
         later.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
         later.SearchAsync("LOCAL TITLE", Arg.Any<CancellationToken>())
-            .Returns((ErrorOr<ProviderGameSearchResultDto>)new ProviderGameSearchResultDto([Game("2", "Local title")], ProviderGameSearchCompleteness.Complete, 500));
+            .Returns((ErrorOr<ProviderGameSearchResult>)new ProviderGameSearchResult([Game("2", "Local title")], ProviderGameSearchCompleteness.Complete, 500));
         var service = new ProviderIdentityService(_store, [_adapter, later], useBridge ? [bridge] : [], _clock, _work, NullLogger<ProviderIdentityService>.Instance);
         var owner = new JobContext(null, _ => Task.CompletedTask, default);
 
@@ -311,10 +311,10 @@ public sealed partial class ProviderIdentityServiceTests
         result.RetryAfterByProvider["provider"].ShouldBe(due);
         owner.DeferredUntil.ShouldBeNull();
         await _store.Received(1).StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), "second", Guid.Empty,
-            Arg.Is<ProviderIdentityDecisionDto>(decision => decision.State == "AutoAccepted"),
-            Arg.Is<ProviderGameDto>(game => game.Id == "2"), Arg.Any<CancellationToken>());
+            Arg.Is<ProviderIdentityDecision>(decision => decision.State == "AutoAccepted"),
+            Arg.Is<ProviderGame>(game => game.Id == "2"), Arg.Any<CancellationToken>());
         await _store.DidNotReceive().StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), "provider", Arg.Any<Guid>(),
-            Arg.Any<ProviderIdentityDecisionDto>(), Arg.Any<ProviderGameDto?>(), Arg.Any<CancellationToken>());
+            Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), Arg.Any<CancellationToken>());
         if (useBridge)
             _queries.ShouldBeEmpty();
     }
@@ -329,7 +329,7 @@ public sealed partial class ProviderIdentityServiceTests
         bridge.ResolveAsync("42", Arg.Any<CancellationToken>())
             .Returns((ErrorOr<ArtworkBridgeMatch?>)new ArtworkBridgeMatch(
                 new("1", "Game", "https://provider.test/game"), "Trusted Steam bridge."));
-        var service = Create("Game", [], _ => Array.Empty<ProviderGameDto>(),
+        var service = Create("Game", [], _ => Array.Empty<ProviderGame>(),
             [new("source", "42", true, false, true, revision, null, null, null)], [bridge]);
 
         await service.DiscoverAsync(1, null, default);
@@ -359,7 +359,7 @@ public sealed partial class ProviderIdentityServiceTests
         bridge.ResolveAsync("42", Arg.Any<CancellationToken>())
             .Returns((ErrorOr<ArtworkBridgeMatch?>)new ArtworkBridgeMatch(
                 new("1", name, "https://provider.test/game", Year: year, Platforms: [platform]), "Trusted Steam bridge."));
-        var service = Create("Game", [], _ => Array.Empty<ProviderGameDto>(),
+        var service = Create("Game", [], _ => Array.Empty<ProviderGame>(),
             [new("source", "42", true, false, true, Guid.NewGuid(), null, null, null)], [bridge]);
 
         await service.DiscoverAsync(1, null, default);
@@ -392,7 +392,7 @@ public sealed partial class ProviderIdentityServiceTests
     [Fact]
     public async Task DiscoverAsync_CompleteEmptySearch_PreservesNoMatchExplanation()
     {
-        var service = Create("Game", [], _ => Array.Empty<ProviderGameDto>());
+        var service = Create("Game", [], _ => Array.Empty<ProviderGame>());
 
         await service.DiscoverAsync(1, null, default);
 

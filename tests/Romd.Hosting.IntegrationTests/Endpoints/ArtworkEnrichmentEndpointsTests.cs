@@ -40,14 +40,14 @@ public sealed class ArtworkEnrichmentEndpointsTests(IntegrationTestFixture fixtu
     public async Task Settings_StalePrecondition_LeavesExistingPolicyIntact()
     {
         using var client = fixture.CreateAuthenticatedClient();
-        var before = (await client.GetFromJsonAsync<ArtworkEnrichmentSettingsDto>(Settings))!;
+        var before = (await client.GetFromJsonAsync<ArtworkEnrichmentSettings>(Settings))!;
         using var request = new HttpRequestMessage(HttpMethod.Put, Settings)
         {
             Content = JsonContent.Create(new UpdateArtworkEnrichmentSettingsRequest(!before.FillPosters, !before.FillHeroes, !before.FillLogos))
         };
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{Guid.NewGuid()}\"").ShouldBeTrue();
         (await client.SendAsync(request)).StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
-        var after = (await client.GetFromJsonAsync<ArtworkEnrichmentSettingsDto>(Settings))!;
+        var after = (await client.GetFromJsonAsync<ArtworkEnrichmentSettings>(Settings))!;
         after.FillPosters.ShouldBe(before.FillPosters);
         after.FillHeroes.ShouldBe(before.FillHeroes);
         after.FillLogos.ShouldBe(before.FillLogos);
@@ -80,7 +80,7 @@ public sealed class ArtworkEnrichmentEndpointsTests(IntegrationTestFixture fixtu
         var preserved = await db.Titles.SingleAsync(x => x.Id == title.Id);
         preserved.Description.ShouldBe("Curated description");
         preserved.EnrichmentStatus.ShouldBe("Completed");
-        var state = (await client.GetFromJsonAsync<ArtworkAcquisitionStateDto>($"/api/titles/{titleId}/artwork-acquisition"))!;
+        var state = (await client.GetFromJsonAsync<ArtworkAcquisitionState>($"/api/titles/{titleId}/artwork-acquisition"))!;
         state.ActiveJobId.ShouldBe(job.Id);
     }
 

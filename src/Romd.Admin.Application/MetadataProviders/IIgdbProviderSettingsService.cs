@@ -6,10 +6,10 @@ namespace Romd.Admin.Application.MetadataProviders;
 
 public interface IIgdbProviderSettingsService
 {
-    Task<IgdbProviderSettingsDto> GetAsync(CancellationToken ct = default);
-    Task<ErrorOr<IgdbProviderSettingsDto>> UpdateStagedAsync(UpdateIgdbProviderSettingsRequest request, RevisionPrecondition precondition, CancellationToken ct = default);
+    Task<IgdbProviderSettings> GetAsync(CancellationToken ct = default);
+    Task<ErrorOr<IgdbProviderSettings>> UpdateStagedAsync(UpdateIgdbProviderSettingsRequest request, RevisionPrecondition precondition, CancellationToken ct = default);
     Task<ErrorOr<IgdbProviderTestObservation>> ProbeAsync(RevisionPrecondition precondition, CancellationToken ct = default);
-    Task<ErrorOr<IgdbProviderSettingsDto>> RecordTestStagedAsync(IgdbProviderTestObservation observation, CancellationToken ct = default);
+    Task<ErrorOr<IgdbProviderSettings>> RecordTestStagedAsync(IgdbProviderTestObservation observation, CancellationToken ct = default);
 }
 
 // Contains sanitized test facts only, never credentials or upstream bodies.

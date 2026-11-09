@@ -7,11 +7,20 @@ using Romd.Contracts.Management.Realtime;
 using Romd.Domain.Catalog.Ratings;
 using Romd.Domain.Libraries;
 
+using ContractContentRatingPolicy = Romd.Contracts.Management.Libraries.ContentRatingPolicy;
+using ContractLibrary = Romd.Contracts.Management.Libraries.Library;
+using ContractLibraryConfiguration = Romd.Contracts.Management.Libraries.LibraryConfiguration;
+using ContractLibraryTitleReleaseDiagnostics = Romd.Contracts.Management.Libraries.LibraryTitleReleaseDiagnostics;
+
+using ContentRatingPolicy = Romd.Domain.Libraries.ContentRatingPolicy;
+using Library = Romd.Domain.Libraries.Library;
+using LibraryConfiguration = Romd.Domain.Libraries.LibraryConfiguration;
+
 namespace Romd.Admin.Application.Libraries;
 
 public static class LibraryMapping
 {
-    public static LibraryDto ToContract(this Library library, SystemKeys systemKeys, RomDeliveryPolicy deliveryPolicy) =>
+    public static ContractLibrary ToContract(this Library library, SystemKeys systemKeys, RomDeliveryPolicy deliveryPolicy) =>
         new()
         {
             Id = IdCoder.Encode(library.Id),
@@ -39,20 +48,20 @@ public static class LibraryMapping
         : library.Configuration.AllowedPlatformIds.Count == 0 ? deliveryPolicy.PlatformKeys
         : library.Configuration.AllowedPlatformIds.Select(systemKeys.Required);
 
-    public static LibraryFacetDto ToContract(this PlatformFacet facet, SystemKeys systemKeys) =>
+    public static LibraryFacet ToContract(this PlatformFacet facet, SystemKeys systemKeys) =>
         new(systemKeys.Required(facet.PlatformId), facet.PlatformName, facet.Count);
 
-    public static LibraryFacetDto ToContract(this GenreFacet facet) =>
+    public static LibraryFacet ToContract(this GenreFacet facet) =>
         new(facet.Genre, facet.Genre, facet.Count);
 
-    public static LibraryCollectionDto ToContract(this CollectionFacet facet) =>
+    public static LibraryCollection ToContract(this CollectionFacet facet) =>
         new(
             IdCoder.Encode(facet.CollectionId),
             facet.CollectionName,
             facet.MatchingCount,
             facet.TotalCount);
 
-    public static LibraryTitleReleaseDiagnosticsDto ToContract(
+    public static ContractLibraryTitleReleaseDiagnostics ToContract(
         this LibraryTitleReleaseDiagnostics release) =>
         new()
         {
@@ -75,7 +84,7 @@ public static class LibraryMapping
             library.ItemCount,
             library.ConfigurationState.ToString());
 
-    private static LibraryConfigurationDto ToContract(LibraryConfiguration config, SystemKeys systemKeys) =>
+    private static ContractLibraryConfiguration ToContract(LibraryConfiguration config, SystemKeys systemKeys) =>
         new()
         {
             TitleSelectionMode = config.TitleSelectionMode.ToContract(),
@@ -91,7 +100,7 @@ public static class LibraryMapping
             ExcludeTitleIds = config.ExcludeTitleIds.Select(IdCoder.Encode).ToList()
         };
 
-    private static ContentRatingPolicyDto ToContract(ContentRatingPolicy policy) =>
+    private static ContractContentRatingPolicy ToContract(ContentRatingPolicy policy) =>
         new()
         {
             BasisSelection = policy.BasisSelection.ToContract(),

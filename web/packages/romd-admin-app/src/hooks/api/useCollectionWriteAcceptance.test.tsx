@@ -1,4 +1,4 @@
-import type { CollectionDetail, CollectionItemDto } from '@romd/admin-api-client';
+import type { CollectionDetail, CollectionItem } from '@romd/admin-api-client';
 import {
   createCollectionItem,
   deleteCollectionItem,
@@ -65,7 +65,7 @@ vi.mock('./usePlatforms', () => ({
   }),
 }));
 
-const accepted: CollectionItemDto = {
+const accepted: CollectionItem = {
   titleId: 'new-1',
   titleName: 'First new game',
   systemKey: 'snes',

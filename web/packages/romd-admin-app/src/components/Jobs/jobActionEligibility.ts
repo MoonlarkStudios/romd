@@ -1,11 +1,11 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 
 export type JobAction = 'archive' | 'cancel' | 'retry';
 
 // Visibility is already scoped by the API. The server rechecks authorization and
 // current job state for every operation, including changes since this snapshot.
 export function canPerformJobAction(
-  job: JobDto,
+  job: Job,
   action: JobAction,
   isManager: boolean,
   isAdmin = false,

@@ -10,6 +10,8 @@ using Romd.Domain.Jobs;
 using Shouldly;
 using Xunit;
 
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Application.Tests.Artwork;
 
 public sealed class QueueArtworkCompletionCommandTests

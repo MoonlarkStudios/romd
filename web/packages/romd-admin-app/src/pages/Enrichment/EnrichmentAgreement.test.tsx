@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import { client, type EnrichmentRequirementDto } from '@romd/admin-api-client';
+import { client, type EnrichmentRequirement } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -44,7 +44,7 @@ const game = {
   url: 'https://www.steamgriddb.com/game/7',
   year: 1995,
 };
-let requirements: EnrichmentRequirementDto[];
+let requirements: EnrichmentRequirement[];
 let revision: number;
 let steamGridDbMatch: 'unconfigured' | 'proposed' | 'confirmed';
 const assessment = () =>
@@ -71,7 +71,7 @@ const chronoTitle = () =>
     ],
   });
 /** One server change: rows replaced by key, and a new revision. */
-function advance(...rows: EnrichmentRequirementDto[]) {
+function advance(...rows: EnrichmentRequirement[]) {
   requirements = requirements.map((row) => rows.find((change) => change.key === row.key) ?? row);
   revision += 1;
 }

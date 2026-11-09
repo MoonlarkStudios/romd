@@ -38,6 +38,9 @@ using Romd.Domain.Taxonomy;
 using Shouldly;
 using Xunit;
 
+using ArtworkImportJob = Romd.Domain.Jobs.ArtworkImportJob;
+using UploadJob = Romd.Domain.Jobs.UploadJob;
+
 namespace Romd.Application.Tests.Catalog;
 
 public sealed class ApplicationTransactionSettlementTests
@@ -161,14 +164,14 @@ public sealed class ApplicationTransactionSettlementTests
             case "igdb-test":
                 {
                     var store = Substitute.For<IIgdbProviderSettingsService>();
-                    var dto = new IgdbProviderSettingsDto(false, null, false, false, false, null, null, null, null) { Revision = Guid.NewGuid() };
-                    store.UpdateStagedAsync(Arg.Any<UpdateIgdbProviderSettingsRequest>(), precondition, Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<IgdbProviderSettingsDto>>(dto));
+                    var dto = new IgdbProviderSettings(false, null, false, false, false, null, null, null, null) { Revision = Guid.NewGuid() };
+                    store.UpdateStagedAsync(Arg.Any<UpdateIgdbProviderSettingsRequest>(), precondition, Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<IgdbProviderSettings>>(dto));
                     store.ProbeAsync(precondition, Arg.Any<CancellationToken>()).Returns(_ =>
                     {
                         work.Begins.ShouldBe(0, "external probing remains outside the transaction");
                         return Task.FromResult<ErrorOr<IgdbProviderTestObservation>>(new IgdbProviderTestObservation(dto.Revision, DateTimeOffset.UnixEpoch, true, "Verified", "fingerprint"));
                     });
-                    store.RecordTestStagedAsync(Arg.Any<IgdbProviderTestObservation>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<IgdbProviderSettingsDto>>(dto));
+                    store.RecordTestStagedAsync(Arg.Any<IgdbProviderTestObservation>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<IgdbProviderSettings>>(dto));
                     if (owner == "igdb-update")
                     {
                         var handler = new UpdateIgdbSettingsCommandHandler(store, work, NullLogger<UpdateIgdbSettingsCommandHandler>.Instance);
@@ -182,9 +185,9 @@ public sealed class ApplicationTransactionSettlementTests
                     var store = Substitute.For<IOriginalDiscLayoutService>();
                     store.DecideStagedAsync(1, Arg.Any<OriginalDiscLayoutDecisionRequest>(), precondition, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
                         .Returns(Task.FromResult<ErrorOr<IReadOnlyList<int>>>(Array.Empty<int>()));
-                    var dto = new OriginalDiscLayoutDto(IdCoder.Encode(1), Guid.NewGuid(), "accepted", null, "game.cue", "hash", (ByteCount)1,
+                    var dto = new OriginalDiscLayout(IdCoder.Encode(1), Guid.NewGuid(), "accepted", null, "game.cue", "hash", (ByteCount)1,
                         Guid.NewGuid(), "game.cue", "system", null, null, [], new() { Items = [], HasNextPage = false });
-                    store.GetAsync(1, Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<OriginalDiscLayoutDto>>(dto));
+                    store.GetAsync(1, Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<OriginalDiscLayout>>(dto));
                     var handler = new DecideOriginalDiscLayoutCommandHandler(store, work, Substitute.For<IMediaReconciliationRequests>(), NullLogger<DecideOriginalDiscLayoutCommandHandler>.Instance);
                     return ct => Capture(handler.HandleAsync(new(1, new("reject", null, null, "Reviewed"), precondition, Guid.NewGuid()), ct));
                 }

@@ -1,4 +1,4 @@
-import type { AliasDto, LanguageDto, RegionDto } from '@romd/admin-api-client';
+import type { AliasResource, Language, Region } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -62,7 +62,7 @@ function page<T>(items: T[]) {
 const mockGetCurrentUser = getMe as ReturnType<typeof vi.fn>;
 
 /** A row's embedded first alias page, complete unless a continuation cursor is given. */
-function aliases(items: AliasDto[], nextCursor: string | null = null) {
+function aliases(items: AliasResource[], nextCursor: string | null = null) {
   return {
     items,
     nextCursor,
@@ -84,7 +84,7 @@ function makePermissions(role: Role, canManageUsers: boolean): Permissions {
   };
 }
 
-const regions: RegionDto[] = [
+const regions: Region[] = [
   {
     key: 'dat-usa',
     ownership: null,
@@ -117,7 +117,7 @@ const regions: RegionDto[] = [
   },
 ];
 
-const languages: LanguageDto[] = [
+const languages: Language[] = [
   {
     key: 'en',
     ownership: 'Romd',

@@ -165,7 +165,7 @@ public sealed class LanguageRepository : ILanguageRepository
         });
     }
 
-    public async Task<TaxonomyMergeImpactDto> GetMergeImpactAsync(int sourceId, CancellationToken ct = default) =>
+    public async Task<TaxonomyMergeImpact> GetMergeImpactAsync(int sourceId, CancellationToken ct = default) =>
         new(await _context.GameLanguageAliases.CountAsync(item => item.GameLanguageId == sourceId, ct),
             await _context.DatGameLanguages.CountAsync(item => item.GameLanguageId == sourceId, ct),
             await _context.CatalogReleaseLanguages.CountAsync(item => item.GameLanguageId == sourceId, ct));

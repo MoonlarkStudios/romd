@@ -11,13 +11,13 @@ public static class ConsumerServerEndpoints
             .WithTags("Consumer Server")
             .WithName("GetConsumerServerIdentity")
             .AllowAnonymous()
-            .Produces<ConsumerServerIdentityDto>();
+            .Produces<ConsumerServerIdentity>();
 
         return app;
     }
 
     private static IResult GetIdentity(IServerInstanceIdentity identity) =>
-        Results.Ok(new ConsumerServerIdentityDto
+        Results.Ok(new ConsumerServerIdentity
         {
             InstanceId = identity.InstanceId.ToString("D")
         });

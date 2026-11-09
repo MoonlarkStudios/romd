@@ -2,15 +2,16 @@ using Romd.Domain.Catalog;
 using ErrorOr;
 using Romd.Contracts.Management.Artwork;
 using Romd.Admin.Application.Ingestion.Jobs;
+
 namespace Romd.Admin.Application.Artwork;
 
 /// <summary>Completion previews, run feedback and worker ledger operations; never calls a provider.</summary>
 public interface IArtworkCompletionStore
 {
-    Task<ErrorOr<ArtworkCompletionPreviewDto>> PreviewScopeAsync(ArtworkCompletionRequest request, CancellationToken ct);
-    Task<IReadOnlyList<ArtworkCompletionJobDto>> RecentAsync(CancellationToken ct);
-    Task<ErrorOr<ArtworkCompletionItemsDto>> ItemsAsync(Guid jobId, int afterTitleId, string? status, CancellationToken ct, int limit = 50);
-    Task<ErrorOr<ArtworkCompletionJobDto>> GetAsync(Guid jobId, CancellationToken ct);
+    Task<ErrorOr<ArtworkCompletionPreview>> PreviewScopeAsync(ArtworkCompletionRequest request, CancellationToken ct);
+    Task<IReadOnlyList<ArtworkCompletionJob>> RecentAsync(CancellationToken ct);
+    Task<ErrorOr<ArtworkCompletionItems>> ItemsAsync(Guid jobId, int afterTitleId, string? status, CancellationToken ct, int limit = 50);
+    Task<ErrorOr<ArtworkCompletionJob>> GetAsync(Guid jobId, CancellationToken ct);
     Task<ArtworkCompletionWork?> NextAsync(Guid jobId, CancellationToken ct);
     Task<IReadOnlyDictionary<ArtworkRole, ArtworkCompletionOutcome>> OutcomesAsync(Guid jobId, int titleId, CancellationToken ct);
     Task<int> CompletedCountAsync(Guid jobId, CancellationToken ct);

@@ -6,11 +6,11 @@ import {
   listAdminCatalogSnapshotRatings,
   listAdminCatalogSnapshotRegions,
   listAdminCatalogSnapshotSystems,
-  type ReferenceNamedDto,
-  type ReferenceRatingBoardDto,
-  type ReferenceRatingDto,
-  type ReferenceSystemDto,
-  type ReferenceTaxonomyDto,
+  type ReferenceNamed,
+  type ReferenceRating,
+  type ReferenceRatingBoard,
+  type ReferenceSystem,
+  type ReferenceTaxonomy,
 } from '@romd/admin-api-client';
 import { referenceContentHash } from './referenceCatalogCanonical';
 
@@ -19,12 +19,12 @@ export interface AssembledReferenceCatalog {
   schemaVersion: 1;
   builtInVersion: number;
   revision: string;
-  systems: ReferenceSystemDto[];
-  companies: ReferenceNamedDto[];
-  regions: ReferenceTaxonomyDto[];
-  languages: ReferenceTaxonomyDto[];
-  ratingBoards: ReferenceRatingBoardDto[];
-  ratings: ReferenceRatingDto[];
+  systems: ReferenceSystem[];
+  companies: ReferenceNamed[];
+  regions: ReferenceTaxonomy[];
+  languages: ReferenceTaxonomy[];
+  ratingBoards: ReferenceRatingBoard[];
+  ratings: ReferenceRating[];
 }
 
 const families = [
@@ -61,7 +61,7 @@ const integer = (value: unknown): value is number =>
 const fields = (value: Record<string, unknown>, expected: readonly string[]) =>
   Object.keys(value).length === expected.length &&
   expected.every((key) => Object.hasOwn(value, key));
-const named = (value: unknown): value is ReferenceNamedDto =>
+const named = (value: unknown): value is ReferenceNamed =>
   record(value) &&
   fields(value, [
     'key',
@@ -73,7 +73,7 @@ const named = (value: unknown): value is ReferenceNamedDto =>
   text(value.name) &&
   nullableText(value.description) &&
   typeof value.retired === 'boolean';
-const board = (value: unknown): value is ReferenceRatingBoardDto => named(value);
+const board = (value: unknown): value is ReferenceRatingBoard => named(value);
 const asset = (value: unknown) =>
   value === null ||
   (record(value) &&
@@ -90,7 +90,7 @@ const asset = (value: unknown) =>
     typeof value.monochrome === 'boolean');
 const stringList = (value: unknown): value is string[] => Array.isArray(value) && value.every(text);
 const unique = (values: readonly string[]) => new Set(values).size === values.length;
-function system(value: unknown): value is ReferenceSystemDto {
+function system(value: unknown): value is ReferenceSystem {
   if (
     !record(value) ||
     !fields(value, [
@@ -136,7 +136,7 @@ function system(value: unknown): value is ReferenceSystemDto {
     return false;
   return true;
 }
-const taxonomy = (value: unknown): value is ReferenceTaxonomyDto =>
+const taxonomy = (value: unknown): value is ReferenceTaxonomy =>
   record(value) &&
   fields(value, [
     'key',
@@ -152,7 +152,7 @@ const taxonomy = (value: unknown): value is ReferenceTaxonomyDto =>
   Number.isSafeInteger(value.sortOrder) &&
   nullableText(value.languageCode) &&
   typeof value.retired === 'boolean';
-const rating = (value: unknown): value is ReferenceRatingDto =>
+const rating = (value: unknown): value is ReferenceRating =>
   record(value) &&
   fields(value, [
     'board',

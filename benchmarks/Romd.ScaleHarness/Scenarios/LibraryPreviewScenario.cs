@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.Libraries;
 using Romd.Application.Common.Ids;
-using LibraryEvaluationDto = Romd.Contracts.Management.Libraries.LibraryEvaluationDto;
+using LibraryEvaluation = Romd.Contracts.Management.Libraries.LibraryEvaluation;
 using Romd.Domain.Libraries;
 using Romd.Infrastructure.Libraries;
 using Romd.Persistence.Libraries;
@@ -66,7 +66,7 @@ public sealed class LibraryPreviewScenario(int iterations = 5) : IScenario
         await EvaluateAsync(pages.ServiceProvider, context.Data, size, "all", null, 48, first.Result.Page.NextCursor, ct);
     }
 
-    private static async Task<(LibraryEvaluationDto Result, ObservedCandidates Observed)> EvaluateAsync(
+    private static async Task<(LibraryEvaluation Result, ObservedCandidates Observed)> EvaluateAsync(
         IServiceProvider services, DeterministicDataset data, int size, string view, string? search,
         int afterId, string? cursor, CancellationToken ct, bool verify = true)
     {
@@ -87,7 +87,7 @@ public sealed class LibraryPreviewScenario(int iterations = 5) : IScenario
         return (result.Value, observed);
     }
 
-    public static void VerifyResult(DeterministicDataset data, LibraryEvaluationDto result, string view, string? search, int afterId)
+    public static void VerifyResult(DeterministicDataset data, LibraryEvaluation result, string view, string? search, int afterId)
     {
         var titles = Enumerable.Range(0, data.Scale.Titles).ToArray();
         int saved = titles.Count(t => LibraryPreviewDataset.WasEligible(data, t));

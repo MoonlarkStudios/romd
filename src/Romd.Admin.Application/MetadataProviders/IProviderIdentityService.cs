@@ -6,7 +6,7 @@ namespace Romd.Admin.Application.MetadataProviders;
 public sealed record ProviderIdentitySnapshot(int TitleId, Guid TitleRevision, string Fingerprint, IdentityFacts Facts,
     IReadOnlyList<ProviderIdentityLink> Links);
 public sealed record ProviderIdentityLink(string ProviderId, string? GameId, bool Confirmed, bool Suppressed,
-    bool Trusted, Guid Revision, string? InputFingerprint, DateTimeOffset? LastAttempt, ProviderIdentityDecisionDto? Decision);
+    bool Trusted, Guid Revision, string? InputFingerprint, DateTimeOffset? LastAttempt, ProviderIdentityDecision? Decision);
 /// <summary>Provider-local retry hints. Callers decide whether alternatives satisfy their unfinished work.</summary>
 public sealed record ProviderIdentityDiscoveryResult(IReadOnlyDictionary<string, DateTimeOffset> RetryAfterByProvider)
 {
@@ -20,7 +20,7 @@ public interface IProviderIdentityStore
     Task<string?> ReadTrustedAsync(int titleId, string providerId, CancellationToken ct);
     /// <summary>Stages a conditional decision in the caller's ReadCommitted transaction.</summary>
     Task<IStagedProviderIdentityDecision> StageDecisionAsync(ProviderIdentitySnapshot snapshot, string providerId, Guid expectedRevision,
-        ProviderIdentityDecisionDto decision, ProviderGameDto? accepted, CancellationToken ct);
+        ProviderIdentityDecision decision, ProviderGame? accepted, CancellationToken ct);
 }
 /// <summary>Retain through the owner's commit or rollback; disposal releases only this decision's tracking.</summary>
 public interface IStagedProviderIdentityDecision : IDisposable

@@ -7,7 +7,7 @@ using Romd.Contracts.Common.Models;
 
 namespace Romd.Consumer.Application.Vfs.Queries.ListVfsConnections;
 
-public sealed class ListVfsConnectionsQueryHandler : IQueryHandler<ListVfsConnectionsQuery, Page<VfsConnectionDto>>
+public sealed class ListVfsConnectionsQueryHandler : IQueryHandler<ListVfsConnectionsQuery, Page<VfsConnection>>
 {
     private readonly ICurrentUser currentUser;
     private readonly IVfsConnections connections;
@@ -18,7 +18,7 @@ public sealed class ListVfsConnectionsQueryHandler : IQueryHandler<ListVfsConnec
         this.connections = connections;
     }
 
-    public async Task<ErrorOr<Page<VfsConnectionDto>>> HandleAsync(ListVfsConnectionsQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<Page<VfsConnection>>> HandleAsync(ListVfsConnectionsQuery query, CancellationToken ct = default)
     {
         if (!currentUser.IsAuthenticated || currentUser.UserId is not { } userId)
             return ConsumerErrors.CurrentUserRequired();

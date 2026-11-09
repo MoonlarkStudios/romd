@@ -27,14 +27,14 @@ public sealed class ConsumerLiveLibraryAssignmentEndpointsTests
             "same-token@localhost",
             seed.LibraryId);
 
-        var before = await client.GetFromJsonAsync<LibraryContextDto>("/api/me/library");
+        var before = await client.GetFromJsonAsync<LibraryContext>("/api/me/library");
         before.ShouldNotBeNull();
         before.Name.ShouldBe("Living Room");
 
         await fixture.ReassignUserAsync(userId, seed.OtherLibraryId);
 
         var libraryResponse = await client.GetAsync("/api/me/library");
-        var library = await libraryResponse.Content.ReadFromJsonAsync<LibraryContextDto>();
+        var library = await libraryResponse.Content.ReadFromJsonAsync<LibraryContext>();
         libraryResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         library.ShouldNotBeNull();
         library.Name.ShouldBe("Other Room");
@@ -43,7 +43,7 @@ public sealed class ConsumerLiveLibraryAssignmentEndpointsTests
 
         var platformsResponse = await client.GetAsync("/api/me/library/systems");
         var platforms = await platformsResponse.Content
-            .ReadFromJsonAsync<Page<ConsumerPlatformSummaryDto>>();
+            .ReadFromJsonAsync<Page<ConsumerPlatformSummary>>();
         platformsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         platforms.ShouldNotBeNull();
         var platform = platforms.Items.ShouldHaveSingleItem();
@@ -51,30 +51,30 @@ public sealed class ConsumerLiveLibraryAssignmentEndpointsTests
 
         var platformDetailResponse = await client.GetAsync($"/api/me/library/systems/{platform.Key}");
         var platformDetail = await platformDetailResponse.Content
-            .ReadFromJsonAsync<ConsumerPlatformDetailDto>();
+            .ReadFromJsonAsync<ConsumerPlatformDetail>();
         platformDetailResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         platformDetail.ShouldNotBeNull();
         platformDetail.TitleCount.ShouldBe(1);
 
         var catalogResponse = await client.GetAsync("/api/catalog?limit=10");
-        var catalog = await catalogResponse.Content.ReadFromJsonAsync<Page<ConsumerTitleCardDto>>();
+        var catalog = await catalogResponse.Content.ReadFromJsonAsync<Page<ConsumerTitleCard>>();
         catalogResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         catalog.ShouldNotBeNull();
         catalog.Items.Select(item => item.Name).ShouldBe(["EarthBound"]);
         catalog.Items.ShouldNotContain(item => item.Name == "Chrono Trigger");
 
-        var matchingSearch = await client.GetFromJsonAsync<Page<ConsumerTitleCardDto>>(
+        var matchingSearch = await client.GetFromJsonAsync<Page<ConsumerTitleCard>>(
             "/api/catalog?query=earth&limit=10");
         matchingSearch.ShouldNotBeNull();
         matchingSearch.Items.Select(item => item.Name).ShouldBe(["EarthBound"]);
-        var formerSearch = await client.GetFromJsonAsync<Page<ConsumerTitleCardDto>>(
+        var formerSearch = await client.GetFromJsonAsync<Page<ConsumerTitleCard>>(
             "/api/catalog?query=chrono&limit=10");
         formerSearch.ShouldNotBeNull();
         formerSearch.Items.ShouldBeEmpty();
 
         var newTitleResponse = await client.GetAsync(
             $"/api/titles/{IdCoder.Encode(seed.OtherLibraryTitleId)}");
-        var newTitle = await newTitleResponse.Content.ReadFromJsonAsync<ConsumerTitleDetailDto>();
+        var newTitle = await newTitleResponse.Content.ReadFromJsonAsync<ConsumerTitleDetail>();
         newTitleResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         newTitle.ShouldNotBeNull();
         newTitle.Name.ShouldBe("EarthBound");
@@ -85,7 +85,7 @@ public sealed class ConsumerLiveLibraryAssignmentEndpointsTests
 
         var collectionsResponse = await client.GetAsync("/api/collections");
         var visibleCollections = (await collectionsResponse.Content
-            .ReadFromJsonAsync<Page<ConsumerCollectionDto>>())?.Items;
+            .ReadFromJsonAsync<Page<ConsumerCollection>>())?.Items;
         collectionsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         visibleCollections.ShouldNotBeNull();
         visibleCollections.Select(item => item.Name).ShouldBe(["Library B Picks"]);
@@ -93,7 +93,7 @@ public sealed class ConsumerLiveLibraryAssignmentEndpointsTests
         var collectionDetailResponse = await client.GetAsync(
             $"/api/collections/{IdCoder.Encode(collections.SecondCollectionId)}");
         var collectionDetail = await collectionDetailResponse.Content
-            .ReadFromJsonAsync<ConsumerCollectionDto>();
+            .ReadFromJsonAsync<ConsumerCollection>();
         collectionDetailResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         collectionDetail.ShouldNotBeNull();
         collectionDetail.Name.ShouldBe("Library B Picks");
@@ -101,7 +101,7 @@ public sealed class ConsumerLiveLibraryAssignmentEndpointsTests
         var collectionTitlesResponse = await client.GetAsync(
             $"/api/collections/{IdCoder.Encode(collections.SecondCollectionId)}/titles");
         var collectionTitles = await collectionTitlesResponse.Content
-            .ReadFromJsonAsync<Page<ConsumerCollectionTitleDto>>();
+            .ReadFromJsonAsync<Page<ConsumerCollectionTitle>>();
         collectionTitlesResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         collectionTitles.ShouldNotBeNull();
         collectionTitles.Items.Select(item => item.Name).ShouldBe(["EarthBound"]);
@@ -111,7 +111,7 @@ public sealed class ConsumerLiveLibraryAssignmentEndpointsTests
         formerCollectionResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         var biosResponse = await client.GetAsync("/api/systems/snes/bios");
-        var bios = await biosResponse.Content.ReadFromJsonAsync<ConsumerPlatformBiosDto>();
+        var bios = await biosResponse.Content.ReadFromJsonAsync<ConsumerPlatformBios>();
         biosResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         bios.ShouldNotBeNull();
         var biosGrantUrl = bios.Items.Single(item => item.IsAvailable)
@@ -126,7 +126,7 @@ public sealed class ConsumerLiveLibraryAssignmentEndpointsTests
             $"/api/releases/{IdCoder.Encode(seed.OtherLibraryReleaseId)}/manifest",
             content: null);
         var manifest = await manifestResponse.Content
-            .ReadFromJsonAsync<ConsumerReleaseManifestDto>(ConsumerDeliveryEndpointsTests.ConsumerJsonOptions);
+            .ReadFromJsonAsync<ConsumerReleaseManifest>(ConsumerDeliveryEndpointsTests.ConsumerJsonOptions);
         manifestResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         manifest.ShouldNotBeNull();
         manifest.TitleId.ShouldBe(IdCoder.Encode(seed.OtherLibraryTitleId));

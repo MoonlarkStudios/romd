@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { CatalogTitle, PageOfCatalogTitle, SystemResourceDto } from '@romd/admin-api-client';
+import type { CatalogTitle, PageOfCatalogTitle, SystemResource } from '@romd/admin-api-client';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
@@ -55,7 +55,7 @@ const mockSearchCatalog = listCatalogTitles as ReturnType<typeof vi.fn>;
 const mockSetTitleTracking = replaceTitleTracking as ReturnType<typeof vi.fn>;
 const mockBatchSetTitleTracking = batchSetTitleTracking as ReturnType<typeof vi.fn>;
 
-const platforms: SystemResourceDto[] = [
+const platforms: SystemResource[] = [
   {
     key: 'plat-1',
     name: 'Super Nintendo Entertainment System',

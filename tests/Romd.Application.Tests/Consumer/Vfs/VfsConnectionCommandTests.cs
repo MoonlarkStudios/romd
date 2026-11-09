@@ -237,6 +237,6 @@ public sealed class VfsConnectionCommandTests
         }
     }
 
-    private static VfsConnectionDto Dto(VfsFormat format) => new(Guid.NewGuid(), "Device", "test-user", "Active",
+    private static VfsConnection Dto(VfsFormat format) => new(Guid.NewGuid(), "Device", "test-user", "Active",
         DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, VfsFormats.ToWire(format));
 }

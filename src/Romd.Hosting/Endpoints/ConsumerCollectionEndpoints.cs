@@ -20,19 +20,19 @@ public static class ConsumerCollectionEndpoints
 
         group.MapGet("", ListCollections)
             .WithName("ListConsumerCollections")
-            .Produces<Page<ConsumerCollectionDto>>()
+            .Produces<Page<ConsumerCollection>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
 
         group.MapGet("{collectionId}", GetCollection)
             .WithName("GetConsumerCollection")
-            .Produces<ConsumerCollectionDto>()
+            .Produces<ConsumerCollection>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
 
         group.MapGet("{collectionId}/titles", ListCollectionTitles)
             .WithName("ListConsumerCollectionTitles")
-            .Produces<Page<ConsumerCollectionTitleDto>>()
+            .Produces<Page<ConsumerCollectionTitle>>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
 
@@ -41,7 +41,7 @@ public static class ConsumerCollectionEndpoints
 
     private static async Task<IResult> ListCollections(
         SystemKeyParameter? systemKey,
-        IQueryHandler<ListConsumerCollectionsQuery, Page<ConsumerCollectionDto>> handler,
+        IQueryHandler<ListConsumerCollectionsQuery, Page<ConsumerCollection>> handler,
         string? cursor = null,
         [Range(1, ListConsumerCollectionsQuery.MaxLimit)] int limit = 50,
         CancellationToken ct = default)
@@ -56,7 +56,7 @@ public static class ConsumerCollectionEndpoints
 
     private static async Task<IResult> GetCollection(
         Sqid collectionId,
-        IQueryHandler<GetConsumerCollectionQuery, ConsumerCollectionDto> handler,
+        IQueryHandler<GetConsumerCollectionQuery, ConsumerCollection> handler,
         CancellationToken ct)
     {
         var query = new GetConsumerCollectionQuery(collectionId);
@@ -71,7 +71,7 @@ public static class ConsumerCollectionEndpoints
         Sqid collectionId,
         string? cursor,
         [Range(1, ListConsumerCollectionTitlesQuery.MaxLimit)] int? limit,
-        IQueryHandler<ListConsumerCollectionTitlesQuery, Page<ConsumerCollectionTitleDto>> handler,
+        IQueryHandler<ListConsumerCollectionTitlesQuery, Page<ConsumerCollectionTitle>> handler,
         CancellationToken ct)
     {
         var query = new ListConsumerCollectionTitlesQuery(collectionId, cursor, limit ?? 50);

@@ -28,6 +28,12 @@ using Romd.Host.Endpoints;
 using Shouldly;
 using Xunit;
 
+using ContractJob = Romd.Contracts.Management.Models.Job;
+using ContractJobItem = Romd.Contracts.Management.Models.JobItem;
+
+using JobItemTitle = Romd.Admin.Application.Ingestion.Jobs.JobItemTitle;
+using UploadJob = Romd.Domain.Jobs.UploadJob;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 public sealed class JobEndpointsTests
@@ -45,7 +51,7 @@ public sealed class JobEndpointsTests
 
         var result = await InvokeGetRecentAsync(25, true, jobRepository, currentUser);
 
-        var ok = result.ShouldBeOfType<Ok<Page<JobDto>>>();
+        var ok = result.ShouldBeOfType<Ok<Page<ContractJob>>>();
         ok.Value.ShouldNotBeNull();
         ok.Value.Items.Select(j => j.Id).ShouldBe([ownedJob.Id]);
         await jobRepository.Received(1).ListAsync(Arg.Is<JobListFilter>(filter => filter.OwnerId == userId && filter.Limit == 25 && filter.Archive == "all"), Arg.Any<CancellationToken>());
@@ -66,7 +72,7 @@ public sealed class JobEndpointsTests
 
         var result = await InvokeGetRecentAsync(null, null, jobRepository, currentUser);
 
-        var ok = result.ShouldBeOfType<Ok<Page<JobDto>>>();
+        var ok = result.ShouldBeOfType<Ok<Page<ContractJob>>>();
         ok.Value.ShouldNotBeNull();
         ok.Value.Items.Select(j => j.Id).ShouldBe([otherUserJob.Id]);
         await jobRepository.Received(1).ListAsync(Arg.Is<JobListFilter>(filter => filter.OwnerId == null && filter.Limit == 50 && filter.Archive == "active"), Arg.Any<CancellationToken>());
@@ -86,7 +92,7 @@ public sealed class JobEndpointsTests
 
         var result = await InvokeGetByIdAsync(job.Id, jobRepository, currentUser);
 
-        var ok = result.ShouldBeOfType<Ok<JobDto>>();
+        var ok = result.ShouldBeOfType<Ok<ContractJob>>();
         ok.Value.ShouldNotBeNull();
         ok.Value.Id.ShouldBe(job.Id);
     }
@@ -111,13 +117,13 @@ public sealed class JobEndpointsTests
     public async Task Archive_HandlerSucceeds_ReturnsUpdatedResource()
     {
         var jobId = Guid.NewGuid();
-        var handler = Substitute.For<ICommandHandler<SetJobArchivedCommand, JobDto>>();
+        var handler = Substitute.For<ICommandHandler<SetJobArchivedCommand, ContractJob>>();
         var expected = UploadJob.Create("terminal.zip", createdAt: DateTimeOffset.UtcNow).ToContract(await TestReferenceCatalog.Create().GetSystemKeysAsync(CancellationToken.None)) with { Id = jobId };
         handler.HandleAsync(new SetJobArchivedCommand(jobId, true), Arg.Any<CancellationToken>()).Returns(expected);
 
         var result = await InvokeArchiveAsync(jobId, handler);
 
-        result.ShouldBeOfType<Ok<JobDto>>().Value!.Id.ShouldBe(jobId);
+        result.ShouldBeOfType<Ok<ContractJob>>().Value!.Id.ShouldBe(jobId);
     }
 
     [Theory]
@@ -126,7 +132,7 @@ public sealed class JobEndpointsTests
     public async Task Archive_HandlerError_ReturnsItsEnvelope(int status, string errorCode)
     {
         var jobId = Guid.NewGuid();
-        var handler = Substitute.For<ICommandHandler<SetJobArchivedCommand, JobDto>>();
+        var handler = Substitute.For<ICommandHandler<SetJobArchivedCommand, ContractJob>>();
         handler.HandleAsync(new SetJobArchivedCommand(jobId, true), Arg.Any<CancellationToken>())
             .Returns(status == 404 ? JobErrors.NotFound(jobId) : JobErrors.NotTerminal());
 
@@ -209,7 +215,7 @@ public sealed class JobEndpointsTests
 
         var result = await InvokeGetItemsAsync(job.Id, null, null, handler);
 
-        var ok = result.ShouldBeOfType<Ok<Page<JobItemDto>>>();
+        var ok = result.ShouldBeOfType<Ok<Page<ContractJobItem>>>();
         ok.Value.ShouldNotBeNull();
         ok.Value.HasNextPage.ShouldBeFalse();
         var item = ok.Value.Items.ShouldHaveSingleItem();
@@ -346,7 +352,7 @@ public sealed class JobEndpointsTests
     }
 
     private static async Task<IResult> InvokeGetItemsAsync(Guid id, string? outcome, int? limit,
-        IQueryHandler<GetJobItemsQuery, Page<JobItemDto>> handler) =>
+        IQueryHandler<GetJobItemsQuery, Page<ContractJobItem>> handler) =>
         await (Task<IResult>)InvokeEndpoint("Items", [id, handler, CancellationToken.None, outcome, null, null, limit ?? 100])!;
 
     private static async Task<IResult> InvokeExportItemsAsync(Guid id, string? format, IJobRepository jobRepository,
@@ -370,7 +376,7 @@ public sealed class JobEndpointsTests
     private static async Task<IResult> InvokeGetByIdAsync(Guid id, IJobRepository repository, ICurrentUser user) =>
         await (Task<IResult>)InvokeEndpoint("Get", [id, new GetJobQueryHandler(repository, user, TestReferenceCatalog.Create()), CancellationToken.None])!;
 
-    private static async Task<IResult> InvokeArchiveAsync(Guid id, ICommandHandler<SetJobArchivedCommand, JobDto> handler) =>
+    private static async Task<IResult> InvokeArchiveAsync(Guid id, ICommandHandler<SetJobArchivedCommand, ContractJob> handler) =>
         await (Task<IResult>)InvokeEndpoint("Update", [id, new UpdateJobRequest(true), handler, CancellationToken.None])!;
 
     private static async Task<IResult> InvokeCancelAsync(Guid id,
@@ -395,7 +401,7 @@ public sealed class JobEndpointsTests
         return method;
     }
 
-    private static JobItemDto CsvItem(string fileName, bool? archiveOnly, string kind = "rom") => new()
+    private static ContractJobItem CsvItem(string fileName, bool? archiveOnly, string kind = "rom") => new()
     {
         Id = Guid.NewGuid().ToString(),
         Kind = kind,

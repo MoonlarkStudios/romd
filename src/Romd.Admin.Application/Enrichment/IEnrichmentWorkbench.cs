@@ -10,9 +10,9 @@ public interface IEnrichmentWorkbench
     /// <summary>The largest page the operation serves; the endpoint publishes and enforces it.</summary>
     public const int MaxLimit = 100;
 
-    Task<ErrorOr<Page<EnrichmentAssessmentDto>>> ReadAsync(string view, string? cursor, int limit, string? query, CancellationToken ct);
-    Task<ErrorOr<EnrichmentWorkbenchCountsDto>> ReadCountsAsync(string? query, CancellationToken ct);
-    Task<ErrorOr<EnrichmentAssessmentDto>> GetAsync(int titleId, CancellationToken ct);
+    Task<ErrorOr<Page<EnrichmentAssessment>>> ReadAsync(string view, string? cursor, int limit, string? query, CancellationToken ct);
+    Task<ErrorOr<EnrichmentWorkbenchCounts>> ReadCountsAsync(string? query, CancellationToken ct);
+    Task<ErrorOr<EnrichmentAssessment>> GetAsync(int titleId, CancellationToken ct);
     /// <summary>
     ///     Accepts or revisits an omission when <paramref name="ifMatch" /> holds the title's current revision, and
     ///     rotates it; a stale validator is 412 and writes nothing. It runs in the caller's transaction, which then

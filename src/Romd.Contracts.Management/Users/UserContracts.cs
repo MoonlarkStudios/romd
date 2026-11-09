@@ -3,7 +3,7 @@ namespace Romd.Contracts.Management.Users;
 /// <summary>
 ///     User information.
 /// </summary>
-public sealed record UserDto(
+public sealed record User(
     Guid Id,
     string Email,
     IReadOnlyList<string> Roles,

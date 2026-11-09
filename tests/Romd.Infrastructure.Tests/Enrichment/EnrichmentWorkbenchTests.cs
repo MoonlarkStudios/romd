@@ -18,6 +18,10 @@ using Shouldly;
 using Xunit;
 using EnrichmentRequirementCause = Romd.Contracts.Management.Enrichment.EnrichmentRequirementCause;
 using EnrichmentRequirementSatisfiedBy = Romd.Contracts.Management.Enrichment.EnrichmentRequirementSatisfiedBy;
+using ContractEnrichmentRequirement = Romd.Contracts.Management.Enrichment.EnrichmentRequirement;
+
+using EnrichmentRequirement = Romd.Domain.Catalog.EnrichmentRequirement;
+
 namespace Romd.Infrastructure.Tests.Enrichment;
 
 public sealed class EnrichmentWorkbenchTests : IDisposable
@@ -170,7 +174,7 @@ public sealed class EnrichmentWorkbenchTests : IDisposable
         page.Items.Count.ShouldBe(Math.Min(1, counts.Total));
         page.HasNextPage.ShouldBe(counts.Total > 1);
         if (query == "missing")
-            counts.ShouldBe(new EnrichmentWorkbenchCountsDto(0, 0, 0, 0, 0));
+            counts.ShouldBe(new EnrichmentWorkbenchCounts(0, 0, 0, 0, 0));
         if (query is null)
         {
             counts.Total.ShouldBe(3);
@@ -194,7 +198,7 @@ public sealed class EnrichmentWorkbenchTests : IDisposable
         await db.Database.ExecuteSqlRawAsync("SET plan_cache_mode = force_generic_plan");
         var actual = (await new EnrichmentWorkbench(db, TimeProvider.System, new ArtworkReader(db), adapters: [adapter])
             .ReadCountsAsync(null, default)).Value;
-        actual.ShouldBe(new EnrichmentWorkbenchCountsDto(count, 0, count, 0, 0));
+        actual.ShouldBe(new EnrichmentWorkbenchCounts(count, 0, count, 0, 0));
     }
 
     [Theory]
@@ -262,7 +266,7 @@ public sealed class EnrichmentWorkbenchTests : IDisposable
         boundedSummaries.Select(row => row.TitleId).Order().ShouldBe(ids.Order());
         var actual = (await new EnrichmentWorkbench(db, TimeProvider.System, new ArtworkReader(db), adapters: [adapter])
             .ReadCountsAsync(null, default)).Value;
-        actual.ShouldBe(new EnrichmentWorkbenchCountsDto(summaries.Count, summaries.Count(row => row.NeedsReview),
+        actual.ShouldBe(new EnrichmentWorkbenchCounts(summaries.Count, summaries.Count(row => row.NeedsReview),
             summaries.Count(row => row.CanEnrichAutomatically), summaries.Count(row => row.HasActiveWork), summaries.Count(row => row.HasOperationalBlocker)));
         actual.NeedsReview.ShouldBeGreaterThan(0);
         actual.Automatic.ShouldBeGreaterThan(0);
@@ -367,7 +371,7 @@ public sealed class EnrichmentWorkbenchTests : IDisposable
         var workbench = new EnrichmentWorkbench(db, TimeProvider.System, new ArtworkReader(db), adapters: [adapter]);
         var service = new Romd.Admin.Application.Artwork.ArtworkCompletionService(
             new Romd.Persistence.Artwork.ArtworkCompletionStore(db, clock: TimeProvider.System, identityAdapters: [adapter]));
-        var filters = new Romd.Contracts.Management.Artwork.ArtworkCompletionFilterDto(Query: query, Tracked: "tracked");
+        var filters = new Romd.Contracts.Management.Artwork.ArtworkCompletionFilter(Query: query, Tracked: "tracked");
 
         var counts = (await workbench.ReadCountsAsync(query, default)).Value;
         var page = (await workbench.ReadAsync("All", null, 50, query, default)).Value;
@@ -844,10 +848,10 @@ public sealed class EnrichmentWorkbenchTests : IDisposable
             output.WriteLine(reader.GetString(0));
     }
 
-    private static EnrichmentRequirementDto[] Open(EnrichmentAssessmentDto assessment) =>
+    private static ContractEnrichmentRequirement[] Open(EnrichmentAssessment assessment) =>
         assessment.Requirements.Where(x => x.State != EnrichmentIssueState.Satisfied).ToArray();
 
-    private static (string Subject, EnrichmentRequirementSatisfiedBy? SatisfiedBy)[] SatisfiedBy(EnrichmentAssessmentDto assessment, string kind) =>
+    private static (string Subject, EnrichmentRequirementSatisfiedBy? SatisfiedBy)[] SatisfiedBy(EnrichmentAssessment assessment, string kind) =>
         assessment.Requirements.Where(x => x.Kind == kind).Select(x => (x.Subject, x.SatisfiedBy)).ToArray();
 
     private async Task Seed(int count)

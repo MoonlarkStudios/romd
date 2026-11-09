@@ -102,7 +102,7 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         await AddAutomatic(db, "a", "42");
         var oldFingerprint = await db.Titles.Where(x => x.Id == 1)
             .Select(x => ProviderIdentityDatabaseFunctions.Fingerprint(x.Id, "provider-identity-4")).SingleAsync();
-        var oldDecision = JsonSerializer.Serialize(new ProviderIdentityDecisionDto("AutoAccepted", "Old truncated search.",
+        var oldDecision = JsonSerializer.Serialize(new ProviderIdentityDecision("AutoAccepted", "Old truncated search.",
             "test", oldFingerprint, []));
         await db.Set<TitleProviderMatchStateEntity>().ExecuteUpdateAsync(update => update
             .SetProperty(x => x.MatcherVersion, "provider-identity-4")
@@ -116,7 +116,7 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
         adapter.Capabilities.Returns(["artwork"]);
         adapter.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
-        adapter.SearchAsync("GAME", Arg.Any<CancellationToken>()).Returns(new ProviderGameSearchResultDto(
+        adapter.SearchAsync("GAME", Arg.Any<CancellationToken>()).Returns(new ProviderGameSearchResult(
             [new("42", "Game", "https://example.com/game", Platforms: ["Test"])], ProviderGameSearchCompleteness.ProviderLimited, 100));
         var store = new ProviderIdentityStore(db, evidence, TimeProvider.System);
         var service = new ProviderIdentityService(store, [adapter], [], TimeProvider.System, new EfUnitOfWork(db), NullLogger<ProviderIdentityService>.Instance);
@@ -129,7 +129,7 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         state.MatcherVersion.ShouldBe(ProviderIdentityPolicy.Version);
         state.InputFingerprint.ShouldNotBe(oldFingerprint);
         state.AutomaticallyTrusted.ShouldBeFalse();
-        JsonSerializer.Deserialize<ProviderIdentityDecisionDto>(state.DecisionJson!)!.State.ShouldBe("NeedsReview");
+        JsonSerializer.Deserialize<ProviderIdentityDecision>(state.DecisionJson!)!.State.ShouldBe("NeedsReview");
         (await service.GetTrustedAsync(1, "a", default)).ShouldBeNull();
         (await db.TitleExternalIds.SingleAsync()).ExternalId.ShouldBe("42");
     }
@@ -149,7 +149,7 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         await db.Set<TitleProviderMatchStateEntity>().Where(x => x.ProviderId == "a")
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Revision, firstRevision));
         (await Trusted(db, "b")).ShouldBeTrue();
-        var cycle = JsonSerializer.Serialize(new ProviderIdentityDecisionDto("AutoMatched", "test", "test",
+        var cycle = JsonSerializer.Serialize(new ProviderIdentityDecision("AutoMatched", "test", "test",
             await Fingerprint(db), [], [new("b", "84", secondRevision)]));
         await db.Set<TitleProviderMatchStateEntity>().Where(x => x.ProviderId == "a")
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.DecisionJson, cycle));
@@ -200,7 +200,7 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
     }
 
     private static async Task<Guid> AddAutomatic(RomdDbContext db, string provider, string gameId,
-        IReadOnlyList<ProviderIdentityDependencyDto>? dependencies = null)
+        IReadOnlyList<ProviderIdentityDependency>? dependencies = null)
     {
         var fingerprint = await Fingerprint(db);
         var revision = Guid.NewGuid();
@@ -213,8 +213,8 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
             AutomaticallyTrusted = true,
             InputFingerprint = fingerprint,
             MatcherVersion = ProviderIdentityPolicy.Version,
-            GameJson = JsonSerializer.Serialize(new ProviderGameDto(gameId, "Game", "https://example.com/game")),
-            DecisionJson = JsonSerializer.Serialize(new ProviderIdentityDecisionDto("AutoMatched", "test", "test", fingerprint, [], dependencies))
+            GameJson = JsonSerializer.Serialize(new ProviderGame(gameId, "Game", "https://example.com/game")),
+            DecisionJson = JsonSerializer.Serialize(new ProviderIdentityDecision("AutoMatched", "test", "test", fingerprint, [], dependencies))
         });
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();

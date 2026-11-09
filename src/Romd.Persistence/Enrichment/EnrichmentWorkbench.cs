@@ -17,7 +17,7 @@ namespace Romd.Persistence.Enrichment;
 
 public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IArtworkReader artworkReader, IOptions<EnrichmentOptions>? options = null, IEnumerable<Romd.Admin.Application.MetadataProviders.IProviderIdentityAdapter>? adapters = null) : IEnrichmentWorkbench
 {
-    public async Task<ErrorOr<Page<EnrichmentAssessmentDto>>> ReadAsync(string view, string? cursor, int limit, string? query, CancellationToken ct)
+    public async Task<ErrorOr<Page<EnrichmentAssessment>>> ReadAsync(string view, string? cursor, int limit, string? query, CancellationToken ct)
     {
         if (view is not ("NeedsReview" or "Automatic" or "Processing" or "Blocked" or "All") || limit is < 1 or > IEnrichmentWorkbench.MaxLimit || query?.Length > 200)
             return Error.Validation("Enrichment.InvalidQuery", $"Choose a supported view, a limit between 1 and {IEnrichmentWorkbench.MaxLimit}, and a search of at most 200 characters.");
@@ -32,7 +32,7 @@ public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IA
         var hasMore = page.Count > limit;
         var ids = page.Take(limit).ToArray();
         var details = await DetailsAsync(ids, ct, providers);
-        return new Page<EnrichmentAssessmentDto>
+        return new Page<EnrichmentAssessment>
         {
             Items = details,
             HasNextPage = hasMore,
@@ -40,17 +40,17 @@ public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IA
         };
     }
 
-    public async Task<ErrorOr<EnrichmentWorkbenchCountsDto>> ReadCountsAsync(string? query, CancellationToken ct)
+    public async Task<ErrorOr<EnrichmentWorkbenchCounts>> ReadCountsAsync(string? query, CancellationToken ct)
     {
         if (query?.Length > 200)
             return Error.Validation("Enrichment.InvalidQuery", "Use a search of at most 200 characters.");
         var providers = await EnrichmentProviderAvailability.ReadAsync(adapters ?? [], ct);
         var summaries = new EnrichmentAssessmentQuery(db, TitleScope(query), options?.Value, providers).SummariesForCounts();
         // One statement counts the canonical flags without hydrating queue items or details.
-        var counts = await summaries.GroupBy(_ => 1).Select(group => new EnrichmentWorkbenchCountsDto(
+        var counts = await summaries.GroupBy(_ => 1).Select(group => new EnrichmentWorkbenchCounts(
             group.Count(), group.Count(x => x.NeedsReview), group.Count(x => x.CanEnrichAutomatically),
             group.Count(x => x.HasActiveWork), group.Count(x => x.HasOperationalBlocker))).SingleOrDefaultAsync(ct);
-        return counts ?? new EnrichmentWorkbenchCountsDto(0, 0, 0, 0, 0);
+        return counts ?? new EnrichmentWorkbenchCounts(0, 0, 0, 0, 0);
     }
 
     // The catalog's full-text predicate, so a launch from this search selects exactly the titles counted here.
@@ -98,7 +98,7 @@ public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IA
         return ids;
     }
 
-    public async Task<ErrorOr<EnrichmentAssessmentDto>> GetAsync(int titleId, CancellationToken ct)
+    public async Task<ErrorOr<EnrichmentAssessment>> GetAsync(int titleId, CancellationToken ct)
     {
         var rows = await DetailsAsync([titleId], ct);
         return rows.Count == 0 ? CatalogErrors.TitleNotFound() : rows[0];
@@ -131,7 +131,7 @@ public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IA
         return Result.Updated;
     }
 
-    private async Task<IReadOnlyList<EnrichmentAssessmentDto>> DetailsAsync(int[] ids, CancellationToken ct, EnrichmentProviderAvailability? providers = null)
+    private async Task<IReadOnlyList<EnrichmentAssessment>> DetailsAsync(int[] ids, CancellationToken ct, EnrichmentProviderAvailability? providers = null)
     {
         if (ids.Length == 0)
             return [];
@@ -159,7 +159,7 @@ public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IA
             var accepted = omissions.Where(x => x.TitleId == title.Id).Select(x => x.Field).Order().ToArray();
             var poster = artwork.GetValueOrDefault(title.Id)?.FirstOrDefault(item => item.Role == ArtworkRole.Poster)?.ToContract();
             var thumbnail = poster?.Variants.OrderBy(item => (long)item.Width * item.Height).ThenBy(item => item.Name, StringComparer.Ordinal).FirstOrDefault()?.Url ?? poster?.Url;
-            return new EnrichmentAssessmentDto(IdCoder.Encode(title.Id), title.Name, title.Platform, title.Revision,
+            return new EnrichmentAssessment(IdCoder.Encode(title.Id), title.Name, title.Platform, title.Revision,
                 current.Any(x => x.State == EnrichmentRequirementState.NeedsReview), current.Any(x => x.State == EnrichmentRequirementState.Automatic),
                 current.Any(x => x.State == EnrichmentRequirementState.Processing), current.Any(x => x.State == EnrichmentRequirementState.Blocked),
                 EnrichmentRequirementMapping.ToContract(current), accepted, thumbnail, title.CompactLabel);

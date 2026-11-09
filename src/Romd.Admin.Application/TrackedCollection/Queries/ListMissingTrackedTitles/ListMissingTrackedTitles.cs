@@ -5,12 +5,12 @@ using Romd.Contracts.Management.TrackedCollection;
 
 namespace Romd.Admin.Application.TrackedCollection.Queries.ListMissingTrackedTitles;
 
-public sealed record ListMissingTrackedTitlesQuery : IQuery<IReadOnlyList<TrackedCollectionTitleDto>>;
+public sealed record ListMissingTrackedTitlesQuery : IQuery<IReadOnlyList<TrackedCollectionTitle>>;
 
 public sealed class ListMissingTrackedTitlesQueryHandler(IReferenceCatalogService referenceCatalog, ITrackedCollectionReadRepository repository)
-    : IQueryHandler<ListMissingTrackedTitlesQuery, IReadOnlyList<TrackedCollectionTitleDto>>
+    : IQueryHandler<ListMissingTrackedTitlesQuery, IReadOnlyList<TrackedCollectionTitle>>
 {
-    public async Task<ErrorOr<IReadOnlyList<TrackedCollectionTitleDto>>> HandleAsync(
+    public async Task<ErrorOr<IReadOnlyList<TrackedCollectionTitle>>> HandleAsync(
         ListMissingTrackedTitlesQuery query,
         CancellationToken ct = default)
     {

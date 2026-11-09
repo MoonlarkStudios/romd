@@ -14,14 +14,14 @@ public static class JobMapping
     /// <summary>
     ///     Maps any Job subtype to its contract representation.
     /// </summary>
-    public static Models.JobDto ToContract(this Job job, SystemKeys systemKeys)
+    public static Models.Job ToContract(this Job job, SystemKeys systemKeys)
     {
         return job switch
         {
             UploadJob upload => upload.ToContract(systemKeys),
             ReplaceDatJob replace => replace.ToContract(systemKeys),
             EnrichmentJob enrichment => enrichment.ToContract(systemKeys),
-            ArtworkCompletionJob completion => new Models.ArtworkCompletionOperationDto
+            ArtworkCompletionJob completion => new Models.ArtworkCompletionOperation
             {
                 Id = completion.Id,
                 CorrelationId = completion.CorrelationId,
@@ -41,7 +41,7 @@ public static class JobMapping
                 HasErrors = completion.HasErrors,
                 Errors = completion.Errors.Select(x => x.ToContract()).ToList()
             },
-            MetadataRematerializationJob metadata => new Models.MetadataRematerializationJobDto
+            MetadataRematerializationJob metadata => new Models.MetadataRematerializationJob
             {
                 Id = metadata.Id,
                 CorrelationId = metadata.CorrelationId,
@@ -74,9 +74,9 @@ public static class JobMapping
     /// <summary>
     ///     Maps an UploadJob to its contract representation.
     /// </summary>
-    public static Models.UploadJobDto ToContract(this UploadJob job, SystemKeys systemKeys)
+    public static Models.UploadJob ToContract(this UploadJob job, SystemKeys systemKeys)
     {
-        return new Models.UploadJobDto
+        return new Models.UploadJob
         {
             Id = job.Id,
             CorrelationId = job.CorrelationId,
@@ -113,9 +113,9 @@ public static class JobMapping
     /// <summary>
     ///     Maps a ReplaceDatJob to its contract representation.
     /// </summary>
-    public static Models.ReplaceDatJobDto ToContract(this ReplaceDatJob job, SystemKeys systemKeys)
+    public static Models.ReplaceDatJob ToContract(this ReplaceDatJob job, SystemKeys systemKeys)
     {
-        return new Models.ReplaceDatJobDto
+        return new Models.ReplaceDatJob
         {
             Id = job.Id,
             CorrelationId = job.CorrelationId,
@@ -141,9 +141,9 @@ public static class JobMapping
     /// <summary>
     ///     Maps an EnrichmentJob to its contract representation.
     /// </summary>
-    public static Models.EnrichmentJobDto ToContract(this EnrichmentJob job, SystemKeys systemKeys)
+    public static Models.EnrichmentJob ToContract(this EnrichmentJob job, SystemKeys systemKeys)
     {
-        return new Models.EnrichmentJobDto
+        return new Models.EnrichmentJob
         {
             Id = job.Id,
             CorrelationId = job.CorrelationId,
@@ -168,9 +168,9 @@ public static class JobMapping
     /// <summary>
     ///     Maps a BulkEnrichmentJob to its contract representation.
     /// </summary>
-    public static Models.BulkEnrichmentJobDto ToContract(this BulkEnrichmentJob job, SystemKeys systemKeys)
+    public static Models.BulkEnrichmentJob ToContract(this BulkEnrichmentJob job, SystemKeys systemKeys)
     {
-        return new Models.BulkEnrichmentJobDto
+        return new Models.BulkEnrichmentJob
         {
             Id = job.Id,
             CorrelationId = job.CorrelationId,
@@ -200,9 +200,9 @@ public static class JobMapping
     /// <summary>
     ///     Maps an ExportJob to its contract representation.
     /// </summary>
-    public static Models.ExportJobDto ToContract(this ExportJob job, SystemKeys systemKeys)
+    public static Models.ExportJob ToContract(this ExportJob job, SystemKeys systemKeys)
     {
-        return new Models.ExportJobDto
+        return new Models.ExportJob
         {
             Format = Romd.Application.Common.Content.RomDeliveryFormats.ToWire(job.Format),
             Id = job.Id,
@@ -234,9 +234,9 @@ public static class JobMapping
     /// <summary>
     ///     Maps a MaterializationJob to its contract representation.
     /// </summary>
-    public static Models.MaterializationJobDto ToContract(this MaterializationJob job, SystemKeys systemKeys)
+    public static Models.MaterializationJob ToContract(this MaterializationJob job, SystemKeys systemKeys)
     {
-        return new Models.MaterializationJobDto
+        return new Models.MaterializationJob
         {
             Id = job.Id,
             CorrelationId = job.CorrelationId,
@@ -262,7 +262,7 @@ public static class JobMapping
         };
     }
 
-    public static Models.ArtworkImportJobDto ToContract(this ArtworkImportJob job, SystemKeys systemKeys) => new()
+    public static Models.ArtworkImportJob ToContract(this ArtworkImportJob job, SystemKeys systemKeys) => new()
     {
         Id = job.Id,
         CorrelationId = job.CorrelationId,
@@ -287,7 +287,7 @@ public static class JobMapping
         IsArchived = job.IsArchived
     };
 
-    public static Models.MediaReconciliationJobDto ToContract(this MediaReconciliationJob job, SystemKeys systemKeys)
+    public static Models.MediaReconciliationJob ToContract(this MediaReconciliationJob job, SystemKeys systemKeys)
     {
         var selected = job.Request as MediaReconciliationRequest.SelectionWork;
         var subject = (job.Request as MediaReconciliationRequest.SubjectWork)?.Subject;

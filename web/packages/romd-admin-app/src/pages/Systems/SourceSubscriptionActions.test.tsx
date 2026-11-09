@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { DatCatalogSubscriptionDto } from '@romd/admin-api-client';
+import type { DatCatalogSubscription } from '@romd/admin-api-client';
 import { checkDatSubscription, getDatSubscription } from '@romd/admin-api-client';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -38,7 +38,7 @@ it.each([
     /Automatic checks are paused/,
   ],
 ] as const)('explains the schedule for %s (paused: %s)', async (state, paused, copy) => {
-  const subscription: DatCatalogSubscriptionDto = {
+  const subscription: DatCatalogSubscription = {
     id: 'subscription',
     catalogId: 'redump/psx/discs',
     systemId: 'psx',
@@ -69,7 +69,7 @@ it.each([
     expect(screen.queryByText(/Next automatic check:/)).not.toBeInTheDocument();
 });
 it('checks the existing subscription by its id', async () => {
-  const subscription: DatCatalogSubscriptionDto = {
+  const subscription: DatCatalogSubscription = {
     id: 'subscription',
     catalogId: 'redump/psx/discs',
     systemId: 'psx',

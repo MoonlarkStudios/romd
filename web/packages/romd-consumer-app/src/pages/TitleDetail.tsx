@@ -15,9 +15,9 @@ import {
   Title,
 } from '@mantine/core';
 import type {
-  ConsumerMediaRefDto,
-  ConsumerReleaseDto,
-  ConsumerTitleDetailDto,
+  ConsumerMediaRef,
+  ConsumerRelease,
+  ConsumerTitleDetail,
 } from '@romd/consumer-api-client';
 import { IconArrowLeft, IconDownload, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { useState } from 'react';
@@ -49,7 +49,7 @@ export function TitleDetail() {
   const location = useLocation();
   const returnTo = readReturnContext(location.state);
   const [params, setParams] = useSearchParams();
-  const [activeMedia, setActiveMedia] = useState<ConsumerMediaRefDto | null>(null);
+  const [activeMedia, setActiveMedia] = useState<ConsumerMediaRef | null>(null);
   const [downloadRelease, setDownloadRelease] = useState<string | null>(null);
   const [failedBackdrop, setFailedBackdrop] = useState<string | null>(null);
   const title = titleQuery.data;
@@ -447,8 +447,8 @@ export function TitleDetail() {
 }
 
 function getCapabilityGatedPreflight(
-  title: Pick<ConsumerTitleDetailDto, 'system'>,
-  release: ConsumerReleaseDto,
+  title: Pick<ConsumerTitleDetail, 'system'>,
+  release: ConsumerRelease,
   capabilityResult: PlayerCapabilityResult | undefined,
   isLoading: boolean,
 ): BrowserPlaybackPreflight {
@@ -476,9 +476,9 @@ function getCapabilityGatedPreflight(
 
 interface HeroActionsProps {
   titleId: string;
-  releases: ConsumerReleaseDto[];
+  releases: ConsumerRelease[];
   defaultReleaseId: string | null;
-  selectedRelease: ConsumerReleaseDto | null;
+  selectedRelease: ConsumerRelease | null;
   playback: ReturnType<typeof getBrowserPlaybackPreflight> | null;
   checking: boolean;
   onSelectRelease: (releaseId: string) => void;

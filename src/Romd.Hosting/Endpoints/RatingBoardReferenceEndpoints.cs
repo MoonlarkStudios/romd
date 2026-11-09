@@ -17,11 +17,11 @@ public static class RatingBoardReferenceEndpoints
         group.MapGet("", async ([FromServices] IRatingBoardReferenceReader reader, CancellationToken ct) => Results.Ok(await reader.ListAsync(ct)))
             .WithName("ListRatingBoards")
             .WithDescription("Every rating board ROMD defines; bounded by the built-in reference catalog.")
-            .Produces<IReadOnlyList<RatingBoardResourceDto>>();
+            .Produces<IReadOnlyList<RatingBoardResource>>();
         group.MapGet("{board}", async (string board, [FromServices] IRatingBoardReferenceReader reader, HttpContext context, CancellationToken ct) =>
             await reader.GetAsync(board, ct) is { } found
                 ? Preconditions.ConditionalRead(context, found.Resource, found.Revision)
                 : ReferenceCatalogEndpoints.UnknownReference())
-            .WithName("GetRatingBoard").Produces<RatingBoardResourceDto>().ConditionalRead().ProducesProblems(404);
+            .WithName("GetRatingBoard").Produces<RatingBoardResource>().ConditionalRead().ProducesProblems(404);
     }
 }

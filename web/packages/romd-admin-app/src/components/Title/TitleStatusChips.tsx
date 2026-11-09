@@ -1,5 +1,5 @@
 import { Badge, Group, type MantineColor, Tooltip, VisuallyHidden } from '@mantine/core';
-import type { EnrichmentAssessmentDto } from '@romd/admin-api-client';
+import type { EnrichmentAssessment } from '@romd/admin-api-client';
 import { useId } from 'react';
 import {
   settledExplanation,
@@ -17,7 +17,7 @@ export const titleStatusColors: Record<TitleStatus, MantineColor> = {
 };
 
 export type TitleStatusFlags = Pick<
-  EnrichmentAssessmentDto,
+  EnrichmentAssessment,
   'needsReview' | 'hasOperationalBlocker' | 'hasActiveWork' | 'canEnrichAutomatically'
 >;
 

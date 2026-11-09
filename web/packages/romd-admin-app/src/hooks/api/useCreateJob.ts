@@ -1,4 +1,4 @@
-import type { JobDto, JobReference } from '@romd/admin-api-client';
+import type { Job, JobReference } from '@romd/admin-api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { storeJobSnapshot } from './jobCache';
@@ -8,7 +8,7 @@ import { jobKeys } from './useJobs';
  * Seeds the React Query cache with a newly created job.
  * Call this after any mutation that returns a job reference.
  *
- * If the response contains a full JobDto, it's seeded directly.
+ * If the response contains a full Job, it's seeded directly.
  * Otherwise, we prefetch the job detail to pick it up from the API.
  */
 export function useCreateJob() {
@@ -17,7 +17,7 @@ export function useCreateJob() {
   const seedJob = useCallback(
     (
       result: Pick<JobReference, 'jobId'> & {
-        job?: JobDto;
+        job?: Job;
       },
       options?: {
         invalidateDelayMs?: number;

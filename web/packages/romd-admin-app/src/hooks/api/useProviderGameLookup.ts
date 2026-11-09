@@ -1,6 +1,6 @@
 import {
-  type ProviderGameDto,
-  type ProviderGameSearchResultDto,
+  type ProviderGame,
+  type ProviderGameSearchResult,
   resolveMetadataProviderGame,
   searchMetadataProvider,
 } from '@romd/admin-api-client';
@@ -8,8 +8,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 type LookupMode = 'search' | 'resolve';
 interface LookupData {
-  items: ProviderGameDto[];
-  search?: ProviderGameSearchResultDto;
+  items: ProviderGame[];
+  search?: ProviderGameSearchResult;
 }
 interface LookupState {
   data: LookupData | null;

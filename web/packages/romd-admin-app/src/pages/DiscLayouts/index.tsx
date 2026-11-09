@@ -17,7 +17,7 @@ import {
   listOriginalDiscLayoutCandidates,
   listOriginalDiscLayouts,
   type OriginalDiscDependencyChoice,
-  type OriginalDiscLayoutDto,
+  type OriginalDiscLayout,
   startMediaReconciliationSubject,
   updateOriginalDiscLayout,
 } from '@romd/admin-api-client';
@@ -145,7 +145,7 @@ export function DiscLayouts() {
   );
 }
 
-function LayoutReview({ layout }: { layout: OriginalDiscLayoutDto }) {
+function LayoutReview({ layout }: { layout: OriginalDiscLayout }) {
   const recipe = useQuery({
     queryKey: [
       'cdCompressionRecipe',

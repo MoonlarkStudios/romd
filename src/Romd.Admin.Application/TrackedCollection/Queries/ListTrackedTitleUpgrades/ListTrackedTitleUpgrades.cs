@@ -5,12 +5,12 @@ using Romd.Contracts.Management.TrackedCollection;
 
 namespace Romd.Admin.Application.TrackedCollection.Queries.ListTrackedTitleUpgrades;
 
-public sealed record ListTrackedTitleUpgradesQuery : IQuery<IReadOnlyList<TrackedCollectionTitleDto>>;
+public sealed record ListTrackedTitleUpgradesQuery : IQuery<IReadOnlyList<TrackedCollectionTitle>>;
 
 public sealed class ListTrackedTitleUpgradesQueryHandler(IReferenceCatalogService referenceCatalog, ITrackedCollectionReadRepository repository)
-    : IQueryHandler<ListTrackedTitleUpgradesQuery, IReadOnlyList<TrackedCollectionTitleDto>>
+    : IQueryHandler<ListTrackedTitleUpgradesQuery, IReadOnlyList<TrackedCollectionTitle>>
 {
-    public async Task<ErrorOr<IReadOnlyList<TrackedCollectionTitleDto>>> HandleAsync(
+    public async Task<ErrorOr<IReadOnlyList<TrackedCollectionTitle>>> HandleAsync(
         ListTrackedTitleUpgradesQuery query,
         CancellationToken ct = default)
     {

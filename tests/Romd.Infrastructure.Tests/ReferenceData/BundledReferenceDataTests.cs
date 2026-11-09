@@ -81,7 +81,7 @@ public sealed class BundledReferenceDataTests
         var english = await db.GameLanguages.SingleAsync(l => l.Code == "en");
         var catalog = new ReferenceCatalogService(db, Romd.PostgreSql.TestSupport.TestReferenceBlobs.For(db));
         var system = (await new TypedReferenceTestCommands(db).System("psx", default))!;
-        (await new TypedReferenceTestCommands(db).UpdateSystem("psx", new SystemPatchDto { Name = "My PlayStation" }, system.Revision, default)).IsError.ShouldBeFalse();
+        (await new TypedReferenceTestCommands(db).UpdateSystem("psx", new SystemPatch { Name = "My PlayStation" }, system.Revision, default)).IsError.ShouldBeFalse();
         await db.PlatformAliases.Where(a => a.PlatformId == psx.Id && a.NormalizedValue == "ps1").ExecuteDeleteAsync();
         await db.GameLanguageAliases.Where(a => a.GameLanguageId == english.Id && a.NormalizedAlias == "eng").ExecuteDeleteAsync();
         await SeedAsync(services);

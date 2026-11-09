@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -23,7 +23,7 @@ const completed = {
   hasErrors: false,
   totalFiles: '1',
   format: 'rvz',
-} as JobDto;
+} as Job;
 const callbacks = {
   onCancel: vi.fn(),
   onArchive: vi.fn(),
@@ -103,7 +103,7 @@ it('offers no unsupported cancel or retry for an active metadata update', () => 
           isTerminal: false,
           hasDownload: false,
           phase: 'Rematerializing',
-        } as JobDto
+        } as Job
       }
     />,
   );
@@ -127,7 +127,7 @@ it('offers archive but no unsupported retry after a metadata update defers title
           hasErrors: true,
           deferredCount: 2,
           failedCount: '2',
-        } as JobDto
+        } as Job
       }
     />,
   );

@@ -1,9 +1,9 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { getJobOutcome, getJobTitle } from './jobTypeRegistry';
 
 export interface JobGroup {
   key: string;
-  jobs: JobDto[];
+  jobs: Job[];
 }
 
 /**
@@ -11,7 +11,7 @@ export interface JobGroup {
  * group (e.g. five identical materializations). Running jobs are never merged,
  * so their live progress always stays visible.
  */
-export function groupConsecutiveJobs(jobs: JobDto[]): JobGroup[] {
+export function groupConsecutiveJobs(jobs: Job[]): JobGroup[] {
   const groups: JobGroup[] = [];
   for (const job of jobs) {
     const outcome = getJobOutcome(job);
@@ -42,7 +42,7 @@ function formatClock(ms: number): string {
  * Earliest-to-latest clock range across every timestamp in the group, computed
  * by min/max so it never depends on the order jobs arrive in.
  */
-export function formatGroupRange(jobs: JobDto[]): string {
+export function formatGroupRange(jobs: Job[]): string {
   const times = jobs
     .flatMap((job) => [
       job.startedAt,

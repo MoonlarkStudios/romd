@@ -292,7 +292,7 @@ public sealed class EnrichmentSchedulingTests : IDisposable
         var store = new ArtworkCompletionStore(db, clock: TimeProvider.System);
         var service = new Romd.Admin.Application.Artwork.ArtworkCompletionService(store);
         var original = new ArtworkCompletionRequest(Guid.NewGuid(), Scope: "Filtered", Filters: new(Query: "Game"), Mode: "Enrich");
-        // Signature persisted before ArtworkCompletionFilterDto.Enrichment existed.
+        // Signature persisted before ArtworkCompletionFilter.Enrichment existed.
         const string preChangeScope = """{"RequestId":"00000000-0000-0000-0000-000000000000","TitleIds":null,"Scope":"Filtered","Filters":{"Query":"Game","SystemKey":null,"Genre":null,"EnrichmentStatus":null,"Tracked":"all","ReleaseCompleteness":"all","ArtworkStatus":null},"RetryJobId":null,"RetryStatus":null,"Mode":"Enrich"}""";
         System.Text.Json.JsonSerializer.Serialize(original with { RequestId = Guid.Empty }).ShouldBe(preChangeScope);
         System.Text.Json.JsonSerializer.Deserialize<ArtworkCompletionRequest>(preChangeScope)!.Filters.ShouldNotBeNull().Enrichment.ShouldBeNull();

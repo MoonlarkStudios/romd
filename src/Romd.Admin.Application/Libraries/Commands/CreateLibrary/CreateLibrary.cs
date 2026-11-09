@@ -8,12 +8,18 @@ using Romd.Application.Common.ReferenceCatalog;
 using Romd.Contracts.Management.Libraries;
 using Romd.Domain.Libraries;
 
+using ContractLibrary = Romd.Contracts.Management.Libraries.Library;
+
+using LibraryConfiguration = Romd.Domain.Libraries.LibraryConfiguration;
+
+using Library = Romd.Domain.Libraries.Library;
+
 namespace Romd.Admin.Application.Libraries.Commands.CreateLibrary;
 
 public sealed record CreateLibraryCommand(
     string Name,
     LibraryConfiguration Configuration,
-    bool IsDefault) : ICommand<LibraryDto>;
+    bool IsDefault) : ICommand<ContractLibrary>;
 
 public sealed class CreateLibraryCommandHandler(IReferenceCatalogService referenceCatalog,
     ILibraryRepository libraryRepository,
@@ -22,9 +28,9 @@ public sealed class CreateLibraryCommandHandler(IReferenceCatalogService referen
     ILogger<CreateLibraryCommandHandler> logger,
     RomDeliveryPolicy deliveryPolicy,
     TimeProvider clock)
-    : ICommandHandler<CreateLibraryCommand, LibraryDto>
+    : ICommandHandler<CreateLibraryCommand, ContractLibrary>
 {
-    public async Task<ErrorOr<LibraryDto>> HandleAsync(
+    public async Task<ErrorOr<ContractLibrary>> HandleAsync(
         CreateLibraryCommand command,
         CancellationToken ct = default)
     {

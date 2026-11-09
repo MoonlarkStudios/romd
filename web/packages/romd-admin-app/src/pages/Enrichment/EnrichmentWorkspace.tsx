@@ -14,7 +14,7 @@ import {
   Title,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import type { EnrichmentAssessmentDto, EnrichmentRequirementDto } from '@romd/admin-api-client';
+import type { EnrichmentAssessment, EnrichmentRequirement } from '@romd/admin-api-client';
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -95,12 +95,12 @@ const views = [
   },
 ] as const;
 /** The queue's reason line: the first outstanding requirement in the view's state. */
-function requirementInView(requirements: EnrichmentRequirementDto[], view: WorkbenchView) {
+function requirementInView(requirements: EnrichmentRequirement[], view: WorkbenchView) {
   return outstandingRequirements(requirements).find(
     (requirement) => view === 'All' || requirement.state === view,
   );
 }
-function reasonInView(requirements: EnrichmentRequirementDto[], view: WorkbenchView) {
+function reasonInView(requirements: EnrichmentRequirement[], view: WorkbenchView) {
   const requirement = requirementInView(requirements, view);
   return requirement && requirementCopy(requirement);
 }
@@ -780,7 +780,7 @@ function Workbench() {
   );
 }
 
-function BlockerSummary({ titles }: { titles: EnrichmentAssessmentDto[] }) {
+function BlockerSummary({ titles }: { titles: EnrichmentAssessment[] }) {
   const { canConfigureIntegrations } = usePermissions();
   const groups = new Map<
     string,

@@ -13,5 +13,5 @@ public sealed record CollectionDetail
     public bool IsSystem { get; init; }
     public int SortOrder { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
-    public required Page<CollectionItemDto> Items { get; init; }
+    public required Page<CollectionItem> Items { get; init; }
 }

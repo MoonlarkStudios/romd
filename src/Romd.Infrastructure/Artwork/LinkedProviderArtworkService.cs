@@ -31,7 +31,7 @@ public sealed class LinkedProviderArtworkService(
         IReadOnlyList<ProviderArtworkResult>? results = null)
     {
         Guid? titleRevision = null;
-        IReadOnlyList<TitleProviderMatchDto>? links = null;
+        IReadOnlyList<TitleProviderMatch>? links = null;
         ProviderIdentityDiscoveryResult? discovery = null;
         var settings = await acquisition.GetSettingsAsync(ct);
         foreach (var role in Enum.GetValues<ArtworkRole>())

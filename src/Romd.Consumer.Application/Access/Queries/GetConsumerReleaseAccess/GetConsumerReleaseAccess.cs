@@ -8,15 +8,15 @@ using Romd.Contracts.Consumer.Releases;
 
 namespace Romd.Consumer.Application.Access.Queries.GetConsumerReleaseAccess;
 
-public sealed record GetConsumerReleaseAccessQuery(int ReleaseId) : IQuery<ConsumerReleaseAccessDto>;
+public sealed record GetConsumerReleaseAccessQuery(int ReleaseId) : IQuery<ConsumerReleaseAccess>;
 
 public sealed class GetConsumerReleaseAccessQueryHandler(
     ICurrentUser currentUser,
     IConsumerReleaseAccessRepository accessRepository,
     IServerInstanceIdentity serverInstanceIdentity)
-    : IQueryHandler<GetConsumerReleaseAccessQuery, ConsumerReleaseAccessDto>
+    : IQueryHandler<GetConsumerReleaseAccessQuery, ConsumerReleaseAccess>
 {
-    public async Task<ErrorOr<ConsumerReleaseAccessDto>> HandleAsync(
+    public async Task<ErrorOr<ConsumerReleaseAccess>> HandleAsync(
         GetConsumerReleaseAccessQuery query,
         CancellationToken ct = default)
     {
@@ -49,7 +49,7 @@ public sealed class GetConsumerReleaseAccessQueryHandler(
         };
     }
 
-    private ConsumerReleaseAccessDto ToContract(int releaseId, ConsumerReleaseAccessDecision decision) =>
+    private ConsumerReleaseAccess ToContract(int releaseId, ConsumerReleaseAccessDecision decision) =>
         new()
         {
             ServerInstanceId = serverInstanceIdentity.InstanceId.ToString("D"),

@@ -25,13 +25,13 @@ public static class ConsumerAccountEndpoints
 
         group.MapGet("settings", GetSettings)
             .WithName("GetConsumerUserSettings")
-            .Produces<ConsumerUserSettingsDto>()
+            .Produces<ConsumerUserSettings>()
             .Produces(StatusCodes.Status401Unauthorized)
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
 
         group.MapPatch("settings", UpdateSettings)
             .WithName("UpdateConsumerUserSettings")
-            .Produces<ConsumerUserSettingsDto>()
+            .Produces<ConsumerUserSettings>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest)
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
@@ -52,7 +52,7 @@ public static class ConsumerAccountEndpoints
     }
 
     private static async Task<IResult> GetSettings(
-        IQueryHandler<GetConsumerUserSettingsQuery, ConsumerUserSettingsDto> handler,
+        IQueryHandler<GetConsumerUserSettingsQuery, ConsumerUserSettings> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetConsumerUserSettingsQuery(), cancellationToken);
@@ -62,7 +62,7 @@ public static class ConsumerAccountEndpoints
 
     private static async Task<IResult> UpdateSettings(
         [FromBody] UpdateConsumerUserSettingsRequest request,
-        ICommandHandler<UpdateConsumerUserSettingsCommand, ConsumerUserSettingsDto> handler,
+        ICommandHandler<UpdateConsumerUserSettingsCommand, ConsumerUserSettings> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(

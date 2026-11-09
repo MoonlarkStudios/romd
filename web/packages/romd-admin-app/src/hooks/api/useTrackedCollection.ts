@@ -1,4 +1,4 @@
-import type { TrackedCollectionStatsDto } from '@romd/admin-api-client';
+import type { TrackedCollectionStats } from '@romd/admin-api-client';
 import { getTrackedCollectionStats, listTrackedTitles } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 import { collectPages } from '../../utils/collectPages';
@@ -41,7 +41,7 @@ export function useTrackedCollectionStats() {
       const response = await getTrackedCollectionStats();
       if (response.error || !response.data)
         throw new Error('Failed to fetch tracked collection stats');
-      return response.data as TrackedCollectionStatsDto;
+      return response.data as TrackedCollectionStats;
     },
   });
 }

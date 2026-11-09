@@ -8,10 +8,14 @@ using Romd.Consumer.Application.Libraries;
 using Romd.Contracts.Consumer.Activity;
 using Romd.Domain.Activity;
 
+using ContractPlaySession = Romd.Contracts.Consumer.Activity.PlaySession;
+
+using PlaySession = Romd.Domain.Activity.PlaySession;
+
 namespace Romd.Consumer.Application.Activity.Commands.UpsertPlaySession;
 
 public sealed record UpsertPlaySessionCommand(Guid SessionId, UpsertPlaySessionRequest Request)
-    : ICommand<PlaySessionDto>;
+    : ICommand<ContractPlaySession>;
 
 public sealed class UpsertPlaySessionCommandHandler(
     ICurrentUser currentUser,
@@ -19,9 +23,9 @@ public sealed class UpsertPlaySessionCommandHandler(
     IPlayActivityRepository activityRepository,
     IPlayActivityUnitOfWork unitOfWork,
     ILogger<UpsertPlaySessionCommandHandler> logger)
-    : ICommandHandler<UpsertPlaySessionCommand, PlaySessionDto>
+    : ICommandHandler<UpsertPlaySessionCommand, ContractPlaySession>
 {
-    public async Task<ErrorOr<PlaySessionDto>> HandleAsync(
+    public async Task<ErrorOr<ContractPlaySession>> HandleAsync(
         UpsertPlaySessionCommand command,
         CancellationToken ct = default)
     {
@@ -87,7 +91,7 @@ public sealed class UpsertPlaySessionCommandHandler(
                     request.ActiveDurationSeconds),
                 ct);
 
-            ErrorOr<PlaySessionDto> response = result.Status switch
+            ErrorOr<ContractPlaySession> response = result.Status switch
             {
                 PlaySessionUpsertStatus.Created or PlaySessionUpsertStatus.Updated or PlaySessionUpsertStatus.Unchanged
                     when result.Session is not null => result.Session.ToContract(),

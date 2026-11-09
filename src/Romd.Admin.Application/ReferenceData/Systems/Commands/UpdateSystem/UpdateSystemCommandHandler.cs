@@ -4,9 +4,11 @@ using Romd.Application.Common.ReferenceCatalog;
 using Romd.Contracts.Common.ReferenceCatalog;
 using Romd.Domain.ReferenceData;
 
+using ContractSystemOverrides = Romd.Contracts.Common.ReferenceCatalog.SystemOverrides;
+
 namespace Romd.Admin.Application.ReferenceData.Systems.Commands;
 
-public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCommand, ReferenceResourceResult<SystemResourceDto, SystemOverridesDto>>
+public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>>
 {
     private readonly IReferenceMutationSession session;
     private readonly ISystemReferenceRepository repository;
@@ -22,8 +24,8 @@ public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCom
         this.companies = companies;
     }
 
-    public Task<ErrorOr<ReferenceResourceResult<SystemResourceDto, SystemOverridesDto>>> HandleAsync(UpdateSystemCommand command, CancellationToken ct = default) =>
-        session.RunAsync<ReferenceResourceResult<SystemResourceDto, SystemOverridesDto>>(async token =>
+    public Task<ErrorOr<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>> HandleAsync(UpdateSystemCommand command, CancellationToken ct = default) =>
+        session.RunAsync<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>(async token =>
         {
             var resource = await repository.GetAsync(command.Key, token);
             if (resource is null)

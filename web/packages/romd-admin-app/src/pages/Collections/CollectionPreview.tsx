@@ -1,8 +1,8 @@
 import { Alert, Badge, Button, Group, Loader, Select, Stack, Text, Title } from '@mantine/core';
 import {
-  type CollectionItemDto,
-  type LibraryDto,
-  type LibraryEvaluationTitleDto,
+  type CollectionItem,
+  type Library,
+  type LibraryEvaluationTitle,
   previewLibraryConfiguration,
 } from '@romd/admin-api-client';
 import { IconDeviceGamepad2 } from '@tabler/icons-react';
@@ -144,7 +144,7 @@ function AudienceGames({
   library,
 }: {
   collection: CollectionDetail;
-  library: LibraryDto;
+  library: Library;
 }) {
   const preview = useLibraryPreview(library.id, collection.id);
   const [inspect, setInspect] = useState<string | null>(null);
@@ -266,7 +266,7 @@ function AudienceGames({
   );
 }
 
-function GameExplanation({ library, item }: { library: LibraryDto; item: CollectionItemDto }) {
+function GameExplanation({ library, item }: { library: Library; item: CollectionItem }) {
   const query = useQuery({
     queryKey: [
       ...libraryManagementKeys.all,
@@ -277,7 +277,7 @@ function GameExplanation({ library, item }: { library: LibraryDto; item: Collect
       item.titleName,
     ],
     retry: false,
-    queryFn: async ({ signal }): Promise<LibraryEvaluationTitleDto | null> => {
+    queryFn: async ({ signal }): Promise<LibraryEvaluationTitle | null> => {
       const configuration = library.configuration;
       if (!configuration) throw new Error('The library policy is unavailable.');
       const items = await collectPages(async (cursor) => {

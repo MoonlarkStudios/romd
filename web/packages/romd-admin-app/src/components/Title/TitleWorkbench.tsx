@@ -11,9 +11,9 @@ import {
   VisuallyHidden,
 } from '@mantine/core';
 import type {
-  EnrichmentAssessmentDto,
-  EnrichmentRequirementDto,
-  ProviderGameDto,
+  EnrichmentAssessment,
+  EnrichmentRequirement,
+  ProviderGame,
 } from '@romd/admin-api-client';
 import { IconArrowRight } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
@@ -289,7 +289,7 @@ export function TitleWorkbench({
       if (key) rows.current.get(key)?.focus();
     },
   };
-  const review = (row: EnrichmentRequirementDto, action: string) => {
+  const review = (row: EnrichmentRequirement, action: string) => {
     const editor = reviewEditor(row, action);
     pendingReview.current = {
       key: row.key,
@@ -421,7 +421,7 @@ interface EditorDefaults {
  * The workspace selects the current requirement's editor; the page always starts on Metadata. Neither opens a modal
  * editor such as the field inspector for the current requirement alone.
  */
-function editorDefaults(current: EnrichmentRequirementDto | undefined): EditorDefaults {
+function editorDefaults(current: EnrichmentRequirement | undefined): EditorDefaults {
   return {
     editor: reviewEditor(current),
     role: artworkRole(current),
@@ -447,17 +447,17 @@ function WorkbenchDecisions({
   onResolved,
   onReversed,
 }: {
-  assessment: EnrichmentAssessmentDto;
+  assessment: EnrichmentAssessment;
   frame: 'workspace' | 'page';
   view: WorkbenchView;
   title: TitleDetail;
-  current?: EnrichmentRequirementDto;
+  current?: EnrichmentRequirement;
   next?: TitleWorkbenchNext;
   registerRow: (key: string, element: HTMLLIElement | null) => void;
   headingRef: RefObject<HTMLHeadingElement | null>;
   summaryRef: RefObject<HTMLParagraphElement | null>;
   nextRef: RefObject<HTMLButtonElement | null>;
-  onReview: (row: EnrichmentRequirementDto, action: string) => void;
+  onReview: (row: EnrichmentRequirement, action: string) => void;
   onRefresh: () => void;
   /** A confirmed decision on this open row succeeded; its mutation has already refreshed the assessment. */
   onResolved: (key: string) => void;
@@ -467,7 +467,7 @@ function WorkbenchDecisions({
   const decisions = useRequirementDecisions(assessment);
   const [confirming, setConfirming] = useState<{
     action: ConfirmedAction;
-    row: EnrichmentRequirementDto;
+    row: EnrichmentRequirement;
   } | null>(null);
   const [launching, setLaunching] = useState(false);
   const matches = useQuery({
@@ -483,7 +483,7 @@ function WorkbenchDecisions({
               match.game,
             ] as [
               string,
-              ProviderGameDto,
+              ProviderGame,
             ],
           ]
         : [],
@@ -615,7 +615,7 @@ function WorkbenchDecisions({
 }
 
 /** Announces rows that appear for the same title after a refresh; focus never moves for them. */
-function useAddedRequirementsAnnouncement(assessment: EnrichmentAssessmentDto): string {
+function useAddedRequirementsAnnouncement(assessment: EnrichmentAssessment): string {
   const previous = useRef<
     | {
         titleId: string;

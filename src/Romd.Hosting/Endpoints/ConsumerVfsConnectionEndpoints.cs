@@ -27,18 +27,18 @@ public static class ConsumerVfsConnectionEndpoints
             context.HttpContext.Response.Headers.Pragma = "no-cache";
             return await next(context);
         });
-        group.MapGet("", List).WithName("ListConsumerConnections").Produces<Page<VfsConnectionDto>>().ProducesProblems(400);
-        group.MapPost("", Create).WithName("CreateConsumerConnection").ProducesCreated<VfsConnectionCredentialDto>()
+        group.MapGet("", List).WithName("ListConsumerConnections").Produces<Page<VfsConnection>>().ProducesProblems(400);
+        group.MapPost("", Create).WithName("CreateConsumerConnection").ProducesCreated<VfsConnectionCredential>()
             .ProducesProblems(400, 409, 503);
-        group.MapPatch("{connectionId:guid}", Rename).WithName("UpdateConsumerConnection").Produces<VfsConnectionDto>()
+        group.MapPatch("{connectionId:guid}", Rename).WithName("UpdateConsumerConnection").Produces<VfsConnection>()
             .ProducesProblems(400, 404);
-        group.MapPost("{connectionId:guid}/rotate", Rotate).WithName("RotateConsumerConnection").Produces<VfsConnectionCredentialDto>()
+        group.MapPost("{connectionId:guid}/rotate", Rotate).WithName("RotateConsumerConnection").Produces<VfsConnectionCredential>()
             .ProducesProblems(404, 409, 503);
         group.MapDelete("{connectionId:guid}", Revoke).WithName("DeleteConsumerConnection").Produces(204).ProducesProblems(404);
         return app;
     }
 
-    private static async Task<IResult> List(IQueryHandler<ListVfsConnectionsQuery, Page<VfsConnectionDto>> handler,
+    private static async Task<IResult> List(IQueryHandler<ListVfsConnectionsQuery, Page<VfsConnection>> handler,
         string? cursor = null, [Range(1, ListVfsConnectionsQuery.MaxLimit)] int limit = 50, CancellationToken ct = default)
     {
         var result = await handler.HandleAsync(new ListVfsConnectionsQuery(cursor, limit), ct);
@@ -59,7 +59,7 @@ public static class ConsumerVfsConnectionEndpoints
     }
 
     private static async Task<IResult> Rename(Guid connectionId, PatchVfsConnectionRequest request,
-        ICommandHandler<RenameVfsConnectionCommand, VfsConnectionDto> handler, CancellationToken ct)
+        ICommandHandler<RenameVfsConnectionCommand, VfsConnection> handler, CancellationToken ct)
     {
         VfsFormat? format = null;
         if (request.Format is { } requested)

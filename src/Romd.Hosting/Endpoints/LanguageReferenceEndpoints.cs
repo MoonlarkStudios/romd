@@ -39,12 +39,12 @@ public static class LanguageReferenceEndpoints
         group.MapGet("", async ([FromServices] ILanguageReferenceReader reader, CancellationToken ct) => Results.Ok(await reader.ListAsync(ct)))
             .WithName("ListLanguages")
             .WithDescription("Registered languages only; bounded by the built-in reference catalog.")
-            .Produces<IReadOnlyList<LanguageResourceDto>>();
+            .Produces<IReadOnlyList<LanguageResource>>();
         group.MapGet("{languageKey}", async (string languageKey, [FromServices] ILanguageReferenceReader reader, HttpContext context, CancellationToken ct) =>
             await reader.GetAsync(languageKey, ct) is { } found
                 ? Preconditions.ConditionalRead(context, found.Resource, found.Revision)
                 : ReferenceCatalogEndpoints.UnknownReference())
-            .WithName("GetLanguage").Produces<LanguageResourceDto>().ConditionalRead().ProducesProblems(404);
+            .WithName("GetLanguage").Produces<LanguageResource>().ConditionalRead().ProducesProblems(404);
     }
 
     private static void MapManagement(RouteGroupBuilder group)
@@ -56,19 +56,19 @@ public static class LanguageReferenceEndpoints
                              "and every alias, embedded or not. Limit defaults to " +
                              $"{TaxonomyPageRequest.DefaultLimit} and must be between 1 and {TaxonomyPageRequest.MaxLimit}; a cursor " +
                              "continues only this collection and query.")
-            .Produces<Page<LanguageDto>>();
+            .Produces<Page<Language>>();
         group.MapGet("{languageKey}", Get)
             .WithName("GetLanguage")
             .WithDescription($"The language with its first {TaxonomyAliasPageRequest.EmbeddedLimit} aliases; its validator versions " +
                              "exactly that representation, not aliases beyond the embedded page.")
-            .Produces<LanguageDto>().ConditionalRead().ProducesProblems(404);
+            .Produces<Language>().ConditionalRead().ProducesProblems(404);
         group.MapGet("{languageKey}/aliases", ListAliases)
             .WithName("ListLanguageAliases")
             .WithDescription($"The language's aliases in ascending id order. Limit defaults to {TaxonomyAliasPageRequest.DefaultLimit} and " +
                              $"must be between 1 and {TaxonomyAliasPageRequest.MaxLimit}; a cursor, including the one the language embeds, " +
                              "continues only this language's aliases. A merge moves aliases with their ids, so a traversal running across a " +
                              "merge into the language never repeats an alias but may miss one; start again from the first page to see them all.")
-            .Produces<Page<AliasDto>>().ProducesProblems(404);
+            .Produces<Page<AliasResource>>().ProducesProblems(404);
         group.MapPost("{languageKey}/merge", Merge)
             .WithName("MergeLanguage")
             .WithDescription("Merge an unregistered language into the target, moving its aliases and game associations, then delete it.")
@@ -78,12 +78,12 @@ public static class LanguageReferenceEndpoints
             .WithName("PreviewLanguageMerge")
             .WithDescription("What merging the language into the target would move, refused exactly where the merge is refused. Changes nothing.")
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin)
-            .Produces<TaxonomyMergeImpactDto>().ProducesProblems(400, 404, 409);
+            .Produces<TaxonomyMergeImpact>().ProducesProblems(400, 404, 409);
         group.MapPost("{languageKey}/aliases", CreateAlias)
             .WithName("CreateLanguageAlias")
             .WithDescription("Add an installation-owned alias that DAT tokens resolve to this language.")
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin)
-            .ProducesCreated<AliasDto>().ProducesProblems(400, 404, 409);
+            .ProducesCreated<AliasResource>().ProducesProblems(400, 404, 409);
         group.MapDelete("{languageKey}/aliases/{aliasId}", DeleteAlias)
             .WithName("DeleteLanguageAlias")
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin)
@@ -97,7 +97,7 @@ public static class LanguageReferenceEndpoints
     {
         var result = await handler.HandleAsync(new ListLanguagesQuery(cursor, limit, query), ct);
         return result.Match(
-            page => Results.Ok(new Page<LanguageDto> { Items = page.Items.Select(ToDto).ToList(), NextCursor = page.NextCursor, HasNextPage = page.HasNextPage }),
+            page => Results.Ok(new Page<Language> { Items = page.Items.Select(ToDto).ToList(), NextCursor = page.NextCursor, HasNextPage = page.HasNextPage }),
             errors => errors.ToProblem());
     }
 
@@ -124,7 +124,7 @@ public static class LanguageReferenceEndpoints
     }
 
     private static async Task<IResult> PreviewMerge(string languageKey, MergeTaxonomyRequest request,
-        IQueryHandler<PreviewLanguageMergeQuery, TaxonomyMergeImpactDto> handler, CancellationToken ct)
+        IQueryHandler<PreviewLanguageMergeQuery, TaxonomyMergeImpact> handler, CancellationToken ct)
     {
         var result = await handler.HandleAsync(new PreviewLanguageMergeQuery(languageKey, request.TargetKey), ct);
         return result.Match(Results.Ok, errors => errors.ToProblem());
@@ -146,7 +146,7 @@ public static class LanguageReferenceEndpoints
         return result.Match(_ => Results.NoContent(), errors => errors.ToProblem());
     }
 
-    private static LanguageDto ToDto(TaxonomyEntry entry) => new()
+    private static Language ToDto(TaxonomyEntry entry) => new()
     {
         Key = entry.Key,
         Ownership = entry.Ownership,

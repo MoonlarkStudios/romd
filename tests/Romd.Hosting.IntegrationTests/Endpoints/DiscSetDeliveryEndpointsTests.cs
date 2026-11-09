@@ -34,13 +34,13 @@ public sealed class DiscSetDeliveryEndpointsTests
         var seed = await fixture.SeedDeliveryDataAsync();
         var (id, revision, expected) = await SeedDiscSet(fixture, seed);
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "disc-set@test", seed.LibraryId);
-        var listing = (await client.GetFromJsonAsync<Page<ConsumerDiscSetStatusDto>>($"/api/disc-sets?titleId={IdCoder.Encode(101)}"))?.Items;
+        var listing = (await client.GetFromJsonAsync<Page<ConsumerDiscSetStatus>>($"/api/disc-sets?titleId={IdCoder.Encode(101)}"))?.Items;
         listing.ShouldNotBeNull();
         listing.Single().DiscSetId.ShouldBe(IdCoder.Encode(id));
         listing.Single().Discs.Count.ShouldBe(2);
         var response = await client.PostAsync($"/api/disc-sets/{IdCoder.Encode(id)}/manifest?revision={revision:D}", null);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetManifestDto>(ConsumerJsonOptions))!;
+        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetManifest>(ConsumerJsonOptions))!;
         manifest.Revision.ShouldBe(revision);
         manifest.HasAllExpectedDiscs.ShouldBeTrue();
         manifest.Playlist.Text.ShouldBe("disc-01/game.cue\ndisc-02/game.cue\n");
@@ -77,7 +77,7 @@ public sealed class DiscSetDeliveryEndpointsTests
         // "Idempotency And Concurrency").
         using var stale = await client.PostAsync($"/api/disc-sets/{IdCoder.Encode(id)}/manifest?revision={Guid.NewGuid():D}", null);
         using var staleBody = await ProblemEnvelope.ReadAsync(stale, 409, "DiscSet.StaleRevision");
-        var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatusDto>($"/api/disc-sets/{IdCoder.Encode(id)}/status"))!;
+        var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatus>($"/api/disc-sets/{IdCoder.Encode(id)}/status"))!;
         using var staleSelection = await client.PostAsJsonAsync($"/api/disc-sets/{IdCoder.Encode(id)}/selection-manifest",
             new ConsumerDiscSetSelectionRequest(1, Guid.NewGuid(), status.ObservationId, [IdCoder.Encode(101), IdCoder.Encode(102)], false));
         using var staleSelectionBody = await ProblemEnvelope.ReadAsync(staleSelection, 409, "DiscSet.StaleRevision");
@@ -102,7 +102,7 @@ public sealed class DiscSetDeliveryEndpointsTests
         }
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "partial@test", seed.LibraryId);
         string root = $"/api/disc-sets/{IdCoder.Encode(id)}";
-        var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatusDto>(root + "/status"))!;
+        var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatus>(root + "/status"))!;
         status.ContractVersion.ShouldBe(1);
         status.MissingExpectedOrdinals.ShouldBe([3]);
         status.Discs.Select(x => x.Readiness).ShouldBe(["ready", "missing-media"]);
@@ -110,22 +110,22 @@ public sealed class DiscSetDeliveryEndpointsTests
         (await client.PostAsJsonAsync(root + "/selection-manifest", selection)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
         var response = await client.PostAsJsonAsync(root + "/selection-manifest", selection with { AllowPartial = true });
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetManifestDto>(ConsumerJsonOptions))!;
+        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetManifest>(ConsumerJsonOptions))!;
         manifest.Discs.Single().Ordinal.ShouldBe(1);
         manifest.Selection!.Completeness.ShouldBe("partial");
         var renewed = await client.PostAsJsonAsync(root + "/selection-manifest", selection with { AllowPartial = true, RequiredSnapshotId = manifest.DeliverySnapshotId });
         renewed.StatusCode.ShouldBe(HttpStatusCode.OK);
         (await client.PostAsJsonAsync(root + "/selection-manifest", selection with { AllowPartial = true, RequiredSnapshotId = new string('0', 64) })).StatusCode.ShouldBe(HttpStatusCode.Conflict);
         var access = new ConsumerDiscSetAccessRequest(1, manifest.ServerInstanceId, revision, manifest.DeliverySnapshotId,
-            manifest.Selection.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersionDto(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), true);
+            manifest.Selection.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersion(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), true);
         var allowed = await client.PostAsJsonAsync(root + "/access/preview", access);
         allowed.StatusCode.ShouldBe(HttpStatusCode.OK, await allowed.Content.ReadAsStringAsync());
-        (await allowed.Content.ReadFromJsonAsync<ConsumerDiscSetAccessDto>())!.Allowed.ShouldBeTrue();
+        (await allowed.Content.ReadFromJsonAsync<ConsumerDiscSetAccess>())!.Allowed.ShouldBeTrue();
         using (var db = fixture.CreateSetupDbContext())
             await db.MaterializedLibraryReleases.Where(x => x.CatalogReleaseId == 102)
             .ExecuteUpdateAsync(x => x.SetProperty(e => e.IsExposed, false));
         (await client.GetAsync(root + "/status")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
-        var denied = (await (await client.PostAsJsonAsync(root + "/access/preview", access)).Content.ReadFromJsonAsync<ConsumerDiscSetAccessDto>())!;
+        var denied = (await (await client.PostAsJsonAsync(root + "/access/preview", access)).Content.ReadFromJsonAsync<ConsumerDiscSetAccess>())!;
         denied.Allowed.ShouldBeFalse();
         denied.TitleId.ShouldBeNull();
         denied.SystemKey.ShouldBeNull();
@@ -142,7 +142,7 @@ public sealed class DiscSetDeliveryEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "attachment@test", seed.LibraryId);
         var response = await client.PostAsync($"/api/disc-sets/{IdCoder.Encode(id)}/manifest?revision={revision:D}", null);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetManifestDto>(ConsumerJsonOptions))!;
+        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetManifest>(ConsumerJsonOptions))!;
         manifest.Discs.All(x => x.LayoutId != null && x.LayoutRevision != null).ShouldBeTrue();
         using var anonymous = fixture.Factory.CreateClient();
         foreach (var disc in manifest.Discs)
@@ -155,18 +155,18 @@ public sealed class DiscSetDeliveryEndpointsTests
             (await anonymous.GetAsync("/delivery/bios/" + token)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         }
         var access = new ConsumerDiscSetAccessRequest(1, manifest.ServerInstanceId, revision, manifest.DeliverySnapshotId,
-            manifest.Selection!.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersionDto(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), false);
+            manifest.Selection!.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersion(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), false);
         Guid repairedRevision = Guid.NewGuid();
         using (var db = fixture.CreateSetupDbContext())
             await db.OriginalDiscLayouts.ExecuteUpdateAsync(x => x.SetProperty(e => e.Revision, repairedRevision));
-        var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatusDto>($"/api/disc-sets/{IdCoder.Encode(id)}/status"))!;
+        var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatus>($"/api/disc-sets/{IdCoder.Encode(id)}/status"))!;
         status.Discs.All(x => x.Readiness == "stale-layout").ShouldBeTrue();
         (await client.PostAsJsonAsync($"/api/disc-sets/{IdCoder.Encode(id)}/access/preview", access)).StatusCode.ShouldBe(HttpStatusCode.Conflict);
         using (var db = fixture.CreateSetupDbContext())
             await db.OriginalDiscLayoutFiles.ExecuteUpdateAsync(x => x.SetProperty(e => e.BindingRevision, repairedRevision));
         var changed = await client.PostAsJsonAsync($"/api/disc-sets/{IdCoder.Encode(id)}/access/preview", access);
         changed.StatusCode.ShouldBe(HttpStatusCode.OK, await changed.Content.ReadAsStringAsync());
-        (await changed.Content.ReadFromJsonAsync<ConsumerDiscSetAccessDto>())!.Allowed.ShouldBeFalse();
+        (await changed.Content.ReadFromJsonAsync<ConsumerDiscSetAccess>())!.Allowed.ShouldBeFalse();
         var first = manifest.Discs[0].Files.Single(x => x.RelativePath.EndsWith("game.cue", StringComparison.Ordinal));
         (await anonymous.GetByteArrayAsync(first.ContentGrant.DownloadUrl)).ShouldBe(expected[first.RelativePath]);
     }
@@ -185,9 +185,9 @@ public sealed class DiscSetDeliveryEndpointsTests
         string root = $"/api/disc-sets/{IdCoder.Encode(id)}";
         var response = await client.PostAsync(root + $"/manifest?revision={revision:D}", null);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetManifestDto>(ConsumerJsonOptions))!;
+        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetManifest>(ConsumerJsonOptions))!;
         var access = new ConsumerDiscSetAccessRequest(1, manifest.ServerInstanceId, revision, manifest.DeliverySnapshotId,
-            manifest.Selection!.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersionDto(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), false);
+            manifest.Selection!.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersion(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), false);
         using (var db = fixture.CreateSetupDbContext())
         {
             var original = await db.OriginalDiscLayouts.SingleAsync(x => x.ReleaseId == 101);
@@ -219,7 +219,7 @@ public sealed class DiscSetDeliveryEndpointsTests
             if (change != "detach")
                 await db.RomFiles.Where(x => x.Id == 1001).ExecuteDeleteAsync();
         }
-        var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatusDto>(root + "/status"))!;
+        var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatus>(root + "/status"))!;
         status.Discs[0].Readiness.ShouldNotBe("ready");
         var checkedAccess = await client.PostAsJsonAsync(root + "/access/preview", access);
         if (change == "unavailable")
@@ -227,7 +227,7 @@ public sealed class DiscSetDeliveryEndpointsTests
         else
         {
             checkedAccess.StatusCode.ShouldBe(HttpStatusCode.OK, await checkedAccess.Content.ReadAsStringAsync());
-            var denied = (await checkedAccess.Content.ReadFromJsonAsync<ConsumerDiscSetAccessDto>())!;
+            var denied = (await checkedAccess.Content.ReadFromJsonAsync<ConsumerDiscSetAccess>())!;
             denied.Allowed.ShouldBeFalse();
             denied.LayoutVersions.ShouldBe(access.LayoutVersions);
             denied.TitleId.ShouldBeNull();
@@ -243,9 +243,9 @@ public sealed class DiscSetDeliveryEndpointsTests
         var (id, revision, _) = await SeedDiscSet(fixture, seed);
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "inconsistent@test", seed.LibraryId);
         var manifest = (await (await client.PostAsync($"/api/disc-sets/{IdCoder.Encode(id)}/manifest?revision={revision:D}", null))
-            .Content.ReadFromJsonAsync<ConsumerDiscSetManifestDto>(ConsumerJsonOptions))!;
+            .Content.ReadFromJsonAsync<ConsumerDiscSetManifest>(ConsumerJsonOptions))!;
         var request = new ConsumerDiscSetAccessRequest(1, manifest.ServerInstanceId, revision, manifest.DeliverySnapshotId,
-            manifest.Selection!.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersionDto(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), false);
+            manifest.Selection!.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersion(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), false);
         using (var db = fixture.CreateSetupDbContext())
             await db.CatalogReleases.Where(x => x.Id == 102)
             .ExecuteUpdateAsync(x => x.SetProperty(e => e.Fingerprint, "replacement"));
@@ -261,14 +261,14 @@ public sealed class DiscSetDeliveryEndpointsTests
         var (id, revision, _) = await SeedDiscSet(fixture, seed);
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "published@test", seed.LibraryId);
         var manifest = (await (await client.PostAsync($"/api/disc-sets/{IdCoder.Encode(id)}/manifest?revision={revision:D}", null))
-            .Content.ReadFromJsonAsync<ConsumerDiscSetManifestDto>(ConsumerJsonOptions))!;
+            .Content.ReadFromJsonAsync<ConsumerDiscSetManifest>(ConsumerJsonOptions))!;
         var access = new ConsumerDiscSetAccessRequest(1, manifest.ServerInstanceId, revision, manifest.DeliverySnapshotId,
-            manifest.Selection!.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersionDto(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), false);
+            manifest.Selection!.SelectedReleaseIds, manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersion(x.ReleaseId, x.LayoutId, x.LayoutRevision)).ToArray(), false);
         using (var db = fixture.CreateSetupDbContext())
             await db.MaterializedLibraryDiscSets.ExecuteUpdateAsync(x => x.SetProperty(e => e.Revision, Guid.NewGuid()));
         var response = await client.PostAsJsonAsync($"/api/disc-sets/{IdCoder.Encode(id)}/access/preview", access);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var denied = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetAccessDto>())!;
+        var denied = (await response.Content.ReadFromJsonAsync<ConsumerDiscSetAccess>())!;
         denied.Allowed.ShouldBeFalse();
         denied.Revision.ShouldBe(revision);
         denied.DeliverySnapshotId.ShouldBe(manifest.DeliverySnapshotId);

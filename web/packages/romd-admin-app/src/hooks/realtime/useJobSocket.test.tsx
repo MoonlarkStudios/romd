@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -70,7 +70,7 @@ it.each([
         }),
   };
   act(() => onUpdate?.(payload));
-  const cached = cache.getQueryData<JobDto>(jobKeys.detail('run'));
+  const cached = cache.getQueryData<Job>(jobKeys.detail('run'));
   expect(cached).toEqual(payload);
   expect(cache.getQueryData(jobKeys.list())).toEqual([
     payload,
@@ -87,16 +87,16 @@ it('keeps an archived socket update out of the active feed when an older GET res
     sourceFilename: 'Run',
     isTerminal: true,
     isArchived: false,
-  } as JobDto;
+  } as Job;
   cache.setQueryData(jobKeys.list(), [
     job,
   ]);
-  let finish: (jobs: JobDto[]) => void = () => {};
+  let finish: (jobs: Job[]) => void = () => {};
   const pending = cache
     .fetchQuery({
       queryKey: jobKeys.list(),
       queryFn: () =>
-        new Promise<JobDto[]>((resolve) => {
+        new Promise<Job[]>((resolve) => {
           finish = resolve;
         }),
     })
@@ -138,12 +138,12 @@ it('keeps an archived socket update out of the active feed when an older GET res
 it('preserves an accepted seed when the active GET started before it completes afterward', async () => {
   const cache = new QueryClient();
   cache.setQueryData(jobKeys.list(), []);
-  let finish: (jobs: JobDto[]) => void = () => {};
+  let finish: (jobs: Job[]) => void = () => {};
   const pending = cache
     .fetchQuery({
       queryKey: jobKeys.list(),
       queryFn: () =>
-        new Promise<JobDto[]>((resolve) => {
+        new Promise<Job[]>((resolve) => {
           finish = resolve;
         }),
     })
@@ -159,7 +159,7 @@ it('preserves an accepted seed when the active GET started before it completes a
     jobType: 'upload',
     sourceFilename: 'Upload',
     isTerminal: false,
-  } as JobDto;
+  } as Job;
   await act(async () => {
     result.current.seedJob({
       jobId: job.id,

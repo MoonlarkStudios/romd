@@ -46,12 +46,12 @@ public sealed class EndpointErrorMappingTests
     [Fact]
     public async Task DashboardQuery_Error_UsesSharedProblemMapping()
     {
-        var handler = Substitute.For<IQueryHandler<GetStorageStatsQuery, Models.StorageStatsDto>>();
+        var handler = Substitute.For<IQueryHandler<GetStorageStatsQuery, Models.StorageStats>>();
         handler.HandleAsync(Arg.Any<GetStorageStatsQuery>(), Arg.Any<CancellationToken>())
-            .Returns(ToError<Models.StorageStatsDto>(Error.Conflict("Dashboard.Busy", "Dashboard is busy.")));
+            .Returns(ToError<Models.StorageStats>(Error.Conflict("Dashboard.Busy", "Dashboard is busy.")));
 
         var services = new ServiceCollection();
-        services.AddScoped<IQueryHandler<GetStorageStatsQuery, Models.StorageStatsDto>>(_ => handler);
+        services.AddScoped<IQueryHandler<GetStorageStatsQuery, Models.StorageStats>>(_ => handler);
         await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
         var cache = new DashboardStatsCache(provider.GetRequiredService<IServiceScopeFactory>(),
             TimeProvider.System, Substitute.For<IHostApplicationLifetime>());

@@ -4,13 +4,15 @@ using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Security;
 using Romd.Contracts.Management.Artwork;
 using Romd.Domain.Jobs;
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Admin.Application.Ingestion.Jobs.Queries.GetJobArtworkSummary;
 
-public sealed record GetJobArtworkSummaryQuery(Guid JobId) : IQuery<ArtworkCompletionSummaryDto>;
+public sealed record GetJobArtworkSummaryQuery(Guid JobId) : IQuery<ArtworkCompletionSummary>;
 public sealed class GetJobArtworkSummaryQueryHandler(IJobRepository jobs, ICurrentUser user, IArtworkCompletionService service)
-    : IQueryHandler<GetJobArtworkSummaryQuery, ArtworkCompletionSummaryDto>
+    : IQueryHandler<GetJobArtworkSummaryQuery, ArtworkCompletionSummary>
 {
-    public async Task<ErrorOr<ArtworkCompletionSummaryDto>> HandleAsync(GetJobArtworkSummaryQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<ArtworkCompletionSummary>> HandleAsync(GetJobArtworkSummaryQuery query, CancellationToken ct = default)
     {
         var job = await jobs.GetVisibleAsync(query.JobId, user, ct);
         if (job is null)
@@ -21,6 +23,6 @@ public sealed class GetJobArtworkSummaryQueryHandler(IJobRepository jobs, ICurre
         if (result.IsError)
             return result.Errors;
         var summary = result.Value;
-        return new ArtworkCompletionSummaryDto(summary.Roles, summary.Review, summary.Failed, summary.Unfinished, summary.Working);
+        return new ArtworkCompletionSummary(summary.Roles, summary.Review, summary.Failed, summary.Unfinished, summary.Working);
     }
 }

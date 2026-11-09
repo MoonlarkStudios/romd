@@ -7,14 +7,14 @@ namespace Romd.Contracts.Common.ReferenceCatalog;
 /// <summary>Round-trips only supplied fields, including explicit nulls.</summary>
 public sealed class ReferencePatchJsonConverter : JsonConverterFactory
 {
-    public override bool CanConvert(Type typeToConvert) => typeof(ReferencePatchDto).IsAssignableFrom(typeToConvert);
+    public override bool CanConvert(Type typeToConvert) => typeof(ReferencePatch).IsAssignableFrom(typeToConvert);
     public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options) =>
         (JsonConverter)Activator.CreateInstance(typeof(PatchConverter<>).MakeGenericType(typeToConvert))!;
 
     public static IEnumerable<PropertyInfo> EditableProperties(Type type) => type.GetProperties()
         .Where(property => property.SetMethod is not null && property.GetCustomAttribute<JsonIgnoreAttribute>() is null);
 
-    private sealed class PatchConverter<T> : JsonConverter<T> where T : ReferencePatchDto, new()
+    private sealed class PatchConverter<T> : JsonConverter<T> where T : ReferencePatch, new()
     {
         public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {

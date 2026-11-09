@@ -1,9 +1,9 @@
 import type {
-  LanguageDto,
-  PageOfAliasDto,
+  Language,
+  PageOfAliasResource,
   ProblemDetails,
-  RegionDto,
-  TaxonomyMergeImpactDto,
+  Region,
+  TaxonomyMergeImpact,
 } from '@romd/admin-api-client';
 import {
   createLanguageAlias,
@@ -130,7 +130,7 @@ export function useRegions(query = '') {
   return useQuery({
     queryKey: query ? taxonomyKeys.regionSearch(query) : taxonomyKeys.regions(),
     queryFn: () =>
-      readAllPages<RegionDto>(
+      readAllPages<Region>(
         (cursor) =>
           listRegions({
             query: {
@@ -154,7 +154,7 @@ export function useLanguages(query = '') {
   return useQuery({
     queryKey: query ? taxonomyKeys.languageSearch(query) : taxonomyKeys.languages(),
     queryFn: () =>
-      readAllPages<LanguageDto>(
+      readAllPages<Language>(
         (cursor) =>
           listLanguages({
             query: {
@@ -193,7 +193,10 @@ async function responseData<T>(
 }
 
 /** The page of a region's aliases after the cursor, such as the one its row embeds. */
-export function fetchRegionAliasPage(regionKey: string, cursor: string): Promise<PageOfAliasDto> {
+export function fetchRegionAliasPage(
+  regionKey: string,
+  cursor: string,
+): Promise<PageOfAliasResource> {
   return responseData(
     listRegionAliases({
       path: {
@@ -212,7 +215,7 @@ export function fetchRegionAliasPage(regionKey: string, cursor: string): Promise
 export function fetchLanguageAliasPage(
   languageKey: string,
   cursor: string,
-): Promise<PageOfAliasDto> {
+): Promise<PageOfAliasResource> {
   return responseData(
     listLanguageAliases({
       path: {
@@ -229,7 +232,7 @@ export function fetchLanguageAliasPage(
 
 /** What merging the region into the target would move; refused exactly where the merge is. */
 export function previewRegionMergeImpact(sourceKey: string, targetKey: string) {
-  return responseData<TaxonomyMergeImpactDto>(
+  return responseData<TaxonomyMergeImpact>(
     previewRegionMerge({
       path: {
         regionKey: sourceKey,
@@ -244,7 +247,7 @@ export function previewRegionMergeImpact(sourceKey: string, targetKey: string) {
 
 /** What merging the language into the target would move; refused exactly where the merge is. */
 export function previewLanguageMergeImpact(sourceKey: string, targetKey: string) {
-  return responseData<TaxonomyMergeImpactDto>(
+  return responseData<TaxonomyMergeImpact>(
     previewLanguageMerge({
       path: {
         languageKey: sourceKey,

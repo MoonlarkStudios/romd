@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -14,7 +14,7 @@ const { state, read, retry } = vi.hoisted(() => ({
   state: {
     manager: true,
     admin: true,
-    job: undefined as JobDto | undefined,
+    job: undefined as Job | undefined,
   },
   read: vi.fn(),
   retry: vi.fn(),
@@ -84,7 +84,7 @@ beforeEach(() => {
         occurredAt: '2026-09-10T00:00:00Z',
       },
     ],
-  } as JobDto;
+  } as Job;
   vi.clearAllMocks();
 });
 it('loads an archived job outside the recent list and exposes investigation evidence', () => {
@@ -137,7 +137,7 @@ it('opens an enrichment run in its workspace panel', () => {
     isTerminal: true,
     correlationId: 'run-1',
     errors: [],
-  } as JobDto;
+  } as Job;
   show();
   expect(
     screen.getByRole('link', {

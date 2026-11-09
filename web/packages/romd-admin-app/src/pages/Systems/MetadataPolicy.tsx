@@ -11,7 +11,7 @@ import {
 } from '@mantine/core';
 import {
   getSystemEnrichmentDefaults,
-  type PlatformMetadataPolicyDto,
+  type PlatformMetadataPolicy,
   updateSystemEnrichmentDefaults,
 } from '@romd/admin-api-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -33,12 +33,12 @@ const fields = [
   'Rating',
 ];
 interface PolicySnapshot {
-  policy: PlatformMetadataPolicyDto;
+  policy: PlatformMetadataPolicy;
   etag: string;
 }
 
 function snapshot(response: {
-  data?: PlatformMetadataPolicyDto;
+  data?: PlatformMetadataPolicy;
   error?: unknown;
   response?: Response;
 }): PolicySnapshot {

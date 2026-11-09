@@ -23,10 +23,10 @@ public sealed partial class ReferenceCatalogService : IReferenceCatalogService
     public Task<Romd.Application.Common.Systems.SystemKeys> GetSystemKeysAsync(CancellationToken ct) => new Romd.Persistence.Queries.SystemSummaryReader(db).ReadKeysAsync(ct);
     public Task<int?> ResolveSystemIdAsync(string key, CancellationToken ct) => db.Platforms.Where(x => x.Ownership != null && x.CanonicalKey == key).Select(x => (int?)x.Id).SingleOrDefaultAsync(ct);
 
-    public async Task<ReferenceCatalogDto?> GetCurrentAsync(CancellationToken ct)
+    public async Task<ReferenceCatalog?> GetCurrentAsync(CancellationToken ct)
     {
         var text = await db.ReferenceCatalogState.Select(x => x.Json).SingleOrDefaultAsync(ct);
-        return text is null ? null : JsonSerializer.Deserialize<ReferenceCatalogDto>(text, Json);
+        return text is null ? null : JsonSerializer.Deserialize<ReferenceCatalog>(text, Json);
     }
     public async Task<ReferenceAssetContent?> GetAssetAsync(string hash, CancellationToken ct)
     {

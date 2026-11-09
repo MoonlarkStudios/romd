@@ -36,7 +36,7 @@ public sealed class SteamGridDbSettingsService : ISteamGridDbSettingsService, IS
     private static bool ValidKey(string? key) => !string.IsNullOrWhiteSpace(key) && key.Length <= 4096 &&
         key.All(c => c is >= '!' and <= '~');
 
-    public async Task<SteamGridDbSettingsDto> GetAsync(CancellationToken ct = default)
+    public async Task<SteamGridDbSettings> GetAsync(CancellationToken ct = default)
     {
         var row = await _store.LoadAsync(ct);
         return ToDto(row, Resolve(row));
@@ -48,7 +48,7 @@ public sealed class SteamGridDbSettingsService : ISteamGridDbSettingsService, IS
         return settings.Enabled && settings.Error is null ? settings.Key : null;
     }
 
-    public async Task<ErrorOr<SteamGridDbSettingsDto>> StageUpdateAsync(UpdateSteamGridDbSettingsRequest request, RevisionPrecondition ifMatch, CancellationToken ct = default)
+    public async Task<ErrorOr<SteamGridDbSettings>> StageUpdateAsync(UpdateSteamGridDbSettingsRequest request, RevisionPrecondition ifMatch, CancellationToken ct = default)
     {
         if (Managed)
             return SteamGridDbSettingsErrors.ManagedByDeployment();
@@ -89,7 +89,7 @@ public sealed class SteamGridDbSettingsService : ISteamGridDbSettingsService, IS
         return new SteamGridDbTestResult(row.Revision, testedAt, result.Item1, result.Item2, Fingerprint(settings));
     }
 
-    public async Task<ErrorOr<SteamGridDbSettingsDto>> StageTestAsync(SteamGridDbTestResult result, CancellationToken ct = default)
+    public async Task<ErrorOr<SteamGridDbSettings>> StageTestAsync(SteamGridDbTestResult result, CancellationToken ct = default)
     {
         var accepted = await _store.StageTestAsync(result, ct);
         return accepted is null ? SteamGridDbSettingsErrors.ConcurrentUpdate() : ToDto(accepted, Resolve(accepted));
@@ -166,7 +166,7 @@ public sealed class SteamGridDbSettingsService : ISteamGridDbSettingsService, IS
         return new(enabled, key, error);
     }
 
-    private SteamGridDbSettingsDto ToDto(SteamGridDbStoredSettings row, RuntimeSettings settings)
+    private SteamGridDbSettings ToDto(SteamGridDbStoredSettings row, RuntimeSettings settings)
     {
         bool same = row.TestConfigurationFingerprint == Fingerprint(settings);
         return new(row.Revision, settings.Enabled, Managed ? !string.IsNullOrWhiteSpace(_deployment.ApiKey) : row.ProtectedClientSecret is not null,

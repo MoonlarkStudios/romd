@@ -9,13 +9,13 @@ using Romd.Contracts.Management.Artwork;
 namespace Romd.Admin.Application.Artwork.Commands.ReplaceArtworkEnrichmentSettings;
 
 public sealed record ReplaceArtworkEnrichmentSettingsCommand(UpdateArtworkEnrichmentSettingsRequest Settings, RevisionPrecondition IfMatch)
-    : ICommand<ArtworkEnrichmentSettingsDto>;
+    : ICommand<ArtworkEnrichmentSettings>;
 
 public sealed class ReplaceArtworkEnrichmentSettingsCommandHandler(IArtworkAcquisitionStore store, IEnumerable<IProviderIdentityAdapter> adapters,
     IUnitOfWork unitOfWork, ILogger<ReplaceArtworkEnrichmentSettingsCommandHandler> logger)
-    : ICommandHandler<ReplaceArtworkEnrichmentSettingsCommand, ArtworkEnrichmentSettingsDto>
+    : ICommandHandler<ReplaceArtworkEnrichmentSettingsCommand, ArtworkEnrichmentSettings>
 {
-    public async Task<ErrorOr<ArtworkEnrichmentSettingsDto>> HandleAsync(ReplaceArtworkEnrichmentSettingsCommand command, CancellationToken ct = default)
+    public async Task<ErrorOr<ArtworkEnrichmentSettings>> HandleAsync(ReplaceArtworkEnrichmentSettingsCommand command, CancellationToken ct = default)
     {
         var providers = new List<string>();
         foreach (var adapter in adapters.Where(adapter => adapter.Capabilities.Contains("artwork")))
@@ -24,7 +24,7 @@ public sealed class ReplaceArtworkEnrichmentSettingsCommandHandler(IArtworkAcqui
             if (state.Enabled && state.Configured)
                 providers.Add(adapter.Id);
         }
-        return await unitOfWork.ExecuteInTransactionAsync<ArtworkEnrichmentSettingsDto>(async token =>
+        return await unitOfWork.ExecuteInTransactionAsync<ArtworkEnrichmentSettings>(async token =>
         {
             var accepted = await store.StageSettingsAsync(command.Settings, command.IfMatch, token);
             return accepted.IsError ? accepted.Errors : accepted.Value with { Providers = providers };

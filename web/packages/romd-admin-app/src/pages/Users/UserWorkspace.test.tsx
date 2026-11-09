@@ -4,7 +4,7 @@ import {
   assignUserRole,
   getUser,
   listLibraries,
-  type UserDto,
+  type User,
   updateUser,
 } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -33,7 +33,7 @@ vi.mock('@romd/admin-api-client', async () => ({
   assignUserRole: vi.fn(),
   assignUserLibrary: vi.fn(),
 }));
-const account: UserDto = {
+const account: User = {
   id: 'member',
   email: 'member@example.com',
   roles: [

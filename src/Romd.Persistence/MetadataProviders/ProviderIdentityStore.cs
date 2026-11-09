@@ -57,12 +57,12 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
             var trusted = trust.GetValueOrDefault(provider);
             return new ProviderIdentityLink(provider, link?.ExternalId, link?.IsConfirmed == true, state?.SuppressAutomaticMatch == true,
                 trusted, state?.Revision ?? Guid.Empty, state?.InputFingerprint, state?.LastAttemptAt,
-                state?.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecisionDto>(decision) : null);
+                state?.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecision>(decision) : null);
         }).ToArray();
         return new(titleId, title.Revision, fingerprint, facts, rows);
     }
     public async Task<IStagedProviderIdentityDecision> StageDecisionAsync(ProviderIdentitySnapshot snapshot, string providerId, Guid expectedRevision,
-        ProviderIdentityDecisionDto decision, ProviderGameDto? accepted, CancellationToken ct)
+        ProviderIdentityDecision decision, ProviderGame? accepted, CancellationToken ct)
     {
         var transaction = db.Database.CurrentTransaction;
         if (transaction is null || transaction.GetDbTransaction().IsolationLevel != IsolationLevel.ReadCommitted)

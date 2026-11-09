@@ -7,14 +7,14 @@ using Romd.Contracts.Consumer.Libraries;
 
 namespace Romd.Consumer.Application.Libraries.Queries.GetCurrentLibraryContext;
 
-public sealed record GetCurrentLibraryContextQuery : IQuery<LibraryContextDto>;
+public sealed record GetCurrentLibraryContextQuery : IQuery<LibraryContext>;
 
 public sealed class GetCurrentLibraryContextQueryHandler(
     ICurrentUser currentUser,
     IConsumerLibraryContextRepository libraryContextRepository)
-    : IQueryHandler<GetCurrentLibraryContextQuery, LibraryContextDto>
+    : IQueryHandler<GetCurrentLibraryContextQuery, LibraryContext>
 {
-    public async Task<ErrorOr<LibraryContextDto>> HandleAsync(
+    public async Task<ErrorOr<LibraryContext>> HandleAsync(
         GetCurrentLibraryContextQuery query,
         CancellationToken ct = default)
     {
@@ -39,27 +39,27 @@ public sealed class GetCurrentLibraryContextQueryHandler(
         };
     }
 
-    private static LibraryContextDto ToContract(ConsumerLibraryContextReadModel context) =>
+    private static LibraryContext ToContract(ConsumerLibraryContextReadModel context) =>
         new()
         {
             Name = context.Name,
-            Counts = new LibraryContentCountsDto
+            Counts = new LibraryContentCounts
             {
                 OwnedTitleCount = context.Counts.OwnedTitleCount,
                 AvailableTitleCount = context.Counts.AvailableTitleCount,
                 CollectionCount = context.Counts.CollectionCount
             },
             Platforms = context.Platforms
-                .Select(facet => new LibraryFacetDto(
+                .Select(facet => new LibraryFacet(
                     facet.SystemKey,
                     facet.PlatformName,
                     facet.Count))
                 .ToList(),
             Genres = context.Genres
-                .Select(facet => new LibraryFacetDto(facet.Genre, facet.Genre, facet.Count))
+                .Select(facet => new LibraryFacet(facet.Genre, facet.Genre, facet.Count))
                 .ToList(),
             FeaturedCollections = context.FeaturedCollections
-                .Select(facet => new ConsumerCollectionDto
+                .Select(facet => new ConsumerCollection
                 {
                     Id = IdCoder.Encode(facet.CollectionId),
                     Name = facet.CollectionName,

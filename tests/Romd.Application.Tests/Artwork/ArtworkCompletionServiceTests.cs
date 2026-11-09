@@ -19,7 +19,7 @@ public sealed class ArtworkCompletionServiceTests
         new QueueArtworkCompletionCommandHandler(acceptance, work, TimeProvider.System,
             NullLogger<QueueArtworkCompletionCommandHandler>.Instance).HandleAsync(new(request, Guid.NewGuid()));
 
-    public static TheoryData<ArtworkCompletionFilterDto> InvalidEnrichmentFilters => new()
+    public static TheoryData<ArtworkCompletionFilter> InvalidEnrichmentFilters => new()
     {
         new(Enrichment: []),
         new(Enrichment: [""]),
@@ -37,7 +37,7 @@ public sealed class ArtworkCompletionServiceTests
         new(EnrichmentStatus: "Pending, Completed")
     };
 
-    public static TheoryData<ArtworkCompletionFilterDto> ValidEnrichmentFilters => new()
+    public static TheoryData<ArtworkCompletionFilter> ValidEnrichmentFilters => new()
     {
         new(),
         new(Enrichment: ["NeedsReview", "Blocked", "NeedsReview"]),
@@ -48,7 +48,7 @@ public sealed class ArtworkCompletionServiceTests
 
     [Theory]
     [MemberData(nameof(InvalidEnrichmentFilters))]
-    public async Task PreviewAndQueueScope_InvalidEnrichmentFilter_ReturnInvalidRequestWithoutReachingStore(ArtworkCompletionFilterDto filters)
+    public async Task PreviewAndQueueScope_InvalidEnrichmentFilter_ReturnInvalidRequestWithoutReachingStore(ArtworkCompletionFilter filters)
     {
         var service = new ArtworkCompletionService(store);
 
@@ -90,7 +90,7 @@ public sealed class ArtworkCompletionServiceTests
     public async Task Items_RunFilter_PassesToStore(string? status)
     {
         var jobId = Guid.NewGuid();
-        store.ItemsAsync(jobId, 0, status, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From(new ArtworkCompletionItemsDto([], null)));
+        store.ItemsAsync(jobId, 0, status, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From(new ArtworkCompletionItems([], null)));
 
         (await new ArtworkCompletionService(store).ItemsAsync(jobId, 0, status, default)).IsError.ShouldBeFalse();
         await store.Received(1).ItemsAsync(jobId, 0, status, Arg.Any<CancellationToken>());
@@ -121,7 +121,7 @@ public sealed class ArtworkCompletionServiceTests
     public async Task Retry_FailedOrUnfinished_ReachesStore(string status)
     {
         store.PreviewScopeAsync(Arg.Any<ArtworkCompletionRequest>(), Arg.Any<CancellationToken>())
-            .Returns(ErrorOrFactory.From(new ArtworkCompletionPreviewDto(0, [])));
+            .Returns(ErrorOrFactory.From(new ArtworkCompletionPreview(0, [])));
         var request = new ArtworkCompletionRequest(Guid.NewGuid(), Scope: "Retry", RetryJobId: Guid.NewGuid(), RetryStatus: status);
 
         (await new ArtworkCompletionService(store).PreviewScopeAsync(request, default)).IsError.ShouldBeFalse();
@@ -130,10 +130,10 @@ public sealed class ArtworkCompletionServiceTests
 
     [Theory]
     [MemberData(nameof(ValidEnrichmentFilters))]
-    public async Task PreviewScope_ValidEnrichmentFilter_PassesRequestToStoreUnchanged(ArtworkCompletionFilterDto filters)
+    public async Task PreviewScope_ValidEnrichmentFilter_PassesRequestToStoreUnchanged(ArtworkCompletionFilter filters)
     {
         store.PreviewScopeAsync(Arg.Any<ArtworkCompletionRequest>(), Arg.Any<CancellationToken>())
-            .Returns(ErrorOrFactory.From(new ArtworkCompletionPreviewDto(0, [])));
+            .Returns(ErrorOrFactory.From(new ArtworkCompletionPreview(0, [])));
         var service = new ArtworkCompletionService(store);
 
         foreach (var scope in new[] { "Filtered", "Automatic" })

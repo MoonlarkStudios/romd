@@ -4,6 +4,6 @@ namespace Romd.Application.Common.ReferenceCatalog;
 
 public interface IRatingReferenceReader
 {
-    Task<IReadOnlyList<RatingResourceDto>> ListAsync(CancellationToken ct);
-    Task<ReferenceReadResult<RatingResourceDto>?> GetAsync(string key, CancellationToken ct);
+    Task<IReadOnlyList<RatingResource>> ListAsync(CancellationToken ct);
+    Task<ReferenceReadResult<RatingResource>?> GetAsync(string key, CancellationToken ct);
 }

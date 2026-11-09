@@ -17,6 +17,8 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Infrastructure.Tests.Artwork;
 
 public sealed class ArtworkCompletionAcceptanceOwnershipTests : IAsyncLifetime

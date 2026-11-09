@@ -12,12 +12,12 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type { CollectionItemDto } from '@romd/admin-api-client';
+import type { CollectionItem } from '@romd/admin-api-client';
 import { IconArrowDown, IconArrowUp, IconNote, IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
 
 interface CollectionItemRowProps {
-  item: CollectionItemDto;
+  item: CollectionItem;
   index: number;
   total: number;
   canEdit: boolean;

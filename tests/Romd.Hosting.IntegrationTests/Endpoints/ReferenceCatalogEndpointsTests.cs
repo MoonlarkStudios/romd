@@ -81,7 +81,7 @@ public sealed class ReferenceCatalogEndpointsTests(IntegrationTestFixture fixtur
         using var client = fixture.CreateAuthenticatedClient();
         var response = await client.GetAsync("/api/catalog-snapshot");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var descriptor = (await response.Content.ReadFromJsonAsync<ReferenceCatalogDescriptorDto>())!;
+        var descriptor = (await response.Content.ReadFromJsonAsync<ReferenceCatalogDescriptor>())!;
         var catalog = await client.ReadCatalogAsync();
         response.Headers.ETag!.Tag.ShouldBe($"\"{descriptor.Revision}\"");
         descriptor.Revision.ShouldNotBe(descriptor.CatalogRevision);
@@ -96,7 +96,7 @@ public sealed class ReferenceCatalogEndpointsTests(IntegrationTestFixture fixtur
         artwork.StatusCode.ShouldBe(HttpStatusCode.OK);
         artwork.Headers.ETag!.Tag.ShouldBe($"\"{asset.Sha256}\"");
         artwork.Headers.CacheControl!.Public.ShouldBeTrue();
-        (await anonymous.PostAsJsonAsync("/api/systems", new CreateSystemDto("unauthorized", "Denied", CompactLabel: "NO"))).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await anonymous.PostAsJsonAsync("/api/systems", new CreateSystem("unauthorized", "Denied", CompactLabel: "NO"))).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public sealed class ReferenceCatalogEndpointsTests(IntegrationTestFixture fixtur
     {
         using var client = fixture.CreateAuthenticatedClient();
         var key = "local-future-" + Guid.NewGuid().ToString("N");
-        var response = await client.PostAsJsonAsync("/api/systems", new CreateSystemDto(key, "Future Console", CompactLabel: "FUT"));
+        var response = await client.PostAsJsonAsync("/api/systems", new CreateSystem(key, "Future Console", CompactLabel: "FUT"));
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         response.Headers.Location!.ToString().ShouldBe("/api/systems/" + key);
         var catalog = (await client.ReadCatalogAsync());
@@ -126,26 +126,26 @@ public sealed class ReferenceCatalogEndpointsTests(IntegrationTestFixture fixtur
     {
         using var client = fixture.CreateAuthenticatedClient();
         var key = "local-maker-" + Guid.NewGuid().ToString("N");
-        var company = await client.PostAsJsonAsync("/api/companies", new CreateCompanyDto(key, "Maker"));
+        var company = await client.PostAsJsonAsync("/api/companies", new CreateCompany(key, "Maker"));
         company.StatusCode.ShouldBe(HttpStatusCode.Created);
         var systemKey = "local-system-" + Guid.NewGuid().ToString("N");
-        var system = await client.PostAsJsonAsync("/api/systems", new CreateSystemDto(systemKey, "Machine", "MCH", ManufacturerKeys: [key]));
+        var system = await client.PostAsJsonAsync("/api/systems", new CreateSystem(systemKey, "Machine", "MCH", ManufacturerKeys: [key]));
         system.StatusCode.ShouldBe(HttpStatusCode.Created);
         using var rename = new HttpRequestMessage(HttpMethod.Patch, "/api/companies/" + key)
         {
-            Content = JsonContent.Create(new CompanyPatchDto { Name = "New maker" })
+            Content = JsonContent.Create(new CompanyPatch { Name = "New maker" })
         };
         rename.Headers.IfMatch.Add(company.Headers.ETag!);
         var renamed = await client.SendAsync(rename);
         renamed.StatusCode.ShouldBe(HttpStatusCode.OK);
         var read = await client.GetAsync("/api/systems/" + systemKey);
-        var facts = (await read.Content.ReadFromJsonAsync<SystemResourceDto>())!;
+        var facts = (await read.Content.ReadFromJsonAsync<SystemResource>())!;
         facts.Manufacturers.ShouldHaveSingleItem().Name.ShouldBe("New maker");
         var snapshot = (await client.ReadCatalogAsync());
         snapshot.Systems.Single(x => x.Key == systemKey).Manufacturers.ShouldBe(facts.Manufacturers);
         using var stale = new HttpRequestMessage(HttpMethod.Patch, "/api/systems/" + systemKey)
         {
-            Content = JsonContent.Create(new SystemPatchDto { Name = "Stale" })
+            Content = JsonContent.Create(new SystemPatch { Name = "Stale" })
         };
         stale.Headers.IfMatch.Add(system.Headers.ETag!);
         (await client.SendAsync(stale)).StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
@@ -164,21 +164,21 @@ public sealed class ReferenceCatalogEndpointsTests(IntegrationTestFixture fixtur
     public async Task PublishedMutation_InvalidatesOldPin_AndPagedRowRevisionSupportsConditionalWrite()
     {
         using var client = fixture.CreateAuthenticatedClient();
-        var old = (await client.GetFromJsonAsync<ReferenceCatalogDescriptorDto>("/api/catalog-snapshot"))!;
+        var old = (await client.GetFromJsonAsync<ReferenceCatalogDescriptor>("/api/catalog-snapshot"))!;
         var key = "local-paged-" + Guid.NewGuid().ToString("N");
-        using var created = await client.PostAsJsonAsync("/api/companies", new CreateCompanyDto(key, "Paged company"));
+        using var created = await client.PostAsJsonAsync("/api/companies", new CreateCompany(key, "Paged company"));
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var page = (await client.GetFromJsonAsync<Page<CompanyResourceDto>>("/api/companies?query=" + key + "&limit=1"))!;
+        var page = (await client.GetFromJsonAsync<Page<CompanyResource>>("/api/companies?query=" + key + "&limit=1"))!;
         var row = page.Items.ShouldHaveSingleItem();
         row.Revision.ShouldBe(created.Headers.ETag!.Tag.Trim('"'));
-        using var edit = new HttpRequestMessage(HttpMethod.Patch, "/api/companies/" + key) { Content = JsonContent.Create(new CompanyPatchDto { Name = "Changed from page" }) };
+        using var edit = new HttpRequestMessage(HttpMethod.Patch, "/api/companies/" + key) { Content = JsonContent.Create(new CompanyPatch { Name = "Changed from page" }) };
         edit.Headers.TryAddWithoutValidation("If-Match", "\"" + row.Revision + "\"");
         using var changed = await client.SendAsync(edit);
         changed.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await changed.Content.ReadFromJsonAsync<CompanyResourceDto>())!.Revision.ShouldBe(changed.Headers.ETag!.Tag.Trim('"'));
+        (await changed.Content.ReadFromJsonAsync<CompanyResource>())!.Revision.ShouldBe(changed.Headers.ETag!.Tag.Trim('"'));
         using var stalePin = await client.GetAsync("/api/catalog-snapshot/companies?revision=" + old.CatalogRevision);
         using var staleProblem = await ProblemEnvelope.ReadAsync(stalePin, 409, "ReferenceCatalog.SnapshotChanged");
-        var current = (await client.GetFromJsonAsync<ReferenceCatalogDescriptorDto>("/api/catalog-snapshot"))!;
+        var current = (await client.GetFromJsonAsync<ReferenceCatalogDescriptor>("/api/catalog-snapshot"))!;
         current.CatalogRevision.ShouldNotBe(old.CatalogRevision);
         current.ContentHash.ShouldNotBe(old.ContentHash);
         current.Revision.ShouldNotBe(old.Revision);
@@ -203,15 +203,15 @@ public sealed class ReferenceCatalogEndpointsTests(IntegrationTestFixture fixtur
     {
         using var client = fixture.CreateAuthenticatedClient();
         var key = "local-edit-" + Guid.NewGuid().ToString("N");
-        var created = await client.PostAsJsonAsync("/api/systems", new CreateSystemDto(key, "Custom System", CompactLabel: "CS"));
+        var created = await client.PostAsJsonAsync("/api/systems", new CreateSystem(key, "Custom System", CompactLabel: "CS"));
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         var path = "/api/systems/" + key;
-        (await client.PatchAsJsonAsync(path, new SystemPatchDto { Name = "Changed" })).StatusCode.ShouldBe((HttpStatusCode)428);
-        using var edit = new HttpRequestMessage(HttpMethod.Patch, path) { Content = JsonContent.Create(new SystemPatchDto { Name = "Changed", Icon = null }) };
+        (await client.PatchAsJsonAsync(path, new SystemPatch { Name = "Changed" })).StatusCode.ShouldBe((HttpStatusCode)428);
+        using var edit = new HttpRequestMessage(HttpMethod.Patch, path) { Content = JsonContent.Create(new SystemPatch { Name = "Changed", Icon = null }) };
         edit.Headers.IfMatch.Add(created.Headers.ETag!);
         var updated = await client.SendAsync(edit);
         updated.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var resource = (await updated.Content.ReadFromJsonAsync<SystemResourceDto>())!;
+        var resource = (await updated.Content.ReadFromJsonAsync<SystemResource>())!;
         resource.Name.ShouldBe("Changed");
         resource.CompactLabel.ShouldBe("CS");
         using var stale = new HttpRequestMessage(HttpMethod.Delete, path);

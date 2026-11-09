@@ -10,7 +10,7 @@ import {
   Text,
   UnstyledButton,
 } from '@mantine/core';
-import type { ArtworkCompletionItemDto } from '@romd/admin-api-client';
+import type { ArtworkCompletionItem } from '@romd/admin-api-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -55,7 +55,7 @@ function RunItem({
   item,
   onOpenTitle,
 }: {
-  item: ArtworkCompletionItemDto;
+  item: ArtworkCompletionItem;
   onOpenTitle: (titleId: string) => void;
 }) {
   return (

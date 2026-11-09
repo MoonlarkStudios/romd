@@ -19,11 +19,7 @@ import {
   Title,
   UnstyledButton,
 } from '@mantine/core';
-import type {
-  ArtworkCandidateDto,
-  ArtworkProviderDto,
-  TitleProviderMatchDto,
-} from '@romd/admin-api-client';
+import type { ArtworkCandidate, ArtworkProvider, TitleProviderMatch } from '@romd/admin-api-client';
 import {
   applyArtworkCandidate,
   deleteTitleArtworkAsset,
@@ -88,12 +84,12 @@ function CandidateBrowser({
   titleId: string;
   title: TitleDetail;
   role: Role;
-  provider: ArtworkProviderDto;
+  provider: ArtworkProvider;
   gameId: string;
   selectedReference?: string;
   disabled: boolean;
   allowHide: boolean;
-  onChoose: (candidate: ArtworkCandidateDto) => Promise<void>;
+  onChoose: (candidate: ArtworkCandidate) => Promise<void>;
 }) {
   const cache = useQueryClient();
   const family = useArtworkSelections(titleId).data;
@@ -176,7 +172,7 @@ function CandidateBrowser({
     setVisible(12);
     setError(null);
   };
-  const apply = async (candidate: ArtworkCandidateDto) => {
+  const apply = async (candidate: ArtworkCandidate) => {
     setPending(true);
     setError(null);
     try {
@@ -395,7 +391,7 @@ function ArtworkPanelContent({
   const [draft, setDraft] = useState<ArtworkDraft | null>(null);
   const [role, setRole] = useState<Role>(initialRole);
   const [notice, setNotice] = useState<string | null>(null);
-  const [editingMatch, setEditingMatch] = useState<TitleProviderMatchDto | null>(null);
+  const [editingMatch, setEditingMatch] = useState<TitleProviderMatch | null>(null);
   const [leavingEmpty, setLeavingEmpty] = useState<Role | null>(null);
   const leaveRoleEmpty = useLeaveArtworkEmpty(titleId);
   const matches = useProviderMatches(titleId);
@@ -443,7 +439,7 @@ function ArtworkPanelContent({
     if (temporaryUrl.current) URL.revokeObjectURL(temporaryUrl.current);
     temporaryUrl.current = null;
   };
-  const beginCandidate = async (candidate: ArtworkCandidateDto) => {
+  const beginCandidate = async (candidate: ArtworkCandidate) => {
     if (busyRole) return;
     const selection = selections?.find((item) => item.role === role);
     if (!role || !selection) return;

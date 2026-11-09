@@ -18,8 +18,8 @@ namespace Romd.Admin.Application.Export.Queries.GetArchiveFormats;
 public sealed record GetArchiveFormatsQuery(int? TitleId, IReadOnlyCollection<int> ReleaseIds) : IQuery<ArchiveFormats>;
 
 /// <summary>Each requested archive's formats; <see cref="Title" /> is null when no title was requested.</summary>
-public sealed record ArchiveFormats(IReadOnlyList<ArchiveFormatDto>? Title,
-    IReadOnlyDictionary<int, IReadOnlyList<ArchiveFormatDto>> Releases);
+public sealed record ArchiveFormats(IReadOnlyList<ArchiveFormat>? Title,
+    IReadOnlyDictionary<int, IReadOnlyList<ArchiveFormat>> Releases);
 
 public sealed class GetArchiveFormatsQueryHandler(
     ICurrentUser user,
@@ -68,6 +68,6 @@ public sealed class GetArchiveFormatsQueryHandler(
                 .ToDictionary(release => release.Id, release => ToContract(release.Formats)));
     }
 
-    private IReadOnlyList<ArchiveFormatDto> ToContract(IReadOnlyList<RomDeliveryFormat> formats) =>
+    private IReadOnlyList<ArchiveFormat> ToContract(IReadOnlyList<RomDeliveryFormat> formats) =>
         ArchiveFormatMapping.ToContract(formats, deliveryPolicy.Formats);
 }

@@ -1,4 +1,4 @@
-import type { ConsumerReleaseManifestDto } from '@romd/consumer-api-client';
+import type { ConsumerReleaseManifest } from '@romd/consumer-api-client';
 import {
   getConsumerCollection,
   getConsumerCurrentLibrary,
@@ -299,7 +299,7 @@ export function useCollectionDetail(collectionId: string | undefined) {
 
 export function useIssueReleaseManifest() {
   return useMutation({
-    mutationFn: async (releaseId: string): Promise<ConsumerReleaseManifestDto> => {
+    mutationFn: async (releaseId: string): Promise<ConsumerReleaseManifest> => {
       const response = await issueConsumerReleaseManifest({
         path: {
           releaseId,

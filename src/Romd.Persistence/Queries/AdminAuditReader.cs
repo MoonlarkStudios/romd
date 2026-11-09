@@ -11,7 +11,7 @@ namespace Romd.Persistence.Queries;
 
 public sealed class AdminAuditReader(RomdDbContext db) : IAdminAuditReader
 {
-    public async Task<ErrorOr<Page<AdminAuditEventDto>>> ReadAsync(string? cursor, string? targetType, string? targetId, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<AdminAuditEvent>>> ReadAsync(string? cursor, string? targetType, string? targetId, int limit, CancellationToken ct)
     {
         if (limit is < 1 or > 100)
             return FieldErrors.Validation("Audit.InvalidLimit", "Use a limit between 1 and 100.", "limit");
@@ -29,9 +29,9 @@ public sealed class AdminAuditReader(RomdDbContext db) : IAdminAuditReader
         var rows = await query.OrderByDescending(item => item.Id).Take(limit + 1).ToListAsync(ct);
         var actorIds = rows.Take(limit).Select(item => item.ActorId).Distinct().ToArray();
         var actors = await db.Users.Where(user => actorIds.Contains(user.Id)).ToDictionaryAsync(user => user.Id, user => user.Email, ct);
-        return new Page<AdminAuditEventDto>
+        return new Page<AdminAuditEvent>
         {
-            Items = rows.Take(limit).Select(item => new AdminAuditEventDto(LongIdCoder.Encode(item.Id), item.ActorId, actors.GetValueOrDefault(item.ActorId), item.OccurredAt, item.Action, item.TargetType, item.TargetId, item.Changes)).ToArray(),
+            Items = rows.Take(limit).Select(item => new AdminAuditEvent(LongIdCoder.Encode(item.Id), item.ActorId, actors.GetValueOrDefault(item.ActorId), item.OccurredAt, item.Action, item.TargetType, item.TargetId, item.Changes)).ToArray(),
             HasNextPage = rows.Count > limit,
             NextCursor = rows.Count > limit ? KeysetCursor.Encode(new AuditPosition(rows[limit - 1].Id), fingerprint) : null
         };

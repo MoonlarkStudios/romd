@@ -17,12 +17,12 @@ public static class ConsumerIdentityEndpoints
 
         group.MapGet("me", GetCurrentUser)
             .WithName("GetConsumerCurrentUser")
-            .Produces<CurrentUserDto>()
+            .Produces<CurrentUser>()
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapGet("me/library", GetCurrentLibrary)
             .WithName("GetConsumerCurrentLibrary")
-            .Produces<LibraryContextDto>()
+            .Produces<LibraryContext>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status404NotFound);
 
@@ -30,7 +30,7 @@ public static class ConsumerIdentityEndpoints
     }
 
     private static async Task<IResult> GetCurrentUser(
-        IQueryHandler<GetCurrentConsumerUserQuery, CurrentUserDto> handler,
+        IQueryHandler<GetCurrentConsumerUserQuery, CurrentUser> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetCurrentConsumerUserQuery(), cancellationToken);
@@ -39,7 +39,7 @@ public static class ConsumerIdentityEndpoints
     }
 
     private static async Task<IResult> GetCurrentLibrary(
-        IQueryHandler<GetCurrentLibraryContextQuery, LibraryContextDto> handler,
+        IQueryHandler<GetCurrentLibraryContextQuery, LibraryContext> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetCurrentLibraryContextQuery(), cancellationToken);

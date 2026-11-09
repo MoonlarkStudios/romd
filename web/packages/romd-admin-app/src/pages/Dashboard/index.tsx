@@ -1,5 +1,5 @@
 import { Anchor, Badge, Button, Group, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
-import type { EnrichmentWorkbenchCountsDto } from '@romd/admin-api-client';
+import type { EnrichmentWorkbenchCounts } from '@romd/admin-api-client';
 import { IconRefresh, IconUpload } from '@tabler/icons-react';
 import { Link } from 'react-router';
 import { type TitleStatus, titleStatusLabels } from '../../components/Title/enrichmentPresentation';
@@ -12,7 +12,7 @@ import { useOverview } from './useOverview';
 /** Workspace views in chip order; Settled is deliberately not counted here. */
 const enrichmentViews: {
   status: Exclude<TitleStatus, 'Settled'>;
-  count: keyof EnrichmentWorkbenchCountsDto;
+  count: keyof EnrichmentWorkbenchCounts;
 }[] = [
   {
     status: 'NeedsReview',

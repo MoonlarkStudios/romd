@@ -1,11 +1,11 @@
 import { Box, Stack, Text } from '@mantine/core';
-import type { ConsumerCollectionDto } from '@romd/consumer-api-client';
+import type { ConsumerCollection } from '@romd/consumer-api-client';
 import { IconFolder } from '@tabler/icons-react';
 import { Link } from 'react-router';
 import { formatCount } from '../../utils/format';
 
 interface ShelfCardProps {
-  collection: ConsumerCollectionDto;
+  collection: ConsumerCollection;
 }
 
 export function ShelfCard({ collection }: ShelfCardProps) {

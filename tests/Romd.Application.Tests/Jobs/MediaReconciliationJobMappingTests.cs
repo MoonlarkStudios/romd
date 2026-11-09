@@ -12,6 +12,13 @@ using Romd.Domain.Source.Rom;
 using Shouldly;
 using Xunit;
 
+using ContractJob = Romd.Contracts.Management.Models.Job;
+using ContractMediaReconciliationJob = Romd.Contracts.Management.Models.MediaReconciliationJob;
+
+using Job = Romd.Domain.Jobs.Job;
+using MediaReconciliationJob = Romd.Domain.Jobs.MediaReconciliationJob;
+using MediaReconciliationSubject = Romd.Domain.Source.Rom.MediaReconciliationSubject;
+
 namespace Romd.Application.Tests.Jobs;
 
 public sealed class MediaReconciliationJobMappingTests
@@ -32,7 +39,7 @@ public sealed class MediaReconciliationJobMappingTests
         reference.GetSystemKeysAsync(Arg.Any<CancellationToken>()).Returns(Keys);
         var result = await new ListJobsQueryHandler(reference, repository, user).HandleAsync(new(JobType: "media-reconciliation"));
         result.IsError.ShouldBeFalse();
-        result.Value.Items.ShouldHaveSingleItem().ShouldBeOfType<MediaReconciliationJobDto>().Id.ShouldBe(job.Id);
+        result.Value.Items.ShouldHaveSingleItem().ShouldBeOfType<ContractMediaReconciliationJob>().Id.ShouldBe(job.Id);
         await repository.Received(1).ListAsync(Arg.Is<JobListFilter>(filter => filter.JobType == "media-reconciliation" && filter.IncludeMediaConvergence), Arg.Any<CancellationToken>());
     }
 
@@ -45,7 +52,7 @@ public sealed class MediaReconciliationJobMappingTests
         job.SetPhase(MediaReconciliationPhase.Verifying);
         job.RecordDeferral("Source custody remains active.", at: DateTimeOffset.UtcNow);
         job.NextAttemptAt = DateTimeOffset.UtcNow.AddSeconds(30);
-        var dto = ((Job)job).ToContract(Keys).ShouldBeOfType<MediaReconciliationJobDto>();
+        var dto = ((Job)job).ToContract(Keys).ShouldBeOfType<ContractMediaReconciliationJob>();
         dto.RequestMode.ShouldBe("Subject");
         dto.Subject.ShouldBe(new("OriginalLayout", IdCoder.Encode(37)));
         dto.Selection.ShouldBeNull();
@@ -53,11 +60,11 @@ public sealed class MediaReconciliationJobMappingTests
         dto.CorrelationId.ShouldBe(owner);
         dto.Phase.ShouldBe("Verifying");
         dto.Errors.Single().Message.ShouldBe("Source custody remains active.");
-        string serialized = JsonSerializer.Serialize<JobDto>(dto, Json);
+        string serialized = JsonSerializer.Serialize<ContractJob>(dto, Json);
         using var document = JsonDocument.Parse(serialized);
         document.RootElement.GetProperty("jobType").GetString().ShouldBe("media-reconciliation");
         document.RootElement.GetProperty("subject").GetProperty("id").GetString().ShouldBe(IdCoder.Encode(37));
-        var replay = JsonSerializer.Deserialize<JobDto>(serialized, Json).ShouldBeOfType<MediaReconciliationJobDto>();
+        var replay = JsonSerializer.Deserialize<ContractJob>(serialized, Json).ShouldBeOfType<ContractMediaReconciliationJob>();
         replay.Subject.ShouldBe(dto.Subject);
         replay.OriginSelectionJobId.ShouldBe(owner);
         replay.NextAttemptAt.ShouldBe(dto.NextAttemptAt);
@@ -68,11 +75,11 @@ public sealed class MediaReconciliationJobMappingTests
     {
         var job = MediaReconciliationJob.Create(Guid.NewGuid(), new MediaReconciliationRequest.SelectionWork(new MediaReconciliationFilter.KindSubjects("gamecube-disc", 7), new(100, 200, 300, 0), 10, true), "selection", null, Guid.NewGuid(), DateTimeOffset.UtcNow);
         job.ApplySelectionProgress(new(new MediaReconciliationSubject.LogicalRom(5), 4, 1, 2, 1, 2, 1, true));
-        var dto = ((Job)job).ToContract(Keys).ShouldBeOfType<MediaReconciliationJobDto>();
+        var dto = ((Job)job).ToContract(Keys).ShouldBeOfType<ContractMediaReconciliationJob>();
         dto.RequestMode.ShouldBe("Selection");
         dto.Subject.ShouldBeNull();
         dto.SystemKey.ShouldBe("gc");
-        dto.Selection.ShouldBe(new MediaReconciliationSelectionDto
+        dto.Selection.ShouldBe(new MediaReconciliationSelection
         {
             Filter = "KindSubjects",
             KindId = "gamecube-disc",
@@ -89,7 +96,7 @@ public sealed class MediaReconciliationJobMappingTests
         });
         dto.HasErrors.ShouldBeTrue();
         dto.IsTerminal.ShouldBeFalse();
-        using var serialized = JsonDocument.Parse(JsonSerializer.Serialize<JobDto>(dto, Json));
+        using var serialized = JsonDocument.Parse(JsonSerializer.Serialize<ContractJob>(dto, Json));
         var selection = serialized.RootElement.GetProperty("selection");
         selection.TryGetProperty("cursor", out _).ShouldBeFalse();
         selection.TryGetProperty("bounds", out _).ShouldBeFalse();
@@ -101,7 +108,7 @@ public sealed class MediaReconciliationJobMappingTests
         var job = MediaReconciliationJob.Create(Guid.NewGuid(), new MediaReconciliationRequest.SubjectWork(new MediaReconciliationSubject.Representation(7)), "artifact", null, null, DateTimeOffset.UtcNow);
         job.RecordDeferral("Earlier retry.", at: DateTimeOffset.UtcNow);
         job.ApplyOutcome(MediaReconciliationOutcomeKind.Failed, "measurement-mismatch", job.CreatedAt.AddSeconds(1));
-        var dto = ((Job)job).ToContract(Keys).ShouldBeOfType<MediaReconciliationJobDto>();
+        var dto = ((Job)job).ToContract(Keys).ShouldBeOfType<ContractMediaReconciliationJob>();
         dto.Outcome.ShouldBe("Failed");
         dto.OutcomeCode.ShouldBe("measurement-mismatch");
         dto.HasErrors.ShouldBeTrue();

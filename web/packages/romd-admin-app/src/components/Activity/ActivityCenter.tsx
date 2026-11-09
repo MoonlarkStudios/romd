@@ -13,7 +13,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { romdLayout } from '@romd/foundation';
 import { IconActivity, IconAlertTriangle, IconPlayerStop, IconRefresh } from '@tabler/icons-react';
 import { type ReactNode, useMemo, useState } from 'react';
@@ -99,7 +99,7 @@ export function ActivityCenter() {
   const badge = running.length + needsAttention.length;
   const hasActivity = running.length > 0 || needsAttention.length > 0 || earlier.length > 0;
 
-  const handleRetry = async (job: JobDto) => {
+  const handleRetry = async (job: Job) => {
     setRetryingId(job.id);
     try {
       const result = await retryJob.mutateAsync(job);
@@ -128,7 +128,7 @@ export function ActivityCenter() {
     }
   };
 
-  const handleDismiss = async (job: JobDto) => {
+  const handleDismiss = async (job: Job) => {
     setDismissingId(job.id);
     try {
       await archiveJob.mutateAsync(job.id);
@@ -257,7 +257,7 @@ export function ActivityCenter() {
   );
 }
 
-function RunningRow({ job, onCancel }: { job: JobDto; onCancel: () => void }) {
+function RunningRow({ job, onCancel }: { job: Job; onCancel: () => void }) {
   const progress = Number(job.progressPercent ?? 0);
   const deferral = job.errors?.find((error) => error.item === 'deferral');
   const failed = job.errors?.filter((error) => error !== deferral).length ?? 0;
@@ -331,11 +331,11 @@ function RunningRow({ job, onCancel }: { job: JobDto; onCancel: () => void }) {
 }
 
 interface AttentionRowProps {
-  job: JobDto;
+  job: Job;
   retrying: boolean;
   dismissing: boolean;
-  onRetry: (job: JobDto) => void;
-  onDismiss: (job: JobDto) => void;
+  onRetry: (job: Job) => void;
+  onDismiss: (job: Job) => void;
 }
 
 function AttentionRow({ job, retrying, dismissing, onRetry, onDismiss }: AttentionRowProps) {

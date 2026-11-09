@@ -91,10 +91,10 @@ public sealed partial class AuthEndpointsTests
         using var created = await client.PostAsJsonAsync("/api/users",
             new CreateUserRequest(email, "Password123", "User", RequiresActivation: purpose == "activation"));
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var user = (await created.Content.ReadFromJsonAsync<UserDto>())!;
+        var user = (await created.Content.ReadFromJsonAsync<User>())!;
         using var issued = await client.PostAsJsonAsync($"/api/users/{user.Id}/links", new IssueAccountLinkRequest(purpose));
         issued.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var link = (await issued.Content.ReadFromJsonAsync<IssuedAccountLinkDto>())!;
+        var link = (await issued.Content.ReadFromJsonAsync<IssuedAccountLink>())!;
 
         using var rejected = await client.PostAsJsonAsync("/api/auth/account-link",
             new RedeemAccountLinkRequest(link.Token, "Aa1" + new string('x', 4094)));

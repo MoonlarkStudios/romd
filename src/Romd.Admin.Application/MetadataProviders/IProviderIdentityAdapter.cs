@@ -15,8 +15,8 @@ public interface IProviderIdentityAdapter
     ProviderIdentityScope IdentityScope => ProviderIdentityScope.Release;
     IReadOnlyList<string> Capabilities { get; }
     Task<ProviderAvailability> GetAvailabilityAsync(CancellationToken ct);
-    Task<ErrorOr<ProviderGameSearchResultDto>> SearchAsync(string query, CancellationToken ct);
-    Task<ErrorOr<ProviderGameDto>> ResolveAsync(string idOrUrl, CancellationToken ct);
+    Task<ErrorOr<ProviderGameSearchResult>> SearchAsync(string query, CancellationToken ct);
+    Task<ErrorOr<ProviderGame>> ResolveAsync(string idOrUrl, CancellationToken ct);
 }
 
 public interface ITitleProviderMatchService
@@ -24,35 +24,35 @@ public interface ITitleProviderMatchService
     Task<ProviderIdentityDiscoveryResult> DiscoverAsync(int titleId, JobContext context, CancellationToken ct);
     Task<bool> IsSuppressedAsync(int titleId, string providerId, CancellationToken ct);
     Task<Guid?> GetLinkRevisionAsync(int titleId, string providerId, string gameId, CancellationToken ct);
-    Task<ErrorOr<IReadOnlyList<TitleProviderMatchDto>>> GetAsync(int titleId, CancellationToken ct);
+    Task<ErrorOr<IReadOnlyList<TitleProviderMatch>>> GetAsync(int titleId, CancellationToken ct);
 
     /// <summary>
     ///     One enabled provider's match for the title. An unknown provider is not found; a disabled one is a conflict
     ///     with local configuration.
     /// </summary>
-    Task<ErrorOr<TitleProviderMatchDto>> GetAsync(int titleId, string providerId, CancellationToken ct);
+    Task<ErrorOr<TitleProviderMatch>> GetAsync(int titleId, string providerId, CancellationToken ct);
 
     /// <summary>
     ///     Bounded live provider suggestions, with explicit completeness rather than a catalog enumeration promise.
     /// </summary>
-    Task<ErrorOr<ProviderGameSearchResultDto>> SearchAsync(string providerId, string query, CancellationToken ct);
+    Task<ErrorOr<ProviderGameSearchResult>> SearchAsync(string providerId, string query, CancellationToken ct);
 
     /// <summary>Resolves one game by id or page URL independently of limited free-text suggestions.</summary>
-    Task<ErrorOr<ProviderGameDto>> ResolveAsync(string providerId, string input, CancellationToken ct);
+    Task<ErrorOr<ProviderGame>> ResolveAsync(string providerId, string input, CancellationToken ct);
 
     /// <summary>
     ///     Writes under <paramref name="ifMatch" />, compared with the match's derived revision while the title row is
     ///     locked. Each write rotates the title revision and answers the match as written; set and confirm also name
-    ///     the job queued or joined to apply it as <see cref="TitleProviderMatchDto.PendingJobId" />. An unknown
+    ///     the job queued or joined to apply it as <see cref="TitleProviderMatch.PendingJobId" />. An unknown
     ///     provider is not found, and a disabled or unconfigured one a conflict.
     /// </summary>
-    Task<ErrorOr<TitleProviderMatchDto>> SetAsync(int titleId, string providerId, string externalId,
+    Task<ErrorOr<TitleProviderMatch>> SetAsync(int titleId, string providerId, string externalId,
         RevisionPrecondition ifMatch, CancellationToken ct);
 
-    Task<ErrorOr<TitleProviderMatchDto>> ConfirmAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
+    Task<ErrorOr<TitleProviderMatch>> ConfirmAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
         CancellationToken ct);
 
-    Task<ErrorOr<TitleProviderMatchDto>> UnlinkAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
+    Task<ErrorOr<TitleProviderMatch>> UnlinkAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
         CancellationToken ct);
 }
 

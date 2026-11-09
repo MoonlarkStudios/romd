@@ -47,7 +47,7 @@ public sealed class ReferenceOwnershipTests
         var commands = new TypedReferenceTestCommands(db);
         var system = (await commands.System("snes"))!;
         var company = (await commands.Company("nintendo"))!;
-        (await commands.UpdateSystem("snes", new SystemPatchDto { Name = "Local SNES", Description = null, Icon = null }, system.Revision)).IsError.ShouldBeFalse();
+        (await commands.UpdateSystem("snes", new SystemPatch { Name = "Local SNES", Description = null, Icon = null }, system.Revision)).IsError.ShouldBeFalse();
         (await commands.UpdateCompany("nintendo", new(Name: "Local maker", Description: null, HasDescription: true), company.Revision)).IsError.ShouldBeFalse();
         var next = JsonNode.Parse(BundledReferenceData.Document.GetRawText())!;
         next["catalogVersion"] = next["catalogVersion"]!.GetValue<int>() + 1;

@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -39,7 +39,7 @@ interface NotificationProps {
   color?: string;
 }
 
-function makeJob(overrides: Record<string, unknown>): JobDto {
+function makeJob(overrides: Record<string, unknown>): Job {
   return {
     id: 'm1',
     correlationId: 'c1',
@@ -51,7 +51,7 @@ function makeJob(overrides: Record<string, unknown>): JobDto {
     isTerminal: false,
     hasErrors: false,
     ...overrides,
-  } as JobDto;
+  } as Job;
 }
 
 function renderNotificationsHook(

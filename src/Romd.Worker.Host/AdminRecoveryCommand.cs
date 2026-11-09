@@ -104,7 +104,7 @@ internal static class AdminRecoveryCommand
 
     internal static async Task<int> RunCoreAsync(string email, Uri adminOrigin, IRomdSchemaProbe schema,
         IUnitOfWork unitOfWork, bool requireWorkerRole, Func<CancellationToken, Task<string>> runtimeRole,
-        Func<string, CancellationToken, Task<ErrorOr<IssuedAccountLinkDto>>> issue,
+        Func<string, CancellationToken, Task<ErrorOr<IssuedAccountLink>>> issue,
         TextWriter output, TextWriter errors, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();

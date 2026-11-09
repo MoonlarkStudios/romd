@@ -55,7 +55,7 @@ internal static class ApiContractPolicyAllowlists
                     "(200). It is not a lost-update guard.")
             },
             {
-                "consumer ConsumerDiscSetLayoutVersionDto.layoutRevision",
+                "consumer ConsumerDiscSetLayoutVersion.layoutRevision",
                 new(RevisionFieldClassification.SnapshotBinding,
                     "Pins each selected release of ConsumerDiscSetAccessRequest.layoutVersions to the observed layout.")
             },

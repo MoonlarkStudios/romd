@@ -67,7 +67,7 @@ public sealed class JobItemExportResult(Guid jobId, string format, JobItemExport
         }
     }
 
-    private async Task WriteJsonAsync(HttpContext context, IAsyncEnumerator<JobItemView> items, JobItemDto? first,
+    private async Task WriteJsonAsync(HttpContext context, IAsyncEnumerator<JobItemView> items, JobItem? first,
         bool hasItem, ILogger logger, CancellationToken ct)
     {
         var options = context.RequestServices.GetService<IOptions<JsonOptions>>()?.Value.SerializerOptions
@@ -99,7 +99,7 @@ public sealed class JobItemExportResult(Guid jobId, string format, JobItemExport
         finally { await ReadSnapshotCleanup.DisposeAsync([writer], false, primary, logger); }
     }
 
-    private async Task WriteCsvAsync(HttpContext context, IAsyncEnumerator<JobItemView> items, JobItemDto? first,
+    private async Task WriteCsvAsync(HttpContext context, IAsyncEnumerator<JobItemView> items, JobItem? first,
         bool hasItem, ILogger logger, CancellationToken ct)
     {
         var writer = new StreamWriter(context.Response.Body, new UTF8Encoding(false), leaveOpen: true);
@@ -130,7 +130,7 @@ public sealed class JobItemExportResult(Guid jobId, string format, JobItemExport
             throw new IOException("The export response stopped accepting data.");
     }
 
-    internal static string CsvRow(JobItemDto item) => string.Join(',',
+    internal static string CsvRow(JobItem item) => string.Join(',',
         Csv(item.FileName), Csv(item.Kind), Csv(item.Outcome), item.SizeBytes.ToString(),
         Csv(item.PlatformName ?? string.Empty), Csv(string.Join("; ", item.MatchedTitles.Select(title => title.Name))),
         item.GameCount?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,

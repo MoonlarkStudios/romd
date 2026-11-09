@@ -17,25 +17,25 @@ public static class MetadataProviderEndpoints
         {
             var settings = await service.GetAsync(ct);
             return Results.Ok(settings).WithETag(context, settings.Revision.ToString());
-        }).WithName("GetIgdbProviderSettings").Produces<IgdbProviderSettingsDto>().ETagOnlyRead();
+        }).WithName("GetIgdbProviderSettings").Produces<IgdbProviderSettings>().ETagOnlyRead();
         group.MapPut("", async (UpdateIgdbProviderSettingsRequest request, HttpContext context,
-            ICommandHandler<UpdateIgdbSettingsCommand, IgdbProviderSettingsDto> handler, CancellationToken ct) =>
+            ICommandHandler<UpdateIgdbSettingsCommand, IgdbProviderSettings> handler, CancellationToken ct) =>
         {
             var precondition = Preconditions.IfMatch(context, "MetadataProviders");
             if (precondition.IsError)
                 return precondition.Errors.ToProblem();
             var result = await handler.HandleAsync(new(request, precondition.Value), ct);
             return result.Match(value => Results.Ok(value).WithETag(context, value.Revision.ToString()), errors => errors.ToProblem());
-        }).WithName("UpdateIgdbProviderSettings").Produces<IgdbProviderSettingsDto>().ProducesProblems(400, 409).ConditionalWrite();
+        }).WithName("UpdateIgdbProviderSettings").Produces<IgdbProviderSettings>().ProducesProblems(400, 409).ConditionalWrite();
         group.MapPost("/test-connection", async (HttpContext context,
-            ICommandHandler<TestIgdbConnectionCommand, IgdbProviderSettingsDto> handler, CancellationToken ct) =>
+            ICommandHandler<TestIgdbConnectionCommand, IgdbProviderSettings> handler, CancellationToken ct) =>
         {
             var precondition = Preconditions.IfMatch(context, "MetadataProviders");
             if (precondition.IsError)
                 return precondition.Errors.ToProblem();
             var result = await handler.HandleAsync(new(precondition.Value), ct);
             return result.Match(value => Results.Ok(value).WithETag(context, value.Revision.ToString()), errors => errors.ToProblem());
-        }).WithName("TestIgdbProviderConnection").Produces<IgdbProviderSettingsDto>().ConditionalWrite();
+        }).WithName("TestIgdbProviderConnection").Produces<IgdbProviderSettings>().ConditionalWrite();
         return app;
     }
 }

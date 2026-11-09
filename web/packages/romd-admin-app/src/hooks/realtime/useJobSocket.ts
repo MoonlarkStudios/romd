@@ -1,4 +1,4 @@
-import type { HubConnection, JobDto } from '@romd/admin-api-client';
+import type { HubConnection, Job } from '@romd/admin-api-client';
 import { createJobHubConnection } from '@romd/admin-api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -40,7 +40,7 @@ export function useJobSocket(enabled: boolean) {
   );
 
   const handleJobUpdated = useCallback(
-    (dto: JobDto) => {
+    (dto: Job) => {
       storeJobSnapshot(queryClient, dto);
     },
     [

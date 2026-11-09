@@ -1,5 +1,5 @@
 // Raw consumer-host manifest bodies. Names, casing and null emission follow
-// ConsumerReleaseManifestDto/ConsumerReleaseManifestFormatDto under the
+// ConsumerReleaseManifest/ConsumerReleaseManifestFormat under the
 // consumer host's default web JSON options: ByteCount values are decimal
 // strings, `fileExtension`/`filename`/`sizeBytes`/`sha256`/`md5`/`sha1` are
 // omitted when null (Original has no `fileExtension`), while `revision`, item

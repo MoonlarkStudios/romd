@@ -1,4 +1,4 @@
-import type { SystemResourceDto } from '@romd/admin-api-client';
+import type { SystemResource } from '@romd/admin-api-client';
 import { getAdminSystem, listAdminSystems, listSystemAliases } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 import { collectPages } from '../../utils/collectPages';
@@ -91,7 +91,7 @@ export function usePlatform(systemKey: string | undefined) {
       if (response.error) {
         throw new Error('Failed to fetch platform');
       }
-      return response.data as SystemResourceDto;
+      return response.data as SystemResource;
     },
     enabled: !!systemKey,
   });

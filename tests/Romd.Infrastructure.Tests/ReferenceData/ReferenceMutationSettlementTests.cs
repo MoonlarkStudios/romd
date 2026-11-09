@@ -219,7 +219,7 @@ public sealed class ReferenceMutationSettlementTests
         (await commands.Company("local-maker"))!.Resource.Name.ShouldBe(expected);
         (await commands.System("local-machine"))!.Resource.Manufacturers.ShouldHaveSingleItem().Name.ShouldBe(expected);
         (await db.Platforms.SingleAsync()).Manufacturer.ShouldBe(expected);
-        var snapshot = JsonSerializer.Deserialize<ReferenceCatalogDto>((await db.ReferenceCatalogState.SingleAsync()).Json,
+        var snapshot = JsonSerializer.Deserialize<ReferenceCatalog>((await db.ReferenceCatalogState.SingleAsync()).Json,
             new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
         snapshot.Companies.ShouldHaveSingleItem().Name.ShouldBe(expected);
         snapshot.Systems.ShouldHaveSingleItem().Manufacturers.ShouldHaveSingleItem().Name.ShouldBe(expected);

@@ -117,10 +117,10 @@ public sealed partial class AuthEndpointsTests(IntegrationTestFixture fixture)
         session.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issued["access_token"].GetString());
         (await session.GetAsync("/api/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
         using var admin = fixture.CreateAuthenticatedClient();
-        var security = await admin.GetFromJsonAsync<AccountSecurityDto>($"/api/users/{userId}/security");
+        var security = await admin.GetFromJsonAsync<AccountSecurity>($"/api/users/{userId}/security");
         security!.Sessions.Items.Count.ShouldBe(1);
         Guid.TryParse(security.Sessions.Items[0].Id, out _).ShouldBeTrue();
-        var ownSessions = await session.GetFromJsonAsync<Page<AccountSessionDto>>("/api/me/sessions");
+        var ownSessions = await session.GetFromJsonAsync<Page<AccountSession>>("/api/me/sessions");
         ownSessions!.Items.Count.ShouldBe(1);
         using var change = action switch
         {
@@ -156,7 +156,7 @@ public sealed partial class AuthEndpointsTests(IntegrationTestFixture fixture)
         session.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issued["access_token"].GetString());
         var link = await session.PostAsJsonAsync($"/api/users/{userId}/links", new IssueAccountLinkRequest("recovery"));
         link.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var audit = await session.GetFromJsonAsync<Page<AdminAuditEventDto>>($"/api/audit?targetType=User&targetId={userId}");
+        var audit = await session.GetFromJsonAsync<Page<AdminAuditEvent>>($"/api/audit?targetType=User&targetId={userId}");
         audit!.Items.Single(item => item.Action == "Recovery link issued").ActorId.ShouldBe(userId);
         (await session.PutAsJsonAsync($"/api/users/{userId}/suspension", new SetAccountSuspensionRequest(true)))
             .StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -172,7 +172,7 @@ public sealed partial class AuthEndpointsTests(IntegrationTestFixture fixture)
             "http://localhost:5137/auth/callback", email, "Password123");
         using var session = fixture.CreateClient();
         session.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issued["access_token"].GetString());
-        var before = await session.GetFromJsonAsync<Page<AccountSessionDto>>("/api/me/sessions");
+        var before = await session.GetFromJsonAsync<Page<AccountSession>>("/api/me/sessions");
         before!.Items.Single().IsCurrent.ShouldBeTrue();
         for (int i = 0; i < 3; i++)
         {
@@ -182,7 +182,7 @@ public sealed partial class AuthEndpointsTests(IntegrationTestFixture fixture)
             issued = (await response.Content.ReadFromJsonAsync<Dictionary<string, System.Text.Json.JsonElement>>())!;
             session.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issued["access_token"].GetString());
         }
-        var after = await session.GetFromJsonAsync<Page<AccountSessionDto>>("/api/me/sessions");
+        var after = await session.GetFromJsonAsync<Page<AccountSession>>("/api/me/sessions");
         after!.Items.Count.ShouldBe(1);
         after.Items[0].Id.ShouldBe(before.Items[0].Id);
         after.Items[0].CreatedAt.ShouldBe(before.Items[0].CreatedAt);
@@ -203,7 +203,7 @@ public sealed partial class AuthEndpointsTests(IntegrationTestFixture fixture)
         (await first.DeleteAsync("/api/me/sessions?othersOnly=true")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
         (await first.GetAsync("/api/me")).StatusCode.ShouldBe(HttpStatusCode.OK);
         (await second.GetAsync("/api/me")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-        var history = await first.GetFromJsonAsync<Page<AccountSessionDto>>("/api/me/sessions");
+        var history = await first.GetFromJsonAsync<Page<AccountSession>>("/api/me/sessions");
         history!.Items.Count(item => item.Status == "Current").ShouldBe(1);
         history.Items.Single(item => item.Status == "Current").IsCurrent.ShouldBeTrue();
         history.Items.Single(item => item.Status == "Revoked").RevocationReason.ShouldBe("Other sessions revoked");

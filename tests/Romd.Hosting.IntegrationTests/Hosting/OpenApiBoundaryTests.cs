@@ -107,18 +107,18 @@ public sealed class OpenApiBoundaryTests
 
     private static readonly string[] ExpectedAdminSchemas =
     [
-        "LibraryDto",
-        "LibraryConfigurationDto",
-        "LibraryTitleReleaseDiagnosticsDto",
+        "Library",
+        "LibraryConfiguration",
+        "LibraryTitleReleaseDiagnostics",
         "Rom",
         "Dat",
-        "JobDto",
+        "Job",
         "JobReference",
-        "OperationalDiagnosticsDto",
+        "OperationalDiagnostics",
         "ExportLibraryRequest",
         "CollectionDetail",
         "TitleDetail",
-        "UserDto"
+        "User"
     ];
 
     private static readonly string[] ForbiddenConsumerPathPrefixes =
@@ -163,18 +163,18 @@ public sealed class OpenApiBoundaryTests
         "DatGame",
         "DatRom",
         "ExportLibraryRequest",
-        "JobDto",
+        "Job",
         "JobReference",
-        "LibraryConfigurationDto",
-        "LibraryDto",
-        "OperationalDiagnosticsDto",
+        "LibraryConfiguration",
+        "Library",
+        "OperationalDiagnostics",
         "Rom",
         "RomMatch",
         "Sqid",
         "TitleDetail",
         "UpdateLibraryRequest",
         "UploadAccepted",
-        "UserDto"
+        "User"
     ];
 
     private static readonly string[] ForbiddenConsumerVocabulary =
@@ -269,12 +269,12 @@ public sealed class OpenApiBoundaryTests
         var schemas = document.RootElement
             .GetProperty("components")
             .GetProperty("schemas");
-        var itemSchema = schemas.GetProperty("ConsumerReleaseManifestItemDto");
+        var itemSchema = schemas.GetProperty("ConsumerReleaseManifestItem");
         var itemProperties = itemSchema
             .GetProperty("properties")
             .EnumerateObject()
             .ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
-        var grantSchema = schemas.GetProperty("ContentGrantDto");
+        var grantSchema = schemas.GetProperty("ContentGrant");
         var grantProperties = grantSchema
             .GetProperty("properties")
             .EnumerateObject()
@@ -293,14 +293,14 @@ public sealed class OpenApiBoundaryTests
             .ShouldBe(["formats", "isAvailable", "provenance", "relativePath", "role", "sizeBytes"]);
         itemProperties["provenance"].GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/ConsumerReleaseFileProvenance");
-        schemas.GetProperty("ConsumerDiscSetFileDto").GetProperty("properties")
+        schemas.GetProperty("ConsumerDiscSetFile").GetProperty("properties")
             .GetProperty("provenance").GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/ConsumerReleaseFileProvenance");
-        schemas.GetProperty("ConsumerDiscSetFileDto").GetProperty("required").EnumerateArray()
+        schemas.GetProperty("ConsumerDiscSetFile").GetProperty("required").EnumerateArray()
             .Select(property => property.GetString()).ShouldContain("provenance");
         schemas.GetProperty("ConsumerReleaseFileProvenance").GetProperty("enum").EnumerateArray()
             .Select(value => value.GetString()).ShouldBe(["Original", "Derived"]);
-        schemas.GetProperty("ConsumerReleaseManifestDto").GetProperty("required").EnumerateArray()
+        schemas.GetProperty("ConsumerReleaseManifest").GetProperty("required").EnumerateArray()
             .Select(property => property.GetString()).ShouldContain("isDeliveryComplete");
         grantProperties.ShouldBe(["downloadUrl", "expiresAt"]);
 
@@ -321,7 +321,7 @@ public sealed class OpenApiBoundaryTests
             ? await ReadLiveOpenApiAsync<Romd.Consumer.Host.Program>("consumer-v1", timeout.Token)
             : await ReadLiveOpenApiAsync<Romd.Admin.Host.Program>("admin-v1", timeout.Token);
         var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
-        var schema = schemas.GetProperty(consumer ? "ConsumerReleaseManifestFormatDto" : "RomDeliveryFormatDto");
+        var schema = schemas.GetProperty(consumer ? "ConsumerReleaseManifestFormat" : "RomDeliveryFormat");
         var properties = schema.GetProperty("properties");
 
         properties.GetProperty("format").GetProperty("type").GetString().ShouldBe("string");
@@ -349,9 +349,9 @@ public sealed class OpenApiBoundaryTests
 
         if (consumer)
         {
-            schemas.GetProperty("ConsumerReleaseManifestItemDto").GetProperty("properties")
+            schemas.GetProperty("ConsumerReleaseManifestItem").GetProperty("properties")
                 .GetProperty("formats").GetProperty("items").GetProperty("$ref").GetString()
-                .ShouldBe("#/components/schemas/ConsumerReleaseManifestFormatDto");
+                .ShouldBe("#/components/schemas/ConsumerReleaseManifestFormat");
             properties.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal)
                 .ShouldBe(["contentGrant", "fileExtension", "filename", "format", "label", "md5", "profileVersion",
                     "relativePath", "runtime", "runtimeApplicability", "sha1", "sha256", "sizeBytes", "state"]);
@@ -360,7 +360,7 @@ public sealed class OpenApiBoundaryTests
             runtimeVariants.Single(value => value.TryGetProperty("type", out _))
                 .GetProperty("type").GetString().ShouldBe("null");
             runtimeVariants.Single(value => value.TryGetProperty("$ref", out _))
-                .GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ConsumerReleaseRuntimeDto");
+                .GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ConsumerReleaseRuntime");
             return;
         }
 
@@ -400,7 +400,7 @@ public sealed class OpenApiBoundaryTests
         var selection = schemas.GetProperty("ExportLibraryRequest").GetProperty("properties").GetProperty("format");
         selection.GetProperty("enum").EnumerateArray().Select(value => value.GetString())
             .ShouldBe(["original", "rvz", "chd"]);
-        string exportSchemaReference = schemas.GetProperty("JobDto").GetProperty("discriminator")
+        string exportSchemaReference = schemas.GetProperty("Job").GetProperty("discriminator")
             .GetProperty("mapping").GetProperty("export").GetString()!;
         exportSchemaReference.ShouldStartWith("#/components/schemas/");
         schemas.GetProperty(exportSchemaReference["#/components/schemas/".Length..])
@@ -411,15 +411,15 @@ public sealed class OpenApiBoundaryTests
         paths.TryGetProperty("/api/export/{jobId}/download", out _).ShouldBeFalse();
 
         // Titles, releases and libraries list the formats they offer as the same wire values, labelled by the server.
-        var offered = schemas.GetProperty("ArchiveFormatDto");
+        var offered = schemas.GetProperty("ArchiveFormat");
         offered.GetProperty("required").EnumerateArray().Select(value => value.GetString()).Order().ShouldBe(["format", "label"]);
         offered.GetProperty("properties").GetProperty("format").GetProperty("enum").EnumerateArray()
             .Select(value => value.GetString()).ShouldBe(["original", "rvz", "chd"]);
         offered.GetProperty("properties").GetProperty("label").GetProperty("type").GetString().ShouldBe("string");
         offered.GetProperty("properties").GetProperty("label").TryGetProperty("enum", out _).ShouldBeFalse();
-        foreach (var (owner, property) in new[] { ("TitleDetail", "archiveFormats"), ("TitleRelease", "archiveFormats"), ("LibraryDto", "exportFormats") })
+        foreach (var (owner, property) in new[] { ("TitleDetail", "archiveFormats"), ("TitleRelease", "archiveFormats"), ("Library", "exportFormats") })
             schemas.GetProperty(owner).GetProperty("properties").GetProperty(property).GetProperty("items")
-                .GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ArchiveFormatDto", owner);
+                .GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ArchiveFormat", owner);
     }
 
     [Theory]
@@ -465,7 +465,7 @@ public sealed class OpenApiBoundaryTests
         var schema = document.RootElement
             .GetProperty("components")
             .GetProperty("schemas")
-            .GetProperty("ConsumerPlaybackConfigDto");
+            .GetProperty("ConsumerPlaybackConfig");
 
         operation.GetProperty("operationId").GetString().ShouldBe("GetConsumerPlaybackConfig");
         operation.GetProperty("security").GetArrayLength().ShouldBe(0);
@@ -521,7 +521,7 @@ public sealed class OpenApiBoundaryTests
             var schema = document.RootElement
                 .GetProperty("components")
                 .GetProperty("schemas")
-                .GetProperty("ConsumerServerIdentityDto");
+                .GetProperty("ConsumerServerIdentity");
             var accessOperation = document.RootElement
                 .GetProperty("paths")
                 .GetProperty("/api/releases/{releaseId}/access")
@@ -529,11 +529,11 @@ public sealed class OpenApiBoundaryTests
             var accessSchema = document.RootElement
                 .GetProperty("components")
                 .GetProperty("schemas")
-                .GetProperty("ConsumerReleaseAccessDto");
+                .GetProperty("ConsumerReleaseAccess");
             var manifestSchema = document.RootElement
                 .GetProperty("components")
                 .GetProperty("schemas")
-                .GetProperty("ConsumerReleaseManifestDto");
+                .GetProperty("ConsumerReleaseManifest");
 
             operation.GetProperty("operationId").GetString().ShouldBe("GetConsumerServerIdentity");
             operation.GetProperty("security").GetArrayLength().ShouldBe(0);
@@ -616,7 +616,7 @@ public sealed class OpenApiBoundaryTests
             var schema = document.RootElement
                 .GetProperty("components")
                 .GetProperty("schemas")
-                .GetProperty("ConsumerPlaybackConfigDto");
+                .GetProperty("ConsumerPlaybackConfig");
             var playerOrigin = schema
                 .GetProperty("properties")
                 .GetProperty("playerOrigin");
@@ -682,7 +682,7 @@ public sealed class OpenApiBoundaryTests
             .GetProperty("content").GetProperty("application/json").GetProperty("schema")
             .GetProperty("$ref").GetString().ShouldBe("#/components/schemas/CurrentUserResponse");
         paths.ShouldNotContain("/api/playback/config");
-        schemas.ShouldNotContain("ConsumerPlaybackConfigDto");
+        schemas.ShouldNotContain("ConsumerPlaybackConfig");
     }
 
     [Fact]
@@ -706,7 +706,7 @@ public sealed class OpenApiBoundaryTests
         }
 
         var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
-        schemas.GetProperty("ArtworkSelectionStateDto").GetProperty("properties").GetProperty("mode")
+        schemas.GetProperty("ArtworkSelectionState").GetProperty("properties").GetProperty("mode")
             .GetProperty("$ref").GetString().ShouldBe("#/components/schemas/ArtworkMode");
         AssertEnumSchema(schemas, "ArtworkMode", ["Automatic", "Empty", "Pinned"]);
     }
@@ -728,7 +728,7 @@ public sealed class OpenApiBoundaryTests
             ["Esrb", "Pegi", "Cero", "Usk", "Grac", "ClassInd", "Acb"]);
 
         var configurationProperties = schemas
-            .GetProperty("LibraryConfigurationDto")
+            .GetProperty("LibraryConfiguration")
             .GetProperty("properties");
         configurationProperties.GetProperty("titleSelectionMode").GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/LibraryTitleSelectionMode");
@@ -736,7 +736,7 @@ public sealed class OpenApiBoundaryTests
             .ShouldBe("#/components/schemas/UnknownMetadataPolicy");
 
         var ratingProperties = schemas
-            .GetProperty("ContentRatingPolicyDto")
+            .GetProperty("ContentRatingPolicy")
             .GetProperty("properties");
         ratingProperties.GetProperty("basisSelection").GetProperty("$ref").GetString()
             .ShouldBe("#/components/schemas/RatingBasisSelection");

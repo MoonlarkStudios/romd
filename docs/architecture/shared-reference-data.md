@@ -455,7 +455,7 @@ replacement is installation-owned. This development migration policy does not
 claim that missing historical provenance can be recovered automatically.
 
 Consumer title cards/details, collection summaries/entries, and recent activity
-embed the shared `SystemSummaryDto`: `key`, `name`, `compactLabel`, and `icon`.
+embed the shared `SystemSummary`: `key`, `name`, `compactLabel`, and `icon`.
 A batched server projection resolves effective facts and sparse overrides; clients
 can render the response without joining the reference catalog. Internal database
 IDs remain separate application query fields. The web player selects runtime

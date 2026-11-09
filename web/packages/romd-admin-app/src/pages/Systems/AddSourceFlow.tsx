@@ -13,10 +13,10 @@ import {
 } from '@mantine/core';
 import type {
   Dat,
-  DatCatalogSubscriptionDto,
+  DatCatalogSubscription,
   JobReference,
-  ManagedSystemDto,
-  SystemDatPreviewDto,
+  ManagedSystem,
+  SystemDatPreview,
 } from '@romd/admin-api-client';
 import { createDatSubscription, importSystemDat, previewSystemDat } from '@romd/admin-api-client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -48,7 +48,7 @@ export function AddSourceFlow({
   startWithUpload = false,
   onClose,
 }: {
-  system?: ManagedSystemDto;
+  system?: ManagedSystem;
   startWithUpload?: boolean;
   onClose: () => void;
 }) {
@@ -63,8 +63,8 @@ export function AddSourceFlow({
   const [search, setSearch] = useState('');
   const choices = useManagedSystems(search, step === 0);
   const [file, setFile] = useState<File>();
-  const [inspection, setInspection] = useState<SystemDatPreviewDto>();
-  const [review, setReview] = useState<DatCatalogSubscriptionDto>();
+  const [inspection, setInspection] = useState<SystemDatPreview>();
+  const [review, setReview] = useState<DatCatalogSubscription>();
   const [replacement, setReplacement] = useState<Dat>();
   const [addSeparately, setAddSeparately] = useState(false);
   const [jobId, setJobId] = useState<string>();

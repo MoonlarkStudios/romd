@@ -26,15 +26,15 @@ public sealed class LibraryCreatePersistenceTests(IntegrationTestFixture fixture
         var jsonOptions = fixture.Services.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions;
         string name = $"Tracking scope {Guid.NewGuid():N}";
         var created = await client.PostAsJsonAsync("/api/libraries", new CreateLibraryRequest(name,
-            new LibraryConfigurationDto { IncludeUntrackedTitles = true }), jsonOptions);
+            new LibraryConfiguration { IncludeUntrackedTitles = true }), jsonOptions);
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var library = (await created.Content.ReadFromJsonAsync<LibraryDto>(jsonOptions))!;
+        var library = (await created.Content.ReadFromJsonAsync<Library>(jsonOptions))!;
         library.Configuration.ShouldNotBeNull();
         library.Configuration.IncludeUntrackedTitles.ShouldBeTrue();
         var updated = await client.PatchAsJsonAsync($"/api/libraries/{library.Id}", new UpdateLibraryRequest(name,
-            new LibraryConfigurationDto { IncludeUntrackedTitles = false }), jsonOptions);
+            new LibraryConfiguration { IncludeUntrackedTitles = false }), jsonOptions);
         updated.EnsureSuccessStatusCode();
-        var persisted = await client.GetFromJsonAsync<LibraryDto>($"/api/libraries/{library.Id}", jsonOptions);
+        var persisted = await client.GetFromJsonAsync<Library>($"/api/libraries/{library.Id}", jsonOptions);
         persisted.ShouldNotBeNull();
         persisted.Configuration.ShouldNotBeNull();
         persisted.Configuration.IncludeUntrackedTitles.ShouldBeFalse();
@@ -49,7 +49,7 @@ public sealed class LibraryCreatePersistenceTests(IntegrationTestFixture fixture
         // A well-formed id of no title passes the endpoint and fails the handler's reference check.
         using var response = await client.PostAsJsonAsync("/api/libraries", new CreateLibraryRequest(
             $"Missing title {Guid.NewGuid():N}",
-            new LibraryConfigurationDto { IncludeTitleIds = [IdCoder.Encode(int.MaxValue)] }), jsonOptions);
+            new LibraryConfiguration { IncludeTitleIds = [IdCoder.Encode(int.MaxValue)] }), jsonOptions);
 
         using var problem = await ProblemEnvelope.ReadAsync(response, 400, "Libraries.InvalidConfiguration");
         problem.RootElement.GetProperty("errors").EnumerateObject().Select(property => property.Name)
@@ -69,7 +69,7 @@ public sealed class LibraryCreatePersistenceTests(IntegrationTestFixture fixture
             .GetRequiredService<IOptions<JsonOptions>>()
             .Value
             .SerializerOptions;
-        var body = await response.Content.ReadFromJsonAsync<LibraryDto>(jsonOptions);
+        var body = await response.Content.ReadFromJsonAsync<Library>(jsonOptions);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         body.ShouldNotBeNull();

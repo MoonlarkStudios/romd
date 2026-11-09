@@ -18,7 +18,7 @@ namespace Romd.Persistence.Artwork;
 /// </summary>
 internal sealed class EnrichmentTaskProjection(RomdDbContext db, EnrichmentOptions? options = null)
 {
-    internal sealed record Summary(int Review, int Failed, int Unfinished, int Working, ArtworkRoleCountDto[] Roles);
+    internal sealed record Summary(int Review, int Failed, int Unfinished, int Working, ArtworkRoleCount[] Roles);
 
     // The cursor restricts roots before traversal. The path prevents cycles and a missing follow-up leaves the
     // last existing item authoritative. Parameters are named so EF-generated assessment SQL can precede this text.
@@ -115,7 +115,7 @@ internal sealed class EnrichmentTaskProjection(RomdDbContext db, EnrichmentOptio
             Parameter("romd_run_roots", int.MaxValue), Parameter("romd_run_titles", titleIds), Parameter("romd_run_retry", retryId)], ct);
 
     /// <summary>One bounded page. Only Review evaluates current facts over the run; rows carry Now for the page alone.</summary>
-    public async Task<IReadOnlyList<ArtworkCompletionItemDto>> PageAsync(Guid id, int after, string? status,
+    public async Task<IReadOnlyList<ArtworkCompletionItem>> PageAsync(Guid id, int after, string? status,
         EnrichmentProviderAvailability providers, CancellationToken ct, int limit = 50)
     {
         if (status is not (null or "Review" or "Failed" or "Unfinished" or "Working"))
@@ -170,7 +170,7 @@ internal sealed class EnrichmentTaskProjection(RomdDbContext db, EnrichmentOptio
         return rows.GroupBy(x => x.JobId).ToDictionary(g => g.Key, g => new Summary(g.Sum(x => x.Review), g.Sum(x => x.Failed),
             g.Sum(x => x.Unfinished), g.Sum(x => x.Working),
             g.Where(x => x.Role is not null).OrderBy(x => x.Role).ThenBy(x => x.Outcome)
-                .Select(x => new ArtworkRoleCountDto(x.Role!, x.Outcome!, x.Count)).ToArray()));
+                .Select(x => new ArtworkRoleCount(x.Role!, x.Outcome!, x.Count)).ToArray()));
     }
 
     private IQueryable<EnrichmentAssessmentSummary> Assessments(IQueryable<TitleEntity> titles, EnrichmentProviderAvailability providers) =>
@@ -208,12 +208,12 @@ internal sealed class EnrichmentTaskProjection(RomdDbContext db, EnrichmentOptio
     private static Npgsql.NpgsqlParameter StatusParameter(string? status) =>
         new("romd_run_status", NpgsqlTypes.NpgsqlDbType.Text) { Value = (object?)status ?? DBNull.Value };
 
-    private static ArtworkCompletionItemDto ToItem(PageRow row, EnrichmentAssessmentSummary? current) => new(
+    private static ArtworkCompletionItem ToItem(PageRow row, EnrichmentAssessmentSummary? current) => new(
         IdCoder.Encode(row.TitleId), row.TitleName,
         // Execution state of the leaf; a removed title's unfinished item stays visible history outside the Unfinished filter.
         row.Working ? ArtworkCompletionState.Working : row.Done ? ArtworkCompletionState.Done : ArtworkCompletionState.Unfinished,
         JsonSerializer.Deserialize<Dictionary<ArtworkRole, string>>(row.RolesJson)!.OrderBy(x => x.Key)
-            .Select(x => new ArtworkRoleCountDto(x.Key.ToString(), x.Value, 1)).ToArray(),
+            .Select(x => new ArtworkRoleCount(x.Key.ToString(), x.Value, 1)).ToArray(),
         row.MetadataOutcome switch
         {
             null => (ArtworkCompletionMetadataOutcome?)null,
@@ -222,7 +222,7 @@ internal sealed class EnrichmentTaskProjection(RomdDbContext db, EnrichmentOptio
             nameof(MetadataExecutionOutcome.NotAttempted) => ArtworkCompletionMetadataOutcome.NotAttempted,
             var unknown => throw new InvalidDataException($"Unknown recorded metadata outcome '{unknown}'.")
         },
-        current is null ? null : new EnrichmentSummaryDto(current.NeedsReview, current.CanEnrichAutomatically, current.HasActiveWork, current.HasOperationalBlocker),
+        current is null ? null : new EnrichmentSummary(current.NeedsReview, current.CanEnrichAutomatically, current.HasActiveWork, current.HasOperationalBlocker),
         row.FollowUpJobId);
 
     private sealed class PageRow

@@ -9,6 +9,9 @@ using Romd.Application.Common.Ids;
 using Romd.Contracts.Management.Models;
 using Romd.Host.Authorization;
 
+using ContractManagedSystem = Romd.Contracts.Management.Models.ManagedSystem;
+using ContractSystemDatPreview = Romd.Contracts.Management.Models.SystemDatPreview;
+
 namespace Romd.Host.Endpoints;
 
 public static class SystemSetupEndpoints
@@ -24,14 +27,14 @@ public static class SystemSetupEndpoints
             if (request.IsError)
                 return request.Errors.ToProblem();
             var page = await service.ListAsync(request.Value, ct);
-            return Results.Ok(new Page<ManagedSystemDto>
+            return Results.Ok(new Page<ContractManagedSystem>
             {
-                Items = page.Items.Select(x => new ManagedSystemDto(x.SystemId!, x.Name, x.ShortName, x.Manufacturer,
+                Items = page.Items.Select(x => new ContractManagedSystem(x.SystemId!, x.Name, x.ShortName, x.Manufacturer,
                 x.Enabled, x.State, x.Message, x.CatalogCount, x.OwnedTitles, x.TrackedTitles)).ToArray(),
                 NextCursor = page.NextCursor,
                 HasNextPage = page.HasNextPage
             });
-        }).WithName("ListManagedSystems").Produces<Page<ManagedSystemDto>>()
+        }).WithName("ListManagedSystems").Produces<Page<ContractManagedSystem>>()
             .WithDescription("Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order, page selected before status/count assembly in one repeatable-read observation. Query includes normalized names, short names, manufacturers and name aliases; aliases are a separate paged relationship. Default/max limit 100; sortBy supports key:asc.");
         group.MapPut("/{systemKey}/enabled", async (SystemKeyParameter systemKey, SetSystemEnabled request, ISystemSetupService service, CancellationToken ct) =>
         {
@@ -45,10 +48,10 @@ public static class SystemSetupEndpoints
             await using var stream = file.OpenReadStream();
             var result = await service.PreviewAsync(stream, ct);
             var systemKeys = await referenceCatalog.GetSystemKeysAsync(ct);
-            return result.Match(x => Results.Ok(new SystemDatPreviewDto(x.Document.Name, x.Document.Bytes,
+            return result.Match(x => Results.Ok(new ContractSystemDatPreview(x.Document.Name, x.Document.Bytes,
                 systemKeys.Optional(x.SuggestedPlatformId),
                 x.ExistingDatIds.Select(id => new Sqid(id).ToString()).ToArray(), DatEndpoints.ReviewContract(x.Document.Preview))), errors => errors.ToProblem());
-        }).WithName("PreviewSystemDat").Produces<SystemDatPreviewDto>().ProducesProblem(400)
+        }).WithName("PreviewSystemDat").Produces<ContractSystemDatPreview>().ProducesProblem(400)
             .WithMetadata(new RequestSizeLimitAttribute(34 * 1024 * 1024)).DisableAntiforgery();
         group.MapPost("/{systemKey}/import", async (SystemKeyParameter systemKey, [FromForm] IFormFile file,
             [FromQuery] string sha256, ICommandHandler<ImportSystemDatCommand, Guid> handler, CancellationToken ct) =>

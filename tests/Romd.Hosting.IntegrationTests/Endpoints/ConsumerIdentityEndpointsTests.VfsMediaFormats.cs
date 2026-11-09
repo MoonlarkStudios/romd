@@ -36,7 +36,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var issuedResponse = await owner.PostAsJsonAsync("/api/me/connections",
             new SaveVfsConnectionRequest("Media transition"), ct);
         issuedResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var credential = (await issuedResponse.Content.ReadFromJsonAsync<VfsConnectionCredentialDto>(ct))!;
+        var credential = (await issuedResponse.Content.ReadFromJsonAsync<VfsConnectionCredential>(ct))!;
         var basic = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(
             credential.Connection.Username + ":" + credential.Password)));
         string storedPath = Path.ChangeExtension(originalPath, ".rvz");

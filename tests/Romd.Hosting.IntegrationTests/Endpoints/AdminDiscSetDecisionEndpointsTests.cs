@@ -18,6 +18,8 @@ using Romd.Persistence.Entities;
 using Shouldly;
 using Xunit;
 
+using DiscSetDefinition = Romd.Domain.Catalog.DiscSetDefinition;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 [Collection(IntegrationTestCollection.Name)]
@@ -39,7 +41,7 @@ public sealed class AdminDiscSetDecisionEndpointsTests
         using var response = await client.SendAsync(request);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
-        var accepted = (await response.Content.ReadFromJsonAsync<DiscSetDto>()).ShouldNotBeNull();
+        var accepted = (await response.Content.ReadFromJsonAsync<DiscSet>()).ShouldNotBeNull();
         accepted.Id.ShouldBe(IdCoder.Encode(original.Id));
         accepted.CatalogSourceId.ShouldBe(IdCoder.Encode(original.SourceId));
         accepted.SystemKey.ShouldBe("psx");
@@ -54,7 +56,7 @@ public sealed class AdminDiscSetDecisionEndpointsTests
         using (await ProblemEnvelope.ReadAsync(stale, 412, "DiscSet.PreconditionFailed"))
             stale.Headers.ETag.ShouldBeNull();
         using var read = await client.GetAsync(route);
-        (await read.Content.ReadFromJsonAsync<DiscSetDto>())!.Revision.ShouldBe(accepted.Revision);
+        (await read.Content.ReadFromJsonAsync<DiscSet>())!.Revision.ShouldBe(accepted.Revision);
         read.Headers.ETag!.Tag.ShouldBe(response.Headers.ETag.Tag);
         await using var scope = host.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();

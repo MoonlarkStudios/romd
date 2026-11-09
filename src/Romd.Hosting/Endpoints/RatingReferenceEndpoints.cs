@@ -14,11 +14,11 @@ public static class RatingReferenceEndpoints
             await boards.GetAsync(board, ct) is null ? ReferenceCatalogEndpoints.UnknownReference() : Results.Ok((await reader.ListAsync(ct)).Where(x => x.Board == board)))
             .WithName("ListRatings")
             .WithDescription("Every rating of one board; bounded by the built-in reference catalog.")
-            .Produces<IReadOnlyList<RatingResourceDto>>().ProducesProblems(404);
+            .Produces<IReadOnlyList<RatingResource>>().ProducesProblems(404);
         group.MapGet("{ratingCode}", async (string board, string ratingCode, [FromServices] IRatingReferenceReader reader, HttpContext context, CancellationToken ct) =>
             await reader.GetAsync(board + ":" + ratingCode, ct) is { } found
                 ? Preconditions.ConditionalRead(context, found.Resource, found.Revision)
                 : ReferenceCatalogEndpoints.UnknownReference())
-            .WithName("GetRating").Produces<RatingResourceDto>().ConditionalRead().ProducesProblems(404);
+            .WithName("GetRating").Produces<RatingResource>().ConditionalRead().ProducesProblems(404);
     }
 }

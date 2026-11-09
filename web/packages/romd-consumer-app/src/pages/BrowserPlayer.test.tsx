@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { ConsumerReleaseManifestDto } from '@romd/consumer-api-client';
+import type { ConsumerReleaseManifest } from '@romd/consumer-api-client';
 import { act, fireEvent, render as renderBase, screen, waitFor } from '@testing-library/react';
 import {
   createMemoryRouter,
@@ -339,10 +339,10 @@ describe('BrowserPlayer', () => {
 
   it('discards a pending manifest when the signed-in account changes', async () => {
     preparePlayable();
-    let resolveOld!: (value: ConsumerReleaseManifestDto) => void;
+    let resolveOld!: (value: ConsumerReleaseManifest) => void;
     const oldManifest = vi.fn(
       () =>
-        new Promise<ConsumerReleaseManifestDto>((resolve) => {
+        new Promise<ConsumerReleaseManifest>((resolve) => {
           resolveOld = resolve;
         }),
     );
@@ -885,7 +885,7 @@ function createTitle(): ConsumerTitleDetail {
   };
 }
 
-function createManifest(): ConsumerReleaseManifestDto {
+function createManifest(): ConsumerReleaseManifest {
   return {
     isDeliveryComplete: true,
     serverInstanceId: '11111111-1111-4111-8111-111111111111',

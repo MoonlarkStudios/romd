@@ -27,7 +27,7 @@ public sealed partial class ProviderIdentityServiceTests
         var receipt = Substitute.For<IStagedProviderIdentityDecision>();
         receipt.Applied.Returns(applied);
         _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), "provider", Guid.Empty,
-            Arg.Any<ProviderIdentityDecisionDto>(), Arg.Any<ProviderGameDto?>(), Arg.Any<CancellationToken>()).Returns(_ =>
+            Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), Arg.Any<CancellationToken>()).Returns(_ =>
         {
             searched.ShouldBeTrue();
             return receipt;
@@ -47,7 +47,7 @@ public sealed partial class ProviderIdentityServiceTests
         Received.InOrder(() =>
         {
             _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), "provider", Guid.Empty,
-                Arg.Any<ProviderIdentityDecisionDto>(), Arg.Any<ProviderGameDto?>(), CancellationToken.None);
+                Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), CancellationToken.None);
             _transaction.CommitAsync(CancellationToken.None);
             _transaction.DisposeAsync();
             receipt.Dispose();
@@ -67,7 +67,7 @@ public sealed partial class ProviderIdentityServiceTests
         var receipt = Substitute.For<IStagedProviderIdentityDecision>();
         var failure = new IOException("Injected identity commit failure.");
         _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), "provider", Guid.Empty,
-            Arg.Any<ProviderIdentityDecisionDto>(), Arg.Any<ProviderGameDto?>(), Arg.Any<CancellationToken>()).Returns(receipt);
+            Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), Arg.Any<CancellationToken>()).Returns(receipt);
         _transaction.CommitAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(failure));
         receipt.When(value => value.Dispose()).Do(_ => throw new InvalidOperationException("Injected cleanup failure."));
         var owner = owned ? new JobContext(null, _ => Task.CompletedTask, default,

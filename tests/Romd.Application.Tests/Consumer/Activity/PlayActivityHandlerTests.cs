@@ -13,6 +13,8 @@ using Romd.Domain.Activity;
 using Shouldly;
 using Xunit;
 
+using PlaySession = Romd.Domain.Activity.PlaySession;
+
 namespace Romd.Application.Tests.Consumer.Activity;
 
 public sealed class PlayActivityHandlerTests

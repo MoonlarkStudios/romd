@@ -46,7 +46,7 @@ legitimate play nor turn into unauthorized play.
 - Acquisition requires a separate strict allow. It then validates every
   manifest `serverInstanceId`, release, title and platform field against the
   discovered selected instance, the chosen title and release, and the access
-  response. `ConsumerReleaseManifestDto` carries an exact `serverInstanceId`.
+  response. `ConsumerReleaseManifest` carries an exact `serverInstanceId`.
 - Verification yields an install keyed by that instance and release before a
   profile local game row can be created.
 

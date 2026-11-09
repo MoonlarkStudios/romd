@@ -1,6 +1,6 @@
 import { MantineProvider } from '@mantine/core';
 import {
-  type ArtworkCompletionItemDto,
+  type ArtworkCompletionItem,
   type ArtworkCompletionRequest,
   client,
 } from '@romd/admin-api-client';
@@ -48,7 +48,7 @@ const runDto = (over: Partial<EnrichmentRun>): EnrichmentRun => ({
 
 interface ServerState {
   runs: Map<string, EnrichmentRun>;
-  items: Map<string, ArtworkCompletionItemDto[]>;
+  items: Map<string, ArtworkCompletionItem[]>;
   runReads: string[];
   itemReads: string[];
   queued: ArtworkCompletionRequest[];
@@ -223,7 +223,7 @@ function renderPanel(props: Parameters<typeof Host>[0]) {
   return cache;
 }
 
-const reviewItem = (titleId: string, titleName: string): ArtworkCompletionItemDto => ({
+const reviewItem = (titleId: string, titleName: string): ArtworkCompletionItem => ({
   titleId,
   titleName,
   completion: 'Done',
@@ -382,7 +382,7 @@ describe('polling', () => {
     vi.useFakeTimers({
       shouldAdvanceTime: true,
     });
-    const item = (titleId: string, titleName: string): ArtworkCompletionItemDto => ({
+    const item = (titleId: string, titleName: string): ArtworkCompletionItem => ({
       titleId,
       titleName,
       completion: 'Working',

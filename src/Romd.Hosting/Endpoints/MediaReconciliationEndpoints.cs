@@ -10,6 +10,8 @@ using Romd.Contracts.Management.Models.Media;
 using Romd.Domain.Source.Rom;
 using Romd.Host.Authorization;
 
+using ContractMediaReconciliationPolicy = Romd.Contracts.Management.Models.Media.MediaReconciliationPolicy;
+
 namespace Romd.Host.Endpoints;
 
 public static class MediaReconciliationEndpoints
@@ -20,7 +22,7 @@ public static class MediaReconciliationEndpoints
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin);
         group.MapGet("policies", Policies).WithName("GetMediaReconciliationPolicies")
             .WithDescription("Current registered media recipes and read capabilities for this API host")
-            .Produces<IReadOnlyList<MediaReconciliationPolicyDto>>().ProducesProblems(401, 403);
+            .Produces<IReadOnlyList<ContractMediaReconciliationPolicy>>().ProducesProblems(401, 403);
         group.MapPost("subjects/{subjectKind}/{subjectId}", StartSubject).WithName("StartMediaReconciliationSubject")
             .WithDescription("Request current reconciliation for one logical ROM, original layout, catalog CD layout or retained representation")
             .ProducesAcceptedJob().ProducesProblems(400, 401, 403, 404, 409);
@@ -34,7 +36,7 @@ public static class MediaReconciliationEndpoints
     }
 
     private static IResult Policies(MediaKindCatalog kinds, IMediaHostCapabilities capabilities, RomDeliveryPolicy delivery) =>
-        Results.Ok(kinds.Kinds.Select(kind => new MediaReconciliationPolicyDto(kind.Kind, kind.CurrentRecipeId!, kind.ConversionMode.ToString(),
+        Results.Ok(kinds.Kinds.Select(kind => new ContractMediaReconciliationPolicy(kind.Kind, kind.CurrentRecipeId!, kind.ConversionMode.ToString(),
             kind.PlatformKeys, kind.ManifestType.ToString(), delivery.Formats.Entry(RomDeliveryPolicy.StoredFormat(kind.StoredEncoding)).Label,
             capabilities.CanDecode(kind.Kind), capabilities.QualifiedRuntime(kind.Kind))).ToArray());
 

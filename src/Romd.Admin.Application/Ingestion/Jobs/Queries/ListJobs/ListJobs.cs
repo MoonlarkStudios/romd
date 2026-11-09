@@ -5,17 +5,18 @@ using Romd.Application.Common.ReferenceCatalog;
 using Romd.Application.Common.Security;
 using Romd.Contracts.Common.Models;
 using Romd.Contracts.Management.Models;
+
 namespace Romd.Admin.Application.Ingestion.Jobs.Queries.ListJobs;
 
 public sealed record ListJobsQuery(string? Query = null, string? Outcome = null, string? JobType = null,
     string Archive = "active", DateTimeOffset? From = null, DateTimeOffset? Before = null,
-    string? Cursor = null, int Limit = 50, Guid? CorrelationId = null) : IQuery<Page<JobDto>>
+    string? Cursor = null, int Limit = 50, Guid? CorrelationId = null) : IQuery<Page<Job>>
 { public const int MaxLimit = 100; }
 
 public sealed class ListJobsQueryHandler(IReferenceCatalogService referenceCatalog, IJobRepository repository, ICurrentUser user)
-    : IQueryHandler<ListJobsQuery, Page<JobDto>>
+    : IQueryHandler<ListJobsQuery, Page<Job>>
 {
-    public async Task<ErrorOr<Page<JobDto>>> HandleAsync(ListJobsQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<Page<Job>>> HandleAsync(ListJobsQuery query, CancellationToken ct = default)
     {
         if (query.Limit is < 1 or > ListJobsQuery.MaxLimit || query.Query?.Length > 200 ||
             !JobFilters.Allows(query.Outcome, JobFilters.Outcomes) || !JobFilters.Allows(query.JobType, JobFilters.Types) ||
@@ -31,13 +32,13 @@ public sealed class ListJobsQueryHandler(IReferenceCatalogService referenceCatal
         if (cursor.IsError)
             return JobErrors.InvalidCursor();
         if (visibility.Empty)
-            return new Page<JobDto> { Items = [], HasNextPage = false };
+            return new Page<Job> { Items = [], HasNextPage = false };
         var jobs = await repository.ListAsync(new JobListFilter(visibility.OwnerId, search, query.Outcome, query.JobType,
             query.Archive, from, before, cursor.Value?.CreatedAt.ToUniversalTime(), cursor.Value?.Id,
             query.Limit, visibility.IncludeAdminOnly, query.CorrelationId), ct);
         var page = jobs.Take(query.Limit).ToArray();
         var keys = await referenceCatalog.GetSystemKeysAsync(ct);
-        return new Page<JobDto>
+        return new Page<Job>
         {
             Items = page.Select(job => job.ToContract(keys)).ToArray(),
             HasNextPage = jobs.Count > query.Limit,

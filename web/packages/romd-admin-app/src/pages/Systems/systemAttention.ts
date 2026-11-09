@@ -1,6 +1,6 @@
-import type { DatCatalogSubscriptionDto } from '@romd/admin-api-client';
+import type { DatCatalogSubscription } from '@romd/admin-api-client';
 
-export function systemAttention(systemKey: string, subscriptions: DatCatalogSubscriptionDto[]) {
+export function systemAttention(systemKey: string, subscriptions: DatCatalogSubscription[]) {
   const rows = subscriptions.filter((s) => s.systemKey === systemKey);
   return {
     updates: rows.filter((s) => s.state === 'UpdateAvailable' || s.state === 'ReadyToImport')

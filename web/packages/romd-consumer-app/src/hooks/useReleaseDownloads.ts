@@ -1,4 +1,4 @@
-import type { ConsumerReleaseManifestDto } from '@romd/consumer-api-client';
+import type { ConsumerReleaseManifest } from '@romd/consumer-api-client';
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import {
   type DownloadFailure,
@@ -41,7 +41,7 @@ type DownloadAction =
       failure: DownloadFailure;
     };
 
-export function useReleaseDownloads(manifest: ConsumerReleaseManifestDto | null | undefined) {
+export function useReleaseDownloads(manifest: ConsumerReleaseManifest | null | undefined) {
   const [state, dispatch] = useReducer(downloadReducer, {});
   const stateRef = useRef(state);
 

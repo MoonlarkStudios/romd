@@ -1,6 +1,6 @@
 import { Alert, Badge, Button, Group, Modal, Progress, Stack, Text, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import type { JobDtoUploadJobDto } from '@romd/admin-api-client';
+import type { JobUploadJob } from '@romd/admin-api-client';
 import { useEffect, useState } from 'react';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { useCancelJob } from '../../hooks/api/useJobActions';
@@ -14,7 +14,7 @@ const PHASE_LABELS: Record<string, string> = {
   IngestingRoms: 'Processing ROMs',
 };
 
-export function LiveImportPanel({ job }: { job: JobDtoUploadJobDto }) {
+export function LiveImportPanel({ job }: { job: JobUploadJob }) {
   const cancel = useCancelJob();
   const [confirm, { open, close }] = useDisclosure(false);
   const [now, setNow] = useState(Date.now());
