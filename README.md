@@ -55,10 +55,19 @@ The [roadmap](ROADMAP.md) describes current scope and the next qualification mil
 
 ## Get involved
 
+ROMD is maintained by one person with limited time for triage, support and
+review. Bug reports and feedback are welcome; responses, fixes and feature
+implementation are not guaranteed.
+
+**External pull requests are accepted by invitation only**, including
+documentation changes. Wait for an explicit maintainer invitation on a specific
+issue before preparing a pull request. Unsolicited pull requests may be closed
+without review. See the [contribution guide](CONTRIBUTING.md#pull-request-policy)
+for the policy and workflow.
+
 [Report a bug or suggest an idea](https://github.com/MoonlarkStudios/romd/issues/new/choose).
 Report vulnerabilities privately through [Security](SECURITY.md).
-Contributions follow the [contribution guide](CONTRIBUTING.md) and
-[code of conduct](CODE_OF_CONDUCT.md).
+Please follow the [code of conduct](CODE_OF_CONDUCT.md).
 
 ROMD ships no ROMs, BIOS files or game content. Bring your own lawfully obtained
 collection.

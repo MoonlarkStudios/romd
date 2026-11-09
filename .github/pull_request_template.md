@@ -1,7 +1,20 @@
+ROMD is maintained by one person with limited review capacity. **External pull
+requests are accepted by invitation only**, including documentation changes.
+Unsolicited pull requests may be closed without review. An invitation does not
+guarantee acceptance or a review timeline. See the
+[contribution policy](https://github.com/MoonlarkStudios/romd/blob/main/CONTRIBUTING.md#pull-request-policy).
+
+## Maintainer invitation
+
+For external contributions, link the maintainer's explicit invitation on the
+specific issue and summarize the agreed scope. An open issue, label, reaction
+or discussion does not constitute an invitation. For maintainer-authored pull
+requests, write `not applicable`.
+
 ## Problem and behavior
 
-Describe the concrete problem and the resulting behavior. Link the issue, if
-any, and state observable acceptance criteria.
+Describe the concrete problem and the resulting behavior. State observable
+acceptance criteria.
 
 ## Validation
 
