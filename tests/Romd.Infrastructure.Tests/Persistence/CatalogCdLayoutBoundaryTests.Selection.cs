@@ -29,7 +29,7 @@ public sealed partial class CatalogCdLayoutBoundaryTests
         Guid job;
         await using (var transaction = await db.Database.BeginTransactionAsync())
         {
-            var accepted = await requests.StageSelectionAsync(Guid.NewGuid(), new MediaReconciliationFilter.KindSubjects(CatalogComposition(ConversionMode.Automatic).Kinds.Kinds.Single(row => row.ManifestType == Romd.Application.Common.Content.MediaManifestType.CdTracks).Kind, 1),
+            var accepted = await requests.StageSelectionAsync(Guid.NewGuid(), new MediaReconciliationFilter.KindSubjects(CatalogComposition(ConversionMode.Automatic).Kinds.Find("ps1-cd-set")!.Kind, 1),
                 1, false, MediaReconciliationCause.Readiness, null);
             accepted.IsError.ShouldBeFalse();
             job = accepted.Value.Job.Id;

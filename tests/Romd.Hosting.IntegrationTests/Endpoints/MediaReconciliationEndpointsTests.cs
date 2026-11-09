@@ -67,9 +67,14 @@ public sealed class MediaReconciliationEndpointsTests
         gameCube.SystemKeys.ShouldBe(["gc"]);
         gameCube.CanDecode.ShouldBeTrue();
         gameCube.ConversionMode.ShouldBe("Automatic");
-        var cd = policies.Single(policy => policy.ManifestType == "CdTracks");
+        var cd = policies.Single(policy => policy.KindId == "ps1-cd-set");
         cd.ConversionMode.ShouldBe("Automatic");
         cd.CanDecode.ShouldBeFalse();
+        var saturn = policies.Single(policy => policy.KindId == "saturn-cd-set");
+        saturn.SystemKeys.ShouldBe(["saturn"]);
+        saturn.ManifestType.ShouldBe("CdTracks");
+        saturn.ConversionMode.ShouldBe("OnRequest");
+        saturn.CanDecode.ShouldBeFalse();
         var psp = policies.Single(policy => policy.KindId == "psp-umd");
         psp.SystemKeys.ShouldBe(["psp"]);
         psp.ConversionMode.ShouldBe("Automatic");

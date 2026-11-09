@@ -105,7 +105,6 @@ public sealed partial class MediaWorkerSupervisor
         {
             if (reply.Status != MediaWorkerStatus.Encoded || reply.CdEncoding is not { } encoded || reply.CdVerification is not null ||
                 job.Specification!.RequiredBootProfile != encoded.ObservedBoot.Profile ||
-                encoded.Recipe != ChdCdEncodingRecipe.ForBoot(job.Specification.RequiredBootProfile) ||
                 candidate is null || reply.ToolIdentity is null || !candidate.Matches(reply.ToolIdentity) ||
                 encoded.RequestSha256 != job.Request.FileSha256.ToString() || encoded.RequestBytes != job.Request.FileSize ||
                 output is null || encoded.Artifact.Bytes > output.MaximumBytes || encoded.Header.LogicalBytes > (ulong)_options.MaxLogicalBytes ||

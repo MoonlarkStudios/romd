@@ -61,7 +61,7 @@ public static class AdminOriginalDiscLayoutEndpoints
         // worker refuses an encode it cannot perform. The composition requires a CD track kind to name its qualified runtime.
         app.MapGet("original-disc-layouts/compression-recipe", (RomCdStorageRecipes recipes, IMediaHostCapabilities capabilities,
             SystemKeyParameter? systemKey = null) =>
-            recipes.ForPlatform(systemKey?.Key ?? "psx") is { } recipe
+            (systemKey is null ? recipes.Default : recipes.ForPlatform(systemKey.Key)) is { } recipe
                 ? Results.Ok(new CdStorageRecipe(capabilities.CanDecode(recipe.Kind), recipe.Id, checked((int)recipe.HunkBytes), recipe.CodecNames,
                     capabilities.QualifiedRuntime(recipe.Kind)!))
                 : (IResult)ProblemResults.Problem(404, "OriginalLayout.NoCompressionRecipe", "No CD compression recipe is registered for this system."))

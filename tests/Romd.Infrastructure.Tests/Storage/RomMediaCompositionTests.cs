@@ -148,6 +148,7 @@ public sealed class RomMediaCompositionTests
         var composition = RomMediaPolicyComposition.Create();
         var ps1 = composition.CdRecipes.ForPlatform("psx").ShouldNotBeNull();
         var saturn = composition.CdRecipes.ForPlatform("saturn").ShouldNotBeNull();
+        composition.CdRecipes.Default.ShouldBeSameAs(ps1);
         ps1.BootProfile.ShouldBe(RomPs1CdBoot.CurrentProfile);
         saturn.BootProfile.ShouldBe(RomSaturnCdBoot.CurrentProfile);
         saturn.Id.ShouldBe("chd-saturn-canonical/v1");

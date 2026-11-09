@@ -56,7 +56,7 @@ public sealed class RomCdStorageRecipe
 /// <summary>Unambiguous immutable routing from a catalog platform or captured media kind to its own CD recipe.</summary>
 public sealed class RomCdStorageRecipes
 {
-    public RomCdStorageRecipes(IEnumerable<RomCdStorageRecipe> recipes)
+    public RomCdStorageRecipes(IEnumerable<RomCdStorageRecipe> recipes, string? defaultKind = null)
     {
         var captured = recipes.ToArray();
         if (captured.Any(recipe => recipe is null) || captured.Select(recipe => recipe.Kind).Distinct(StringComparer.Ordinal).Count() != captured.Length ||
@@ -64,9 +64,12 @@ public sealed class RomCdStorageRecipes
             throw new ArgumentException("CD recipes need unique kinds and non-overlapping catalog platform scopes.", nameof(recipes));
         All = Array.AsReadOnly(captured);
         PlatformKeys = Array.AsReadOnly(captured.SelectMany(recipe => recipe.PlatformKeys).ToArray());
+        Default = defaultKind is null ? captured.Length == 1 ? captured[0] : null : ForKind(defaultKind);
     }
     public IReadOnlyList<RomCdStorageRecipe> All { get; }
     public IReadOnlyList<string> PlatformKeys { get; }
+    /// <summary>Compatibility default for clients that predate the system-specific recipe query.</summary>
+    public RomCdStorageRecipe? Default { get; }
     public RomCdStorageRecipe? ForKind(string kind) => All.SingleOrDefault(recipe => recipe.Kind == kind);
     public RomCdStorageRecipe? ForPlatform(string platform) => All.SingleOrDefault(recipe => recipe.PlatformKeys.Contains(platform, StringComparer.Ordinal));
     public IReadOnlyList<string> PlatformsFor(RomCdBoot? boot) => boot is null ? PlatformKeys :

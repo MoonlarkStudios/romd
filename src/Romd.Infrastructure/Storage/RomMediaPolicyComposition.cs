@@ -166,7 +166,7 @@ public static class RomMediaPolicyComposition
                 !recipe.PlatformKeys.SequenceEqual(cd.PlatformKeys) || CdParameters(recipe.HunkBytes, recipe.Codecs) != cd.Recipe.Parameters)
                 throw new ArgumentException($"Media kind '{cd.Kind}' has a CD recipe for another kind, recipe, platform or parameters.", nameof(registrations));
             return recipe;
-        }));
+        }), "ps1-cd-set");
         var kinds = new MediaKindCatalog(registrations.Select(registration =>
             registration.Describe(policies.FirstOrDefault(pair => ReferenceEquals(pair.Registration, registration)).Policy,
                 cdRecipes.ForKind(registration.Kind)?.BootProfile)).Append(_opaque));
