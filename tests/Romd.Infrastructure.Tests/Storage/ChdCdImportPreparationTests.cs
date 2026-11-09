@@ -49,8 +49,10 @@ public sealed class ChdCdImportPreparationTests : IDisposable
         using var admission = admitted ? (await adapter.AdmitAsync(prefix, default)).ShouldNotBeNull() : null;
         if (admitted)
         {
-            using var blocked = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-            await Should.ThrowAsync<OperationCanceledException>(() => runtime.AcquireAsync(ct: blocked.Token));
+            using var blocked = new CancellationTokenSource();
+            var waiting = runtime.AcquireAsync(ct: blocked.Token);
+            blocked.Cancel();
+            await Should.ThrowAsync<OperationCanceledException>(() => waiting);
         }
         await using var staged = await factory.CreateAsync(input,
             includeDatHashes: bytes => adapter.RequiresDatHashes(bytes.Span),
