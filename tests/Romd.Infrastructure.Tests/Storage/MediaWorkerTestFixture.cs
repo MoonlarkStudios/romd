@@ -407,8 +407,8 @@ internal sealed class MediaWorkerTestFixture : IDisposable
                         new("chd-dvd-metadata/v1", 1, 0x44564420, 1, 1, 0,
                             "c3ee3c942f2cbc35b3a4bec95ec700c2b9d21d5e90c7016b261504710490b406")),
                     Ps2Inspection: !ps2 ? null : mode == "chd-ps2-malformed"
-                        ? new(Ps2DvdIdentificationStatus.Malformed, Ps2DvdIdentifier.ProfileVersion)
-                        : new(Ps2DvdIdentificationStatus.Identified, Ps2DvdIdentifier.ProfileVersion,
+                        ? new(Romd.Media.PlayStation.Ps2DvdIdentificationStatus.Malformed, Romd.Media.PlayStation.Ps2DvdIdentifier.ProfileVersion)
+                        : new(Romd.Media.PlayStation.Ps2DvdIdentificationStatus.Identified, Romd.Media.PlayStation.Ps2DvdIdentifier.ProfileVersion,
                             new(131072, 64, 16, 24, 2048, 25, 60, 26, 512,
                                 "cdrom0:\\SLUS_203.12;1", "cdrom0:\\SLUS_203.12;1", "SLUS_203.12", 0x100000, 1)));
             }
