@@ -230,6 +230,10 @@ Romd.Contracts.Consumer.Releases.ConsumerDiscSetAccessRequest
   SelectedReleaseIds: IReadOnlyList<string>
   ServerInstanceId: string
 
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetArchiveFormat
+  Format: string
+  Label: string
+
 Romd.Contracts.Consumer.Releases.ConsumerDiscSetDisc
   EntryPoint: string
   Files: IReadOnlyList<ConsumerDiscSetFile>
@@ -287,6 +291,7 @@ Romd.Contracts.Consumer.Releases.ConsumerDiscSetSelectionRequest
   SelectedReleaseIds: IReadOnlyList<string>
 
 Romd.Contracts.Consumer.Releases.ConsumerDiscSetStatus
+  ArchiveFormats: IReadOnlyList<ConsumerDiscSetArchiveFormat>
   ContractVersion: int
   DiscSetId: string
   Discs: IReadOnlyList<ConsumerDiscSetStatusDisc>

@@ -68,6 +68,7 @@ public sealed class HostDeployableSmokeTests
         "/delivery/content/{token}",
         "/delivery/bios/{token}",
         "/delivery/original-layout/{token}",
+        "/delivery/disc-set/{token}",
         "/api/me/connections",
         "/api/me/connections/{connectionId:guid}",
         "/api/me/connections/{connectionId:guid}/rotate",
@@ -115,6 +116,7 @@ public sealed class HostDeployableSmokeTests
         "/api/disc-sets/{discSetId}/status",
         "/api/disc-sets/{discSetId}/selection-manifest",
         "/api/disc-sets/{discSetId}/access/preview",
+        "/api/disc-sets/{discSetId}/download-tickets",
         "/api/disc-sets",
         "/api/collections",
         "/api/collections/{collectionId}",
@@ -627,7 +629,8 @@ public sealed class HostDeployableSmokeTests
                      route.Pattern != "/api/releases/{releaseId}/manifest" &&
                      route.Pattern != "/api/disc-sets/{discSetId}/manifest" &&
                      route.Pattern != "/api/disc-sets/{discSetId}/selection-manifest" &&
-                     route.Pattern != "/api/disc-sets/{discSetId}/access/preview"))
+                     route.Pattern != "/api/disc-sets/{discSetId}/access/preview" &&
+                     route.Pattern != "/api/disc-sets/{discSetId}/download-tickets"))
         {
             route.Methods.ShouldBe(["GET"]);
         }
@@ -651,6 +654,7 @@ public sealed class HostDeployableSmokeTests
             .Methods.ShouldBe(["POST"]);
         routes.Single(route => route.Pattern == "/api/disc-sets/{discSetId}/selection-manifest").Methods.ShouldBe(["POST"]);
         routes.Single(route => route.Pattern == "/api/disc-sets/{discSetId}/access/preview").Methods.ShouldBe(["POST"]);
+        routes.Single(route => route.Pattern == "/api/disc-sets/{discSetId}/download-tickets").Methods.ShouldBe(["POST"]);
         routes.Single(route => route.Pattern == "/api/releases/{releaseId}/access")
             .Methods.ShouldBe(["GET"]);
         routes

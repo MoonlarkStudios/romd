@@ -23,6 +23,7 @@ public sealed class ConsumerOpenApiSecurityTests
         ("/delivery/content/{token}", "get"),
         ("/delivery/derived-descriptor/{token}", "get"),
         ("/delivery/original-layout/{token}", "get"),
+        ("/delivery/disc-set/{token}", "get"),
         ("/health", "get"),
         ("/media/{mediaId}", "get")
     ];

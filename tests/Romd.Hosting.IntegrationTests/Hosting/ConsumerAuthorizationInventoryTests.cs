@@ -46,6 +46,7 @@ public sealed class ConsumerAuthorizationInventoryTests : IDisposable
         "/delivery/bios/{token}",
         "/delivery/content/{token}",
         "/delivery/derived-descriptor/{token}",
+        "/delivery/disc-set/{token}",
         "/delivery/original-layout/{token}",
         "/health",
         "/health/ready",

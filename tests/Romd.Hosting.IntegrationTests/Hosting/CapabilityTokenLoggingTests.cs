@@ -46,6 +46,7 @@ public sealed class CapabilityTokenLoggingTests : IDisposable
     [InlineData("/delivery/content", "/delivery/content")]
     [InlineData("/delivery/bios", "/delivery/bios")]
     [InlineData("/delivery/original-layout", "/delivery/original-layout")]
+    [InlineData("/delivery/disc-set", "/delivery/disc-set")]
     [InlineData("/Delivery/Content", "/delivery/content")]
     public async Task ConsumerRedemption_LogsRedactedPathAndNoToken(string route, string redactedRoute)
     {

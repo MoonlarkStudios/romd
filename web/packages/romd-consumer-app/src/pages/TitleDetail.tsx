@@ -24,6 +24,7 @@ import { useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { ArtworkFallback } from '../components/library/ArtworkFallback';
 import { ArtworkImage } from '../components/library/ArtworkImage';
+import { DiscSetDownloads } from '../components/library/DiscSetDownloads';
 import { ReleaseManifestPanel } from '../components/library/ReleaseManifestPanel';
 import { ReleaseVersionMenu } from '../components/library/ReleaseVersionMenu';
 import { TitleLink } from '../components/navigation/TitleLink';
@@ -277,6 +278,7 @@ export function TitleDetail() {
             id="release-download"
             className={classes.releaseContent}
           >
+            <DiscSetDownloads titleId={title.id} />
             {title.releases.length === 0 ? (
               <Text>No release is available yet.</Text>
             ) : title.releases.length === 1 ? (

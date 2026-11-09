@@ -100,6 +100,11 @@ export type ConsumerDiscSetAccessRequest = {
     allowPartial: boolean;
 };
 
+export type ConsumerDiscSetArchiveFormat = {
+    format: string;
+    label: string;
+};
+
 export type ConsumerDiscSetDisc = {
     releaseId: string;
     ordinal: number;
@@ -175,6 +180,7 @@ export type ConsumerDiscSetStatus = {
     expectedDiscCount: null | number;
     missingExpectedOrdinals: Array<number>;
     discs: Array<ConsumerDiscSetStatusDisc>;
+    archiveFormats?: Array<ConsumerDiscSetArchiveFormat>;
 };
 
 export type ConsumerDiscSetStatusDisc = {
@@ -887,6 +893,31 @@ export type RedeemConsumerOriginalLayoutGrantResponses = {
     200: unknown;
 };
 
+export type RedeemConsumerDiscSetDownloadData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/delivery/disc-set/{token}';
+};
+
+export type RedeemConsumerDiscSetDownloadErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+};
+
+export type RedeemConsumerDiscSetDownloadError = RedeemConsumerDiscSetDownloadErrors[keyof RedeemConsumerDiscSetDownloadErrors];
+
+export type RedeemConsumerDiscSetDownloadResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
 export type GetConsumerServerIdentityData = {
     body?: never;
     path?: never;
@@ -1131,6 +1162,47 @@ export type CheckConsumerDiscSetAccessResponses = {
 };
 
 export type CheckConsumerDiscSetAccessResponse = CheckConsumerDiscSetAccessResponses[keyof CheckConsumerDiscSetAccessResponses];
+
+export type IssueConsumerDiscSetDownloadTicketData = {
+    body: ConsumerDiscSetSelectionRequest;
+    path: {
+        discSetId: string;
+    };
+    query?: {
+        format?: string;
+    };
+    url: '/api/disc-sets/{discSetId}/download-tickets';
+};
+
+export type IssueConsumerDiscSetDownloadTicketErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type IssueConsumerDiscSetDownloadTicketError = IssueConsumerDiscSetDownloadTicketErrors[keyof IssueConsumerDiscSetDownloadTicketErrors];
+
+export type IssueConsumerDiscSetDownloadTicketResponses = {
+    /**
+     * Created
+     */
+    201: ContentGrant;
+};
+
+export type IssueConsumerDiscSetDownloadTicketResponse = IssueConsumerDiscSetDownloadTicketResponses[keyof IssueConsumerDiscSetDownloadTicketResponses];
 
 export type IssueConsumerDiscSetManifestData = {
     body?: never;

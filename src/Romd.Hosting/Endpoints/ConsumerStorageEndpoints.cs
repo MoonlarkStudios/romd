@@ -42,7 +42,25 @@ public static partial class ConsumerStorageEndpoints
             .WithName("RedeemConsumerOriginalLayoutGrant").WithTags("Consumer Delivery")
             .Produces(StatusCodes.Status200OK, contentType: "application/octet-stream")
             .ProducesProblem(StatusCodes.Status401Unauthorized).ProducesProblem(StatusCodes.Status404NotFound).AllowAnonymous();
+        app.MapGet("/delivery/disc-set/{token}", RedeemDiscSetDownload)
+            .WithName("RedeemConsumerDiscSetDownload").WithTags("Consumer Delivery")
+            .Produces(200, contentType: "application/zip").ProducesProblem(401).AllowAnonymous();
         return app;
+    }
+
+    private static IResult RedeemDiscSetDownload(string token, HttpContext context,
+        IConsumerDiscSetDownloadTickets tickets, IConsumerDiscSetArchiveWriter writer, CancellationToken ct)
+    {
+        var archive = tickets.Resolve(token);
+        if (archive is null)
+            return new[] { ConsumerErrors.InvalidContentGrant() }.ToProblem();
+        context.Response.Headers.CacheControl = "private, no-store";
+        return Results.Stream(async destination =>
+        {
+            try
+            { await writer.WriteAsync(destination, archive, ct); }
+            catch { context.Abort(); throw; }
+        }, "application/zip", archive.Filename);
     }
 
     private static async Task<IResult> RedeemOriginalLayoutGrant(string token, HttpContext context,

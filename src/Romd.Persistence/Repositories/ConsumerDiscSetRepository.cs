@@ -11,16 +11,23 @@ using Romd.Persistence.Queries;
 namespace Romd.Persistence.Repositories;
 
 public sealed class ConsumerDiscSetRepository(RomdDbContext db, IRomContentCatalog catalog, RomDeliveryPolicy deliveryPolicy,
-    IDerivedDescriptorReader derivedDescriptors, IRomChdDeliveryAdmission? chdAdmission, IOriginalDiscLayoutReader? originalLayouts) : IConsumerDiscSetRepository
+    IDerivedDescriptorReader derivedDescriptors, IRomChdDeliveryAdmission? chdAdmission, IOriginalDiscLayoutReader? originalLayouts,
+    DbContextOptions<RomdDbContext>? readOptions = null) : IConsumerDiscSetRepository
 {
     public Task<ConsumerLibraryReadResult<ConsumerDiscSetPlan>> ReadStatusAsync(ConsumerLibraryScope scope, int id, CancellationToken ct) =>
+        ReadAsync(scope, id, false, ct);
+
+    public Task<ConsumerLibraryReadResult<ConsumerDiscSetPlan>> ReadForDownloadAsync(ConsumerLibraryScope scope, int id, CancellationToken ct) =>
+        ReadAsync(scope, id, true, ct);
+
+    private Task<ConsumerLibraryReadResult<ConsumerDiscSetPlan>> ReadAsync(ConsumerLibraryScope scope, int id, bool includeArchives, CancellationToken ct) =>
         new LiveConsumerLibraryQuery(db).ReadAsync<ConsumerDiscSetPlan>(scope, async (libraryId, token) =>
         {
             var rows = await db.MaterializedLibraryDiscSets.Where(x => x.LibraryId == libraryId && x.DiscSetId == id)
                 .OrderBy(x => x.Id).Take(2).ToListAsync(token);
             if (rows.Count > 1)
                 return new ConsumerLibraryProjectionResult<ConsumerDiscSetPlan>.ProjectionInconsistent();
-            var built = rows.Count == 1 ? await BuildAsync(scope.UserId, libraryId, rows[0], token) : new BuildResult(null);
+            var built = rows.Count == 1 ? await BuildAsync(scope.UserId, libraryId, rows[0], token, includeArchives) : new BuildResult(null);
             return built.Inconsistent ? new ConsumerLibraryProjectionResult<ConsumerDiscSetPlan>.ProjectionInconsistent()
                 : built.Plan is null ? new ConsumerLibraryProjectionResult<ConsumerDiscSetPlan>.ItemNotFound()
                 : new ConsumerLibraryProjectionResult<ConsumerDiscSetPlan>.Found(built.Plan);
@@ -61,7 +68,7 @@ public sealed class ConsumerDiscSetRepository(RomdDbContext db, IRomContentCatal
 
     private sealed record BuildResult(ConsumerDiscSetPlan? Plan, bool Inconsistent = false);
 
-    private async Task<BuildResult> BuildAsync(Guid userId, int libraryId, MaterializedLibraryDiscSetEntity row, CancellationToken ct)
+    private async Task<BuildResult> BuildAsync(Guid userId, int libraryId, MaterializedLibraryDiscSetEntity row, CancellationToken ct, bool includeArchives = false)
     {
         PublishedDiscSetDefinition? definition;
         try
@@ -112,7 +119,10 @@ public sealed class ConsumerDiscSetRepository(RomdDbContext db, IRomContentCatal
                 : entry is null ? cues.Length > 1 || paths.Any(x => new[] { ".gdi", ".ccd", ".m3u" }.Contains(Path.GetExtension(x).ToLowerInvariant()))
                     ? "unsupported-layout" : "descriptor-required"
                 : release.Items.Any(x => !x.IsAvailable) ? "missing-media" : "ready";
-            discs.Add(new(member.Ordinal, release, entry ?? string.Empty) { OriginalLayout = attached, LayoutIdentity = layoutIdentity, Readiness = readiness });
+            var archive = includeArchives && readiness == "ready" && readOptions is not null && chdAdmission is not null
+                ? await new ConsumerCdArchiveRepository(db, catalog, chdAdmission, deliveryPolicy, derivedDescriptors, readOptions).FindForReleaseAsync(release, ct, requireAdmission: true) : null;
+            discs.Add(new(member.Ordinal, release, entry ?? string.Empty)
+            { OriginalLayout = attached, LayoutIdentity = layoutIdentity, Readiness = readiness, CdArchive = archive });
         }
         return new(new(row.DiscSetId, row.Revision, definition.Name, definition.ExpectedDiscCount, discs));
     }

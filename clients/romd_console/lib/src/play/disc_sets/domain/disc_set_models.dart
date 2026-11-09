@@ -30,9 +30,22 @@ final class DiscSetStatus {
         'missingExpectedOrdinals',
         'discs',
       },
-      optional: {'expectedDiscCount'},
+      optional: {'expectedDiscCount', 'archiveFormats'},
     );
     DiscSetWire.version(value);
+    // Portal ZIP choices do not change this client's original-layout acquisition.
+    if (value.containsKey('archiveFormats')) {
+      final seen = <String>{};
+      for (final choice in DiscSetWire.maps(value['archiveFormats'])) {
+        DiscSetWire.exact(choice, {'format', 'label'});
+        final format = DiscSetWire.text(choice, 'format');
+        DiscSetWire.text(choice, 'label');
+        if (!RegExp(r'^[a-z][a-z0-9-]{0,31}$').hasMatch(format) ||
+            !seen.add(format)) {
+          throw const FormatException('Invalid archive format metadata.');
+        }
+      }
+    }
     serverInstanceId = DiscSetWire.server(value, 'serverInstanceId');
     discSetId = DiscSetWire.id(value, 'discSetId');
     titleId = DiscSetWire.id(value, 'titleId');

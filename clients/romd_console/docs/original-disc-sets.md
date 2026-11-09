@@ -137,7 +137,10 @@ insert steps and shared-memory-card save/load results. Do not check original
 media, BIOS or personal saves into Git. Only systems/runtimes actually exercised
 receive qualification evidence; no CHD or CD-sector verification is involved.
 
+The consumer portal's [disc-set ZIP downloads](../../../docs/architecture/disc-sets.md#direct-emulator-zip-downloads)
+support external emulators independently of this client's original-layout installs.
+
 Deferred: automatic historical snapshot reclamation, group play history/activity
-synchronization, browser/ZIP/VFS integration, additional runtimes/platforms and
+synchronization, browser playback/VFS integration, background group exports, additional runtimes/platforms and
 any new offline entitlement policy. Actual production playback remains pending
 until its qualification gate is met.

@@ -22,6 +22,28 @@ release export contains only local files and is named with an
 
 ## Choose a format
 
+### Download a multi-disc game
+
+In the consumer portal, open **Releases → Disc sets**. These are the sets an
+administrator accepted and explicitly published to your library. Select the
+discs you want, then choose **Download original ZIP** or **Download CHD where
+available**. Known omissions and missing expected discs require confirmation
+that the download is incomplete. An unknown total is shown as unknown.
+
+Extract the ZIP and open its **M3U playlist** in an emulator that supports
+playlists. The playlist is named after the edition and keeps the same name for
+partial and complete downloads. Discs live in separate `disc-01/`, `disc-02/` directories, so identical
+filenames cannot overwrite each other. Original downloads preserve each complete
+CUE/BIN layout and required companions. CHD downloads use one verified CHD per
+eligible disc and update the playlist; discs without a usable CHD keep their
+original layout. Required sidecars prevent CHD substitution. The download does
+not start compression or combine several discs into one CHD.
+
+Disc switching and shared saves depend on your emulator. These downloads do not
+enable Ottercade's gated group playback or browser playback.
+
+### Other downloads
+
 The server lists the formats each download offers, with their names.
 
 | Choice | What you receive |
