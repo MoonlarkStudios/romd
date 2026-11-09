@@ -249,14 +249,6 @@ run = [
 description = "Verify portable and Linux image NuGet lockfiles (use --update for reviewed dependency changes)"
 run = "python3 scripts/ci/nuget_locks.py"
 
-[tasks."publication:audit"]
-description = "Audit all acquired refs into a new private directory (required --source/--evidence/--gitleaks)"
-run = "python3 scripts/publication/audit.py"
-
-[tasks."publication:archive-review"]
-description = "Recheck private fixture provenance and decoded payload evidence without waiving scanner gaps"
-run = "python3 scripts/publication/archive_review.py"
-
 [tasks."secrets:check"]
 description = "Scan commits since public origin/main with the pinned scanner (optional --full or --base SHA)"
 run = "python3 scripts/ci/secret_scan.py"

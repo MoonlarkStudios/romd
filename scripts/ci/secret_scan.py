@@ -12,7 +12,6 @@ import tempfile
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'scripts/publication'))
 from install_scanner import ARCHIVE_NAME, MAX_ARCHIVE_BYTES, MAX_BINARY_BYTES, install, scanner_binary, scanner_pin
 
 OID = re.compile(r'[0-9a-f]{40}')

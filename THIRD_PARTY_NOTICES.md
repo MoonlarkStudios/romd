@@ -54,7 +54,7 @@ THE SOFTWARE.
 ## CHD media: libchdr and chdman
 
 - **Moonlark.Libchdr** (`src/Moonlark.Libchdr/`), the safe .NET wrapper over
-  libchdr, was imported with its history from MoonlarkStudios/romd-native and
+  libchdr, originated in MoonlarkStudios/romd-native and
   keeps its MIT license in [`src/Moonlark.Libchdr/LICENSE`](src/Moonlark.Libchdr/LICENSE).
 - **libchdr** is built from the pinned submodule `native/libchdr/upstream`
   ([rtissera/libchdr `607694c`](https://github.com/rtissera/libchdr/tree/607694ca0812edfc9cc2030c64634fc2393668de)),

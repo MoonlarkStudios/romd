@@ -3,7 +3,8 @@ using Xunit;
 namespace Moonlark.Libchdr.Tests;
 
 /// <summary>Gates steady-state reads at exactly zero managed allocation over 100,000 calls per read API.</summary>
-/// <remarks><see cref="GC.GetAllocatedBytesForCurrentThread"/> counts every allocation of the calling thread exactly. Each
+/// <remarks>Background GC is disabled in this test host so
+/// <see cref="GC.GetAllocatedBytesForCurrentThread"/> is not affected by allocation-context accounting errors. Each
 /// measured loop runs after a warm-up that fills the decoder's lazily created buffers, and checks what each call returns so
 /// the work cannot be elided. Offsets cross hunks, so both cached and decoding reads are measured.</remarks>
 public sealed class ZeroAllocationTests

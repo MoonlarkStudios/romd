@@ -1,62 +1,17 @@
 # GitHub repository settings
 
-This page records the settings a maintainer applies to
-`MoonlarkStudios/romd` during its initial cutover. Some settings require the
-repository to be public or its first checks to have registered. Checked-in
-workflow and configuration files cannot enforce them. Each item cites the file
-that depends on it. GitHub's settings names may change; the intent is what matters.
-Build and audit the single-commit snapshot first, as described in the
-[publication audit](publication-audit.md#prepare-the-source).
-Use [public source cutover](public-source-cutover.md) for the ordered checklist
-when the destination has not been created yet. Unavailable private hosted CI is
-recorded as not run; CI and advisories must pass on the new repository after
-the authorized first push.
+Maintain these hosted settings for the public `MoonlarkStudios/romd`
+repository. Checked-in workflows and configuration cannot enforce them. Review
+this baseline after workflow, access, integration or organization-policy changes,
+and before publishing a release. Each item cites the file that depends on it.
+GitHub's settings names may change; the intent is what matters.
 
-## Recreate the public repository
+## Verify hosted settings
 
-Deleting and recreating a repository does not preserve its protections,
-applications, security features or Actions settings. Apply this checklist to the
-new repository even if the old repository had the same name:
-
-1. Inventory and stop automated mirrors, scheduled publication, and reconciliation
-   jobs before deletion. A publisher that watches private `main` can immediately
-   repopulate a new empty repository with old refs or unreviewed changes. Preserve
-   the old refs and issue history privately for investigation.
-2. Prepare and audit the exact one-commit snapshot, including its submodule
-   gitlink and notices, while the publisher remains stopped. Recreate the public
-   repository empty, without an initial README, license or generated commit.
-3. Apply read-only Actions defaults, contributor workflow approval, private
-   vulnerability reporting, secret scanning and push protection. Verify the
-   destination owner and name. Push only the audited root-commit `main`; do not
-   use a mirror push or copy old tags, refs or branches. The first push is the
-   bootstrap exception needed before required status checks can register.
-4. Verify that public `main` has exactly one reachable commit and matches the
-   audited tree. Wait for the first public CI and advisory checks to pass, then
-   activate the branch/tag rules below before accepting any further changes or
-   creating release tags. Create the protected
-   [release environment](#release-environment) before the first tag. Reinstall
-   the intended Renovate integration and check organization-level rules and
-   Actions policies as well.
-5. Before resuming any publisher, retarget/reseed its checkout, root commit and
-   permitted-ref settings to this repository's new root. Confirm that it cannot
-   reintroduce private history or unaudited refs. Resume only after observing its
-   intended ref set and permissions.
-
-Use a fresh checkout of the public repository for the ref/tree check:
-
-```bash
-git ls-remote --heads --tags https://github.com/MoonlarkStudios/romd.git
-git rev-list --count origin/main
-git rev-parse origin/main^{tree}
-```
-
-The initial ref list should contain only `refs/heads/main`, the count must be
-`1`, and the tree must match the private audit receipt. Do not publish that
-receipt or private source refs as part of this verification.
-
-The following authenticated `gh` reads are safe to repeat after recreation;
-they do not apply settings. Review the returned statuses and effective branch
-rules against this page, and inspect each tag ruleset in GitHub Settings:
+The following authenticated `gh` reads do not apply settings. Review the returned
+statuses and effective branch rules against this page, and inspect each tag
+ruleset in GitHub Settings. Include organization-level rules and Actions policies
+in the review:
 
 ```bash
 gh api repos/MoonlarkStudios/romd --jq '{visibility,default_branch,security_and_analysis}'
@@ -76,16 +31,12 @@ verify with an administrator, not an assumed default. These repository settings
 cannot prove that a maintainer actually receives vulnerability reports; complete
 the harmless reporting test below.
 
-The first GitHub Actions run happens on that first push. Until then, the only
-evidence for the workflows is local (`python3 -B scripts/ci/lint_workflows.py`
-and the registered checks in [development](../development/getting-started.md)).
-
 ## Branch and tag rulesets
 
 - **Protect `main`.** Block force pushes and deletion, and require a pull
   request before merging. `.github/workflows/ci.yml` runs on `push` to `main`
   and on every `pull_request`. Require only its **CI gate** job as a status
-  check, once the first run has registered the name. The gate needs every other
+  check. The gate needs every other
   CI job and fails unless each one succeeded, so adding, renaming or splitting
   a job does not change the branch rule; `scripts/ci/lint_workflows.py` rejects
   a gate that omits a job. Also require **Dependency advisories** from
@@ -93,7 +44,7 @@ and the registered checks in [development](../development/getting-started.md)).
   not a release publishing job. Require at least one approving review and
   dismissal of stale approvals after code changes; apply the rules to
   administrators as appropriate for the maintainer team. Confirm both required
-  check names against the actual first run.
+  check names against the current workflows and their hosted runs.
 - [CI operation and scope](continuous-integration.md) owns early checks, the
   conservative PR-only CHD selection, once-built web assets, secret scanning
   and weekly/manual CodeQL/native maintenance. Those maintenance jobs add no
@@ -129,9 +80,7 @@ rules, so an unconfigured first tag would publish without waiting. Configure:
   rule `v*` and no branch rules.
 - **Secrets and variables:** none. The workflow uses only `GITHUB_TOKEN`.
 
-On the Free, Pro and Team plans, required reviewers work only in public
-repositories, so configure this after the repository is public. Check
-the result with the `environments/release` reads above: `protection_rules`
+Check the result with the `environments/release` reads above: `protection_rules`
 names the reviewers, `can_admins_bypass` is `false`, and the only deployment
 policy is the `v*` tag pattern. Approve a run under the workflow run's
 **Review deployments** prompt, after checking that `verify` passed for the
@@ -149,7 +98,7 @@ intended commit and that `advisories` passed on that same tag.
   read-only as well, and leave "Allow GitHub Actions to create and approve pull
   requests" disabled.
 - **Continuous security checks.** Enable secret scanning and push protection
-  for this public repository, and confirm they remain enabled after recreation.
+  for this public repository, and verify that they remain enabled.
   Ensure the scheduled source advisory workflow is active on the default branch;
   scheduled runs use only `contents: read` and never publish releases. GitHub can
   disable schedules in inactive public repositories, so monitor workflow failure
@@ -206,9 +155,10 @@ never runs. Treat it as a bootstrap candidate:
 
 [SECURITY.md](../../SECURITY.md) and `.github/ISSUE_TEMPLATE/config.yml` direct
 reporters to `https://github.com/MoonlarkStudios/romd/security/advisories/new`.
-Once the repository is public:
+Keep reporting enabled and verify delivery after maintainer or notification
+changes:
 
-1. Enable private vulnerability reporting.
+1. Confirm that private vulnerability reporting is enabled.
 2. Have each maintainer who receives reports watch the repository (all
    activity, or at least security alerts) and check that their notification
    delivery works. See GitHub's

@@ -90,7 +90,6 @@ or a synthetic policy test.
 | Downloaded Linux amd64 installation | Exact downloaded candidate passes fresh install, authenticated portal/browser playback, worker-first restart, backup/restore with identity/content preservation, and both required injected-failure runs | [Packaged release qualification](packaged-release-qualification.md) |
 | Supported upgrade or approved reset baseline | Named starting release, schema, and content format upgrade to the candidate with worker-first migration/readiness, preserved identity/content, and demonstrated recovery using the matching pre-upgrade backup and previous release; unsupported starting formats have an explicit maintainer-approved fresh-install/reset baseline | [Upgrade](../self-hosting/production-deployment.md#upgrade) |
 | Final-artifact security and provenance | Actual final-digest SBOMs/scans satisfy policy; exact bundle and metadata have verified provenance; anonymous public downloads and tamper rejection pass | [Release metadata and vulnerability gate](release-metadata.md) |
-| First public source publication, when in scope | Intended snapshot/ref inventory audited; secrets/privacy and asset provenance/redistribution obligations dispositioned by maintainer; required repository settings and reporting channel confirmed | [Publication audit](publication-audit.md), [repository settings](repository-settings.md), [security reporting](../../SECURITY.md) |
 | Native console support | Exact packaged console build and emulator/core versions pass the claimed OS/architecture/controller matrix, including install interruption, launch/exit/focus, reconnect, profile/instance save isolation, and offline use | [Console setup](../../clients/romd_console/README.md), [runtime pattern](../../clients/romd_console/docs/emulator-runtime-pattern.md), [controller roadmap](../../clients/romd_console/docs/roadmaps/controller-identity.md), [Dolphin scope](../../clients/romd_console/docs/roadmaps/dolphin-runtime.md) |
 | Promotion | Maintainer accepts the evidence, support matrix, known limitations, recovery instructions, and release notes; candidate remains a prerelease until that decision, then is promoted in place as described in [versions and promotion](#versions-and-promotion) | [Production deployment](../self-hosting/production-deployment.md#maintainer-release-candidates) |
 
@@ -110,5 +109,7 @@ provisioned emulator versions, and owner hardware runs. A checked-in runner or
 runtime profile does not establish support. Retain older hardware results as
 historical; advertise only combinations accepted for the candidate, and keep
 native binaries experimental until their applicable acceptance is complete.
-Public source release additionally needs maintainer rights/privacy decisions;
-an automated secret scan cannot supply them.
+Source and asset changes still need the applicable
+[privacy and provenance review](source-review.md); an automated secret scan
+cannot establish redistribution rights. Maintain the hosted protections and
+reporting channel in [repository settings](repository-settings.md).
