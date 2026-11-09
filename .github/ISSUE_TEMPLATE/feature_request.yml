@@ -2,6 +2,12 @@ name: Feature request
 description: Describe a use case and observable outcome.
 title: "[Feature]: "
 body:
+  - type: markdown
+    attributes:
+      value: |
+        ROMD is maintained by one person with limited time for triage, support and review. Thoughtful feedback is welcome; responses and feature implementation are not guaranteed. Requests may be declined or closed based on project scope and maintenance capacity.
+
+        **External pull requests are accepted by invitation only**, including documentation changes. Wait for an explicit maintainer invitation on a specific issue before preparing a pull request. An open issue, label, reaction or discussion does not constitute an invitation. Unsolicited pull requests may be closed without review; an invitation does not guarantee acceptance or a review timeline. See the [contribution policy](https://github.com/MoonlarkStudios/romd/blob/main/CONTRIBUTING.md#pull-request-policy).
   - type: textarea
     id: problem
     attributes:
