@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { ResolvedArtworkDto } from '@romd/admin-api-client';
+import type { ResolvedArtwork } from '@romd/admin-api-client';
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -16,10 +16,7 @@ vi.mock('../../../hooks/api/usePlatforms', () => ({
   }),
 }));
 
-const artwork = (
-  role: string,
-  overrides: Partial<ResolvedArtworkDto> = {},
-): ResolvedArtworkDto => ({
+const artwork = (role: string, overrides: Partial<ResolvedArtwork> = {}): ResolvedArtwork => ({
   role,
   assetId: null,
   contentVersion: null,
@@ -33,7 +30,7 @@ const artwork = (
   variants: [],
   ...overrides,
 });
-const title = (items: ResolvedArtworkDto[]): ArtworkPreviewTitle => ({
+const title = (items: ResolvedArtwork[]): ArtworkPreviewTitle => ({
   name: 'Chrono Trigger',
   systemKey: 'snes',
   releaseDate: '1995-03-11',

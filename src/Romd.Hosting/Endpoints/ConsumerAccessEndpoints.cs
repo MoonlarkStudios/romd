@@ -20,7 +20,7 @@ public static class ConsumerAccessEndpoints
             .WithTags("Consumer Access")
             .RequireAuthorization(AuthorizationPolicies.RequireUser)
             .WithName("GetConsumerReleaseAccess")
-            .Produces<ConsumerReleaseAccessDto>()
+            .Produces<ConsumerReleaseAccess>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict);
 
@@ -29,7 +29,7 @@ public static class ConsumerAccessEndpoints
 
     private static async Task<IResult> GetConsumerReleaseAccess(
         Sqid releaseId,
-        IQueryHandler<GetConsumerReleaseAccessQuery, ConsumerReleaseAccessDto> handler,
+        IQueryHandler<GetConsumerReleaseAccessQuery, ConsumerReleaseAccess> handler,
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(

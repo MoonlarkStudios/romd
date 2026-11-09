@@ -108,7 +108,7 @@ public sealed class UploadArchiveOnlyEndpointsTests(IntegrationTestFixture fixtu
             response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
             (await response.Content.ReadFromJsonAsync<JobReference>())!.JobId.ShouldBe(requestId);
         }
-        var jobs = await client.GetFromJsonAsync<Romd.Contracts.Common.Models.Page<JobDto>>($"/api/jobs?correlationId={batchId}&jobType=upload&archive=all&limit=100");
+        var jobs = await client.GetFromJsonAsync<Romd.Contracts.Common.Models.Page<Job>>($"/api/jobs?correlationId={batchId}&jobType=upload&archive=all&limit=100");
         jobs.ShouldNotBeNull().Items.ShouldHaveSingleItem().Id.ShouldBe(requestId);
         jobs.HasNextPage.ShouldBeFalse();
         using var different = new MultipartFormDataContent();

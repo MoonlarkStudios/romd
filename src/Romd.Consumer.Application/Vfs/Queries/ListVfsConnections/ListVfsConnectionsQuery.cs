@@ -7,7 +7,7 @@ using Romd.Contracts.Common.Models;
 
 namespace Romd.Consumer.Application.Vfs.Queries.ListVfsConnections;
 
-public sealed record ListVfsConnectionsQuery(string? Cursor = null, int Limit = 50) : IQuery<Page<VfsConnectionDto>>
+public sealed record ListVfsConnectionsQuery(string? Cursor = null, int Limit = 50) : IQuery<Page<VfsConnection>>
 {
     public const int MaxLimit = 100;
 }

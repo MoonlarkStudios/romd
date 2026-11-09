@@ -1,8 +1,8 @@
 import type {
-  EnrichmentAssessmentDto,
+  EnrichmentAssessment,
   EnrichmentIssueState,
+  EnrichmentRequirement,
   EnrichmentRequirementCause,
-  EnrichmentRequirementDto,
   EnrichmentRequirementSatisfiedBy,
   TitleDetail,
   TitleMediaRef,
@@ -33,7 +33,7 @@ export function satisfied(
   key: string,
   satisfiedBy: EnrichmentRequirementSatisfiedBy,
   actions: string[] = [],
-): EnrichmentRequirementDto {
+): EnrichmentRequirement {
   return {
     ...parts(key),
     state: 'Satisfied',
@@ -48,7 +48,7 @@ export function unsatisfied(
   state: Exclude<EnrichmentIssueState, 'Satisfied'>,
   cause: EnrichmentRequirementCause,
   actions: string[] = [],
-): EnrichmentRequirementDto {
+): EnrichmentRequirement {
   return {
     ...parts(key),
     state,
@@ -59,7 +59,7 @@ export function unsatisfied(
 }
 
 /** Every row the facts function emits for a title with nothing outstanding, in canonical order. */
-export const settledRequirements: EnrichmentRequirementDto[] = [
+export const settledRequirements: EnrichmentRequirement[] = [
   satisfied('Identity:igdb', 'Trusted', [
     'ReviewProvider',
   ]),
@@ -92,9 +92,7 @@ export const settledRequirements: EnrichmentRequirementDto[] = [
 ];
 
 /** The settled rows with the given rows replacing (or joining) them by key. */
-export function withRequirements(
-  ...changes: EnrichmentRequirementDto[]
-): EnrichmentRequirementDto[] {
+export function withRequirements(...changes: EnrichmentRequirement[]): EnrichmentRequirement[] {
   const replaced = settledRequirements.map(
     (row) => changes.find((change) => change.key === row.key) ?? row,
   );
@@ -146,9 +144,9 @@ export function writtenTitleViewFixture(overrides: Partial<TitleDetailView> = {}
 
 /** An assessment whose four flags follow its rows, as the backend computes them. */
 export function assessmentFixture(
-  requirements: EnrichmentRequirementDto[],
-  overrides: Partial<EnrichmentAssessmentDto> = {},
-): EnrichmentAssessmentDto {
+  requirements: EnrichmentRequirement[],
+  overrides: Partial<EnrichmentAssessment> = {},
+): EnrichmentAssessment {
   const any = (state: EnrichmentIssueState) => requirements.some((row) => row.state === state);
   return {
     titleId: 'chrono-trigger',

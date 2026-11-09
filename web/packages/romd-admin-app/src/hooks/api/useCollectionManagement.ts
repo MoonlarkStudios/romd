@@ -1,7 +1,7 @@
 import type {
   AddCollectionItemRequest,
   CollectionDetail,
-  CollectionItemDto,
+  CollectionItem,
   CollectionSummary,
   CreateCollectionRequest,
   ProblemDetails,
@@ -295,7 +295,7 @@ export function useAddCollectionItem() {
         );
       }
 
-      return response.data as CollectionItemDto;
+      return response.data as CollectionItem;
     },
     onSuccess: async (_item, { collectionId }) => {
       try {

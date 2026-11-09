@@ -87,8 +87,8 @@ public sealed partial class MetadataPolicyTests : IDisposable
         (await db.JobDispatches.SingleAsync()).JobId.ShouldBe(job.Id);
         var evt = await db.AdminRealtimeOutboxEvents.SingleAsync();
         evt.SchemaVersion.ShouldBe(2);
-        AdminRealtimePayloadSerializer.Deserialize<Romd.Contracts.Management.Models.JobDto>(evt.PayloadJson)
-            .ShouldBeOfType<Romd.Contracts.Management.Models.MetadataRematerializationJobDto>().Id.ShouldBe(job.Id);
+        AdminRealtimePayloadSerializer.Deserialize<Romd.Contracts.Management.Models.Job>(evt.PayloadJson)
+            .ShouldBeOfType<Romd.Contracts.Management.Models.MetadataRematerializationJob>().Id.ShouldBe(job.Id);
     }
     [Fact]
     public async Task Save_ReuseAndNoOp_StageNoDuplicateJobDispatchOrEvent_AndGetMatchesPendingId()
@@ -116,7 +116,7 @@ public sealed partial class MetadataPolicyTests : IDisposable
         var stale = await Handler(db, id).HandleAsync(new(id, RevisionPrecondition.For("stale"), new Dictionary<string, string?> { ["Description"] = "igdb" }));
         stale.FirstError.NumericType.ShouldBe(412);
         var outbox = Substitute.For<IAdminEventOutbox>();
-        outbox.EnqueueAsync(Arg.Any<string>(), Arg.Any<Romd.Contracts.Management.Models.JobDto>(), Arg.Any<CancellationToken>())
+        outbox.EnqueueAsync(Arg.Any<string>(), Arg.Any<Romd.Contracts.Management.Models.Job>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromException(new IOException("outbox unavailable")));
         var failed = await Handler(db, id, outbox: outbox).HandleAsync(new(id, Revision(), new Dictionary<string, string?> { ["Description"] = "igdb" }));
         failed.FirstError.Code.ShouldBe("MetadataPolicy.SaveFailed");

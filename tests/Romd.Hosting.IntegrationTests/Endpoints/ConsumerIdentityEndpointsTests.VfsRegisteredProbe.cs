@@ -39,17 +39,17 @@ public sealed partial class ConsumerIdentityEndpointsTests
         listener.Start();
         await VfsProbeEvidence.RunAsync(async _ =>
         {
-            async Task<VfsConnectionCredentialDto> Issue(string path, object? body)
+            async Task<VfsConnectionCredential> Issue(string path, object? body)
             {
                 using var response = body is null ? await owner.PostAsync(path, null) : await owner.PostAsJsonAsync(path, body);
                 response.StatusCode.ShouldBe(path == "/api/me/connections" ? HttpStatusCode.Created : HttpStatusCode.OK);
-                var issued = (await response.Content.ReadFromJsonAsync<VfsConnectionCredentialDto>())!;
+                var issued = (await response.Content.ReadFromJsonAsync<VfsConnectionCredential>())!;
                 secrets.Add(issued.Password);
                 secrets.Add(issued.RcloneConfig.Split("pass = ")[1].Trim());
                 secrets.Add(Convert.ToBase64String(Encoding.UTF8.GetBytes(issued.Connection.Username + ":" + issued.Password)));
                 return issued;
             }
-            async Task<string> Save(string name, VfsConnectionCredentialDto credential)
+            async Task<string> Save(string name, VfsConnectionCredential credential)
             {
                 string path = Path.Combine(directory, name + ".conf");
                 // Test the exported document verbatim; private parent protects the creation window.

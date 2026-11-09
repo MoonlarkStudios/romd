@@ -94,7 +94,7 @@ public sealed class DashboardStatsCacheTests
         harness.Calls.ShouldBe(2);
     }
 
-    private static CoverageStatsDto Value(int count) => new()
+    private static CoverageStats Value(int count) => new()
     {
         ExpectedTitleCount = count,
         LocalPayloadTitleCount = 0,
@@ -108,7 +108,7 @@ public sealed class DashboardStatsCacheTests
     {
         private readonly ServiceProvider _provider;
         public readonly TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public readonly TaskCompletionSource<ErrorOr<CoverageStatsDto>> Result = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly TaskCompletionSource<ErrorOr<CoverageStats>> Result = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public readonly ManualClock Clock = new();
         public int Calls;
         public int Disposals;
@@ -118,21 +118,21 @@ public sealed class DashboardStatsCacheTests
         public Harness()
         {
             var services = new ServiceCollection();
-            services.AddScoped<IQueryHandler<GetCoverageStatsQuery, CoverageStatsDto>>(_ => new Handler(this));
+            services.AddScoped<IQueryHandler<GetCoverageStatsQuery, CoverageStats>>(_ => new Handler(this));
             _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
             Cache = new DashboardStatsCache(_provider.GetRequiredService<IServiceScopeFactory>(), Clock, Substitute.For<IHostApplicationLifetime>());
         }
 
         public ValueTask DisposeAsync() => _provider.DisposeAsync();
 
-        private sealed class Handler(Harness owner) : IQueryHandler<GetCoverageStatsQuery, CoverageStatsDto>, IDisposable
+        private sealed class Handler(Harness owner) : IQueryHandler<GetCoverageStatsQuery, CoverageStats>, IDisposable
         {
-            public Task<ErrorOr<CoverageStatsDto>> HandleAsync(GetCoverageStatsQuery query, CancellationToken ct = default)
+            public Task<ErrorOr<CoverageStats>> HandleAsync(GetCoverageStatsQuery query, CancellationToken ct = default)
             {
                 owner.QueryCancellation = ct;
                 var call = Interlocked.Increment(ref owner.Calls);
                 owner.Started.TrySetResult();
-                return call == 1 ? owner.Result.Task : Task.FromResult<ErrorOr<CoverageStatsDto>>(Value(20));
+                return call == 1 ? owner.Result.Task : Task.FromResult<ErrorOr<CoverageStats>>(Value(20));
             }
 
             public void Dispose() => Interlocked.Increment(ref owner.Disposals);

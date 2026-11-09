@@ -38,19 +38,19 @@ public static class EnrichmentEndpoints
             [Range(1, Romd.Admin.Application.Enrichment.IEnrichmentWorkbench.MaxLimit)] int limit = 50, [MaxLength(200)] string? query = null) =>
             (await workbench.ReadAsync(view, cursor, limit, query, ct)).Match(Results.Ok, errors => errors.ToProblem()))
             .WithDescription("Current tracked titles in id ascending order, with query/view-bound cursors. Limit defaults to 50 and is at most 100; counts are read independently from workbench/stats.")
-            .WithName("ListEnrichmentWorkbench").Produces<Page<EnrichmentAssessmentDto>>().ProducesProblems(400)
+            .WithName("ListEnrichmentWorkbench").Produces<Page<EnrichmentAssessment>>().ProducesProblems(400)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
         group.MapGet("workbench/stats", async ([FromServices] Romd.Admin.Application.Enrichment.IEnrichmentWorkbench workbench,
             CancellationToken ct, [MaxLength(200)] string? query = null) =>
             (await workbench.ReadCountsAsync(query, ct)).Match(Results.Ok, errors => errors.ToProblem()))
-            .WithName("GetEnrichmentWorkbenchStats").Produces<EnrichmentWorkbenchCountsDto>().ProducesProblems(400)
+            .WithName("GetEnrichmentWorkbenchStats").Produces<EnrichmentWorkbenchCounts>().ProducesProblems(400)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
         group.MapGet("artwork/settings", GetArtworkSettings).WithName("GetArtworkEnrichmentSettings")
-            .Produces<ArtworkEnrichmentSettingsDto>().ETagOnlyRead().RequireAuthorization(AuthorizationPolicies.RequireAdmin);
+            .Produces<ArtworkEnrichmentSettings>().ETagOnlyRead().RequireAuthorization(AuthorizationPolicies.RequireAdmin);
         group.MapPut("artwork/settings", UpdateArtworkSettings)
             .WithName("ReplaceArtworkEnrichmentSettings")
-            .Produces<ArtworkEnrichmentSettingsDto>().ConditionalWrite().ProducesProblems(400).RequireAuthorization(AuthorizationPolicies.RequireAdmin);
+            .Produces<ArtworkEnrichmentSettings>().ConditionalWrite().ProducesProblems(400).RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 
         group.MapGet("stats", GetStats)
             .WithName("GetEnrichmentStats")
@@ -92,7 +92,7 @@ public static class EnrichmentEndpoints
         // it takes no precondition.
         titleGroup.MapGet("{titleId}/artwork-acquisition", GetArtworkOutcomes)
             .WithName("GetTitleArtworkAcquisition")
-            .Produces<ArtworkAcquisitionStateDto>()
+            .Produces<ArtworkAcquisitionState>()
             .ProducesProblems(StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
         titleGroup.MapPost("{titleId}/artwork-acquisition/fill", FillMissingArtwork)
@@ -107,7 +107,7 @@ public static class EnrichmentEndpoints
         titleGroup.MapGet("{titleId}/enrichment-assessment", async (Sqid titleId,
                 [FromServices] Romd.Admin.Application.Enrichment.IEnrichmentWorkbench workbench, CancellationToken ct) =>
             (await workbench.GetAsync(titleId, ct)).Match(Results.Ok, errors => errors.ToProblem()))
-            .WithName("GetTitleEnrichmentAssessment").Produces<EnrichmentAssessmentDto>().ProducesProblems(404)
+            .WithName("GetTitleEnrichmentAssessment").Produces<EnrichmentAssessment>().ProducesProblems(404)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
         // Platform enrichment defaults
@@ -116,7 +116,7 @@ public static class EnrichmentEndpoints
 
         platformGroup.MapGet("{systemKey}/enrichment/defaults", GetPlatformFieldDefaults)
             .WithName("GetSystemEnrichmentDefaults")
-            .Produces<PlatformMetadataPolicyDto>()
+            .Produces<PlatformMetadataPolicy>()
             .ETagOnlyRead()
             .ProducesProblems(StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
@@ -124,7 +124,7 @@ public static class EnrichmentEndpoints
         platformGroup.MapPatch("{systemKey}/enrichment/defaults", SetPlatformFieldDefaults)
             .WithName("UpdateSystemEnrichmentDefaults")
             .WithDescription("Set or clear platform-level field defaults for metadata resolution")
-            .Produces<PlatformMetadataPolicyDto>()
+            .Produces<PlatformMetadataPolicy>()
             .ConditionalWrite()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
@@ -154,7 +154,7 @@ public static class EnrichmentEndpoints
     }
 
     private static async Task<IResult> UpdateArtworkSettings(UpdateArtworkEnrichmentSettingsRequest request,
-        ICommandHandler<ReplaceArtworkEnrichmentSettingsCommand, ArtworkEnrichmentSettingsDto> handler,
+        ICommandHandler<ReplaceArtworkEnrichmentSettingsCommand, ArtworkEnrichmentSettings> handler,
         HttpContext context, CancellationToken ct)
     {
         var precondition = Preconditions.IfMatch(context, "ArtworkEnrichment");
@@ -223,7 +223,7 @@ public static class EnrichmentEndpoints
             ct));
 
     private static async Task<IResult> GetPlatformFieldDefaults(SystemKeyParameter systemKey, HttpContext context,
-        IQueryHandler<GetMetadataPolicyQuery, PlatformMetadataPolicyDto> handler, CancellationToken ct)
+        IQueryHandler<GetMetadataPolicyQuery, PlatformMetadataPolicy> handler, CancellationToken ct)
     {
         var result = await handler.HandleAsync(new(systemKey.SystemId), ct);
         return result.Match(policy => Results.Ok(policy).WithETag(context, policy.Revision), errors => errors.ToProblem());
@@ -232,7 +232,7 @@ public static class EnrichmentEndpoints
     private static async Task<IResult> SetPlatformFieldDefaults(SystemKeyParameter systemKey,
         SetPlatformFieldDefaultsRequest request,
         HttpContext context,
-        ICommandHandler<SetMetadataPolicyCommand, PlatformMetadataPolicyDto> handler, CancellationToken ct)
+        ICommandHandler<SetMetadataPolicyCommand, PlatformMetadataPolicy> handler, CancellationToken ct)
     {
         var precondition = Preconditions.IfMatch(context, "MetadataPolicy");
         if (precondition.IsError)

@@ -1,4 +1,4 @@
-import type { ResolvedArtworkDto } from '@romd/consumer-api-client';
+import type { ResolvedArtwork } from '@romd/consumer-api-client';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadRecentArtwork } from '../../services/artworkCache';
@@ -36,7 +36,7 @@ vi.mock('../../services/artworkCache', async (importOriginal) => ({
   loadRecentArtwork: vi.fn(async () => undefined),
 }));
 
-const artwork: ResolvedArtworkDto = {
+const artwork: ResolvedArtwork = {
   role: 'Poster',
   assetId: null,
   contentVersion: 'media-box',

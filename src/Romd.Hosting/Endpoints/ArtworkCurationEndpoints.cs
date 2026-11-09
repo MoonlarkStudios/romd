@@ -48,34 +48,34 @@ public static class ArtworkCurationEndpoints
                 var state = await service.GetAsync(ct);
                 return Results.Ok(state).WithETag(context, state.Revision.ToString());
             })
-            .WithName("GetSteamGridDbSettings").Produces<SteamGridDbSettingsDto>().ETagOnlyRead();
+            .WithName("GetSteamGridDbSettings").Produces<SteamGridDbSettings>().ETagOnlyRead();
         settings.MapPut("", ReplaceSteamGridSettings)
-            .WithName("ReplaceSteamGridDbSettings").Produces<SteamGridDbSettingsDto>().ConditionalWrite()
+            .WithName("ReplaceSteamGridDbSettings").Produces<SteamGridDbSettings>().ConditionalWrite()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict);
         settings.MapPost("/test-connection", TestSteamGridConnection)
-            .WithName("TestSteamGridDbConnection").Produces<SteamGridDbSettingsDto>().ConditionalWrite();
+            .WithName("TestSteamGridDbConnection").Produces<SteamGridDbSettings>().ConditionalWrite();
 
         var group = app.MapGroup("/artwork").WithTags("Artwork")
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
         group.MapPost("/completion/preview", CompletionPreview).WithName("PreviewArtworkCompletion")
-            .Produces<ArtworkCompletionPreviewDto>().ProducesProblem(400).ProducesProblem(404);
+            .Produces<ArtworkCompletionPreview>().ProducesProblem(400).ProducesProblem(404);
         group.MapPost("/completion", QueueCompletion).WithName("QueueArtworkCompletion")
             .ProducesAcceptedJob().ProducesProblem(400).ProducesProblem(404).ProducesProblem(409);
         app.MapGet("/artwork-providers", Providers).WithTags("Artwork").WithName("ListArtworkProviders")
             .WithDescription("The configured provider registry (at most the two built-in adapters). A role filters each provider's capabilities; a title additionally requires an available trusted provider match.")
-            .Produces<IReadOnlyList<ArtworkProviderDto>>().ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
+            .Produces<IReadOnlyList<ArtworkProvider>>().ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
         var title = app.MapGroup("/titles/{titleId}").WithTags("Artwork")
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
         title.MapGet("artwork", GetFamily).WithName("GetTitleArtwork")
             .WithDescription("Every artwork role's selection, with the family validator that guards assets, rejections and hidden candidates")
-            .Produces<TitleArtworkDto>().ETagOnlyRead().ProducesProblems(StatusCodes.Status404NotFound);
+            .Produces<TitleArtwork>().ETagOnlyRead().ProducesProblems(StatusCodes.Status404NotFound);
         title.MapGet("artwork/{role}", GetRole).WithName("GetTitleArtworkRole").WithRoleValues()
-            .Produces<ArtworkSelectionStateDto>().ETagOnlyRead().ProducesProblems(StatusCodes.Status404NotFound);
+            .Produces<ArtworkSelectionState>().ETagOnlyRead().ProducesProblems(StatusCodes.Status404NotFound);
         title.MapPut("artwork/{role}", ReplaceRole).WithName("ReplaceTitleArtworkRole").WithRoleValues()
             .WithDescription("Set how a role chooses its artwork: automatically, left empty, or pinned to a saved asset or title media item")
-            .Produces<ArtworkSelectionStateDto>().ConditionalWrite()
+            .Produces<ArtworkSelectionState>().ConditionalWrite()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         title.MapPost("artwork/{role}/apply", Apply).WithName("ApplyArtworkCandidate").WithRoleValues()
             .WithDescription("Queue the import of a provider candidate into the role")
@@ -83,28 +83,28 @@ public static class ArtworkCurationEndpoints
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         title.MapGet("artwork-assets", ListAssets).WithName("ListTitleArtworkAssets")
             .WithDescription("Saved eligible images in creation-time/id ascending order. Limit defaults to 50 and is at most 100; every page carries the aggregate artwork-family ETag.")
-            .Produces<Page<SavedArtworkDto>>().ETagOnlyRead().ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
+            .Produces<Page<SavedArtwork>>().ETagOnlyRead().ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         title.MapDelete("artwork-assets/{assetId}", DeleteAsset).WithName("DeleteTitleArtworkAsset")
             .WithDescription("Delete a saved image from the title; roles showing it return to automatic")
-            .Produces<TitleArtworkDto>().ConditionalWrite().ProducesProblems(StatusCodes.Status404NotFound);
+            .Produces<TitleArtwork>().ConditionalWrite().ProducesProblems(StatusCodes.Status404NotFound);
         title.MapGet("artwork-rejections", ListRejections).WithName("ListTitleArtworkRejections")
             .WithDescription("Rejected images, including ineligible images, in id ascending order. Limit defaults to 50 and is at most 100; every page carries the aggregate artwork-family ETag.")
-            .Produces<Page<RejectedArtworkDto>>().ETagOnlyRead().ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
+            .Produces<Page<RejectedArtwork>>().ETagOnlyRead().ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound);
         title.MapPut("artwork-rejections/{assetId}", Reject).WithName("ReplaceTitleArtworkRejection")
             .WithDescription("Reject a saved asset, and every version of its provider candidate, for its role")
-            .Produces<TitleArtworkDto>().ConditionalWrite().ProducesProblems(StatusCodes.Status404NotFound);
+            .Produces<TitleArtwork>().ConditionalWrite().ProducesProblems(StatusCodes.Status404NotFound);
         title.MapDelete("artwork-rejections/{assetId}", Restore).WithName("DeleteTitleArtworkRejection")
             .WithDescription("Restore a rejected asset to its role's choices")
-            .Produces<TitleArtworkDto>().ConditionalWrite().ProducesProblems(StatusCodes.Status404NotFound);
+            .Produces<TitleArtwork>().ConditionalWrite().ProducesProblems(StatusCodes.Status404NotFound);
         // A hidden candidate is keyed by its stable candidate id; the signed reference proves which candidate it is.
         title.MapPut("hidden-artwork-candidates/{candidateId}", Hide).WithName("ReplaceHiddenArtworkCandidate")
             .WithDescription("Hide a provider candidate from this title's choices and automatic acquisition")
-            .Produces<TitleArtworkDto>().ConditionalWrite()
+            .Produces<TitleArtwork>().ConditionalWrite()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         // Upstream provider failures are 503, or 502 for an invalid provider response.
         title.MapGet("artwork-candidates", Browse).WithName("ListTitleArtworkCandidates")
             .WithDescription("Transient candidates follow provider-owned ordering using signed title/user/filter/expiry-bound continuations, rather than persisted keysets. SteamGridDB serves at most 50 raw candidates per page and 100 pages; IGDB serves one response of at most 500 raw images across image kinds. Responses are limited to 2 MiB and 30 seconds. Exceeding an adapter budget is an error, never reported as exhaustion.")
-            .Produces<Page<ArtworkCandidateDto>>()
+            .Produces<Page<ArtworkCandidate>>()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict,
                 StatusCodes.Status502BadGateway, StatusCodes.Status503ServiceUnavailable);
         title.MapPost("artwork-candidates/preview", Preview).WithName("PreviewArtworkCandidate")
@@ -140,7 +140,7 @@ public static class ArtworkCurationEndpoints
             var links = await matches.GetAsync(title.Value, ct);
             if (links.IsError)
                 return links.Errors.ToProblem();
-            var available = new List<ArtworkProviderDto>();
+            var available = new List<ArtworkProvider>();
             foreach (var state in states.Where(state => state.IsAvailable))
             {
                 var link = links.Value.SingleOrDefault(link => link.ProviderId == state.Provider.ProviderId && link.IsAvailable);
@@ -151,14 +151,14 @@ public static class ArtworkCurationEndpoints
                 if (roles.Length == 0)
                     continue;
                 available.Add(new(state.Provider.ProviderId, state.Provider.Name, true, state.Provider.SupportsLanguageFilter,
-                    roles.Select(item => new ArtworkRoleCapabilityDto(item.Role.ToString(), item.Dimensions, item.Styles)).ToArray(),
+                    roles.Select(item => new ArtworkRoleCapability(item.Role.ToString(), item.Dimensions, item.Styles)).ToArray(),
                     gameId, link.Game?.Name, link.Game?.Url, state.Provider.MediaTypes?.Select(type => type.ToString()).ToArray()));
             }
             return Results.Ok(available);
         }
         return Results.Ok(states.Where(state => role is null || state.Provider.Roles.Any(item => item.Role == role))
-            .Select(state => new ArtworkProviderDto(state.Provider.ProviderId, state.Provider.Name, state.IsAvailable,
-            state.Provider.SupportsLanguageFilter, state.Provider.Roles.Where(item => role is null || item.Role == role).Select(item => new ArtworkRoleCapabilityDto(
+            .Select(state => new ArtworkProvider(state.Provider.ProviderId, state.Provider.Name, state.IsAvailable,
+            state.Provider.SupportsLanguageFilter, state.Provider.Roles.Where(item => role is null || item.Role == role).Select(item => new ArtworkRoleCapability(
                 item.Role.ToString(), item.Dimensions, item.Styles)).ToArray(),
             MediaTypes: state.Provider.MediaTypes?.Select(type => type.ToString()).ToArray())).ToArray());
     }
@@ -264,12 +264,12 @@ public static class ArtworkCurationEndpoints
         var result = await repository.ListAssetsAsync(titleId.Value, cursor, limit, ct);
         if (result.IsError)
             return result.Errors.ToProblem();
-        return Results.Ok(new Page<SavedArtworkDto>
+        return Results.Ok(new Page<SavedArtwork>
         {
             Items = result.Value.Items.Select(item =>
             {
                 var asset = item.Asset;
-                return new SavedArtworkDto(IdCoder.Encode(asset.Id),
+                return new SavedArtwork(IdCoder.Encode(asset.Id),
                 asset.Role.ToString(), asset.SourceId, asset.Attribution, asset.SourcePageUrl,
                 item.MediaIds.Select(IdCoder.Encode).ToArray(),
                 new ArtworkResolution(asset.Role, asset, null, ArtworkFit.Cover, ArtworkFallbackReason.None).ToContract());
@@ -292,9 +292,9 @@ public static class ArtworkCurationEndpoints
         if (family.IsError)
             return family.Errors.ToProblem();
         var result = await repository.ListRejectionsAsync(titleId.Value, cursor, limit, ct);
-        return result.Match(page => Results.Ok(new Page<RejectedArtworkDto>
+        return result.Match(page => Results.Ok(new Page<RejectedArtwork>
         {
-            Items = page.Items.Select(x => new RejectedArtworkDto(IdCoder.Encode(x.Id), x.Role.ToString(), x.SourceId, x.ProviderAssetId)).ToArray(),
+            Items = page.Items.Select(x => new RejectedArtwork(IdCoder.Encode(x.Id), x.Role.ToString(), x.SourceId, x.ProviderAssetId)).ToArray(),
             NextCursor = page.NextCursor,
             HasNextPage = page.HasNextPage
         })
@@ -339,10 +339,10 @@ public static class ArtworkCurationEndpoints
             return TitleEndpoints.TitleNotFound();
         var result = await service.BrowseAsync(titleId.Value, actor, providerId, gameId,
             new ProviderArtworkQuery(role, dimension, style, mediaType), cursor, ct);
-        return result.Match(page => Results.Ok(new Page<ArtworkCandidateDto>
+        return result.Match(page => Results.Ok(new Page<ArtworkCandidate>
         {
             Items = page.Items.Select(candidate =>
-            new ArtworkCandidateDto(candidate.Reference, candidate.CandidateId, candidate.ProviderAssetId, candidate.Role.ToString(),
+            new ArtworkCandidate(candidate.Reference, candidate.CandidateId, candidate.ProviderAssetId, candidate.Role.ToString(),
                 candidate.Width, candidate.Height, candidate.Style, candidate.Attribution, candidate.SourcePageUrl, candidate.MediaType?.ToString(), candidate.IsSaved)).ToArray(),
             NextCursor = page.NextCursor,
             HasNextPage = page.NextCursor is not null
@@ -350,15 +350,15 @@ public static class ArtworkCurationEndpoints
     }
 
     private static Task<IResult> ReplaceSteamGridSettings(UpdateSteamGridDbSettingsRequest request, HttpContext context,
-        ICommandHandler<ReplaceSteamGridDbSettingsCommand, SteamGridDbSettingsDto> handler, CancellationToken ct) =>
+        ICommandHandler<ReplaceSteamGridDbSettingsCommand, SteamGridDbSettings> handler, CancellationToken ct) =>
         SteamGridWrite(context, precondition => handler.HandleAsync(new(request, precondition), ct));
 
     private static Task<IResult> TestSteamGridConnection(HttpContext context,
-        ICommandHandler<TestSteamGridDbConnectionCommand, SteamGridDbSettingsDto> handler, CancellationToken ct) =>
+        ICommandHandler<TestSteamGridDbConnectionCommand, SteamGridDbSettings> handler, CancellationToken ct) =>
         SteamGridWrite(context, precondition => handler.HandleAsync(new(precondition), ct));
 
     private static async Task<IResult> SteamGridWrite(HttpContext context,
-        Func<Romd.Application.Common.Concurrency.RevisionPrecondition, Task<ErrorOr<SteamGridDbSettingsDto>>> write)
+        Func<Romd.Application.Common.Concurrency.RevisionPrecondition, Task<ErrorOr<SteamGridDbSettings>>> write)
     {
         var precondition = Preconditions.IfMatch(context, "SteamGridDb");
         if (precondition.IsError)
@@ -410,13 +410,13 @@ public static class ArtworkCurationEndpoints
     }
 
     private static IResult FamilyTagged(HttpContext context, ArtworkFamily family) =>
-        Results.Ok(new TitleArtworkDto(family.Revision, family.Roles.Select(ToContract).ToArray()))
+        Results.Ok(new TitleArtwork(family.Revision, family.Roles.Select(ToContract).ToArray()))
             .WithETag(context, family.Revision);
 
     private static IResult RoleTagged(HttpContext context, ArtworkCurationState state) =>
         Results.Ok(ToContract(state)).WithETag(context, ArtworkValidators.Role(state.Revision));
 
-    private static ArtworkSelectionStateDto ToContract(ArtworkCurationState state) => new(state.Role.ToString(),
+    private static ArtworkSelectionState ToContract(ArtworkCurationState state) => new(state.Role.ToString(),
         state.Mode switch
         {
             ArtworkSelectionMode.Automatic => ArtworkMode.Automatic,

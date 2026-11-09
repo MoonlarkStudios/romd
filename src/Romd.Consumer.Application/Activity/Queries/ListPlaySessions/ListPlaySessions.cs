@@ -6,16 +6,16 @@ using Romd.Contracts.Consumer.Activity;
 
 namespace Romd.Consumer.Application.Activity.Queries.ListPlaySessions;
 
-public sealed record ListPlaySessionsQuery(string? Cursor, int Limit) : IQuery<Page<PlaySessionDto>>
+public sealed record ListPlaySessionsQuery(string? Cursor, int Limit) : IQuery<Page<PlaySession>>
 {
     /// <summary>The largest page the operation serves; the endpoint publishes and enforces it.</summary>
     public const int MaxLimit = 100;
 }
 
 public sealed class ListPlaySessionsQueryHandler(ICurrentUser currentUser, IPlayActivityRepository repository)
-    : IQueryHandler<ListPlaySessionsQuery, Page<PlaySessionDto>>
+    : IQueryHandler<ListPlaySessionsQuery, Page<PlaySession>>
 {
-    public async Task<ErrorOr<Page<PlaySessionDto>>> HandleAsync(
+    public async Task<ErrorOr<Page<PlaySession>>> HandleAsync(
         ListPlaySessionsQuery query,
         CancellationToken ct = default)
     {

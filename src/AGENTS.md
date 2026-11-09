@@ -22,7 +22,9 @@ for design and review; load linked owners when their contracts are affected.
 - `Romd.Application.Common`: shared CQRS, IDs, pagination, jobs and security ports.
 - `Romd.Admin.Application` / `Romd.Consumer.Application`: use cases, read models
   and ports for their respective surfaces.
-- `Romd.Contracts.Common` / `.Management` / `.Consumer`: shared and surface DTOs.
+- `Romd.Contracts.Common` / `.Management` / `.Consumer`: shared and surface
+  contracts; type names omit `Dto` per the
+  [contract naming convention](../docs/development/dotnet-development.md#contract-type-names).
 - `Romd.Persistence`: EF Core context, repositories, queries, migrations and
   seeders; no ASP.NET Core or Hangfire dependency.
 - `Romd.Infrastructure`: external providers/tools, Hangfire, identity, delivery,

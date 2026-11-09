@@ -59,14 +59,14 @@ public sealed class EnrichmentWorkbenchEndpointsTests(IntegrationTestFixture fix
         var id = IdCoder.Encode(title.Id);
         using var client = fixture.CreateClient().WithTestUser(Guid.NewGuid(), roles: [RomdRoleType.Manager]);
 
-        var page = await client.GetFromJsonAsync<Page<EnrichmentAssessmentDto>>($"/api/enrichment/workbench?view=All&query={Uri.EscapeDataString(name)}", JsonOptions);
+        var page = await client.GetFromJsonAsync<Page<EnrichmentAssessment>>($"/api/enrichment/workbench?view=All&query={Uri.EscapeDataString(name)}", JsonOptions);
         page.ShouldNotBeNull();
         page.Items.ShouldHaveSingleItem().TitleId.ShouldBe(id);
-        var counts = await client.GetFromJsonAsync<EnrichmentWorkbenchCountsDto>($"/api/enrichment/workbench/stats?query={Uri.EscapeDataString(name)}");
+        var counts = await client.GetFromJsonAsync<EnrichmentWorkbenchCounts>($"/api/enrichment/workbench/stats?query={Uri.EscapeDataString(name)}");
         counts.ShouldNotBeNull().Total.ShouldBe(1);
-        var emptyCounts = await client.GetFromJsonAsync<EnrichmentWorkbenchCountsDto>($"/api/enrichment/workbench/stats?query={Guid.NewGuid():N}");
-        emptyCounts.ShouldBe(new EnrichmentWorkbenchCountsDto(0, 0, 0, 0, 0));
-        var current = await client.GetFromJsonAsync<EnrichmentAssessmentDto>($"/api/titles/{id}/enrichment-assessment", JsonOptions);
+        var emptyCounts = await client.GetFromJsonAsync<EnrichmentWorkbenchCounts>($"/api/enrichment/workbench/stats?query={Guid.NewGuid():N}");
+        emptyCounts.ShouldBe(new EnrichmentWorkbenchCounts(0, 0, 0, 0, 0));
+        var current = await client.GetFromJsonAsync<EnrichmentAssessment>($"/api/titles/{id}/enrichment-assessment", JsonOptions);
         current.ShouldNotBeNull();
         current.ThumbnailUrl.ShouldBeNull();
         current.PlatformCompactLabel.ShouldNotBeNullOrWhiteSpace();
@@ -100,7 +100,7 @@ public sealed class EnrichmentWorkbenchEndpointsTests(IntegrationTestFixture fix
         using (var detail = JsonDocument.Parse(await saved.Content.ReadAsStringAsync()))
             $"\"{detail.RootElement.GetProperty("revision").GetString()}\"".ShouldBe(saved.Headers.ETag!.Tag);
         saved.Headers.ETag!.Tag.ShouldNotBe(readTag);
-        var assessment = await client.GetFromJsonAsync<EnrichmentAssessmentDto>($"/api/titles/{id}/enrichment-assessment", JsonOptions);
+        var assessment = await client.GetFromJsonAsync<EnrichmentAssessment>($"/api/titles/{id}/enrichment-assessment", JsonOptions);
         assessment.ShouldNotBeNull();
         assessment.AcceptedOmissions.ShouldContain("Genre");
         assessment.Requirements.Single(requirement => requirement.Key == "Metadata:Genre").SatisfiedBy
@@ -111,7 +111,7 @@ public sealed class EnrichmentWorkbenchEndpointsTests(IntegrationTestFixture fix
         { }
         using var reopened = await client.SendAsync(Omission(id, false, saved.Headers.ETag.Tag));
         reopened.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await client.GetFromJsonAsync<EnrichmentAssessmentDto>($"/api/titles/{id}/enrichment-assessment", JsonOptions))!
+        (await client.GetFromJsonAsync<EnrichmentAssessment>($"/api/titles/{id}/enrichment-assessment", JsonOptions))!
             .AcceptedOmissions.ShouldNotContain("Genre");
     }
 

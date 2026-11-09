@@ -6,6 +6,10 @@ using DomainSatisfiedBy = Romd.Domain.Catalog.EnrichmentRequirementSatisfiedBy;
 using SatisfiedBy = Romd.Contracts.Management.Enrichment.EnrichmentRequirementSatisfiedBy;
 using State = Romd.Contracts.Management.Enrichment.EnrichmentIssueState;
 
+using ContractEnrichmentRequirement = Romd.Contracts.Management.Enrichment.EnrichmentRequirement;
+
+using EnrichmentRequirement = Romd.Domain.Catalog.EnrichmentRequirement;
+
 namespace Romd.Admin.Application.Enrichment;
 
 /// <summary>
@@ -21,12 +25,12 @@ public static class EnrichmentRequirementMapping
 
     private enum RequirementGroup { Identity, MetadataField, Refresh, Artwork, Operation }
 
-    public static IReadOnlyList<EnrichmentRequirementDto> ToContract(IEnumerable<EnrichmentRequirement> requirements) =>
+    public static IReadOnlyList<ContractEnrichmentRequirement> ToContract(IEnumerable<EnrichmentRequirement> requirements) =>
         requirements.OrderBy(requirement => requirement.Kind).ThenBy(SubjectRank)
             .ThenBy(requirement => requirement.Subject, StringComparer.Ordinal)
             .Select(ToContract).ToArray();
 
-    public static EnrichmentRequirementDto ToContract(EnrichmentRequirement requirement)
+    public static ContractEnrichmentRequirement ToContract(EnrichmentRequirement requirement)
     {
         var kind = requirement.Kind.ToString();
         var group = Group(requirement);

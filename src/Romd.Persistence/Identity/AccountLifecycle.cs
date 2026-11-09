@@ -14,6 +14,8 @@ using Romd.Domain.Identity;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 
+using ContractAccountSession = Romd.Contracts.Management.Users.AccountSession;
+
 namespace Romd.Persistence.Identity;
 
 public sealed class AccountLifecycle(
@@ -25,7 +27,7 @@ public sealed class AccountLifecycle(
     IAuditContext actor,
     TimeProvider clock) : IAccountLifecycle
 {
-    public async Task<ErrorOr<AccountSecurityDto>> GetSecurityAsync(Guid userId, CancellationToken ct)
+    public async Task<ErrorOr<AccountSecurity>> GetSecurityAsync(Guid userId, CancellationToken ct)
     {
         var links = await GetLinksAsync(userId, null, 50, ct);
         if (links.IsError)
@@ -33,10 +35,10 @@ public sealed class AccountLifecycle(
         var sessions = await GetSessionsAsync(userId, null, 50, null, "admin.users.sessions", ct);
         if (sessions.IsError)
             return sessions.Errors;
-        return new AccountSecurityDto(links.Value, sessions.Value);
+        return new AccountSecurity(links.Value, sessions.Value);
     }
 
-    public async Task<ErrorOr<Page<AccountLinkDto>>> GetLinksAsync(Guid userId, string? cursor, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<AccountLink>>> GetLinksAsync(Guid userId, string? cursor, int limit, CancellationToken ct)
     {
         if (!await db.Users.AnyAsync(user => user.Id == userId, ct))
             return UserErrors.NotFound();
@@ -51,24 +53,24 @@ public sealed class AccountLifecycle(
             query = query.Where(link => link.CreatedAt < position.CreatedAt || link.CreatedAt == position.CreatedAt && link.Id.CompareTo(position.Id) < 0);
         var rows = await query.OrderByDescending(link => link.CreatedAt).ThenByDescending(link => link.Id).Take(limit + 1).ToListAsync(ct);
         var now = clock.GetUtcNow();
-        return new Page<AccountLinkDto>
+        return new Page<AccountLink>
         {
-            Items = rows.Take(limit).Select(link => new AccountLinkDto(link.Id, link.Purpose, link.CreatedAt, link.ExpiresAt, link.RedeemedAt.HasValue ? "Accepted" : link.RevokedAt.HasValue ? "Revoked" : link.ExpiresAt <= now ? "Expired" : "Pending")).ToArray(),
+            Items = rows.Take(limit).Select(link => new AccountLink(link.Id, link.Purpose, link.CreatedAt, link.ExpiresAt, link.RedeemedAt.HasValue ? "Accepted" : link.RevokedAt.HasValue ? "Revoked" : link.ExpiresAt <= now ? "Expired" : "Pending")).ToArray(),
             HasNextPage = rows.Count > limit,
             NextCursor = rows.Count > limit ? KeysetCursor.Encode(new DateIdPosition(rows[limit - 1].CreatedAt, rows[limit - 1].Id), fingerprint) : null
         };
     }
 
-    public async Task<ErrorOr<Page<AccountSessionDto>>> GetSessionsAsync(Guid userId, string? cursor, int limit, Guid? currentSessionId, string scope, CancellationToken ct)
+    public async Task<ErrorOr<Page<ContractAccountSession>>> GetSessionsAsync(Guid userId, string? cursor, int limit, Guid? currentSessionId, string scope, CancellationToken ct)
     {
         if (!await db.Users.AnyAsync(user => user.Id == userId, ct))
             return UserErrors.NotFound();
         var result = await accountSessions.ListPageAsync(userId, scope, cursor, limit, ct);
         if (result.IsError)
             return result.Errors;
-        return new Page<AccountSessionDto>
+        return new Page<ContractAccountSession>
         {
-            Items = result.Value.Items.Select(session => new AccountSessionDto(session.Id.ToString("D"), session.ClientId == "romd-admin-spa" ? "ROMD Admin" : session.ClientId == "romd-consumer-spa" ? "ROMD Consumer" : "ROMD Console", session.CreatedAt, session.ExpiresAt)
+            Items = result.Value.Items.Select(session => new ContractAccountSession(session.Id.ToString("D"), session.ClientId == "romd-admin-spa" ? "ROMD Admin" : session.ClientId == "romd-consumer-spa" ? "ROMD Consumer" : "ROMD Console", session.CreatedAt, session.ExpiresAt)
             {
                 Device = session.Device,
                 LastUsedAt = session.LastUsedAt,
@@ -83,7 +85,7 @@ public sealed class AccountLifecycle(
         };
     }
 
-    public async Task<ErrorOr<IssuedAccountLinkDto>> IssueLinkAsync(Guid userId, string purpose, CancellationToken ct)
+    public async Task<ErrorOr<IssuedAccountLink>> IssueLinkAsync(Guid userId, string purpose, CancellationToken ct)
     {
         if (purpose is not ("activation" or "recovery"))
             return Error.Validation("Account.InvalidPurpose", "Choose activation or recovery.");
@@ -112,7 +114,7 @@ public sealed class AccountLifecycle(
         };
         db.AccountLinks.Add(link);
         Evidence(userId, purpose == "activation" ? "Activation link issued" : "Recovery link issued");
-        return new IssuedAccountLinkDto(userId, raw, link.ExpiresAt) { Id = link.Id };
+        return new IssuedAccountLink(userId, raw, link.ExpiresAt) { Id = link.Id };
     }
 
     public async Task<ErrorOr<Success>> RevokeLinkAsync(Guid userId, Guid linkId, CancellationToken ct)

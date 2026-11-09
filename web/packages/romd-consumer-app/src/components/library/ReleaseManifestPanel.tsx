@@ -1,8 +1,8 @@
 import { Alert, Badge, Button, Group, Stack, Text } from '@mantine/core';
 import type {
-  ConsumerReleaseDto,
-  ConsumerReleaseManifestDto,
-  ConsumerReleaseManifestFormatDto,
+  ConsumerRelease,
+  ConsumerReleaseManifest,
+  ConsumerReleaseManifestFormat,
 } from '@romd/consumer-api-client';
 import { startBrowserDownload } from '@romd/delivery';
 import { IconDownload } from '@tabler/icons-react';
@@ -13,7 +13,7 @@ import { formatList } from '../../utils/library';
 import classes from './ReleaseManifestPanel.module.css';
 
 interface ReleaseManifestPanelProps {
-  release: ConsumerReleaseDto | null;
+  release: ConsumerRelease | null;
   playAction?: ReactNode;
   showSummary?: boolean;
   autoDownload?: boolean;
@@ -24,7 +24,7 @@ type DownloadChoice =
   | {
       kind: 'format';
       path?: string;
-      format: ConsumerReleaseManifestFormatDto['format'];
+      format: ConsumerReleaseManifestFormat['format'];
     }
   | {
       kind: 'derived';
@@ -48,7 +48,7 @@ export function ReleaseManifestPanel({
   onDownloadStarted,
 }: ReleaseManifestPanelProps) {
   const { mutateAsync } = useIssueReleaseManifest();
-  const [manifest, setManifest] = useState<ConsumerReleaseManifestDto | null>(null);
+  const [manifest, setManifest] = useState<ConsumerReleaseManifest | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState<string | null>(null);

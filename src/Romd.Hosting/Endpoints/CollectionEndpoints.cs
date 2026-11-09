@@ -56,12 +56,12 @@ public static class CollectionEndpoints
             .ProducesProblems(StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
-        group.MapGet("{collectionId}/items", ListItems).WithName("ListCollectionItems").Produces<Page<CollectionItemDto>>().ProducesProblems(400, 404).RequireAuthorization(AuthorizationPolicies.RequireUser);
-        group.MapGet("{collectionId}/items/{titleId}", GetItem).WithName("GetCollectionItem").Produces<CollectionItemDto>().ProducesProblems(404).RequireAuthorization(AuthorizationPolicies.RequireUser);
+        group.MapGet("{collectionId}/items", ListItems).WithName("ListCollectionItems").Produces<Page<CollectionItem>>().ProducesProblems(400, 404).RequireAuthorization(AuthorizationPolicies.RequireUser);
+        group.MapGet("{collectionId}/items/{titleId}", GetItem).WithName("GetCollectionItem").Produces<CollectionItem>().ProducesProblems(404).RequireAuthorization(AuthorizationPolicies.RequireUser);
 
         group.MapPost("{collectionId}/items", AddItem)
             .WithName("CreateCollectionItem")
-            .ProducesCreated<CollectionItemDto>()
+            .ProducesCreated<CollectionItem>()
             .ProducesProblems(StatusCodes.Status400BadRequest)
             .ProducesProblems(StatusCodes.Status404NotFound)
             .ProducesProblems(StatusCodes.Status409Conflict)
@@ -109,7 +109,7 @@ public static class CollectionEndpoints
         if (result.IsError)
             return result.Errors.ToProblem();
         var keys = await referenceCatalog.GetSystemKeysAsync(ct);
-        return Results.Ok(new Page<CollectionItemDto> { Items = result.Value.Items.ToItemDtos(keys), NextCursor = result.Value.NextCursor, HasNextPage = result.Value.HasNextPage });
+        return Results.Ok(new Page<CollectionItem> { Items = result.Value.Items.ToItemDtos(keys), NextCursor = result.Value.NextCursor, HasNextPage = result.Value.HasNextPage });
     }
 
     private static async Task<IResult> GetItem(Sqid collectionId, Sqid titleId, ICollectionRepository repository,
@@ -201,7 +201,7 @@ public static class CollectionEndpoints
 
     private static async Task<IResult> AddItem(Sqid collectionId,
         AddCollectionItemRequest request,
-        ICommandHandler<AddTitleToCollectionCommand, CollectionItemDto> handler,
+        ICommandHandler<AddTitleToCollectionCommand, CollectionItem> handler,
         CancellationToken ct)
     {
         if (RequestBodyIds.Decode(request.TitleId, "titleId", "Collections.InvalidTitleId", out int titleId) is { } problem)

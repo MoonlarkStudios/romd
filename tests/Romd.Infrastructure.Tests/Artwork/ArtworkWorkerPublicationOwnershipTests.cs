@@ -433,7 +433,7 @@ public sealed class ArtworkWorkerPublicationOwnershipTests : IAsyncLifetime
             {
                 var revision = Guid.NewGuid();
                 var matches = Substitute.For<ITitleProviderMatchService>();
-                matches.GetAsync(7, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatchDto>>(value:
+                matches.GetAsync(7, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(value:
                     [new("steamgriddb", "SteamGridDB", true, ["artwork"], revision, "Confirmed", "42", null, null, null, false)]));
                 matches.GetLinkRevisionAsync(7, "steamgriddb", "42", Arg.Any<CancellationToken>()).Returns(revision);
                 var browser = Substitute.For<IArtworkProviderBrowser>();

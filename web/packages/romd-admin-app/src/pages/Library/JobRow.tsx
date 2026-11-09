@@ -8,16 +8,16 @@ import {
   ThemeIcon,
   Tooltip,
 } from '@mantine/core';
-import type { JobDto, JobDtoUploadJobDto } from '@romd/admin-api-client';
+import type { Job, JobUploadJob } from '@romd/admin-api-client';
 import { IconCheck, IconX } from '@tabler/icons-react';
 
-function isUploadJob(job: JobDto): job is JobDtoUploadJobDto {
+function isUploadJob(job: Job): job is JobUploadJob {
   return job.jobType === 'upload';
 }
 
 export interface JobRowProps {
   /** Job data */
-  job: JobDto;
+  job: Job;
   /** Whether this row is selected */
   isSelected?: boolean;
   /** Callback when cancel is clicked */

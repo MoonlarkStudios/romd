@@ -1,4 +1,4 @@
-import type { EnrichmentAssessmentDto, EnrichmentRequirementDto } from '@romd/admin-api-client';
+import type { EnrichmentAssessment, EnrichmentRequirement } from '@romd/admin-api-client';
 import { type ArtworkRole, artworkRoles } from '../artworkPresentation';
 import { isOutstanding, outstandingRequirements } from './enrichmentPresentation';
 import type { TitleEditor } from './useTitleEditorParams';
@@ -13,7 +13,7 @@ export const workbenchViews = [
 export type WorkbenchView = (typeof workbenchViews)[number];
 
 type StatusFlags = Pick<
-  EnrichmentAssessmentDto,
+  EnrichmentAssessment,
   'needsReview' | 'hasOperationalBlocker' | 'hasActiveWork' | 'canEnrichAutomatically'
 >;
 const viewFlags: Record<Exclude<WorkbenchView, 'All'>, keyof StatusFlags> = {
@@ -33,10 +33,10 @@ export function isInView(flags: StatusFlags, view: WorkbenchView): boolean {
  * outstanding row in the view's state, else the first outstanding row. Undefined when nothing is outstanding.
  */
 export function currentRequirement(
-  requirements: EnrichmentRequirementDto[],
+  requirements: EnrichmentRequirement[],
   view: WorkbenchView,
   linkedKey?: string,
-): EnrichmentRequirementDto | undefined {
+): EnrichmentRequirement | undefined {
   const outstanding = outstandingRequirements(requirements);
   return (
     outstanding.find((row) => row.key === linkedKey) ??
@@ -53,12 +53,12 @@ export const checklistKinds = [
 export type ChecklistKind = (typeof checklistKinds)[number];
 export interface ChecklistGroup {
   kind: ChecklistKind;
-  rows: EnrichmentRequirementDto[];
+  rows: EnrichmentRequirement[];
   outstanding: number;
 }
 
 /** The complete list grouped by kind in the backend's canonical order. Operation rows are a banner, not rows. */
-export function checklistGroups(requirements: EnrichmentRequirementDto[]): ChecklistGroup[] {
+export function checklistGroups(requirements: EnrichmentRequirement[]): ChecklistGroup[] {
   return checklistKinds
     .map((kind) => {
       const rows = requirements.filter((row) => row.kind === kind);
@@ -72,15 +72,15 @@ export function checklistGroups(requirements: EnrichmentRequirementDto[]): Check
 }
 
 export function processingOperation(
-  requirements: EnrichmentRequirementDto[],
-): EnrichmentRequirementDto | undefined {
+  requirements: EnrichmentRequirement[],
+): EnrichmentRequirement | undefined {
   return requirements.find((row) => row.kind === 'Operation' && row.state === 'Processing');
 }
 
 /** Rows present now that were absent from the previous list for the same title. */
 export function addedRequirementCount(
   previousKeys: readonly string[],
-  requirements: EnrichmentRequirementDto[],
+  requirements: EnrichmentRequirement[],
 ): number {
   return requirements.filter((row) => row.kind !== 'Operation' && !previousKeys.includes(row.key))
     .length;
@@ -102,7 +102,7 @@ export function isReviewAction(action: string): boolean {
 
 /** The editor a review action opens; without one, the editor that owns the row's kind. */
 export function reviewEditor(
-  requirement: EnrichmentRequirementDto | undefined,
+  requirement: EnrichmentRequirement | undefined,
   action?: string,
 ): TitleEditor {
   return (
@@ -116,7 +116,7 @@ export function reviewEditor(
 }
 
 export function artworkRole(
-  requirement: EnrichmentRequirementDto | undefined,
+  requirement: EnrichmentRequirement | undefined,
 ): ArtworkRole | undefined {
   return requirement?.kind === 'Artwork'
     ? artworkRoles.find((role) => role === requirement.subject)

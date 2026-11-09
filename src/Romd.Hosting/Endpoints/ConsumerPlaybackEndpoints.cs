@@ -11,7 +11,7 @@ public static class ConsumerPlaybackEndpoints
             .WithTags("Consumer Playback")
             .WithName("GetConsumerPlaybackConfig")
             .AllowAnonymous()
-            .Produces<ConsumerPlaybackConfigDto>();
+            .Produces<ConsumerPlaybackConfig>();
 
         return app;
     }
@@ -21,7 +21,7 @@ public static class ConsumerPlaybackEndpoints
         context.Response.Headers.CacheControl = "no-store";
         string requestOrigin = $"{context.Request.Scheme}://{context.Request.Host.Value}";
 
-        return Results.Ok(new ConsumerPlaybackConfigDto
+        return Results.Ok(new ConsumerPlaybackConfig
         {
             PlayerOrigin = options.ResolvePlayerOrigin(requestOrigin)
         });

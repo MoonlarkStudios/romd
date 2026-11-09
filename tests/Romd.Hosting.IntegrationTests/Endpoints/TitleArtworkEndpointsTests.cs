@@ -43,7 +43,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
         using var response = await client.GetAsync($"/api/titles/{titleId}/artwork");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var family = (await response.Content.ReadFromJsonAsync<TitleArtworkDto>(Json))!;
+        var family = (await response.Content.ReadFromJsonAsync<TitleArtwork>(Json))!;
         response.Headers.ETag!.Tag.ShouldBe($"\"{family.Revision}\"");
         response.Headers.ETag.IsWeak.ShouldBeFalse();
         family.Roles.Select(role => role.Role).ShouldBe(Enum.GetNames<ArtworkRole>(), ignoreOrder: true);
@@ -68,7 +68,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
 
         using var role = await client.GetAsync($"/api/titles/{titleId}/artwork/Backdrop");
         role.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var state = (await role.Content.ReadFromJsonAsync<ArtworkSelectionStateDto>(Json))!;
+        var state = (await role.Content.ReadFromJsonAsync<ArtworkSelectionState>(Json))!;
         (state.Role, state.Revision).ShouldBe(("Backdrop", 0));
         role.Headers.ETag!.Tag.ShouldBe("\"0\"");
 
@@ -144,7 +144,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
 
         using var left = await client.SendAsync(Request(HttpMethod.Put, path, "\"0\"", empty));
         left.StatusCode.ShouldBe(HttpStatusCode.OK, await left.Content.ReadAsStringAsync());
-        var state = (await left.Content.ReadFromJsonAsync<ArtworkSelectionStateDto>(Json))!;
+        var state = (await left.Content.ReadFromJsonAsync<ArtworkSelectionState>(Json))!;
         (state.Mode, state.Revision).ShouldBe((ArtworkMode.Empty, 1));
         left.Headers.ETag!.Tag.ShouldBe("\"1\"");
         // Every role write changes the family validator.
@@ -154,7 +154,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
             new { mode = "Automatic" }));
         automatic.StatusCode.ShouldBe(HttpStatusCode.OK, await automatic.Content.ReadAsStringAsync());
         automatic.Headers.ETag!.Tag.ShouldBe("\"2\"");
-        (await automatic.Content.ReadFromJsonAsync<ArtworkSelectionStateDto>(Json))!.Mode.ShouldBe(ArtworkMode.Automatic);
+        (await automatic.Content.ReadFromJsonAsync<ArtworkSelectionState>(Json))!.Mode.ShouldBe(ArtworkMode.Automatic);
     }
 
     [Fact]
@@ -175,13 +175,13 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
         using var pinned = await client.SendAsync(Request(HttpMethod.Put, path, "\"0\"", body));
 
         pinned.StatusCode.ShouldBe(HttpStatusCode.OK, await pinned.Content.ReadAsStringAsync());
-        var state = (await pinned.Content.ReadFromJsonAsync<ArtworkSelectionStateDto>(Json))!;
+        var state = (await pinned.Content.ReadFromJsonAsync<ArtworkSelectionState>(Json))!;
         (state.Role, state.Mode, state.Revision).ShouldBe(("Hero", ArtworkMode.Pinned, 1));
         state.PinnedAssetId.ShouldNotBeNull();
         pinned.Headers.ETag!.Tag.ShouldBe("\"1\"");
         using var current = await client.GetAsync(path);
         current.Headers.ETag!.Tag.ShouldBe(pinned.Headers.ETag.Tag);
-        (await current.Content.ReadFromJsonAsync<ArtworkSelectionStateDto>(Json)).ShouldBe(state);
+        (await current.Content.ReadFromJsonAsync<ArtworkSelectionState>(Json)).ShouldBe(state);
         using var scope = fixture.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
         var id = Sqid.Parse(titleId, null).Value;
@@ -213,7 +213,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
 
         using var problem = await ProblemEnvelope.ReadAsync(response, 400, "Artwork.InvalidSelection");
         problem.RootElement.GetProperty("errors").TryGetProperty(field, out _).ShouldBeTrue();
-        (await client.GetFromJsonAsync<ArtworkSelectionStateDto>(path, Json))!.Revision.ShouldBe(0);
+        (await client.GetFromJsonAsync<ArtworkSelectionState>(path, Json))!.Revision.ShouldBe(0);
     }
 
     [Theory]
@@ -253,7 +253,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
 
         using var problem = await ProblemEnvelope.ReadAsync(response, 400, "Artwork.InvalidSelection");
         problem.RootElement.GetProperty("errors").TryGetProperty(field, out _).ShouldBeTrue();
-        (await client.GetFromJsonAsync<ArtworkSelectionStateDto>(path, Json))!.Revision.ShouldBe(0);
+        (await client.GetFromJsonAsync<ArtworkSelectionState>(path, Json))!.Revision.ShouldBe(0);
     }
 
     [Theory]
@@ -304,7 +304,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await response.Content.ReadAsStringAsync());
         (await StoredRevisionAsync(titleId)).ShouldBe(revision);
-        (await client.GetFromJsonAsync<TitleArtworkDto>($"/api/titles/{titleId}/artwork", Json))!.Roles
+        (await client.GetFromJsonAsync<TitleArtwork>($"/api/titles/{titleId}/artwork", Json))!.Roles
             .ShouldAllBe(role => role.Revision == 0);
     }
 
@@ -345,18 +345,18 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
         var titleId = await SeedTitleAsync();
         var assetId = await SeedAssetAsync(titleId);
         var family = await FamilyETagAsync(client, titleId);
-        var assets = (await client.GetFromJsonAsync<Page<SavedArtworkDto>>($"/api/titles/{titleId}/artwork-assets"))!;
+        var assets = (await client.GetFromJsonAsync<Page<SavedArtwork>>($"/api/titles/{titleId}/artwork-assets"))!;
         assets.Items.ShouldHaveSingleItem().Id.ShouldBe(assetId);
 
         using var deleted = await client.SendAsync(Request(HttpMethod.Delete,
             $"/api/titles/{titleId}/artwork-assets/{assetId}", family));
 
         deleted.StatusCode.ShouldBe(HttpStatusCode.OK, await deleted.Content.ReadAsStringAsync());
-        var after = (await deleted.Content.ReadFromJsonAsync<TitleArtworkDto>(Json))!;
+        var after = (await deleted.Content.ReadFromJsonAsync<TitleArtwork>(Json))!;
         deleted.Headers.ETag!.Tag.ShouldBe($"\"{after.Revision}\"");
         deleted.Headers.ETag.Tag.ShouldNotBe(family);
         (await FamilyETagAsync(client, titleId)).ShouldBe(deleted.Headers.ETag.Tag);
-        (await client.GetFromJsonAsync<Page<SavedArtworkDto>>($"/api/titles/{titleId}/artwork-assets"))!.Items.ShouldBeEmpty();
+        (await client.GetFromJsonAsync<Page<SavedArtwork>>($"/api/titles/{titleId}/artwork-assets"))!.Items.ShouldBeEmpty();
         // The image is gone; deleting it again names nothing.
         using var again = await client.SendAsync(Request(HttpMethod.Delete,
             $"/api/titles/{titleId}/artwork-assets/{assetId}", deleted.Headers.ETag.Tag));
@@ -374,15 +374,15 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
 
         using var rejected = await client.SendAsync(Request(HttpMethod.Put, path, await FamilyETagAsync(client, titleId)));
         rejected.StatusCode.ShouldBe(HttpStatusCode.OK, await rejected.Content.ReadAsStringAsync());
-        var family = (await rejected.Content.ReadFromJsonAsync<TitleArtworkDto>(Json))!;
+        var family = (await rejected.Content.ReadFromJsonAsync<TitleArtwork>(Json))!;
         family.Roles.Single(role => role.Role == "Poster").Revision.ShouldBe(1);
-        (await client.GetFromJsonAsync<Page<RejectedArtworkDto>>($"/api/titles/{titleId}/artwork-rejections"))!
+        (await client.GetFromJsonAsync<Page<RejectedArtwork>>($"/api/titles/{titleId}/artwork-rejections"))!
             .Items.ShouldHaveSingleItem().Id.ShouldBe(assetId);
 
         using var restored = await client.SendAsync(Request(HttpMethod.Delete, path, rejected.Headers.ETag!.Tag));
         restored.StatusCode.ShouldBe(HttpStatusCode.OK, await restored.Content.ReadAsStringAsync());
         restored.Headers.ETag!.Tag.ShouldNotBe(rejected.Headers.ETag.Tag);
-        (await client.GetFromJsonAsync<Page<RejectedArtworkDto>>($"/api/titles/{titleId}/artwork-rejections"))!.Items.ShouldBeEmpty();
+        (await client.GetFromJsonAsync<Page<RejectedArtwork>>($"/api/titles/{titleId}/artwork-rejections"))!.Items.ShouldBeEmpty();
     }
 
     [Theory]
@@ -431,7 +431,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
             (await curation.GetExcludedUrlsAsync(id, default)).ShouldContain(url);
             (await curation.GetGalleryAsync(id, default)).Value.ShouldBeEmpty();
         }
-        (await client.GetFromJsonAsync<ArtworkSelectionStateDto>($"/api/titles/{titleId}/artwork/Poster", Json))!.Mode
+        (await client.GetFromJsonAsync<ArtworkSelectionState>($"/api/titles/{titleId}/artwork/Poster", Json))!.Mode
             .ShouldBe(ArtworkMode.Automatic);
         (await FamilyETagAsync(client, titleId)).ShouldNotBe(family);
     }
@@ -492,7 +492,7 @@ public sealed class TitleArtworkEndpointsTests(IntegrationTestFixture fixture)
 
         (await client.PostAsync($"/api/titles/{titleId}/artwork-acquisition/fill", null)).StatusCode
             .ShouldBe(HttpStatusCode.Accepted);
-        var state = (await client.GetFromJsonAsync<ArtworkAcquisitionStateDto>($"/api/titles/{titleId}/artwork-acquisition"))!;
+        var state = (await client.GetFromJsonAsync<ArtworkAcquisitionState>($"/api/titles/{titleId}/artwork-acquisition"))!;
         state.ActiveJobId.ShouldNotBeNull();
         using var missing = await client.GetAsync($"/api/titles/{IdCoder.Encode(int.MaxValue)}/artwork-acquisition");
         using (await ProblemEnvelope.ReadAsync(missing, 404, "Catalog.TitleNotFound"))

@@ -39,7 +39,7 @@ public sealed class ProviderGameSearchOpenApiContractTests(ApiContractPolicyGuar
             .Select(x => x.GetProperty("name").GetString()).ShouldBe(["input"]);
         resolution.GetProperty("responses").GetProperty("200").GetProperty("content")
             .GetProperty("application/json").GetProperty("schema").GetProperty("$ref").GetString()
-            .ShouldBe("#/components/schemas/ProviderGameDto");
+            .ShouldBe("#/components/schemas/ProviderGame");
         foreach (var path in new[] { "/api/metadata-providers/{providerId}/games", "/api/metadata-providers/{providerId}/game-resolution" })
         {
             documents.Documents["consumer"].RootElement.GetProperty("paths").TryGetProperty(path, out _).ShouldBeFalse();

@@ -44,7 +44,7 @@ public sealed class TrackedCollectionEndpointsTests
             foreach (string route in new[] { "satisfied", "missing", "upgrades" })
             {
                 using var response = await client.GetAsync($"/api/tracked-titles?status={route}");
-                var body = await response.Content.ReadFromJsonAsync<Page<TrackedCollectionTitleDto>>();
+                var body = await response.Content.ReadFromJsonAsync<Page<TrackedCollectionTitle>>();
 
                 response.StatusCode.ShouldBe(HttpStatusCode.OK);
                 body.ShouldNotBeNull();
@@ -54,7 +54,7 @@ public sealed class TrackedCollectionEndpointsTests
             }
 
             using var statsResponse = await client.GetAsync("/api/tracked-titles/stats");
-            var stats = await statsResponse.Content.ReadFromJsonAsync<TrackedCollectionStatsDto>();
+            var stats = await statsResponse.Content.ReadFromJsonAsync<TrackedCollectionStats>();
 
             statsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
             stats.ShouldNotBeNull();
@@ -81,10 +81,10 @@ public sealed class TrackedCollectionEndpointsTests
         var satisfiedAt = new DateTimeOffset(2026, 8, 23, 12, 30, 0, TimeSpan.Zero);
         var handler = Substitute.For<IQueryHandler<
             ListTrackedTitlesQuery,
-            Page<TrackedCollectionTitleDto>>>();
-        IReadOnlyList<TrackedCollectionTitleDto> titles =
+            Page<TrackedCollectionTitle>>>();
+        IReadOnlyList<TrackedCollectionTitle> titles =
         [
-                new TrackedCollectionTitleDto
+                new TrackedCollectionTitle
                 {
                     TitleId = "title-1",
                     SystemKey = "snes",
@@ -97,7 +97,7 @@ public sealed class TrackedCollectionEndpointsTests
                 }
         ];
         handler.HandleAsync(Arg.Any<ListTrackedTitlesQuery>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(ErrorOrFactory.From(new Page<TrackedCollectionTitleDto>
+            .Returns(Task.FromResult(ErrorOrFactory.From(new Page<TrackedCollectionTitle>
             {
                 Items = titles,
                 NextCursor = null,
@@ -111,14 +111,14 @@ public sealed class TrackedCollectionEndpointsTests
             {
                 services.RemoveAll<IQueryHandler<
                     ListTrackedTitlesQuery,
-                    Page<TrackedCollectionTitleDto>>>();
+                    Page<TrackedCollectionTitle>>>();
                 services.AddSingleton(handler);
             });
             using var client = factory.CreateClient()
                 .WithTestUser(Guid.NewGuid(), "admin@localhost", [RomdRoleType.Admin]);
 
             using var response = await client.GetAsync("/api/tracked-titles?status=satisfied");
-            var body = await response.Content.ReadFromJsonAsync<Page<TrackedCollectionTitleDto>>();
+            var body = await response.Content.ReadFromJsonAsync<Page<TrackedCollectionTitle>>();
 
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
             body.ShouldNotBeNull();

@@ -48,7 +48,7 @@ public sealed class ConsumerBrowseEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
         var response = await client.GetAsync($"/api/catalog?systemKey={key}");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var body = await response.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>();
+        var body = await response.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
         body!.Items.Count.ShouldBe(expectedCount);
         body.Items.ShouldAllBe(x => x.System.Key == key);
     }
@@ -75,7 +75,7 @@ public sealed class ConsumerBrowseEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
 
         var response = await client.GetAsync("/api/me/library/systems");
-        var body = await response.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerPlatformSummaryDto>>();
+        var body = await response.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerPlatformSummary>>();
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -124,9 +124,9 @@ public sealed class ConsumerBrowseEndpointsTests
 
         async Task AssertName(string name)
         {
-            var list = (await client.GetFromJsonAsync<CommonModels.Page<ConsumerPlatformSummaryDto>>("/api/me/library/systems"))!;
+            var list = (await client.GetFromJsonAsync<CommonModels.Page<ConsumerPlatformSummary>>("/api/me/library/systems"))!;
             list.Items.Single(x => x.Key == "snes").Manufacturer.ShouldBe(name);
-            var detail = (await client.GetFromJsonAsync<ConsumerPlatformDetailDto>("/api/me/library/systems/snes"))!;
+            var detail = (await client.GetFromJsonAsync<ConsumerPlatformDetail>("/api/me/library/systems/snes"))!;
             detail.Manufacturer.ShouldBe(name);
         }
     }
@@ -139,7 +139,7 @@ public sealed class ConsumerBrowseEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
 
         var response = await client.GetAsync($"/api/me/library/systems/snes");
-        var body = await response.Content.ReadFromJsonAsync<ConsumerPlatformDetailDto>();
+        var body = await response.Content.ReadFromJsonAsync<ConsumerPlatformDetail>();
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -156,7 +156,7 @@ public sealed class ConsumerBrowseEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
 
         var response = await client.GetAsync("/api/catalog?limit=10");
-        var body = await response.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>();
+        var body = await response.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -177,7 +177,7 @@ public sealed class ConsumerBrowseEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
 
         var match = await client.GetAsync("/api/catalog?query=chrono&limit=10");
-        var matchBody = await match.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>();
+        var matchBody = await match.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
 
         match.StatusCode.ShouldBe(HttpStatusCode.OK);
         matchBody.ShouldNotBeNull();
@@ -186,7 +186,7 @@ public sealed class ConsumerBrowseEndpointsTests
         // FTS prefix matches "Mega Man", but it is not owned in this library, so the
         // owned-materialized-title scope still excludes it.
         var unowned = await client.GetAsync("/api/catalog?query=mega&limit=10");
-        var unownedBody = await unowned.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>();
+        var unownedBody = await unowned.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
 
         unowned.StatusCode.ShouldBe(HttpStatusCode.OK);
         unownedBody.ShouldNotBeNull();
@@ -206,12 +206,12 @@ public sealed class ConsumerBrowseEndpointsTests
             "/api/me/settings",
             new UpdateConsumerUserSettingsRequest(
                 "system",
-                new ConsumerReleasePreferenceDto(
+                new ConsumerReleasePreference(
                     [EuropeRegionKey],
                     [],
                     "none")));
         var response = await client.GetAsync("/api/catalog?limit=10");
-        var body = await response.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>();
+        var body = await response.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
 
         updateSettingsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -231,8 +231,8 @@ public sealed class ConsumerBrowseEndpointsTests
         await fixture.StorePreferredRegionIdsAsync(user.Id, "[1,2]");
         using var client = fixture.CreateAuthenticatedClient(user.Id, user.Email!, seed.LibraryId);
 
-        var settings = await client.GetFromJsonAsync<ConsumerUserSettingsDto>("/api/me/settings");
-        var body = await client.GetFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>("/api/catalog?limit=10");
+        var settings = await client.GetFromJsonAsync<ConsumerUserSettings>("/api/me/settings");
+        var body = await client.GetFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>("/api/catalog?limit=10");
 
         settings!.ReleasePreference.PreferredRegionKeys.ShouldBe([EuropeRegionKey]);
         var chrono = body!.Items.Single(item => item.Id == IdCoder.Encode(seed.ChronoTitleId));
@@ -248,9 +248,9 @@ public sealed class ConsumerBrowseEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
 
         var catalogResponse = await client.GetAsync("/api/catalog?limit=10");
-        var catalogBody = await catalogResponse.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>();
+        var catalogBody = await catalogResponse.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
         var detailResponse = await client.GetAsync($"/api/titles/{IdCoder.Encode(seed.ChronoTitleId)}");
-        var detailBody = await detailResponse.Content.ReadFromJsonAsync<ConsumerTitleDetailDto>();
+        var detailBody = await detailResponse.Content.ReadFromJsonAsync<ConsumerTitleDetail>();
 
         catalogResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         catalogBody.ShouldNotBeNull();
@@ -272,9 +272,9 @@ public sealed class ConsumerBrowseEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
 
         var completeResponse = await client.GetAsync("/api/catalog?completeness=complete&limit=10");
-        var completeBody = await completeResponse.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>();
+        var completeBody = await completeResponse.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
         var partialResponse = await client.GetAsync("/api/catalog?completeness=partial&limit=10");
-        var partialBody = await partialResponse.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>();
+        var partialBody = await partialResponse.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
         // The admin-only payload filter is not a consumer filter: it is refused, never silently ignored.
         using var localPayloadResponse = await client.GetAsync("/api/catalog?localPayload=none&limit=10");
 
@@ -310,8 +310,8 @@ public sealed class ConsumerBrowseEndpointsTests
             await db.SaveChangesAsync();
         }
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
-        var detail = (await client.GetFromJsonAsync<ConsumerTitleDetailDto>($"/api/titles/{IdCoder.Encode(seed.ChronoTitleId)}"))!;
-        var page = (await client.GetFromJsonAsync<CommonModels.Page<ConsumerTitleCardDto>>("/api/catalog"))!;
+        var detail = (await client.GetFromJsonAsync<ConsumerTitleDetail>($"/api/titles/{IdCoder.Encode(seed.ChronoTitleId)}"))!;
+        var page = (await client.GetFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>("/api/catalog"))!;
         var rating = detail.ContentRatings.ShouldHaveSingleItem();
         rating.Board.ShouldBe("Esrb");
         rating.BoardName.ShouldBe("ESRB");
@@ -331,7 +331,7 @@ public sealed class ConsumerBrowseEndpointsTests
 
         var response = await client.GetAsync($"/api/titles/{IdCoder.Encode(seed.ChronoTitleId)}");
         string json = await response.Content.ReadAsStringAsync();
-        var body = await response.Content.ReadFromJsonAsync<ConsumerTitleDetailDto>();
+        var body = await response.Content.ReadFromJsonAsync<ConsumerTitleDetail>();
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -405,7 +405,7 @@ public sealed class ConsumerBrowseEndpointsTests
         await fixture.SeedArtworkAsync(seed.ChronoTitleId);
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "artwork@localhost", seed.LibraryId);
 
-        var detail = await client.GetFromJsonAsync<ConsumerTitleDetailDto>($"/api/titles/{IdCoder.Encode(seed.ChronoTitleId)}");
+        var detail = await client.GetFromJsonAsync<ConsumerTitleDetail>($"/api/titles/{IdCoder.Encode(seed.ChronoTitleId)}");
         var poster = detail!.Artwork.Single(a => a.Role == "Poster");
         poster.Url.ShouldBe($"/artwork/{IdCoder.Encode(1)}/card/v1");
         poster.Width.ShouldBe(300);

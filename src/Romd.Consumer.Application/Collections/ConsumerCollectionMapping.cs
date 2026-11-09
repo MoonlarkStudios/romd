@@ -7,7 +7,7 @@ namespace Romd.Consumer.Application.Collections;
 
 internal static class ConsumerCollectionMapping
 {
-    public static ConsumerCollectionDto ToDto(this ConsumerCollectionReadModel model) =>
+    public static ConsumerCollection ToDto(this ConsumerCollectionReadModel model) =>
         new()
         {
             Id = IdCoder.Encode(model.Id),
@@ -20,9 +20,9 @@ internal static class ConsumerCollectionMapping
             IsFeatured = model.IsFeatured
         };
 
-    public static ConsumerCollectionTitleDto ToDto(this ConsumerCollectionTitleReadModel model)
+    public static ConsumerCollectionTitle ToDto(this ConsumerCollectionTitleReadModel model)
     {
-        return new ConsumerCollectionTitleDto
+        return new ConsumerCollectionTitle
         {
             Id = IdCoder.Encode(model.TitleId),
             Artwork = model.Artwork.Select(ArtworkContractMapping.ToContract).ToArray(),

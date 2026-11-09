@@ -1,4 +1,4 @@
-import { type JobDto, listJobs } from '@romd/admin-api-client';
+import { type Job, listJobs } from '@romd/admin-api-client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -79,7 +79,7 @@ export function useImportSession() {
     enabled: !!batchId,
     queryFn: async ({ signal }) => {
       if (!batchId) throw new Error('Choose an import batch first.');
-      const jobs: JobDto[] = [];
+      const jobs: Job[] = [];
       let cursor: string | undefined;
       const seen = new Set<string>();
       do {

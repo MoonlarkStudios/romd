@@ -5,12 +5,12 @@ using Romd.Contracts.Management.TrackedCollection;
 
 namespace Romd.Admin.Application.TrackedCollection.Queries.GetTrackedCollectionStats;
 
-public sealed record GetTrackedCollectionStatsQuery : IQuery<TrackedCollectionStatsDto>;
+public sealed record GetTrackedCollectionStatsQuery : IQuery<TrackedCollectionStats>;
 
 public sealed class GetTrackedCollectionStatsQueryHandler(IReferenceCatalogService referenceCatalog, ITrackedCollectionReadRepository repository)
-    : IQueryHandler<GetTrackedCollectionStatsQuery, TrackedCollectionStatsDto>
+    : IQueryHandler<GetTrackedCollectionStatsQuery, TrackedCollectionStats>
 {
-    public async Task<ErrorOr<TrackedCollectionStatsDto>> HandleAsync(
+    public async Task<ErrorOr<TrackedCollectionStats>> HandleAsync(
         GetTrackedCollectionStatsQuery query,
         CancellationToken ct = default)
     {

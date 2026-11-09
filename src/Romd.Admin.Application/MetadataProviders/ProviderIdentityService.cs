@@ -38,7 +38,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             if (link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint && link.LastAttempt > clock.GetUtcNow() - delay)
                 continue;
             ArtworkBridgeMatch? bridged = null;
-            ProviderIdentityDependencyDto? dependency = null;
+            ProviderIdentityDependency? dependency = null;
             foreach (var bridge in bridges.Where(x => x.TargetProviderId == adapter.Id))
             {
                 var source = snapshot.Links.SingleOrDefault(x => x.ProviderId == bridge.SourceProviderId && x.Trusted && !x.Suppressed);
@@ -58,8 +58,8 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 await SearchCandidatesAsync(adapter, snapshot.Facts, ct);
             if (found.IsError && RememberThrottle(adapter.Id, found.Errors))
                 continue;
-            ProviderIdentityDecisionDto decision;
-            ProviderGameDto? accepted = null;
+            ProviderIdentityDecision decision;
+            ProviderGame? accepted = null;
             if (found.IsError)
                 decision = new("Unavailable", "Provider search temporarily unavailable.", snapshot.Facts.Provenance, snapshot.Fingerprint, []);
             else
@@ -73,7 +73,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 if (evaluation is IdentityDecision.AutoAccepted match)
                     accepted = found.Value.Games.Single(x => x.Id == match.CandidateId);
                 decision = new(evaluation.State, evaluation.Explanation, snapshot.Facts.Provenance, snapshot.Fingerprint,
-                    evaluation.Candidates.Select(x => new ProviderIdentityCandidateDto(found.Value.Games.Single(g => g.Id == x.CandidateId), x.Score, x.Eligible, x.Evidence, x.Conflicts)).ToArray(), dependency is null ? [] : [dependency]);
+                    evaluation.Candidates.Select(x => new ProviderIdentityCandidate(found.Value.Games.Single(g => g.Id == x.CandidateId), x.Score, x.Eligible, x.Evidence, x.Conflicts)).ToArray(), dependency is null ? [] : [dependency]);
             }
             decision = decision with { LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms) };
             await PersistDecisionAsync(snapshot, adapter.Id, link?.Revision ?? Guid.Empty, decision, accepted, owner, ct);
@@ -93,7 +93,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
     }
 
     private async Task PersistDecisionAsync(ProviderIdentitySnapshot snapshot, string providerId, Guid expectedRevision,
-        ProviderIdentityDecisionDto decision, ProviderGameDto? accepted, JobContext? owner, CancellationToken ct)
+        ProviderIdentityDecision decision, ProviderGame? accepted, JobContext? owner, CancellationToken ct)
     {
         IStagedProviderIdentityDecision? staged = null;
         Exception? primaryFailure = null;
@@ -133,7 +133,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
         }
     }
 
-    private sealed record SearchEvidence(IReadOnlyList<ProviderGameDto> Games, bool Complete);
+    private sealed record SearchEvidence(IReadOnlyList<ProviderGame> Games, bool Complete);
 
     private static async Task<ErrorOr.ErrorOr<SearchEvidence>> SearchCandidatesAsync(
         IProviderIdentityAdapter adapter, IdentityFacts facts, CancellationToken ct)
@@ -144,7 +144,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             .SelectMany(name => new[] { ArtworkIdentityMatcher.Normalize(name), ProviderIdentityNames.Normalize(name) })
             .Where(query => query.Length > 0).Distinct(StringComparer.Ordinal).Take(7).ToArray();
         var complete = queries.Length is > 0 and <= 6;
-        var games = new Dictionary<string, ProviderGameDto>(StringComparer.Ordinal);
+        var games = new Dictionary<string, ProviderGame>(StringComparer.Ordinal);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(TimeSpan.FromSeconds(30));
         try
@@ -165,14 +165,14 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
         return new SearchEvidence(games.Values.ToArray(), complete);
     }
 
-    private static bool SameEvidence(ProviderGameDto first, ProviderGameDto next) =>
+    private static bool SameEvidence(ProviderGame first, ProviderGame next) =>
         first.Name == next.Name && first.Year == next.Year &&
         (first.Platforms ?? []).ToHashSet(StringComparer.Ordinal).SetEquals(next.Platforms ?? []) &&
         (first.Aliases ?? []).ToHashSet(StringComparer.Ordinal).SetEquals(next.Aliases ?? []) &&
         (first.Releases ?? []).Select(x => (x.Year, x.Platform)).ToHashSet()
             .SetEquals((next.Releases ?? []).Select(x => (x.Year, x.Platform)));
 
-    private static IReadOnlyList<int> RelevantYears(ProviderGameDto game, IReadOnlyList<string> platforms)
+    private static IReadOnlyList<int> RelevantYears(ProviderGame game, IReadOnlyList<string> platforms)
     {
         var names = platforms.Select(ArtworkIdentityMatcher.Normalize).ToHashSet();
         var releases = game.Releases?.Where(x => x.Year is not null && x.Platform is not null && names.Contains(ArtworkIdentityMatcher.Normalize(x.Platform)))

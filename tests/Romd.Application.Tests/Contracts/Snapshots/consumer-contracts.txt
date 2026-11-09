@@ -6,13 +6,13 @@ Romd.Contracts.Consumer.Account.ChangePasswordRequest
   CurrentPassword: string
   NewPassword: string
 
-Romd.Contracts.Consumer.Account.ConsumerReleasePreferenceDto
+Romd.Contracts.Consumer.Account.ConsumerReleasePreference
   PreferredLanguageKeys: IReadOnlyList<string>
   PreferredRegionKeys: IReadOnlyList<string>
   RevisionStrategy: string
 
-Romd.Contracts.Consumer.Account.ConsumerUserSettingsDto
-  ReleasePreference: ConsumerReleasePreferenceDto
+Romd.Contracts.Consumer.Account.ConsumerUserSettings
+  ReleasePreference: ConsumerReleasePreference
   Theme: string
 
 Romd.Contracts.Consumer.Account.PatchVfsConnectionRequest
@@ -24,16 +24,10 @@ Romd.Contracts.Consumer.Account.SaveVfsConnectionRequest
   Name: string
 
 Romd.Contracts.Consumer.Account.UpdateConsumerUserSettingsRequest
-  ReleasePreference: ConsumerReleasePreferenceDto?
+  ReleasePreference: ConsumerReleasePreference?
   Theme: string?
 
-Romd.Contracts.Consumer.Account.VfsConnectionCredentialDto
-  Connection: VfsConnectionDto
-  Endpoint: string
-  Password: string
-  RcloneConfig: string
-
-Romd.Contracts.Consumer.Account.VfsConnectionDto
+Romd.Contracts.Consumer.Account.VfsConnection
   CreatedAt: DateTimeOffset
   CredentialUpdatedAt: DateTimeOffset
   Format: string
@@ -43,7 +37,13 @@ Romd.Contracts.Consumer.Account.VfsConnectionDto
   Status: string
   Username: string
 
-Romd.Contracts.Consumer.Activity.PlaySessionDto
+Romd.Contracts.Consumer.Account.VfsConnectionCredential
+  Connection: VfsConnection
+  Endpoint: string
+  Password: string
+  RcloneConfig: string
+
+Romd.Contracts.Consumer.Activity.PlaySession
   ActiveDurationSeconds: int?
   ClientId: string [required]
   CreatedAt: DateTimeOffset [required]
@@ -54,8 +54,8 @@ Romd.Contracts.Consumer.Activity.PlaySessionDto
   TitleId: string [required]
   UpdatedAt: DateTimeOffset [required]
 
-Romd.Contracts.Consumer.Activity.RecentlyPlayedTitleDto
-  Artwork: IReadOnlyList<ResolvedArtworkDto>
+Romd.Contracts.Consumer.Activity.RecentlyPlayedTitle
+  Artwork: IReadOnlyList<ResolvedArtwork>
   CoverUrl: string?
   DefaultReleaseId: string?
   Genre: string?
@@ -66,7 +66,7 @@ Romd.Contracts.Consumer.Activity.RecentlyPlayedTitleDto
   Rating: double?
   ReleaseCount: int [required]
   ReleaseDate: DateOnly?
-  System: SystemSummaryDto [required]
+  System: SystemSummary [required]
 
 Romd.Contracts.Consumer.Activity.UpsertPlaySessionRequest
   ActiveDurationSeconds: int?
@@ -76,35 +76,35 @@ Romd.Contracts.Consumer.Activity.UpsertPlaySessionRequest
   StartedAt: DateTimeOffset [required]
   TitleId: string [required]
 
-Romd.Contracts.Consumer.Auth.CurrentUserDto
+Romd.Contracts.Consumer.Auth.CurrentUser
   Email: string
   Id: Guid
   Roles: IReadOnlyList<string>
   Username: string
 
-Romd.Contracts.Consumer.Browse.ConsumerContentRatingDto
+Romd.Contracts.Consumer.Browse.ConsumerContentRating
   Board: string [required]
   BoardName: string [required]
   Code: string [required]
   Description: string?
-  Icon: ReferenceAssetDto?
+  Icon: ReferenceAsset?
   Name: string [required]
 
-Romd.Contracts.Consumer.Browse.ConsumerMediaRefDto
+Romd.Contracts.Consumer.Browse.ConsumerMediaRef
   Id: string [required]
   IsPrimary: bool [required]
   Type: string [required]
   Url: string [required]
 
-Romd.Contracts.Consumer.Browse.ConsumerPlatformDetailDto
+Romd.Contracts.Consumer.Browse.ConsumerPlatformDetail
   Key: string [required]
   Manufacturer: string?
-  Media: IReadOnlyList<ConsumerMediaRefDto> [required]
+  Media: IReadOnlyList<ConsumerMediaRef> [required]
   Name: string [required]
   ShortName: string [required]
   TitleCount: int [required]
 
-Romd.Contracts.Consumer.Browse.ConsumerPlatformSummaryDto
+Romd.Contracts.Consumer.Browse.ConsumerPlatformSummary
   CoverUrl: string?
   Key: string [required]
   Manufacturer: string?
@@ -112,9 +112,9 @@ Romd.Contracts.Consumer.Browse.ConsumerPlatformSummaryDto
   ShortName: string [required]
   TitleCount: int [required]
 
-Romd.Contracts.Consumer.Browse.ConsumerTitleCardDto
-  Artwork: IReadOnlyList<ResolvedArtworkDto>
-  ContentRatings: IReadOnlyList<ConsumerContentRatingDto>
+Romd.Contracts.Consumer.Browse.ConsumerTitleCard
+  Artwork: IReadOnlyList<ResolvedArtwork>
+  ContentRatings: IReadOnlyList<ConsumerContentRating>
   CoverUrl: string?
   DefaultReleaseId: string?
   EsrbRating: string?
@@ -125,26 +125,26 @@ Romd.Contracts.Consumer.Browse.ConsumerTitleCardDto
   Rating: double?
   ReleaseCount: int [required]
   ReleaseDate: DateOnly?
-  System: SystemSummaryDto [required]
+  System: SystemSummary [required]
 
-Romd.Contracts.Consumer.Browse.ConsumerTitleDetailDto
-  Artwork: IReadOnlyList<ResolvedArtworkDto>
-  ContentRatings: IReadOnlyList<ConsumerContentRatingDto>
+Romd.Contracts.Consumer.Browse.ConsumerTitleDetail
+  Artwork: IReadOnlyList<ResolvedArtwork>
+  ContentRatings: IReadOnlyList<ConsumerContentRating>
   DefaultReleaseId: string?
   Description: string?
   Developer: string?
   Genre: string?
   Id: string [required]
-  Media: Page<ConsumerMediaRefDto> [required]
+  Media: Page<ConsumerMediaRef> [required]
   Name: string [required]
   Players: int?
   Publisher: string?
   Rating: double?
   ReleaseDate: DateOnly?
-  Releases: Page<ConsumerReleaseDto> [required]
-  System: SystemSummaryDto [required]
+  Releases: Page<ConsumerRelease> [required]
+  System: SystemSummary [required]
 
-Romd.Contracts.Consumer.Collections.ConsumerCollectionDto
+Romd.Contracts.Consumer.Collections.ConsumerCollection
   CoverUrl: string?
   Description: string?
   HeroUrl: string?
@@ -152,10 +152,10 @@ Romd.Contracts.Consumer.Collections.ConsumerCollectionDto
   IsFeatured: bool
   ItemCount: int
   Name: string [required]
-  System: SystemSummaryDto?
+  System: SystemSummary?
 
-Romd.Contracts.Consumer.Collections.ConsumerCollectionTitleDto
-  Artwork: IReadOnlyList<ResolvedArtworkDto>
+Romd.Contracts.Consumer.Collections.ConsumerCollectionTitle
+  Artwork: IReadOnlyList<ResolvedArtwork>
   CoverUrl: string?
   DefaultReleaseId: string?
   Genre: string?
@@ -164,15 +164,15 @@ Romd.Contracts.Consumer.Collections.ConsumerCollectionTitleDto
   Rating: double?
   ReleaseCount: int [required]
   ReleaseDate: DateOnly?
-  System: SystemSummaryDto [required]
+  System: SystemSummary [required]
 
-Romd.Contracts.Consumer.Delivery.ConsumerPlatformBiosDto
-  Items: IReadOnlyList<ConsumerPlatformBiosItemDto> [required]
+Romd.Contracts.Consumer.Delivery.ConsumerPlatformBios
+  Items: IReadOnlyList<ConsumerPlatformBiosItem> [required]
   SystemKey: string [required]
 
-Romd.Contracts.Consumer.Delivery.ConsumerPlatformBiosItemDto
+Romd.Contracts.Consumer.Delivery.ConsumerPlatformBiosItem
   BiosId: string [required]
-  ContentGrant: ContentGrantDto?
+  ContentGrant: ContentGrant?
   FileName: string [required]
   IsAvailable: bool [required]
   Md5: string?
@@ -181,27 +181,27 @@ Romd.Contracts.Consumer.Delivery.ConsumerPlatformBiosItemDto
   Sha256: string?
   SizeBytes: ByteCount [required]
 
-Romd.Contracts.Consumer.Libraries.LibraryContentCountsDto
+Romd.Contracts.Consumer.Libraries.LibraryContentCounts
   AvailableTitleCount: int
   CollectionCount: int
   OwnedTitleCount: int
 
-Romd.Contracts.Consumer.Libraries.LibraryContextDto
-  Counts: LibraryContentCountsDto [required]
-  FeaturedCollections: IReadOnlyList<ConsumerCollectionDto> [required]
-  Genres: IReadOnlyList<LibraryFacetDto> [required]
+Romd.Contracts.Consumer.Libraries.LibraryContext
+  Counts: LibraryContentCounts [required]
+  FeaturedCollections: IReadOnlyList<ConsumerCollection> [required]
+  Genres: IReadOnlyList<LibraryFacet> [required]
   Name: string [required]
-  Platforms: IReadOnlyList<LibraryFacetDto> [required]
+  Platforms: IReadOnlyList<LibraryFacet> [required]
 
-Romd.Contracts.Consumer.Libraries.LibraryFacetDto
+Romd.Contracts.Consumer.Libraries.LibraryFacet
   Count: int
   Id: string
   Name: string
 
-Romd.Contracts.Consumer.Playback.ConsumerPlaybackConfigDto
+Romd.Contracts.Consumer.Playback.ConsumerPlaybackConfig
   PlayerOrigin: string? [required]
 
-Romd.Contracts.Consumer.Releases.ConsumerDerivedPlaylistDto
+Romd.Contracts.Consumer.Releases.ConsumerDerivedPlaylist
   ArtifactId: string
   Encoding: string
   RelativePath: string
@@ -209,12 +209,12 @@ Romd.Contracts.Consumer.Releases.ConsumerDerivedPlaylistDto
   SizeBytes: ByteCount
   Text: string
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetAccessDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetAccess
   Allowed: bool
   ContractVersion: int
   DeliverySnapshotId: string
   DiscSetId: string
-  LayoutVersions: IReadOnlyList<ConsumerDiscSetLayoutVersionDto>
+  LayoutVersions: IReadOnlyList<ConsumerDiscSetLayoutVersion>
   Revision: Guid
   SelectedReleaseIds: IReadOnlyList<string>
   ServerInstanceId: string
@@ -225,57 +225,57 @@ Romd.Contracts.Consumer.Releases.ConsumerDiscSetAccessRequest
   AllowPartial: bool
   ContractVersion: int
   DeliverySnapshotId: string
-  LayoutVersions: IReadOnlyList<ConsumerDiscSetLayoutVersionDto>
+  LayoutVersions: IReadOnlyList<ConsumerDiscSetLayoutVersion>
   Revision: Guid
   SelectedReleaseIds: IReadOnlyList<string>
   ServerInstanceId: string
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetDiscDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetDisc
   EntryPoint: string
-  Files: IReadOnlyList<ConsumerDiscSetFileDto>
+  Files: IReadOnlyList<ConsumerDiscSetFile>
   LayoutId: string?
   LayoutRevision: string?
   Name: string
   Ordinal: int
   ReleaseId: string
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetFileDto
-  ContentGrant: ContentGrantDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetFile
+  ContentGrant: ContentGrant
   Provenance: ConsumerReleaseFileProvenance
   RelativePath: string
   Sha256: string
   SizeBytes: ByteCount
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetLayoutVersionDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetLayoutVersion
   LayoutId: string?
   LayoutRevision: string?
   ReleaseId: string
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetManifestDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetManifest
   ContractVersion: int
   DeliverySnapshotId: string
   DiscSetId: string
-  Discs: IReadOnlyList<ConsumerDiscSetDiscDto>
+  Discs: IReadOnlyList<ConsumerDiscSetDisc>
   ExpectedDiscCount: int?
   HasAllExpectedDiscs: bool
   Name: string
   ObservationId: string
-  Playlist: ConsumerDerivedPlaylistDto
+  Playlist: ConsumerDerivedPlaylist
   Revision: Guid
-  Selection: ConsumerDiscSetSelectionDto?
+  Selection: ConsumerDiscSetSelection?
   ServerInstanceId: string
   SystemKey: string
   TitleId: string
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetOmittedDiscDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetOmittedDisc
   Ordinal: int
   ReleaseId: string
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetSelectionDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetSelection
   Completeness: string
   Kind: string
   MissingExpectedOrdinals: IReadOnlyList<int>
-  OmittedDiscs: IReadOnlyList<ConsumerDiscSetOmittedDiscDto>
+  OmittedDiscs: IReadOnlyList<ConsumerDiscSetOmittedDisc>
   SelectedReleaseIds: IReadOnlyList<string>
 
 Romd.Contracts.Consumer.Releases.ConsumerDiscSetSelectionRequest
@@ -286,18 +286,10 @@ Romd.Contracts.Consumer.Releases.ConsumerDiscSetSelectionRequest
   Revision: Guid
   SelectedReleaseIds: IReadOnlyList<string>
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetStatusDiscDto
-  LayoutId: string?
-  LayoutRevision: string?
-  Name: string
-  Ordinal: int
-  Readiness: string
-  ReleaseId: string
-
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetStatusDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetStatus
   ContractVersion: int
   DiscSetId: string
-  Discs: IReadOnlyList<ConsumerDiscSetStatusDiscDto>
+  Discs: IReadOnlyList<ConsumerDiscSetStatusDisc>
   ExpectedDiscCount: int?
   MissingExpectedOrdinals: IReadOnlyList<int>
   Name: string
@@ -307,24 +299,26 @@ Romd.Contracts.Consumer.Releases.ConsumerDiscSetStatusDto
   SystemKey: string
   TitleId: string
 
-Romd.Contracts.Consumer.Releases.ConsumerDiscSetSummaryDto
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetStatusDisc
+  LayoutId: string?
+  LayoutRevision: string?
+  Name: string
+  Ordinal: int
+  Readiness: string
+  ReleaseId: string
+
+Romd.Contracts.Consumer.Releases.ConsumerDiscSetSummary
   DiscSetId: string
   ExpectedDiscCount: int?
   Name: string
   ReleaseIds: IReadOnlyList<string>
   Revision: Guid
 
-Romd.Contracts.Consumer.Releases.ConsumerLaunchTargetDto
+Romd.Contracts.Consumer.Releases.ConsumerLaunchTarget
   RelativePath: string [required]
   Type: string [required]
 
-Romd.Contracts.Consumer.Releases.ConsumerReleaseAccessDto
-  Allowed: bool [required]
-  ReleaseId: string [required]
-  ServerInstanceId: string [required]
-  TitleId: string?
-
-Romd.Contracts.Consumer.Releases.ConsumerReleaseDto
+Romd.Contracts.Consumer.Releases.ConsumerRelease
   Id: string [required]
   IsComplete: bool [required]
   Languages: IReadOnlyList<string> [required]
@@ -333,22 +327,28 @@ Romd.Contracts.Consumer.Releases.ConsumerReleaseDto
   Revision: string?
   SizeBytes: ByteCount [required]
 
+Romd.Contracts.Consumer.Releases.ConsumerReleaseAccess
+  Allowed: bool [required]
+  ReleaseId: string [required]
+  ServerInstanceId: string [required]
+  TitleId: string?
+
 Romd.Contracts.Consumer.Releases.ConsumerReleaseFileProvenance
 
-Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestDto
+Romd.Contracts.Consumer.Releases.ConsumerReleaseManifest
   IsComplete: bool [required]
   IsDeliveryComplete: bool [required]
-  Items: IReadOnlyList<ConsumerReleaseManifestItemDto> [required]
+  Items: IReadOnlyList<ConsumerReleaseManifestItem> [required]
   Name: string [required]
   ReleaseId: string [required]
   Revision: string?
-  Runtime: ConsumerReleaseRuntimeDto [required]
+  Runtime: ConsumerReleaseRuntime [required]
   ServerInstanceId: string [required]
   SystemKey: string [required]
   TitleId: string [required]
 
-Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestFormatDto
-  ContentGrant: ContentGrantDto?
+Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestFormat
+  ContentGrant: ContentGrant?
   FileExtension: string?
   Filename: string?
   Format: string [required]
@@ -356,16 +356,16 @@ Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestFormatDto
   Md5: string?
   ProfileVersion: string [required]
   RelativePath: string [required]
-  Runtime: ConsumerReleaseRuntimeDto?
+  Runtime: ConsumerReleaseRuntime?
   RuntimeApplicability: IReadOnlyList<string> [required]
   Sha1: string?
   Sha256: string?
   SizeBytes: ByteCount?
   State: string [required]
 
-Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestItemDto
-  ContentGrant: ContentGrantDto?
-  Formats: IReadOnlyList<ConsumerReleaseManifestFormatDto> [required]
+Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestItem
+  ContentGrant: ContentGrant?
+  Formats: IReadOnlyList<ConsumerReleaseManifestFormat> [required]
   IsAvailable: bool [required]
   Provenance: ConsumerReleaseFileProvenance [required]
   RelativePath: string [required]
@@ -373,15 +373,15 @@ Romd.Contracts.Consumer.Releases.ConsumerReleaseManifestItemDto
   Sha256: string?
   SizeBytes: ByteCount [required]
 
-Romd.Contracts.Consumer.Releases.ConsumerReleaseRuntimeDto
+Romd.Contracts.Consumer.Releases.ConsumerReleaseRuntime
   ContentType: string [required]
-  Launch: ConsumerLaunchTargetDto?
+  Launch: ConsumerLaunchTarget?
   MinimumInstallBytes: ByteCount [required]
   Packaging: string [required]
 
-Romd.Contracts.Consumer.Releases.ContentGrantDto
+Romd.Contracts.Consumer.Releases.ContentGrant
   DownloadUrl: string [required]
   ExpiresAt: DateTimeOffset [required]
 
-Romd.Contracts.Consumer.Server.ConsumerServerIdentityDto
+Romd.Contracts.Consumer.Server.ConsumerServerIdentity
   InstanceId: string [required]

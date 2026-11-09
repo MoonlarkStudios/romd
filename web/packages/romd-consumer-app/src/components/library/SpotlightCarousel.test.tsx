@@ -1,10 +1,10 @@
-import type { ConsumerTitleCardDto, ResolvedArtworkDto } from '@romd/consumer-api-client';
+import type { ConsumerTitleCard, ResolvedArtwork } from '@romd/consumer-api-client';
 import { screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '../../test/utils/render';
 import { SpotlightCarousel } from './SpotlightCarousel';
 
-const artwork = (role: string): ResolvedArtworkDto => ({
+const artwork = (role: string): ResolvedArtwork => ({
   role,
   assetId: `${role}-asset`,
   contentVersion: null,
@@ -37,7 +37,7 @@ describe('SpotlightCarousel', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('renders hero artwork behind a logo title on the shared spotlight surface', () => {
-    const title: ConsumerTitleCardDto = {
+    const title: ConsumerTitleCard = {
       id: 'chrono',
       name: 'Chrono Trigger',
       system,
@@ -75,7 +75,7 @@ describe('SpotlightCarousel', () => {
   });
 
   it('shows the text title beside the poster when a title has no hero or logo', () => {
-    const title: ConsumerTitleCardDto = {
+    const title: ConsumerTitleCard = {
       id: 'earthbound',
       name: 'EarthBound',
       system,

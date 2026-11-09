@@ -1,5 +1,5 @@
 import { Alert, Button, Checkbox, Group, Stack, Text } from '@mantine/core';
-import { getLibraryDiscSetOptions, type LibraryDiscSetOptionDto } from '@romd/admin-api-client';
+import { getLibraryDiscSetOptions, type LibraryDiscSetOption } from '@romd/admin-api-client';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { libraryManagementKeys } from '../../hooks/api/useLibraryManagement';
@@ -33,7 +33,7 @@ export function LibraryDiscSets({
     getNextPageParam: (page) =>
       page.page.hasNextPage ? (page.page.nextCursor ?? undefined) : undefined,
   });
-  const choices = new Map<string, LibraryDiscSetOptionDto>();
+  const choices = new Map<string, LibraryDiscSetOption>();
   for (const page of query.data?.pages ?? [])
     for (const item of [
       ...page.selected,

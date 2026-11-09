@@ -13,9 +13,9 @@ namespace Romd.Hosting.Dashboard;
 /// </summary>
 public sealed class DashboardStatsCache
 {
-    private readonly Entry<GetStorageStatsQuery, StorageStatsDto> _storage;
-    private readonly Entry<GetCoverageStatsQuery, CoverageStatsDto> _coverage;
-    private readonly Entry<GetSystemHealthQuery, SystemHealthDto> _health;
+    private readonly Entry<GetStorageStatsQuery, StorageStats> _storage;
+    private readonly Entry<GetCoverageStatsQuery, CoverageStats> _coverage;
+    private readonly Entry<GetSystemHealthQuery, SystemHealth> _health;
 
     public DashboardStatsCache(IServiceScopeFactory scopes, TimeProvider clock, IHostApplicationLifetime lifetime)
     {
@@ -24,9 +24,9 @@ public sealed class DashboardStatsCache
         _health = new(scopes, clock, lifetime.ApplicationStopping);
     }
 
-    public Task<ErrorOr<StorageStatsDto>> GetStorageAsync(CancellationToken ct) => _storage.GetAsync(ct);
-    public Task<ErrorOr<CoverageStatsDto>> GetCoverageAsync(CancellationToken ct) => _coverage.GetAsync(ct);
-    public Task<ErrorOr<SystemHealthDto>> GetHealthAsync(CancellationToken ct) => _health.GetAsync(ct);
+    public Task<ErrorOr<StorageStats>> GetStorageAsync(CancellationToken ct) => _storage.GetAsync(ct);
+    public Task<ErrorOr<CoverageStats>> GetCoverageAsync(CancellationToken ct) => _coverage.GetAsync(ct);
+    public Task<ErrorOr<SystemHealth>> GetHealthAsync(CancellationToken ct) => _health.GetAsync(ct);
     public void InvalidateStorage() => _storage.Invalidate();
     public void InvalidateCoverage() => _coverage.Invalidate();
     public void InvalidateHealth() => _health.Invalidate();

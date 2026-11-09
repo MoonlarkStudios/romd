@@ -31,6 +31,15 @@ using Romd.Hosting.IntegrationTests.Infrastructure;
 using Shouldly;
 using Xunit;
 
+using ContractJob = Romd.Contracts.Management.Models.Job;
+using ContractJobItem = Romd.Contracts.Management.Models.JobItem;
+
+using Job = Romd.Domain.Jobs.Job;
+using MediaReconciliationJob = Romd.Domain.Jobs.MediaReconciliationJob;
+
+using MediaReconciliationSubject = Romd.Domain.Source.Rom.MediaReconciliationSubject;
+using UploadJob = Romd.Domain.Jobs.UploadJob;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 public sealed class MediaReconciliationJobAuthorizationTests
@@ -194,7 +203,7 @@ public sealed class MediaReconciliationJobAuthorizationTests
         var result = await InvokeAsync("List", Guid.Empty, repository, User(actorId, role),
             Substitute.For<IMediaReconciliationRequests>());
 
-        result.ShouldBeOfType<Ok<Page<Romd.Contracts.Management.Models.JobDto>>>().Value.ShouldNotBeNull()
+        result.ShouldBeOfType<Ok<Page<Romd.Contracts.Management.Models.Job>>>().Value.ShouldNotBeNull()
             .Items.Select(job => job.Id).ShouldBe([ordinary.Id]);
         await repository.Received(1).ListAsync(Arg.Is<JobListFilter>(filter => filter.OwnerId == ownerId && filter.IncludeMediaConvergence == includeMedia && filter.Limit == 50), Arg.Any<CancellationToken>());
         await repository.DidNotReceiveWithAnyArgs().GetRecentAsync();
@@ -255,7 +264,7 @@ public sealed class MediaReconciliationJobAuthorizationTests
             [typeof(TimeProvider)] = clock,
             [typeof(ILoggerFactory)] = NullLoggerFactory.Instance,
             [typeof(HttpContext)] = httpContext ?? new DefaultHttpContext(),
-            [typeof(IQueryHandler<GetJobItemsQuery, Page<JobItemDto>>)] =
+            [typeof(IQueryHandler<GetJobItemsQuery, Page<ContractJobItem>>)] =
                 new GetJobItemsQueryHandler(Substitute.For<IJobItemRepository>(), Substitute.For<IReadSnapshotTransactionFactory>(), repository, user, TestReferenceCatalog.Create()),
             [typeof(IQueryHandler<ExportJobItemsQuery, JobItemExport>)] =
                 Substitute.For<IQueryHandler<ExportJobItemsQuery, JobItemExport>>(),
@@ -264,11 +273,11 @@ public sealed class MediaReconciliationJobAuthorizationTests
             [typeof(ICommandHandler<CancelJobCommand, Success>)] =
                 new CancelJobCommandHandler(repository, Substitute.For<IJobCancellationStore>(), store, unitOfWork, user, clock,
                     new HangfireJobDeliveryCancellation(transport ?? Substitute.For<IBackgroundJobClient>()), NullLogger<CancelJobCommandHandler>.Instance),
-            [typeof(ICommandHandler<SetJobArchivedCommand, JobDto>)] =
+            [typeof(ICommandHandler<SetJobArchivedCommand, ContractJob>)] =
                 new SetJobArchivedCommandHandler(repository, Substitute.For<IUnitOfWork>(), user, TestReferenceCatalog.Create(), Microsoft.Extensions.Logging.Abstractions.NullLogger<SetJobArchivedCommandHandler>.Instance),
             [typeof(UpdateJobRequest)] = new UpdateJobRequest(true),
-            [typeof(IQueryHandler<GetJobQuery, JobDto>)] = new GetJobQueryHandler(repository, user, TestReferenceCatalog.Create()),
-            [typeof(IQueryHandler<ListJobsQuery, Page<JobDto>>)] = new ListJobsQueryHandler(TestReferenceCatalog.Create(), repository, user)
+            [typeof(IQueryHandler<GetJobQuery, ContractJob>)] = new GetJobQueryHandler(repository, user, TestReferenceCatalog.Create()),
+            [typeof(IQueryHandler<ListJobsQuery, Page<ContractJob>>)] = new ListJobsQueryHandler(TestReferenceCatalog.Create(), repository, user)
         };
         var method = typeof(JobEndpoints).GetMethod(endpoint, BindingFlags.Static | BindingFlags.NonPublic).ShouldNotBeNull();
         object?[] arguments = method.GetParameters().Select(parameter => parameter.ParameterType == typeof(Guid) ? jobId

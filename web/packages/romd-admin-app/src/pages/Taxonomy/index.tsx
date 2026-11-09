@@ -1,5 +1,5 @@
 import { Stack, Tabs, Text, Title } from '@mantine/core';
-import type { LanguageDto, RegionDto } from '@romd/admin-api-client';
+import type { Language, Region } from '@romd/admin-api-client';
 import { IconLanguage, IconWorld } from '@tabler/icons-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -25,7 +25,7 @@ import { type TaxonomyEntry, TaxonomyPanel } from './TaxonomyPanel';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-const regionEntry = (r: RegionDto): TaxonomyEntry => ({
+const regionEntry = (r: Region): TaxonomyEntry => ({
   key: r.key,
   name: r.name,
   secondary: null,
@@ -35,7 +35,7 @@ const regionEntry = (r: RegionDto): TaxonomyEntry => ({
   aliases: r.aliases,
 });
 
-const languageEntry = (l: LanguageDto): TaxonomyEntry => ({
+const languageEntry = (l: Language): TaxonomyEntry => ({
   key: l.key,
   name: l.name,
   secondary: l.code,

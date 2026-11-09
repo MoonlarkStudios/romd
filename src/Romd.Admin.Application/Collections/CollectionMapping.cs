@@ -5,6 +5,8 @@ using Romd.Application.Common.Ids;
 using Romd.Contracts.Management.Collections;
 using Romd.Domain.Collections;
 
+using ContractCollectionItem = Romd.Contracts.Management.Collections.CollectionItem;
+
 namespace Romd.Admin.Application.Collections;
 
 public static class CollectionMapping
@@ -37,7 +39,7 @@ public static class CollectionMapping
 
     public static CollectionDetail ToDetail(
         this Collection entity,
-        IReadOnlyList<CollectionItemDto> items, SystemKeys systemKeys) => new()
+        IReadOnlyList<ContractCollectionItem> items, SystemKeys systemKeys) => new()
         {
             Id = IdCoder.Encode(entity.Id),
             Name = entity.Name,
@@ -48,7 +50,7 @@ public static class CollectionMapping
             IsSystem = entity.IsSystem,
             SortOrder = entity.SortOrder,
             CreatedAt = entity.CreatedAt,
-            Items = new Page<CollectionItemDto>
+            Items = new Page<ContractCollectionItem>
             {
                 Items = items.OrderBy(i => i.SortOrder).ThenBy(i => Sqid.Parse(i.TitleId, null).Value).Take(50).ToArray(),
                 HasNextPage = items.Count > 50,
@@ -56,11 +58,11 @@ public static class CollectionMapping
             }
         };
 
-    private static string ItemCursor(int collectionId, CollectionItemDto item) => KeysetCursor.Encode(
+    private static string ItemCursor(int collectionId, ContractCollectionItem item) => KeysetCursor.Encode(
         new CollectionItemPosition(item.SortOrder, Sqid.Parse(item.TitleId, null).Value),
         KeysetCursor.Fingerprint("admin.collection.items", collectionId, "sortOrder,titleId:asc"));
 
-    public static CollectionItemDto ToItemDto(this CollectionItemReadModel model, SystemKeys systemKeys) => new()
+    public static ContractCollectionItem ToItemDto(this CollectionItemReadModel model, SystemKeys systemKeys) => new()
     {
         TitleId = IdCoder.Encode(model.TitleId),
         TitleName = model.TitleName,
@@ -71,7 +73,7 @@ public static class CollectionMapping
         AddedAt = model.AddedAt
     };
 
-    public static IReadOnlyList<CollectionItemDto> ToItemDtos(
+    public static IReadOnlyList<ContractCollectionItem> ToItemDtos(
         this IReadOnlyList<CollectionItemReadModel> models, SystemKeys systemKeys) =>
         models.Select(m => m.ToItemDto(systemKeys)).ToList();
 }

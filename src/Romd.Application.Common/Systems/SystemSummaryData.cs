@@ -7,7 +7,7 @@ public sealed record SystemSummaryData(string Key, string Name, string CompactLa
 
 public static class SystemSummaryMapping
 {
-    public static SystemSummaryDto ToContract(this SystemSummaryData system) => new(
+    public static SystemSummary ToContract(this SystemSummaryData system) => new(
         system.Key, system.Name, system.CompactLabel,
         system.Icon?.ToContract());
 }

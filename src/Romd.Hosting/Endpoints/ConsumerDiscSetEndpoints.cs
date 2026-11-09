@@ -21,7 +21,7 @@ public static class ConsumerDiscSetEndpoints
     {
         app.MapGet("disc-sets", ListDiscSets).WithName("ListConsumerDiscSets")
             .WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
-            .Produces<Page<ConsumerDiscSetStatusDto>>().Produces(401).ProducesProblems(400, 404);
+            .Produces<Page<ConsumerDiscSetStatus>>().Produces(401).ProducesProblems(400, 404);
         app.MapGet("disc-sets/{discSetId}/status", async (Sqid discSetId, ICurrentUser user, IConsumerDiscSetRepository repository,
             IServerInstanceIdentity server, CancellationToken ct) =>
         {
@@ -36,28 +36,28 @@ public static class ConsumerDiscSetEndpoints
                 _ => new[] { ConsumerErrors.ContentNotFound() }.ToProblem()
             };
         }).WithName("GetConsumerDiscSetStatus").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
-            .Produces<ConsumerDiscSetStatusDto>().Produces(401).ProducesProblems(400, 404, 409);
+            .Produces<ConsumerDiscSetStatus>().Produces(401).ProducesProblems(400, 404, 409);
         app.MapPost("disc-sets/{discSetId}/selection-manifest", async (Sqid discSetId, ConsumerDiscSetSelectionRequest request,
-            ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifestDto> handler, CancellationToken ct) =>
+            ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifest> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new(discSetId, request.Revision, request), ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
         }).WithName("IssueConsumerDiscSetSelectionManifest").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
-            .Produces<ConsumerDiscSetManifestDto>().Produces(401).ProducesProblems(400, 404, 409);
+            .Produces<ConsumerDiscSetManifest>().Produces(401).ProducesProblems(400, 404, 409);
         app.MapPost("disc-sets/{discSetId}/access/preview", async (Sqid discSetId, ConsumerDiscSetAccessRequest request,
-            ICommandHandler<CheckConsumerDiscSetAccessCommand, ConsumerDiscSetAccessDto> handler, CancellationToken ct) =>
+            ICommandHandler<CheckConsumerDiscSetAccessCommand, ConsumerDiscSetAccess> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new(discSetId, request), ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
         }).WithName("CheckConsumerDiscSetAccess").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
-            .Produces<ConsumerDiscSetAccessDto>().Produces(401).ProducesProblems(400, 409);
+            .Produces<ConsumerDiscSetAccess>().Produces(401).ProducesProblems(400, 409);
         app.MapPost("disc-sets/{discSetId}/manifest", async (Sqid discSetId, Guid revision,
-            ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifestDto> handler, CancellationToken ct) =>
+            ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifest> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new(discSetId, revision), ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
         }).WithName("IssueConsumerDiscSetManifest").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
-            .Produces<ConsumerDiscSetManifestDto>().Produces(401).ProducesProblems(400, 404, 409);
+            .Produces<ConsumerDiscSetManifest>().Produces(401).ProducesProblems(400, 404, 409);
         return app;
     }
     private static async Task<IResult> ListDiscSets(ICurrentUser user, IConsumerDiscSetRepository repository,
@@ -69,7 +69,7 @@ public static class ConsumerDiscSetEndpoints
         var result = await repository.ListPageAsync(new(userId), titleId, cursor, limit, ct);
         return result switch
         {
-            ConsumerLibraryReadResult<PagedList<ConsumerDiscSetPlan>>.Found found => Results.Ok(new Page<ConsumerDiscSetStatusDto>
+            ConsumerLibraryReadResult<PagedList<ConsumerDiscSetPlan>>.Found found => Results.Ok(new Page<ConsumerDiscSetStatus>
             {
                 Items = found.Value.Items.Select(plan => DiscSetContracts.Status(plan, server.InstanceId)).ToArray(),
                 NextCursor = found.Value.NextCursor,

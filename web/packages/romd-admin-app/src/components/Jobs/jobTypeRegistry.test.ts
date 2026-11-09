@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { describe, expect, it } from 'vitest';
 import {
   getJobOutcome,
@@ -8,7 +8,7 @@ import {
   summarizeFailureReasons,
 } from './jobTypeRegistry';
 
-function makeJob(overrides: Record<string, unknown>): JobDto {
+function makeJob(overrides: Record<string, unknown>): Job {
   return {
     id: '1',
     correlationId: 'c1',
@@ -18,7 +18,7 @@ function makeJob(overrides: Record<string, unknown>): JobDto {
     errors: [],
     isTerminal: true,
     ...overrides,
-  } as JobDto;
+  } as Job;
 }
 
 describe('getJobTitle', () => {

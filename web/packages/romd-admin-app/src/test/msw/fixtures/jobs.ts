@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 
 export const jobFixtures = {
   uploadJob: {
@@ -26,7 +26,7 @@ export const jobFixtures = {
     romsIngested: '45',
     romsDeduplicated: '3',
     romsRejected: '2',
-  } satisfies JobDto,
+  } satisfies Job,
 
   inProgressJob: {
     jobType: 'upload',
@@ -53,7 +53,7 @@ export const jobFixtures = {
     romsIngested: '42',
     romsDeduplicated: '2',
     romsRejected: '1',
-  } satisfies JobDto,
+  } satisfies Job,
 
   failedJob: {
     jobType: 'upload',
@@ -86,9 +86,9 @@ export const jobFixtures = {
     romsIngested: '0',
     romsDeduplicated: '0',
     romsRejected: '0',
-  } satisfies JobDto,
+  } satisfies Job,
 
-  list: [] as JobDto[], // Will be populated below
+  list: [] as Job[], // Will be populated below
 };
 
 // Populate list

@@ -4,9 +4,11 @@ using Romd.Application.Common.ReferenceCatalog;
 using Romd.Contracts.Common.ReferenceCatalog;
 using Romd.Domain.ReferenceData;
 
+using ContractCompanyOverrides = Romd.Contracts.Common.ReferenceCatalog.CompanyOverrides;
+
 namespace Romd.Admin.Application.ReferenceData.Companies.Commands;
 
-public sealed class CreateCompanyCommandHandler : ICommandHandler<CreateCompanyCommand, ReferenceResourceResult<CompanyResourceDto, CompanyOverridesDto>>
+public sealed class CreateCompanyCommandHandler : ICommandHandler<CreateCompanyCommand, ReferenceResourceResult<CompanyResource, ContractCompanyOverrides>>
 {
     private readonly IReferenceMutationSession session;
     private readonly ICompanyReferenceRepository repository;
@@ -20,8 +22,8 @@ public sealed class CreateCompanyCommandHandler : ICommandHandler<CreateCompanyC
         this.reader = reader;
     }
 
-    public Task<ErrorOr<ReferenceResourceResult<CompanyResourceDto, CompanyOverridesDto>>> HandleAsync(CreateCompanyCommand command, CancellationToken ct = default) =>
-        session.RunAsync<ReferenceResourceResult<CompanyResourceDto, CompanyOverridesDto>>(async token =>
+    public Task<ErrorOr<ReferenceResourceResult<CompanyResource, ContractCompanyOverrides>>> HandleAsync(CreateCompanyCommand command, CancellationToken ct = default) =>
+        session.RunAsync<ReferenceResourceResult<CompanyResource, ContractCompanyOverrides>>(async token =>
         {
             var definition = command.Definition;
             if (!ReferenceEditRules.Key(command.Key))

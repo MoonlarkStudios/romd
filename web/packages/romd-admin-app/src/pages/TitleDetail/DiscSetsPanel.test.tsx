@@ -1,4 +1,4 @@
-import type { DiscSetDto } from '@romd/admin-api-client';
+import type { DiscSet } from '@romd/admin-api-client';
 import {
   getLibraryDiscSetOptions,
   listAdminDiscSets,
@@ -28,7 +28,7 @@ const page = <T,>(items: T[]) => ({
   nextCursor: null,
   hasNextPage: false,
 });
-const set: DiscSetDto = {
+const set: DiscSet = {
   id: 'set-1',
   catalogSourceId: 'source-1',
   systemKey: 'psx',

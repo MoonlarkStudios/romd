@@ -2,7 +2,7 @@ import type {
   CatalogFilters,
   CreateLibraryRequest,
   JobReference,
-  LibraryDto,
+  Library,
   ProblemDetails,
   TitleDetail,
   UpdateLibraryRequest,
@@ -150,7 +150,7 @@ export function useLibrary(libraryId: string | null) {
         throw new ApiClientError('Failed to fetch library', response.response?.status);
       }
 
-      return response.data as LibraryDto;
+      return response.data as Library;
     },
     enabled: libraryId !== null,
   });
@@ -259,7 +259,7 @@ export function useCreateLibrary() {
         );
       }
 
-      return response.data as LibraryDto;
+      return response.data as Library;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -293,7 +293,7 @@ export function useUpdateLibrary() {
         );
       }
 
-      return response.data as LibraryDto;
+      return response.data as Library;
     },
     onSuccess: (library) => {
       queryClient.invalidateQueries({

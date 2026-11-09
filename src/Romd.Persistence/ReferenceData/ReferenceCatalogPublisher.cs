@@ -9,11 +9,11 @@ namespace Romd.Persistence.ReferenceData;
 internal static class ReferenceCatalogPublisher
 {
     // The caller owns the catalog lock and database transaction.
-    internal static async Task<ReferenceCatalogDto> PublishAsync(RomdDbContext db, int? builtInVersion, CancellationToken ct)
+    internal static async Task<ReferenceCatalog> PublishAsync(RomdDbContext db, int? builtInVersion, CancellationToken ct)
     {
         var state = await db.ReferenceCatalogState.AsTracking().SingleOrDefaultAsync(ct);
         var assets = await db.ReferenceAssets.ToDictionaryAsync(x => x.Hash, x => x.ContentType, ct);
-        ReferenceAssetDto? Icon(string? hash, bool monochrome) => hash is not null && assets.TryGetValue(hash, out var type)
+        ReferenceAsset? Icon(string? hash, bool monochrome) => hash is not null && assets.TryGetValue(hash, out var type)
             ? new("/api/assets/" + hash, hash, type, monochrome) : null;
         var companyRows = await db.Companies.AsTracking().OrderBy(x => x.Key).ToListAsync(ct);
         foreach (var row in companyRows)
@@ -22,7 +22,7 @@ internal static class ReferenceCatalogPublisher
         var companyNames = companies.ToDictionary(x => x.Key, x => x.Facts.Name, StringComparer.Ordinal);
         var relationships = await db.SystemCompanies.OrderBy(x => x.CompanyKey).ToListAsync(ct);
         var manufacturers = relationships.GroupBy(x => x.PlatformId).ToDictionary(x => x.Key,
-            x => x.Select(c => new CompanySummaryDto(c.CompanyKey, companyNames[c.CompanyKey])).ToArray());
+            x => x.Select(c => new CompanySummary(c.CompanyKey, companyNames[c.CompanyKey])).ToArray());
         var systemRows = await db.Platforms.AsTracking().Where(x => x.Ownership != null).OrderBy(x => x.CanonicalKey).ToListAsync(ct);
         var systems = systemRows.Select(row =>
         {
@@ -30,7 +30,7 @@ internal static class ReferenceCatalogPublisher
             var makers = manufacturers.GetValueOrDefault(row.Id) ?? [];
             row.Name = facts.Name;
             row.Manufacturer = SystemCompanyReader.Names(makers);
-            return new ReferenceSystemDto(row.CanonicalKey!, facts.Name, facts.CompactLabel, facts.Description,
+            return new ReferenceSystem(row.CanonicalKey!, facts.Name, facts.CompactLabel, facts.Description,
                 Icon(facts.AssetHash, facts.Monochrome), makers.Select(x => x.Key).ToArray(), facts.Retired, makers);
         }).ToArray();
         var regionRows = await db.Regions.AsTracking().Where(x => x.Ownership != null).OrderBy(x => x.CanonicalKey).ToListAsync(ct);
@@ -39,7 +39,7 @@ internal static class ReferenceCatalogPublisher
             var facts = TypedReferenceMapping.Effective(row);
             row.Name = facts.Name;
             row.SortOrder = facts.SortOrder;
-            return new ReferenceTaxonomyDto(row.CanonicalKey, facts.Name, facts.Description, facts.SortOrder, null, facts.Retired);
+            return new ReferenceTaxonomy(row.CanonicalKey, facts.Name, facts.Description, facts.SortOrder, null, facts.Retired);
         }).ToArray();
         var languageRows = await db.GameLanguages.AsTracking().Where(x => x.Ownership != null).OrderBy(x => x.CanonicalKey).ToListAsync(ct);
         var languages = languageRows.Select(row =>
@@ -47,25 +47,25 @@ internal static class ReferenceCatalogPublisher
             var facts = TypedReferenceMapping.Effective(row);
             row.Name = facts.Name;
             row.SortOrder = facts.SortOrder;
-            return new ReferenceTaxonomyDto(row.CanonicalKey, facts.Name, facts.Description, facts.SortOrder, facts.Code, facts.Retired);
+            return new ReferenceTaxonomy(row.CanonicalKey, facts.Name, facts.Description, facts.SortOrder, facts.Code, facts.Retired);
         }).ToArray();
         var boards = (await db.RatingBoards.OrderBy(x => x.Key).ToListAsync(ct)).Select(row =>
         {
             var facts = TypedReferenceMapping.Effective(row);
-            return new ReferenceRatingBoardDto(row.Key, facts.Name, facts.Description, facts.Retired);
+            return new ReferenceRatingBoard(row.Key, facts.Name, facts.Description, facts.Retired);
         }).ToArray();
         var ratings = (await db.Ratings.OrderBy(x => x.Key).ToListAsync(ct)).Select(row =>
         {
             var facts = TypedReferenceMapping.Effective(row);
-            return new ReferenceRatingDto(facts.BoardKey, facts.Code, facts.Name, facts.Description,
+            return new ReferenceRating(facts.BoardKey, facts.Code, facts.Name, facts.Description,
                 Icon(facts.AssetHash, facts.Monochrome), facts.Designation, facts.MinimumAge, facts.Retired);
         }).ToArray();
-        var snapshot = new ReferenceCatalogDto
+        var snapshot = new ReferenceCatalog
         {
             BuiltInVersion = builtInVersion ?? state?.BuiltInVersion ?? 1,
             Revision = "",
             Systems = systems,
-            Companies = companies.Select(x => new ReferenceNamedDto(x.Key, x.Facts.Name, x.Facts.Description, x.Facts.Retired)).ToArray(),
+            Companies = companies.Select(x => new ReferenceNamed(x.Key, x.Facts.Name, x.Facts.Description, x.Facts.Retired)).ToArray(),
             Regions = regions,
             Languages = languages,
             RatingBoards = boards,

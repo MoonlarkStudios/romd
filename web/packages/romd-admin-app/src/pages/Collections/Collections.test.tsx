@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { CollectionSummary, SystemResourceDto } from '@romd/admin-api-client';
+import type { CollectionSummary, SystemResource } from '@romd/admin-api-client';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
@@ -153,7 +153,7 @@ const recentDetail: CollectionDetail = {
   ],
 };
 
-const platforms: SystemResourceDto[] = [
+const platforms: SystemResource[] = [
   {
     key: 'snes',
     name: 'Super Nintendo',

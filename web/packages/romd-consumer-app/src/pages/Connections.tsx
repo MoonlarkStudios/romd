@@ -10,7 +10,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
-import type { VfsConnectionCredentialDto, VfsConnectionDto } from '@romd/consumer-api-client';
+import type { VfsConnection, VfsConnectionCredential } from '@romd/consumer-api-client';
 import {
   createConsumerConnection,
   deleteConsumerConnection,
@@ -30,7 +30,7 @@ type Action =
     }
   | {
       kind: 'edit' | 'rotate' | 'revoke';
-      connection: VfsConnectionDto;
+      connection: VfsConnection;
     };
 const queryKey = [
   'consumer',
@@ -60,7 +60,7 @@ export function Connections() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Secrets belong only to this one-time dialog, never the query cache or browser storage.
-  const [credential, setCredential] = useState<VfsConnectionCredentialDto | null>(null);
+  const [credential, setCredential] = useState<VfsConnectionCredential | null>(null);
 
   function begin(next: Action) {
     setName(next.kind === 'edit' ? next.connection.name : '');

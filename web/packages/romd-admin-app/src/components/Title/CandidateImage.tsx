@@ -1,5 +1,5 @@
 import { Box, Image, Loader, Text } from '@mantine/core';
-import { type ArtworkCandidateDto, previewArtworkCandidate } from '@romd/admin-api-client';
+import { type ArtworkCandidate, previewArtworkCandidate } from '@romd/admin-api-client';
 import { useEffect, useState } from 'react';
 import { ArtworkFrame } from '../ArtworkFrame';
 import { ArtworkSurface } from '../ArtworkSurface';
@@ -12,7 +12,7 @@ export function CandidateImage({
   expanded = false,
 }: {
   titleId: string;
-  candidate: ArtworkCandidateDto;
+  candidate: ArtworkCandidate;
   title: string;
   gallery?: boolean;
   expanded?: boolean;

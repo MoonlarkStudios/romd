@@ -1,8 +1,8 @@
 import type {
-  ConsumerReleaseDto,
-  ConsumerReleaseManifestDto,
-  ConsumerReleaseManifestItemDto,
-  ConsumerTitleDetailDto,
+  ConsumerRelease,
+  ConsumerReleaseManifest,
+  ConsumerReleaseManifestItem,
+  ConsumerTitleDetail,
 } from '@romd/consumer-api-client';
 import { systemKeys } from '@romd/foundation/catalog';
 import { PLAYER_PROTOCOL_LIMITS } from '@romd/player-protocol';
@@ -33,7 +33,7 @@ export type BrowserPlaybackPreflight =
     };
 
 export interface BrowserPlaybackCandidate {
-  item: ConsumerReleaseManifestItemDto;
+  item: ConsumerReleaseManifestItem;
   core: EmulatorJsCore;
   systemName: string;
   sizeBytes: number;
@@ -151,8 +151,8 @@ export const browserPlaybackPlatforms: readonly CoreMapping[] = [
 ];
 
 export function getBrowserPlaybackPreflight(
-  title: Pick<ConsumerTitleDetailDto, 'system'>,
-  release: ConsumerReleaseDto,
+  title: Pick<ConsumerTitleDetail, 'system'>,
+  release: ConsumerRelease,
   availableCores?: readonly string[],
 ): BrowserPlaybackPreflight {
   if (!release.isComplete) {
@@ -178,9 +178,9 @@ export function getBrowserPlaybackPreflight(
 }
 
 export function getBrowserPlaybackSupport(
-  title: Pick<ConsumerTitleDetailDto, 'system'>,
-  release: ConsumerReleaseDto,
-  manifest: ConsumerReleaseManifestDto,
+  title: Pick<ConsumerTitleDetail, 'system'>,
+  release: ConsumerRelease,
+  manifest: ConsumerReleaseManifest,
   availableCores?: readonly string[],
 ): BrowserPlaybackSupport {
   if (!release.isComplete || !manifest.isComplete) {
@@ -245,8 +245,8 @@ export function hasBrowserPlaybackPlatform(
 }
 
 export function getBrowserPlaybackGameName(
-  title: Pick<ConsumerTitleDetailDto, 'name'>,
-  release: ConsumerReleaseDto,
+  title: Pick<ConsumerTitleDetail, 'name'>,
+  release: ConsumerRelease,
 ): string {
   return release.revision ? `${title.name} ${release.revision}` : title.name;
 }

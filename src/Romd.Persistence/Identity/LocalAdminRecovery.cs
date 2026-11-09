@@ -19,7 +19,7 @@ public sealed class LocalAdminRecovery(
     public Task<string> GetRuntimeRoleAsync(CancellationToken ct) =>
         db.Database.SqlQueryRaw<string>("SELECT current_user AS \"Value\"").SingleAsync(ct);
 
-    public async Task<ErrorOr<IssuedAccountLinkDto>> IssueAsync(string email, CancellationToken ct)
+    public async Task<ErrorOr<IssuedAccountLink>> IssueAsync(string email, CancellationToken ct)
     {
         if (!actor.IsSystem || actor.ActorId != SystemActor.UserId)
             return Error.Forbidden("Account.LocalRecoveryOnly", "Administrator recovery requires the local system actor.");

@@ -1,9 +1,9 @@
-import type { UserDto } from '@romd/admin-api-client';
+import type { User } from '@romd/admin-api-client';
 import type { UserRole } from '../../hooks/api/useUsers';
 export const systemUserId = '00000000-0000-0000-0000-000000000001';
-export const isSystemUser = (user: UserDto) =>
+export const isSystemUser = (user: User) =>
   user.id === systemUserId || user.email.toLowerCase() === 'system@romd.local';
-export const accountStatus = (user: UserDto) =>
+export const accountStatus = (user: User) =>
   isSystemUser(user)
     ? 'System'
     : user.isSuspended
@@ -11,7 +11,7 @@ export const accountStatus = (user: UserDto) =>
       : user.requiresActivation
         ? 'Pending activation'
         : 'Active';
-export const highestRole = (user: UserDto): UserRole =>
+export const highestRole = (user: User): UserRole =>
   ([
     'Admin',
     'Manager',

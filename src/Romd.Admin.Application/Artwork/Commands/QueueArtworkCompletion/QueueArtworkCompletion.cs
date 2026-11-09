@@ -5,6 +5,8 @@ using Romd.Application.Common.Cqrs;
 using Romd.Contracts.Management.Artwork;
 using Romd.Domain.Jobs;
 
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Admin.Application.Artwork.Commands.QueueArtworkCompletion;
 
 public sealed record QueueArtworkCompletionCommand(ArtworkCompletionRequest Request, Guid ActorId) : ICommand<Guid>;

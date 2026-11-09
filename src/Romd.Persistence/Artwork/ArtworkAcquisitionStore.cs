@@ -27,11 +27,11 @@ public sealed class ArtworkAcquisitionStore(RomdDbContext db, IArtworkCurationRe
         db.Set<TitleExternalIdEntity>().Where(x => x.TitleId == titleId && x.Provider == providerId)
             .Select(x => x.ExternalId).SingleOrDefaultAsync(ct);
 
-    public Task<ArtworkEnrichmentSettingsDto> GetSettingsAsync(CancellationToken ct) =>
-        db.Set<ArtworkEnrichmentSettingsEntity>().Select(x => new ArtworkEnrichmentSettingsDto(
+    public Task<ArtworkEnrichmentSettings> GetSettingsAsync(CancellationToken ct) =>
+        db.Set<ArtworkEnrichmentSettingsEntity>().Select(x => new ArtworkEnrichmentSettings(
             x.Revision, x.FillPosters, x.FillHeroes, x.FillLogos, Array.Empty<string>(), x.FillBackdrops, x.ReviewBackdrops)).SingleAsync(ct);
 
-    public async Task<ErrorOr<ArtworkEnrichmentSettingsDto>> StageSettingsAsync(UpdateArtworkEnrichmentSettingsRequest request, RevisionPrecondition ifMatch, CancellationToken ct)
+    public async Task<ErrorOr<ArtworkEnrichmentSettings>> StageSettingsAsync(UpdateArtworkEnrichmentSettingsRequest request, RevisionPrecondition ifMatch, CancellationToken ct)
     {
         if (db.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Settings writes require a caller-owned transaction.");
@@ -49,14 +49,14 @@ public sealed class ArtworkAcquisitionStore(RomdDbContext db, IArtworkCurationRe
         row.FillBackdrops = request.FillBackdrops;
         row.ReviewBackdrops = request.ReviewBackdrops;
         row.Revision = Guid.NewGuid();
-        return new ArtworkEnrichmentSettingsDto(row.Revision, row.FillPosters, row.FillHeroes, row.FillLogos,
+        return new ArtworkEnrichmentSettings(row.Revision, row.FillPosters, row.FillHeroes, row.FillLogos,
             [], row.FillBackdrops, row.ReviewBackdrops);
     }
 
-    public async Task<ArtworkAcquisitionStateDto> GetOutcomesAsync(int titleId, CancellationToken ct)
+    public async Task<ArtworkAcquisitionState> GetOutcomesAsync(int titleId, CancellationToken ct)
     {
         var outcomes = await db.Set<ArtworkAcquisitionEntity>().Where(x => x.TitleId == titleId).OrderBy(x => x.Role)
-            .Select(x => new ArtworkAcquisitionDto(x.Role.ToString(), x.Status, x.SourceId, x.UpdatedAt)).ToListAsync(ct);
+            .Select(x => new ArtworkAcquisition(x.Role.ToString(), x.Status, x.SourceId, x.UpdatedAt)).ToListAsync(ct);
         var active = await db.Set<EnrichmentJobEntity>().Where(x => x.TitleId == titleId &&
             (x.Phase == "Pending" || x.Phase == "Enriching")).OrderBy(x => x.CreatedAt)
             .Select(x => (Guid?)x.Id).FirstOrDefaultAsync(ct);

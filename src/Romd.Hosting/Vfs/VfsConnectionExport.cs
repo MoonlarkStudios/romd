@@ -29,7 +29,7 @@ public sealed class VfsConnectionExport
         }
     }
 
-    public VfsConnectionCredentialDto Build(IssuedVfsCredential issued, string endpoint) => new(
+    public VfsConnectionCredential Build(IssuedVfsCredential issued, string endpoint) => new(
         issued.Connection, issued.Password, endpoint,
         $"[romd]\ntype = webdav\nurl = {endpoint}\nvendor = owncloud\nuser = {issued.Connection.Username}\npass = {Obscure(issued.Password, RandomNumberGenerator.GetBytes(16))}\n");
 

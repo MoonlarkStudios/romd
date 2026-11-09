@@ -1,4 +1,4 @@
-import type { ConsumerTitleCardDto } from '@romd/consumer-api-client';
+import type { ConsumerTitleCard } from '@romd/consumer-api-client';
 import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useBrowserPlaybackAvailability } from '../../hooks/useBrowserPlaybackCapability';
@@ -9,7 +9,7 @@ vi.mock('../../hooks/useBrowserPlaybackCapability', () => ({
   useBrowserPlaybackAvailability: vi.fn(),
 }));
 
-const title: ConsumerTitleCardDto = {
+const title: ConsumerTitleCard = {
   id: 'title-1',
   system: {
     key: 'snes',

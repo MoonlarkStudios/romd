@@ -1,4 +1,4 @@
-import { type JobDto, listJobs } from '@romd/admin-api-client';
+import { type Job, listJobs } from '@romd/admin-api-client';
 import type { QueryClient } from '@tanstack/react-query';
 
 export const ACTIVE_JOB_LIMIT = 50;
@@ -30,13 +30,13 @@ export const jobKeys = {
 
 interface ActiveRead {
   signal: AbortSignal;
-  snapshots: Map<string, JobDto>;
+  snapshots: Map<string, Job>;
 }
 // Entries exist only for the exact in-flight read, and cannot retain a QueryClient.
 const activeReads = new WeakMap<QueryClient, ActiveRead>();
 
-function newestActiveJobs(rows: Iterable<JobDto>, snapshots: Iterable<JobDto> = []): JobDto[] {
-  const jobs = new Map<string, JobDto>();
+function newestActiveJobs(rows: Iterable<Job>, snapshots: Iterable<Job> = []): Job[] {
+  const jobs = new Map<string, Job>();
   for (const job of rows) if (!job.isArchived) jobs.set(job.id, job);
   for (const job of snapshots) {
     if (job.isArchived) jobs.delete(job.id);
@@ -56,10 +56,7 @@ function newestActiveJobs(rows: Iterable<JobDto>, snapshots: Iterable<JobDto> = 
 }
 
 /** Reads the newest complete active page while reconciling snapshots observed during this read only. */
-export async function readActiveJobPage(
-  cache: QueryClient,
-  signal: AbortSignal,
-): Promise<JobDto[]> {
+export async function readActiveJobPage(cache: QueryClient, signal: AbortSignal): Promise<Job[]> {
   const read: ActiveRead = {
     signal,
     snapshots: new Map(),
@@ -81,7 +78,7 @@ export async function readActiveJobPage(
   signal.addEventListener('abort', markAborted, {
     once: true,
   });
-  let candidates: JobDto[] = [];
+  let candidates: Job[] = [];
   let cursor: string | undefined;
   const seen = new Set<string>();
   try {
@@ -119,8 +116,8 @@ export async function readActiveJobPage(
 }
 
 /** Applies a newer snapshot without starving an in-flight canonical page or allowing an older read to replace it. */
-export function storeJobSnapshot(cache: QueryClient, job: JobDto): void {
-  const state = cache.getQueryState<JobDto[]>(jobKeys.list());
+export function storeJobSnapshot(cache: QueryClient, job: Job): void {
+  const state = cache.getQueryState<Job[]>(jobKeys.list());
   const wasVisible = state?.data?.some((current) => current.id === job.id) ?? false;
   const read = activeReads.get(cache);
   const overflow =
@@ -138,7 +135,7 @@ export function storeJobSnapshot(cache: QueryClient, job: JobDto): void {
     exact: true,
   });
   cache.setQueryData(jobKeys.detail(job.id), job);
-  cache.setQueryData<JobDto[]>(jobKeys.list(), (old) =>
+  cache.setQueryData<Job[]>(jobKeys.list(), (old) =>
     newestActiveJobs(old ?? [], [
       job,
     ]),

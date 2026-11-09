@@ -1,12 +1,12 @@
 import { MantineProvider } from '@mantine/core';
-import type { ConsumerTitleCardDto } from '@romd/consumer-api-client';
+import type { ConsumerTitleCard } from '@romd/consumer-api-client';
 import { referenceCatalog } from '@romd/consumer-ui/testing';
 import { render as baseRender, fireEvent, screen } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import { SpotlightMetadata } from './SpotlightMetadata';
 
-const title: ConsumerTitleCardDto = {
+const title: ConsumerTitleCard = {
   id: 'game',
   system: {
     key: 'snes',

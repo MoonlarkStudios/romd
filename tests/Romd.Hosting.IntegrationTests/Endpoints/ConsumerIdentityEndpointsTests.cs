@@ -33,6 +33,8 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using ContractCurrentUser = Romd.Contracts.Consumer.Auth.CurrentUser;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 public sealed partial class ConsumerIdentityEndpointsTests
@@ -145,7 +147,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var authenticatedClient = fixture.Factory.CreateClient();
         authenticatedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         var meResponse = await authenticatedClient.GetAsync("/api/me");
-        var meBody = await meResponse.Content.ReadFromJsonAsync<CurrentUserDto>();
+        var meBody = await meResponse.Content.ReadFromJsonAsync<ContractCurrentUser>();
 
         var refreshResponse = await client.PostAsync(
             "/connect/token",
@@ -242,7 +244,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var authenticated = fixture.Factory.CreateClient();
         authenticated.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         var meResponse = await authenticated.GetAsync("/api/me");
-        var meBody = await meResponse.Content.ReadFromJsonAsync<CurrentUserDto>();
+        var meBody = await meResponse.Content.ReadFromJsonAsync<ContractCurrentUser>();
 
         tokenResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         accessToken.ShouldNotBeNullOrWhiteSpace();
@@ -378,17 +380,17 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(user.Id, "player@localhost");
 
         var readDefaultResponse = await client.GetAsync("/api/me/settings");
-        var defaultSettings = await readDefaultResponse.Content.ReadFromJsonAsync<ConsumerUserSettingsDto>();
-        var preference = new ConsumerReleasePreferenceDto(
+        var defaultSettings = await readDefaultResponse.Content.ReadFromJsonAsync<ConsumerUserSettings>();
+        var preference = new ConsumerReleasePreference(
             ["japan", "europe"],
             ["en"],
             "newestFirst");
         var updateResponse = await client.PatchAsJsonAsync(
             "/api/me/settings",
             new UpdateConsumerUserSettingsRequest("dark", preference));
-        var updatedSettings = await updateResponse.Content.ReadFromJsonAsync<ConsumerUserSettingsDto>();
+        var updatedSettings = await updateResponse.Content.ReadFromJsonAsync<ConsumerUserSettings>();
         var readUpdatedResponse = await client.GetAsync("/api/me/settings");
-        var readUpdatedSettings = await readUpdatedResponse.Content.ReadFromJsonAsync<ConsumerUserSettingsDto>();
+        var readUpdatedSettings = await readUpdatedResponse.Content.ReadFromJsonAsync<ConsumerUserSettings>();
 
         readDefaultResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         defaultSettings.ShouldNotBeNull();
@@ -420,7 +422,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
 
         using var response = await client.PatchAsJsonAsync(
             "/api/me/settings",
-            new UpdateConsumerUserSettingsRequest("dark", new ConsumerReleasePreferenceDto(
+            new UpdateConsumerUserSettingsRequest("dark", new ConsumerReleasePreference(
                 ["europe", UnregisteredRegionKey, "nowhere"],
                 ["klingon"],
                 "none")));
@@ -431,7 +433,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
             .ShouldBe(["Entry 1 is not a registered region key.", "Entry 2 is not a registered region key."]);
         errors.GetProperty("releasePreference.preferredLanguageKeys").EnumerateArray().Select(x => x.GetString())
             .ShouldBe(["Entry 0 is not a registered language key."]);
-        var settings = await client.GetFromJsonAsync<ConsumerUserSettingsDto>("/api/me/settings");
+        var settings = await client.GetFromJsonAsync<ConsumerUserSettings>("/api/me/settings");
         settings!.Theme.ShouldBe("system");
     }
 
@@ -500,14 +502,14 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(user.Id, "player@localhost");
 
         using var response = await client.PatchAsJsonAsync("/api/me/settings", new UpdateConsumerUserSettingsRequest(
-            "dark", new ConsumerReleasePreferenceDto(["europe", "japan", "europe"], ["en"], "none")));
+            "dark", new ConsumerReleasePreference(["europe", "japan", "europe"], ["en"], "none")));
 
         using var body = await ProblemEnvelope.ReadAsync(response, 400, "Consumer.InvalidSettings");
         var errors = body.RootElement.GetProperty("errors");
         errors.EnumerateObject().Select(entry => entry.Name).ShouldBe(["releasePreference.preferredRegionKeys"]);
         errors.GetProperty("releasePreference.preferredRegionKeys").EnumerateArray().Select(x => x.GetString())
             .ShouldBe(["Entry 2 repeats an earlier key."]);
-        (await client.GetFromJsonAsync<ConsumerUserSettingsDto>("/api/me/settings"))!.Theme.ShouldBe("system");
+        (await client.GetFromJsonAsync<ConsumerUserSettings>("/api/me/settings"))!.Theme.ShouldBe("system");
     }
 
     [Fact]
@@ -516,15 +518,15 @@ public sealed partial class ConsumerIdentityEndpointsTests
         await using var fixture = await ConsumerHostFixture.CreateAsync();
         var user = await fixture.CreateConsumerUserAsync("player", "player@localhost", "Password123");
         using var client = fixture.CreateAuthenticatedClient(user.Id, "player@localhost");
-        string[] regions = Enumerable.Range(0, ConsumerReleasePreferenceDto.MaximumPreferredKeys + 1).Select(index => $"r{index}").ToArray();
+        string[] regions = Enumerable.Range(0, ConsumerReleasePreference.MaximumPreferredKeys + 1).Select(index => $"r{index}").ToArray();
 
         using var response = await client.PatchAsJsonAsync("/api/me/settings", new UpdateConsumerUserSettingsRequest(
-            "dark", new ConsumerReleasePreferenceDto(regions, ["bogus"], "none")));
+            "dark", new ConsumerReleasePreference(regions, ["bogus"], "none")));
 
         using var body = await ProblemEnvelope.ReadAsync(response, 400, "Consumer.InvalidSettings");
         var errors = body.RootElement.GetProperty("errors");
         errors.GetProperty("releasePreference.preferredRegionKeys").EnumerateArray().Select(x => x.GetString())
-            .ShouldBe([$"Send at most {ConsumerReleasePreferenceDto.MaximumPreferredKeys} keys."]);
+            .ShouldBe([$"Send at most {ConsumerReleasePreference.MaximumPreferredKeys} keys."]);
         errors.GetProperty("releasePreference.preferredLanguageKeys").EnumerateArray().Select(x => x.GetString())
             .ShouldBe(["Entry 0 is not a registered language key."]);
     }
@@ -550,11 +552,11 @@ public sealed partial class ConsumerIdentityEndpointsTests
         var user = await fixture.CreateConsumerUserAsync("player", "player@localhost", "Password123");
         using var client = fixture.CreateAuthenticatedClient(user.Id, "player@localhost");
         (await client.PatchAsJsonAsync("/api/me/settings", new UpdateConsumerUserSettingsRequest(
-            "dark", new ConsumerReleasePreferenceDto(["japan", "europe"], [], "none")))).EnsureSuccessStatusCode();
+            "dark", new ConsumerReleasePreference(["japan", "europe"], [], "none")))).EnsureSuccessStatusCode();
 
         await fixture.DeleteRegionAsync(regions["japan"]);
 
-        var settings = await client.GetFromJsonAsync<ConsumerUserSettingsDto>("/api/me/settings");
+        var settings = await client.GetFromJsonAsync<ConsumerUserSettings>("/api/me/settings");
         settings!.ReleasePreference.PreferredRegionKeys.ShouldBe(["europe"]);
     }
 
@@ -585,7 +587,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(userId, "player@localhost");
 
         var response = await client.GetAsync("/api/me");
-        var body = await response.Content.ReadFromJsonAsync<CurrentUserDto>();
+        var body = await response.Content.ReadFromJsonAsync<ContractCurrentUser>();
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -602,7 +604,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", libraryId);
 
         var response = await client.GetAsync("/api/me/library");
-        var body = await response.Content.ReadFromJsonAsync<LibraryContextDto>();
+        var body = await response.Content.ReadFromJsonAsync<LibraryContext>();
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();

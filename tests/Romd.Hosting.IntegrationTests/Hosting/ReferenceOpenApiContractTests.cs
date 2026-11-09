@@ -28,15 +28,15 @@ public sealed class ReferenceOpenApiContractTests
                 methods.ShouldBe(["get"], path.Name);
         }
         var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
-        var patch = schemas.GetProperty("SystemPatchDto");
+        var patch = schemas.GetProperty("SystemPatch");
         var keys = patch.GetProperty("properties").GetProperty("manufacturerKeys");
         keys.GetProperty("type").GetString().ShouldBe("array");
         keys.GetProperty("items").GetProperty("type").GetString().ShouldBe("string");
         patch.TryGetProperty("required", out var required).ShouldBeFalse();
-        var systemKey = schemas.GetProperty("SystemResourceDto").GetProperty("properties").GetProperty("key");
+        var systemKey = schemas.GetProperty("SystemResource").GetProperty("properties").GetProperty("key");
         systemKey.GetProperty("type").GetString().ShouldBe("string");
         systemKey.TryGetProperty("enum", out _).ShouldBeFalse();
-        var company = schemas.GetProperty("CompanyResourceDto").GetProperty("properties");
+        var company = schemas.GetProperty("CompanyResource").GetProperty("properties");
         company.TryGetProperty("compactLabel", out _).ShouldBeFalse();
         company.TryGetProperty("minimumAge", out _).ShouldBeFalse();
     }
@@ -75,13 +75,13 @@ public sealed class ReferenceOpenApiContractTests
             responses.TryGetProperty("304", out _).ShouldBeFalse();
         }
         var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
-        foreach (var name in new[] { "SystemResourceDto", "CompanyResourceDto" })
+        foreach (var name in new[] { "SystemResource", "CompanyResource" })
             schemas.GetProperty(name).GetProperty("required").EnumerateArray().Select(x => x.GetString()).ShouldContain("revision");
-        schemas.GetProperty("ReferenceCatalogDescriptorDto").GetProperty("properties").TryGetProperty("systems", out _).ShouldBeFalse();
-        schemas.GetProperty("ReferenceCatalogCountsDto").GetProperty("properties").EnumerateObject().Count().ShouldBe(6);
-        schemas.GetProperty("SystemResourceDto").GetProperty("properties").GetProperty("manufacturers").GetProperty("maxItems").GetInt32().ShouldBe(16);
+        schemas.GetProperty("ReferenceCatalogDescriptor").GetProperty("properties").TryGetProperty("systems", out _).ShouldBeFalse();
+        schemas.GetProperty("ReferenceCatalogCounts").GetProperty("properties").EnumerateObject().Count().ShouldBe(6);
+        schemas.GetProperty("SystemResource").GetProperty("properties").GetProperty("manufacturers").GetProperty("maxItems").GetInt32().ShouldBe(16);
         if (host == "admin")
-            schemas.GetProperty("ManagedSystemDto").GetProperty("properties").TryGetProperty("aliases", out _).ShouldBeFalse();
+            schemas.GetProperty("ManagedSystem").GetProperty("properties").TryGetProperty("aliases", out _).ShouldBeFalse();
     }
 
 }

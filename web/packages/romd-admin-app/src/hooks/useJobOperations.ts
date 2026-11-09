@@ -1,5 +1,5 @@
 import { notifications } from '@mantine/notifications';
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { canPerformJobAction, type JobAction } from '../components/Jobs/jobActionEligibility';
@@ -22,7 +22,7 @@ export function useJobOperations() {
     archiveMutation.isPending ||
     retryMutation.isPending;
 
-  const handleCancel = async (job: JobDto) => {
+  const handleCancel = async (job: Job) => {
     try {
       await cancelMutation.mutateAsync(job.id);
       const media = job.jobType === 'media-reconciliation';
@@ -42,7 +42,7 @@ export function useJobOperations() {
     }
   };
 
-  const handleArchive = async (job: JobDto) => {
+  const handleArchive = async (job: Job) => {
     try {
       await archiveMutation.mutateAsync(job.id);
       notifications.show({
@@ -59,7 +59,7 @@ export function useJobOperations() {
     }
   };
 
-  const handleRetry = async (job: JobDto) => {
+  const handleRetry = async (job: Job) => {
     setRetryingId(job.id);
     try {
       const result = await retryMutation.mutateAsync(job);
@@ -93,7 +93,7 @@ export function useJobOperations() {
     }
   };
 
-  const runBatch = async (jobs: JobDto[], action: JobAction, isManager: boolean) => {
+  const runBatch = async (jobs: Job[], action: JobAction, isManager: boolean) => {
     if (batchLock.current) return null;
     batchLock.current = true;
     setBatchPending(true);
@@ -101,7 +101,7 @@ export function useJobOperations() {
       action,
       succeeded: 0,
       skipped: 0,
-      failed: [] as JobDto[],
+      failed: [] as Job[],
     };
     try {
       // A bounded page, processed sequentially, avoids flooding worker dispatch.

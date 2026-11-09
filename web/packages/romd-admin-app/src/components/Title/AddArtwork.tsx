@@ -15,8 +15,8 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import {
-  type ArtworkCandidateDto,
-  type ArtworkProviderDto,
+  type ArtworkCandidate,
+  type ArtworkProvider,
   importGalleryArtwork,
   listTitleArtworkCandidates,
   type MediaType,
@@ -47,12 +47,12 @@ function ProviderImages({
   onBusyChange,
 }: {
   titleId: string;
-  provider: ArtworkProviderDto;
+  provider: ArtworkProvider;
   mediaType: MediaType;
   onBusyChange: (busy: boolean) => void;
 }) {
   const cache = useQueryClient();
-  const [selected, setSelected] = useState<ArtworkCandidateDto[]>([]);
+  const [selected, setSelected] = useState<ArtworkCandidate[]>([]);
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [failures, setFailures] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -60,7 +60,7 @@ function ProviderImages({
     completed: 0,
     total: 0,
   });
-  const [preview, setPreview] = useState<ArtworkCandidateDto | null>(null);
+  const [preview, setPreview] = useState<ArtworkCandidate | null>(null);
   const [visible, setVisible] = useState(12);
   const [dimension, setDimension] = useState('');
   const [style, setStyle] = useState('');
@@ -118,7 +118,7 @@ function ProviderImages({
     ).values(),
   );
   const shown = items.slice(0, visible);
-  const select = (candidate: ArtworkCandidateDto) =>
+  const select = (candidate: ArtworkCandidate) =>
     setSelected((previous) =>
       previous.some((item) => item.providerAssetId === candidate.providerAssetId)
         ? previous.filter((item) => item.providerAssetId !== candidate.providerAssetId)

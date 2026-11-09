@@ -11,12 +11,12 @@ public sealed record TitleEnrichmentStateResponse
     public required string EnrichmentStatus { get; init; }
     public Dictionary<string, string>? FieldProvenance { get; init; }
     public Dictionary<string, string>? FieldSourceOverrides { get; init; }
-    public required List<MetadataLayerDto> Layers { get; init; }
-    public required List<ExternalIdDto> ExternalIds { get; init; }
+    public required List<MetadataLayer> Layers { get; init; }
+    public required List<ProviderExternalId> ExternalIds { get; init; }
     public DateTimeOffset? LastEnrichedAt { get; init; }
 }
 
-public sealed record MetadataLayerDto
+public sealed record MetadataLayer
 {
     public required string SourceId { get; init; }
     public required string SourceType { get; init; }
@@ -30,7 +30,7 @@ public sealed record MetadataLayerDto
     public DateTimeOffset UpdatedAt { get; init; }
 }
 
-public sealed record ExternalIdDto
+public sealed record ProviderExternalId
 {
     public required string Provider { get; init; }
     public required string ExternalId { get; init; }

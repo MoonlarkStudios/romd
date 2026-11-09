@@ -46,10 +46,10 @@ public sealed class UserEndpointsTests
     [Fact]
     public async Task GetDirectory_DelegatesAllFiltersAndContinuationAndPreservesPage()
     {
-        var handler = Substitute.For<IQueryHandler<GetUserDirectoryQuery, Page<UserDto>>>();
-        var page = new Page<UserDto>
+        var handler = Substitute.For<IQueryHandler<GetUserDirectoryQuery, Page<User>>>();
+        var page = new Page<User>
         {
-            Items = [new UserDto(User.Id, User.Email, User.Roles, IdCoder.Encode(7), User.CreatedAt, User.UpdatedAt)],
+            Items = [new User(User.Id, User.Email, User.Roles, IdCoder.Encode(7), User.CreatedAt, User.UpdatedAt)],
             NextCursor = "opaque-next",
             HasNextPage = true
         };
@@ -59,7 +59,7 @@ public sealed class UserEndpointsTests
         var result = await InvokeAsync("GetDirectory", "curator", "Admin", "Active", IdCoder.Encode(7),
             "opaque-before", handler, CancellationToken.None, 1);
 
-        result.ShouldBeOfType<Ok<Page<UserDto>>>().Value.ShouldBeSameAs(page);
+        result.ShouldBeOfType<Ok<Page<User>>>().Value.ShouldBeSameAs(page);
         await handler.Received(1).HandleAsync(Arg.Is<GetUserDirectoryQuery>(query =>
             query.Search == "curator" && query.Role == "Admin" && query.Status == "Active" &&
             query.LibraryId == IdCoder.Encode(7) && query.Cursor == "opaque-before" && query.Limit == 1),
@@ -79,7 +79,7 @@ public sealed class UserEndpointsTests
             handler,
             CancellationToken.None);
 
-        var created = result.ShouldBeOfType<Created<UserDto>>();
+        var created = result.ShouldBeOfType<Created<User>>();
         created.Location.ShouldBe($"/api/users/{User.Id}");
         created.Value.ShouldNotBeNull();
         created.Value.LibraryId.ShouldBe(IdCoder.Encode(7));
@@ -291,7 +291,7 @@ public sealed class UserEndpointsTests
     public void EndpointDelegates_HaveOnlyTransportValuesMatchingHandlerAndCancellationToken()
     {
         AssertParameters("GetDirectory", typeof(string), typeof(string), typeof(string), typeof(string), typeof(string),
-            typeof(IQueryHandler<GetUserDirectoryQuery, Page<UserDto>>), typeof(CancellationToken), typeof(int));
+            typeof(IQueryHandler<GetUserDirectoryQuery, Page<User>>), typeof(CancellationToken), typeof(int));
         AssertParameters("GetById", typeof(Guid), typeof(IQueryHandler<GetUserByIdQuery, ManagedUser>), typeof(CancellationToken));
         AssertParameters("Create", typeof(CreateUserRequest), typeof(ICommandHandler<CreateUserCommand, ManagedUser>), typeof(CancellationToken));
         AssertParameters("Update", typeof(Guid), typeof(UpdateUserRequest), typeof(ICommandHandler<UpdateUserCommand, ManagedUser>), typeof(CancellationToken));
@@ -346,12 +346,12 @@ public sealed class UserEndpointsTests
 
     private static void RegisterRouteDependencies(IServiceCollection services)
     {
-        services.AddScoped(_ => Substitute.For<IQueryHandler<GetUserDirectoryQuery, Page<UserDto>>>());
-        services.AddScoped(_ => Substitute.For<IQueryHandler<GetAccountSessionsQuery, Page<AccountSessionDto>>>());
+        services.AddScoped(_ => Substitute.For<IQueryHandler<GetUserDirectoryQuery, Page<User>>>());
+        services.AddScoped(_ => Substitute.For<IQueryHandler<GetAccountSessionsQuery, Page<AccountSession>>>());
         services.AddScoped(_ => Substitute.For<IAccountLifecycle>());
-        services.AddScoped(_ => Substitute.For<IQueryHandler<GetAccountSecurityQuery, AccountSecurityDto>>());
-        services.AddScoped(_ => Substitute.For<IQueryHandler<GetAdminAuditQuery, Page<AdminAuditEventDto>>>());
-        services.AddScoped(_ => Substitute.For<ICommandHandler<IssueAccountLinkCommand, IssuedAccountLinkDto>>());
+        services.AddScoped(_ => Substitute.For<IQueryHandler<GetAccountSecurityQuery, AccountSecurity>>());
+        services.AddScoped(_ => Substitute.For<IQueryHandler<GetAdminAuditQuery, Page<AdminAuditEvent>>>());
+        services.AddScoped(_ => Substitute.For<ICommandHandler<IssueAccountLinkCommand, IssuedAccountLink>>());
         services.AddScoped(_ => Substitute.For<ICommandHandler<RedeemAccountLinkCommand, Success>>());
         services.AddScoped(_ => Substitute.For<ICommandHandler<RevokeAccountLinkCommand, Success>>());
         services.AddScoped(_ => Substitute.For<ICommandHandler<RevokeAccountSessionsCommand, Success>>());

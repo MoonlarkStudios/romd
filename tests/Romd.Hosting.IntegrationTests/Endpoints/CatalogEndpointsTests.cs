@@ -482,12 +482,12 @@ public class CatalogEndpointsTests : IDisposable
         try
         {
             // Provider configuration is environmental; the bare title's missing description decides the metadata flag.
-            var detail = await _client.GetFromJsonAsync<EnrichmentAssessmentDto>($"/api/titles/{bare}/enrichment-assessment", WorkbenchJson);
+            var detail = await _client.GetFromJsonAsync<EnrichmentAssessment>($"/api/titles/{bare}/enrichment-assessment", WorkbenchJson);
             var metadataFlag = detail.ShouldNotBeNull().Requirements.Single(x => x.Key == "Metadata:Description").State.ToString();
             var unfiltered = await SearchEnrichmentAsync($"query={token}");
             unfiltered.Keys.Order().ShouldBe(new[] { settled, processing, importing, bare }.Order());
-            unfiltered[settled].ShouldBe(new EnrichmentSummaryDto(false, false, false, false));
-            unfiltered[processing].ShouldBe(new EnrichmentSummaryDto(false, false, true, false));
+            unfiltered[settled].ShouldBe(new EnrichmentSummary(false, false, false, false));
+            unfiltered[processing].ShouldBe(new EnrichmentSummary(false, false, true, false));
             unfiltered[importing].HasActiveWork.ShouldBeTrue();
             Carries(unfiltered[importing], metadataFlag).ShouldBeTrue(metadataFlag);
             unfiltered[bare].HasActiveWork.ShouldBeFalse();
@@ -509,7 +509,7 @@ public class CatalogEndpointsTests : IDisposable
                 using var preview = await _client.PostAsJsonAsync("/api/artwork/completion/preview", new ArtworkCompletionRequest(Guid.NewGuid(),
                     Scope: "Filtered", Filters: new(Query: token, Enrichment: flags), Mode: "Enrich"));
                 preview.StatusCode.ShouldBe(HttpStatusCode.OK, await preview.Content.ReadAsStringAsync());
-                (await preview.Content.ReadFromJsonAsync<ArtworkCompletionPreviewDto>())!.Titles.ShouldBe(expected, string.Join("+", flags));
+                (await preview.Content.ReadFromJsonAsync<ArtworkCompletionPreview>())!.Titles.ShouldBe(expected, string.Join("+", flags));
             }
         }
         finally
@@ -583,7 +583,7 @@ public class CatalogEndpointsTests : IDisposable
         Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
     };
 
-    private static bool Carries(EnrichmentSummaryDto summary, string flag) => flag switch
+    private static bool Carries(EnrichmentSummary summary, string flag) => flag switch
     {
         "NeedsReview" => summary.NeedsReview,
         "Blocked" => summary.HasOperationalBlocker,
@@ -591,12 +591,12 @@ public class CatalogEndpointsTests : IDisposable
         _ => throw new ArgumentOutOfRangeException(nameof(flag), flag, "The bare title's description must be open.")
     };
 
-    private async Task<Dictionary<string, EnrichmentSummaryDto>> SearchEnrichmentAsync(string query)
+    private async Task<Dictionary<string, EnrichmentSummary>> SearchEnrichmentAsync(string query)
     {
         var items = await TestHelpers.ReadAllPageItemsAsync<JsonElement>(_client, $"/api/catalog?{query}");
         return items.ToDictionary(
             item => item.GetProperty("id").GetString()!,
-            item => item.GetProperty("enrichmentAssessment").Deserialize<EnrichmentSummaryDto>(WorkbenchJson)!);
+            item => item.GetProperty("enrichmentAssessment").Deserialize<EnrichmentSummary>(WorkbenchJson)!);
     }
 
     private async Task<(string Settled, string Processing, string Importing, string Bare, Guid[] Imports)> SeedEnrichmentTitlesAsync(string token)

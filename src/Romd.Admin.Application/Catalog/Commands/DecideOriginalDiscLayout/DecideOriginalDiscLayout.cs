@@ -7,17 +7,19 @@ using Romd.Application.Common.Cqrs;
 using Romd.Contracts.Management.Models;
 using Romd.Domain.Source.Rom;
 
+using MediaReconciliationSubject = Romd.Domain.Source.Rom.MediaReconciliationSubject;
+
 namespace Romd.Admin.Application.Catalog.Commands.DecideOriginalDiscLayout;
 
-public sealed record DecideOriginalDiscLayoutCommand(int Id, OriginalDiscLayoutDecisionRequest Request, RevisionPrecondition Precondition, Guid Actor) : ICommand<OriginalDiscLayoutDto>;
+public sealed record DecideOriginalDiscLayoutCommand(int Id, OriginalDiscLayoutDecisionRequest Request, RevisionPrecondition Precondition, Guid Actor) : ICommand<OriginalDiscLayout>;
 
 public sealed class DecideOriginalDiscLayoutCommandHandler(IOriginalDiscLayoutService service, IUnitOfWork unitOfWork, IMediaReconciliationRequests requests,
     ILogger<DecideOriginalDiscLayoutCommandHandler> logger)
-    : ICommandHandler<DecideOriginalDiscLayoutCommand, OriginalDiscLayoutDto>
+    : ICommandHandler<DecideOriginalDiscLayoutCommand, OriginalDiscLayout>
 {
-    public async Task<ErrorOr<OriginalDiscLayoutDto>> HandleAsync(DecideOriginalDiscLayoutCommand command, CancellationToken ct = default)
+    public async Task<ErrorOr<OriginalDiscLayout>> HandleAsync(DecideOriginalDiscLayoutCommand command, CancellationToken ct = default)
     {
-        return await unitOfWork.ExecuteInTransactionAsync<OriginalDiscLayoutDto>(async token =>
+        return await unitOfWork.ExecuteInTransactionAsync<OriginalDiscLayout>(async token =>
         {
             var staged = await service.DecideStagedAsync(command.Id, command.Request, command.Precondition, command.Actor, token);
             if (staged.IsError)

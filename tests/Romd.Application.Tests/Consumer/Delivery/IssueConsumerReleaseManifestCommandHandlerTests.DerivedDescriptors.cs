@@ -9,6 +9,8 @@ using Romd.Application.Tests.Content;
 using Shouldly;
 using Xunit;
 
+using ConsumerReleaseManifest = Romd.Consumer.Application.Delivery.ConsumerReleaseManifest;
+
 namespace Romd.Application.Tests.Consumer.Delivery;
 
 public sealed partial class IssueConsumerReleaseManifestCommandHandlerTests

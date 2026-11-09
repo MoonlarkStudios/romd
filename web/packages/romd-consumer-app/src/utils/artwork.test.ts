@@ -1,8 +1,8 @@
-import type { ResolvedArtworkDto } from '@romd/consumer-api-client';
+import type { ResolvedArtwork } from '@romd/consumer-api-client';
 import { describe, expect, it } from 'vitest';
 import { artworkDeliveryUrl, selectArtwork } from './artwork';
 
-const poster: ResolvedArtworkDto = {
+const poster: ResolvedArtwork = {
   role: 'Poster',
   assetId: 'asset',
   contentVersion: 'large-v1',

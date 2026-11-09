@@ -526,7 +526,7 @@ outcome fails closed and retains unfinished work for redelivery. These type boun
 do not replace execution fences, journal recovery, custody checks or durable
 cancellation intent.
 
-`GET /api/jobs` returns `Page<JobDto>` ordered by creation time and GUID descending.
+`GET /api/jobs` returns `Page<Job>` ordered by creation time and GUID descending.
 Its `query`, `jobType`, `outcome`, `archive`, `correlationId`, `from`, and `before`
 filters share one collection; `archive` defaults to active. Page limits range
 from 1 to 100. Cursors bind the endpoint, sort, normalized filters and effective

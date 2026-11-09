@@ -1,12 +1,12 @@
 import { Button, CopyButton, Modal, Stack, Text, TextInput } from '@mantine/core';
-import type { VfsConnectionCredentialDto } from '@romd/consumer-api-client';
+import type { VfsConnectionCredential } from '@romd/consumer-api-client';
 
 // Presentation only. The page owns the one-time secret and clears it when this closes.
 export function ConnectionCredentialDialog({
   credential,
   onClose,
 }: {
-  credential: VfsConnectionCredentialDto | null;
+  credential: VfsConnectionCredential | null;
   onClose: () => void;
 }) {
   function download() {

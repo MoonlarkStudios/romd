@@ -14,7 +14,7 @@ import {
   Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type { LibraryConfigurationDto, LibraryDto, RatingBoard } from '@romd/admin-api-client';
+import type { Library, LibraryConfiguration, RatingBoard } from '@romd/admin-api-client';
 import { useEffect, useState } from 'react';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useDats } from '../../hooks/api/useDats';
@@ -36,9 +36,9 @@ export function LibraryRules({
   onDirtyChange,
   onConfigurationChange,
 }: {
-  library: LibraryDto;
+  library: Library;
   onDirtyChange?: (dirty: boolean) => void;
-  onConfigurationChange?: (configuration: LibraryConfigurationDto) => void;
+  onConfigurationChange?: (configuration: LibraryConfiguration) => void;
   section: 'games' | 'settings';
 }) {
   const [form, setForm] = useState(() => toFormState(library));

@@ -12,7 +12,7 @@ namespace Romd.Persistence.Queries;
 
 public sealed class UserDirectoryReader(RomdDbContext db) : IUserDirectoryReader
 {
-    public async Task<ErrorOr<Page<UserDto>>> ReadAsync(GetUserDirectoryQuery input, CancellationToken ct)
+    public async Task<ErrorOr<Page<User>>> ReadAsync(GetUserDirectoryQuery input, CancellationToken ct)
     {
         List<Error> errors = [];
         if (input.Limit is < 1 or > 100)
@@ -59,9 +59,9 @@ public sealed class UserDirectoryReader(RomdDbContext db) : IUserDirectoryReader
         var page = users.Take(input.Limit).ToArray();
         var ids = page.Select(user => user.Id).ToArray();
         var memberships = await (from membership in db.UserRoles join role in db.Roles on membership.RoleId equals role.Id where ids.Contains(membership.UserId) select new { membership.UserId, role.Name }).ToListAsync(ct);
-        return new Page<UserDto>
+        return new Page<User>
         {
-            Items = page.Select(user => new UserDto(user.Id, user.Email ?? "", memberships.Where(role => role.UserId == user.Id).Select(role => role.Name!).Order().ToArray(), user.LibraryId.HasValue ? IdCoder.Encode(user.LibraryId.Value) : null, user.CreatedAt, user.UpdatedAt, user.IsSuspended, user.RequiresActivation, user.LastSignedInAt)).ToArray(),
+            Items = page.Select(user => new User(user.Id, user.Email ?? "", memberships.Where(role => role.UserId == user.Id).Select(role => role.Name!).Order().ToArray(), user.LibraryId.HasValue ? IdCoder.Encode(user.LibraryId.Value) : null, user.CreatedAt, user.UpdatedAt, user.IsSuspended, user.RequiresActivation, user.LastSignedInAt)).ToArray(),
             HasNextPage = users.Count > input.Limit,
             NextCursor = users.Count > input.Limit ? KeysetCursor.Encode(new DirectoryPosition(page[^1].NormalizedEmail ?? "", page[^1].Id), fingerprint) : null
         };

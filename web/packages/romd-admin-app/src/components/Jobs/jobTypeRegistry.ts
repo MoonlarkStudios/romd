@@ -1,4 +1,4 @@
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import {
   IconDownload,
   IconRefresh,
@@ -25,7 +25,7 @@ interface JobTypeConfig {
   icon: typeof IconUpload;
   color: string;
   label: string;
-  invalidates: (job: JobDto) => QueryKey[];
+  invalidates: (job: Job) => QueryKey[];
 }
 
 const registry: Record<string, JobTypeConfig> = {
@@ -166,7 +166,7 @@ const fallback: JobTypeConfig = {
   invalidates: () => [],
 };
 
-export function isJobType(value: string): value is NonNullable<JobDto['jobType']> {
+export function isJobType(value: string): value is NonNullable<Job['jobType']> {
   return Object.hasOwn(registry, value);
 }
 
@@ -252,7 +252,7 @@ export function isJobOutcome(value: string): value is JobOutcome {
   return Object.hasOwn(jobOutcomes, value);
 }
 
-export function getJobOutcome(job: JobDto): JobOutcome {
+export function getJobOutcome(job: Job): JobOutcome {
   if (!job.isTerminal && job.nextAttemptAt && job.jobType === 'media-reconciliation')
     return 'deferred';
   if (!job.isTerminal) return job.phase === 'Pending' ? 'queued' : 'running';
@@ -292,7 +292,7 @@ function jobSubject(sourceFilename: string | undefined, legacyLabel: string): st
  * has no name subject, so it derives scope from its file count; bulk convergence
  * takes its scope from `systemKey`, which is absent for all-media runs.
  */
-export function getJobTitle(job: JobDto): string {
+export function getJobTitle(job: Job): string {
   switch (job.jobType) {
     case 'media-reconciliation':
       return job.selection
@@ -356,7 +356,7 @@ export function mediaReconciliationOutcome(outcome: string): string {
   );
 }
 
-export function mediaReconciliationSummary(job: JobDto): string | null {
+export function mediaReconciliationSummary(job: Job): string | null {
   if (job.jobType !== 'media-reconciliation') return null;
   if (job.selection) {
     const selected = job.selection;

@@ -39,12 +39,12 @@ public static class RegionReferenceEndpoints
         group.MapGet("", async ([FromServices] IRegionReferenceReader reader, CancellationToken ct) => Results.Ok(await reader.ListAsync(ct)))
             .WithName("ListRegions")
             .WithDescription("Registered regions only; bounded by the built-in reference catalog.")
-            .Produces<IReadOnlyList<RegionResourceDto>>();
+            .Produces<IReadOnlyList<RegionResource>>();
         group.MapGet("{regionKey}", async (string regionKey, [FromServices] IRegionReferenceReader reader, HttpContext context, CancellationToken ct) =>
             await reader.GetAsync(regionKey, ct) is { } found
                 ? Preconditions.ConditionalRead(context, found.Resource, found.Revision)
                 : ReferenceCatalogEndpoints.UnknownReference())
-            .WithName("GetRegion").Produces<RegionResourceDto>().ConditionalRead().ProducesProblems(404);
+            .WithName("GetRegion").Produces<RegionResource>().ConditionalRead().ProducesProblems(404);
     }
 
     private static void MapManagement(RouteGroupBuilder group)
@@ -56,19 +56,19 @@ public static class RegionReferenceEndpoints
                              "and every alias, embedded or not. Limit defaults to " +
                              $"{TaxonomyPageRequest.DefaultLimit} and must be between 1 and {TaxonomyPageRequest.MaxLimit}; a cursor " +
                              "continues only this collection and query.")
-            .Produces<Page<RegionDto>>();
+            .Produces<Page<Region>>();
         group.MapGet("{regionKey}", Get)
             .WithName("GetRegion")
             .WithDescription($"The region with its first {TaxonomyAliasPageRequest.EmbeddedLimit} aliases; its validator versions " +
                              "exactly that representation, not aliases beyond the embedded page.")
-            .Produces<RegionDto>().ConditionalRead().ProducesProblems(404);
+            .Produces<Region>().ConditionalRead().ProducesProblems(404);
         group.MapGet("{regionKey}/aliases", ListAliases)
             .WithName("ListRegionAliases")
             .WithDescription($"The region's aliases in ascending id order. Limit defaults to {TaxonomyAliasPageRequest.DefaultLimit} and " +
                              $"must be between 1 and {TaxonomyAliasPageRequest.MaxLimit}; a cursor, including the one the region embeds, " +
                              "continues only this region's aliases. A merge moves aliases with their ids, so a traversal running across a " +
                              "merge into the region never repeats an alias but may miss one; start again from the first page to see them all.")
-            .Produces<Page<AliasDto>>().ProducesProblems(404);
+            .Produces<Page<AliasResource>>().ProducesProblems(404);
         group.MapPost("{regionKey}/merge", Merge)
             .WithName("MergeRegion")
             .WithDescription("Merge an unregistered region into the target, moving its aliases and game associations, then delete it.")
@@ -78,12 +78,12 @@ public static class RegionReferenceEndpoints
             .WithName("PreviewRegionMerge")
             .WithDescription("What merging the region into the target would move, refused exactly where the merge is refused. Changes nothing.")
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin)
-            .Produces<TaxonomyMergeImpactDto>().ProducesProblems(400, 404, 409);
+            .Produces<TaxonomyMergeImpact>().ProducesProblems(400, 404, 409);
         group.MapPost("{regionKey}/aliases", CreateAlias)
             .WithName("CreateRegionAlias")
             .WithDescription("Add an installation-owned alias that DAT tokens resolve to this region.")
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin)
-            .ProducesCreated<AliasDto>().ProducesProblems(400, 404, 409);
+            .ProducesCreated<AliasResource>().ProducesProblems(400, 404, 409);
         group.MapDelete("{regionKey}/aliases/{aliasId}", DeleteAlias)
             .WithName("DeleteRegionAlias")
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin)
@@ -97,7 +97,7 @@ public static class RegionReferenceEndpoints
     {
         var result = await handler.HandleAsync(new ListRegionsQuery(cursor, limit, query), ct);
         return result.Match(
-            page => Results.Ok(new Page<RegionDto> { Items = page.Items.Select(ToDto).ToList(), NextCursor = page.NextCursor, HasNextPage = page.HasNextPage }),
+            page => Results.Ok(new Page<Region> { Items = page.Items.Select(ToDto).ToList(), NextCursor = page.NextCursor, HasNextPage = page.HasNextPage }),
             errors => errors.ToProblem());
     }
 
@@ -124,7 +124,7 @@ public static class RegionReferenceEndpoints
     }
 
     private static async Task<IResult> PreviewMerge(string regionKey, MergeTaxonomyRequest request,
-        IQueryHandler<PreviewRegionMergeQuery, TaxonomyMergeImpactDto> handler, CancellationToken ct)
+        IQueryHandler<PreviewRegionMergeQuery, TaxonomyMergeImpact> handler, CancellationToken ct)
     {
         var result = await handler.HandleAsync(new PreviewRegionMergeQuery(regionKey, request.TargetKey), ct);
         return result.Match(Results.Ok, errors => errors.ToProblem());
@@ -146,7 +146,7 @@ public static class RegionReferenceEndpoints
         return result.Match(_ => Results.NoContent(), errors => errors.ToProblem());
     }
 
-    private static RegionDto ToDto(TaxonomyEntry entry) => new()
+    private static Region ToDto(TaxonomyEntry entry) => new()
     {
         Key = entry.Key,
         Ownership = entry.Ownership,

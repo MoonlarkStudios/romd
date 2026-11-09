@@ -4,6 +4,9 @@ using Romd.Application.Common.Cqrs;
 using Romd.Contracts.Management.Models;
 using Romd.Domain.Jobs;
 
+using BulkEnrichmentJob = Romd.Domain.Jobs.BulkEnrichmentJob;
+using MetadataRematerializationJob = Romd.Domain.Jobs.MetadataRematerializationJob;
+
 namespace Romd.Admin.Application.Ingestion.Jobs.Commands.RetryFailedItems;
 
 public sealed record RetryFailedItemsCommand(Guid JobId) : ICommand<RetryFailedResult>;

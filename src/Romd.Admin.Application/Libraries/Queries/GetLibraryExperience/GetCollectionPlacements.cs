@@ -5,9 +5,9 @@ using Romd.Contracts.Management.Libraries;
 
 namespace Romd.Admin.Application.Libraries.Queries.GetLibraryExperience;
 
-public sealed record GetCollectionPlacementsQuery(int CollectionId, string? Cursor = null, int Limit = 50) : IQuery<Page<CollectionLibraryPlacementDto>>;
-public sealed class GetCollectionPlacementsQueryHandler(ILibraryExperienceRepository experience) : IQueryHandler<GetCollectionPlacementsQuery, Page<CollectionLibraryPlacementDto>>
+public sealed record GetCollectionPlacementsQuery(int CollectionId, string? Cursor = null, int Limit = 50) : IQuery<Page<CollectionLibraryPlacement>>;
+public sealed class GetCollectionPlacementsQueryHandler(ILibraryExperienceRepository experience) : IQueryHandler<GetCollectionPlacementsQuery, Page<CollectionLibraryPlacement>>
 {
-    public Task<ErrorOr<Page<CollectionLibraryPlacementDto>>> HandleAsync(GetCollectionPlacementsQuery query, CancellationToken ct = default) =>
+    public Task<ErrorOr<Page<CollectionLibraryPlacement>>> HandleAsync(GetCollectionPlacementsQuery query, CancellationToken ct = default) =>
         experience.GetCollectionPlacementsPageAsync(query.CollectionId, query.Cursor, query.Limit, ct);
 }

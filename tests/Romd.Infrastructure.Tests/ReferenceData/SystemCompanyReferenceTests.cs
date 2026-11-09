@@ -11,6 +11,8 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using ContractCompanyOverrides = Romd.Contracts.Common.ReferenceCatalog.CompanyOverrides;
+
 namespace Romd.Infrastructure.Tests.ReferenceData;
 
 public sealed class SystemCompanyReferenceTests
@@ -28,7 +30,7 @@ public sealed class SystemCompanyReferenceTests
         var changed = await commands.UpdateCompany(manufacturer.Key, new(Name: "Local Nintendo"), company.Revision);
         changed.IsError.ShouldBeFalse();
         (await commands.UpdateCompany(manufacturer.Key, new(Name: "Stale"), company.Revision)).FirstError.Code.ShouldBe("ReferenceResource.PreconditionFailed");
-        (await commands.UpdateSystem("snes", new SystemPatchDto { Name = "Stale system" }, system.Revision)).FirstError.Code.ShouldBe("ReferenceResource.PreconditionFailed");
+        (await commands.UpdateSystem("snes", new SystemPatch { Name = "Stale system" }, system.Revision)).FirstError.Code.ShouldBe("ReferenceResource.PreconditionFailed");
         await AssertManufacturer("Local Nintendo");
         var reset = await commands.ResetCompany(manufacturer.Key, CompanyOverrideField.Name, changed.Value.Revision);
         reset.IsError.ShouldBeFalse();
@@ -60,9 +62,9 @@ public sealed class SystemCompanyReferenceTests
         var companyKey = system.Resource.Manufacturers.ShouldHaveSingleItem().Key;
         var company = (await commands.Company(companyKey))!;
         (await commands.UpdateCompany(companyKey, new(Name: "My manufacturer"), company.Revision)).IsError.ShouldBeFalse();
-        (await commands.UpdateSystem("snes", new SystemPatchDto { CompactLabel = "MY SNES" }, system.Revision)).IsError.ShouldBeTrue();
+        (await commands.UpdateSystem("snes", new SystemPatch { CompactLabel = "MY SNES" }, system.Revision)).IsError.ShouldBeTrue();
         system = (await commands.System("snes"))!;
-        (await commands.UpdateSystem("snes", new SystemPatchDto { CompactLabel = "MY SNES" }, system.Revision)).IsError.ShouldBeFalse();
+        (await commands.UpdateSystem("snes", new SystemPatch { CompactLabel = "MY SNES" }, system.Revision)).IsError.ShouldBeFalse();
         var id = (await db.Platforms.SingleAsync(x => x.CanonicalKey == "snes")).Id;
         var next = JsonNode.Parse(BundledReferenceData.Document.GetRawText())!;
         next["catalogVersion"] = next["catalogVersion"]!.GetValue<int>() + 1;
@@ -97,10 +99,10 @@ public sealed class SystemCompanyReferenceTests
         (await db.Platforms.SingleAsync(x => x.Id == id)).IsEnabled.ShouldNotBe(true);
         (await db.PlatformAliases.AnyAsync(x => x.PlatformId == id)).ShouldBeFalse();
         var renamed = (await commands.UpdateCompany("local-maker", new(Name: "Renamed"), company.Revision)).Value;
-        renamed.Overrides.ShouldBe(new CompanyOverridesDto(null, null, false));
+        renamed.Overrides.ShouldBe(new ContractCompanyOverrides(null, null, false));
         (await commands.DeleteCompany("local-maker", renamed.Revision)).FirstError.Code.ShouldBe("ReferenceResource.Conflict");
         system = (await commands.System("local-machine"))!;
-        var detached = await commands.UpdateSystem("local-machine", new SystemPatchDto { ManufacturerKeys = [] }, system.Revision);
+        var detached = await commands.UpdateSystem("local-machine", new SystemPatch { ManufacturerKeys = [] }, system.Revision);
         detached.IsError.ShouldBeFalse();
         detached.Value.Resource.Manufacturers.ShouldBeEmpty();
         (await commands.DeleteCompany("local-maker", renamed.Revision)).IsError.ShouldBeFalse();

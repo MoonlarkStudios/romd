@@ -26,6 +26,14 @@ using Romd.Domain.Libraries;
 using Romd.Host.Authorization;
 using JobReference = Romd.Contracts.Management.Models.JobReference;
 
+using ContractContentRatingPolicy = Romd.Contracts.Management.Libraries.ContentRatingPolicy;
+using ContractLibrary = Romd.Contracts.Management.Libraries.Library;
+using ContractLibraryConfiguration = Romd.Contracts.Management.Libraries.LibraryConfiguration;
+using ContractLibraryTitleReleaseDiagnostics = Romd.Contracts.Management.Libraries.LibraryTitleReleaseDiagnostics;
+
+using ContentRatingPolicy = Romd.Domain.Libraries.ContentRatingPolicy;
+using LibraryConfiguration = Romd.Domain.Libraries.LibraryConfiguration;
+
 namespace Romd.Host.Endpoints;
 
 public static class LibraryEndpoints
@@ -38,28 +46,28 @@ public static class LibraryEndpoints
 
         group.MapGet("", GetAll)
             .WithName("ListLibraries")
-            .Produces<Page<LibraryDto>>().ProducesProblems(400);
+            .Produces<Page<ContractLibrary>>().ProducesProblems(400);
 
         group.MapGet("{libraryId}", GetById)
             .WithName("GetLibrary")
-            .Produces<LibraryDto>()
+            .Produces<ContractLibrary>()
             .ProducesProblems(StatusCodes.Status404NotFound);
 
         group.MapGet("{libraryId}/disc-set-options", async (Sqid libraryId, string? query, string? cursor,
-            [Range(1, 100)] int? limit, IQueryHandler<GetLibraryDiscSetOptionsQuery, LibraryDiscSetOptionsDto> handler, CancellationToken ct) =>
+            [Range(1, 100)] int? limit, IQueryHandler<GetLibraryDiscSetOptionsQuery, LibraryDiscSetOptions> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new(libraryId, cursor, limit ?? 100, query), ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
-        }).WithName("GetLibraryDiscSetOptions").Produces<LibraryDiscSetOptionsDto>().ProducesProblems(400, 404);
+        }).WithName("GetLibraryDiscSetOptions").Produces<LibraryDiscSetOptions>().ProducesProblems(400, 404);
 
         group.MapPost("", Create)
             .WithName("CreateLibrary")
-            .ProducesCreated<LibraryDto>()
+            .ProducesCreated<ContractLibrary>()
             .ProducesProblems(StatusCodes.Status400BadRequest);
 
         group.MapPatch("{libraryId}", Update)
             .WithName("UpdateLibrary")
-            .Produces<LibraryDto>()
+            .Produces<ContractLibrary>()
             .ProducesProblems(StatusCodes.Status404NotFound)
             .ProducesProblems(StatusCodes.Status400BadRequest);
 
@@ -76,32 +84,32 @@ public static class LibraryEndpoints
 
         group.MapGet("{libraryId}/facets/systems", GetPlatformFacets)
             .WithName("ListLibrarySystemFacets")
-            .Produces<IEnumerable<LibraryFacetDto>>().ProducesProblems(404).WithDescription("At most one facet per configured reference system.");
+            .Produces<IEnumerable<LibraryFacet>>().ProducesProblems(404).WithDescription("At most one facet per configured reference system.");
 
         group.MapGet("{libraryId}/facets/genres", GetGenreFacets)
             .WithName("ListLibraryGenreFacets")
-            .Produces<Page<LibraryFacetDto>>().ProducesProblems(400, 404);
+            .Produces<Page<LibraryFacet>>().ProducesProblems(400, 404);
 
         group.MapGet("{libraryId}/collections", GetCollections)
             .WithName("ListLibraryCollections")
-            .Produces<Page<LibraryCollectionDto>>().ProducesProblems(400, 404);
+            .Produces<Page<LibraryCollection>>().ProducesProblems(400, 404);
 
         group.MapGet("{libraryId}/titles/{titleId}/releases", GetTitleReleaseDiagnostics)
             .WithName("ListLibraryTitleReleaseDiagnostics")
-            .Produces<Page<LibraryTitleReleaseDiagnosticsDto>>().ProducesProblems(400)
+            .Produces<Page<ContractLibraryTitleReleaseDiagnostics>>().ProducesProblems(400)
             .ProducesProblems(StatusCodes.Status404NotFound);
 
         group.MapGet("{libraryId}/attachments", GetAttachments)
-            .WithName("ListLibraryAttachments").Produces<IReadOnlyList<LibraryAttachmentDto>>().ProducesProblems(404).WithDescription("At most 500 attachments; the replacement write enforces uniqueness and this bound.");
+            .WithName("ListLibraryAttachments").Produces<IReadOnlyList<LibraryAttachment>>().ProducesProblems(404).WithDescription("At most 500 attachments; the replacement write enforces uniqueness and this bound.");
         group.MapPut("{libraryId}/attachments", SetAttachments)
             .WithName("ReplaceLibraryAttachments").Produces(StatusCodes.Status204NoContent).ProducesProblems(404)
             .ProducesProblems(StatusCodes.Status400BadRequest);
         group.MapGet("{libraryId}/preview", GetPreview)
-            .WithName("ListLibraryPreviewTitles").Produces<Page<LibraryPreviewTitleDto>>().ProducesProblems(400, 404);
+            .WithName("ListLibraryPreviewTitles").Produces<Page<LibraryPreviewTitle>>().ProducesProblems(400, 404);
         app.MapGet("/collections/{collectionId}/library-placements", GetCollectionPlacements).RequireAuthorization(AuthorizationPolicies.RequireAdmin)
-            .WithName("ListCollectionLibraryPlacements").Produces<Page<CollectionLibraryPlacementDto>>().ProducesProblems(400, 404);
+            .WithName("ListCollectionLibraryPlacements").Produces<Page<CollectionLibraryPlacement>>().ProducesProblems(400, 404);
         group.MapPost("{libraryId}/configuration/preview", Evaluate)
-            .WithName("PreviewLibraryConfiguration").Produces<LibraryEvaluationDto>()
+            .WithName("PreviewLibraryConfiguration").Produces<LibraryEvaluation>()
             .ProducesProblems(StatusCodes.Status400BadRequest)
             .ProducesProblems(StatusCodes.Status409Conflict)
             .ProducesProblems(StatusCodes.Status404NotFound);
@@ -109,7 +117,7 @@ public static class LibraryEndpoints
     }
 
     private static async Task<IResult> Evaluate([FromServices] IReferenceCatalogService referenceCatalog, Sqid libraryId, LibraryEvaluationRequest request,
-        IQueryHandler<EvaluateLibraryQuery, LibraryEvaluationDto> handler, CancellationToken ct)
+        IQueryHandler<EvaluateLibraryQuery, LibraryEvaluation> handler, CancellationToken ct)
     {
         if (request.Configuration is null)
             return ProblemResults.ValidationProblem("Libraries.InvalidConfiguration", "configuration", "Configuration is required.");
@@ -122,11 +130,11 @@ public static class LibraryEndpoints
     }
 
     private static async Task<IResult> GetCollectionPlacements(Sqid collectionId, string? cursor,
-        IQueryHandler<GetCollectionPlacementsQuery, Page<CollectionLibraryPlacementDto>> handler, CancellationToken ct, [Range(1, 100)] int limit = 50) =>
+        IQueryHandler<GetCollectionPlacementsQuery, Page<CollectionLibraryPlacement>> handler, CancellationToken ct, [Range(1, 100)] int limit = 50) =>
         (await handler.HandleAsync(new(collectionId.Value, cursor, limit), ct)).Match(Results.Ok, ToLibraryProblem);
 
     private static async Task<IResult> GetAttachments(Sqid libraryId,
-        IQueryHandler<GetLibraryAttachmentsQuery, IReadOnlyList<LibraryAttachmentDto>> handler, CancellationToken ct)
+        IQueryHandler<GetLibraryAttachmentsQuery, IReadOnlyList<LibraryAttachment>> handler, CancellationToken ct)
     {
         var result = await handler.HandleAsync(new GetLibraryAttachmentsQuery(libraryId), ct);
         return result.Match(Results.Ok, ToLibraryProblem);
@@ -145,11 +153,11 @@ public static class LibraryEndpoints
         return result.Match(_ => Results.NoContent(), ToLibraryProblem);
     }
 
-    private static async Task<IResult> GetPreview(Sqid libraryId, IQueryHandler<GetLibraryPreviewQuery, Page<LibraryPreviewTitleDto>> handler,
+    private static async Task<IResult> GetPreview(Sqid libraryId, IQueryHandler<GetLibraryPreviewQuery, Page<LibraryPreviewTitle>> handler,
         Sqid? collectionId = null, string? cursor = null, [Range(1, 100)] int limit = 48, CancellationToken ct = default) =>
         (await handler.HandleAsync(new(libraryId.Value, collectionId?.Value, cursor, limit), ct)).Match(Results.Ok, ToLibraryProblem);
 
-    private static async Task<IResult> GetAll(IQueryHandler<ListLibrariesQuery, Page<LibraryDto>> handler,
+    private static async Task<IResult> GetAll(IQueryHandler<ListLibrariesQuery, Page<ContractLibrary>> handler,
         string? query, string? cursor, CancellationToken cancellationToken, [Range(1, 100)] int limit = 50)
     {
         var result = await handler.HandleAsync(new ListLibrariesQuery(query, cursor, limit), cancellationToken);
@@ -157,7 +165,7 @@ public static class LibraryEndpoints
     }
 
     private static async Task<IResult> GetById(Sqid libraryId,
-        IQueryHandler<GetLibraryByIdQuery, LibraryDto> handler,
+        IQueryHandler<GetLibraryByIdQuery, ContractLibrary> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetLibraryByIdQuery(libraryId), cancellationToken);
@@ -166,7 +174,7 @@ public static class LibraryEndpoints
 
     private static async Task<IResult> Create([FromServices] IReferenceCatalogService referenceCatalog,
         [FromBody] CreateLibraryRequest request,
-        ICommandHandler<CreateLibraryCommand, LibraryDto> handler,
+        ICommandHandler<CreateLibraryCommand, ContractLibrary> handler,
         CancellationToken cancellationToken)
     {
         var failures = new Dictionary<string, string[]>();
@@ -189,7 +197,7 @@ public static class LibraryEndpoints
     private static async Task<IResult> Update([FromServices] IReferenceCatalogService referenceCatalog,
         Sqid libraryId,
         [FromBody] UpdateLibraryRequest request,
-        ICommandHandler<UpdateLibraryCommand, LibraryDto> handler,
+        ICommandHandler<UpdateLibraryCommand, ContractLibrary> handler,
         CancellationToken cancellationToken)
     {
         var failures = new Dictionary<string, string[]>();
@@ -232,7 +240,7 @@ public static class LibraryEndpoints
     }
 
     private static async Task<IResult> GetPlatformFacets(Sqid libraryId,
-        IQueryHandler<GetLibraryPlatformFacetsQuery, IReadOnlyList<LibraryFacetDto>> handler,
+        IQueryHandler<GetLibraryPlatformFacetsQuery, IReadOnlyList<LibraryFacet>> handler,
         int minimumItems = 1,
         CancellationToken cancellationToken = default)
     {
@@ -242,15 +250,15 @@ public static class LibraryEndpoints
         return result.Match(Results.Ok, ToLibraryProblem);
     }
 
-    private static async Task<IResult> GetGenreFacets(Sqid libraryId, IQueryHandler<GetLibraryGenreFacetsQuery, Page<LibraryFacetDto>> handler, string? cursor,
+    private static async Task<IResult> GetGenreFacets(Sqid libraryId, IQueryHandler<GetLibraryGenreFacetsQuery, Page<LibraryFacet>> handler, string? cursor,
         CancellationToken ct, [Range(0, int.MaxValue)] int minimumItems = 1, [Range(1, 100)] int limit = 50) =>
         (await handler.HandleAsync(new(libraryId.Value, minimumItems, cursor, limit), ct)).Match(Results.Ok, ToLibraryProblem);
 
-    private static async Task<IResult> GetCollections(Sqid libraryId, IQueryHandler<GetLibraryCollectionsQuery, Page<LibraryCollectionDto>> handler, string? cursor,
+    private static async Task<IResult> GetCollections(Sqid libraryId, IQueryHandler<GetLibraryCollectionsQuery, Page<LibraryCollection>> handler, string? cursor,
         CancellationToken ct, [Range(0, int.MaxValue)] int minimumItems = 1, [Range(1, 100)] int limit = 50) =>
         (await handler.HandleAsync(new(libraryId.Value, minimumItems, cursor, limit), ct)).Match(Results.Ok, ToLibraryProblem);
 
-    private static async Task<IResult> GetTitleReleaseDiagnostics(Sqid libraryId, Sqid titleId, IQueryHandler<GetLibraryTitleReleaseDiagnosticsQuery, Page<LibraryTitleReleaseDiagnosticsDto>> handler, string? cursor,
+    private static async Task<IResult> GetTitleReleaseDiagnostics(Sqid libraryId, Sqid titleId, IQueryHandler<GetLibraryTitleReleaseDiagnosticsQuery, Page<ContractLibraryTitleReleaseDiagnostics>> handler, string? cursor,
         CancellationToken ct, [Range(1, 100)] int limit = 50) =>
         (await handler.HandleAsync(new(libraryId.Value, titleId.Value, cursor, limit), ct)).Match(Results.Ok, ToLibraryProblem);
 
@@ -260,7 +268,7 @@ public static class LibraryEndpoints
     ///     with the request's others. The configuration is <c>null</c> exactly when one of its fields
     ///     failed.
     /// </summary>
-    private static async Task<LibraryConfiguration?> MapConfigFromDto(LibraryConfigurationDto dto,
+    private static async Task<LibraryConfiguration?> MapConfigFromDto(ContractLibraryConfiguration dto,
         [FromServices] IReferenceCatalogService referenceCatalog, IDictionary<string, string[]> failures, CancellationToken ct)
     {
         int priorFailures = failures.Count;
@@ -307,7 +315,7 @@ public static class LibraryEndpoints
     private static IResult NameRequired(IReadOnlyDictionary<string, string[]> failures) =>
         ProblemResults.ValidationProblem(LibraryErrors.NameRequired().Code, failures);
 
-    private static ContentRatingPolicy MapPolicyFromDto(ContentRatingPolicyDto dto) =>
+    private static ContentRatingPolicy MapPolicyFromDto(ContractContentRatingPolicy dto) =>
         new()
         {
             BasisSelection = dto.BasisSelection.ToDomain(),

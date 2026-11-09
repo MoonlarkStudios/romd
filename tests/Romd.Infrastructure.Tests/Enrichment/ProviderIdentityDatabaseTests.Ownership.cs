@@ -92,7 +92,7 @@ public sealed partial class ProviderIdentityDatabaseTests
                 await using var writer = _database.CreateContext();
                 await writer.Titles.ExecuteUpdateAsync(update => update.SetProperty(title => title.Revision, Guid.NewGuid()));
             }
-            return (ErrorOr<ProviderGameSearchResultDto>)IdentitySearch();
+            return (ErrorOr<ProviderGameSearchResult>)IdentitySearch();
         });
         var store = new IdentityStoreProbe(IdentityStore(db, clock));
         var work = new IdentityCommitProbe(new EfUnitOfWork(db));
@@ -132,7 +132,7 @@ public sealed partial class ProviderIdentityDatabaseTests
                 var winner = (await claims.TryClaimExecutionAsync(claim.Job.Id, "replacement")).ShouldNotBeNull();
                 winner.FenceToken.ShouldNotBe(claim.FenceToken);
             }
-            return (ErrorOr<ProviderGameSearchResultDto>)IdentitySearch();
+            return (ErrorOr<ProviderGameSearchResult>)IdentitySearch();
         });
         var work = new EfUnitOfWork(db);
         var service = new ProviderIdentityService(IdentityStore(db, clock), [adapter], [], clock, work, NullLogger<ProviderIdentityService>.Instance);
@@ -304,7 +304,7 @@ public sealed partial class ProviderIdentityDatabaseTests
             (await db.TitleExternalIds.SingleAsync()).ExternalId.ShouldBe("old-game");
             var state = await db.Set<TitleProviderMatchStateEntity>().SingleAsync();
             state.AutomaticallyTrusted.ShouldBeFalse();
-            JsonSerializer.Deserialize<ProviderIdentityDecisionDto>(state.DecisionJson!)!.State.ShouldBe("NeedsReview");
+            JsonSerializer.Deserialize<ProviderIdentityDecision>(state.DecisionJson!)!.State.ShouldBe("NeedsReview");
         }
         else if (change is not ("confirmation" or "bridge"))
             (await db.TitleExternalIds.CountAsync()).ShouldBe(0);
@@ -342,9 +342,9 @@ public sealed partial class ProviderIdentityDatabaseTests
         evidence.ReadAsync(1, Arg.Any<CancellationToken>()).Returns(Array.Empty<TitleEnrichmentEvidence>());
         return new(db, evidence, clock);
     }
-    private static ProviderGameDto IdentityGame() => new("42", "Game", "https://example.test/game");
-    private static ProviderGameSearchResultDto IdentitySearch() => new([IdentityGame()], ProviderGameSearchCompleteness.Complete, 500);
-    private static ProviderIdentityDecisionDto IdentityDecision(ProviderIdentitySnapshot snapshot) => new("AutoAccepted", "test", "test", snapshot.Fingerprint, []);
+    private static ProviderGame IdentityGame() => new("42", "Game", "https://example.test/game");
+    private static ProviderGameSearchResult IdentitySearch() => new([IdentityGame()], ProviderGameSearchCompleteness.Complete, 500);
+    private static ProviderIdentityDecision IdentityDecision(ProviderIdentitySnapshot snapshot) => new("AutoAccepted", "test", "test", snapshot.Fingerprint, []);
     private static async Task<JobExecutionClaim<EnrichmentJob>> IdentityClaimAsync(RomdDbContext db, TimeProvider clock)
     {
         var job = EnrichmentJob.Create("Game", 1, 1, clock.GetUtcNow());
@@ -366,7 +366,7 @@ public sealed partial class ProviderIdentityDatabaseTests
         public Task<ProviderIdentitySnapshot?> ReadAsync(int titleId, CancellationToken ct) => inner.ReadAsync(titleId, ct);
         public Task<string?> ReadTrustedAsync(int titleId, string providerId, CancellationToken ct) => inner.ReadTrustedAsync(titleId, providerId, ct);
         public async Task<IStagedProviderIdentityDecision> StageDecisionAsync(ProviderIdentitySnapshot snapshot, string providerId,
-            Guid expectedRevision, ProviderIdentityDecisionDto decision, ProviderGameDto? accepted, CancellationToken ct)
+            Guid expectedRevision, ProviderIdentityDecision decision, ProviderGame? accepted, CancellationToken ct)
         {
             var result = await inner.StageDecisionAsync(snapshot, providerId, expectedRevision, decision, accepted, ct);
             Applied = result.Applied;

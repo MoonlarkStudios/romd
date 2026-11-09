@@ -12,11 +12,11 @@ namespace Romd.Consumer.Application.Browse;
 
 public static class ConsumerBrowseMapping
 {
-    public static CommonModels.Page<ConsumerPlatformSummaryDto> ToContract(
+    public static CommonModels.Page<ConsumerPlatformSummary> ToContract(
         this PagedList<ConsumerPlatformSummaryData> page) =>
         new()
         {
-            Items = page.Items.Select(item => new ConsumerPlatformSummaryDto
+            Items = page.Items.Select(item => new ConsumerPlatformSummary
             {
                 Key = item.Key,
                 Name = item.Name,
@@ -29,7 +29,7 @@ public static class ConsumerBrowseMapping
             HasNextPage = page.HasNextPage
         };
 
-    public static ConsumerPlatformDetailDto ToContract(this ConsumerPlatformDetailData item) =>
+    public static ConsumerPlatformDetail ToContract(this ConsumerPlatformDetailData item) =>
         new()
         {
             Key = item.Key,
@@ -40,7 +40,7 @@ public static class ConsumerBrowseMapping
             Media = item.Media.Select(ToContract).ToList()
         };
 
-    public static CommonModels.Page<ConsumerTitleCardDto> ToContract(this PagedList<ConsumerTitleCardData> page) =>
+    public static CommonModels.Page<ConsumerTitleCard> ToContract(this PagedList<ConsumerTitleCardData> page) =>
         new()
         {
             Items = page.Items.Select(ToContract).ToList(),
@@ -48,13 +48,13 @@ public static class ConsumerBrowseMapping
             HasNextPage = page.HasNextPage
         };
 
-    public static ConsumerTitleDetailDto ToContract(this ConsumerTitleDetailData item) =>
+    public static ConsumerTitleDetail ToContract(this ConsumerTitleDetailData item) =>
         new()
         {
             Id = IdCoder.Encode(item.Id),
             Artwork = item.Artwork.Select(ArtworkContractMapping.ToContract).ToArray(),
             System = item.System.ToContract(),
-            ContentRatings = item.ContentRatings.Select(rating => new ConsumerContentRatingDto
+            ContentRatings = item.ContentRatings.Select(rating => new ConsumerContentRating
             {
                 Board = rating.Board.ToString(),
                 Code = rating.Code,
@@ -76,13 +76,13 @@ public static class ConsumerBrowseMapping
             DefaultReleaseId = item.DefaultReleaseId is null ? null : IdCoder.Encode(item.DefaultReleaseId.Value)
         };
 
-    private static ConsumerTitleCardDto ToContract(ConsumerTitleCardData item) =>
+    private static ConsumerTitleCard ToContract(ConsumerTitleCardData item) =>
         new()
         {
             Id = IdCoder.Encode(item.Id),
             Artwork = item.Artwork.Select(ArtworkContractMapping.ToContract).ToArray(),
             System = item.System.ToContract(),
-            ContentRatings = item.ContentRatings.Select(rating => new ConsumerContentRatingDto
+            ContentRatings = item.ContentRatings.Select(rating => new ConsumerContentRating
             {
                 Board = rating.Board.ToString(),
                 Code = rating.Code,
@@ -102,7 +102,7 @@ public static class ConsumerBrowseMapping
             DefaultReleaseId = item.DefaultReleaseId is null ? null : IdCoder.Encode(item.DefaultReleaseId.Value)
         };
 
-    public static ConsumerReleaseDto ToContract(this ConsumerReleaseData item) =>
+    public static ConsumerRelease ToContract(this ConsumerReleaseData item) =>
         new()
         {
             Id = IdCoder.Encode(item.Id),
@@ -114,7 +114,7 @@ public static class ConsumerBrowseMapping
             IsComplete = item.IsComplete
         };
 
-    public static ConsumerMediaRefDto ToContract(this ConsumerMediaData item) =>
+    public static ConsumerMediaRef ToContract(this ConsumerMediaData item) =>
         new()
         {
             Id = IdCoder.Encode(item.Id),

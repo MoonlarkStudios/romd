@@ -10,7 +10,7 @@ import {
   Stack,
   Text,
 } from '@mantine/core';
-import type { JobDto } from '@romd/admin-api-client';
+import type { Job } from '@romd/admin-api-client';
 import { IconChevronDown, IconX } from '@tabler/icons-react';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router';
@@ -38,7 +38,7 @@ const actionLabels: Record<JobAction, string> = {
   cancel: 'Cancel',
 };
 
-function JobResult({ job }: { job: JobDto }) {
+function JobResult({ job }: { job: Job }) {
   const mediaSummary = mediaReconciliationSummary(job);
   if (getJobOutcome(job) === 'running')
     return (
@@ -96,7 +96,7 @@ export const JobTableRow = memo(function JobTableRow({
   operations,
   historyUrl,
 }: {
-  job: JobDto;
+  job: Job;
   selected: boolean;
   toggle: (id: string) => void;
   operations: Operations;
@@ -159,7 +159,7 @@ export function JobsTable({
   operations,
   updatedAt,
 }: {
-  jobs: JobDto[];
+  jobs: Job[];
   operations: Operations;
   updatedAt?: number;
 }) {

@@ -7,7 +7,7 @@ namespace Romd.Contracts.Management.Models;
 /// </summary>
 public sealed record CatalogTitle
 {
-    public IReadOnlyList<ResolvedArtworkDto> Artwork { get; init; } = [];
+    public IReadOnlyList<ResolvedArtwork> Artwork { get; init; } = [];
 
     /// <summary>
     ///     Sqid-encoded title ID.
@@ -23,7 +23,7 @@ public sealed record CatalogTitle
     ///     Title display name.
     /// </summary>
     public required string Name { get; init; }
-    public Romd.Contracts.Management.Enrichment.EnrichmentSummaryDto? EnrichmentAssessment { get; init; }
+    public Romd.Contracts.Management.Enrichment.EnrichmentSummary? EnrichmentAssessment { get; init; }
     public string EnrichmentStatus { get; init; } = "None";
 
     /// <summary>

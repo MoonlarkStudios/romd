@@ -1,4 +1,4 @@
-import { client, type JobDto } from '@romd/admin-api-client';
+import { client, type Job } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { HttpResponse, http } from 'msw';
@@ -8,7 +8,7 @@ import { server } from '../../test/msw/server';
 import { storeJobSnapshot } from './jobCache';
 import { jobKeys, useJobs } from './useJobs';
 
-const job = (index: number, overrides: Partial<JobDto> = {}): JobDto =>
+const job = (index: number, overrides: Partial<Job> = {}): Job =>
   ({
     id: `${index.toString().padStart(8, '0')}-0000-4000-8000-000000000000`,
     correlationId: 'correlation',
@@ -21,7 +21,7 @@ const job = (index: number, overrides: Partial<JobDto> = {}): JobDto =>
     progressPercent: 0,
     errors: [],
     ...overrides,
-  }) as JobDto;
+  }) as Job;
 const rows = (last: number, count = 50) =>
   Array.from(
     {
@@ -29,7 +29,7 @@ const rows = (last: number, count = 50) =>
     },
     (_, index) => job(last - index),
   );
-const page = (items: JobDto[], nextCursor: string | null = null) => ({
+const page = (items: Job[], nextCursor: string | null = null) => ({
   items,
   nextCursor,
   hasNextPage: nextCursor !== null,

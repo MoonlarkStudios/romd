@@ -1,6 +1,10 @@
 using Romd.Consumer.Application.Browse;
 using Romd.Contracts.Consumer.Account;
 
+using ContractConsumerReleasePreference = Romd.Contracts.Consumer.Account.ConsumerReleasePreference;
+
+using ConsumerReleasePreference = Romd.Consumer.Application.Browse.ConsumerReleasePreference;
+
 namespace Romd.Consumer.Application.Account;
 
 public static class ConsumerAccountMapping
@@ -10,7 +14,7 @@ public static class ConsumerAccountMapping
     ///     (<see cref="RegisteredOnlyAsync" />), and nothing deletes or unregisters a registered row (a merge refuses one
     ///     as its source). Dropping an id without a key is only a guard, so a broken invariant never fails the read.
     /// </summary>
-    public static async Task<ConsumerUserSettingsDto> ToDtoAsync(
+    public static async Task<ConsumerUserSettings> ToDtoAsync(
         this ConsumerAccountSettings settings,
         IConsumerTaxonomyKeys keys,
         CancellationToken ct)
@@ -18,7 +22,7 @@ public static class ConsumerAccountMapping
         var preference = settings.ReleasePreference;
         var regionKeys = await keys.RegionKeysAsync(preference.PreferredRegionIds, ct);
         var languageKeys = await keys.LanguageKeysAsync(preference.PreferredLanguageIds, ct);
-        return new(settings.Theme, new ConsumerReleasePreferenceDto(
+        return new(settings.Theme, new ContractConsumerReleasePreference(
             KeysOf(preference.PreferredRegionIds, regionKeys),
             KeysOf(preference.PreferredLanguageIds, languageKeys),
             ToDto(preference.RevisionStrategy)));

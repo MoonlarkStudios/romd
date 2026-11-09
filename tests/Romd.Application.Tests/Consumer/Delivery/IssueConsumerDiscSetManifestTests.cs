@@ -14,6 +14,10 @@ using Romd.Domain.Source.Rom;
 using Shouldly;
 using Xunit;
 
+using ConsumerDiscSetDisc = Romd.Consumer.Application.Delivery.ConsumerDiscSetDisc;
+
+using ConsumerReleaseManifestItem = Romd.Consumer.Application.Delivery.ConsumerReleaseManifestItem;
+
 namespace Romd.Application.Tests.Consumer.Delivery;
 
 public sealed partial class IssueConsumerDiscSetManifestTests
@@ -66,7 +70,7 @@ public sealed partial class IssueConsumerDiscSetManifestTests
         return new(ordinal, new(user.UserId!.Value, 5, 9, "psx", ordinal, "Game Disc " + ordinal, null, true,
             new("unknown", new("file", "game.cue"), "direct_files", items.Sum(x => x.SizeBytes)), items), "game.cue");
     }
-    private Task<ErrorOr.ErrorOr<Romd.Contracts.Consumer.Releases.ConsumerDiscSetManifestDto>> Issue(Guid? revision = null) =>
+    private Task<ErrorOr.ErrorOr<Romd.Contracts.Consumer.Releases.ConsumerDiscSetManifest>> Issue(Guid? revision = null) =>
         new IssueConsumerDiscSetManifestCommandHandler(user, repository, issuer, server, reader, attachmentIssuer, artifacts, derivedIssuer, derivedSource).HandleAsync(new(3, revision ?? plan.Revision));
 
     [Fact]
@@ -143,7 +147,7 @@ public sealed partial class IssueConsumerDiscSetManifestTests
         result.FirstError.Type.ShouldBe(ErrorOr.ErrorType.Conflict);
         grants.ShouldBeEmpty();
     }
-    private Task<ErrorOr.ErrorOr<ConsumerDiscSetManifestDto>> Select(ConsumerDiscSetPlan value, int[] ids, bool partial = false,
+    private Task<ErrorOr.ErrorOr<ConsumerDiscSetManifest>> Select(ConsumerDiscSetPlan value, int[] ids, bool partial = false,
         string? required = null, string? observation = null, bool issueGrants = true)
     {
         SetPlan(value);

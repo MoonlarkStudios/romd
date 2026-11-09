@@ -13,6 +13,9 @@ using Romd.Persistence.Entities;
 using Shouldly;
 using Xunit;
 
+using Library = Romd.Domain.Libraries.Library;
+using LibraryConfiguration = Romd.Domain.Libraries.LibraryConfiguration;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 [Collection(IntegrationTestCollection.Name)]
@@ -24,7 +27,7 @@ public sealed class LibraryReleaseDiagnosticsEndpointsTests(IntegrationTestFixtu
         var seed = await SeedDiagnosticsAsync(fixture);
         using var client = fixture.CreateAuthenticatedClient();
 
-        var body = await TestHelpers.ReadAllPageItemsAsync<LibraryTitleReleaseDiagnosticsDto>(client,
+        var body = await TestHelpers.ReadAllPageItemsAsync<LibraryTitleReleaseDiagnostics>(client,
             $"/api/libraries/{IdCoder.Encode(seed.LibraryId)}/titles/{IdCoder.Encode(seed.TitleId)}/releases");
         body.Count.ShouldBe(2);
         body[0].Id.ShouldBe(IdCoder.Encode(seed.ExposedReleaseId));

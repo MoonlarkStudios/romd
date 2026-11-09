@@ -65,7 +65,7 @@ public sealed partial class ReferenceAssetLifecycleTests : IDisposable
         var original = (await new TypedReferenceTestCommands(db).System("snes", default))!;
         var oldRevision = (await service.GetCurrentAsync(default))!.Revision;
         var hash = (await UploadAsync(db, Png, default)).Value;
-        var edited = await new TypedReferenceTestCommands(db).UpdateSystem("snes", new SystemPatchDto { Icon = hash }, original.Revision, default);
+        var edited = await new TypedReferenceTestCommands(db).UpdateSystem("snes", new SystemPatch { Icon = hash }, original.Revision, default);
         edited.IsError.ShouldBeFalse();
         (await service.GetCurrentAsync(default))!.Revision.ShouldNotBe(oldRevision);
         (await db.ReferenceCatalogState.CountAsync()).ShouldBe(1);
@@ -80,7 +80,7 @@ public sealed partial class ReferenceAssetLifecycleTests : IDisposable
         (await db.ReferenceAssets.SingleAsync(x => x.Hash == hash)).ReservedUntil.ShouldBeGreaterThan(DateTimeOffset.UtcNow.AddDays(6));
         (await ReferenceCatalogService.ReleaseExpiredAssetsAsync(db, DateTimeOffset.UtcNow, default)).ShouldBe(0);
         // Attaching an old upload again protects it even beyond its reservation.
-        (await new TypedReferenceTestCommands(db).UpdateSystem("snes", new SystemPatchDto { Icon = hash }, reset.Value.Revision, default)).IsError.ShouldBeFalse();
+        (await new TypedReferenceTestCommands(db).UpdateSystem("snes", new SystemPatch { Icon = hash }, reset.Value.Revision, default)).IsError.ShouldBeFalse();
         (await ReferenceCatalogService.ReleaseExpiredAssetsAsync(db, DateTimeOffset.UtcNow.AddDays(30), default)).ShouldBe(0);
     }
 

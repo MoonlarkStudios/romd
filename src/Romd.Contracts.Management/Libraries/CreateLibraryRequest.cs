@@ -2,5 +2,5 @@ namespace Romd.Contracts.Management.Libraries;
 
 public sealed record CreateLibraryRequest(
     string Name,
-    LibraryConfigurationDto? Configuration = null,
+    LibraryConfiguration? Configuration = null,
     bool IsDefault = false);

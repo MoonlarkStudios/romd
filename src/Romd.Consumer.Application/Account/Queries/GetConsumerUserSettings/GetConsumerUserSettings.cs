@@ -5,15 +5,15 @@ using Romd.Contracts.Consumer.Account;
 
 namespace Romd.Consumer.Application.Account.Queries.GetConsumerUserSettings;
 
-public sealed record GetConsumerUserSettingsQuery : IQuery<ConsumerUserSettingsDto>;
+public sealed record GetConsumerUserSettingsQuery : IQuery<ConsumerUserSettings>;
 
 public sealed class GetConsumerUserSettingsQueryHandler(
     ICurrentUser currentUser,
     IConsumerUserSettingsStore settingsStore,
     IConsumerTaxonomyKeys taxonomyKeys)
-    : IQueryHandler<GetConsumerUserSettingsQuery, ConsumerUserSettingsDto>
+    : IQueryHandler<GetConsumerUserSettingsQuery, ConsumerUserSettings>
 {
-    public async Task<ErrorOr<ConsumerUserSettingsDto>> HandleAsync(
+    public async Task<ErrorOr<ConsumerUserSettings>> HandleAsync(
         GetConsumerUserSettingsQuery query,
         CancellationToken ct = default)
     {

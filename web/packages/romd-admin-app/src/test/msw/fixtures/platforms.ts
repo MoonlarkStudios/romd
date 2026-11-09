@@ -1,6 +1,6 @@
-import type { SystemResourceDto } from '@romd/admin-api-client';
+import type { SystemResource } from '@romd/admin-api-client';
 
-const list: SystemResourceDto[] = [
+const list: SystemResource[] = [
   {
     key: 'plat-1',
     name: 'Super Nintendo Entertainment System',
@@ -53,5 +53,5 @@ const list: SystemResourceDto[] = [
 export const platformFixtures = {
   list,
   single: list[0],
-  empty: [] satisfies SystemResourceDto[],
+  empty: [] satisfies SystemResource[],
 };

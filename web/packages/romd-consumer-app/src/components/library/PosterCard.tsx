@@ -1,8 +1,8 @@
 import { Box, Text } from '@mantine/core';
 import type {
-  ConsumerCollectionTitleDto,
-  ConsumerTitleCardDto,
-  RecentlyPlayedTitleDto,
+  ConsumerCollectionTitle,
+  ConsumerTitleCard,
+  RecentlyPlayedTitle,
 } from '@romd/consumer-api-client';
 import { GamePosterSurface } from '@romd/consumer-ui';
 import '@romd/consumer-ui/styles.css';
@@ -12,7 +12,7 @@ import { TitleLink } from '../navigation/TitleLink';
 import { ArtworkFallback } from './ArtworkFallback';
 import { ArtworkImage } from './ArtworkImage';
 
-type PosterTitle = ConsumerTitleCardDto | ConsumerCollectionTitleDto | RecentlyPlayedTitleDto;
+type PosterTitle = ConsumerTitleCard | ConsumerCollectionTitle | RecentlyPlayedTitle;
 
 interface PosterCardProps {
   title: PosterTitle;

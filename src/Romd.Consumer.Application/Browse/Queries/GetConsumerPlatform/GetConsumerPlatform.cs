@@ -7,14 +7,14 @@ using Romd.Contracts.Consumer.Browse;
 
 namespace Romd.Consumer.Application.Browse.Queries.GetConsumerPlatform;
 
-public sealed record GetConsumerPlatformQuery(int PlatformId) : IQuery<ConsumerPlatformDetailDto>;
+public sealed record GetConsumerPlatformQuery(int PlatformId) : IQuery<ConsumerPlatformDetail>;
 
 public sealed class GetConsumerPlatformQueryHandler(
     ICurrentUser currentUser,
     IConsumerBrowseRepository browseRepository)
-    : IQueryHandler<GetConsumerPlatformQuery, ConsumerPlatformDetailDto>
+    : IQueryHandler<GetConsumerPlatformQuery, ConsumerPlatformDetail>
 {
-    public async Task<ErrorOr<ConsumerPlatformDetailDto>> HandleAsync(
+    public async Task<ErrorOr<ConsumerPlatformDetail>> HandleAsync(
         GetConsumerPlatformQuery query,
         CancellationToken ct = default)
     {

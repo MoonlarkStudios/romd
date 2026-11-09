@@ -21,7 +21,7 @@ public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
         return new(true, IsConfigured);
     }
 
-    async Task<ErrorOr<ProviderGameSearchResultDto>> IProviderIdentityAdapter.SearchAsync(string query, CancellationToken ct)
+    async Task<ErrorOr<ProviderGameSearchResult>> IProviderIdentityAdapter.SearchAsync(string query, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length > 200 || query.Any(char.IsControl))
             return ProviderMatchErrors.InvalidQuery;
@@ -32,7 +32,7 @@ public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
             await InitializeAsync(deadline.Token);
             if (!IsConfigured)
                 return ProviderMatchErrors.NotConfigured;
-            var games = new Dictionary<string, ProviderGameDto>(StringComparer.Ordinal);
+            var games = new Dictionary<string, ProviderGame>(StringComparer.Ordinal);
             var complete = true;
             for (var page = 0; page < 5; page++)
             {
@@ -43,10 +43,10 @@ public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
                     // Live relevance may move a game between responses. A repeated identity cannot prove exhaustion.
                     complete &= games.TryAdd(game.Id, game);
                 if (result.Value.Count < 100)
-                    return new ProviderGameSearchResultDto(games.Values.ToArray(), complete
+                    return new ProviderGameSearchResult(games.Values.ToArray(), complete
                         ? ProviderGameSearchCompleteness.Complete : ProviderGameSearchCompleteness.ProviderLimited, 500);
             }
-            return new ProviderGameSearchResultDto(games.Values.ToArray(), ProviderGameSearchCompleteness.BudgetLimited, 500);
+            return new ProviderGameSearchResult(games.Values.ToArray(), ProviderGameSearchCompleteness.BudgetLimited, 500);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (OperationCanceledException) { return ProviderMatchErrors.Unavailable; }
@@ -55,7 +55,7 @@ public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
         { return ProviderMatchErrors.InvalidResponse; }
     }
 
-    async Task<ErrorOr<ProviderGameDto>> IProviderIdentityAdapter.ResolveAsync(string idOrUrl, CancellationToken ct)
+    async Task<ErrorOr<ProviderGame>> IProviderIdentityAdapter.ResolveAsync(string idOrUrl, CancellationToken ct)
     {
         var key = ProviderIdentityInput.Parse(idOrUrl, "igdb.com", "/games/", allowSlug: true);
         if (key is null)
@@ -86,7 +86,7 @@ public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
         { return ProviderMatchErrors.InvalidResponse; }
     }
 
-    private async Task<ErrorOr<IReadOnlyList<ProviderGameDto>>> QueryIdentityAsync(string query, int limit, CancellationToken ct)
+    private async Task<ErrorOr<IReadOnlyList<ProviderGame>>> QueryIdentityAsync(string query, int limit, CancellationToken ct)
     {
         await _rateLimiter.AcquireAsync(ProviderId, ct);
         var response = await ReadArtworkResponseAsync(query +
@@ -103,7 +103,7 @@ public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
         if (rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() > limit)
             return ProviderMatchErrors.InvalidResponse;
         var platformMap = await GetPlatformMapAsync(ct);
-        var games = new List<ProviderGameDto>();
+        var games = new List<ProviderGame>();
         foreach (var row in rows.EnumerateArray())
         {
             if (IdentityPreview(row, platformMap) is not { } game)
@@ -112,10 +112,10 @@ public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
         }
         if (games.Select(game => game.Id).Distinct(StringComparer.Ordinal).Count() != games.Count)
             return ProviderMatchErrors.InvalidResponse;
-        return ErrorOrFactory.From<IReadOnlyList<ProviderGameDto>>(games);
+        return ErrorOrFactory.From<IReadOnlyList<ProviderGame>>(games);
     }
 
-    private static ProviderGameDto? IdentityPreview(JsonElement game, IReadOnlyDictionary<string, int> platformMap)
+    private static ProviderGame? IdentityPreview(JsonElement game, IReadOnlyDictionary<string, int> platformMap)
     {
         if (game.ValueKind != JsonValueKind.Object || !game.TryGetProperty("id", out var id) || !id.TryGetInt64(out var number) || number <= 0 ||
             !game.TryGetProperty("name", out var name) || name.GetString() is not { Length: > 0 and <= 500 } title ||
@@ -143,7 +143,7 @@ public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
             foreach (var platform in platformRows.EnumerateArray())
                 platforms.AddRange(MappedPlatformKeys(platform, platformMap));
         var aliases = Names(game, "alternative_names");
-        var releases = new List<ProviderReleaseDto>();
+        var releases = new List<ProviderRelease>();
         if (game.TryGetProperty("release_dates", out var releaseRows) && releaseRows.ValueKind != JsonValueKind.Null)
         {
             if (releaseRows.ValueKind != JsonValueKind.Array)

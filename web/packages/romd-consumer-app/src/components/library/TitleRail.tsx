@@ -1,15 +1,15 @@
 import { ActionIcon, Anchor, Box, Group, Stack, Text, Title } from '@mantine/core';
 import type {
-  ConsumerCollectionTitleDto,
-  ConsumerTitleCardDto,
-  RecentlyPlayedTitleDto,
+  ConsumerCollectionTitle,
+  ConsumerTitleCard,
+  RecentlyPlayedTitle,
 } from '@romd/consumer-api-client';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { PosterCard } from './PosterCard';
 
-type RailTitle = ConsumerTitleCardDto | ConsumerCollectionTitleDto | RecentlyPlayedTitleDto;
+type RailTitle = ConsumerTitleCard | ConsumerCollectionTitle | RecentlyPlayedTitle;
 
 interface TitleRailProps {
   title: string;

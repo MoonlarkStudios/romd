@@ -28,7 +28,7 @@ public sealed partial class ProviderMatchPersistenceTests : IDisposable
         _adapter.Capabilities.Returns(new[] { "artwork", "search", "resolve" });
         _adapter.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
         _adapter.ResolveAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
-            Task.FromResult<ErrorOr<ProviderGameDto>>(new ProviderGameDto(call.Arg<string>(), "Game", "https://example.com/game")));
+            Task.FromResult<ErrorOr<ProviderGame>>(new ProviderGame(call.Arg<string>(), "Game", "https://example.com/game")));
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public sealed partial class ProviderMatchPersistenceTests : IDisposable
         await using var db = _database.CreateContext();
         var service = ProviderMatchTestServices.Create(db, [_adapter]);
         var initial = (await service.GetAsync(1, default)).Value.Single();
-        _adapter.ResolveAsync("bad", Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<ProviderGameDto>>(ProviderMatchErrors.NotFound));
+        _adapter.ResolveAsync("bad", Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<ProviderGame>>(ProviderMatchErrors.NotFound));
         (await service.SetAsync(1, "test", "bad", RevisionPrecondition.For(initial.Revision.ToString()), default)).IsError.ShouldBeTrue();
         (await db.TitleExternalIds.CountAsync()).ShouldBe(0);
     }
@@ -202,11 +202,11 @@ public sealed partial class ProviderMatchPersistenceTests : IDisposable
         var service = ProviderMatchTestServices.Create(db, [_adapter]);
         var shown = RevisionPrecondition.For((await service.GetAsync(1, default)).Value.Single().Revision.ToString());
         _adapter.ResolveAsync("bad", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ErrorOr<ProviderGameDto>>(ProviderMatchErrors.InvalidInput));
+            .Returns(Task.FromResult<ErrorOr<ProviderGame>>(ProviderMatchErrors.InvalidInput));
         _adapter.ResolveAsync("404", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ErrorOr<ProviderGameDto>>(ProviderMatchErrors.NotFound));
+            .Returns(Task.FromResult<ErrorOr<ProviderGame>>(ProviderMatchErrors.NotFound));
         _adapter.SearchAsync("bad", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ErrorOr<ProviderGameSearchResultDto>>(ProviderMatchErrors.InvalidInput));
+            .Returns(Task.FromResult<ErrorOr<ProviderGameSearchResult>>(ProviderMatchErrors.InvalidInput));
 
         var rejected = new[]
         {
@@ -317,7 +317,7 @@ public sealed partial class ProviderMatchPersistenceTests : IDisposable
         var evidence = Substitute.For<Romd.Admin.Application.Titles.Enrichment.ITitleEnrichmentEvidenceReader>();
         evidence.ReadAsync(1, default).ReturnsForAnyArgs(Array.Empty<Romd.Admin.Application.Titles.Enrichment.TitleEnrichmentEvidence>());
         var store = new ProviderIdentityStore(db, evidence, TimeProvider.System);
-        _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From(new ProviderGameSearchResultDto([new("42", "Game", "https://example.com/42", Year: 1994)], ProviderGameSearchCompleteness.Complete, 500)));
+        _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From(new ProviderGameSearchResult([new("42", "Game", "https://example.com/42", Year: 1994)], ProviderGameSearchCompleteness.Complete, 500)));
         var identity = new ProviderIdentityService(store, [_adapter], [], TimeProvider.System, new EfUnitOfWork(db), NullLogger<ProviderIdentityService>.Instance);
         (await identity.ResolveTrustedAsync(1, "test", default)).ShouldBeNull();
         var snapshot = (await store.ReadAsync(1, default))!;
@@ -453,7 +453,7 @@ public sealed partial class ProviderMatchPersistenceTests : IDisposable
         var evidence = Substitute.For<Romd.Admin.Application.Titles.Enrichment.ITitleEnrichmentEvidenceReader>();
         evidence.ReadAsync(1, default).ReturnsForAnyArgs(Array.Empty<Romd.Admin.Application.Titles.Enrichment.TitleEnrichmentEvidence>());
         var store = new ProviderIdentityStore(db, evidence, TimeProvider.System);
-        _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From(new ProviderGameSearchResultDto([new("42", "Game", "https://example.com/42", Platforms: ["Test"])], ProviderGameSearchCompleteness.Complete, 500)));
+        _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From(new ProviderGameSearchResult([new("42", "Game", "https://example.com/42", Platforms: ["Test"])], ProviderGameSearchCompleteness.Complete, 500)));
         var identities = new ProviderIdentityService(store, [_adapter], [], TimeProvider.System, new EfUnitOfWork(db), NullLogger<ProviderIdentityService>.Instance);
         (await identities.ResolveTrustedAsync(1, "test", default)).ShouldBe("42");
         await db.Titles.ExecuteUpdateAsync(x => x.SetProperty(t => t.Name, "Game Remastered"));
@@ -494,10 +494,10 @@ public sealed partial class ProviderMatchPersistenceTests : IDisposable
         await Seed();
         await using var db = _database.CreateContext();
         await db.Titles.Where(x => x.Id == 1).ExecuteUpdateAsync(x => x.SetProperty(t => t.ReleaseDate, new DateOnly(1994, 1, 1)));
-        IReadOnlyList<ProviderGameDto> games = ambiguous
+        IReadOnlyList<ProviderGame> games = ambiguous
             ? [new("42", "Game", "https://example.com/42", Year: 1994, Platforms: ["Test"]), new("43", "Game", "https://example.com/43", Year: 2001, Platforms: ["Test"])]
             : [new("42", "Game", "https://example.com/42", Year: 1994, Platforms: ["Test"])];
-        _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From(new ProviderGameSearchResultDto(games, ProviderGameSearchCompleteness.Complete, 500)));
+        _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From(new ProviderGameSearchResult(games, ProviderGameSearchCompleteness.Complete, 500)));
         var evidence = Substitute.For<Romd.Admin.Application.Titles.Enrichment.ITitleEnrichmentEvidenceReader>();
         evidence.ReadAsync(1, default).ReturnsForAnyArgs(Array.Empty<Romd.Admin.Application.Titles.Enrichment.TitleEnrichmentEvidence>());
         var store = new ProviderIdentityStore(db, evidence, TimeProvider.System);

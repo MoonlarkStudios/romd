@@ -102,6 +102,8 @@ using Xunit;
 using CommonModels = Romd.Contracts.Common.Models;
 using ManagementModels = Romd.Contracts.Management.Models;
 
+using ContractCurrentUser = Romd.Contracts.Consumer.Auth.CurrentUser;
+
 namespace Romd.Infrastructure.Tests.Hosting;
 
 public sealed class RomdHostingBoundaryTests
@@ -729,10 +731,10 @@ public sealed class RomdHostingBoundaryTests
         handlerServiceTypes.ShouldAllBe(type => IsConsumerHandlerServiceType(type)
             || type == typeof(ICommandHandler<StartAccountSessionCommand, AccountSession>));
         services.ShouldContainService<ICommandHandler<StartAccountSessionCommand, AccountSession>>();
-        services.ShouldContainService<IQueryHandler<GetCurrentConsumerUserQuery, CurrentUserDto>>();
+        services.ShouldContainService<IQueryHandler<GetCurrentConsumerUserQuery, ContractCurrentUser>>();
         services.ShouldContainService<IQueryHandler<
             SearchConsumerCatalogQuery,
-            CommonModels.Page<ConsumerTitleCardDto>>>();
+            CommonModels.Page<ConsumerTitleCard>>>();
     }
 
     [Fact]
@@ -760,7 +762,7 @@ public sealed class RomdHostingBoundaryTests
         services.ShouldNotResolveService<ICommandHandler<UpdateUserMetadataCommand, ManagementModels.TitleDetail>>();
         services.ShouldNotResolveService<ICommandHandler<BatchDeleteRomsCommand, BatchDeleteResult>>();
         services.ShouldNotResolveService<ICommandHandler<IngestDatCommand, DatIngestResult>>();
-        services.ShouldNotResolveService<IQueryHandler<GetStorageStatsQuery, ManagementModels.StorageStatsDto>>();
+        services.ShouldNotResolveService<IQueryHandler<GetStorageStatsQuery, ManagementModels.StorageStats>>();
         services.ShouldNotResolveService<ICommandHandler<CreateCollectionCommand, CollectionSummary>>();
         services.ShouldNotResolveService<IQueryHandler<ListCollectionsQuery, Page<CollectionSummary>>>();
         services.ShouldNotResolveService<ICommandHandler<AddRegionAliasCommand, TaxonomyAlias>>();
@@ -782,12 +784,12 @@ public sealed class RomdHostingBoundaryTests
 
         libraryHandlerServiceTypes.Length.ShouldBe(16);
         libraryHandlerServiceTypes.ShouldContain(typeof(IQueryHandler<GetLibraryDiscSetOptionsQuery,
-            Romd.Contracts.Management.Libraries.LibraryDiscSetOptionsDto>));
+            Romd.Contracts.Management.Libraries.LibraryDiscSetOptions>));
         services.ShouldAllBe(descriptor => !libraryHandlerServiceTypes.Contains(descriptor.ServiceType));
         services.ShouldNotResolveService<
             ICommandHandler<ForceMaterializeLibraryCommand, Guid>>();
         services.ShouldNotResolveService<IQueryHandler<GetLibraryDiscSetOptionsQuery,
-            Romd.Contracts.Management.Libraries.LibraryDiscSetOptionsDto>>();
+            Romd.Contracts.Management.Libraries.LibraryDiscSetOptions>>();
     }
 
     [Fact]

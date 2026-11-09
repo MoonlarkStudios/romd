@@ -9,22 +9,22 @@ using Romd.Contracts.Consumer.Browse;
 
 namespace Romd.Consumer.Application.Browse.Queries.ListConsumerTitleMedia;
 
-public sealed record ListConsumerTitleMediaQuery(int TitleId, string? Cursor, int Limit) : IQuery<Page<ConsumerMediaRefDto>>
+public sealed record ListConsumerTitleMediaQuery(int TitleId, string? Cursor, int Limit) : IQuery<Page<ConsumerMediaRef>>
 {
     public const int MaxLimit = 100;
 }
 
 public sealed class ListConsumerTitleMediaQueryHandler(ICurrentUser currentUser, IConsumerBrowseRepository repository)
-    : IQueryHandler<ListConsumerTitleMediaQuery, Page<ConsumerMediaRefDto>>
+    : IQueryHandler<ListConsumerTitleMediaQuery, Page<ConsumerMediaRef>>
 {
-    public async Task<ErrorOr<Page<ConsumerMediaRefDto>>> HandleAsync(ListConsumerTitleMediaQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<Page<ConsumerMediaRef>>> HandleAsync(ListConsumerTitleMediaQuery query, CancellationToken ct = default)
     {
         if (currentUser.UserId is not { } userId)
             return ConsumerErrors.CurrentUserRequired();
         var result = await repository.ListTitleMediaAsync(new(userId), query.TitleId, query.Cursor, query.Limit, ct);
         return result switch
         {
-            ConsumerLibraryReadResult<PagedList<ConsumerMediaData>>.Found found => new Page<ConsumerMediaRefDto>
+            ConsumerLibraryReadResult<PagedList<ConsumerMediaData>>.Found found => new Page<ConsumerMediaRef>
             {
                 Items = found.Value.Items.Select(item => item.ToContract()).ToArray(),
                 NextCursor = found.Value.NextCursor,

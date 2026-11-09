@@ -1,4 +1,4 @@
-import type { CoverageStatsDto } from '@romd/admin-api-client';
+import type { CoverageStats as CoverageStatsContract } from '@romd/admin-api-client';
 import { getCatalogCoverageStats } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -18,7 +18,7 @@ export const coverageStatsKeys = {
   ] as const,
 };
 
-export const mapCoverageStats = (dto: CoverageStatsDto): CoverageStats => ({
+export const mapCoverageStats = (dto: CoverageStatsContract): CoverageStats => ({
   expectedTitleCount: dto.expectedTitleCount,
   localPayloadTitleCount: dto.localPayloadTitleCount,
   completeTitleCount: dto.completeTitleCount,
@@ -37,7 +37,7 @@ export function useCoverageStats() {
       if (response.error || !response.data) {
         throw new Error('Failed to fetch coverage stats');
       }
-      return mapCoverageStats(response.data as CoverageStatsDto);
+      return mapCoverageStats(response.data as CoverageStatsContract);
     },
     staleTime: Number.POSITIVE_INFINITY,
   });

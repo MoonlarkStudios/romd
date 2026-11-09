@@ -8,17 +8,17 @@ using Romd.Domain.Catalog;
 
 namespace Romd.Admin.Application.Catalog.Commands.DecideDiscSet;
 
-public sealed record DecideDiscSetCommand(int Id, DecideDiscSetRequest Request, RevisionPrecondition Precondition, Guid Actor) : ICommand<DiscSetDto>;
+public sealed record DecideDiscSetCommand(int Id, DecideDiscSetRequest Request, RevisionPrecondition Precondition, Guid Actor) : ICommand<DiscSet>;
 
 public sealed class DecideDiscSetCommandHandler(IDiscSetDecisionStore store, IUnitOfWork unitOfWork,
-    TimeProvider clock, ILogger<DecideDiscSetCommandHandler> logger) : ICommandHandler<DecideDiscSetCommand, DiscSetDto>
+    TimeProvider clock, ILogger<DecideDiscSetCommandHandler> logger) : ICommandHandler<DecideDiscSetCommand, DiscSet>
 {
-    public Task<ErrorOr<DiscSetDto>> HandleAsync(DecideDiscSetCommand command, CancellationToken ct = default)
+    public Task<ErrorOr<DiscSet>> HandleAsync(DecideDiscSetCommand command, CancellationToken ct = default)
     {
         var request = command.Request;
         var input = new DiscSetDecisionInput(request.Decision, request.Name, request.ExpectedDiscCount,
             request.Members?.Select(member => member is null ? null : new DiscSetMemberChange(member.EntryKey, member.Ordinal)), request.Reason);
-        return unitOfWork.ExecuteInTransactionAsync<DiscSetDto>(async token =>
+        return unitOfWork.ExecuteInTransactionAsync<DiscSet>(async token =>
         {
             var invalid = DiscSetDecisionPolicy.ValidateRequest(input);
             if (invalid != DiscSetDecisionProblem.None)

@@ -34,6 +34,8 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Infrastructure.Tests.Artwork;
 
 /// <summary>
@@ -96,13 +98,13 @@ public sealed class ArtworkCompletionRunFeedbackTests : IDisposable
             var all = await PageAllAsync(store, run, null);
             all.Count.ShouldBe(job.Total);
             // Recorded history stays visible beside the current flags.
-            all.Single(x => x.TitleId == IdCoder.Encode(LogoUnavailable)).Roles.ShouldContain(new ArtworkRoleCountDto("Logo", "Unavailable", 1));
+            all.Single(x => x.TitleId == IdCoder.Encode(LogoUnavailable)).Roles.ShouldContain(new ArtworkRoleCount("Logo", "Unavailable", 1));
             all.Single(x => x.TitleId == IdCoder.Encode(Legacy)).MetadataOutcome.ShouldBeNull();
             all.Single(x => x.TitleId == IdCoder.Encode(FailedMetadata)).MetadataOutcome.ShouldBe(ArtworkCompletionMetadataOutcome.Failed);
             all.Single(x => x.TitleId == IdCoder.Encode(Removed)).Now.ShouldBeNull();
             var working = all.Single(x => x.TitleId == IdCoder.Encode(Working));
             working.Completion.ShouldBe(ArtworkCompletionState.Working);
-            working.Roles.ShouldContain(new ArtworkRoleCountDto("Poster", "Failed", 1));
+            working.Roles.ShouldContain(new ArtworkRoleCount("Poster", "Failed", 1));
             // Retry membership is exactly the recorded lists: removed titles and Working items are never retried.
             (await store.PreviewScopeAsync(new(Guid.NewGuid(), Scope: "Retry", RetryJobId: run, RetryStatus: "Failed"), default)).Value.Titles.ShouldBe(job.Failed);
             (await store.PreviewScopeAsync(new(Guid.NewGuid(), Scope: "Retry", RetryJobId: run, RetryStatus: "Unfinished"), default)).Value.Titles.ShouldBe(job.Unfinished);
@@ -184,7 +186,7 @@ public sealed class ArtworkCompletionRunFeedbackTests : IDisposable
         unfinished.TitleId.ShouldBe(IdCoder.Encode(2));
         unfinished.Completion.ShouldBe(ArtworkCompletionState.Unfinished);
         unfinished.MetadataOutcome.ShouldBe(ArtworkCompletionMetadataOutcome.Succeeded);
-        unfinished.Roles.ShouldBe([new ArtworkRoleCountDto("Poster", "Updated", 1)]);
+        unfinished.Roles.ShouldBe([new ArtworkRoleCount("Poster", "Updated", 1)]);
         (await db.Titles.SingleAsync(x => x.Id == 2)).EnrichmentStatus.ShouldBe("Completed");
 
         var retry = (await store.GetAsync((await store.AcceptCompletionAsync(db, new(Guid.NewGuid(), Scope: "Retry", RetryJobId: run, RetryStatus: "Unfinished"), actor, default)).Value, default)).Value;
@@ -527,9 +529,9 @@ public sealed class ArtworkCompletionRunFeedbackTests : IDisposable
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.CompletedAt, DateTimeOffset.UtcNow));
     }
 
-    private static async Task<List<ArtworkCompletionItemDto>> PageAllAsync(ArtworkCompletionStore store, Guid run, string? status)
+    private static async Task<List<ArtworkCompletionItem>> PageAllAsync(ArtworkCompletionStore store, Guid run, string? status)
     {
-        var items = new List<ArtworkCompletionItemDto>();
+        var items = new List<ArtworkCompletionItem>();
         var after = 0;
         while (true)
         {

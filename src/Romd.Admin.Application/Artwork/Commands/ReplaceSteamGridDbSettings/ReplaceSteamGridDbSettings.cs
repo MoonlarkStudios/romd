@@ -9,14 +9,14 @@ using Romd.Contracts.Management.Artwork;
 namespace Romd.Admin.Application.Artwork.Commands.ReplaceSteamGridDbSettings;
 
 public sealed record ReplaceSteamGridDbSettingsCommand(UpdateSteamGridDbSettingsRequest Settings, RevisionPrecondition IfMatch)
-    : ICommand<SteamGridDbSettingsDto>
+    : ICommand<SteamGridDbSettings>
 {
     public override string ToString() => nameof(ReplaceSteamGridDbSettingsCommand);
 }
 
 public sealed class ReplaceSteamGridDbSettingsCommandHandler(ISteamGridDbSettingsService service, IUnitOfWork unitOfWork,
-    ILogger<ReplaceSteamGridDbSettingsCommandHandler> logger) : ICommandHandler<ReplaceSteamGridDbSettingsCommand, SteamGridDbSettingsDto>
+    ILogger<ReplaceSteamGridDbSettingsCommandHandler> logger) : ICommandHandler<ReplaceSteamGridDbSettingsCommand, SteamGridDbSettings>
 {
-    public Task<ErrorOr<SteamGridDbSettingsDto>> HandleAsync(ReplaceSteamGridDbSettingsCommand command, CancellationToken ct = default) =>
+    public Task<ErrorOr<SteamGridDbSettings>> HandleAsync(ReplaceSteamGridDbSettingsCommand command, CancellationToken ct = default) =>
         unitOfWork.ExecuteInTransactionAsync(token => service.StageUpdateAsync(command.Settings, command.IfMatch, token), logger, ct);
 }

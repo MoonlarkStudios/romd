@@ -10,7 +10,7 @@ public static class DiscSetContracts
     public static IReadOnlyList<int> MissingExpected(ConsumerDiscSetPlan plan) => plan.ExpectedDiscCount is { } expected
         ? Enumerable.Range(1, expected).Except(plan.Discs.Select(x => x.Ordinal)).ToArray() : [];
 
-    public static ConsumerDiscSetStatusDto Status(ConsumerDiscSetPlan plan, Guid server)
+    public static ConsumerDiscSetStatus Status(ConsumerDiscSetPlan plan, Guid server)
     {
         string observation = Hash(new
         {
@@ -48,7 +48,7 @@ public static class DiscSetContracts
         });
         return new(1, server.ToString("D"), IdCoder.Encode(plan.Id), plan.Revision, IdCoder.Encode(plan.Discs[0].Release.TitleId),
             plan.Discs[0].Release.PlatformShortName, plan.Name, observation, plan.ExpectedDiscCount, MissingExpected(plan),
-            plan.Discs.Select(x => new ConsumerDiscSetStatusDiscDto(IdCoder.Encode(x.Release.ReleaseId), x.Ordinal,
+            plan.Discs.Select(x => new ConsumerDiscSetStatusDisc(IdCoder.Encode(x.Release.ReleaseId), x.Ordinal,
                 x.Release.ReleaseName, x.OriginalLayout is { } layout ? IdCoder.Encode(layout.Id) : null,
                 x.OriginalLayout?.Revision.ToString("D"), x.Readiness)).ToArray());
     }

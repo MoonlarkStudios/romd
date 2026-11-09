@@ -1,4 +1,4 @@
-import { client, type OperationalDiagnosticsDto } from '@romd/admin-api-client';
+import { client, type OperationalDiagnostics } from '@romd/admin-api-client';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse, http } from 'msw';
@@ -11,7 +11,7 @@ import { server } from '../../test/msw/server';
 import { render } from '../../test/utils/render';
 import { Diagnostics } from './index';
 
-function respondWith(diagnostics: OperationalDiagnosticsDto) {
+function respondWith(diagnostics: OperationalDiagnostics) {
   server.use(http.get('*/api/server/diagnostics', () => HttpResponse.json(diagnostics)));
 }
 

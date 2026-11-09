@@ -1,5 +1,5 @@
 import { Stack, Title, VisuallyHidden } from '@mantine/core';
-import type { ConsumerCollectionDto } from '@romd/consumer-api-client';
+import type { ConsumerCollection } from '@romd/consumer-api-client';
 import { SpotlightCarousel } from '../components/library/SpotlightCarousel';
 import { TitleRail } from '../components/library/TitleRail';
 import { StatusState } from '../components/status/StatusState';
@@ -167,7 +167,7 @@ export function Shelves() {
 }
 
 interface CollectionTitleRailProps {
-  collection: ConsumerCollectionDto;
+  collection: ConsumerCollection;
 }
 
 function CollectionTitleRail({ collection }: CollectionTitleRailProps) {

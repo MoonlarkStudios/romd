@@ -4,17 +4,21 @@ using Romd.Application.Common.Security;
 using Romd.Consumer.Application.Browse;
 using Romd.Contracts.Consumer.Account;
 
+using ContractConsumerReleasePreference = Romd.Contracts.Consumer.Account.ConsumerReleasePreference;
+
+using ConsumerReleasePreference = Romd.Consumer.Application.Browse.ConsumerReleasePreference;
+
 namespace Romd.Consumer.Application.Account.Commands.UpdateConsumerUserSettings;
 
 public sealed record UpdateConsumerUserSettingsCommand(
     string? Theme,
-    ConsumerReleasePreferenceDto? ReleasePreference) : ICommand<ConsumerUserSettingsDto>;
+    ContractConsumerReleasePreference? ReleasePreference) : ICommand<ConsumerUserSettings>;
 
 public sealed class UpdateConsumerUserSettingsCommandHandler(
     ICurrentUser currentUser,
     IConsumerUserSettingsStore settingsStore,
     IConsumerTaxonomyKeys taxonomyKeys)
-    : ICommandHandler<UpdateConsumerUserSettingsCommand, ConsumerUserSettingsDto>
+    : ICommandHandler<UpdateConsumerUserSettingsCommand, ConsumerUserSettings>
 {
     public const string ThemeField = "theme";
     public const string RevisionStrategyField = "releasePreference.revisionStrategy";
@@ -23,7 +27,7 @@ public sealed class UpdateConsumerUserSettingsCommandHandler(
 
     private static readonly string[] AllowedThemes = ["system", "light", "dark"];
 
-    public async Task<ErrorOr<ConsumerUserSettingsDto>> HandleAsync(
+    public async Task<ErrorOr<ConsumerUserSettings>> HandleAsync(
         UpdateConsumerUserSettingsCommand command,
         CancellationToken ct = default)
     {
@@ -66,7 +70,7 @@ public sealed class UpdateConsumerUserSettingsCommandHandler(
     }
 
     private async Task<ErrorOr<ConsumerReleasePreference>> ParseReleasePreferenceAsync(
-        ConsumerReleasePreferenceDto dto,
+        ContractConsumerReleasePreference dto,
         CancellationToken ct)
     {
         Error[] strategyErrors = TryParseRevisionPreference(dto.RevisionStrategy, out var revisionPreference)
@@ -100,10 +104,10 @@ public sealed class UpdateConsumerUserSettingsCommandHandler(
         }
 
         // The published bound and uniqueness (maxItems, uniqueItems) hold exactly as enforced here.
-        if (keys.Count > ConsumerReleasePreferenceDto.MaximumPreferredKeys)
+        if (keys.Count > ContractConsumerReleasePreference.MaximumPreferredKeys)
         {
             return ConsumerErrors.InvalidSettings(
-                $"Send at most {ConsumerReleasePreferenceDto.MaximumPreferredKeys} keys.", field);
+                $"Send at most {ContractConsumerReleasePreference.MaximumPreferredKeys} keys.", field);
         }
 
         var resolved = await resolve(Distinct(keys), ct);

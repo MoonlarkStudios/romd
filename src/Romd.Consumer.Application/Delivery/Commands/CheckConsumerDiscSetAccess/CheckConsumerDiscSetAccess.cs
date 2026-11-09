@@ -10,13 +10,13 @@ using Romd.Contracts.Consumer.Releases;
 
 namespace Romd.Consumer.Application.Delivery.Commands.CheckConsumerDiscSetAccess;
 
-public sealed record CheckConsumerDiscSetAccessCommand(int Id, ConsumerDiscSetAccessRequest Request) : ICommand<ConsumerDiscSetAccessDto>;
+public sealed record CheckConsumerDiscSetAccessCommand(int Id, ConsumerDiscSetAccessRequest Request) : ICommand<ConsumerDiscSetAccess>;
 
 public sealed class CheckConsumerDiscSetAccessCommandHandler(ICurrentUser currentUser, IServerInstanceIdentity server,
     IConsumerDiscSetRepository repository, IConsumerDiscSetManifestBuilder manifests)
-    : ICommandHandler<CheckConsumerDiscSetAccessCommand, ConsumerDiscSetAccessDto>
+    : ICommandHandler<CheckConsumerDiscSetAccessCommand, ConsumerDiscSetAccess>
 {
-    public async Task<ErrorOr<ConsumerDiscSetAccessDto>> HandleAsync(CheckConsumerDiscSetAccessCommand command, CancellationToken ct = default)
+    public async Task<ErrorOr<ConsumerDiscSetAccess>> HandleAsync(CheckConsumerDiscSetAccessCommand command, CancellationToken ct = default)
     {
         if (!currentUser.IsAuthenticated || currentUser.UserId is not { } userId)
             return ConsumerErrors.CurrentUserRequired();
@@ -48,7 +48,7 @@ public sealed class CheckConsumerDiscSetAccessCommandHandler(ICurrentUser curren
                 : disc.Readiness == "ready" ? new OriginalDiscLayoutIdentity(null, null) : null);
             if (identity is null)
                 continue;
-            var current = new ConsumerDiscSetLayoutVersionDto(IdCoder.Encode(disc.Release.ReleaseId),
+            var current = new ConsumerDiscSetLayoutVersion(IdCoder.Encode(disc.Release.ReleaseId),
                 identity.Id is { } layoutId ? IdCoder.Encode(layoutId) : null, identity.Revision?.ToString("D"));
             if (current != request.LayoutVersions[index])
                 return Echo(false, null, null);
@@ -65,12 +65,12 @@ public sealed class CheckConsumerDiscSetAccessCommandHandler(ICurrentUser curren
             return result.FirstError.Code is "DiscSet.Snapshot" or "DiscSet.Selection" or "DiscSet.PartialConsent"
                 ? Echo(false, null, null) : Unavailable();
         var manifest = result.Value;
-        var layouts = manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersionDto(x.ReleaseId, x.LayoutId, x.LayoutRevision));
+        var layouts = manifest.Discs.Select(x => new ConsumerDiscSetLayoutVersion(x.ReleaseId, x.LayoutId, x.LayoutRevision));
         if (!layouts.SequenceEqual(request.LayoutVersions))
             return Echo(false, null, null);
         return Echo(true, manifest.TitleId, manifest.SystemKey);
 
-        ConsumerDiscSetAccessDto Echo(bool allowed, string? titleId, string? systemKey) => new(1, server.InstanceId.ToString("D"),
+        ConsumerDiscSetAccess Echo(bool allowed, string? titleId, string? systemKey) => new(1, server.InstanceId.ToString("D"),
             IdCoder.Encode(command.Id), request.Revision, request.DeliverySnapshotId, request.SelectedReleaseIds,
             request.LayoutVersions, allowed, titleId, systemKey);
     }

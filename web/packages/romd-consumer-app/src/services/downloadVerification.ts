@@ -1,4 +1,4 @@
-import type { ConsumerReleaseManifestItemDto } from '@romd/consumer-api-client';
+import type { ConsumerReleaseManifestItem } from '@romd/consumer-api-client';
 import { fetchDownloadContent } from '@romd/delivery';
 
 export type DownloadVerificationStatus =
@@ -67,7 +67,7 @@ export function revokeVerifiedDownload(file: VerifiedDownload): void {
 }
 
 export async function verifyManifestItemDownload(
-  item: ConsumerReleaseManifestItemDto,
+  item: ConsumerReleaseManifestItem,
   signal?: AbortSignal,
   onPhase?: (phase: 'downloading' | 'checking') => void,
 ): Promise<DownloadVerificationResult> {

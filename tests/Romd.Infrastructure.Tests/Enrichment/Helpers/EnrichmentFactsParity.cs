@@ -10,6 +10,8 @@ using Romd.Persistence;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 
+using EnrichmentRequirement = Romd.Domain.Catalog.EnrichmentRequirement;
+
 namespace Romd.Infrastructure.Tests.Enrichment.Helpers;
 
 /// <summary>
@@ -118,7 +120,7 @@ internal static class EnrichmentFactsParity
         foreach (var title in current.GroupBy(row => row.TitleId))
         {
             var requirements = title.Select(row => row.Requirement).ToArray();
-            var assessment = new EnrichmentAssessmentDto(title.Key.ToString(), "", "", Guid.Empty,
+            var assessment = new EnrichmentAssessment(title.Key.ToString(), "", "", Guid.Empty,
                 requirements.Any(x => x.State == EnrichmentRequirementState.NeedsReview),
                 requirements.Any(x => x.State == EnrichmentRequirementState.Automatic),
                 requirements.Any(x => x.State == EnrichmentRequirementState.Processing),

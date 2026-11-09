@@ -8,7 +8,7 @@ namespace Romd.Admin.Application.Ingestion.Jobs;
 
 public static class JobItemMapping
 {
-    public static Models.JobItemDto ToContract(this JobItemView view, SystemKeys systemKeys) => new()
+    public static Models.JobItem ToContract(this JobItemView view, SystemKeys systemKeys) => new()
     {
         Id = view.Id.ToString(),
         Kind = view.Kind == JobItemKind.Dat ? "dat" : "rom",
@@ -20,7 +20,7 @@ public static class JobItemMapping
         SystemKey = systemKeys.Optional(view.PlatformId),
         PlatformName = view.PlatformName,
         MatchedTitles = view.MatchedTitles
-            .Select(t => new Models.JobItemTitleDto(IdCoder.Encode(t.TitleId), t.Name))
+            .Select(t => new Models.JobItemTitle(IdCoder.Encode(t.TitleId), t.Name))
             .ToList(),
         GameCount = view.GameCount,
         ArchiveOnly = view.ArchiveOnly,

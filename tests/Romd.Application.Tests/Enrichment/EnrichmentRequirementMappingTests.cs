@@ -6,6 +6,8 @@ using Xunit;
 using Cause = Romd.Contracts.Management.Enrichment.EnrichmentRequirementCause;
 using SatisfiedBy = Romd.Contracts.Management.Enrichment.EnrichmentRequirementSatisfiedBy;
 
+using EnrichmentRequirement = Romd.Domain.Catalog.EnrichmentRequirement;
+
 namespace Romd.Application.Tests.Enrichment;
 
 public sealed class EnrichmentRequirementMappingTests

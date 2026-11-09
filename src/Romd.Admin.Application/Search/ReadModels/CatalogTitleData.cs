@@ -13,7 +13,7 @@ public sealed record CatalogTitleData
     public required int Id { get; init; }
     public required int PlatformId { get; init; }
     public required string Name { get; init; }
-    public Romd.Contracts.Management.Enrichment.EnrichmentSummaryDto? EnrichmentAssessment { get; init; }
+    public Romd.Contracts.Management.Enrichment.EnrichmentSummary? EnrichmentAssessment { get; init; }
     public string EnrichmentStatus { get; init; } = "None";
     public bool HasLocalPayload { get; init; }
     public bool IsTracked { get; init; }

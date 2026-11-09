@@ -31,7 +31,7 @@ public static class ArtworkCompletionIntent
     public static string Signature(ArtworkCompletionRequest normalized) =>
         JsonSerializer.Serialize(normalized with { RequestId = Guid.Empty });
 
-    private static bool ValidFilters(ArtworkCompletionFilterDto filters) =>
+    private static bool ValidFilters(ArtworkCompletionFilter filters) =>
         filters.ArtworkStatus is (null or "Poster" or "Backdrop" or "Logo" or "Hero" or "NeedsMatch") &&
         (string.IsNullOrWhiteSpace(filters.EnrichmentStatus) || EnrichmentFilterParser.IsLastAttemptStatus(filters.EnrichmentStatus)) &&
         (filters.Enrichment is null || !EnrichmentFilterParser.ParseFlags(filters.Enrichment).IsError);

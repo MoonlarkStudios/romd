@@ -6,15 +6,15 @@ using Romd.Contracts.Management.TrackedCollection;
 
 namespace Romd.Admin.Application.TrackedCollection.Queries.ListTrackedTitles;
 
-public sealed record ListTrackedTitlesQuery(TrackedCollectionView View, string? Query, string? Cursor, int Limit) : IQuery<Page<TrackedCollectionTitleDto>>;
-public sealed class ListTrackedTitlesQueryHandler(ITrackedCollectionReadRepository repository, IReferenceCatalogService referenceCatalog) : IQueryHandler<ListTrackedTitlesQuery, Page<TrackedCollectionTitleDto>>
+public sealed record ListTrackedTitlesQuery(TrackedCollectionView View, string? Query, string? Cursor, int Limit) : IQuery<Page<TrackedCollectionTitle>>;
+public sealed class ListTrackedTitlesQueryHandler(ITrackedCollectionReadRepository repository, IReferenceCatalogService referenceCatalog) : IQueryHandler<ListTrackedTitlesQuery, Page<TrackedCollectionTitle>>
 {
-    public async Task<ErrorOr<Page<TrackedCollectionTitleDto>>> HandleAsync(ListTrackedTitlesQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<Page<TrackedCollectionTitle>>> HandleAsync(ListTrackedTitlesQuery query, CancellationToken ct = default)
     {
         var result = await repository.ListPageAsync(query.View, query.Query, query.Cursor, query.Limit, ct);
         if (result.IsError)
             return result.Errors;
         var keys = await referenceCatalog.GetSystemKeysAsync(ct);
-        return new Page<TrackedCollectionTitleDto> { Items = result.Value.Items.Select(item => TrackedCollectionContractMapper.ToContract(item, keys)).ToArray(), NextCursor = result.Value.NextCursor, HasNextPage = result.Value.HasNextPage };
+        return new Page<TrackedCollectionTitle> { Items = result.Value.Items.Select(item => TrackedCollectionContractMapper.ToContract(item, keys)).ToArray(), NextCursor = result.Value.NextCursor, HasNextPage = result.Value.HasNextPage };
     }
 }

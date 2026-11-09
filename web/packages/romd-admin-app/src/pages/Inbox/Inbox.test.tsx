@@ -1,4 +1,4 @@
-import type { Dat, LibraryStats, PageOfRom, SystemResourceDto } from '@romd/admin-api-client';
+import type { Dat, LibraryStats, PageOfRom, SystemResource } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -59,7 +59,7 @@ const mockAddPlatformAlias = createSystemAlias as ReturnType<typeof vi.fn>;
 const mockCreatePlatform = createSystem as ReturnType<typeof vi.fn>;
 const mockGetCurrentUser = getMe as ReturnType<typeof vi.fn>;
 
-const platforms: SystemResourceDto[] = [
+const platforms: SystemResource[] = [
   {
     key: 'p1',
     name: 'Super Nintendo Entertainment System',

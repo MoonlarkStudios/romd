@@ -38,7 +38,7 @@ public sealed class IgdbProviderSettingsService : IIgdbProviderSettingsService
     private bool Managed => !string.IsNullOrWhiteSpace(_deployment.ClientId) ||
                             !string.IsNullOrWhiteSpace(_deployment.ClientSecret);
 
-    public async Task<IgdbProviderSettingsDto> GetAsync(CancellationToken ct = default)
+    public async Task<IgdbProviderSettings> GetAsync(CancellationToken ct = default)
     {
         var row = await LoadAsync(ct);
         return ToDto(row, Resolve(row));
@@ -47,7 +47,7 @@ public sealed class IgdbProviderSettingsService : IIgdbProviderSettingsService
     internal async Task<IgdbRuntimeSettings> GetRuntimeAsync(CancellationToken ct = default) =>
         Resolve(await LoadAsync(ct));
 
-    public async Task<ErrorOr<IgdbProviderSettingsDto>> UpdateStagedAsync(
+    public async Task<ErrorOr<IgdbProviderSettings>> UpdateStagedAsync(
         UpdateIgdbProviderSettingsRequest request, RevisionPrecondition precondition, CancellationToken ct = default)
     {
         if (Managed)
@@ -125,7 +125,7 @@ public sealed class IgdbProviderSettingsService : IIgdbProviderSettingsService
         return new IgdbProviderTestObservation(row.Revision, testedAt, succeeded, message, Fingerprint(settings));
     }
 
-    public async Task<ErrorOr<IgdbProviderSettingsDto>> RecordTestStagedAsync(IgdbProviderTestObservation observation, CancellationToken ct = default)
+    public async Task<ErrorOr<IgdbProviderSettings>> RecordTestStagedAsync(IgdbProviderTestObservation observation, CancellationToken ct = default)
     {
         var row = await LoadAsync(ct);
         if (row.Revision != observation.Revision || Fingerprint(Resolve(row)) != observation.ConfigurationFingerprint)
@@ -227,7 +227,7 @@ public sealed class IgdbProviderSettingsService : IIgdbProviderSettingsService
         return new IgdbRuntimeSettings(enabled, clientId, secret, error);
     }
 
-    private IgdbProviderSettingsDto ToDto(IgdbProviderStoredSettings row, IgdbRuntimeSettings settings)
+    private IgdbProviderSettings ToDto(IgdbProviderStoredSettings row, IgdbRuntimeSettings settings)
     {
         bool sameTestConfiguration = row.TestConfigurationFingerprint == Fingerprint(settings);
         return new(settings.Enabled, settings.ClientId,

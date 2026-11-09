@@ -76,30 +76,30 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
         using var anonymous = app.CreateClient();
         (await anonymous.GetAsync("/api/dat-catalogs")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         (await anonymous.GetAsync("/api/dat-subscriptions")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-        var directory = await client.GetFromJsonAsync<Models.DatCatalogDirectoryDto>("/api/dat-catalogs");
+        var directory = await client.GetFromJsonAsync<Models.DatCatalogDirectory>("/api/dat-catalogs");
         directory!.Catalogs.Single().CatalogId.ShouldBe(catalogId);
         var created = await client.PostAsJsonAsync("/api/dat-subscriptions", new { catalogId });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
-        var subscription = (await created.Content.ReadFromJsonAsync<Models.DatCatalogSubscriptionDto>())!;
+        var subscription = (await created.Content.ReadFromJsonAsync<Models.DatCatalogSubscription>())!;
         created.Headers.Location!.OriginalString.ShouldBe($"/api/dat-subscriptions/{subscription.Id}");
         subscription.State.ShouldBe("ReadyToImport");
         subscription.ActiveDatId.ShouldBeNull();
-        (await client.GetFromJsonAsync<Models.DatCatalogSubscriptionDto[]>("/api/dat-subscriptions"))!
+        (await client.GetFromJsonAsync<Models.DatCatalogSubscription[]>("/api/dat-subscriptions"))!
             .ShouldContain(row => row.Id == subscription.Id && row.CatalogId == catalogId);
         // Creation is idempotent on the catalog: a replay answers 200 with the existing subscription and no check.
-        var stored = (await client.GetFromJsonAsync<Models.DatCatalogSubscriptionDto>($"/api/dat-subscriptions/{subscription.Id}"))!;
+        var stored = (await client.GetFromJsonAsync<Models.DatCatalogSubscription>($"/api/dat-subscriptions/{subscription.Id}"))!;
         var replay = await client.PostAsJsonAsync("/api/dat-subscriptions", new { catalogId });
         replay.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await replay.Content.ReadFromJsonAsync<Models.DatCatalogSubscriptionDto>()).ShouldBe(stored);
+        (await replay.Content.ReadFromJsonAsync<Models.DatCatalogSubscription>()).ShouldBe(stored);
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
         (await db.DatFiles.CountAsync(d => d.Name == name)).ShouldBe(0);
         var jobs = await db.Jobs.CountAsync();
-        async Task<Models.DatCatalogSubscriptionDto> Check()
+        async Task<Models.DatCatalogSubscription> Check()
         {
             var result = await client.PostAsync($"/api/dat-subscriptions/{subscription.Id}/check", null);
             result.StatusCode.ShouldBe(HttpStatusCode.OK, await result.Content.ReadAsStringAsync());
-            return (await result.Content.ReadFromJsonAsync<Models.DatCatalogSubscriptionDto>())!;
+            return (await result.Content.ReadFromJsonAsync<Models.DatCatalogSubscription>())!;
         }
         async Task<Models.DatReplacementPreview> Preview()
         {
@@ -151,7 +151,7 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
         var initialJob = await Apply(first);
         (await Apply(first)).ShouldBe(initialJob);
         await TestHelpers.WaitForJobCompletionAsync(client, initialJob);
-        var status = await client.GetFromJsonAsync<Models.DatCatalogSubscriptionDto>($"/api/dat-subscriptions/{subscription.Id}");
+        var status = await client.GetFromJsonAsync<Models.DatCatalogSubscription>($"/api/dat-subscriptions/{subscription.Id}");
         status!.State.ShouldBe("UpToDate");
         status.ActiveDatId.ShouldNotBeNull();
         var initial = await db.DatFiles.SingleAsync(d => d.Name == name && d.Lifecycle == "Active");
@@ -224,7 +224,7 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
         using var clientScope = client;
         var created = await client.PostAsJsonAsync("/api/dat-subscriptions", new { catalogId });
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
-        var subscription = (await created.Content.ReadFromJsonAsync<Models.DatCatalogSubscriptionDto>())!;
+        var subscription = (await created.Content.ReadFromJsonAsync<Models.DatCatalogSubscription>())!;
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
         // A stale server-held identity is a state conflict even though the same document error in an upload is a 400.
@@ -363,12 +363,12 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
         string datId = await TestHelpers.GetDatIdByNameAsync(client, name);
         var created = await client.PostAsJsonAsync("/api/dat-subscriptions", new { catalogId, datId });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
-        var subscription = (await created.Content.ReadFromJsonAsync<Models.DatCatalogSubscriptionDto>())!;
+        var subscription = (await created.Content.ReadFromJsonAsync<Models.DatCatalogSubscription>())!;
         subscription.ActiveDatId.ShouldBe(datId);
         subscription.State.ShouldBe("UpToDate");
         var replay = await client.PostAsJsonAsync("/api/dat-subscriptions", new { catalogId, datId });
         replay.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await replay.Content.ReadFromJsonAsync<Models.DatCatalogSubscriptionDto>())!.Id.ShouldBe(subscription.Id);
+        (await replay.Content.ReadFromJsonAsync<Models.DatCatalogSubscription>())!.Id.ShouldBe(subscription.Id);
         string unknown = new Romd.Application.Common.Ids.Sqid(int.MaxValue).ToString();
         (await ProblemAsync(await client.PostAsJsonAsync("/api/dat-subscriptions", new { catalogId, datId = unknown }), HttpStatusCode.Conflict))
             .GetProperty("errorCode").GetString().ShouldBe("DatEnrollment.Unavailable");

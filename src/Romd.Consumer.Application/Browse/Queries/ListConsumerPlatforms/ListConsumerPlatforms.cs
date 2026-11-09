@@ -11,7 +11,7 @@ namespace Romd.Consumer.Application.Browse.Queries.ListConsumerPlatforms;
 
 public sealed record ListConsumerPlatformsQuery(
     string? Cursor,
-    int Limit) : IQuery<CommonModels.Page<ConsumerPlatformSummaryDto>>
+    int Limit) : IQuery<CommonModels.Page<ConsumerPlatformSummary>>
 {
     /// <summary>The largest page the operation serves; the endpoint publishes and enforces it.</summary>
     public const int MaxLimit = 100;
@@ -20,9 +20,9 @@ public sealed record ListConsumerPlatformsQuery(
 public sealed class ListConsumerPlatformsQueryHandler(
     ICurrentUser currentUser,
     IConsumerBrowseRepository browseRepository)
-    : IQueryHandler<ListConsumerPlatformsQuery, CommonModels.Page<ConsumerPlatformSummaryDto>>
+    : IQueryHandler<ListConsumerPlatformsQuery, CommonModels.Page<ConsumerPlatformSummary>>
 {
-    public async Task<ErrorOr<CommonModels.Page<ConsumerPlatformSummaryDto>>> HandleAsync(
+    public async Task<ErrorOr<CommonModels.Page<ConsumerPlatformSummary>>> HandleAsync(
         ListConsumerPlatformsQuery query,
         CancellationToken ct = default)
     {

@@ -17,7 +17,7 @@ public sealed record SearchConsumerCatalogQuery(
     string? Completeness,
     string? SortBy,
     string? Cursor,
-    int Limit) : IQuery<CommonModels.Page<ConsumerTitleCardDto>>
+    int Limit) : IQuery<CommonModels.Page<ConsumerTitleCard>>
 {
     /// <summary>The largest page the operation serves; the endpoint publishes and enforces it.</summary>
     public const int MaxLimit = 100;
@@ -27,9 +27,9 @@ public sealed class SearchConsumerCatalogQueryHandler(
     ICurrentUser currentUser,
     IConsumerUserSettingsStore settingsStore,
     IConsumerBrowseRepository browseRepository)
-    : IQueryHandler<SearchConsumerCatalogQuery, CommonModels.Page<ConsumerTitleCardDto>>
+    : IQueryHandler<SearchConsumerCatalogQuery, CommonModels.Page<ConsumerTitleCard>>
 {
-    public async Task<ErrorOr<CommonModels.Page<ConsumerTitleCardDto>>> HandleAsync(
+    public async Task<ErrorOr<CommonModels.Page<ConsumerTitleCard>>> HandleAsync(
         SearchConsumerCatalogQuery query,
         CancellationToken ct = default)
     {

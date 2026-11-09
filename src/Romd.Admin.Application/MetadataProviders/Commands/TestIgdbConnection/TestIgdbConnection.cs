@@ -7,19 +7,19 @@ using Romd.Contracts.Management.MetadataProviders;
 
 namespace Romd.Admin.Application.MetadataProviders.Commands.TestIgdbConnection;
 
-public sealed record TestIgdbConnectionCommand(RevisionPrecondition Precondition) : ICommand<IgdbProviderSettingsDto>;
+public sealed record TestIgdbConnectionCommand(RevisionPrecondition Precondition) : ICommand<IgdbProviderSettings>;
 
 public sealed class TestIgdbConnectionCommandHandler(IIgdbProviderSettingsService service, IUnitOfWork unitOfWork,
     ILogger<TestIgdbConnectionCommandHandler> logger)
-    : ICommandHandler<TestIgdbConnectionCommand, IgdbProviderSettingsDto>
+    : ICommandHandler<TestIgdbConnectionCommand, IgdbProviderSettings>
 {
-    public async Task<ErrorOr<IgdbProviderSettingsDto>> HandleAsync(TestIgdbConnectionCommand command, CancellationToken ct = default)
+    public async Task<ErrorOr<IgdbProviderSettings>> HandleAsync(TestIgdbConnectionCommand command, CancellationToken ct = default)
     {
         // The provider call never holds a database transaction or a settings row lock.
         var observation = await service.ProbeAsync(command.Precondition, ct);
         if (observation.IsError)
             return observation.Errors;
-        return await unitOfWork.ExecuteInTransactionAsync<IgdbProviderSettingsDto>(
+        return await unitOfWork.ExecuteInTransactionAsync<IgdbProviderSettings>(
             token => service.RecordTestStagedAsync(observation.Value, token), logger, ct);
     }
 }

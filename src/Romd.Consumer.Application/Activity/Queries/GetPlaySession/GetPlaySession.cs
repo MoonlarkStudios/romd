@@ -5,12 +5,12 @@ using Romd.Contracts.Consumer.Activity;
 
 namespace Romd.Consumer.Application.Activity.Queries.GetPlaySession;
 
-public sealed record GetPlaySessionQuery(Guid SessionId) : IQuery<PlaySessionDto>;
+public sealed record GetPlaySessionQuery(Guid SessionId) : IQuery<PlaySession>;
 
 public sealed class GetPlaySessionQueryHandler(ICurrentUser currentUser, IPlayActivityRepository repository)
-    : IQueryHandler<GetPlaySessionQuery, PlaySessionDto>
+    : IQueryHandler<GetPlaySessionQuery, PlaySession>
 {
-    public async Task<ErrorOr<PlaySessionDto>> HandleAsync(GetPlaySessionQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<PlaySession>> HandleAsync(GetPlaySessionQuery query, CancellationToken ct = default)
     {
         if (!currentUser.IsAuthenticated || currentUser.UserId is not { } userId)
         {

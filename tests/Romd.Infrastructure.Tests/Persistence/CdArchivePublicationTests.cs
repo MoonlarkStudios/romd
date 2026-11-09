@@ -29,6 +29,11 @@ using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
 
+using ContractOriginalDiscLayout = Romd.Contracts.Management.Models.OriginalDiscLayout;
+
+using MediaReconciliationJob = Romd.Domain.Jobs.MediaReconciliationJob;
+using MediaReconciliationSubject = Romd.Domain.Source.Rom.MediaReconciliationSubject;
+
 namespace Romd.Infrastructure.Tests.Persistence;
 
 /// <summary>Current publication and consumer contracts over real PostgreSQL graphs; codec observations are explicit synthetic fixtures.</summary>
@@ -196,7 +201,7 @@ public sealed partial class CdArchivePublicationTests : IAsyncLifetime
         owner.PublicationId.ShouldBe(claim.Job.Id);
         return new(claim.Job.Id, owner.PublicationId, retained);
     }
-    private async Task<OriginalDiscLayoutDto> Decide(int layoutId, string action)
+    private async Task<ContractOriginalDiscLayout> Decide(int layoutId, string action)
     {
         await using var db = database.CreateContext();
         var layout = await db.OriginalDiscLayouts.Include(x => x.Files).SingleAsync(x => x.Id == layoutId);

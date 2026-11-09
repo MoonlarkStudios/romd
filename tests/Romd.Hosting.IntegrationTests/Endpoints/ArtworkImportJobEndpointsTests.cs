@@ -77,7 +77,7 @@ public sealed class ArtworkImportJobEndpointsTests : IDisposable
         var result = await InvokeAsync("Update", job.Id, new JobRepository(endpointContext, TimeProvider.System),
             new EfUnitOfWork(endpointContext), User(RomdRoleType.Admin));
 
-        result.ShouldBeOfType<Ok<Romd.Contracts.Management.Models.JobDto>>().Value!.IsArchived.ShouldBeTrue();
+        result.ShouldBeOfType<Ok<Romd.Contracts.Management.Models.Job>>().Value!.IsArchived.ShouldBeTrue();
         await using var verify = _database.CreateContext();
         var saved = await verify.Jobs.SingleAsync();
         saved.IsArchived.ShouldBeTrue();

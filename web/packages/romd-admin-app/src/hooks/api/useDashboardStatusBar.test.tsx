@@ -1,4 +1,4 @@
-import type { DashboardStatusBarDto } from '@romd/admin-api-client';
+import type { DashboardStatusBar } from '@romd/admin-api-client';
 import {
   getCatalogCoverageStats,
   getDashboardStatusBar,
@@ -20,7 +20,7 @@ vi.mock('@romd/admin-api-client', async (importOriginal) => ({
 }));
 
 it('loads one coherent status-bar resource and preserves exact byte counts', async () => {
-  const data: DashboardStatusBarDto = {
+  const data: DashboardStatusBar = {
     storage: {
       totalStorageBytes: '9007199254740993',
       totalStorageBytesOnDisk: '9007199254740992',

@@ -14,14 +14,14 @@ import {
   Title,
 } from '@mantine/core';
 import type {
-  CatalogProjectionDiagnosticsDto,
+  CatalogProjectionDiagnostics,
   CatalogProjectionState,
   DiagnosticAvailability,
-  HangfireDiagnosticsDto,
-  OperationalJobDiagnosticsDto,
-  OutboxDiagnosticsDto,
+  HangfireDiagnostics,
+  OperationalJobDiagnostics,
+  OutboxDiagnostics,
   RecurringJobDiagnosticState,
-  StorageDiagnosticsDto,
+  StorageDiagnostics,
 } from '@romd/admin-api-client';
 import {
   IconAlertCircle,
@@ -170,11 +170,7 @@ const catalogStateColors: Record<CatalogProjectionState, string> = {
   Failed: 'red',
 };
 
-function CatalogProjectionsSection({
-  diagnostics,
-}: {
-  diagnostics: CatalogProjectionDiagnosticsDto;
-}) {
+function CatalogProjectionsSection({ diagnostics }: { diagnostics: CatalogProjectionDiagnostics }) {
   const [showClean, setShowClean] = useState(false);
   const cleanCount = diagnostics.items.filter((item) => item.state === 'Clean').length;
   const visibleItems = diagnostics.items.filter((item) => showClean || item.state !== 'Clean');
@@ -283,7 +279,7 @@ function CatalogProjectionsSection({
   );
 }
 
-function JobsSection({ diagnostics }: { diagnostics: OperationalJobDiagnosticsDto }) {
+function JobsSection({ diagnostics }: { diagnostics: OperationalJobDiagnostics }) {
   return (
     <DiagnosticsSection
       title="Job recovery"
@@ -483,7 +479,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
   );
 }
 
-function OutboxSection({ diagnostics }: { diagnostics: OutboxDiagnosticsDto }) {
+function OutboxSection({ diagnostics }: { diagnostics: OutboxDiagnostics }) {
   return (
     <DiagnosticsSection
       title="Realtime outbox"
@@ -541,7 +537,7 @@ const recurringStateColors: Record<RecurringJobDiagnosticState, string> = {
   Deleted: 'gray',
 };
 
-function HangfireSection({ diagnostics }: { diagnostics: HangfireDiagnosticsDto }) {
+function HangfireSection({ diagnostics }: { diagnostics: HangfireDiagnostics }) {
   return (
     <DiagnosticsSection
       title="Workers and queues"
@@ -741,7 +737,7 @@ function HangfireSection({ diagnostics }: { diagnostics: HangfireDiagnosticsDto 
   );
 }
 
-function StorageSection({ diagnostics }: { diagnostics: StorageDiagnosticsDto }) {
+function StorageSection({ diagnostics }: { diagnostics: StorageDiagnostics }) {
   return (
     <DiagnosticsSection
       title="Storage dependencies"

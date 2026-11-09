@@ -26,17 +26,17 @@ public static class JobEndpoints
     public static IEndpointRouteBuilder MapJobEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/jobs").WithTags("Jobs");
-        group.MapGet("", List).WithName("ListJobs").Produces<Page<Models.JobDto>>().ProducesProblem(400)
+        group.MapGet("", List).WithName("ListJobs").Produces<Page<Models.Job>>().ProducesProblem(400)
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
-        group.MapGet("{jobId}", Get).WithName("GetJob").Produces<Models.JobDto>().ProducesProblems(400, 404)
+        group.MapGet("{jobId}", Get).WithName("GetJob").Produces<Models.Job>().ProducesProblems(400, 404)
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
-        group.MapPatch("{jobId}", Update).WithName("UpdateJob").Produces<Models.JobDto>().ProducesProblems(400, 404, 409)
+        group.MapPatch("{jobId}", Update).WithName("UpdateJob").Produces<Models.Job>().ProducesProblems(400, 404, 409)
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
-        group.MapGet("{jobId}/items", Items).WithName("ListJobItems").Produces<Page<Models.JobItemDto>>().ProducesProblems(400, 404)
+        group.MapGet("{jobId}/items", Items).WithName("ListJobItems").Produces<Page<Models.JobItem>>().ProducesProblems(400, 404)
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
-        group.MapGet("{jobId}/artwork-items", ArtworkItems).WithName("ListJobArtworkItems").Produces<Page<ArtworkCompletionItemDto>>()
+        group.MapGet("{jobId}/artwork-items", ArtworkItems).WithName("ListJobArtworkItems").Produces<Page<ArtworkCompletionItem>>()
             .ProducesProblems(400, 404).RequireAuthorization(AuthorizationPolicies.RequireManager);
-        group.MapGet("{jobId}/artwork-summary", ArtworkSummary).WithName("GetJobArtworkSummary").Produces<ArtworkCompletionSummaryDto>()
+        group.MapGet("{jobId}/artwork-summary", ArtworkSummary).WithName("GetJobArtworkSummary").Produces<ArtworkCompletionSummary>()
             .ProducesProblems(400, 404).RequireAuthorization(AuthorizationPolicies.RequireManager);
         group.MapGet("{jobId}/item-export", ExportItems).WithName("GetJobItemExport")
             .WithDescription("Download the complete upload provenance as a JSON array or CSV file; pages are available from items.")
@@ -52,27 +52,27 @@ public static class JobEndpoints
             .ProducesProblems(400, 401, 404, 409).RequireAuthorization(AuthorizationPolicies.RequireManager);
         return app;
     }
-    private static async Task<IResult> List(IQueryHandler<ListJobsQuery, Page<Models.JobDto>> handler, CancellationToken ct,
+    private static async Task<IResult> List(IQueryHandler<ListJobsQuery, Page<Models.Job>> handler, CancellationToken ct,
         [StringLength(200)] string? query = null, [ClosedValues(JobFilterKind.Outcome)] string? outcome = null,
         [ClosedValues(JobFilterKind.Type)] string? jobType = null, [ClosedValues(JobFilterKind.Archive)] string archive = "active",
         Guid? correlationId = null, DateTimeOffset? from = null, DateTimeOffset? before = null,
         string? cursor = null, [Range(1, 100)] int limit = 50) =>
         (await handler.HandleAsync(new(query, outcome, jobType, archive, from, before, cursor, limit, correlationId), ct))
             .Match(Results.Ok, errors => errors.ToProblem());
-    private static async Task<IResult> Get(Guid jobId, IQueryHandler<GetJobQuery, Models.JobDto> handler, CancellationToken ct) =>
+    private static async Task<IResult> Get(Guid jobId, IQueryHandler<GetJobQuery, Models.Job> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new(jobId), ct)).Match(Results.Ok, errors => errors.ToProblem());
     private static async Task<IResult> Update(Guid jobId, Models.UpdateJobRequest request,
-        ICommandHandler<SetJobArchivedCommand, Models.JobDto> handler, CancellationToken ct) =>
+        ICommandHandler<SetJobArchivedCommand, Models.Job> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new(jobId, request.IsArchived), ct)).Match(Results.Ok, errors => errors.ToProblem());
-    private static async Task<IResult> Items(Guid jobId, IQueryHandler<GetJobItemsQuery, Page<Models.JobItemDto>> handler,
+    private static async Task<IResult> Items(Guid jobId, IQueryHandler<GetJobItemsQuery, Page<Models.JobItem>> handler,
         CancellationToken ct, [ClosedValues(JobFilterKind.ItemOutcome)] string? outcome = null,
         [StringLength(200)] string? query = null, string? cursor = null, [Range(1, 100)] int limit = 100) =>
         (await handler.HandleAsync(new(jobId, outcome, limit, cursor, query), ct)).Match(Results.Ok, errors => errors.ToProblem());
-    private static async Task<IResult> ArtworkItems(Guid jobId, IQueryHandler<GetJobArtworkItemsQuery, Page<ArtworkCompletionItemDto>> handler,
+    private static async Task<IResult> ArtworkItems(Guid jobId, IQueryHandler<GetJobArtworkItemsQuery, Page<ArtworkCompletionItem>> handler,
         CancellationToken ct, [ClosedValues(JobFilterKind.ArtworkStatus)] string? status = null,
         string? cursor = null, [Range(1, 100)] int limit = 50) =>
         (await handler.HandleAsync(new(jobId, status, cursor, limit), ct)).Match(Results.Ok, errors => errors.ToProblem());
-    private static async Task<IResult> ArtworkSummary(Guid jobId, IQueryHandler<GetJobArtworkSummaryQuery, ArtworkCompletionSummaryDto> handler, CancellationToken ct) =>
+    private static async Task<IResult> ArtworkSummary(Guid jobId, IQueryHandler<GetJobArtworkSummaryQuery, ArtworkCompletionSummary> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new(jobId), ct)).Match(Results.Ok, errors => errors.ToProblem());
     private static async Task<IResult> ExportItems(Guid jobId, [FromQuery, Required, ClosedValues(JobFilterKind.ExportFormat)] string format,
         IJobRepository jobs, ICurrentUser user, IReferenceCatalogService referenceCatalog,

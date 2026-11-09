@@ -43,6 +43,11 @@ using Romd.Storage;
 using Shouldly;
 using Xunit;
 
+using ContractConsumerPlatformBios = Romd.Contracts.Consumer.Delivery.ConsumerPlatformBios;
+using ContractConsumerReleaseManifest = Romd.Contracts.Consumer.Releases.ConsumerReleaseManifest;
+
+using RomDeliveryFormat = Romd.Domain.Source.Rom.RomDeliveryFormat;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 public sealed partial class ConsumerDeliveryEndpointsTests
@@ -65,8 +70,8 @@ public sealed partial class ConsumerDeliveryEndpointsTests
             $"/api/releases/{IdCoder.Encode(seed.OwnedReleaseId)}/manifest",
             content: null);
         string json = await response.Content.ReadAsStringAsync();
-        var body = JsonSerializer.Deserialize<ConsumerReleaseManifestDto>(json, ConsumerJsonOptions);
-        var identity = await client.GetFromJsonAsync<ConsumerServerIdentityDto>("/api/server/identity");
+        var body = JsonSerializer.Deserialize<ContractConsumerReleaseManifest>(json, ConsumerJsonOptions);
+        var identity = await client.GetFromJsonAsync<ConsumerServerIdentity>("/api/server/identity");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -191,7 +196,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "both-formats@localhost", seed.LibraryId);
         using var response = await client.PostAsync($"/api/releases/{IdCoder.Encode(seed.OwnedReleaseId)}/manifest", null);
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var manifest = (await response.Content.ReadFromJsonAsync<ConsumerReleaseManifestDto>(ConsumerJsonOptions)).ShouldNotBeNull();
+        var manifest = (await response.Content.ReadFromJsonAsync<ContractConsumerReleaseManifest>(ConsumerJsonOptions)).ShouldNotBeNull();
         var item = manifest.Items.ShouldHaveSingleItem();
         var original = item.Formats.Single(format => format.Format == "original");
         var rvz = item.Formats.Single(format => format.Format == "rvz");
@@ -235,7 +240,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
             staleOriginal.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         using var reboundResponse = await client.PostAsync($"/api/releases/{IdCoder.Encode(seed.OwnedReleaseId)}/manifest", null);
         reboundResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var reboundManifest = (await reboundResponse.Content.ReadFromJsonAsync<ConsumerReleaseManifestDto>(ConsumerJsonOptions)).ShouldNotBeNull();
+        var reboundManifest = (await reboundResponse.Content.ReadFromJsonAsync<ContractConsumerReleaseManifest>(ConsumerJsonOptions)).ShouldNotBeNull();
         var reboundOriginal = reboundManifest.Items.ShouldHaveSingleItem().Formats.Single(format => format.Format == "original");
         using (var download = await anonymous.GetAsync(reboundOriginal.ContentGrant!.DownloadUrl))
         {
@@ -468,7 +473,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
             $"/api/releases/{IdCoder.Encode(seed.PartialReleaseId)}/manifest",
             content: null);
         string json = await response.Content.ReadAsStringAsync();
-        var body = JsonSerializer.Deserialize<ConsumerReleaseManifestDto>(json, ConsumerJsonOptions);
+        var body = JsonSerializer.Deserialize<ContractConsumerReleaseManifest>(json, ConsumerJsonOptions);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -611,7 +616,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
 
         var response = await client.GetAsync("/api/systems/snes/bios");
         string json = await response.Content.ReadAsStringAsync();
-        var body = JsonSerializer.Deserialize<ConsumerPlatformBiosDto>(json, ConsumerJsonOptions);
+        var body = JsonSerializer.Deserialize<ContractConsumerPlatformBios>(json, ConsumerJsonOptions);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -786,7 +791,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
         var response = await client.GetAsync("/api/systems/snes/bios");
         string json = await response.Content.ReadAsStringAsync();
-        var body = JsonSerializer.Deserialize<ConsumerPlatformBiosDto>(json, ConsumerJsonOptions);
+        var body = JsonSerializer.Deserialize<ContractConsumerPlatformBios>(json, ConsumerJsonOptions);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();
@@ -802,7 +807,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
             $"/api/releases/{IdCoder.Encode(seed.OwnedReleaseId)}/manifest",
             content: null);
         string json = await response.Content.ReadAsStringAsync();
-        var body = JsonSerializer.Deserialize<ConsumerReleaseManifestDto>(json, ConsumerJsonOptions);
+        var body = JsonSerializer.Deserialize<ContractConsumerReleaseManifest>(json, ConsumerJsonOptions);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         body.ShouldNotBeNull();

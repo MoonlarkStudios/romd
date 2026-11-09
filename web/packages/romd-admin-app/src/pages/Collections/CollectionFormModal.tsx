@@ -12,7 +12,7 @@ import {
   TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type { CollectionItemDto, CollectionSummary } from '@romd/admin-api-client';
+import type { CollectionItem, CollectionSummary } from '@romd/admin-api-client';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
@@ -29,7 +29,7 @@ interface CollectionFormModalProps {
   /** When set, the modal edits this collection; otherwise it creates a new one. */
   collection: CollectionSummary | null;
   onSaved?: (collectionId: string) => void;
-  coverChoices?: CollectionItemDto[];
+  coverChoices?: CollectionItem[];
   affectedAudiences?: string;
 }
 

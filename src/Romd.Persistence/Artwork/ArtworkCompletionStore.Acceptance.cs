@@ -8,6 +8,8 @@ using Romd.Domain.Jobs;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Repositories;
 
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Persistence.Artwork;
 
 public sealed partial class ArtworkCompletionStore

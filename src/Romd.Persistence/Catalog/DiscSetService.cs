@@ -12,6 +12,8 @@ using Romd.Domain.Catalog;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Queries;
 
+using DiscSetDefinition = Romd.Domain.Catalog.DiscSetDefinition;
+
 namespace Romd.Persistence.Catalog;
 
 public sealed partial class DiscSetService(RomdDbContext db) : IDiscSetService, IDiscSetProposalStore, IDiscSetDecisionStore
@@ -62,7 +64,7 @@ public sealed partial class DiscSetService(RomdDbContext db) : IDiscSetService, 
     }
 
 
-    public async Task<ErrorOr<Page<DiscSetDto>>> ListAsync(int? titleId, string? cursor, int limit, CancellationToken ct)
+    public async Task<ErrorOr<Page<DiscSet>>> ListAsync(int? titleId, string? cursor, int limit, CancellationToken ct)
     {
         if (titleId is not null && !await db.Titles.AnyAsync(x => x.Id == titleId, ct))
             return CatalogErrors.TitleNotFound();
@@ -89,14 +91,14 @@ public sealed partial class DiscSetService(RomdDbContext db) : IDiscSetService, 
                 break;
         }
         bool more = rows.Count > limit;
-        var items = new List<DiscSetDto>();
+        var items = new List<DiscSet>();
         foreach (var batch in rows.Take(limit).Chunk(ReadBatchSize))
         {
             var facts = await ReadFactsAsync(batch, includeProposal: true, ct);
             foreach (var row in batch)
                 items.Add(DiscSetContractMapping.ToDto(facts.Rows[row.Id], facts.ClaimsByPlatform[row.PlatformId]));
         }
-        return new Page<DiscSetDto>
+        return new Page<DiscSet>
         {
             Items = items,
             HasNextPage = more,
@@ -104,7 +106,7 @@ public sealed partial class DiscSetService(RomdDbContext db) : IDiscSetService, 
         };
     }
 
-    public async Task<ErrorOr<DiscSetDto>> GetAsync(int id, CancellationToken ct)
+    public async Task<ErrorOr<DiscSet>> GetAsync(int id, CancellationToken ct)
     {
         var row = await db.DiscSets.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (row is null)
@@ -116,7 +118,7 @@ public sealed partial class DiscSetService(RomdDbContext db) : IDiscSetService, 
     public Task<string?> ReadSystemKeyAsync(int platformId, CancellationToken ct) =>
         db.Platforms.Where(row => row.Id == platformId).Select(row => row.CanonicalKey).SingleOrDefaultAsync(ct);
 
-    public async Task<ErrorOr<LibraryDiscSetOptionsDto>> ListLibraryOptionsAsync(int libraryId, IReadOnlySet<int> eligibleReleaseIds,
+    public async Task<ErrorOr<LibraryDiscSetOptions>> ListLibraryOptionsAsync(int libraryId, IReadOnlySet<int> eligibleReleaseIds,
         IReadOnlyList<int> selectedIds, string? query, string? cursor, int limit, CancellationToken ct)
     {
         string fingerprint = KeysetCursor.Fingerprint("admin.library.disc-set-options", libraryId,
@@ -125,20 +127,20 @@ public sealed partial class DiscSetService(RomdDbContext db) : IDiscSetService, 
         if (position.IsError)
             return FieldErrors.Validation("Request.InvalidParameter", "The cursor is invalid for this query.", "cursor");
         var selectedRows = await db.DiscSets.Where(x => selectedIds.Contains(x.Id)).OrderBy(x => x.Id).ToListAsync(ct);
-        var selectedOptions = new Dictionary<int, LibraryDiscSetOptionDto>();
+        var selectedOptions = new Dictionary<int, LibraryDiscSetOption>();
         foreach (var batch in selectedRows.Chunk(ReadBatchSize))
         {
             var facts = await ReadFactsAsync(batch, includeProposal: false, ct);
             foreach (var row in batch)
                 selectedOptions.Add(row.Id, DiscSetContractMapping.ToOption(facts.Rows[row.Id], facts.ClaimsByPlatform[row.PlatformId], eligibleReleaseIds));
         }
-        var selected = new List<LibraryDiscSetOptionDto>();
+        var selected = new List<LibraryDiscSetOption>();
         foreach (int id in selectedIds)
         {
             selected.Add(selectedOptions.TryGetValue(id, out var option) ? option
                 : new(IdCoder.Encode(id), "Unavailable disc set", null, null, 0, null, false, "MissingDiscSet"));
         }
-        var items = new List<LibraryDiscSetOptionDto>();
+        var items = new List<LibraryDiscSetOption>();
         int? scanPosition = position.Value?.Id;
         var itemIds = new List<int>();
         bool terminal = false;
@@ -158,7 +160,7 @@ public sealed partial class DiscSetService(RomdDbContext db) : IDiscSetService, 
             }
             terminal = rows.Count == 0 || rows.Count < 100 && scanPosition == rows[^1].Id;
         }
-        return new LibraryDiscSetOptionsDto(selectedIds.Select(IdCoder.Encode).ToArray(), selected, new Page<LibraryDiscSetOptionDto>
+        return new LibraryDiscSetOptions(selectedIds.Select(IdCoder.Encode).ToArray(), selected, new Page<LibraryDiscSetOption>
         {
             Items = items.Take(limit).ToArray(),
             HasNextPage = items.Count > limit,

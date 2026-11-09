@@ -725,14 +725,14 @@ public sealed class EnrichmentRequirementCauseTests : IDisposable
             assessment.Requirements.Where(x => x.Kind == "Metadata").ShouldAllBe(x => x.State == State.Satisfied);
     }
 
-    private static void Open(EnrichmentAssessmentDto assessment, string key, State state, Cause cause, params string[] actions)
+    private static void Open(EnrichmentAssessment assessment, string key, State state, Cause cause, params string[] actions)
     {
         var row = assessment.Requirements.Where(x => x.Key == key).ShouldHaveSingleItem(key);
         (row.State, row.Cause, row.SatisfiedBy).ShouldBe((state, (Cause?)cause, (SatisfiedBy?)null), key);
         string.Join(",", row.Actions).ShouldBe(string.Join(",", actions), key);
     }
 
-    private static void Satisfied(EnrichmentAssessmentDto assessment, string key, SatisfiedBy satisfiedBy, params string[] actions)
+    private static void Satisfied(EnrichmentAssessment assessment, string key, SatisfiedBy satisfiedBy, params string[] actions)
     {
         var row = assessment.Requirements.Where(x => x.Key == key).ShouldHaveSingleItem(key);
         (row.State, row.Cause, row.SatisfiedBy).ShouldBe((State.Satisfied, (Cause?)null, (SatisfiedBy?)satisfiedBy), key);
@@ -747,7 +747,7 @@ public sealed class EnrichmentRequirementCauseTests : IDisposable
         return adapter;
     }
 
-    private async Task<EnrichmentAssessmentDto> AssessAsync(params IProviderIdentityAdapter[] adapters)
+    private async Task<EnrichmentAssessment> AssessAsync(params IProviderIdentityAdapter[] adapters)
     {
         var page = await ReadViewAsync("All", adapters);
         page.Items.ShouldNotBeEmpty();
@@ -759,10 +759,10 @@ public sealed class EnrichmentRequirementCauseTests : IDisposable
         return detail;
     }
 
-    private static IEnumerable<string> Shape(EnrichmentAssessmentDto assessment) =>
+    private static IEnumerable<string> Shape(EnrichmentAssessment assessment) =>
         assessment.Requirements.Select(x => $"{x.Key} {x.State} {x.Cause} {x.SatisfiedBy} {string.Join(",", x.Actions)}");
 
-    private async Task<Page<EnrichmentAssessmentDto>> ReadViewAsync(string view, IProviderIdentityAdapter[] adapters)
+    private async Task<Page<EnrichmentAssessment>> ReadViewAsync(string view, IProviderIdentityAdapter[] adapters)
     {
         await using var db = database.CreateContext();
         return (await new EnrichmentWorkbench(db, TimeProvider.System, new ArtworkReader(db), adapters: adapters)

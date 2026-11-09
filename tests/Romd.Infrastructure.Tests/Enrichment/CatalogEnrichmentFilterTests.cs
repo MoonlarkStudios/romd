@@ -29,7 +29,7 @@ public sealed class CatalogEnrichmentFilterTests : IDisposable
         [EnrichmentFlagFilter.NeedsReview, EnrichmentFlagFilter.Blocked, EnrichmentFlagFilter.Processing, EnrichmentFlagFilter.Automatic];
 
     // Seeded title flags. Titles 8 and 10 are untracked.
-    private static readonly IReadOnlyDictionary<int, EnrichmentSummaryDto> Seeded = new Dictionary<int, EnrichmentSummaryDto>
+    private static readonly IReadOnlyDictionary<int, EnrichmentSummary> Seeded = new Dictionary<int, EnrichmentSummary>
     {
         [1] = Flags(needsReview: true, blocked: true, processing: true),
         [2] = Flags(needsReview: true, blocked: true),
@@ -125,7 +125,7 @@ public sealed class CatalogEnrichmentFilterTests : IDisposable
         {
             var catalog = await Ids(repository, new(Enrichment: flags));
             var scoped = await repository.ScopeTitles(null, new(Enrichment: flags), availability).Select(x => x.Id).Order().ToArrayAsync();
-            var filters = new ArtworkCompletionFilterDto(Enrichment: flags.Select(flag => flag.ToString()).ToArray());
+            var filters = new ArtworkCompletionFilter(Enrichment: flags.Select(flag => flag.ToString()).ToArray());
             var filtered = (await service.PreviewScopeAsync(new(Guid.NewGuid(), Scope: "Filtered", Filters: filters, Mode: "Enrich"), default)).Value;
             var automatic = (await service.PreviewScopeAsync(new(Guid.NewGuid(), Scope: "Automatic", Filters: filters, Mode: "Enrich"), default)).Value;
 
@@ -188,7 +188,7 @@ public sealed class CatalogEnrichmentFilterTests : IDisposable
             .SetProperty(x => x.ReviewBackdrops, false));
 
         var assessment = (await new EnrichmentWorkbench(db, TimeProvider.System, new ArtworkReader(db), adapters: configured).GetAsync(1, default)).Value;
-        new EnrichmentSummaryDto(assessment.NeedsReview, assessment.CanEnrichAutomatically, assessment.HasActiveWork, assessment.HasOperationalBlocker)
+        new EnrichmentSummary(assessment.NeedsReview, assessment.CanEnrichAutomatically, assessment.HasActiveWork, assessment.HasOperationalBlocker)
             .ShouldBe(Flags());
         assessment.Requirements.Where(x => x.Kind == "Artwork").Select(x => (x.Subject, x.SatisfiedBy)).ShouldBe([
             ("Poster", EnrichmentRequirementSatisfiedBy.Present), ("Backdrop", EnrichmentRequirementSatisfiedBy.UnavailableFallback),
@@ -224,7 +224,7 @@ public sealed class CatalogEnrichmentFilterTests : IDisposable
     private static int[] Expected(EnrichmentFlagFilter[] flags) =>
         Seeded.Where(title => flags.All(flag => Carries(title.Value, flag))).Select(title => title.Key).Order().ToArray();
 
-    private static bool Carries(EnrichmentSummaryDto summary, EnrichmentFlagFilter flag) => flag switch
+    private static bool Carries(EnrichmentSummary summary, EnrichmentFlagFilter flag) => flag switch
     {
         EnrichmentFlagFilter.NeedsReview => summary.NeedsReview,
         EnrichmentFlagFilter.Blocked => summary.HasOperationalBlocker,
@@ -235,7 +235,7 @@ public sealed class CatalogEnrichmentFilterTests : IDisposable
 
     private static string Label(EnrichmentFlagFilter[] flags) => string.Join("+", flags);
 
-    private static EnrichmentSummaryDto Flags(bool needsReview = false, bool blocked = false, bool processing = false, bool automatic = false) =>
+    private static EnrichmentSummary Flags(bool needsReview = false, bool blocked = false, bool processing = false, bool automatic = false) =>
         new(needsReview, automatic, processing, blocked);
 
     private static IProviderIdentityAdapter Provider(string id, bool configured)

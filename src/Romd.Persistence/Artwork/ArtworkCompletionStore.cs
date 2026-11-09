@@ -12,6 +12,10 @@ using Romd.Domain.Catalog;
 using Romd.Domain.Jobs;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Repositories;
+using ContractArtworkCompletionJob = Romd.Contracts.Management.Artwork.ArtworkCompletionJob;
+
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Persistence.Artwork;
 
 public sealed partial class ArtworkCompletionStore(RomdDbContext db, TimeProvider clock, IReferenceCatalogService? referenceCatalog = null,
@@ -19,7 +23,7 @@ public sealed partial class ArtworkCompletionStore(RomdDbContext db, TimeProvide
     IEnumerable<Romd.Admin.Application.MetadataProviders.IProviderIdentityAdapter>? identityAdapters = null) : IArtworkCompletionStore, IArtworkCompletionAcceptance
 {
     private static readonly string[] Active = ["Pending", "Enriching"];
-    public Task<ErrorOr<ArtworkCompletionPreviewDto>> PreviewAsync(IReadOnlyList<int> ids, CancellationToken ct) =>
+    public Task<ErrorOr<ArtworkCompletionPreview>> PreviewAsync(IReadOnlyList<int> ids, CancellationToken ct) =>
         PreviewScopeAsync(new(Guid.NewGuid(), ids.Select(IdCoder.Encode).ToArray()), ct);
 
     private async Task<ErrorOr<IQueryable<TitleEntity>>> ScopeAsync(ArtworkCompletionRequest request, CancellationToken ct, EnrichmentProviderAvailability? availability = null)
@@ -85,7 +89,7 @@ public sealed partial class ArtworkCompletionStore(RomdDbContext db, TimeProvide
         return ErrorOrFactory.From(new SearchRepository(db, new ArtworkReader(db), enrichmentOptions, identityAdapters)
             .ScopeTitles(f.Query, new(platformId, f.Genre, completeness, f.EnrichmentStatus, tracked, f.ArtworkStatus, enrichment), availability));
     }
-    public async Task<ErrorOr<ArtworkCompletionPreviewDto>> PreviewScopeAsync(ArtworkCompletionRequest request, CancellationToken ct)
+    public async Task<ErrorOr<ArtworkCompletionPreview>> PreviewScopeAsync(ArtworkCompletionRequest request, CancellationToken ct)
     {
         var scope = await ScopeAsync(request, ct);
         if (scope.IsError)
@@ -111,28 +115,28 @@ public sealed partial class ArtworkCompletionStore(RomdDbContext db, TimeProvide
                 !db.ArtworkSelections.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Backdrop &&
                     (x.Mode != ArtworkSelectionMode.Automatic || x.PendingRequestId != null)))
         }).SingleOrDefaultAsync(ct);
-        return new ArtworkCompletionPreviewDto(counts?.Total ?? 0,
+        return new ArtworkCompletionPreview(counts?.Total ?? 0,
             [new("Poster", "Missing", counts?.Poster ?? 0), new("Hero", "Missing", counts?.Hero ?? 0),
                 new("Logo", "Missing", counts?.Logo ?? 0), new("Backdrop", "Missing", counts?.Backdrop ?? 0)]);
     }
-    public async Task<ErrorOr<ArtworkCompletionJobDto>> GetAsync(Guid id, CancellationToken ct)
+    public async Task<ErrorOr<ContractArtworkCompletionJob>> GetAsync(Guid id, CancellationToken ct)
     {
         var row = await db.Set<ArtworkCompletionJobEntity>().SingleOrDefaultAsync(x => x.Id == id, ct);
         if (row is not null)
             return await MapAsync(row, ct);
         return ArtworkCurationErrors.TitleNotFound();
     }
-    private async Task<ArtworkCompletionJobDto> MapAsync(ArtworkCompletionJobEntity row, CancellationToken ct) =>
+    private async Task<ContractArtworkCompletionJob> MapAsync(ArtworkCompletionJobEntity row, CancellationToken ct) =>
         Map(row, (await Projection().SummariesAsync([row.Id], await ProvidersAsync(ct), ct)).GetValueOrDefault(row.Id));
 
     // Phase, Total and Processed are the job row's own execution history; the projection only supplies run counts.
-    private static ArtworkCompletionJobDto Map(ArtworkCompletionJobEntity row, EnrichmentTaskProjection.Summary? summary) =>
+    private static ContractArtworkCompletionJob Map(ArtworkCompletionJobEntity row, EnrichmentTaskProjection.Summary? summary) =>
         new(row.Id, row.Phase, row.Total, row.Processed, summary?.Roles ?? [], summary?.Review ?? 0, summary?.Failed ?? 0,
             summary?.Unfinished ?? 0, summary?.Working ?? 0, row.NextAttemptAtUtc, Mode(row), row.CreatedAt);
     private EnrichmentTaskProjection Projection() => new(db, enrichmentOptions?.Value);
     private Task<EnrichmentProviderAvailability> ProvidersAsync(CancellationToken ct) => EnrichmentProviderAvailability.ReadAsync(identityAdapters ?? [], ct);
 
-    public async Task<IReadOnlyList<ArtworkCompletionJobDto>> RecentAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<ContractArtworkCompletionJob>> RecentAsync(CancellationToken ct)
     {
         // Later continuations belong to the original task. Shared work points back to an older
         // independently requested task, which must remain visible in execution history.
@@ -145,12 +149,12 @@ public sealed partial class ArtworkCompletionStore(RomdDbContext db, TimeProvide
         return rows.Select(row => Map(row, summaries.GetValueOrDefault(row.Id))).ToArray();
     }
     private static string Mode(ArtworkCompletionJobEntity row) => JsonSerializer.Deserialize<ArtworkCompletionRequest>(row.ScopeJson)?.Mode ?? "Artwork";
-    public async Task<ErrorOr<ArtworkCompletionItemsDto>> ItemsAsync(Guid id, int after, string? status, CancellationToken ct, int limit = 50)
+    public async Task<ErrorOr<ArtworkCompletionItems>> ItemsAsync(Guid id, int after, string? status, CancellationToken ct, int limit = 50)
     {
         if (!await db.Set<ArtworkCompletionJobEntity>().AnyAsync(x => x.Id == id, ct))
             return ArtworkCurationErrors.TitleNotFound();
         var rows = await Projection().PageAsync(id, after, status, await ProvidersAsync(ct), ct, limit);
-        return new ArtworkCompletionItemsDto(rows.Take(limit).ToArray(), rows.Count > limit ? rows[limit - 1].TitleId : null);
+        return new ArtworkCompletionItems(rows.Take(limit).ToArray(), rows.Count > limit ? rows[limit - 1].TitleId : null);
     }
 
     public async Task<ArtworkCompletionWork?> NextAsync(Guid id, CancellationToken ct)

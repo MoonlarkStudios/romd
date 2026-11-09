@@ -12,7 +12,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
-import type { UserDto } from '@romd/admin-api-client';
+import type { User } from '@romd/admin-api-client';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -39,7 +39,7 @@ import {
 } from '../../hooks/api/useUsers';
 import { AuditEvents } from '../Audit';
 
-function AccountWorkspace({ user }: { user: UserDto }) {
+function AccountWorkspace({ user }: { user: User }) {
   const [params, setParams] = useSearchParams();
   const tab =
     [

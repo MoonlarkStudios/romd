@@ -152,9 +152,9 @@ public sealed class AdminRecoveryCommandTests
             {
                 if (outcome == "cancellation")
                     cancellation.Cancel();
-                return Task.FromResult<ErrorOr<IssuedAccountLinkDto>>(outcome == "refusal"
+                return Task.FromResult<ErrorOr<IssuedAccountLink>>(outcome == "refusal"
                     ? Error.NotFound("Account.AdminNotFound", "No administrator.")
-                    : new IssuedAccountLinkDto(Guid.NewGuid(), new string('A', 64), DateTimeOffset.UtcNow.AddHours(1)));
+                    : new IssuedAccountLink(Guid.NewGuid(), new string('A', 64), DateTimeOffset.UtcNow.AddHours(1)));
             }, output, errors, cancellation.Token);
 
         if (outcome == "commit-failure")

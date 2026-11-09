@@ -1,4 +1,4 @@
-import type { OperationalDiagnosticsDto } from '@romd/admin-api-client';
+import type { OperationalDiagnostics } from '@romd/admin-api-client';
 import { getServerDiagnostics } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -21,7 +21,7 @@ export function useOperationalDiagnostics(enabled = true) {
   return useQuery({
     enabled,
     queryKey: operationalDiagnosticsKeys.snapshot(),
-    queryFn: async ({ signal }): Promise<OperationalDiagnosticsDto> => {
+    queryFn: async ({ signal }): Promise<OperationalDiagnostics> => {
       const response = await getServerDiagnostics({
         signal,
       });
@@ -29,7 +29,7 @@ export function useOperationalDiagnostics(enabled = true) {
         throw new Error('Failed to fetch operational diagnostics');
       }
 
-      return response.data as OperationalDiagnosticsDto;
+      return response.data as OperationalDiagnostics;
     },
     staleTime: 60_000,
     refetchOnWindowFocus: false,

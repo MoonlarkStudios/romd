@@ -15,6 +15,8 @@ using Romd.Domain.Source.Rom;
 using Shouldly;
 using Xunit;
 
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Application.Tests.Jobs;
 
 public sealed class S5cTypedJobFeedTests
@@ -34,9 +36,9 @@ public sealed class S5cTypedJobFeedTests
         var other = ArtworkCompletionJob.Create(Guid.NewGuid(), 2, null, createdAt: DateTimeOffset.UtcNow, "Artwork");
         _jobs.GetByIdAsync(job.Id, Arg.Any<CancellationToken>()).Returns(job);
         _jobs.GetByIdAsync(other.Id, Arg.Any<CancellationToken>()).Returns(other);
-        var item = new ArtworkCompletionItemDto(IdCoder.Encode(1), "Title", ArtworkCompletionState.Done, [], null, null, null);
-        service.ItemsAsync(job.Id, 0, "Failed", Arg.Any<CancellationToken>(), 1).Returns(new ArtworkCompletionItemsDto([item], item.TitleId));
-        service.ItemsAsync(job.Id, 1, "Failed", Arg.Any<CancellationToken>(), 100).Returns(new ArtworkCompletionItemsDto([], null));
+        var item = new ArtworkCompletionItem(IdCoder.Encode(1), "Title", ArtworkCompletionState.Done, [], null, null, null);
+        service.ItemsAsync(job.Id, 0, "Failed", Arg.Any<CancellationToken>(), 1).Returns(new ArtworkCompletionItems([item], item.TitleId));
+        service.ItemsAsync(job.Id, 1, "Failed", Arg.Any<CancellationToken>(), 100).Returns(new ArtworkCompletionItems([], null));
         var handler = new GetJobArtworkItemsQueryHandler(_jobs, _user, service);
         var first = await handler.HandleAsync(new(job.Id, "Failed", Limit: 1));
         first.Value.HasNextPage.ShouldBeTrue();

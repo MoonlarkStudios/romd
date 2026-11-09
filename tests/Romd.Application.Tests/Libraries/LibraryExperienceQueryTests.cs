@@ -7,6 +7,9 @@ using Romd.Domain.Libraries;
 using Shouldly;
 using Xunit;
 
+using Library = Romd.Domain.Libraries.Library;
+using LibraryConfiguration = Romd.Domain.Libraries.LibraryConfiguration;
+
 namespace Romd.Application.Tests.Libraries;
 
 public sealed class LibraryExperienceQueryTests
@@ -17,7 +20,7 @@ public sealed class LibraryExperienceQueryTests
         var libraries = Substitute.For<ILibraryRepository>();
         var experience = Substitute.For<ILibraryExperienceRepository>();
         libraries.GetByIdAsync(7, Arg.Any<CancellationToken>()).Returns(Library.CreateNew("Kids", new LibraryConfiguration(), now: DateTimeOffset.UnixEpoch));
-        experience.GetPreviewPageAsync(7, null, null, 48, Arg.Any<CancellationToken>()).Returns(new Page<LibraryPreviewTitleDto> { Items = [], HasNextPage = false });
+        experience.GetPreviewPageAsync(7, null, null, 48, Arg.Any<CancellationToken>()).Returns(new Page<LibraryPreviewTitle> { Items = [], HasNextPage = false });
         var handler = new GetLibraryPreviewQueryHandler(libraries, experience);
 
         var result = await handler.HandleAsync(new(7, null));
@@ -32,7 +35,7 @@ public sealed class LibraryExperienceQueryTests
     {
         var libraries = Substitute.For<ILibraryRepository>();
         var experience = Substitute.For<ILibraryExperienceRepository>();
-        var published = new Page<LibraryPreviewTitleDto> { Items = [], HasNextPage = false };
+        var published = new Page<LibraryPreviewTitle> { Items = [], HasNextPage = false };
         libraries.GetByIdAsync(7, Arg.Any<CancellationToken>()).Returns(Library.Rehydrate(
             7,
             "Kids",

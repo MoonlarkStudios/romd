@@ -20,15 +20,15 @@ public sealed partial class LibraryExperienceRepository(RomdDbContext context) :
             g => (IReadOnlyList<string>)g.Select(a => IdCoder.Encode(a.CollectionId)).ToList());
     }
 
-    public async Task<IReadOnlyList<CollectionLibraryPlacementDto>> GetCollectionPlacementsAsync(int collectionId, CancellationToken ct)
+    public async Task<IReadOnlyList<CollectionLibraryPlacement>> GetCollectionPlacementsAsync(int collectionId, CancellationToken ct)
     {
         var rows = await context.LibraryCollections.Where(a => a.CollectionId == collectionId)
             .Join(context.Libraries, a => a.LibraryId, l => l.Id, (a, l) => new { l.Id, l.Name, a.IsFeatured })
             .OrderBy(l => l.Name).ToListAsync(ct);
-        return rows.Select(l => new CollectionLibraryPlacementDto(IdCoder.Encode(l.Id), l.Name, l.IsFeatured)).ToList();
+        return rows.Select(l => new CollectionLibraryPlacement(IdCoder.Encode(l.Id), l.Name, l.IsFeatured)).ToList();
     }
 
-    public async Task<IReadOnlyList<LibraryAttachmentDto>> GetAttachmentsAsync(int libraryId, CancellationToken ct)
+    public async Task<IReadOnlyList<LibraryAttachment>> GetAttachmentsAsync(int libraryId, CancellationToken ct)
     {
         var rows = await context.LibraryCollections.Where(x => x.LibraryId == libraryId)
             .Join(context.Collections, a => a.CollectionId, c => c.Id, (a, c) => new { Attachment = a, Collection = c })
@@ -47,7 +47,7 @@ public sealed partial class LibraryExperienceRepository(RomdDbContext context) :
                     context.Libraries.Any(l => l.Id == libraryId && l.ConfigurationState == "Valid")),
                 Libraries = context.LibraryCollections.Count(a => a.CollectionId == x.Collection.Id)
             }).ToListAsync(ct);
-        return rows.Select(x => new LibraryAttachmentDto(IdCoder.Encode(x.Id), x.Name, x.Description,
+        return rows.Select(x => new LibraryAttachment(IdCoder.Encode(x.Id), x.Name, x.Description,
             x.CoverMediaId is int cover ? $"/media/{IdCoder.Encode(cover)}" : null,
             x.SortOrder, x.IsFeatured, x.Visible, x.Total, x.Libraries)).ToList();
     }
@@ -78,7 +78,7 @@ public sealed partial class LibraryExperienceRepository(RomdDbContext context) :
         return Result.Success;
     }
 
-    public async Task<LibraryPreviewDto> GetPreviewAsync(int libraryId, int? collectionId, int afterId, int afterOrder, CancellationToken ct)
+    public async Task<LibraryPreview> GetPreviewAsync(int libraryId, int? collectionId, int afterId, int afterOrder, CancellationToken ct)
     {
         var titles = context.MaterializedLibraryTitles.Where(t => t.LibraryId == libraryId && t.IsOwned &&
             context.Libraries.Any(l => l.Id == libraryId && l.ConfigurationState == "Valid"));
@@ -101,7 +101,7 @@ public sealed partial class LibraryExperienceRepository(RomdDbContext context) :
                 PlatformName = context.Platforms.Where(p => p.Id == x.Title.PlatformId).Select(p => p.Name).First(),
                 Cover = x.Title.Media.Where(m => m.Type == "Cover" && m.IsPrimary).Select(m => (int?)m.Id).FirstOrDefault()
             }).Take(49).ToListAsync(ct);
-        return new LibraryPreviewDto(rows.Take(48).Select(t => new LibraryPreviewTitleDto(IdCoder.Encode(t.Id), t.Name,
+        return new LibraryPreview(rows.Take(48).Select(t => new LibraryPreviewTitle(IdCoder.Encode(t.Id), t.Name,
             t.PlatformName, t.Cover is int cover ? $"/media/{IdCoder.Encode(cover)}" : null)).ToList(),
             rows.Count > 48 ? $"{rows[47].SortOrder}:{IdCoder.Encode(rows[47].Id)}" : null);
     }

@@ -17,7 +17,7 @@ import {
   Tooltip,
   UnstyledButton,
 } from '@mantine/core';
-import type { ResolvedArtworkDto, SavedArtworkDto, TitleMediaRef } from '@romd/admin-api-client';
+import type { ResolvedArtwork, SavedArtwork, TitleMediaRef } from '@romd/admin-api-client';
 import {
   IconCheck,
   IconDotsVertical,
@@ -130,8 +130,8 @@ export function MediaUploadForm({
 interface MediaGalleryProps {
   media: TitleMediaRef[];
   titleId: string;
-  saved?: SavedArtworkDto[];
-  artwork?: ResolvedArtworkDto[];
+  saved?: SavedArtwork[];
+  artwork?: ResolvedArtwork[];
   role?: ArtworkRole;
   onAssign?: (role: ArtworkRole, target: SavedArtworkTarget, url?: string) => Promise<boolean>;
   busy?: boolean;
@@ -173,7 +173,7 @@ export function MediaGallery({
         mediaId: item.id,
       } as SavedArtworkTarget,
       media: item,
-      asset: undefined as SavedArtworkDto | undefined,
+      asset: undefined as SavedArtwork | undefined,
       roles: artworkRoles.filter((itemRole) =>
         artwork.some(
           (art) =>

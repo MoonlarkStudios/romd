@@ -43,7 +43,7 @@ public sealed class ConsumerSettingsResponseSettlementTests
             }
         };
         var handler = new UpdateConsumerUserSettingsCommandHandler(CurrentUser(userId), store, keys);
-        var preference = replacePreference ? new Romd.Contracts.Consumer.Account.ConsumerReleasePreferenceDto(["japan"], ["en"], "oldestFirst") : null;
+        var preference = replacePreference ? new Romd.Contracts.Consumer.Account.ConsumerReleasePreference(["japan"], ["en"], "oldestFirst") : null;
 
         var result = await handler.HandleAsync(new("light", preference), cancellation.Token);
 

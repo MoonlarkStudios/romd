@@ -15,6 +15,8 @@ using Romd.Host.Authorization;
 using Romd.Persistence.Identity;
 using Romd.Infrastructure.Identity;
 
+using ContractAccountSession = Romd.Contracts.Management.Users.AccountSession;
+
 namespace Romd.Host.Endpoints;
 
 /// <summary>
@@ -43,14 +45,14 @@ public static class AuthEndpoints
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
 
         group.MapGet("sessions", GetSessions).WithName("ListMySessions")
-            .RequireAuthorization(AuthorizationPolicies.RequireUser).Produces<Page<AccountSessionDto>>().ProducesProblems(400, 404);
+            .RequireAuthorization(AuthorizationPolicies.RequireUser).Produces<Page<ContractAccountSession>>().ProducesProblems(400, 404);
         group.MapDelete("sessions", RevokeSessions).WithName("RevokeMySessions")
             .RequireAuthorization(AuthorizationPolicies.RequireUser).Produces(204).ProducesProblems(400, 404);
         return app;
     }
 
     private static async Task<IResult> GetSessions(ICurrentUser currentUser, HttpContext context,
-        IQueryHandler<GetAccountSessionsQuery, Page<AccountSessionDto>> handler,
+        IQueryHandler<GetAccountSessionsQuery, Page<ContractAccountSession>> handler,
         string? cursor = null, [Range(1, 100)] int limit = 50, CancellationToken ct = default)
     {
         if (currentUser.UserId is not { } id)

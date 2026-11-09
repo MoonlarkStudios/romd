@@ -6,14 +6,14 @@ using Romd.Contracts.Consumer.Collections;
 
 namespace Romd.Consumer.Application.Collections.Queries.GetConsumerCollection;
 
-public sealed record GetConsumerCollectionQuery(int CollectionId) : IQuery<ConsumerCollectionDto>;
+public sealed record GetConsumerCollectionQuery(int CollectionId) : IQuery<ConsumerCollection>;
 
 public sealed class GetConsumerCollectionQueryHandler(
     ICurrentUser currentUser,
     IConsumerCollectionReadRepository collectionRepository)
-    : IQueryHandler<GetConsumerCollectionQuery, ConsumerCollectionDto>
+    : IQueryHandler<GetConsumerCollectionQuery, ConsumerCollection>
 {
-    public async Task<ErrorOr<ConsumerCollectionDto>> HandleAsync(
+    public async Task<ErrorOr<ConsumerCollection>> HandleAsync(
         GetConsumerCollectionQuery query,
         CancellationToken ct = default)
     {

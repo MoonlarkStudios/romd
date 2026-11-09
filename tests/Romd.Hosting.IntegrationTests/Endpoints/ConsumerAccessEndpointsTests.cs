@@ -297,12 +297,12 @@ public sealed class ConsumerAccessEndpointsTests
             "identity@localhost",
             seed.LibraryId);
 
-        var identity = await client.GetFromJsonAsync<ConsumerServerIdentityDto>("/api/server/identity");
+        var identity = await client.GetFromJsonAsync<ConsumerServerIdentity>("/api/server/identity");
         var access = await ReadAccessAsync(await GetAccessAsync(client, seed.OwnedReleaseId));
         var manifestResponse = await client.PostAsync(
             $"/api/releases/{IdCoder.Encode(seed.OwnedReleaseId)}/manifest",
             content: null);
-        var manifest = await manifestResponse.Content.ReadFromJsonAsync<ConsumerReleaseManifestDto>(ConsumerDeliveryEndpointsTests.ConsumerJsonOptions);
+        var manifest = await manifestResponse.Content.ReadFromJsonAsync<ConsumerReleaseManifest>(ConsumerDeliveryEndpointsTests.ConsumerJsonOptions);
 
         identity.ShouldNotBeNull();
         manifestResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -327,9 +327,9 @@ public sealed class ConsumerAccessEndpointsTests
         responseBody.ShouldNotContain("artwork", Case.Insensitive);
     }
 
-    private static async Task<ConsumerReleaseAccessDto> ReadAccessAsync(HttpResponseMessage response)
+    private static async Task<ConsumerReleaseAccess> ReadAccessAsync(HttpResponseMessage response)
     {
-        var body = await response.Content.ReadFromJsonAsync<ConsumerReleaseAccessDto>();
+        var body = await response.Content.ReadFromJsonAsync<ConsumerReleaseAccess>();
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         return body.ShouldNotBeNull();
     }

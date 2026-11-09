@@ -86,7 +86,7 @@ public sealed class TaxonomyService<TEntity> where TEntity : class, ITaxonomyEnt
     }
 
     /// <summary>The merge's effect without performing it, refused exactly where <see cref="MergeAsync" /> refuses.</summary>
-    public async Task<ErrorOr<TaxonomyMergeImpactDto>> PreviewMergeAsync(string sourceKey, string targetKey, CancellationToken ct)
+    public async Task<ErrorOr<TaxonomyMergeImpact>> PreviewMergeAsync(string sourceKey, string targetKey, CancellationToken ct)
     {
         var identities = await ResolveMergeAsync(sourceKey, targetKey, ct);
         if (identities.IsError)

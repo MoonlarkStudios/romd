@@ -151,7 +151,7 @@ public sealed class GetArchiveFormatsTests
             TestDeliveryPolicies.WithoutRuntimes, new DeliveryAdmission(DeliveryFacts.ManagedBuild, null),
             NullLogger<GetArchiveFormatsQueryHandler>.Instance);
 
-    private static string[] Describe(IEnumerable<Romd.Contracts.Management.Export.ArchiveFormatDto> formats) =>
+    private static string[] Describe(IEnumerable<Romd.Contracts.Management.Export.ArchiveFormat> formats) =>
         formats.Select(format => $"{format.Format}:{format.Label}").ToArray();
 
     private static RomContentDescriptor Original(int romId, int fileId) => DeliveryFacts.OriginalContent(romId, fileId, 100);

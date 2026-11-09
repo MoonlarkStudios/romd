@@ -51,7 +51,7 @@ or preflight local layout.
 
 ## Delivery Contract
 
-`ConsumerReleaseManifestDto` is the stable client contract for Release delivery:
+`ConsumerReleaseManifest` is the stable client contract for Release delivery:
 
 - `releaseId`, `titleId`, `name`, and `revision` identify the selected Release.
 - `systemKey` identifies the Release system so the client does not have to

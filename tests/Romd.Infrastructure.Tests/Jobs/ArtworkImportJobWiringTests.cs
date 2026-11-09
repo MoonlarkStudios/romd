@@ -12,6 +12,11 @@ using Romd.Persistence.Entities;
 using Shouldly;
 using Xunit;
 
+using ContractArtworkImportJob = Romd.Contracts.Management.Models.ArtworkImportJob;
+using ContractJob = Romd.Contracts.Management.Models.Job;
+
+using ArtworkImportJob = Romd.Domain.Jobs.ArtworkImportJob;
+
 namespace Romd.Infrastructure.Tests.Jobs;
 
 public sealed class ArtworkImportJobWiringTests
@@ -44,8 +49,8 @@ public sealed class ArtworkImportJobWiringTests
         job.SetImportOutcome(123, false);
         job.Complete(completedAt: DateTimeOffset.UtcNow);
 
-        var contract = ((Romd.Domain.Jobs.Job)job).ToContract(new Romd.Application.Common.Systems.SystemKeys(new Dictionary<int, string> { [2] = "snes" })).ShouldBeOfType<ArtworkImportJobDto>();
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize<JobDto>(contract,
+        var contract = ((Romd.Domain.Jobs.Job)job).ToContract(new Romd.Application.Common.Systems.SystemKeys(new Dictionary<int, string> { [2] = "snes" })).ShouldBeOfType<ContractArtworkImportJob>();
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize<ContractJob>(contract,
             new JsonSerializerOptions(JsonSerializerDefaults.Web)));
 
         contract.Id.ShouldBe(job.Id);

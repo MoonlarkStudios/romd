@@ -7,9 +7,11 @@ using Romd.Contracts.Common.Models;
 using Romd.Contracts.Consumer.Delivery;
 using Romd.Contracts.Consumer.Releases;
 
+using ContractConsumerPlatformBios = Romd.Contracts.Consumer.Delivery.ConsumerPlatformBios;
+
 namespace Romd.Consumer.Application.Delivery.Queries.GetConsumerPlatformBios;
 
-public sealed record GetConsumerPlatformBiosQuery(int PlatformId) : IQuery<ConsumerPlatformBiosDto>;
+public sealed record GetConsumerPlatformBiosQuery(int PlatformId) : IQuery<ContractConsumerPlatformBios>;
 
 /// <summary>
 ///     Lists a platform's BIOS files with availability and BIOS download grants.
@@ -23,9 +25,9 @@ public sealed class GetConsumerPlatformBiosQueryHandler(
     ICurrentUser currentUser,
     IConsumerBiosRepository biosRepository,
     IConsumerBiosGrantIssuer biosGrantIssuer)
-    : IQueryHandler<GetConsumerPlatformBiosQuery, ConsumerPlatformBiosDto>
+    : IQueryHandler<GetConsumerPlatformBiosQuery, ContractConsumerPlatformBios>
 {
-    public async Task<ErrorOr<ConsumerPlatformBiosDto>> HandleAsync(
+    public async Task<ErrorOr<ContractConsumerPlatformBios>> HandleAsync(
         GetConsumerPlatformBiosQuery query,
         CancellationToken ct = default)
     {
@@ -55,7 +57,7 @@ public sealed class GetConsumerPlatformBiosQueryHandler(
         };
     }
 
-    private ConsumerPlatformBiosDto ToContract(
+    private ContractConsumerPlatformBios ToContract(
         Guid userId,
         int libraryId,
         ConsumerPlatformBios platformBios) =>
@@ -67,7 +69,7 @@ public sealed class GetConsumerPlatformBiosQueryHandler(
                 .ToList()
         };
 
-    private ConsumerPlatformBiosItemDto ToContract(Guid userId, int libraryId, ConsumerBiosFile file) =>
+    private ConsumerPlatformBiosItem ToContract(Guid userId, int libraryId, ConsumerBiosFile file) =>
         new()
         {
             BiosId = IdCoder.Encode(file.BiosId),
@@ -81,7 +83,7 @@ public sealed class GetConsumerPlatformBiosQueryHandler(
             ContentGrant = CreateContentGrant(userId, libraryId, file)
         };
 
-    private ContentGrantDto? CreateContentGrant(Guid userId, int libraryId, ConsumerBiosFile file)
+    private ContentGrant? CreateContentGrant(Guid userId, int libraryId, ConsumerBiosFile file)
     {
         if (!file.IsAvailable ||
             file.FileId is not { } fileId ||
@@ -99,7 +101,7 @@ public sealed class GetConsumerPlatformBiosQueryHandler(
             sha256,
             contentSizeBytes));
 
-        return new ContentGrantDto
+        return new ContentGrant
         {
             DownloadUrl = contentGrant.DownloadUrl,
             ExpiresAt = contentGrant.ExpiresAt

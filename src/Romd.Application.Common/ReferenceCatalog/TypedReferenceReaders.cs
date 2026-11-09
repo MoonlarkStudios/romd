@@ -8,11 +8,11 @@ public sealed record ReferenceReadResult<TResource>(TResource Resource, string R
 public sealed record ReferenceResourceResult<TResource, TOverrides>(TResource Resource, TOverrides Overrides, string Revision);
 public interface ISystemReferenceReader
 {
-    Task<Page<SystemResourceDto>> ListAsync(ReferencePageRequest request, CancellationToken ct);
-    Task<ReferenceResourceResult<SystemResourceDto, SystemOverridesDto>?> GetAsync(string key, CancellationToken ct);
+    Task<Page<SystemResource>> ListAsync(ReferencePageRequest request, CancellationToken ct);
+    Task<ReferenceResourceResult<SystemResource, SystemOverrides>?> GetAsync(string key, CancellationToken ct);
 }
 public interface ICompanyReferenceReader
 {
-    Task<Page<CompanyResourceDto>> ListAsync(ReferencePageRequest request, CancellationToken ct);
-    Task<ReferenceResourceResult<CompanyResourceDto, CompanyOverridesDto>?> GetAsync(string key, CancellationToken ct);
+    Task<Page<CompanyResource>> ListAsync(ReferencePageRequest request, CancellationToken ct);
+    Task<ReferenceResourceResult<CompanyResource, CompanyOverrides>?> GetAsync(string key, CancellationToken ct);
 }

@@ -5,7 +5,7 @@ namespace Romd.Infrastructure.Realtime;
 
 public interface IAdminRealtimeEventSink
 {
-    Task SendJobUpdatedAsync(JobDto job, int schemaVersion, CancellationToken ct = default);
+    Task SendJobUpdatedAsync(Job job, int schemaVersion, CancellationToken ct = default);
 
     Task SendTitleEnrichedAsync(
         AdminRealtimeTitleEnrichedOutboxPayload payload,

@@ -8,7 +8,7 @@ using Romd.Contracts.Management.Diagnostics;
 
 namespace Romd.Admin.Application.Diagnostics.Queries.GetOperationalDiagnostics;
 
-public sealed record GetOperationalDiagnosticsQuery : IQuery<OperationalDiagnosticsDto>;
+public sealed record GetOperationalDiagnosticsQuery : IQuery<OperationalDiagnostics>;
 
 public sealed class GetOperationalDiagnosticsQueryHandler(
     IServiceScopeFactory scopeFactory,
@@ -16,9 +16,9 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
     TimeProvider timeProvider,
     OperationalDiagnosticsOptions options,
     ILogger<GetOperationalDiagnosticsQueryHandler> logger)
-    : IQueryHandler<GetOperationalDiagnosticsQuery, OperationalDiagnosticsDto>
+    : IQueryHandler<GetOperationalDiagnosticsQuery, OperationalDiagnostics>
 {
-    public async Task<ErrorOr<OperationalDiagnosticsDto>> HandleAsync(
+    public async Task<ErrorOr<OperationalDiagnostics>> HandleAsync(
         GetOperationalDiagnosticsQuery query,
         CancellationToken ct = default)
     {
@@ -66,17 +66,17 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
         var hangfire = await hangfireTask;
         var storage = await storageTask;
 
-        return new OperationalDiagnosticsDto
+        return new OperationalDiagnostics
         {
             GeneratedAt = now,
-            CatalogProjections = new CatalogProjectionDiagnosticsDto
+            CatalogProjections = new CatalogProjectionDiagnostics
             {
                 Availability = Availability(projections),
                 Error = projections.Error,
                 Items = projections.Value?.Items.Select(item => ToContract(item)).ToList() ?? [],
                 IsTruncated = projections.Value?.IsTruncated ?? false
             },
-            Jobs = new OperationalJobDiagnosticsDto
+            Jobs = new OperationalJobDiagnostics
             {
                 Availability = Availability(jobs),
                 Error = jobs.Error,
@@ -87,7 +87,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
                     .Select(item => ToContract(item, now)).ToList() ?? [],
                 StrandedBulkEnrichmentJobsTruncated = jobs.Value?.BulkEnrichmentJobs.IsTruncated ?? false
             },
-            Outbox = new OutboxDiagnosticsDto
+            Outbox = new OutboxDiagnostics
             {
                 Availability = Availability(outbox),
                 Error = outbox.Error,
@@ -96,7 +96,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
                 FailingCount = outbox.Value?.FailingCount ?? 0,
                 LastProcessedAt = outbox.Value?.LastProcessedAt
             },
-            Hangfire = new HangfireDiagnosticsDto
+            Hangfire = new HangfireDiagnostics
             {
                 Availability = hangfire.Value is { IsAvailable: true }
                     ? DiagnosticAvailability.Available
@@ -108,7 +108,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
                 RecurringJobsTruncated = hangfire.Value?.RecurringJobs.IsTruncated ?? false,
                 QueueBacklogs = hangfire.Value?.QueueBacklogs.Select(ToContract).ToList() ?? []
             },
-            Storage = new StorageDiagnosticsDto
+            Storage = new StorageDiagnostics
             {
                 DataVolumeAvailability = storage.Value is { IsDataVolumeAvailable: true }
                     ? DiagnosticAvailability.Available
@@ -215,7 +215,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
     private static DiagnosticAvailability Availability<T>(SectionResult<T> section) =>
         section.Value is null ? DiagnosticAvailability.Unavailable : DiagnosticAvailability.Available;
 
-    private static CatalogProjectionDiagnosticDto ToContract(CatalogProjectionDiagnosticsData item) => new()
+    private static CatalogProjectionDiagnostic ToContract(CatalogProjectionDiagnosticsData item) => new()
     {
         SystemKey = item.SystemKey,
         PlatformName = item.PlatformName,
@@ -226,7 +226,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
         FailedAt = item.FailedAt
     };
 
-    private static WedgedReplaceDatJobDto ToContract(ReplaceDatJobDiagnosticsData item, DateTimeOffset now) => new()
+    private static WedgedReplaceDatJob ToContract(ReplaceDatJobDiagnosticsData item, DateTimeOffset now) => new()
     {
         JobId = item.JobId,
         ExistingDatId = IdCoder.Encode(item.ExistingDatId),
@@ -240,7 +240,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
         AttemptErrorTruncated = item.AttemptErrorTruncated
     };
 
-    private static StrandedBulkEnrichmentJobDto ToContract(
+    private static StrandedBulkEnrichmentJob ToContract(
         BulkEnrichmentJobDiagnosticsData item,
         DateTimeOffset now) => new()
         {
@@ -252,7 +252,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
             StrandedForSeconds = AgeSeconds(now, item.CreatedAt) ?? 0
         };
 
-    private static HangfireServerDiagnosticDto ToContract(
+    private static HangfireServerDiagnostic ToContract(
         HangfireServerDiagnosticsData item,
         DateTimeOffset now) => new()
         {
@@ -264,7 +264,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
             HeartbeatAgeSeconds = AgeSeconds(now, item.HeartbeatAt)
         };
 
-    private static RecurringJobDiagnosticDto ToContract(RecurringJobDiagnosticsData item) => new()
+    private static RecurringJobDiagnostic ToContract(RecurringJobDiagnosticsData item) => new()
     {
         Id = item.Id,
         Queue = item.Queue,
@@ -288,7 +288,7 @@ public sealed class GetOperationalDiagnosticsQueryHandler(
         _ => RecurringJobDiagnosticState.Unknown
     };
 
-    private static QueueBacklogDiagnosticDto ToContract(QueueBacklogDiagnosticsData item) => new()
+    private static QueueBacklogDiagnostic ToContract(QueueBacklogDiagnosticsData item) => new()
     {
         Queue = item.Queue,
         EnqueuedCount = item.EnqueuedCount,

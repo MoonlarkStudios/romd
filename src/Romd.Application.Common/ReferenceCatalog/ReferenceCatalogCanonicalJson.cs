@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Romd.Contracts.Common.ReferenceCatalog;
+using ReferenceCatalogSnapshot = Romd.Contracts.Common.ReferenceCatalog.ReferenceCatalog;
 
 namespace Romd.Application.Common.ReferenceCatalog;
 
@@ -16,10 +17,10 @@ public static class ReferenceCatalogCanonicalJson
         Append(value, text);
         return new UTF8Encoding(false, true).GetBytes(text.ToString());
     }
-    public static ReferenceCatalogDescriptorDto Describe(ReferenceCatalogDto catalog)
+    public static ReferenceCatalogDescriptor Describe(ReferenceCatalogSnapshot catalog)
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        var descriptor = new ReferenceCatalogDescriptorDto(catalog.SchemaVersion, catalog.BuiltInVersion, "", catalog.Revision,
+        var descriptor = new ReferenceCatalogDescriptor(catalog.SchemaVersion, catalog.BuiltInVersion, "", catalog.Revision,
             Hash(JsonSerializer.SerializeToElement(catalog, options)), new(catalog.Systems.Count, catalog.Companies.Count,
                 catalog.Regions.Count, catalog.Languages.Count, catalog.RatingBoards.Count, catalog.Ratings.Count));
         return descriptor with { Revision = Hash(JsonSerializer.SerializeToElement(descriptor, options)) };

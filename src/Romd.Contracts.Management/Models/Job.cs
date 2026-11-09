@@ -6,17 +6,17 @@ namespace Romd.Contracts.Management.Models;
 ///     Base class for all job types. Uses JSON polymorphism for discriminated unions.
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "jobType")]
-[JsonDerivedType(typeof(UploadJobDto), "upload")]
-[JsonDerivedType(typeof(ReplaceDatJobDto), "replace_dat")]
-[JsonDerivedType(typeof(EnrichmentJobDto), "enrichment")]
-[JsonDerivedType(typeof(BulkEnrichmentJobDto), "bulk_enrichment")]
-[JsonDerivedType(typeof(ArtworkCompletionOperationDto), "artwork-completion")]
-[JsonDerivedType(typeof(MetadataRematerializationJobDto), "metadata-rematerialization")]
-[JsonDerivedType(typeof(ExportJobDto), "export")]
-[JsonDerivedType(typeof(MaterializationJobDto), "materialization")]
-[JsonDerivedType(typeof(ArtworkImportJobDto), "artwork-import")]
-[JsonDerivedType(typeof(MediaReconciliationJobDto), "media-reconciliation")]
-public abstract record JobDto
+[JsonDerivedType(typeof(UploadJob), "upload")]
+[JsonDerivedType(typeof(ReplaceDatJob), "replace_dat")]
+[JsonDerivedType(typeof(EnrichmentJob), "enrichment")]
+[JsonDerivedType(typeof(BulkEnrichmentJob), "bulk_enrichment")]
+[JsonDerivedType(typeof(ArtworkCompletionOperation), "artwork-completion")]
+[JsonDerivedType(typeof(MetadataRematerializationJob), "metadata-rematerialization")]
+[JsonDerivedType(typeof(ExportJob), "export")]
+[JsonDerivedType(typeof(MaterializationJob), "materialization")]
+[JsonDerivedType(typeof(ArtworkImportJob), "artwork-import")]
+[JsonDerivedType(typeof(MediaReconciliationJob), "media-reconciliation")]
+public abstract record Job
 {
     public required Guid Id { get; init; }
     public required Guid CorrelationId { get; init; }
@@ -47,7 +47,7 @@ public abstract record JobDto
 /// <summary>
 ///     An upload job for ingesting ROM archives.
 /// </summary>
-public sealed record UploadJobDto : JobDto
+public sealed record UploadJob : Job
 {
     // Provenance: server-local directory this job was imported from, when created via path import.
     public string? ImportSourcePath { get; init; }
@@ -72,7 +72,7 @@ public sealed record UploadJobDto : JobDto
 /// <summary>
 ///     A replace DAT job for updating an existing DAT file.
 /// </summary>
-public sealed record ReplaceDatJobDto : JobDto
+public sealed record ReplaceDatJob : Job
 {
     public required string ExistingDatId { get; init; }
     public string? NewDatId { get; init; }
@@ -81,7 +81,7 @@ public sealed record ReplaceDatJobDto : JobDto
 /// <summary>
 ///     An enrichment job for fetching title metadata from external providers.
 /// </summary>
-public sealed record EnrichmentJobDto : JobDto
+public sealed record EnrichmentJob : Job
 {
     public required string TitleId { get; init; }
 }
@@ -89,7 +89,7 @@ public sealed record EnrichmentJobDto : JobDto
 /// <summary>
 ///     A bulk enrichment job for enriching all titles on a platform.
 /// </summary>
-public sealed record BulkEnrichmentJobDto : JobDto
+public sealed record BulkEnrichmentJob : Job
 {
     public int TotalTitles { get; init; }
     public int ProcessedCount { get; init; }
@@ -106,7 +106,7 @@ public sealed record BulkEnrichmentJobDto : JobDto
 /// <summary>
 ///     An export job for producing a downloadable library archive.
 /// </summary>
-public sealed record ExportJobDto : JobDto
+public sealed record ExportJob : Job
 {
     public string Format { get; init; } = "original";
     public int TotalTitles { get; init; }
@@ -121,7 +121,7 @@ public sealed record ExportJobDto : JobDto
 /// <summary>
 ///     A materialization job for pre-computing library contents.
 /// </summary>
-public sealed record MaterializationJobDto : JobDto
+public sealed record MaterializationJob : Job
 {
     public string? LibraryId { get; init; }
     public int TotalTitles { get; init; }
@@ -131,7 +131,7 @@ public sealed record MaterializationJobDto : JobDto
 }
 
 /// <summary>An explicit artwork import and pin request.</summary>
-public sealed record ArtworkImportJobDto : JobDto
+public sealed record ArtworkImportJob : Job
 {
     public required string TitleId { get; init; }
     public required string Role { get; init; }
@@ -154,7 +154,7 @@ public sealed record JobError(
 /// </summary>
 public sealed record RetryFailedResult(int Requeued);
 
-public sealed record ArtworkCompletionOperationDto : JobDto
+public sealed record ArtworkCompletionOperation : Job
 { [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public string? Mode { get; init; } public int Total { get; init; } public int Processed { get; init; } }
 
 
@@ -162,7 +162,7 @@ public sealed record ArtworkCompletionOperationDto : JobDto
 
 
 /// <summary>A system metadata-policy pass; deferred titles retain internal durable retry intents.</summary>
-public sealed record MetadataRematerializationJobDto : JobDto
+public sealed record MetadataRematerializationJob : Job
 {
     public int TotalTitles { get; init; }
     public int ProcessedCount { get; init; }

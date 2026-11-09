@@ -35,8 +35,8 @@ public sealed partial class ProviderMatchPersistenceTests
                 AutomaticallyTrusted = true,
                 InputFingerprint = fingerprint,
                 MatcherVersion = ProviderIdentityPolicy.Version,
-                GameJson = JsonSerializer.Serialize(new ProviderGameDto("42", "Game", "https://example.com/game")),
-                DecisionJson = JsonSerializer.Serialize(new ProviderIdentityDecisionDto("AutoAccepted", "test", "test", fingerprint, []))
+                GameJson = JsonSerializer.Serialize(new ProviderGame("42", "Game", "https://example.com/game")),
+                DecisionJson = JsonSerializer.Serialize(new ProviderIdentityDecision("AutoAccepted", "test", "test", fingerprint, []))
             },
             new TitleProviderMatchStateEntity
             {

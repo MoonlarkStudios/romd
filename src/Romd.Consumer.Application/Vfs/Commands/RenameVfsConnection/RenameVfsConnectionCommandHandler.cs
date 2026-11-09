@@ -6,7 +6,7 @@ using Romd.Contracts.Consumer.Account;
 
 namespace Romd.Consumer.Application.Vfs.Commands.RenameVfsConnection;
 
-public sealed class RenameVfsConnectionCommandHandler : ICommandHandler<RenameVfsConnectionCommand, VfsConnectionDto>
+public sealed class RenameVfsConnectionCommandHandler : ICommandHandler<RenameVfsConnectionCommand, VfsConnection>
 {
     private readonly ICurrentUser currentUser;
     private readonly IVfsConnections connections;
@@ -17,7 +17,7 @@ public sealed class RenameVfsConnectionCommandHandler : ICommandHandler<RenameVf
         this.connections = connections;
     }
 
-    public async Task<ErrorOr<VfsConnectionDto>> HandleAsync(RenameVfsConnectionCommand command, CancellationToken ct = default)
+    public async Task<ErrorOr<VfsConnection>> HandleAsync(RenameVfsConnectionCommand command, CancellationToken ct = default)
     {
         if (!currentUser.IsAuthenticated || currentUser.UserId is not { } userId)
             return ConsumerErrors.CurrentUserRequired();

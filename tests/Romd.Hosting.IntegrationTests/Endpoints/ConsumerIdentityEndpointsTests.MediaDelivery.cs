@@ -197,13 +197,13 @@ public sealed partial class ConsumerIdentityEndpointsTests
 
                 phase = "persisted-vfs-metadata-before-content";
                 await SaveReportAsync(ct);
-                var connections = new List<VfsConnectionCredentialDto>(2);
+                var connections = new List<VfsConnectionCredential>(2);
                 foreach (string format in new[] { "stored", "original" })
                 {
                     using var issued = await owner.PostAsJsonAsync("/api/me/connections",
                         new SaveVfsConnectionRequest("Media qualification " + format, format == "stored" ? null : format), ct);
                     Require(issued.StatusCode == HttpStatusCode.Created, "issue actual VFS connection");
-                    var credential = await issued.Content.ReadFromJsonAsync<VfsConnectionCredentialDto>(cancellationToken: ct);
+                    var credential = await issued.Content.ReadFromJsonAsync<VfsConnectionCredential>(cancellationToken: ct);
                     Require(credential is not null && credential.Connection.Format == format, "persisted VFS format");
                     await fixture.AssertMediaConnectionAsync(ownerId, credential!.Connection.Id, format, ct);
                     connections.Add(credential);
@@ -223,12 +223,12 @@ public sealed partial class ConsumerIdentityEndpointsTests
                 { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false })
                     .WithTestUser(otherUserId, "media-other@localhost", [RomdRoleType.User], libraryId);
                 otherOwner.Timeout = Timeout.InfiniteTimeSpan;
-                VfsConnectionCredentialDto otherConnection;
+                VfsConnectionCredential otherConnection;
                 using (var issuedOther = await otherOwner.PostAsJsonAsync("/api/me/connections",
                     new SaveVfsConnectionRequest("Media qualification other account"), ct))
                 {
                     Require(issuedOther.StatusCode == HttpStatusCode.Created, "issue other actual account connection");
-                    otherConnection = (await issuedOther.Content.ReadFromJsonAsync<VfsConnectionCredentialDto>(
+                    otherConnection = (await issuedOther.Content.ReadFromJsonAsync<VfsConnectionCredential>(
                         cancellationToken: ct))!;
                     Require(otherConnection is not null && otherConnection.Connection.Format == "stored",
                         "other account stored format");
@@ -547,7 +547,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         File.Delete(zip);
     }
 
-    private static void CheckMediaFormat(Romd.Contracts.Common.Models.RomDeliveryFormatMetadataDto format,
+    private static void CheckMediaFormat(Romd.Contracts.Common.Models.RomDeliveryFormatMetadata format,
         string wireFormat, string filename, MediaQualificationFacts facts)
     {
         Require(format.Format == wireFormat && format.State == "available" && format.Filename == filename &&
@@ -582,7 +582,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/releases/" + IdCoder.Encode(seed.ReleaseId) + "/manifest");
         using var response = await owner.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         Require(response.StatusCode == HttpStatusCode.OK, "actual consumer manifest");
-        var manifest = await ReadMediaJsonAsync<ConsumerReleaseManifestDto>(response, ct);
+        var manifest = await ReadMediaJsonAsync<ConsumerReleaseManifest>(response, ct);
         Require(manifest.ReleaseId == IdCoder.Encode(seed.ReleaseId) && manifest.TitleId == IdCoder.Encode(seed.TitleId) &&
             manifest.SystemKey == seed.SystemKey && manifest.IsComplete && manifest.Items.Count == 2 &&
             Guid.TryParse(manifest.ServerInstanceId, out _), "consumer release and identity metadata");
@@ -622,7 +622,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         return delivered;
     }
 
-    private static async Task QualifyMediaMetadataAsync(HttpClient client, VfsConnectionCredentialDto credential,
+    private static async Task QualifyMediaMetadataAsync(HttpClient client, VfsConnectionCredential credential,
         string relativePath, MediaQualificationFacts facts, MediaQualificationCounters counters,
         string fixture, string format,
         Action<string, string, string, long, int, MediaQualificationAccess?> observed, CancellationToken ct,
@@ -697,7 +697,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
     }
 
     private static async Task QualifyMediaContentionAsync(HttpClient anonymous,
-        IReadOnlyList<VfsConnectionCredentialDto> ownerConnections, VfsConnectionCredentialDto otherConnection,
+        IReadOnlyList<VfsConnectionCredential> ownerConnections, VfsConnectionCredential otherConnection,
         Guid ownerId, MediaDeliverySeed seed, MediaQualificationInput input, ConsumerVfsAdmission admission,
         ConsumerVfsOptions options, MediaQualificationCounters counters,
         Action<MediaQualificationContention> update,
@@ -893,7 +893,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
     private static string MediaVfsRoute(string relative) =>
         "/vfs/library/" + string.Join('/', relative.Split('/').Select(Uri.EscapeDataString));
 
-    private static HttpRequestMessage MediaVfsRangeRequest(string route, VfsConnectionCredentialDto credential,
+    private static HttpRequestMessage MediaVfsRangeRequest(string route, VfsConnectionCredential credential,
         long offset, int bytes)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, route);

@@ -8,15 +8,15 @@ using Romd.Contracts.Consumer.Browse;
 
 namespace Romd.Consumer.Application.Browse.Queries.GetConsumerTitle;
 
-public sealed record GetConsumerTitleQuery(int TitleId) : IQuery<ConsumerTitleDetailDto>;
+public sealed record GetConsumerTitleQuery(int TitleId) : IQuery<ConsumerTitleDetail>;
 
 public sealed class GetConsumerTitleQueryHandler(
     ICurrentUser currentUser,
     IConsumerUserSettingsStore settingsStore,
     IConsumerBrowseRepository browseRepository)
-    : IQueryHandler<GetConsumerTitleQuery, ConsumerTitleDetailDto>
+    : IQueryHandler<GetConsumerTitleQuery, ConsumerTitleDetail>
 {
-    public async Task<ErrorOr<ConsumerTitleDetailDto>> HandleAsync(
+    public async Task<ErrorOr<ConsumerTitleDetail>> HandleAsync(
         GetConsumerTitleQuery query,
         CancellationToken ct = default)
     {

@@ -18,14 +18,14 @@ public sealed class SteamGridDbIdentityAdapter(SteamGridDbArtworkProvider provid
         var state = await settings.GetAsync(ct);
         return new(state.Enabled, state.IsConfigured);
     }
-    public async Task<ErrorOr<ProviderGameSearchResultDto>> SearchAsync(string query, CancellationToken ct)
+    public async Task<ErrorOr<ProviderGameSearchResult>> SearchAsync(string query, CancellationToken ct)
     {
         var result = await provider.SearchAsync(query, ct);
         if (result.IsError)
             return result.Errors;
         // Autocomplete has no continuation, count or exhaustion guarantee, even for a short/empty answer.
-        return new ProviderGameSearchResultDto(result.Value.Select(x => new ProviderGameDto(x.Id, x.Name,
+        return new ProviderGameSearchResult(result.Value.Select(x => new ProviderGame(x.Id, x.Name,
             $"https://www.steamgriddb.com/game/{x.Id}", Year: x.Year)).ToArray(), ProviderGameSearchCompleteness.ProviderLimited, 100);
     }
-    public Task<ErrorOr<ProviderGameDto>> ResolveAsync(string idOrUrl, CancellationToken ct) => provider.ResolveIdentityAsync(idOrUrl, ct);
+    public Task<ErrorOr<ProviderGame>> ResolveAsync(string idOrUrl, CancellationToken ct) => provider.ResolveIdentityAsync(idOrUrl, ct);
 }

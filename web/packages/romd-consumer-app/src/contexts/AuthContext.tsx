@@ -1,4 +1,4 @@
-import type { CurrentUserDto } from '@romd/consumer-api-client';
+import type { CurrentUser } from '@romd/consumer-api-client';
 import { getConsumerCurrentUser } from '@romd/consumer-api-client';
 import {
   type SessionProfile,
@@ -9,14 +9,14 @@ import {
 import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react';
 import { userManager } from '../auth/userManager';
 
-export interface AuthContextValue extends Omit<SessionProfile<CurrentUserDto>, 'clear'> {
+export interface AuthContextValue extends Omit<SessionProfile<CurrentUser>, 'clear'> {
   login: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
 
-const profileAdapter: SessionProfileAdapter<CurrentUserDto> = {
+const profileAdapter: SessionProfileAdapter<CurrentUser> = {
   getSession: async () => {
     const session = await userManager.getUser();
     return session

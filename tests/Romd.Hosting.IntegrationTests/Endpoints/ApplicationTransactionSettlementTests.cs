@@ -16,6 +16,10 @@ using Romd.Persistence.Entities;
 using Shouldly;
 using Xunit;
 
+using ContractJob = Romd.Contracts.Management.Models.Job;
+
+using UploadJob = Romd.Domain.Jobs.UploadJob;
+
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
 [Collection(IntegrationTestCollection.Name)]
@@ -45,7 +49,7 @@ public sealed partial class ApplicationTransactionSettlementTests
         if (commitFault == "none")
         {
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
-            var result = (await response.Content.ReadFromJsonAsync<JobDto>()).ShouldNotBeNull();
+            var result = (await response.Content.ReadFromJsonAsync<ContractJob>()).ShouldNotBeNull();
             result.Id.ShouldBe(job.Id);
             result.IsArchived.ShouldBeTrue();
         }
@@ -80,7 +84,7 @@ public sealed partial class ApplicationTransactionSettlementTests
         using var saved = await client.SendAsync(request);
 
         saved.StatusCode.ShouldBe(HttpStatusCode.OK, await saved.Content.ReadAsStringAsync());
-        var settings = (await saved.Content.ReadFromJsonAsync<IgdbProviderSettingsDto>()).ShouldNotBeNull();
+        var settings = (await saved.Content.ReadFromJsonAsync<IgdbProviderSettings>()).ShouldNotBeNull();
         saved.Headers.ETag.ShouldNotBeNull().Tag.ShouldBe($"\"{settings.Revision}\"");
         settings.HasClientSecret.ShouldBeFalse();
         settings.Enabled.ShouldBeFalse();
@@ -89,7 +93,7 @@ public sealed partial class ApplicationTransactionSettlementTests
         test.Headers.TryAddWithoutValidation("If-Match", saved.Headers.ETag!.Tag).ShouldBeTrue();
         using var tested = await client.SendAsync(test);
         tested.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var observed = (await tested.Content.ReadFromJsonAsync<IgdbProviderSettingsDto>()).ShouldNotBeNull();
+        var observed = (await tested.Content.ReadFromJsonAsync<IgdbProviderSettings>()).ShouldNotBeNull();
         observed.LastTestedAt.ShouldNotBeNull();
         observed.LastTestSucceeded.ShouldBe(false);
         tested.Headers.ETag.ShouldNotBeNull().Tag.ShouldBe($"\"{observed.Revision}\"");

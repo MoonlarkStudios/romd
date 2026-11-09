@@ -6,14 +6,14 @@ using Romd.Contracts.Management.Models;
 
 namespace Romd.Admin.Application.Dashboard.Queries.GetCoverageStats;
 
-public sealed record GetCoverageStatsQuery : IQuery<CoverageStatsDto>;
+public sealed record GetCoverageStatsQuery : IQuery<CoverageStats>;
 
 public sealed class GetCoverageStatsQueryHandler(
     IRomRepository romRepository,
     IDatRepository datRepository)
-    : IQueryHandler<GetCoverageStatsQuery, CoverageStatsDto>
+    : IQueryHandler<GetCoverageStatsQuery, CoverageStats>
 {
-    public async Task<ErrorOr<CoverageStatsDto>> HandleAsync(GetCoverageStatsQuery query,
+    public async Task<ErrorOr<CoverageStats>> HandleAsync(GetCoverageStatsQuery query,
         CancellationToken ct = default)
     {
         // Sequential awaits: the repositories share one scoped DbContext, which is single-flight
@@ -30,7 +30,7 @@ public sealed class GetCoverageStatsQueryHandler(
             ? dats.Max(d => d.ImportedAt)
             : (DateTimeOffset?)null;
 
-        return new CoverageStatsDto
+        return new CoverageStats
         {
             ExpectedTitleCount = coverage.ExpectedTitleCount,
             LocalPayloadTitleCount = coverage.LocalPayloadTitleCount,

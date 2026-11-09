@@ -7,13 +7,15 @@ using Romd.Application.Common.Security;
 using Romd.Contracts.Common.Models;
 using Romd.Contracts.Management.Artwork;
 using Romd.Domain.Jobs;
+using ArtworkCompletionJob = Romd.Domain.Jobs.ArtworkCompletionJob;
+
 namespace Romd.Admin.Application.Ingestion.Jobs.Queries.GetJobArtworkItems;
 
-public sealed record GetJobArtworkItemsQuery(Guid JobId, string? Status = null, string? Cursor = null, int Limit = 50) : IQuery<Page<ArtworkCompletionItemDto>>;
+public sealed record GetJobArtworkItemsQuery(Guid JobId, string? Status = null, string? Cursor = null, int Limit = 50) : IQuery<Page<ArtworkCompletionItem>>;
 public sealed class GetJobArtworkItemsQueryHandler(IJobRepository jobs, ICurrentUser user, IArtworkCompletionService service)
-    : IQueryHandler<GetJobArtworkItemsQuery, Page<ArtworkCompletionItemDto>>
+    : IQueryHandler<GetJobArtworkItemsQuery, Page<ArtworkCompletionItem>>
 {
-    public async Task<ErrorOr<Page<ArtworkCompletionItemDto>>> HandleAsync(GetJobArtworkItemsQuery query, CancellationToken ct = default)
+    public async Task<ErrorOr<Page<ArtworkCompletionItem>>> HandleAsync(GetJobArtworkItemsQuery query, CancellationToken ct = default)
     {
         if (query.Limit is < 1 or > 100 || !JobFilters.Allows(query.Status, JobFilters.ArtworkStatuses))
             return Error.Validation("Jobs.InvalidFilter", "Use a supported artwork status and limit from 1 to 100.");
@@ -30,7 +32,7 @@ public sealed class GetJobArtworkItemsQueryHandler(IJobRepository jobs, ICurrent
         if (result.IsError)
             return result.Errors;
         var page = result.Value;
-        return new Page<ArtworkCompletionItemDto>
+        return new Page<ArtworkCompletionItem>
         {
             Items = page.Items,
             HasNextPage = page.NextCursor is not null,

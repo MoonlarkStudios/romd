@@ -11,20 +11,20 @@ public sealed class RatingBoardReferenceReader : IRatingBoardReferenceReader
 {
     private readonly RomdDbContext db;
     public RatingBoardReferenceReader(RomdDbContext db) { this.db = db; }
-    public async Task<IReadOnlyList<RatingBoardResourceDto>> ListAsync(CancellationToken ct) =>
+    public async Task<IReadOnlyList<RatingBoardResource>> ListAsync(CancellationToken ct) =>
         (await DescribeAsync(await db.RatingBoards.Where(x => true).OrderBy(x => x.Key).ToListAsync(ct), ct)).Select(x => x.Resource).ToArray();
-    public async Task<ReferenceReadResult<RatingBoardResourceDto>?> GetAsync(string key, CancellationToken ct) =>
+    public async Task<ReferenceReadResult<RatingBoardResource>?> GetAsync(string key, CancellationToken ct) =>
         await db.RatingBoards.SingleOrDefaultAsync(x => x.Key == key, ct) is { } row ? (await DescribeAsync([row], ct))[0] : null;
-    private Task<IReadOnlyList<ReferenceReadResult<RatingBoardResourceDto>>> DescribeAsync(IReadOnlyList<RatingBoardEntity> rows, CancellationToken ct)
+    private Task<IReadOnlyList<ReferenceReadResult<RatingBoardResource>>> DescribeAsync(IReadOnlyList<RatingBoardEntity> rows, CancellationToken ct)
     {
         var results = rows.Select(row =>
         {
             var facts = TypedReferenceMapping.Effective(row);
-            var resource = new RatingBoardResourceDto(row.Key!, row.Ownership.ToString(), row.BuiltInVersion,
+            var resource = new RatingBoardResource(row.Key!, row.Ownership.ToString(), row.BuiltInVersion,
                 facts.Name, facts.Description, facts.Retired);
-            return new ReferenceReadResult<RatingBoardResourceDto>(resource,
+            return new ReferenceReadResult<RatingBoardResource>(resource,
                 TypedReferenceMapping.Revision(new { Resource = resource, Definition = TypedReferenceMapping.Definition(row) }));
         }).ToArray();
-        return Task.FromResult<IReadOnlyList<ReferenceReadResult<RatingBoardResourceDto>>>(results);
+        return Task.FromResult<IReadOnlyList<ReferenceReadResult<RatingBoardResource>>>(results);
     }
 }

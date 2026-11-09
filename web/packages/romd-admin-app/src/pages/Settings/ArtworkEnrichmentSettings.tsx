@@ -1,5 +1,5 @@
 import { Alert, Badge, Button, Group, Skeleton, Stack, Switch, Text, Title } from '@mantine/core';
-import type { ArtworkEnrichmentSettingsDto } from '@romd/admin-api-client';
+import type { ArtworkEnrichmentSettings as ArtworkEnrichmentSettingsContract } from '@romd/admin-api-client';
 import { useState } from 'react';
 import { UnsavedChanges } from '../../components/Administration/UnsavedChanges';
 import { artworkSourceLabel } from '../../components/artworkPresentation';
@@ -14,7 +14,7 @@ function SettingsForm({
   settings,
   reload,
 }: {
-  settings: ArtworkEnrichmentSettingsDto;
+  settings: ArtworkEnrichmentSettingsContract;
   reload: () => void;
 }) {
   const [baseline, setBaseline] = useState(settings);

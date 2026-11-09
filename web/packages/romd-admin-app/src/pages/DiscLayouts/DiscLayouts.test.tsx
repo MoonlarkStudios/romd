@@ -3,7 +3,7 @@ import {
   listOriginalDiscLayoutAudit,
   listOriginalDiscLayoutCandidates,
   listOriginalDiscLayouts,
-  type OriginalDiscLayoutDto,
+  type OriginalDiscLayout,
   startMediaReconciliationSubject,
   updateOriginalDiscLayout,
 } from '@romd/admin-api-client';
@@ -39,7 +39,7 @@ vi.mock('../../hooks/api/useUpload', () => ({
   }),
 }));
 const hash = 'ab'.repeat(32);
-const layout: OriginalDiscLayoutDto = {
+const layout: OriginalDiscLayout = {
   id: 'layout1',
   revision: '11111111-1111-4111-8111-111111111111',
   state: 'pending',

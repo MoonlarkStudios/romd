@@ -1,17 +1,17 @@
 import { Badge, Box, Button, Group, Menu, Stack, Text } from '@mantine/core';
-import type { ConsumerReleaseDto } from '@romd/consumer-api-client';
+import type { ConsumerRelease } from '@romd/consumer-api-client';
 import { IconCheck, IconChevronDown } from '@tabler/icons-react';
 import { formatList } from '../../utils/library';
 import classes from './ReleaseVersionMenu.module.css';
 
 interface ReleaseVersionMenuProps {
-  releases: ConsumerReleaseDto[];
-  selectedRelease: ConsumerReleaseDto;
+  releases: ConsumerRelease[];
+  selectedRelease: ConsumerRelease;
   defaultReleaseId: string | null;
   onSelectRelease: (id: string) => void;
 }
 
-function versionName(release: ConsumerReleaseDto) {
+function versionName(release: ConsumerRelease) {
   return [
     formatList(release.regions, release.name),
     release.revision,
