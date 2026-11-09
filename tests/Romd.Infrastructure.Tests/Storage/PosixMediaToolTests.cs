@@ -53,7 +53,7 @@ public sealed class PosixMediaToolTests(PosixMediaToolFixture fixture) : IClassF
             tool.TryObserveOwned(pid => { calls++; return pid; }, out int facts).ShouldBeFalse();
             calls.ShouldBe(0);
             facts.ShouldBe(0);
-            tool.ExitCode.ShouldBe(37);
+            await AssertExitAsync(tool, 37, deadline.Token);
         }
         finally { if (tool is not null) { await tool.TerminateAndWaitAsync(); tool.Dispose(); } Directory.Delete(root, recursive: true); }
     }
@@ -120,7 +120,7 @@ public sealed class PosixMediaToolTests(PosixMediaToolFixture fixture) : IClassF
             await tool.Input.WriteAsync(new byte[] { 1 }, deadline.Token);
             tool.Input.Dispose();
             await tool.WaitAsync(deadline.Token);
-            tool.ExitCode.ShouldBe(37);
+            await AssertExitAsync(tool, 37, deadline.Token);
             using var independent = NativeFileLease.TryAcquire(Path.Combine(root, "processing.lease")).ShouldNotBeNull();
             independent.Identity.ShouldBe(identity);
         }
@@ -187,10 +187,16 @@ public sealed class PosixMediaToolTests(PosixMediaToolFixture fixture) : IClassF
             report.GroupId.ShouldBe(parent.GroupId);
             report.Arguments.ShouldBe(expected);
             report.Environment["ROMD_POSIX_TOOL_FIXTURE"].ShouldBe("explicit value");
+            string[] environmentKeys = ["ROMD_POSIX_TOOL_FIXTURE"];
+            if (OperatingSystem.IsMacOS())
+            {
+                report.Environment["TMPDIR"].ShouldBe(fixture.TemporaryDirectory);
+                environmentKeys = [.. environmentKeys, "TMPDIR"];
+            }
             report.Environment.Keys.Where(key => !(OperatingSystem.IsMacOS() && key == "__CF_USER_TEXT_ENCODING"))
-                .Order(StringComparer.Ordinal).ShouldBe(new[] { "ROMD_POSIX_TOOL_FIXTURE" });
+                .Order(StringComparer.Ordinal).ShouldBe(environmentKeys);
             await tool.WaitAsync(deadline.Token);
-            tool.ExitCode.ShouldBe(37);
+            await AssertExitAsync(tool, 37, deadline.Token);
         }
         finally { if (tool is not null) { await tool.TerminateAndWaitAsync(); tool.Dispose(); } Directory.Delete(root, recursive: true); }
     }
@@ -219,9 +225,9 @@ public sealed class PosixMediaToolTests(PosixMediaToolFixture fixture) : IClassF
             await tool.Input.WriteAsync(new byte[] { 1 }, deadline.Token);
             tool.Input.Dispose();
             await Task.WhenAll(first, second);
-            tool.ExitCode.ShouldBe(37);
+            await AssertExitAsync(tool, 37, deadline.Token);
             await tool.WaitAsync(deadline.Token);
-            tool.ExitCode.ShouldBe(37);
+            await AssertExitAsync(tool, 37, deadline.Token);
         }
         finally { if (tool is not null) { await tool.TerminateAndWaitAsync(); tool.Dispose(); } Directory.Delete(root, recursive: true); }
     }
@@ -251,7 +257,7 @@ public sealed class PosixMediaToolTests(PosixMediaToolFixture fixture) : IClassF
             await sibling.Input.WriteAsync(new byte[] { 1 }, deadline.Token);
             sibling.Input.Dispose();
             await sibling.WaitAsync(deadline.Token);
-            sibling.ExitCode.ShouldBe(37);
+            await AssertExitAsync(sibling, 37, deadline.Token);
         }
         finally
         {
@@ -280,7 +286,7 @@ public sealed class PosixMediaToolTests(PosixMediaToolFixture fixture) : IClassF
             await tool.WaitAsync(deadline.Token);
             await tool.TerminateAndWaitAsync(deadline.Token);
             await tool.TerminateAndWaitAsync(deadline.Token);
-            tool.ExitCode.ShouldBe(37);
+            await AssertExitAsync(tool, 37, deadline.Token);
             MediaProcessIdentity.Observe(tool.Id).Presence.ShouldBe(MediaProcessPresence.Gone);
         }
         finally { if (tool is not null) { await tool.TerminateAndWaitAsync(); tool.Dispose(); } Directory.Delete(root, recursive: true); }
@@ -347,6 +353,14 @@ public sealed class PosixMediaToolTests(PosixMediaToolFixture fixture) : IClassF
             return false;
         Should.Throw<PlatformNotSupportedException>(() => PosixMediaChild.StartTool(new ProcessStartInfo("tool"), 0, []));
         return true;
+    }
+
+    private static async Task AssertExitAsync(PosixMediaChild tool, int expected, CancellationToken ct)
+    {
+        using var errors = new StreamReader(tool.Error, leaveOpen: true);
+        char[] diagnostic = new char[4096];
+        int count = await errors.ReadBlockAsync(diagnostic.AsMemory(), ct);
+        tool.ExitCode.ShouldBe(expected, new string(diagnostic, 0, count));
     }
 
     private static async Task<ToolReport> ReadReportAsync(PosixMediaChild tool, CancellationToken ct)

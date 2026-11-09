@@ -16,7 +16,7 @@
         "python3",
         "scripts/quality/dotnet_style.py"
       ],
-      "ci_job": "backend",
+      "ci_job": "source-checks",
       "required_ci": true
     },
     {
@@ -36,7 +36,7 @@
         "scripts/quality/dotnet_style.py",
         "--smoke-test"
       ],
-      "ci_job": "backend",
+      "ci_job": "source-checks",
       "required_ci": true
     },
     {
@@ -578,6 +578,8 @@
         "60s",
         "--blame-hang-dump-type",
         "none",
+        "--logger",
+        "trx;LogFileName=integration.trx",
         "--collect:XPlat Code Coverage",
         "--results-directory",
         "{evidence}/integration"

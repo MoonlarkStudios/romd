@@ -29,14 +29,22 @@ DEPENDENCIES = ['.artifacts/ci-python/bin/python', 'scripts/security/source_advi
 # repurposed silently. `local` names a .mise.toml task whose single command must equal (or
 # token-prefix) the CI command; entries without one have no local route and say why.
 CI_ONLY_STEPS = {
+    ('source-checks', 'Prepare hash-locked workflow parser'):
+        dict(command='python3 scripts/ci/prepare.py', local='workflows:lint'),
+    ('source-checks', 'Enforce workflow security policy'):
+        dict(command='.artifacts/ci-python/bin/python scripts/ci/lint_workflows.py', local='workflows:lint'),
+    ('source-checks', 'Install authenticated secret scanner'):
+        dict(command='python3 scripts/publication/install_scanner.py', reason='checksum-pinned tool setup in runner temporary storage'),
+    ('source-checks', 'Test workflow security and CI helpers with the actual scanner'):
+        dict(command='.artifacts/ci-python/bin/python -B -W error -m unittest discover -s scripts/ci', local='workflows:lint'),
+    ('source-checks', 'Scan new commits for secrets'):
+        dict(command='python3 scripts/ci/secret_scan.py', local='secrets:check'),
+    ('source-checks', 'Select expensive CHD verification'):
+        dict(command='python3 scripts/ci/change_scope.py', reason='conservative PR-only selection; main and releases always full'),
+    ('source-checks', 'Lint workflows'):
+        dict(command='curl --fail', reason='downloads hash-pinned actionlint; local workflows:lint uses mise pin'),
     ('agent-infrastructure', 'Prepare hash-locked workflow parser'):
         dict(command='python3 scripts/ci/prepare.py', local='workflows:lint', reason='tool setup'),
-    ('agent-infrastructure', 'Enforce workflow security policy'):
-        dict(command='.artifacts/ci-python/bin/python scripts/ci/lint_workflows.py', local='workflows:lint'),
-    ('agent-infrastructure', 'Test workflow security policy'):
-        dict(command='.artifacts/ci-python/bin/python -B -m unittest discover -s scripts/ci', local='workflows:lint'),
-    ('agent-infrastructure', 'Lint workflows'):
-        dict(command='curl --fail', reason='downloads hash-pinned actionlint; locally mise pins it (workflows:lint)'),
     ('agent-infrastructure', 'Check agent infrastructure'):
         dict(command='.artifacts/ci-python/bin/python scripts/agents/check.py', local='agents:check'),
     ('agent-infrastructure', 'Test infrastructure checker'):
@@ -50,9 +58,9 @@ CI_ONLY_STEPS = {
     **{(job, 'Unpack the native linux-x64 build'):
        dict(command='tar -xzf native-linux-x64.tar.gz', reason='artifact transfer from the native job')
        for job in ('backend', 'infrastructure', 'integration')},
-    ('backend', 'Verify portable and Linux image dependency locks'):
+    ('source-checks', 'Verify portable and Linux image dependency locks'):
         dict(command='python3 scripts/ci/nuget_locks.py', local='dependencies:locks'),
-    ('backend', 'Build backend'): dict(command='dotnet build --no-restore', reason='build before registered checks'),
+    ('backend', 'Build backend'): dict(command='dotnet build --configuration Release', reason='restore portable locked assets on this runner, then build before checks'),
     ('infrastructure', 'Restore infrastructure test dependencies'):
         dict(command='dotnet restore tests/Romd.Infrastructure.Tests/', reason='dependency install'),
     ('infrastructure', 'Build infrastructure test surface'):
@@ -61,6 +69,10 @@ CI_ONLY_STEPS = {
         dict(command='dotnet restore', reason='dependency install'),
     ('integration', 'Build integration test surface'):
         dict(command='dotnet build', reason='build before registered checks'),
+    ('integration', 'Prepare verified loopback network probe tools'):
+        dict(command='sudo apt-get update', reason='Ubuntu runner package setup and checksum-pinned rclone in runner temporary storage'),
+    ('integration', 'Require executed nginx and rclone protocol probes'):
+        dict(command='python3 scripts/ci/network_probes.py verify', local='ci:network-probes'),
     ('native', 'Check the libchdr submodule against its pin'):
         dict(command='test "$(git -C native/libchdr/upstream rev-parse HEAD)"',
              reason='hosted checkout integrity gate; no local route (compare git submodule status with libchdr.json)'),
@@ -71,8 +83,12 @@ CI_ONLY_STEPS = {
     ('native', 'Package the native linux-x64 build for the backend jobs'):
         dict(command='tar -czf native-linux-x64.tar.gz', reason='artifact packaging'),
     ('web', 'Install web dependencies'): dict(command='pnpm install --frozen-lockfile', reason='dependency install'),
-    ('web', 'Build production hosts with frontend'):
-        dict(command='dotnet build -c Release -m:1 -p:BuildFrontend=true', local='build'),
+    ('web', 'Stage the once-built frontend assets'):
+        dict(command='python3 scripts/ci/frontend_assets.py --stage', local='build:prebuilt'),
+    ('web', 'Build production hosts with staged frontend'):
+        dict(command='dotnet build -c Release -m:1', local='build:prebuilt'),
+    ('web', 'Verify current frontend publication bindings'):
+        dict(command='python3 scripts/ci/frontend_assets.py', local='build:prebuilt'),
     ('production-compose', 'Build images and exercise production deployment'):
         dict(command='python3 scripts/deployment/smoke.py --build --vfs',
              reason='Docker-only image build and recovery drill; run it directly with Docker'),

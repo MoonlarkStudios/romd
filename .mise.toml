@@ -216,7 +216,11 @@ run = "python3 scripts/e2e/chd.py --synthetic --checkpoint encoding"
 
 [tasks."workflows:lint"]
 description = "Lint workflows with pinned actionlint and enforce immutable action references"
-run = ["python3 scripts/ci/prepare.py", ".artifacts/ci-python/bin/python scripts/ci/lint_workflows.py", ".artifacts/ci-python/bin/python -B -m unittest discover -s scripts/ci -p 'test_*.py'", "actionlint"]
+run = ["python3 scripts/ci/prepare.py", ".artifacts/ci-python/bin/python scripts/ci/lint_workflows.py", ".artifacts/ci-python/bin/python -B -W error -m unittest discover -s scripts/ci -p 'test_*.py'", "actionlint"]
+
+[tasks."ci:network-probes"]
+description = "Verify executed network probes from TRX (hosting|endpoints RESULTS_DIRECTORY)"
+run = "python3 scripts/ci/network_probes.py verify"
 
 [tasks."toolchain:check"]
 description = "Verify exact local and CI toolchain selection"
@@ -252,3 +256,12 @@ run = "python3 scripts/publication/audit.py"
 [tasks."publication:archive-review"]
 description = "Recheck private fixture provenance and decoded payload evidence without waiving scanner gaps"
 run = "python3 scripts/publication/archive_review.py"
+
+[tasks."secrets:check"]
+description = "Scan commits since public origin/main with the pinned scanner (optional --full or --base SHA)"
+run = "python3 scripts/ci/secret_scan.py"
+
+[tasks."build:prebuilt"]
+description = "Stage fresh pnpm build output, build hosts once, and verify publication bindings"
+env = { CI = "true" }
+run = ["python3 scripts/ci/frontend_assets.py --stage", "dotnet build -c Release -m:1", "python3 scripts/ci/frontend_assets.py"]

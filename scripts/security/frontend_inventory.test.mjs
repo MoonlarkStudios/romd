@@ -23,6 +23,14 @@ test('empty, mutable, wrong application and unresolved trees cannot produce a re
   assert.throws(() => inventory([{ name: 'romd-admin-app', dependencies: {} }], 'admin'));
 });
 
+test('dependency names cannot inject package URL delimiters while npm scopes remain separate', () => {
+  const name = '@scope/package@extra?query#fragment%value';
+  const sbom = inventory([{ name: 'romd-admin-app', dependencies: { [name]: { version: '1.2.3' } } }], 'admin');
+  assert.equal(sbom.components[0].name, name);
+  assert.equal(sbom.components[0].purl, 'pkg:npm/%40scope/package%40extra%3Fquery%23fragment%25value@1.2.3');
+  assert.equal(sbom.components[0]['bom-ref'], sbom.components[0].purl);
+});
+
 test('player distinguishes pinned external EmulatorJS from image-carried frontend modules', () => {
   const playerTree = [{ ...tree[0], name: 'romd-player-app' }];
   assert.throws(() => inventory(playerTree, 'player'));

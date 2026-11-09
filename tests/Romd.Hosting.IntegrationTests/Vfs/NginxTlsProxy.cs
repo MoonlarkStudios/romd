@@ -36,7 +36,8 @@ internal sealed class NginxTlsProxy : IAsyncDisposable
         return new Uri($"{(tls ? "https" : "http")}://localhost:{((IPEndPoint)listener.LocalEndpoint).Port}/");
     }
 
-    public static async Task<NginxTlsProxy> StartAsync(Uri upstream, X509Certificate2 certificate, Uri origin, bool tls = true)
+    public static async Task<NginxTlsProxy> StartAsync(Uri upstream, X509Certificate2 certificate, Uri origin, bool tls = true,
+        bool observeBuffering = false)
     {
         if (OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException();
@@ -58,11 +59,16 @@ internal sealed class NginxTlsProxy : IAsyncDisposable
                 .Replace("${ROMD_ADMIN_HOST}", "admin.invalid", StringComparison.Ordinal)
                 .Replace("${ROMD_CONSUMER_HOST}", "localhost", StringComparison.Ordinal)
                 .Replace("${ROMD_PLAYER_HOST}", "player.invalid", StringComparison.Ordinal)
+                .Replace("${ROMD_CLOUDFLARED_EDGE_IP}", "127.0.0.1", StringComparison.Ordinal)
                 .Replace("http://romd-consumer:8080", upstream.GetLeftPart(UriPartial.Authority), StringComparison.Ordinal)
                 .Replace("listen 443 ssl default_server;", $"listen 127.0.0.1:{port} ssl default_server;", StringComparison.Ordinal)
                 .Replace("listen 80 default_server;", $"listen 127.0.0.1:{port} default_server;", StringComparison.Ordinal)
                 .Replace("/etc/romd/tls/fullchain.pem", Quote(Path.Combine(directory, "fullchain.pem")), StringComparison.Ordinal)
                 .Replace("/etc/romd/tls/privkey.pem", Quote(Path.Combine(directory, "privkey.pem")), StringComparison.Ordinal);
+            // Synthetic streaming tests need warn-level disk-spooling telemetry. The
+            // shipped templates deliberately suppress raw request errors for privacy.
+            if (observeBuffering)
+                configuration = configuration.Replace("error_log /dev/null;", "error_log stderr warn;", StringComparison.Ordinal);
             configuration = "daemon off;\nmaster_process off;\npid " + Quote(Path.Combine(directory, "nginx.pid")) + ";\n"
                 + "error_log stderr warn;\nevents { worker_connections 64; }\nhttp {\naccess_log off;\n"
                 + "client_body_temp_path " + Quote(Path.Combine(directory, "client-body")) + ";\n"

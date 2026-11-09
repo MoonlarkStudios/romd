@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using Romd.Admin.Application.Ingestion.Extraction;
 using Romd.Infrastructure.Storage;
@@ -36,6 +37,35 @@ public sealed class ZipArchiveExtractorTests : IDisposable
 
     [Fact]
     public void SupportedExtensions_ContainsZip() => _sut.SupportedExtensions.ShouldContain(".zip");
+
+    [Theory]
+    [InlineData("en-US", "\u00ad")]
+    [InlineData("en-US", "\u200b")]
+    [InlineData("tr-TR", "\u00ad")]
+    [InlineData("tr-TR", "\u200b")]
+    [InlineData("", "\u00ad")]
+    [InlineData("", "\u200b")]
+    public async Task ExtractAllAsync_CultureIgnorableSiblingPath_SkipsWithoutWritingOutsideDestination(string culture, string suffix)
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+            string target = Path.Combine(_workRoot, "destination");
+            string sibling = Path.Combine(_workRoot, "destination" + suffix);
+            using var archive = CreateTestZip(("../destination" + suffix + "/escaped.iso", "outside"), ("safe.iso", "inside"));
+
+            var entries = await _sut.ExtractAllAsync(archive, target, new CountingQuota());
+
+            entries.ShouldHaveSingleItem().RelativePath.ShouldBe("safe.iso");
+            Directory.Exists(sibling).ShouldBeFalse("archive names must not create even a sibling directory");
+            (await File.ReadAllTextAsync(Path.Combine(target, "safe.iso"))).ShouldBe("inside");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
 
     [Fact]
     public async Task ExtractAllAsync_OverlongOutcomePath_RejectsBeforeWritingPayload()
