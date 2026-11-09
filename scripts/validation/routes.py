@@ -34,7 +34,7 @@ CI_ONLY_STEPS = {
     ('source-checks', 'Enforce workflow security policy'):
         dict(command='.artifacts/ci-python/bin/python scripts/ci/lint_workflows.py', local='workflows:lint'),
     ('source-checks', 'Install authenticated secret scanner'):
-        dict(command='python3 scripts/publication/install_scanner.py', reason='checksum-pinned tool setup in runner temporary storage'),
+        dict(command='python3 scripts/ci/install_scanner.py', reason='checksum-pinned tool setup in runner temporary storage'),
     ('source-checks', 'Test workflow security and CI helpers with the actual scanner'):
         dict(command='.artifacts/ci-python/bin/python -B -W error -m unittest discover -s scripts/ci', local='workflows:lint'),
     ('source-checks', 'Scan new commits for secrets'):

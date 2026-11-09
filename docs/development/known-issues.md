@@ -1070,22 +1070,25 @@ changing the canonical command. Preserve the checkout's database/data pairing.
 
 Status: MITIGATED
 
-Command: `python3 scripts/publication/audit.py --source SOURCE --evidence NEW_PRIVATE_DIRECTORY --gitleaks PINNED_BINARY`
+Command: Gitleaks 8.30.0 archive scanning of malformed or encrypted 7z fixtures
 
 Root cause: Gitleaks 8.30.0's archive decoder panics on some deliberately malformed
 7z test fixtures and reports an error on an encrypted fixture. A zero finding
 count from an interrupted decoder is incomplete coverage.
 
-Change: publication auditing scans historical archive objects individually,
-retains per-object scanner exit status in private evidence, and fails the
-overall scan when any decoder fails. The 2026-10-15 audit separately verified
+Change: the source-launch audit scanned historical archive objects individually,
+retained per-object scanner exit status in private evidence, and failed the
+overall scan when any decoder failed. The 2026-10-15 audit separately verified
 the failed fixture objects against their deterministic generation provenance
 and, for the encrypted fixture, a pinned official decoder.
 
 Agent guidance: retain the nonzero scanner result. Review every coverage gap
 privately using immutable object hashes and a bounded decoder/provenance check;
 do not exclude an archive directory, suppress errors, or call the scan clean.
-Repeat this review when failed object hashes or their provenance change.
+Repeat this review when failed object hashes or their provenance change. The
+one-time audit tooling is retired; this limitation still applies to separate
+archive-aware reviews. Ongoing committed-patch scans do not establish archive
+coverage; see [source and asset review](../maintainers/source-review.md).
 
 ## Rootless Docker published ports can collide with host TCP connections
 

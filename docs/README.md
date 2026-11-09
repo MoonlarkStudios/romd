@@ -101,8 +101,6 @@ Release and repository operations.
 
 - [Release readiness](maintainers/release-readiness.md): the checklist for a
   release candidate.
-- [Public source cutover](maintainers/public-source-cutover.md): local snapshot
-  preparation, publication approval and verification on the new repository.
 - [Packaged release qualification](maintainers/packaged-release-qualification.md)
   and [release metadata](maintainers/release-metadata.md): bundle qualification,
   SBOMs and provenance.
@@ -110,9 +108,10 @@ Release and repository operations.
   reviewed upgrades.
 - [Continuous integration](maintainers/continuous-integration.md): early checks,
   CHD drill selection, frontend build reuse and weekly security maintenance.
-- [Publication audit](maintainers/publication-audit.md) and
-  [repository settings](maintainers/repository-settings.md): what was checked and
-  configured before publishing.
+- [Source and asset review](maintainers/source-review.md): privacy, archive
+  coverage, provenance and retained review evidence for source changes.
+- [Repository settings](maintainers/repository-settings.md): ongoing hosted
+  protections, security reporting and release publishing configuration.
 - [CHD end-to-end harness](../scripts/e2e/README.md).
 
 ## Keeping docs healthy

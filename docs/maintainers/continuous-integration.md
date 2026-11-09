@@ -131,7 +131,10 @@ The sole reviewed synthetic sentinel exception binds its rule, path, line range
 and exact Git blob. A finding from different bytes is not covered by it.
 
 These checks scan committed Git patches. They do not inspect uncommitted changes
-or replace the separate [publication object/archive audit](publication-audit.md).
+or establish binary/archive coverage, privacy or redistribution rights. Follow
+[source and asset review](source-review.md) for those separate reviews.
+`--full` scans every local ref, including any retained private migration refs;
+use a fresh public checkout when qualifying public history.
 Local `workflows:lint` runs the helper/policy unit tests; set
 `ROMD_TEST_GITLEAKS` to the authenticated executable to include the real-scanner
 regressions. Hosted `source-checks` always supplies it.
