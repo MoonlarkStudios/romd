@@ -10,12 +10,14 @@ public sealed record ConsumerDiscSetDisc(int Ordinal, ConsumerReleaseManifest Re
 {
     public OriginalDiscLayout? OriginalLayout { get; init; }
     public OriginalDiscLayoutIdentity? LayoutIdentity { get; init; }
+    public RomCdArchiveDownload? CdArchive { get; init; }
     public string Readiness { get; init; } = "ready";
 }
 
 public interface IConsumerDiscSetRepository
 {
     Task<ConsumerLibraryReadResult<ConsumerDiscSetPlan>> ReadStatusAsync(ConsumerLibraryScope scope, int id, CancellationToken ct);
+    Task<ConsumerLibraryReadResult<ConsumerDiscSetPlan>> ReadForDownloadAsync(ConsumerLibraryScope scope, int id, CancellationToken ct);
     Task<ConsumerLibraryReadResult<PagedList<ConsumerDiscSetPlan>>> ListPageAsync(
         ConsumerLibraryScope scope, int? titleId, string? cursor, int limit, CancellationToken ct);
 }

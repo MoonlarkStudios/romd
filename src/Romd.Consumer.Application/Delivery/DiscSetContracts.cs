@@ -50,7 +50,8 @@ public static class DiscSetContracts
             plan.Discs[0].Release.PlatformShortName, plan.Name, observation, plan.ExpectedDiscCount, MissingExpected(plan),
             plan.Discs.Select(x => new ConsumerDiscSetStatusDisc(IdCoder.Encode(x.Release.ReleaseId), x.Ordinal,
                 x.Release.ReleaseName, x.OriginalLayout is { } layout ? IdCoder.Encode(layout.Id) : null,
-                x.OriginalLayout?.Revision.ToString("D"), x.Readiness)).ToArray());
+                x.OriginalLayout?.Revision.ToString("D"), x.Readiness)).ToArray())
+        { ArchiveFormats = ConsumerDiscSetArchiveFormats.Choices };
     }
     public static string Hash<T>(T value) => Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value)));
 }

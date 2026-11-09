@@ -29,8 +29,11 @@ how to get your games back out.
 | Everything else (cartridge ROMs, unsupported discs) | Original bytes | Seekable Zstandard in ROMD's content store | Compressed transparently; downloads are always the original |
 
 Not compressed yet: PS2 CDs. ROMD stores these as their original files. Each
-disc in a multi-disc set is stored in its own media type's format, but sets with
-M3U playlists are always delivered as original files.
+disc in a multi-disc set is stored in its own media type's format. Consumer
+[disc-set ZIP downloads](downloads-and-exports.md#download-a-multi-disc-game)
+can contain one CHD per eligible disc plus an M3U playlist. The console's
+original-layout manifests and WebDAV descriptor/playlist releases still deliver
+original files.
 
 ROMD inspects the disc's contents before compressing it. The file extension or
 platform only suggests what a file might be.

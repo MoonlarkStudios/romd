@@ -26,7 +26,11 @@ public sealed record ConsumerDerivedPlaylist(string ArtifactId, string RelativeP
 
 public sealed record ConsumerDiscSetStatus(int ContractVersion, string ServerInstanceId, string DiscSetId,
     Guid Revision, string TitleId, string SystemKey, string Name, string ObservationId, int? ExpectedDiscCount,
-    IReadOnlyList<int> MissingExpectedOrdinals, IReadOnlyList<ConsumerDiscSetStatusDisc> Discs);
+    IReadOnlyList<int> MissingExpectedOrdinals, IReadOnlyList<ConsumerDiscSetStatusDisc> Discs)
+{
+    public IReadOnlyList<ConsumerDiscSetArchiveFormat> ArchiveFormats { get; init; } = [];
+}
+public sealed record ConsumerDiscSetArchiveFormat(string Format, string Label);
 public sealed record ConsumerDiscSetStatusDisc(string ReleaseId, int Ordinal, string Name,
     string? LayoutId, string? LayoutRevision, string Readiness);
 public sealed record ConsumerDiscSetSelectionRequest(int ContractVersion, Guid Revision, string ObservationId,

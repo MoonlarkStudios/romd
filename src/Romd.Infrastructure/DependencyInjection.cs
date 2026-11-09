@@ -986,6 +986,8 @@ public static class DependencyInjection
         services.AddScoped<IConsumerOriginalLayoutGrantIssuer, ConsumerOriginalLayoutGrantService>();
         services.AddScoped<IConsumerDerivedDescriptorGrantIssuer, ConsumerContentGrantService>();
         services.AddScoped<IConsumerBiosGrantIssuer, ConsumerContentGrantService>();
+        services.AddSingleton<IConsumerDiscSetDownloadTickets, ConsumerDiscSetDownloadTickets>();
+        services.AddScoped<IConsumerDiscSetArchiveWriter, ConsumerDiscSetArchiveWriter>();
 
         return services;
     }

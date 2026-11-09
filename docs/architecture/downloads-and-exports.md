@@ -150,6 +150,13 @@ browser-managed saving does not perform client-side hash verification.
 
 ## Reuse for larger exports
 
+Published disc sets have a separate Consumer-host ZIP ticket lane with explicit
+ordered selection, partial-download consent and per-disc CHD substitution.
+See [disc-set downloads](disc-sets.md#direct-emulator-zip-downloads) for its
+all-member authorization, artifact binding and two-minute capability lifetime.
+It does not change individual-release manifests, background library exports or
+WebDAV layout projection.
+
 `IExportArchiveWriter` lives in Admin Application/Export; its Infrastructure
 implementation writes authorized file entries to any destination stream.
 It owns portable path validation, ZIP creation, cancellation and entry progress,

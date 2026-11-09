@@ -6,6 +6,10 @@ import { render } from '../test/utils/render';
 import type { ConsumerTitleDetail } from '../types/consumerTitle';
 import { TitleDetail } from './TitleDetail';
 
+vi.mock('../components/library/DiscSetDownloads', () => ({
+  DiscSetDownloads: () => null,
+}));
+
 vi.mock('../hooks/useConsumerLibrary', () => ({
   useIssueReleaseManifest: vi.fn(),
   useTitleDetail: vi.fn(),

@@ -9,6 +9,7 @@ using Romd.Consumer.Application;
 using Romd.Consumer.Application.Delivery;
 using Romd.Consumer.Application.Delivery.Commands.CheckConsumerDiscSetAccess;
 using Romd.Consumer.Application.Delivery.Commands.IssueConsumerDiscSetManifest;
+using Romd.Consumer.Application.Delivery.Commands.IssueConsumerDiscSetDownload;
 using Romd.Consumer.Application.Libraries;
 using Romd.Contracts.Consumer.Releases;
 using Romd.Host.Authorization;
@@ -51,6 +52,15 @@ public static class ConsumerDiscSetEndpoints
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
         }).WithName("CheckConsumerDiscSetAccess").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
             .Produces<ConsumerDiscSetAccess>().Produces(401).ProducesProblems(400, 409);
+        app.MapPost("disc-sets/{discSetId}/download-tickets", async (Sqid discSetId, ConsumerDiscSetSelectionRequest request,
+            ICommandHandler<IssueConsumerDiscSetDownloadCommand, ContentGrant> handler, HttpContext context,
+            CancellationToken ct, string format = "original") =>
+        {
+            var result = await handler.HandleAsync(new(discSetId, request, format), ct);
+            context.Response.Headers.CacheControl = "private, no-store";
+            return result.Match<IResult>(ticket => Results.Created(ticket.DownloadUrl, ticket), errors => errors.ToProblem());
+        }).WithName("IssueConsumerDiscSetDownloadTicket").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
+            .ProducesCreated<ContentGrant>().Produces(401).ProducesProblems(400, 404, 409);
         app.MapPost("disc-sets/{discSetId}/manifest", async (Sqid discSetId, Guid revision,
             ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifest> handler, CancellationToken ct) =>
         {

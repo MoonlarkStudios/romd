@@ -182,9 +182,41 @@ invalidates an old snapshot even when current ROM bytes are missing; unknown
 bindings remain unavailable. Client compare-and-set binds active profile/server
 and installed snapshot. Download URLs never authorize launch.
 
+## Direct-emulator ZIP downloads
+
+`POST /api/disc-sets/{discSetId}/download-tickets?format=original|chd` accepts the
+same explicit `ConsumerDiscSetSelectionRequest`. It returns 201 with a
+`ContentGrant` and `Location` naming `/delivery/disc-set/{token}`. Omission
+selects original; other formats are rejected. Status includes server-owned
+`archiveFormats` choices and labels. Issuance validates the current published
+revision/observation, all-member authorization, partial consent and complete
+original dependency closure before issuing any capability. Whole-CD archive
+ownership is read inside that same repeatable-read Library snapshot;
+listing/status reads do not load these extra facts.
+
+Original ZIPs preserve the existing selected layout. CHD ZIPs replace an entire
+disc only when one live archive covers its exact BIN identities/multiplicities,
+agrees with any pinned original layout, has current native admission and drops
+no required sidecar. Other discs retain originals. Each selected CHD is a separate
+file; a derived UTF-8/LF M3U references the actual selected entry points. Its
+portable filename derives from the edition name (or set ID for an unsupported
+name) and stays the same for partial/full downloads, because external emulators
+can key shared saves by playlist name. Archive paths retain the existing
+per-selection `disc-01/` directories.
+
+Tickets are random 256-bit capabilities held in a bounded Consumer-host cache
+for two minutes. They retain exact filenames, sources, hashes and lengths and
+are reusable until expiry. Restart/eviction invalidates them. Already-issued
+tickets retain their selection across policy changes until expiry. Redemption
+streams an uncompressed ZIP, verifies every selected file's length/hash and
+rechecks CHD custody/admission. Missing or changed artifacts fail the download;
+they never trigger substitution. Capabilities are private/no-store, redacted
+from logs and rejected by other delivery lanes. Portals hand the fresh URL to
+the browser without buffering a ZIP in JavaScript.
+
 Issued capabilities retain their normal bounded lifetime. There is no immediate
 revocation protocol or durable server resume store. Clients own installation,
-repair, local verification and runtime adaptation; group ZIP/export/VFS projection,
+repair, local verification and runtime adaptation; background group export/VFS projection,
 browser group play, other descriptor families and production disc-switch/shared-
 save acceptance remain separate scope. See [console acquisition](../../clients/romd_console/docs/original-disc-sets.md).
 

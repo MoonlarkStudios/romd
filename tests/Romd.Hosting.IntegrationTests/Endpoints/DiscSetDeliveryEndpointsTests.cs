@@ -25,7 +25,7 @@ using static Romd.Hosting.IntegrationTests.Endpoints.ConsumerDeliveryEndpointsTe
 
 namespace Romd.Hosting.IntegrationTests.Endpoints;
 
-public sealed class DiscSetDeliveryEndpointsTests
+public sealed partial class DiscSetDeliveryEndpointsTests
 {
     [Fact]
     public async Task Manifest_OriginalCueBinCompanions_RedeemsEveryBoundFileAndReturnsStructuredSet()

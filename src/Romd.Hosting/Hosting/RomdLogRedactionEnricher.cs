@@ -24,6 +24,7 @@ public sealed class RomdLogRedactionEnricher : ILogEventEnricher
         "/delivery/bios/",
         "/delivery/original-layout/",
         "/delivery/derived-descriptor/",
+        "/delivery/disc-set/",
         "/api/download-tickets/"
     ];
 

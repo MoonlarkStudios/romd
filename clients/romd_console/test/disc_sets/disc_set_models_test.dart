@@ -118,6 +118,25 @@ void main() {
       expect(status.requiresPartialConsent, isTrue);
     },
   );
+  test('portal archive choices preserve original-layout status semantics', () {
+    final wire = statusFixture(unavailable: true);
+    wire['archiveFormats'] = [
+      {'format': 'original', 'label': 'Original ZIP'},
+      {'format': 'chd', 'label': 'CHD where available'},
+    ];
+    final status = DiscSetStatus(wire);
+    expect(status.readyReleaseIds, [releases.first]);
+    expect(status.requiresPartialConsent, isTrue);
+    wire['archiveFormats'] = [
+      {'format': 'original', 'label': 'Original'},
+      {'format': 'original', 'label': 'Duplicate'},
+    ];
+    expect(() => DiscSetStatus(wire), throwsFormatException);
+    wire['archiveFormats'] = [
+      {'format': 'chd'},
+    ];
+    expect(() => DiscSetStatus(wire), throwsFormatException);
+  });
   final mutations = <String, void Function(Map<String, Object?>)>{
     'unknown version': (v) => v['contractVersion'] = 2,
     'floating version': (v) => v['contractVersion'] = 1.0,
