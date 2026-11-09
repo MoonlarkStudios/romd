@@ -913,7 +913,7 @@ class RedumpPageTests(unittest.TestCase):
 
 
 def preflight(header, artifact_bytes):
-    """Python port of Romd.Media.PlayStation.ChdHeaderPreflight with ChdDvdLimits."""
+    """Python port of Romd.Media.Chd.ChdHeaderPreflight with ChdDvdLimits."""
     dvd = {0, 0x7A6C6962, 0x6C7A6D61, 0x68756666, 0x666C6163, 0x7A737464}
     cd = {0x63647A6C, 0x63646C7A, 0x6364666C, 0x63647A73}
     if len(header) < 124 or header[:8] != b'MComprHD' or struct.unpack_from('>I', header, 8)[0] != 124:

@@ -1,13 +1,13 @@
-using Romd.Application.Common.Content;
-using Romd.Admin.Application.Source.Rom;
-using Romd.Admin.Application.Storage.Files;
 using System.IO.Abstractions;
 using System.Security.Cryptography;
 using NSubstitute;
+using Romd.Admin.Application.Source.Rom;
+using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Configuration;
+using Romd.Application.Common.Content;
 using Romd.Domain.Hashing;
-using Romd.Infrastructure.Storage;
 using Romd.Infrastructure.Hashing;
+using Romd.Infrastructure.Storage;
 using Romd.Media.TestSupport;
 using Shouldly;
 using Xunit;
@@ -49,7 +49,7 @@ public sealed class LocalTempFileFactoryTests : IDisposable
         await using var staged = await attempt.MaterializeAsync(0, new MemoryStream(original), Measured(original).Sha256, CancellationToken.None);
         staged.DatHashes!.BytesRead.ShouldBe(3);
         await Should.ThrowAsync<InvalidDataException>(() => attempt.MaterializeAsync(0, new MemoryStream(original), Measured(original).Sha256, CancellationToken.None));
-        await using var cue = (await attempt.ReserveCdCueAsync(Romd.Media.PlayStation.ChdCdRequest.MaximumBytes)).Value;
+        await using var cue = (await attempt.ReserveCdCueAsync(Romd.Media.Cd.ChdCdRequest.MaximumBytes)).Value;
         cue.Path.ShouldEndWith(".cue");
         await using var request = await attempt.CreateAsync(new MemoryStream("{}"u8.ToArray()));
         await Should.ThrowAsync<InvalidOperationException>(() => attempt.CreateAsync(new MemoryStream("{}"u8.ToArray())));
@@ -72,7 +72,7 @@ public sealed class LocalTempFileFactoryTests : IDisposable
         await Should.ThrowAsync<InvalidOperationException>(() => attempt.ReserveOutputAsync(124));
         byte[] bytes = [1, 2, 3];
         await using var original = await attempt.MaterializeAsync(1, new MemoryStream(bytes), Measured(bytes).Sha256, CancellationToken.None);
-        await using var cue = (await attempt.ReserveCdCueAsync(Romd.Media.PlayStation.ChdCdRequest.MaximumBytes)).Value;
+        await using var cue = (await attempt.ReserveCdCueAsync(Romd.Media.Cd.ChdCdRequest.MaximumBytes)).Value;
         await using var request = await attempt.CreateAsync(new MemoryStream("{}"u8.ToArray()));
         await attempt.DisposeAsync();
         attempt.StagingBindings.All(binding => !File.Exists(binding.Path)).ShouldBeTrue();

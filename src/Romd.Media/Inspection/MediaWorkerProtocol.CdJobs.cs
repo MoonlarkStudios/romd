@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 
 namespace Romd.Media.Inspection;
 
@@ -82,14 +83,14 @@ public static partial class MediaWorkerProtocol
                     !ChdCdJson.Hash(encoded.RequestSha256, 64) || encoded.RequestBytes is < 1 or > ChdCdRequest.MaximumBytes ||
                     !ValidCdHashes(encoded.Artifact, ChdCdLimits.MaximumArtifactBytes) || encoded.Artifact.Bytes < 124 ||
                     encoded.Header is null || encoded.Header.ArtifactBytes != encoded.Artifact.Bytes || !ChdCdEncodingRecipe.Matches(encoded.Header) ||
-                    !encoded.ObservedBoot.Valid || encoded.Recipe != ChdCdEncodingRecipe.ForBoot(encoded.ObservedBoot.Profile) ||
+                    encoded.Recipe != ChdCdEncodingRecipe.ForBoot(encoded.ObservedBoot.Profile) ||
                     encoded.PriorityKind != "unix-nice" || encoded.PriorityValue is < 10 or > 19 || execution is null || execution.ExitCode != 0)
                     return false;
             }
             else if (status == MediaWorkerStatus.Inspected)
             {
                 if (verified is null || encoded is not null || inspection is null || native is null || tool is not null || execution is not null ||
-                    !verified.ObservedBoot.Valid || verified.ObservedBoot.Profile is not null && verified.ObservedBoot != inspection.ObservedBoot ||
+                    verified.ObservedBoot.Profile is not null && verified.ObservedBoot != inspection.ObservedBoot ||
                     verified.Profile is not (ChdCdVerification.CurrentProfile or ChdCdRetainedRequest.CurrentProfile) ||
                     verified.Profile == ChdCdRetainedRequest.CurrentProfile && verified.ObservedBoot != inspection.ObservedBoot || !ChdCdJson.Hash(verified.RequestSha256, 64) ||
                     verified.Members is null || verified.Members.Count is < 2 or > 116 ||

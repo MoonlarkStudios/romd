@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Nodes;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
 using Romd.Media.Nintendo;
 using Romd.Media.PlayStation;

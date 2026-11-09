@@ -2,7 +2,8 @@ using System.Collections.Frozen;
 using Romd.Admin.Application.Source.Rom;
 using Romd.Application.Common.Content;
 using Romd.Domain.Source.Rom;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Rvz;
 
 namespace Romd.Infrastructure.Storage;

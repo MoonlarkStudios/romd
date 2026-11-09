@@ -8,17 +8,17 @@ using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Source.Rom;
 using Romd.Admin.Application.Source.Rom.Reconciliation;
 using Romd.Admin.Application.Storage.Files;
-using Romd.Application.Common.Content;
 using Romd.Application.Common.Concurrency;
+using Romd.Application.Common.Content;
 using Romd.Application.Common.Ids;
-using Romd.Contracts.Management.Models;
 using Romd.Consumer.Application.Delivery;
 using Romd.Consumer.Application.Libraries;
+using Romd.Contracts.Management.Models;
 using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Persistence;
 using Romd.Persistence.Catalog;
 using Romd.Persistence.Entities;
@@ -269,7 +269,7 @@ public sealed partial class CdArchivePublicationTests : IAsyncLifetime
         await db.SaveChangesAsync();
     }
 
-    private const string CdProfile = Romd.Media.PlayStation.ChdCdVerification.CurrentProfile;
+    private const string CdProfile = Romd.Media.Cd.ChdCdVerification.CurrentProfile;
     private const string CdInspector = "fixture-cd-inspector/v1";
     private RomMeasuredRepresentation Measured() => Measure(72,
         [new(1, 0, 64, _saturn ? RomCdTrackKind.Mode1Raw : RomCdTrackKind.Mode2Raw), new(2, 64, 5, RomCdTrackKind.Audio)],

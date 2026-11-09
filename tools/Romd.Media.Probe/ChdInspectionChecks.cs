@@ -6,8 +6,8 @@ using System.Text.Json.Serialization;
 using NSubstitute;
 using Romd.Application.Common.Configuration;
 using Romd.Infrastructure.Storage;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
-using Romd.Media.PlayStation;
 
 namespace Romd.Media.Probe;
 

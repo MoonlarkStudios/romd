@@ -1,6 +1,6 @@
 using Romd.Infrastructure.Storage;
 using Romd.Media;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 
 namespace Romd.Media.Probe;
 

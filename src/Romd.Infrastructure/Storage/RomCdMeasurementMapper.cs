@@ -3,7 +3,8 @@ using Romd.Admin.Application.Source.Rom.Compressed;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 
 namespace Romd.Infrastructure.Storage;
 
@@ -18,7 +19,7 @@ public static class RomCdMeasurementMapper
         ArgumentNullException.ThrowIfNull(native);
         if (inspection.Version != 5 || inspection.HasParent || inspection.Tracks is null || inspection.Metadata is null || inspection.Profile != ChdCdInspectionService.Profile || inspection.ProjectionProfile != ChdCdInspectionService.ProjectionProfile ||
             verification.Profile is not (ChdCdVerification.CurrentProfile or ChdCdRetainedRequest.CurrentProfile) ||
-            !verification.ObservedBoot.Valid || (verification.Profile == ChdCdRetainedRequest.CurrentProfile || verification.ObservedBoot.Profile is not null) &&
+            (verification.Profile == ChdCdRetainedRequest.CurrentProfile || verification.ObservedBoot.Profile is not null) &&
             verification.ObservedBoot != inspection.ObservedBoot ||
             verification.Members is null || verification.Members.Count is < 2 or > 116 || inspection.Metadata.Count != inspection.Tracks.Count)
             throw new InvalidDataException("CD fact publication requires complete independent original comparisons and exact measured metadata.");
@@ -74,7 +75,7 @@ public static class RomCdMeasurementMapper
             Sha1.Parse(inspection.ComputedRawSha1), Sha1.Parse(inspection.ComputedOverallSha1), tracks,
             MapBoot(inspection.ObservedBoot));
     }
-    internal static RomCdBoot? MapBoot(CdBootObservation boot) => !boot.Valid ? throw new InvalidDataException("Contradictory CD boot observations.") :
+    internal static RomCdBoot? MapBoot(CdBootObservation boot) =>
         boot.Ps1 is { } ps1 ? new RomPs1CdBoot(ps1.Profile, ps1.FirstTrackIndex01, ps1.VolumeBlocks, ps1.RootBlock, ps1.RootBytes,
             ps1.BootPath, ps1.BootBlock, ps1.BootBytes, ps1.EntryPoint, ps1.LoadAddress, ps1.LoadBytes) :
         boot.Saturn is { } saturn ? new RomSaturnCdBoot(saturn.Profile, saturn.FirstTrackIndex01, saturn.ProductCode, saturn.AreaSymbols,
@@ -83,9 +84,9 @@ public static class RomCdMeasurementMapper
     internal static CdBootObservation BootObservation(RomCdBoot? boot) => boot switch
     {
         null => default,
-        RomPs1CdBoot ps1 => new(new(ps1.Profile, ps1.FirstTrackIndex01, ps1.VolumeBlocks, ps1.RootBlock, ps1.RootBytes, ps1.BootPath,
+        RomPs1CdBoot ps1 => CdBootObservation.FromWire(new(ps1.Profile, ps1.FirstTrackIndex01, ps1.VolumeBlocks, ps1.RootBlock, ps1.RootBytes, ps1.BootPath,
             ps1.BootBlock, ps1.BootBytes, ps1.EntryPoint, ps1.LoadAddress, ps1.LoadBytes), null),
-        RomSaturnCdBoot saturn => new(null, new(saturn.Profile, saturn.FirstTrackIndex01, saturn.ProductCode, saturn.AreaSymbols,
+        RomSaturnCdBoot saturn => CdBootObservation.FromWire(null, new(saturn.Profile, saturn.FirstTrackIndex01, saturn.ProductCode, saturn.AreaSymbols,
             saturn.InitialProgramBytes, saturn.HeaderSha256.ToString())),
         _ => throw new InvalidDataException("Unregistered CD boot observation.")
     };

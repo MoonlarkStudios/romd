@@ -6,7 +6,8 @@ using Romd.Application.Common.Configuration;
 using Romd.Application.Common.Content;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 
 namespace Romd.Media.Probe;
 

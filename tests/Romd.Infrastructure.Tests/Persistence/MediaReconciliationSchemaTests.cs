@@ -1,12 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Romd.Admin.Application.Ingestion.Jobs;
+using Romd.Domain.Jobs;
 using Romd.Domain.Source.Rom;
 using Romd.Persistence;
 using Romd.Persistence.MediaFacts;
 using Romd.Persistence.Repositories;
 using Romd.Persistence.Repositories.Reconciliation;
-using Romd.Admin.Application.Ingestion.Jobs;
-using Romd.Domain.Jobs;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
@@ -159,7 +159,7 @@ public sealed partial class MediaReconciliationSchemaTests : IDisposable
 
     private static RomRepresentationVerification Measurement(RomRepresentationFacts graph, RomChdDecoderBuild decoder) =>
         new(Guid.NewGuid(), graph.ArtifactSha256, graph.ArtifactSize, new RomDecoderIdentity.Native(decoder),
-            Romd.Media.PlayStation.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch.AddTicks(10), graph.Verifications.Single().Outputs, graph.Container,
+            Romd.Media.Cd.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch.AddTicks(10), graph.Verifications.Single().Outputs, graph.Container,
             ((RomContainerFacts.Chd)graph.Container).StoredRawSha1, ((RomContainerFacts.Chd)graph.Container).StoredOverallSha1);
 
     private static async Task StageRecordedAsync(RomdDbContext db, Captured captured, RomRepresentationVerification measured)

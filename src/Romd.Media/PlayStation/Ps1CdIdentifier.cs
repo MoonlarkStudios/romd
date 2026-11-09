@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Text;
 using System.Text.RegularExpressions;
 using Moonlark.Libchdr;
+using Romd.Media.Cd;
 using Romd.Storage;
 
 namespace Romd.Media.PlayStation;

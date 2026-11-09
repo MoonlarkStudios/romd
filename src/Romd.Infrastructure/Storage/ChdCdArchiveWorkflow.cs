@@ -4,8 +4,9 @@ using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Content;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
-using Romd.Media.PlayStation;
 
 namespace Romd.Infrastructure.Storage;
 

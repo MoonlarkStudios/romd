@@ -16,8 +16,7 @@ internal static class ChdCdMediaTypePolicy
         chd.Metadata.All(entry => entry.Tag == _trackMetadataTag && entry.Flags == _checksummedMetadata);
 
     public static bool MatchesBoot(RomRepresentationFacts graph, string profile) => MatchesGraph(graph) &&
-        (graph.CdBootInspections.Count == 0 ? profile == RomPs1CdBoot.CurrentProfile :
-            graph.CdBootInspections.All(observation => observation.Boot.Profile == profile));
+        graph.CdBootInspections.All(observation => observation.Boot.Profile == profile);
 
     public static bool MatchesFacts(RomContentDescriptor content, string profile) => content.Artifacts.Any(artifact =>
         artifact.Output.Selector is RomOutputSelector.Member && MatchesBoot(artifact.Facts, profile));

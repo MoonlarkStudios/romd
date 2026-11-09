@@ -99,7 +99,7 @@ IMAGE_SERVICES = ('worker', 'admin', 'consumer', 'player')
 GIB = 1 << 30
 # Binary units throughout: an assumed 30 GiB peak until a passed run measured one, plus 10 GiB of headroom.
 DEFAULT_PEAK_BYTES, PEAK_HEADROOM_BYTES = 30 * GIB, 10 * GIB
-RECIPE_SOURCE = ROOT / 'src/Romd.Media/PlayStation/ChdDvdCanonicalRecipe.cs'
+RECIPE_SOURCE = ROOT / 'src/Romd.Media/Chd/ChdDvdCanonicalRecipe.cs'
 # Artifacts of the 2026-10-13 real-disc recipe measurements (DVD-5 and DVD-9 PS2 discs; see docs/self-hosting/media-processing.md).
 RECIPE_MEASUREMENTS = {'chd-dvd-canonical/v2': {
     'dvd5': ('90e8f71573edaf2bb3dd6b305afeb1d20622b5641ba226c6be57ab3d32726edf', 4_113_594_919),

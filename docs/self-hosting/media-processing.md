@@ -293,7 +293,10 @@ declared volume and the first track, and executable entry points must be aligned
 Saturn initial-program extents must fit the first MODE1 track. Both positive
 families in one measurement are refused.
 A missing observation means this bounded recognizer did not establish a supported
-root boot layout. It supplies neither a catalog match nor a gameplay claim.
+root boot layout. It supplies neither a catalog match nor a gameplay claim, and
+does not imply PS1. Unclassified CD graphs keep all consistent kind candidates;
+catalog context may narrow those candidates, while read admission and retained
+re-verification require every remaining candidate's decode qualification.
 
 The separate `inspect-chd-cd` operation measures CD track projections inside the
 same supervised child envelope. It is available through

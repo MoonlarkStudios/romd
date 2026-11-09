@@ -110,9 +110,9 @@ public sealed class MediaPolicyLiteralArchitectureTests
         ("src/Romd.Media/Inspection/MediaWorkerProtocol.cs", "rvz-import/v1", 1),
         ("src/Romd.Media/Inspection/RvzInspectionProfile.cs", "rvz-import/v1", 2),
         ("src/Romd.Media/Rvz/RvzCanonicalRecipe.cs", "rvz-canonical/v1", 1),
-        ("src/Romd.Media/PlayStation/ChdCdJobs.cs", "chd-cd-whole-files/v1", 1),
-        ("src/Romd.Media/PlayStation/ChdCdRetainedVerification.cs", "chd-cd-retained-files/v2", 1),
-        ("src/Romd.Media/PlayStation/ChdCdInspectionService.cs", "chd-cd-inspection/v2", 1),
+        ("src/Romd.Media/Cd/ChdCdJobs.cs", "chd-cd-whole-files/v1", 1),
+        ("src/Romd.Media/Cd/ChdCdRetainedVerification.cs", "chd-cd-retained-files/v2", 1),
+        ("src/Romd.Media/Cd/ChdCdInspectionService.cs", "chd-cd-inspection/v2", 1),
         ("src/Romd.Application.Common/Content/IRomContentReader.cs", "rvz-import/v1", 1),
         ("src/Romd.Application.Common/Content/IRomContentReader.cs", "chd-observed/v1", 1),
         ("src/Romd.Admin.Application/Source/Rom/ChdEncodingRecipe.cs", "chd-observed/v1", 1)

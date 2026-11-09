@@ -1,4 +1,3 @@
-using Romd.Admin.Application.Source.Rom;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
@@ -6,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.Catalog.Commands.DecideOriginalDiscLayout;
+using Romd.Admin.Application.Source.Rom;
 using Romd.Application.Common.Content;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.ReferenceCatalog;
@@ -17,7 +17,7 @@ using Romd.Host.Endpoints;
 using Romd.Hosting.IntegrationTests.Infrastructure;
 using Romd.Infrastructure.Identity;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Shouldly;
 using Xunit;
 

@@ -1,4 +1,3 @@
-using Romd.Domain.Source.Rom;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
@@ -6,8 +5,10 @@ using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using Microsoft.Extensions.Logging;
 using Romd.Admin.Application.Storage.Files;
+using Romd.Domain.Source.Rom;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
-using Romd.Media.PlayStation;
 using Romd.Media.Rvz;
 
 namespace Romd.Infrastructure.Storage;

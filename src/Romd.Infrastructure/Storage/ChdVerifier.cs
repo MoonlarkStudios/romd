@@ -2,6 +2,7 @@ using ErrorOr;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
 using Romd.Media.PlayStation;
 

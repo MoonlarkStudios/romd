@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Romd.Hosting.Vfs;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 
 namespace Romd.Media.Probe;
 

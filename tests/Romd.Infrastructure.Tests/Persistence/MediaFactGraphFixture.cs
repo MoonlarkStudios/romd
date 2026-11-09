@@ -38,7 +38,7 @@ internal sealed record MediaFactGraphFixture(int RomId, RomRepresentationFacts S
         var source = await publisher.PublishAsync(1, RomContainerFacts.Identity.Instance, RomReconstructionManifest.WholeFile.Instance, sourceProof,
             [new(RomOutputSelector.Whole.Instance, romId, true)], []);
         var nativeProof = new RomRepresentationVerification(Guid.NewGuid(), Hash('d'), 512, new RomDecoderIdentity.Native(new("linux-arm64", Short('f'), 2)),
-            Romd.Media.PlayStation.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch, [new(new RomOutputSelector.Member(0), identity)], container, Short('e'), Short('f'));
+            Romd.Media.Cd.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch, [new(new RomOutputSelector.Member(0), identity)], container, Short('e'), Short('f'));
         var cd = await publisher.PublishAsync(2, container, manifest, nativeProof, [new(new RomOutputSelector.Member(0), romId, false)],
             [new(1, 3, cue.Sha256, cue.Size)]);
         await transaction.CommitAsync();

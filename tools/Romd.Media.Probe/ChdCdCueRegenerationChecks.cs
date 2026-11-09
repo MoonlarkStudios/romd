@@ -8,7 +8,8 @@ using System.Text.Json.Serialization;
 using System.Xml;
 using System.Xml.Linq;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 
 namespace Romd.Media.Probe;
 

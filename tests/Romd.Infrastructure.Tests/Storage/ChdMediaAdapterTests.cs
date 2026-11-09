@@ -1,4 +1,3 @@
-using Romd.Media.TestSupport;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using Romd.Application.Common.Content;
@@ -6,7 +5,8 @@ using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
 using Romd.Media;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
+using Romd.Media.TestSupport;
 using Romd.Storage;
 using Shouldly;
 using Xunit;

@@ -23,5 +23,5 @@ Keep these in sync with their owners:
 - The `CHDR_FUZZ_VERBOSE=1` disposition lines in `chd_walk_fuzzer.c` are parsed by
   `tests/Moonlark.Libchdr.Tests/GuardParity.cs`; change the format in both.
 - `MAX_HUNK_BYTES` (1 MiB) and `MAX_HUNK_COUNT` (2,621,440) in `chd_walk_fuzzer.c` equal ROMD's CHD
-  preflight limits (`ChdDvdLimits` in `src/Romd.Media/PlayStation/`); raise them with those limits,
+  preflight limits (`ChdDvdLimits` in `src/Romd.Media/Chd/`); raise them with those limits,
   never below.

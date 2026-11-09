@@ -4,17 +4,17 @@ using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.Common.Realtime;
+using Romd.Admin.Application.Libraries;
 using Romd.Admin.Application.Source.Rom;
 using Romd.Admin.Application.Source.Rom.Compressed;
-using Romd.Admin.Application.Titles;
-using Romd.Admin.Application.Libraries;
 using Romd.Admin.Application.Storage.Files;
+using Romd.Admin.Application.Titles;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Hashing;
 using Romd.Infrastructure.Jobs;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
 using Romd.Persistence;
 using Romd.Persistence.Catalog;
 using Romd.Persistence.MediaFacts;
@@ -37,7 +37,7 @@ internal static partial class MediaInfrastructureTestServices
     }
 
     internal static async Task<CdImportInput> MeasuredCdInputAsync(LocalTempFileFactory files, RomCdStorageRecipe recipe,
-        RomChdDecoderBuild decoder, bool canonical, byte artifactVariant, int trackCount, RomCdBoot? boot)
+        RomChdDecoderBuild decoder, bool canonical, byte artifactVariant, int trackCount, RomCdBoot? boot, bool mode1 = false)
     {
         if (trackCount is < 1 or > 2)
             throw new ArgumentOutOfRangeException(nameof(trackCount));
@@ -58,7 +58,7 @@ internal static partial class MediaInfrastructureTestServices
         var source = await files.CreateAsync(new MemoryStream(bytes), includeDatHashes: _ => true);
         try
         {
-            bool mode1 = boot is RomSaturnCdBoot;
+            mode1 |= boot is RomSaturnCdBoot;
             string Type(int number) => number == 1 ? mode1 ? "MODE1_RAW" : "MODE2_RAW" : "AUDIO";
             var metadata = Enumerable.Range(1, trackCount).Select(number => new RomChdMetadataEntry(0x43485432, 1,
                 Encoding.ASCII.GetBytes($"TRACK:{number} TYPE:{Type(number)} SUBTYPE:NONE FRAMES:64 PREGAP:0 PGTYPE:{Type(number)} PGSUB:NONE POSTGAP:0" + (char)0))).ToArray();

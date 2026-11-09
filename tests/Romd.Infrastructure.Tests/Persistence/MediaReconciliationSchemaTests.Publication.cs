@@ -4,14 +4,14 @@ using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Source.Rom;
 using Romd.Admin.Application.Source.Rom.Reconciliation;
 using Romd.Admin.Application.Storage.Files;
-using Romd.Domain.Source.Rom;
 using Romd.Domain.Hashing;
-using Romd.Media.TestSupport;
-using Romd.Persistence.Repositories;
+using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
+using Romd.Media.TestSupport;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 using Romd.Persistence.MediaFacts;
+using Romd.Persistence.Repositories;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
@@ -41,7 +41,7 @@ public sealed partial class MediaReconciliationSchemaTests
         {
             var original = graph.Cd.Verifications.Single();
             var proof = new RomRepresentationVerification(Guid.NewGuid(), MediaFactGraphFixture.Hash('e'), 512,
-                reuseCurrentProof ? new RomDecoderIdentity.Native(TargetDecoder) : original.Decoder, Romd.Media.PlayStation.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch,
+                reuseCurrentProof ? new RomDecoderIdentity.Native(TargetDecoder) : original.Decoder, Romd.Media.Cd.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch,
                 original.Outputs, container, container.StoredRawSha1, container.StoredOverallSha1);
             target = await new MediaFactPublisher(db).PublishAsync(4, container, graph.Cd.Manifest, proof,
                 [new(new RomOutputSelector.Member(0), graph.RomId, false)], graph.Cd.Descriptors);
@@ -71,7 +71,7 @@ public sealed partial class MediaReconciliationSchemaTests
         var input = captured.Value.Capture.Sources.Inputs.OfType<MediaReconciliationInput.Logical>().Single();
         input.Graph.Id.ShouldBe(reuseCurrentProof ? target.Id : graph.Source.Id);
         var actual = new RomRepresentationVerification(Guid.NewGuid(), target.ArtifactSha256, target.ArtifactSize, new RomDecoderIdentity.Native(TargetDecoder),
-            Romd.Media.PlayStation.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch.AddTicks(10), target.Verifications.Single().Outputs, container, container.StoredRawSha1, container.StoredOverallSha1);
+            Romd.Media.Cd.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch.AddTicks(10), target.Verifications.Single().Outputs, container, container.StoredRawSha1, container.StoredOverallSha1);
         var measured = new RomMeasuredRepresentation(container, target.Manifest, actual);
         var encoded = SyntheticCdEncoding(measured, directive.Capture.Identity.Recipe!, PublicationEncoder, MediaFactGraphFixture.Hash('b'), 128,
             "fixture-inspector", MediaFactGraphFixture.Boot, DateTimeOffset.UnixEpoch.AddTicks(20));
@@ -265,7 +265,7 @@ public sealed partial class MediaReconciliationSchemaTests
         await using (var transaction = await db.Database.BeginTransactionAsync())
         {
             var current = new RomRepresentationVerification(Guid.NewGuid(), graph.Cd.ArtifactSha256, graph.Cd.ArtifactSize, new RomDecoderIdentity.Native(TargetDecoder),
-                Romd.Media.PlayStation.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch.AddTicks(1), graph.Cd.Verifications.Single().Outputs, graph.Cd.Container,
+                Romd.Media.Cd.ChdCdVerification.CurrentProfile, "fixture-verifier", DateTimeOffset.UnixEpoch.AddTicks(1), graph.Cd.Verifications.Single().Outputs, graph.Cd.Container,
                 ((RomContainerFacts.Chd)graph.Cd.Container).StoredRawSha1, ((RomContainerFacts.Chd)graph.Cd.Container).StoredOverallSha1);
             (await new MediaFactPublisher(db).AppendVerificationAsync(graph.Cd.Id, current)).ShouldBeTrue();
             var writer = new MediaCreationFactWriter(db);
@@ -307,7 +307,7 @@ public sealed partial class MediaReconciliationSchemaTests
         var recipe = RomMediaPolicyComposition.Create().CdRecipes.ForKind("ps1-cd-set")!;
         var old = (RomContainerFacts.Chd)graph.Cd.Container;
         var container = MediaFactFixtures.Chd(old.LogicalBytes, recipe.HunkBytes, 2448, recipe.Codecs, old.StoredRawSha1, old.StoredOverallSha1, old.Metadata);
-        var proof = new RomRepresentationVerification(Guid.NewGuid(), MediaFactGraphFixture.Hash('e'), 512, new RomDecoderIdentity.Native(TargetDecoder), Romd.Media.PlayStation.ChdCdVerification.CurrentProfile,
+        var proof = new RomRepresentationVerification(Guid.NewGuid(), MediaFactGraphFixture.Hash('e'), 512, new RomDecoderIdentity.Native(TargetDecoder), Romd.Media.Cd.ChdCdVerification.CurrentProfile,
             "fixture-verifier", DateTimeOffset.UnixEpoch.AddTicks(30), graph.Cd.Verifications.Single().Outputs, container, container.StoredRawSha1, container.StoredOverallSha1);
         var encoded = SyntheticCdEncoding(new(container, graph.Cd.Manifest, proof), directive.Capture.Identity.Recipe!, PublicationEncoder,
             MediaFactGraphFixture.Hash('b'), 128, "fixture-inspector", MediaFactGraphFixture.Boot, DateTimeOffset.UnixEpoch.AddTicks(40));

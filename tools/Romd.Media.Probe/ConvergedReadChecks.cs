@@ -30,8 +30,8 @@ using Romd.Host.Endpoints;
 using Romd.Hosting.Vfs;
 using Romd.Infrastructure.Identity;
 using Romd.Infrastructure.Storage;
+using Romd.Media.Chd;
 using Romd.Storage;
-using Romd.Media.PlayStation;
 
 namespace Romd.Media.Probe;
 

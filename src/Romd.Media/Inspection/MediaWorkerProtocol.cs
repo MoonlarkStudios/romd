@@ -1,5 +1,7 @@
 using System.Text;
 using System.Text.Json;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Nintendo;
 using Romd.Media.PlayStation;
 using Romd.Media.Rvz;

@@ -8,13 +8,14 @@ using Romd.Admin.Application.Common.Realtime;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Source.Rom;
 using Romd.Admin.Application.Source.Rom.Compressed;
+using Romd.Application.Common.Configuration;
+using Romd.Application.Common.Content;
 using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Realtime;
 using Romd.Infrastructure.Storage;
 using Romd.Infrastructure.Tests.Storage;
-using Romd.Application.Common.Configuration;
 using Romd.Persistence;
 using Romd.Persistence.MediaFacts;
 using Romd.Persistence.Repositories;
@@ -36,6 +37,30 @@ public sealed class RomCdImportTests : IAsyncLifetime
     private static RomChdDecoderBuild Decoder(char pin) => new("linux-x64", Sha1.Parse(new string(pin, 40)), 1);
     private static RomCdIngestIntent Intent(bool archiveOnly, UploadItemContext? upload) => new("disc.chd", archiveOnly, false, upload);
     public Task InitializeAsync() => Task.CompletedTask;
+
+    [Fact]
+    public async Task Ingest_UnclassifiedMode1Cd_SaturnCatalogNarrowsCandidatesWithoutInventingBootFacts()
+    {
+        var composition = RomMediaPolicyComposition.Create();
+        var recipe = composition.CdRecipes.ForPlatform("saturn").ShouldNotBeNull();
+        var temp = Temp();
+        await using var input = await MediaInfrastructureTestServices.MeasuredCdInputAsync(temp, recipe, Decoder('a'), true, 0, 2, null, mode1: true);
+        await using var db = database.CreateContext();
+        await MediaInfrastructureTestServices.SeedCdCatalogAsync(db, input, true, "saturn");
+        var services = MediaInfrastructureTestServices.CdImport(db, Cas(), temp, recipe, new AdminRealtimeOutbox(db, TimeProvider.System),
+            false, new RomCdCueGenerator(temp), composition.CdRecipes);
+
+        var result = await services.Ingestor.IngestAsync(input.Prepared, Intent(true, null), default);
+
+        result.IsError.ShouldBeFalse(result.IsError ? string.Join(';', result.Errors) : "");
+        var graph = (await new MediaFactReader(db).ReadAsync([result.Value.Archive.Id]))[result.Value.Archive.Id];
+        graph.CdBootInspections.ShouldBeEmpty();
+        var output = graph.Outputs[0];
+        var content = new RomContentDescriptor(output.RomId!.Value, output.Id, output.Identity, "track.bin", [new(graph, output.Id, true)], [], []);
+        MediaKindResolver.Resolve(composition.Kinds, content, []).Outcome.ShouldBe(MediaKindOutcome.Ambiguous);
+        MediaKindResolver.Resolve(composition.Kinds, content, ["saturn"]).Unique!.Kind.ShouldBe("saturn-cd-set");
+        MediaKindResolver.Resolve(composition.Kinds, content, ["psx"]).Unique!.Kind.ShouldBe("ps1-cd-set");
+    }
 
     [Theory]
     [InlineData(true, false)]

@@ -1,6 +1,6 @@
 using Romd.Admin.Application.Source.Rom;
 using Romd.Domain.Source.Rom;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 
 namespace Romd.Infrastructure.Storage;
 

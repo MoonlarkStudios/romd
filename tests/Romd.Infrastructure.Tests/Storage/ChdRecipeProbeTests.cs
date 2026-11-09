@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Media.Probe;
 using Romd.Media.TestSupport;
 using Shouldly;

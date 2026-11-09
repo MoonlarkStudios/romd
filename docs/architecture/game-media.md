@@ -37,7 +37,15 @@ across those scopes before selecting its kind; compressed imports use their
 observed boot profile and exact catalog platform. The captured kind supplies its
 own recipe and required boot profile through encoding, verification and publication.
 PS1 root-executable and Saturn initial-program observations remain distinct facts.
-Member reads gate only the kinds consistent with the retained graph.
+Absent boot observations leave every consistent CD kind as a candidate; catalog
+context may narrow that set without inventing a boot observation. Member reads
+and retained re-verification require decode qualification for every remaining
+candidate. Positive observations exclude other families.
+
+`Romd.Media.Cd` owns shared CD processing, while `Romd.Media.Chd` owns the
+container, native runtime and tool execution. Platform recognition stays in
+`Romd.Media.PlayStation` and `Romd.Media.Saturn`. Nullable wire fields are validated
+into a guarded, mutually exclusive `CdBootObservation` before internal processing.
 
 `IMediaHostCapabilities` derives decode/encode ability from the verified deployed
 builds and registered runtime qualification. Only the worker encodes. PSP has

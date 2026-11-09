@@ -1,6 +1,9 @@
 using System.Text.Json;
 using Moonlark.Libchdr;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.PlayStation;
+using Romd.Media.Saturn;
 
 namespace Romd.Media.Inspection;
 
@@ -187,7 +190,8 @@ public static partial class MediaWorkerProtocol
             return false;
         var observed = value.Deserialize<SaturnCdObservedFacts>(ChdCdJson.Options);
         var first = tracks[0];
-        if (observed is null || !new CdBootObservation(null, observed).Fits(first.Type, first.Frames, tracks.Sum(t => (long)t.Frames)) ||
+        if (observed is null || !SaturnCdIdentifier.Valid(observed) ||
+            !CdBootObservation.FromWire(null, observed).Fits(first.Type, first.Frames, tracks.Sum(t => (long)t.Frames)) ||
             observed.FirstTrackIndex01 != (first.PregapStored ? first.PregapFrames : 0))
             return false;
         boot = observed;

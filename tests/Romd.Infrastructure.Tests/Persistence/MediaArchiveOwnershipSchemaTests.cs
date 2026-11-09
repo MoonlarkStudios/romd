@@ -83,7 +83,7 @@ public sealed class MediaArchiveOwnershipSchemaTests : IDisposable
         Guid revision = await ScopeAsync(db);
         var prior = graph.Cd.Verifications.Single();
         var raw = new RomRepresentationVerification(Guid.NewGuid(), graph.Cd.ArtifactSha256, graph.Cd.ArtifactSize,
-            new RomDecoderIdentity.Native(new("linux-arm64", MediaFactGraphFixture.Short('a'), 2)), Romd.Media.PlayStation.ChdCdInspectionService.Profile,
+            new RomDecoderIdentity.Native(new("linux-arm64", MediaFactGraphFixture.Short('a'), 2)), Romd.Media.Cd.ChdCdInspectionService.Profile,
             "raw-fixture-verifier", prior.ObservedAt.AddTicks(1), prior.Outputs, graph.Cd.Container,
             ((RomContainerFacts.Chd)graph.Cd.Container).StoredRawSha1, ((RomContainerFacts.Chd)graph.Cd.Container).StoredOverallSha1);
         await using var transaction = await db.Database.BeginTransactionAsync();

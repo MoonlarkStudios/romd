@@ -1,7 +1,7 @@
 using Romd.Application.Common.Content;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
 using Romd.Storage;
 
 namespace Romd.Infrastructure.Storage;

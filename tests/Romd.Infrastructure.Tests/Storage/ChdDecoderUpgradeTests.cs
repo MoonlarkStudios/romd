@@ -9,7 +9,7 @@ using Romd.Domain.Source.Rom;
 using Romd.Domain.Storage;
 using Romd.Infrastructure.Storage;
 using Romd.Media;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Storage;
 using Shouldly;
 using Xunit;

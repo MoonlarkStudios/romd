@@ -9,9 +9,10 @@ using NSubstitute;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Configuration;
 using Romd.Application.Common.Content;
-using Romd.Infrastructure.Storage;
 using Romd.Domain.Source.Rom;
-using Romd.Media.PlayStation;
+using Romd.Infrastructure.Storage;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Processes;
 
 namespace Romd.Media.Probe;
