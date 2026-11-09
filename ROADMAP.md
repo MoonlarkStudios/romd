@@ -40,6 +40,6 @@ follow completed qualification rather than the presence of an implementation.
 ## Help shape the project
 
 [Report a reproducible bug or propose a use case](https://github.com/MoonlarkStudios/romd/issues/new/choose).
-For larger contributions, discuss the desired outcome before starting and use
-the [contribution guide](CONTRIBUTING.md). Report vulnerabilities privately
-through [Security](SECURITY.md).
+External pull requests require an explicit maintainer invitation on a specific
+issue; see the [contribution guide](CONTRIBUTING.md#pull-request-policy).
+Report vulnerabilities privately through [Security](SECURITY.md).

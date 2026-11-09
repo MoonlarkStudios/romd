@@ -1,11 +1,28 @@
 # Contributing to ROMD
 
-Thanks for your interest in ROMD! Bug reports, ideas, documentation fixes and
-code are all welcome. This guide covers how to propose a change, keep it
-reviewable, and show that it works.
+ROMD is a personal project maintained by one person with limited time for
+triage, support and review. Development follows the maintainer's priorities
+and available capacity.
+
+Reproducible bug reports and thoughtful feedback are welcome. Responses,
+fixes and feature implementation are not guaranteed. Requests may be declined
+or closed based on project scope and maintenance capacity.
 
 Please follow the [code of conduct](CODE_OF_CONDUCT.md). Its private reporting
 address is for conduct concerns; [Security](SECURITY.md) covers vulnerabilities.
+
+## Pull request policy
+
+**External pull requests are accepted by invitation only**, including
+documentation changes. Wait for an explicit invitation from the maintainer on
+a specific issue before preparing a pull request. An open issue, label,
+reaction or discussion does not constitute an invitation.
+
+Unsolicited pull requests may be closed without review. An invitation applies
+to the agreed scope and confirms interest in reviewing a proposed change; it
+does not guarantee acceptance or a review timeline.
+
+The sections below explain how to prepare and validate an invited contribution.
 
 ## Before you start
 
@@ -90,6 +107,9 @@ command or error before retrying. Fix real regressions. Don't weaken a check,
 silence a warning or skip a test just to get green output.
 
 ## Opening a pull request
+
+Link the maintainer's invitation on the specific issue and keep the change
+within the agreed scope.
 
 Describe the problem and the resulting behavior. For validation, record the
 commit, command, directory, environment, result and where the artifacts are.
