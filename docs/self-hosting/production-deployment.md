@@ -320,7 +320,10 @@ environment variables is not an account-recovery mechanism.
 ## Upgrade
 
 The current schema starts at `20261031050000_FreshMediaBaseline` with the
-additive `20261102000000_PspUmdObservations` migration (readiness version 73).
+additive `20261102000000_PspUmdObservations` and
+`20261109000000_SaturnCdObservations` migrations (readiness version 74).
+The latter preserves PS1 observations and adds distinct Saturn fields; deploy
+matching hosts worker-first so APIs observe the new readiness version.
 There is no upgrade from the retired pre-baseline migration chain. Use new empty
 database/data volumes for that starting point and keep the previous installation
 and its matching backups for recovery. Baseline downgrades are unsupported.

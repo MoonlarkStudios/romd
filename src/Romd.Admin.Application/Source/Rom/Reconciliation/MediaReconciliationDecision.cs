@@ -164,7 +164,8 @@ public sealed class MediaReconciliationDecision
     {
         if (capture.KindId is not { } kind || !_policies.TryGetValue(kind, out var policy) || policy.Recipe != encoded.Recipe ||
             policy.Kind.StoredEncoding != encoded.Measured.Container.Encoding || !policy.MatchesParameters(encoded.Measured.Container) ||
-            (policy.Kind.ManifestType == MediaManifestType.CdTracks) != (encoded.Measured.Manifest is RomReconstructionManifest.CdTracks))
+            (policy.Kind.ManifestType == MediaManifestType.CdTracks) != (encoded.Measured.Manifest is RomReconstructionManifest.CdTracks) ||
+            encoded is MediaReconciliationEncoded.Cd cd && policy.Kind.CdBootProfile is { } required && cd.Observation.Boot.Profile != required)
             return false;
         if (encoded is MediaReconciliationEncoded.Whole whole)
         {

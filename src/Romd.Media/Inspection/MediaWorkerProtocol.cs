@@ -35,7 +35,7 @@ public sealed record MediaWorkerReply(MediaWorkerStatus Status, MediaWorkerIdent
 /// <summary>One small result document. Artifact and reconstructed bytes never travel through stdout.</summary>
 public static partial class MediaWorkerProtocol
 {
-    public const string Version = "romd-media/v12";
+    public const string Version = "romd-media/v13";
     public const int MaximumOutputBytes = 8192;
     // CD carries 99 track digest rows and up to 99 exact 512-byte metadata payloads encoded as hex.
     public const int MaximumCdOutputBytes = 192 << 10;

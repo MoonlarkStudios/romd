@@ -149,9 +149,14 @@ function LayoutReview({ layout }: { layout: OriginalDiscLayout }) {
   const recipe = useQuery({
     queryKey: [
       'cdCompressionRecipe',
+      layout.systemKey,
     ],
     queryFn: async () => {
-      const response = await getCdStorageRecipe();
+      const response = await getCdStorageRecipe({
+        query: {
+          systemKey: layout.systemKey ?? undefined,
+        },
+      });
       if (response.error || !response.data)
         throw new Error('Could not load CD compression availability.');
       return response.data;

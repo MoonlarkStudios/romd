@@ -3530,7 +3530,9 @@ export type ListOriginalDiscLayoutAuditResponse = ListOriginalDiscLayoutAuditRes
 export type GetCdStorageRecipeData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        systemKey?: string;
+    };
     url: '/api/original-disc-layouts/compression-recipe';
 };
 
@@ -3539,6 +3541,10 @@ export type GetCdStorageRecipeErrors = {
      * Bad Request
      */
     400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
 };
 
 export type GetCdStorageRecipeError = GetCdStorageRecipeErrors[keyof GetCdStorageRecipeErrors];

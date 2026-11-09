@@ -27,7 +27,7 @@ public sealed partial class ChdCdInspectionProtocolTests
 
     private static ChdCdMetadataInspection Metadata(ChdCdTrackInspection track)
     {
-        string type = track.Type == ChdCdTrackType.Audio ? "AUDIO" : "MODE2_RAW";
+        string type = track.Type switch { ChdCdTrackType.Audio => "AUDIO", ChdCdTrackType.Mode1Raw => "MODE1_RAW", _ => "MODE2_RAW" };
         string payload = FormattableString.Invariant($"TRACK:{track.Number} TYPE:{type} SUBTYPE:NONE FRAMES:{track.Frames} PREGAP:{track.PregapFrames} PGTYPE:{(track.PregapStored ? "V" : "")}{type} PGSUB:NONE POSTGAP:{track.PostgapFrames}");
         return new(ChdMetadataTag.CdTrackV2.Value, 1, Convert.ToHexStringLower(Encoding.ASCII.GetBytes(payload)));
     }

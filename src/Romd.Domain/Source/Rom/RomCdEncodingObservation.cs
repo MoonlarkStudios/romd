@@ -2,11 +2,11 @@ using Romd.Domain.Hashing;
 
 namespace Romd.Domain.Source.Rom;
 
-/// <summary>Actual source-request and PS1 boot observations from an independently verified CD encoding operation.</summary>
+/// <summary>Actual source-request and platform-specific boot observations from an independently verified CD encoding operation.</summary>
 public sealed class RomCdEncodingObservation
 {
     public RomCdEncodingObservation(RomMeasuredRepresentation measured, RecipeId recipe, RomChdEncoderBuild encoder,
-        Sha256 sourceRequestSha256, long sourceRequestBytes, string inspectorBuild, RomPs1CdBoot boot)
+        Sha256 sourceRequestSha256, long sourceRequestBytes, string inspectorBuild, RomCdBoot boot)
     {
         ArgumentNullException.ThrowIfNull(measured);
         ArgumentNullException.ThrowIfNull(recipe);
@@ -17,7 +17,7 @@ public sealed class RomCdEncodingObservation
             measured.Measurement.Decoder is not RomDecoderIdentity.Native || sourceRequestSha256.IsEmpty || sourceRequestBytes is < 1 or > (512 << 10))
             throw new ArgumentException("CD encoding requires complete native measurement, exact request custody and observed boot facts.");
         if (!RomCdBootInspection.Fits(cd, boot))
-            throw new ArgumentException("Observed PS1 extents must fit their independently measured first data track.");
+            throw new ArgumentException("Observed boot extents must fit their independently measured first data track.");
         Id = Guid.NewGuid();
         MeasurementId = measured.Measurement.Id;
         Recipe = recipe;
@@ -34,5 +34,5 @@ public sealed class RomCdEncodingObservation
     public Sha256 SourceRequestSha256 { get; }
     public long SourceRequestBytes { get; }
     public string InspectorBuild { get; }
-    public RomPs1CdBoot Boot { get; }
+    public RomCdBoot Boot { get; }
 }

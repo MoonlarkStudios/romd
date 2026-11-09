@@ -6,7 +6,7 @@ namespace Romd.Media.Inspection;
 
 public static partial class MediaWorkerProtocol
 {
-    public const string CdJobVersion = "romd-media-cd/v4";
+    public const string CdJobVersion = "romd-media-cd/v5";
     // Also bounds up to 116 named source/comparison rows and the nested worker envelope.
     public const int MaximumCdJobOutputBytes = 512 << 10;
     private static bool IsCdJob(ReadOnlyMemory<byte> bytes)
@@ -82,16 +82,16 @@ public static partial class MediaWorkerProtocol
                     !ChdCdJson.Hash(encoded.RequestSha256, 64) || encoded.RequestBytes is < 1 or > ChdCdRequest.MaximumBytes ||
                     !ValidCdHashes(encoded.Artifact, ChdCdLimits.MaximumArtifactBytes) || encoded.Artifact.Bytes < 124 ||
                     encoded.Header is null || encoded.Header.ArtifactBytes != encoded.Artifact.Bytes || !ChdCdEncodingRecipe.Matches(encoded.Header) ||
-                    encoded.Ps1Boot is { } encodedBoot && !Ps1CdIdentifier.Valid(encodedBoot) ||
-                    encoded.Recipe != ChdCdEncodingRecipe.Id || encoded.PriorityKind != "unix-nice" || encoded.PriorityValue is < 10 or > 19 || execution is null || execution.ExitCode != 0)
+                    !encoded.ObservedBoot.Valid || encoded.Recipe != ChdCdEncodingRecipe.ForBoot(encoded.ObservedBoot.Profile) ||
+                    encoded.PriorityKind != "unix-nice" || encoded.PriorityValue is < 10 or > 19 || execution is null || execution.ExitCode != 0)
                     return false;
             }
             else if (status == MediaWorkerStatus.Inspected)
             {
                 if (verified is null || encoded is not null || inspection is null || native is null || tool is not null || execution is not null ||
-                    verified.Ps1Boot is { } verifiedBoot && (!Ps1CdIdentifier.Valid(verifiedBoot) || verifiedBoot != inspection.Ps1Boot) ||
+                    !verified.ObservedBoot.Valid || verified.ObservedBoot.Profile is not null && verified.ObservedBoot != inspection.ObservedBoot ||
                     verified.Profile is not (ChdCdVerification.CurrentProfile or ChdCdRetainedRequest.CurrentProfile) ||
-                    verified.Profile == ChdCdRetainedRequest.CurrentProfile && verified.Ps1Boot != inspection.Ps1Boot || !ChdCdJson.Hash(verified.RequestSha256, 64) ||
+                    verified.Profile == ChdCdRetainedRequest.CurrentProfile && verified.ObservedBoot != inspection.ObservedBoot || !ChdCdJson.Hash(verified.RequestSha256, 64) ||
                     verified.Members is null || verified.Members.Count is < 2 or > 116 ||
                     verified.Members.Any(m => m is null || !ChdCdCue.PortableName(m.Name) || !ValidCdHashes(m.Original, 1058400000) || m.Tracks is null ||
                         (m.Role == "bin" ? m.Reconstructed != m.Original || m.Tracks.Count is < 1 or > 99 ||

@@ -71,8 +71,8 @@ internal sealed partial class MediaReconciliationFactReader
     }
     private async Task<MediaReconciliationFactRead> LayoutAsync(int id, bool locked, CancellationToken ct)
     {
-        var kind = _kinds.Kinds.SingleOrDefault(kind => kind.ManifestType == MediaManifestType.CdTracks);
-        if (kind is null)
+        var cdKinds = _kinds.Kinds.Where(kind => kind.ManifestType == MediaManifestType.CdTracks).ToArray();
+        if (cdKinds.Length == 0)
             return Ready(new MediaReconciliationFacts.None("kind-unregistered"));
         MediaReconciliationLayout context;
         List<MediaReconciliationInput> inputs;
@@ -102,7 +102,7 @@ internal sealed partial class MediaReconciliationFactReader
             !backing.Any(row => row.RomId == member.RomId && row.FileId == member.FileId)))
             return Ready(new MediaReconciliationFacts.None("layout-incomplete"));
         var hashes = logical.Values.Select(rom => (Romd.Domain.Hashing.Sha1?)rom.Sha1).ToArray();
-        string[] platforms = kind.PlatformKeys.ToArray();
+        string[] platforms = cdKinds.SelectMany(kind => kind.PlatformKeys).ToArray();
         int[] candidates = await (from file in _db.CatalogReleaseFiles
                                   join release in _db.CatalogReleases on file.CatalogReleaseId equals release.Id
                                   join platform in _db.Platforms on release.PlatformId equals platform.Id
@@ -124,6 +124,10 @@ internal sealed partial class MediaReconciliationFactReader
         if (candidates is not [var selected])
             return Ready(new MediaReconciliationFacts.None("layout-catalog-ambiguous"));
         var releaseRow = await _db.CatalogReleases.SingleAsync(release => release.Id == selected, ct);
+        var platformKey = await _db.Platforms.Where(platform => platform.Id == releaseRow.PlatformId).Select(platform => platform.CanonicalKey).SingleAsync(ct);
+        var kind = cdKinds.SingleOrDefault(candidate => candidate.PlatformKeys.Contains(platformKey, StringComparer.Ordinal));
+        if (kind is null)
+            return Ready(new MediaReconciliationFacts.None("kind-unregistered"));
         if (layout.State == "accepted" && (releaseRow.Id != layout.ReleaseId || releaseRow.Fingerprint != layout.Fingerprint))
             return Ready(new MediaReconciliationFacts.None("layout-catalog-changed"));
         string parent = Path.GetDirectoryName(layout.EntryPoint)?.Replace('\\', '/') ?? "";

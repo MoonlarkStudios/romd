@@ -14,7 +14,7 @@ public sealed record CatalogCdBinBinding(CatalogCdFileRequirement Requirement, R
 
 /// <summary>Complete catalog association, before any generated descriptor identity is known.</summary>
 public sealed record RomCdImportBinding(int TitleId, int PlatformId, CatalogDescriptorRequirement Cue,
-    IReadOnlyList<CatalogCdBinBinding> Bins);
+    IReadOnlyList<CatalogCdBinBinding> Bins, string PlatformKey);
 
 /// <summary>Loads bounded complete entries in one read snapshot, never just matching BIN rows.
 /// This association is advisory; publication must revalidate current catalog facts under its topology fence.</summary>
@@ -60,7 +60,7 @@ public static class RomCdImportBindings
         var cue = cues[0];
         return new RomCdImportBinding(entry.TitleId, entry.PlatformId,
             new(cue.Id, entry.ReleaseId, entry.Fingerprint, cue.Fingerprint, cue.Name, cue.Size, cue.Sha1!.Value, cue.Md5!.Value, cue.Crc32!.Value),
-            Array.AsReadOnly(selected.Bins!));
+            Array.AsReadOnly(selected.Bins!), entry.PlatformKey);
     }
 
     private sealed record Candidate(CatalogCdImportEntry Entry, CatalogCdBinBinding[]? Bins);

@@ -13,7 +13,7 @@ public sealed class RomCdInspection
     public RomCdInspection(Guid id, RomLogicalIdentity artifactIdentity, RomContainerFacts.Chd container,
         RomChdDecoderBuild decoder, string checkedProfile, string projectionProfile, string verifierBuild,
         DateTimeOffset observedAt, Sha1 computedRawSha1, Sha1 computedOverallSha1,
-        IReadOnlyList<RomCdInspectedTrack> tracks, RomPs1CdBoot? boot)
+        IReadOnlyList<RomCdInspectedTrack> tracks, RomCdBoot? boot)
     {
         ArgumentNullException.ThrowIfNull(artifactIdentity);
         ArgumentNullException.ThrowIfNull(container);
@@ -40,7 +40,7 @@ public sealed class RomCdInspection
         }
         if (next != container.LogicalBytes / 2448 || boot is not null &&
             (captured[0].Placement.Kind == RomCdTrackKind.Audio || boot.FirstTrackIndex01 != (captured[0].PregapStored ? captured[0].PregapFrames : 0) ||
-             boot.VolumeBlocks > captured[0].Placement.Frames - boot.FirstTrackIndex01))
+             !RomCdBootInspection.Fits(captured[0].Placement, captured.Sum(track => (long)track.Placement.Frames), boot)))
             throw new ArgumentException("Track placement and any positive boot observation must fit the observed container.");
         Id = id;
         ArtifactIdentity = artifactIdentity;
@@ -66,6 +66,6 @@ public sealed class RomCdInspection
     public Sha1 ComputedRawSha1 { get; }
     public Sha1 ComputedOverallSha1 { get; }
     public IReadOnlyList<RomCdInspectedTrack> Tracks { get; }
-    public RomPs1CdBoot? Boot { get; }
+    public RomCdBoot? Boot { get; }
     private static bool Label(string value) => !string.IsNullOrWhiteSpace(value) && value.Length <= 256 && !value.Any(char.IsControl);
 }

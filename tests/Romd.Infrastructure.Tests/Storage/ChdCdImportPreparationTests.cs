@@ -93,7 +93,7 @@ public sealed class ChdCdImportPreparationTests : IDisposable
         var bins = observed.Tracks.Select((track, index) => new CatalogCdBinBinding(
             new(20 + index, $"bin-{index}", names[index], track.Identity.Size, track.Identity.Sha1, track.Identity.Md5, track.Identity.Crc32, false),
             new(track.Placement.Number, track.Identity))).ToArray();
-        var binding = new RomCdImportBinding(13, 17, cueRequirement, bins);
+        var binding = new RomCdImportBinding(13, 17, cueRequirement, bins, "psx");
         PreparedRom.WholeFile? original = null;
         if (exactCue)
         {

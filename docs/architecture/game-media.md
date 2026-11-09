@@ -13,7 +13,7 @@ and [media delivery](../decisions/media-delivery.md). Operators use
 `RomMediaPolicyComposition` validates one registration per encoded kind and
 produces the descriptors, adapter registry, delivery policy and reconciliation
 view together. Current registrations cover GameCube/Wii RVZ, PS2 DVD and PSP UMD
-whole-file CHD, and PS1 CD-track CHD. An opaque fallback makes no conversion or
+whole-file CHD, and PS1/Saturn CD-track CHD. An opaque fallback makes no conversion or
 runtime claim. A filename or platform label alone establishes no media kind.
 
 Descriptors in Application.Common name the kind, platform scope, stored
@@ -31,14 +31,18 @@ encoding. Startup rejects incomplete or ambiguous registrations.
 
 `WholeFile` describes one logical output. `CdTracks` describes complete measured
 tracks, BIN grouping and retained descriptors. The latter requires complete-set
-encoding but permits scoped member reads. The current CD recipe composition
-accepts one CD-track kind; adding a second requires layout-specific kind/recipe
-resolution before another registration is sufficient.
+encoding but permits scoped member reads. `RomCdStorageRecipes` validates distinct
+kind and platform scopes. Original layouts resolve one complete catalog release
+across those scopes before selecting its kind; compressed imports use their
+observed boot profile and exact catalog platform. The captured kind supplies its
+own recipe and required boot profile through encoding, verification and publication.
+PS1 root-executable and Saturn initial-program observations remain distinct facts.
+Member reads gate only the kinds consistent with the retained graph.
 
 `IMediaHostCapabilities` derives decode/encode ability from the verified deployed
 builds and registered runtime qualification. Only the worker encodes. PSP has
 Linux x64 encoding qualification separate from the shared DVD read path; PS1 CD
-operations require their registered Linux x64 capability. Every assessment reads
+and Saturn CD operations require their registered Linux x64 capability. Every assessment reads
 current capability. CHD admission freshly verifies the resident build; a failed
 check invalidates that build rather than using a cached approval.
 
@@ -137,7 +141,8 @@ cancellation and restart preserve the owned source and use bounded recovery.
 Worker readiness, imports, new facts and explicit requests schedule the same
 family; startup and reads never execute its work.
 
-Complete eligible PS1 layouts use Automatic after verified publication. Partial
+Complete eligible PS1 layouts use Automatic after verified publication. Saturn
+layouts use OnRequest pending real-disc and load qualification. Partial
 or ambiguous layouts retain originals until their missing facts arrive. Explicit
 conversion/retry remains available and does not sweep already settled demand.
 Source pins and stopped custody remain required for both Automatic and explicit
@@ -180,7 +185,7 @@ immutable; later schema work adds migrations. `RuntimeFactGrants.sql` is separat
 idempotent startup grant policy. No evidence conversion or baseline downgrade is
 implied by a decoder upgrade.
 
-PS2 CD and additional CD kinds, GDI/folder-tree manifests, MAME dependencies and
+PS2 CD and further CD kinds, GDI/folder-tree manifests, MAME dependencies and
 broader descriptor profiles need their own implementation and qualification.
 The [qualification matrix](media-status.md#qualification-status) distinguishes
 implemented paths from measured workloads. Backend/media changes follow the

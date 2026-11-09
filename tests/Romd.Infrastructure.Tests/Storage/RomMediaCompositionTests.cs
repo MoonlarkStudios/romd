@@ -25,7 +25,8 @@ public sealed class RomMediaCompositionTests
             "wii-disc wii Rvz rvz-canonical/v1 WholeFile Automatic [dolphin] .iso [rvz-import/v1, rvz-canonical/v1]",
             "ps2-dvd ps2 Chd chd-dvd-canonical/v2 WholeFile Automatic [pcsx2] .iso [chd-observed/v1]",
             "psp-umd psp Chd chd-dvd-canonical/v2 WholeFile Automatic [] .iso [chd-observed/v1]",
-            "ps1-cd-set psx Chd chd-ps1-canonical/v1 CdTracks Automatic []  [chd-cd-whole-files/v1, chd-cd-retained-files/v2, chd-cd-inspection/v2]"]);
+            "ps1-cd-set psx Chd chd-ps1-canonical/v1 CdTracks Automatic []  [chd-cd-whole-files/v1, chd-cd-retained-files/v2, chd-cd-inspection/v2]",
+            "saturn-cd-set saturn Chd chd-saturn-canonical/v1 CdTracks OnRequest []  [chd-cd-whole-files/v1, chd-cd-retained-files/v2, chd-cd-inspection/v2]"]);
         Describe(composition.Kinds.Fallback).ShouldBe("opaque  Identity  WholeFile OnRequest []  [identity/v1]");
         composition.Registry.Policies.Select(policy => (policy.PlatformKey, policy.DiscKind, policy.EncodingProfile.RecipeVersion)).ShouldBe([
             ("gc", RomIsoDiscKind.GameCube, "rvz-canonical/v1"), ("wii", RomIsoDiscKind.Wii, "rvz-canonical/v1"),
@@ -82,7 +83,7 @@ public sealed class RomMediaCompositionTests
     [Fact]
     public void Create_Production_DerivesTheCdRecipeFromThePs1Registration()
     {
-        var recipe = RomMediaPolicyComposition.Create().CdRecipe.ShouldNotBeNull();
+        var recipe = RomMediaPolicyComposition.Create().CdRecipes.ForKind("ps1-cd-set").ShouldNotBeNull();
 
         Ps1Cd.Recipe.ShouldBe(new RomMediaRecipe("chd-ps1-canonical/v1", RomRepresentationEncoding.Chd,
             "cd;hunk=39168;codecs=63647a73,6364666c,00000000,00000000", MediaRecipeRebuild.MatchingParameters));
@@ -97,9 +98,9 @@ public sealed class RomMediaCompositionTests
     {
         var composition = RomMediaPolicyComposition.Create();
 
-        composition.QualifiedRuntimes.ShouldBe(new Dictionary<string, string> { ["ps1-cd-set"] = "linux-x64" });
+        composition.QualifiedRuntimes.ShouldBe(new Dictionary<string, string> { ["ps1-cd-set"] = "linux-x64", ["saturn-cd-set"] = "linux-x64" });
         composition.QualifiedEncodingRuntimes.ShouldBe(new Dictionary<string, string> { ["psp-umd"] = "linux-x64" });
-        composition.CdRecipe.ShouldNotBeNull().Kind.ShouldBe("ps1-cd-set");
+        composition.CdRecipes.ForKind("ps1-cd-set").ShouldNotBeNull().Kind.ShouldBe("ps1-cd-set");
     }
 
     [Fact]
@@ -118,7 +119,7 @@ public sealed class RomMediaCompositionTests
 
     [Fact]
     public void Create_KindsWithoutACdTrackKind_HaveNoCdRecipe() =>
-        RomMediaPolicyComposition.Create([GameCube, Ps2Dvd]).CdRecipe.ShouldBeNull();
+        RomMediaPolicyComposition.Create([GameCube, Ps2Dvd]).CdRecipes.All.ShouldBeEmpty();
 
     [Fact]
     public void Create_OnRequestWholeFileKind_ReachesTheRegistryFromItsDescriptor()
@@ -141,6 +142,24 @@ public sealed class RomMediaCompositionTests
         composition.QualifiedRuntimes["ps1-cd-set"].ShouldBe("linux-x64");
     }
 
+    [Fact]
+    public void Create_SaturnAndPs1_RouteIndependentRecipesAndBootProfiles()
+    {
+        var composition = RomMediaPolicyComposition.Create();
+        var ps1 = composition.CdRecipes.ForPlatform("psx").ShouldNotBeNull();
+        var saturn = composition.CdRecipes.ForPlatform("saturn").ShouldNotBeNull();
+        ps1.BootProfile.ShouldBe(RomPs1CdBoot.CurrentProfile);
+        saturn.BootProfile.ShouldBe(RomSaturnCdBoot.CurrentProfile);
+        saturn.Id.ShouldBe("chd-saturn-canonical/v1");
+        composition.Kinds.Find(saturn.Kind)!.CdBootProfile.ShouldBe(saturn.BootProfile);
+        composition.Kinds.Find(saturn.Kind)!.NativeRuntimes.ShouldBeEmpty();
+        composition.Reconciliation[saturn.Kind].Kind.ConversionMode.ShouldBe(ConversionMode.OnRequest);
+        composition.QualifiedRuntimes[saturn.Kind].ShouldBe("linux-x64");
+        composition.CdRecipes.ForPlatform("ps2").ShouldBeNull();
+        composition.CdRecipes.PlatformsFor(new RomSaturnCdBoot(RomSaturnCdBoot.CurrentProfile, 0, "T-00001", "JUE", 4096,
+            Sha256.Parse(new string('a', 64)))).ShouldBe(["saturn"]);
+    }
+
     [Theory]
     [InlineData("cd-tracks-without-recipe")]
     [InlineData("whole-file-with-cd-recipe")]
@@ -149,7 +168,7 @@ public sealed class RomMediaCompositionTests
     [InlineData("recipe-on-another-platform")]
     [InlineData("recipe-for-another-kind")]
     [InlineData("no-recipe-built")]
-    [InlineData("two-cd-track-kinds")]
+    [InlineData("overlapping-cd-platforms")]
     public void Create_CdRecipeDisagreesWithItsKind_Throws(string defect)
     {
         RomMediaKindRegistration[] registrations = defect switch
@@ -172,7 +191,7 @@ public sealed class RomMediaCompositionTests
             "no-recipe-built" => [Ps1Cd with { CdRecipe = (_, _) => null! }],
             _ => [Ps1Cd, Ps1Cd with
             {
-                Kind = "saturn-cd-set", PlatformKeys = ["saturn"],
+                Kind = "saturn-cd-set", PlatformKeys = ["psx"],
                 Recipe = Ps1Cd.Recipe with { Id = "chd-saturn-canonical/v1", Parameters = "cd;hunk=39168;codecs=63647a73,00000000,00000000,00000000" },
                 CdRecipe = (kind, platforms) => new RomCdStorageRecipe(kind, "chd-saturn-canonical/v1", 39168, [0x63647a73, 0, 0, 0], platforms)
             }]
@@ -183,7 +202,7 @@ public sealed class RomMediaCompositionTests
             .Message.ShouldContain(defect switch
             {
                 "cd-tracks-without-recipe" or "whole-file-with-cd-recipe" => "needs a CD recipe exactly when it rebuilds CD tracks",
-                "two-cd-track-kinds" => "Only one media kind may rebuild CD tracks",
+                "overlapping-cd-platforms" => "unique kinds and non-overlapping catalog platform scopes",
                 _ => "has a CD recipe for another kind, recipe, platform or parameters"
             });
     }

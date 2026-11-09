@@ -162,7 +162,9 @@ The application database is PostgreSQL 18. `src/Romd.Persistence/Migrations`
 contains one fresh-install baseline, `20261031050000_FreshMediaBaseline`.
 It installs the guarded media fact resources alongside the remaining application
 schema. The additive `20261102000000_PspUmdObservations` migration adds nullable
-PSP observations without backfilling evidence; current readiness is version 73.
+PSP observations without backfilling evidence. The additive
+`20261109000000_SaturnCdObservations` migration adds distinct Saturn fields while
+preserving PS1 observations and constraints; current readiness is version 74.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

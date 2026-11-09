@@ -25,7 +25,9 @@ local-only passwords are in [development sign-in](../development/getting-started
 
 The server uses PostgreSQL 18. The current application schema starts with
 `20261031050000_FreshMediaBaseline` and includes the additive
-`20261102000000_PspUmdObservations` migration (readiness version 73).
+`20261102000000_PspUmdObservations` and `20261109000000_SaturnCdObservations`
+migrations (readiness version 74). The Saturn migration adds distinct nullable
+observations without backfilling or rewriting existing PS1 evidence.
 Earlier migration chains, unversioned populated databases and baseline downgrades
 are unsupported. The worker refuses them before schema writes. Use a new empty
 database and data volumes for an unsupported starting version; preserve the old

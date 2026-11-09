@@ -30,6 +30,7 @@ public sealed class RomCdImportStore(RomdDbContext db, IMediaFactPublisher facts
         var current = RomCdImportBindings.Select(tracks, await new RomCdImportCatalogReader(db)
             .FindAsync(tracks.Select(track => track.Identity).ToArray(), platformKeys, ct), platformKeys);
         if (current.IsError || current.Value.TitleId != plan.Binding.TitleId || current.Value.PlatformId != plan.Binding.PlatformId ||
+            current.Value.PlatformKey != plan.Binding.PlatformKey ||
             current.Value.Cue != plan.Binding.Cue || !current.Value.Bins.SequenceEqual(plan.Binding.Bins))
             return RomPublicationErrors.RetryRequired();
         var prior = await CatalogCdLayoutRead.ReadRetainedAsync(db, plan.Binding.Cue.CatalogFileId, ct);

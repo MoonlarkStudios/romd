@@ -13,7 +13,7 @@ using Romd.Domain.Source.Rom;
 namespace Romd.Admin.Application.Source.Rom.Compressed;
 
 /// <summary>Application retention policy and catalog effects around the worker's fenced fact-store scope.</summary>
-public sealed class RomCdImportPublication(RomCdArchivePublisher publisher, IRomCdImportStore store, RomCdStorageRecipe recipe,
+public sealed class RomCdImportPublication(RomCdArchivePublisher publisher, IRomCdImportStore store, RomCdStorageRecipes recipes,
     ITrackedTitleReader tracked, ITrackedTitleRepository tracking, ILibraryRepository libraries,
     IRomPayloadAssertionImpactReader impact, ITitlePayloadAvailabilityProjection payload, IAdminEventOutbox outbox,
     IMediaReconciliationRequests requests, IAuditContext audit, TimeProvider clock) : IRomCdImportPublication
@@ -39,6 +39,9 @@ public sealed class RomCdImportPublication(RomCdArchivePublisher publisher, IRom
     {
         if (intent.TrackedOnly && !await tracked.HasTrackedAsync([plan.Binding.TitleId], ct))
             throw new Refused([CatalogErrors.UntrackedRom()]);
+        var recipe = recipes.ForPlatform(plan.Binding.PlatformKey);
+        if (recipe is null || !recipes.PlatformsFor(plan.Source.Inspection.Boot).Contains(plan.Binding.PlatformKey, StringComparer.Ordinal))
+            throw new Refused([RomCdImportErrors.UnsupportedLayout]);
         var locked = await store.LockAsync(plan, recipe.PlatformKeys, audit.ActorId, clock.GetUtcNow(), ct);
         if (locked.IsError)
             throw new Refused(locked.Errors);

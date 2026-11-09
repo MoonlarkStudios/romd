@@ -31,7 +31,7 @@ public sealed partial class MediaReconciliationSchemaTests
         var (db, graph) = await SetupAsync();
         await using var owned = db;
         await LayoutSourcesAsync(db, graph);
-        var recipe = RomMediaPolicyComposition.Create().CdRecipe!;
+        var recipe = RomMediaPolicyComposition.Create().CdRecipes.ForKind("ps1-cd-set")!;
         var old = (RomContainerFacts.Chd)graph.Cd.Container;
         var container = MediaFactFixtures.Chd(old.LogicalBytes, recipe.HunkBytes, 2448, recipe.Codecs, old.StoredRawSha1, old.StoredOverallSha1, old.Metadata);
         db.Files.Add(new() { Id = 4, Sha256 = MediaFactGraphFixture.Hash('e'), Size = 512, SizeOnDisk = 512 });
@@ -304,7 +304,7 @@ public sealed partial class MediaReconciliationSchemaTests
         using var fence = JobExecutionFenceScope.Enter(claim.Job.Id, claim.FenceToken, TimeProvider.System);
         var capture = await execution.CaptureAsync(directive.Capture);
         capture.IsError.ShouldBeFalse();
-        var recipe = RomMediaPolicyComposition.Create().CdRecipe!;
+        var recipe = RomMediaPolicyComposition.Create().CdRecipes.ForKind("ps1-cd-set")!;
         var old = (RomContainerFacts.Chd)graph.Cd.Container;
         var container = MediaFactFixtures.Chd(old.LogicalBytes, recipe.HunkBytes, 2448, recipe.Codecs, old.StoredRawSha1, old.StoredOverallSha1, old.Metadata);
         var proof = new RomRepresentationVerification(Guid.NewGuid(), MediaFactGraphFixture.Hash('e'), 512, new RomDecoderIdentity.Native(TargetDecoder), Romd.Media.PlayStation.ChdCdVerification.CurrentProfile,

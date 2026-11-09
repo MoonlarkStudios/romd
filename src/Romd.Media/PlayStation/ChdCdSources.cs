@@ -15,7 +15,7 @@ public sealed record ChdCdRequest(string Profile, string ToolCuePath, IReadOnlyL
 
     public void Validate()
     {
-        if (Profile != CurrentProfile || RequiredBootProfile is not null && RequiredBootProfile != Ps1CdIdentifier.Profile || !ChdCdJson.Absolute(ToolCuePath) || Files is null || Files.Count is < 2 or > 116 ||
+        if (Profile != CurrentProfile || !CdBootObservation.Supports(RequiredBootProfile) || !ChdCdJson.Absolute(ToolCuePath) || Files is null || Files.Count is < 2 or > 116 ||
             Files.Any(f => f is null || !ChdCdCue.PortableName(f.Name) || !ChdCdJson.Absolute(f.Path) ||
                 f.Path == ToolCuePath || !ChdCdJson.Hash(f.Sha256, 64) || f.Bytes < 1 || f.Role switch
                 {

@@ -41,11 +41,11 @@ public abstract class RomMediaVerificationMeasurement
     {
         public RomLogicalInspection Inspection { get; } = inspection;
     }
-    public sealed class Cd(RomMeasuredRepresentation representation, string inspectorBuild, RomPs1CdBoot? boot,
+    public sealed class Cd(RomMeasuredRepresentation representation, string inspectorBuild, RomCdBoot? boot,
         TempFileArtifactMeasurement artifact) : RomMediaVerificationMeasurement(representation, artifact)
     {
         public string InspectorBuild { get; } = inspectorBuild;
-        public RomPs1CdBoot? Boot { get; } = boot;
+        public RomCdBoot? Boot { get; } = boot;
     }
 }
 

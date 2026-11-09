@@ -14,7 +14,7 @@ internal sealed record MediaFactGraphFixture(int RomId, RomRepresentationFacts S
     internal static Sha256 Hash(char value) => Sha256.Parse(new string(value, 64));
     internal static Sha1 Short(char value) => Sha1.Parse(new string(value, 40));
     internal static RomPs1CdBoot Boot => new(RomPs1CdBoot.CurrentProfile, 0, 64, 24, 864, "SLUS_123.45", 26, 4096, 0x80010000, 0x80010000, 2048);
-    internal static async Task<MediaFactGraphFixture> CreateAsync(RomdDbContext db, bool audioFirst = false)
+    internal static async Task<MediaFactGraphFixture> CreateAsync(RomdDbContext db, bool audioFirst = false, bool mode1 = false)
     {
         const long bytes = 240 * 2352;
         db.Files.AddRange(new FileEntityPersistence { Id = 1, Sha256 = Hash('a'), Size = bytes, SizeOnDisk = bytes },
@@ -25,10 +25,10 @@ internal sealed record MediaFactGraphFixture(int RomId, RomRepresentationFacts S
         var member = new RomCdFileIdentity(bytes, identity.Sha256, identity.Sha1, identity.Md5, identity.Crc32);
         var cue = new RomCdFileIdentity(10, Hash('c'), Short('c'), Md5.Parse(new string('c', 32)), Crc32.FromUInt32(0));
         var container = new RomContainerFacts.Chd(5, 240 * 2448, 4 * 2448, 2448, 60, [0, 0, 0, 0], false, Short('e'), Short('f'),
-            [new(0x43485432,1,"TRACK:1 TYPE:MODE2_RAW SUBTYPE:NONE FRAMES:120 PREGAP:0 PGTYPE:MODE2_RAW PGSUB:NONE POSTGAP:0"u8),
+            [new(0x43485432,1,System.Text.Encoding.ASCII.GetBytes($"TRACK:1 TYPE:{(mode1 ? "MODE1_RAW" : "MODE2_RAW")} SUBTYPE:NONE FRAMES:120 PREGAP:0 PGTYPE:{(mode1 ? "MODE1_RAW" : "MODE2_RAW")} PGSUB:NONE POSTGAP:0")),
              new(0x43485432,1,"TRACK:2 TYPE:AUDIO SUBTYPE:NONE FRAMES:120 PREGAP:0 PGTYPE:AUDIO PGSUB:NONE POSTGAP:0"u8)]);
         var manifest = new RomReconstructionManifest.CdTracks(240,
-            [new(1, 0, 120, audioFirst ? RomCdTrackKind.Audio : RomCdTrackKind.Mode2Raw), new(2, 120, 120, RomCdTrackKind.Audio)],
+            [new(1, 0, 120, audioFirst ? RomCdTrackKind.Audio : mode1 ? RomCdTrackKind.Mode1Raw : RomCdTrackKind.Mode2Raw), new(2, 120, 120, RomCdTrackKind.Audio)],
             [new RomCdBinMember("disc.bin", member, member, [1, 2]), new RomCdStoredMember("disc.cue", cue, RomCdStoredRole.Cue)]);
         await using var transaction = await db.Database.BeginTransactionAsync();
         var publisher = new MediaFactPublisher(db);

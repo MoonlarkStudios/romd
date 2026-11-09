@@ -53,7 +53,8 @@ public enum ConversionMode
 /// <param name="ProfileVersions">The encoding profile versions this kind's artifacts report; delivery reports any other as unknown.</param>
 public sealed record MediaKindDescriptor(string Kind, IReadOnlyList<string> PlatformKeys, RomRepresentationEncoding StoredEncoding,
     string? CurrentRecipeId, MediaManifestType ManifestType, ConversionMode ConversionMode, IReadOnlyList<string> NativeRuntimes,
-    string? OriginalExtension, IReadOnlyList<string> ProfileVersions, Func<RomContentDescriptor, bool>? MatchesFacts = null);
+    string? OriginalExtension, IReadOnlyList<string> ProfileVersions, Func<RomContentDescriptor, bool>? MatchesFacts = null,
+    Func<RomRepresentationFacts, bool>? MatchesLayout = null, string? CdBootProfile = null);
 
 /// <summary>
 ///     Every registered media kind plus the opaque fallback, which claims everything else and stores originals.

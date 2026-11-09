@@ -10,16 +10,18 @@ public sealed record ChdCdRetainedTrack(int Number, long FirstFrame, int Frames,
 public sealed record ChdCdRetainedRequest(string Profile, string ArtifactSha256, long ArtifactBytes,
     long LogicalFrames, uint HunkBytes, IReadOnlyList<uint> Codecs, string RawSha1, string OverallSha1,
     IReadOnlyList<ChdCdRetainedTrack> Tracks, IReadOnlyList<ChdCdMemberVerification> Members,
-    IReadOnlyList<ChdCdSourceFile> StoredFiles, Ps1CdObservedFacts? Boot)
+    IReadOnlyList<ChdCdSourceFile> StoredFiles, Ps1CdObservedFacts? Boot, SaturnCdObservedFacts? SaturnBoot = null)
 {
     public const string CurrentProfile = "chd-cd-retained-files/v2";
+    [System.Text.Json.Serialization.JsonIgnore]
+    public CdBootObservation ObservedBoot => new(Boot, SaturnBoot);
     public void Validate()
     {
         if (Profile != CurrentProfile || !ChdCdJson.Hash(ArtifactSha256, 64) || ArtifactBytes is < 124 or > ChdCdLimits.MaximumArtifactBytes ||
             LogicalFrames is < 1 or > ChdCdLimits.MaximumFrames || HunkBytes is < 2448 or > ChdCdLimits.MaximumHunkBytes || HunkBytes % 2448 != 0 ||
             Codecs is not { Count: 4 } || !ChdCdJson.Hash(RawSha1, 40) || !ChdCdJson.Hash(OverallSha1, 40) ||
             Tracks is not { Count: >= 1 and <= 99 } || Members is not { Count: >= 2 and <= 116 } || StoredFiles is not { Count: >= 1 and <= 17 } ||
-            Boot is not null && !Ps1CdIdentifier.Valid(Boot))
+            !ObservedBoot.Valid)
             throw new InvalidDataException("Incomplete retained CD request.");
         long next = 0;
         for (int i = 0; i < Tracks.Count; i++)
@@ -49,16 +51,16 @@ public sealed record ChdCdRetainedRequest(string Profile, string ArtifactSha256,
     private static bool Valid(ChdCdFileHashes? h) => h is not null && h.Bytes is >= 1 and <= 1058400000 &&
         ChdCdJson.Hash(h.Sha256, 64) && ChdCdJson.Hash(h.Sha1, 40) && ChdCdJson.Hash(h.Md5, 32) && ChdCdJson.Hash(h.Crc32, 8);
 
-    public bool MatchesBoot(Ps1CdObservedFacts? observed) => Boot is null || Boot == observed;
+    public bool MatchesBoot(Ps1CdObservedFacts? observed) => MatchesBoot(new CdBootObservation(observed, null));
+    public bool MatchesBoot(CdBootObservation observed) => observed.Valid && (ObservedBoot.Profile is null || ObservedBoot == observed);
 
-    public bool MatchesVerification(ChdCdVerification proof) => proof.Profile == CurrentProfile && MatchesBoot(proof.Ps1Boot) &&
-        (proof.Ps1Boot is null || Ps1CdIdentifier.Valid(proof.Ps1Boot)) &&
+    public bool MatchesVerification(ChdCdVerification proof) => proof.Profile == CurrentProfile && MatchesBoot(proof.ObservedBoot) &&
         proof.Members is not null && proof.Members.Count == Members.Count && proof.Members.Zip(Members).All(pair =>
             pair.First is { } actual && actual.Name == pair.Second.Name && actual.Role == pair.Second.Role &&
             actual.Original == pair.Second.Original && actual.Reconstructed == pair.Second.Reconstructed &&
             actual.Tracks is not null && actual.Tracks.SequenceEqual(pair.Second.Tracks));
 
-    public bool Matches(ChdCdInspection inspection) => MatchesBoot(inspection.Ps1Boot) && inspection.ArtifactSha256 == ArtifactSha256 &&
+    public bool Matches(ChdCdInspection inspection) => MatchesBoot(inspection.ObservedBoot) && inspection.ArtifactSha256 == ArtifactSha256 &&
         inspection.Header.ArtifactBytes == ArtifactBytes && inspection.Header.LogicalBytes == (ulong)LogicalFrames * 2448 &&
         inspection.Header.HunkBytes == HunkBytes && Codecs.SequenceEqual(new[] { inspection.Header.Codec0, inspection.Header.Codec1, inspection.Header.Codec2, inspection.Header.Codec3 }) &&
         inspection.StoredRawSha1 == RawSha1 && inspection.ComputedRawSha1 == RawSha1 &&
@@ -112,7 +114,7 @@ public static class ChdCdRetainedVerificationService
             if (!spec.Matches(result.Inspection))
                 throw new InvalidDataException("Retained CD geometry or integrity changed.");
             await using var pool = new ChdReadPool(new MediaBlockCache(8 << 20), 1, 1);
-            Ps1CdObservedFacts? boot = null;
+            CdBootObservation boot = default;
             List<ChdCdMemberVerification> measuredMembers = [];
             foreach (var member in spec.Members.Where(m => m.Role == "bin"))
             {
@@ -124,10 +126,10 @@ public static class ChdCdRetainedVerificationService
                     return new(MediaWorkerStatus.Malformed, Failure: new(ChdCdJobCause.ReconstructionMismatch));
                 measuredMembers.Add(new(member.Name, member.Role, member.Tracks, member.Original, measured));
                 if (member.Tracks[0] == 1)
-                    boot = Ps1CdIdentifier.Inspect(new SynchronousView(bin), cue.TrackTypes[0], cue.FirstTrackIndex01, spec.Tracks.Sum(t => (long)t.Frames), ct);
+                    boot = CdBootObservation.Inspect(new SynchronousView(bin), cue.TrackTypes[0], cue.FirstTrackIndex01, spec.Tracks.Sum(t => (long)t.Frames), ct);
             }
-            if (!spec.MatchesBoot(boot) || boot != result.Inspection.Ps1Boot)
-                throw new InvalidDataException("Retained PS1 boot observation changed or disagrees with verified native bytes.");
+            if (!spec.MatchesBoot(boot) || boot != result.Inspection.ObservedBoot)
+                throw new InvalidDataException("Retained CD boot observation changed or disagrees with verified native bytes.");
             foreach (var file in spec.StoredFiles)
             {
                 var expected = spec.Members.Single(m => m.Name == file.Name).Original;
@@ -143,7 +145,8 @@ public static class ChdCdRetainedVerificationService
             using var finalRequest = new ChdCdRawFile(requestPath);
             if (finalRequest.Length != requestBytes || (await ChdCdHashing.MeasureAsync(finalRequest, ct)).Sha256 != requestSha256)
                 throw new InvalidDataException("Retained request changed during verification.");
-            return new(MediaWorkerStatus.Inspected, new(ChdCdRetainedRequest.CurrentProfile, requestSha256, spec.Members.Select(m => measuredMembers.Single(actual => actual.Name == m.Name)).ToArray(), boot), result.Inspection, result.NativeIdentity);
+            return new(MediaWorkerStatus.Inspected, new(ChdCdRetainedRequest.CurrentProfile, requestSha256,
+                spec.Members.Select(m => measuredMembers.Single(actual => actual.Name == m.Name)).ToArray(), boot.Ps1, boot.Saturn), result.Inspection, result.NativeIdentity);
         }
         catch (Exception e) when (e is ArgumentException or JsonException or InvalidDataException or OverflowException)
         { return new(MediaWorkerStatus.Malformed, Failure: new(ChdCdJobCause.InvalidInput)); }

@@ -8,6 +8,13 @@ namespace Romd.Media.PlayStation;
 public static class ChdCdEncodingRecipe
 {
     public const string Id = "chd-ps1-canonical/v1";
+    public const string SaturnId = "chd-saturn-canonical/v1";
+    public static string ForBoot(string? profile) => profile switch
+    {
+        null or Ps1CdIdentifier.Profile => Id,
+        SaturnCdIdentifier.Profile => SaturnId,
+        _ => throw new InvalidDataException("Unregistered CD boot profile.")
+    };
     public const uint HunkBytes = 39168;
     public const uint Codec = 0x63647a73; // cdzs
     public const uint Codec1 = 0x6364666c; // cdfl
@@ -49,7 +56,7 @@ public static class ChdCdEncodingService
                 return Reject(MediaWorkerStatus.Unsupported, ChdCdJobCause.UnsupportedHost);
             if (admissionDescriptor < 0 || priorityKind != "unix-nice" || priorityValue is < 10 or > 19)
                 return Reject(MediaWorkerStatus.IoFailure, ChdCdJobCause.ToolRejected, ChdDvdEncodingCause.ToolPriorityMismatch);
-            var ps1 = sources.IdentifyRequiredBoot(ct);
+            var boot = sources.IdentifyRequiredBoot(ct);
             var identity = candidate.Verify(ct);
             var expectation = ChdmanToolRunner.CurrentExpectation();
             if (expectation.Nice != priorityValue)
@@ -71,7 +78,8 @@ public static class ChdCdEncodingService
             if (preflight is not ChdHeaderPreflightResult.Accepted accepted || !ChdCdEncodingRecipe.Matches(accepted.Facts))
                 return new(MediaWorkerStatus.Malformed, Tool: identity, Diagnostics: tool.Diagnostics, Failure: new(ChdCdJobCause.OutputRejected));
             var measured = await ChdCdHashing.MeasureAsync(output, ct);
-            return new(MediaWorkerStatus.Encoded, new(requestSha256, requestBytes, measured, accepted.Facts, ChdCdEncodingRecipe.Id, priorityKind, priorityValue, ps1), identity, tool.Diagnostics);
+            return new(MediaWorkerStatus.Encoded, new(requestSha256, requestBytes, measured, accepted.Facts,
+                ChdCdEncodingRecipe.ForBoot(sources.Request.RequiredBootProfile), priorityKind, priorityValue, boot.Ps1, boot.Saturn), identity, tool.Diagnostics);
         }
         catch (ChdCdSourceException error) { return Reject(error.Cause == ChdCdJobCause.UnsupportedMedia ? MediaWorkerStatus.Unsupported : MediaWorkerStatus.Malformed, error.Cause); }
         catch (ChdmanCandidateException) { return Reject(MediaWorkerStatus.IoFailure, ChdCdJobCause.CandidateRejected); }

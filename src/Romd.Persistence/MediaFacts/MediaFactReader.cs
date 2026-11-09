@@ -162,16 +162,29 @@ public sealed class MediaFactReader(RomdDbContext context) : IMediaFactReader
         public Guid VerificationId { get; init; }
         public string InspectorBuild { get; init; } = ""; public string Profile { get; init; } = ""; public long ObservedAtUtcTicks { get; init; }
         public long FirstTrackIndex01 { get; init; }
-        public long VolumeBlocks { get; init; }
-        public long RootBlock { get; init; }
-        public long RootBytes { get; init; }
-        public string BootPath { get; init; } = ""; public long BootBlock { get; init; }
-        public long BootBytes { get; init; }
-        public long EntryPoint { get; init; }
-        public long LoadAddress { get; init; }
-        public long LoadBytes { get; init; }
-        public RomPs1CdBoot Boot() => new(Profile, FirstTrackIndex01, checked((uint)VolumeBlocks), checked((uint)RootBlock), checked((uint)RootBytes), BootPath,
-            checked((uint)BootBlock), checked((uint)BootBytes), checked((uint)EntryPoint), checked((uint)LoadAddress), checked((uint)LoadBytes));
+        public long? VolumeBlocks { get; init; }
+        public long? RootBlock { get; init; }
+        public long? RootBytes { get; init; }
+        public string? BootPath { get; init; }
+        public long? BootBlock { get; init; }
+        public long? BootBytes { get; init; }
+        public long? EntryPoint { get; init; }
+        public long? LoadAddress { get; init; }
+        public long? LoadBytes { get; init; }
+        public string? SaturnProductCode { get; init; }
+        public string? SaturnAreaSymbols { get; init; }
+        public long? SaturnInitialProgramBytes { get; init; }
+        public byte[]? SaturnHeaderSha256 { get; init; }
+        public RomCdBoot Boot() => Profile switch
+        {
+            RomPs1CdBoot.CurrentProfile => new RomPs1CdBoot(Profile, FirstTrackIndex01, U32(VolumeBlocks), U32(RootBlock), U32(RootBytes),
+                BootPath ?? throw new InvalidDataException("Missing PS1 boot path."), U32(BootBlock), U32(BootBytes), U32(EntryPoint), U32(LoadAddress), U32(LoadBytes)),
+            RomSaturnCdBoot.CurrentProfile => new RomSaturnCdBoot(Profile, FirstTrackIndex01,
+                SaturnProductCode ?? throw new InvalidDataException("Missing Saturn product code."),
+                SaturnAreaSymbols ?? throw new InvalidDataException("Missing Saturn area symbols."), U32(SaturnInitialProgramBytes), Sha256.FromSpan(SaturnHeaderSha256 ?? [])),
+            _ => throw new InvalidDataException("Unregistered CD boot profile.")
+        };
+        private static uint U32(long? value) => checked((uint)(value ?? throw new InvalidDataException("Missing CD boot observation.")));
     }
     private sealed class CreationRow
     {

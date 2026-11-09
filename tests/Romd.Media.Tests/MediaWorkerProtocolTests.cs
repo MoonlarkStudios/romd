@@ -542,7 +542,7 @@ public sealed class MediaWorkerProtocolTests
         parsed.ShouldBe(ValidEncoding);
         parsed!.Inspection.ShouldBeNull();
         parsed.IsoInspection.ShouldBeNull();
-        MediaWorkerProtocol.Version.ShouldBe("romd-media/v12");
+        MediaWorkerProtocol.Version.ShouldBe("romd-media/v13");
     }
 
     [Theory]

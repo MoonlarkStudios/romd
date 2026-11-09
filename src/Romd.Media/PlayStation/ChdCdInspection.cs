@@ -16,7 +16,11 @@ public sealed record ChdCdMetadataInspection(uint Tag, byte Flags, string Payloa
 public sealed record ChdCdInspection(string Profile, string ProjectionProfile, string ArtifactSha256,
     uint Version, bool HasParent, ChdHeaderFacts Header, string StoredRawSha1, string ComputedRawSha1,
     string StoredOverallSha1, string ComputedOverallSha1, IReadOnlyList<ChdCdTrackInspection> Tracks, IReadOnlyList<ChdCdMetadataInspection> Metadata,
-    Ps1CdObservedFacts? Ps1Boot);
+    Ps1CdObservedFacts? Ps1Boot, SaturnCdObservedFacts? SaturnBoot = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    public CdBootObservation ObservedBoot => new(Ps1Boot, SaturnBoot);
+}
 
 /// <summary>Inspection bounds, not a storage recipe or platform qualification.</summary>
 public static class ChdCdLimits

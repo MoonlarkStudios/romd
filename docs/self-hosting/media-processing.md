@@ -35,7 +35,7 @@ checks the applied priority, then returns only measured artifact
 SHA-256/MD5/SHA-1, length, container parameters, recipe and encoder build.
 Encoding success supplies no verification or source-equivalence evidence; a
 separate child must fully decode the output. The strict protocol is
-`romd-media/v12`, including independently captured RVZ header parameters, joined
+`romd-media/v13`, including independently captured RVZ header parameters, joined
 tool CPU accounting, the inspected disc kind for ISO and RVZ sources and separate
 measured PS2 boot and PSP UMD observations. An RVZ reply requires its typed parameters;
 missing facts and contradictory header/kind observations are rejected.
@@ -245,9 +245,9 @@ Recipe comparisons and read-load results are maintained in
 [media status](../architecture/media-status.md#ps1-cd).
 
 The bounded [CHD re-verification campaign](#chd-decoder-re-verification)
-includes retained production PS1 archives on Linux x64. It reconstructs every
+includes retained production PS1 and Saturn archives on Linux x64. It reconstructs every
 whole BIN from the CHD, checks all recorded hashes, container geometry/integrity,
-retained CUE/sidecars and a fresh PS1 boot observation, then appends a proof bound
+retained CUE/sidecars and a fresh observation of the disc's boot profile, then appends a proof bound
 to the exact immutable creation manifest and current decoder. Original BINs are
 not required. Member and whole-container reads remain closed on a new tuple until
 that proof commits. Native ARM64 qualification and runtime launch/gameplay
@@ -258,15 +258,40 @@ in [media status](../architecture/media-status.md#qualification-status). Re-run
 the gate for changed decoder builds; the procedure above does not transfer an
 old qualification to new inputs.
 
+## Saturn original-disc compression
+
+Complete Saturn CUE/BIN layouts use the same fenced publication, whole-member
+verification and source-custody protocol as [PS1](#ps1-original-disc-compression),
+with explicit conversion through **Disc layouts → Compress to CHD**. Catalog
+matching resolves the layout's own platform before choosing its recipe. Pending
+layouts must match exactly one complete current release across the registered CD
+platforms; accepted layouts must still match their pinned release.
+
+The separate `chd-saturn-canonical/v1` recipe uses `cdzs,cdfl`, 39,168-byte hunks
+and one processor. Its encoder and independent verifier require
+`saturn-cd-ip/v1`: a raw MODE1 first track with the Saturn hardware identifier,
+bounded initial-program size, product code and area symbols. The header digest
+and extents are retained as Saturn observations, never PS1 executable facts.
+Required sidecars and unsupported track layouts retain their originals.
+
+Saturn is OnRequest pending real-disc recipe/load qualification. The shared
+multi-disc ZIP path can select one verified CHD for each eligible disc and retain
+original layouts for the rest, with an ordered M3U. Original CUEs remain exact.
+No Saturn native-runtime or gameplay claim is registered. Qualification and
+activation limits live in [media status](../architecture/media-status.md).
+
 ## CD inspection and compressed-only uploads
 
 The `chd-cd-inspection/v2` measurement also attempts bounded PS1 root-executable
+or Saturn initial-program
 recognition directly from the first raw data track, using observed track type
 and stored pregap. No CUE, DAT or original BIN is required. A positive observation
 caches at most 512 sectors and checks them against the same full hunk pass whose
 integrity hashes are verified; contradictory native reads refuse the measurement.
-Boot facts have a 1 KiB wire bound; full filesystem extents must fit both the
+Boot facts have a 1 KiB wire bound. PS1 filesystem extents must fit both the
 declared volume and the first track, and executable entry points must be aligned.
+Saturn initial-program extents must fit the first MODE1 track. Both positive
+families in one measurement are refused.
 A missing observation means this bounded recognizer did not establish a supported
 root boot layout. It supplies neither a catalog match nor a gameplay claim.
 
@@ -462,9 +487,9 @@ match in full before any archive manifest can be constructed. Original CUE and
 sidecars receive their own measured identities and remain retained artifacts.
 The encoder cannot produce this verification proof.
 
-These jobs use a distinct strict `romd-media-cd/v4` envelope, at most 512 KiB,
+These jobs use a distinct strict `romd-media-cd/v5` envelope, at most 512 KiB,
 with mutually exclusive encoding, verification or closed failure variants.
-CD inspection includes a required nullable raw PS1 boot observation. A required
+CD inspection includes separate nullable PS1 and Saturn boot observations. A required
 original boot comparison must agree with that native observation. Retained-file
 verification uses `chd-cd-retained-files/v2`: its boot field is required but nullable.
 Every prior positive observation must match; an absent observation can gain a new
@@ -687,7 +712,8 @@ The worker compares current immutable media facts with the registered kind's
 recipe, conversion mode and available capabilities. Kind is computed from
 facts; catalog platform labels do not establish physical media or encoding
 authority. GameCube/Wii use `rvz-canonical/v1`, PS2 DVD uses
-`chd-dvd-canonical/v2`, and PS1 CD uses `chd-ps1-canonical/v1`.
+`chd-dvd-canonical/v2`, PS1 CD uses `chd-ps1-canonical/v1`, and Saturn CD uses
+`chd-saturn-canonical/v1`.
 An invalid kind or encoding registration fails startup.
 
 Import publication, newly retained observations and PS2 reference arrivals stage

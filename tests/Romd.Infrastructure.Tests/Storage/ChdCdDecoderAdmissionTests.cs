@@ -201,6 +201,21 @@ public sealed class ChdCdDecoderAdmissionTests
     }
 
     [Fact]
+    public void AssessCd_AnotherCdKindIsUnqualified_DoesNotBlockTheMeasuredFamily()
+    {
+        var fixture = Create();
+        var media = RomMediaPolicyComposition.Create(RomMediaPolicyComposition.Registrations.Select(kind =>
+            kind.Kind == "saturn-cd-set" ? kind with { QualifiedRuntime = "linux-arm64" } : kind).ToArray());
+        var capabilities = new MediaHostCapabilities(() => fixture.Native, () => null, media, encodes: false);
+        capabilities.CanDecode("saturn-cd-set").ShouldBeFalse();
+        capabilities.CanDecode("ps1-cd-set").ShouldBeTrue();
+        var admission = new ChdDeliveryAdmission(() => true, () => new("/synthetic/cd-native", fixture.Native), () => { },
+            _ => fixture.Native, capabilities, media.Kinds);
+
+        admission.AssessCd(fixture.Member).ShouldBe(ChdBuildEvidence.Decoder(fixture.Native));
+    }
+
+    [Fact]
     public async Task ReadPaths_CdMemberArchiveAndDvd_AskDecodeCapabilityButNeverEncode()
     {
         var fixture = Create();

@@ -280,7 +280,7 @@ public static class DependencyInjection
         services.AddSingleton(media.Registry);
         services.AddSingleton(media.Reconciliation);
         services.AddSingleton(RomEncodingComposition.CreateRegistry());
-        services.AddSingleton(media.CdRecipe ?? throw new InvalidOperationException("The media composition registers no CD track kind."));
+        services.AddSingleton(media.CdRecipes);
         services.AddScoped<IRomCdDescriptorIdentityReader, RomCdDescriptorIdentityReader>();
         services.AddSingleton<IArchiveExtractor, ZipArchiveExtractor>();
         services.AddSingleton<IArchiveExtractor, SevenZipArchiveExtractor>();

@@ -23,6 +23,11 @@ public sealed class RomMediaVerificationCdTests : IDisposable
 {
     private readonly string _root = Directory.CreateTempSubdirectory("romd-retained-cd-").FullName;
     [LinuxEncodingTheory]
+    [InlineData(false, 0, "valid", true)]
+    [InlineData(true, 150, "valid", true)]
+    [InlineData(true, 0, "new-boot", true)]
+    [InlineData(true, 0, "wrong-family", true)]
+    [InlineData(true, 0, "wrong-family")]
     [InlineData(false, 0, "valid")]
     [InlineData(true, 150, "valid")]
     [InlineData(true, 0, "new-boot")]
@@ -37,7 +42,7 @@ public sealed class RomMediaVerificationCdTests : IDisposable
     [InlineData(true, 0, "custody-throw")]
     [InlineData(true, 0, "custody-cancel")]
     [InlineData(true, 0, "stopped-cancel")]
-    public async Task VerifyAsync_RetainedArchiveWithoutOriginalBins_MeasuresWholeMembersAndRejectsContradictions(bool multipleBins, int pregap, string mutation)
+    public async Task VerifyAsync_RetainedArchiveWithoutOriginalBins_MeasuresWholeMembersAndRejectsContradictions(bool multipleBins, int pregap, string mutation, bool saturn = false)
     {
         using var fixture = new MediaWorkerTestFixture();
         var options = Substitute.For<IRomdOptions>();
@@ -49,7 +54,7 @@ public sealed class RomMediaVerificationCdTests : IDisposable
             chdCandidate: ChdNativeCandidate.FromBuildRecord(NativeTestBuilds.LibchdrDirectory));
         var tool = ChdmanCandidate.FromBuildRecord(NativeTestBuilds.ChdmanDirectory);
         bool absentBoot = mutation.StartsWith("absent-boot", StringComparison.Ordinal);
-        byte[] image = SyntheticPs1Cd.Image();
+        byte[] image = saturn ? SyntheticSaturnCd.Image() : SyntheticPs1Cd.Image();
         if (absentBoot)
             image.AsSpan(26 * 2048, 8).Clear(); // Exact bytes remain reconstructible, without a recognized executable.
         byte[] data = SyntheticPs1Cd.ToRaw(image, pregap: pregap);
@@ -70,11 +75,20 @@ public sealed class RomMediaVerificationCdTests : IDisposable
             bins.Add("audio.bin", await Stage(audio));
         var sidecar = await Stage(sidecarBytes);
         var workflow = new ChdCdArchiveWorkflow(factory, supervisor, TimeProvider.System);
-        await using var prepared = await workflow.PrepareAsync("disc.cue", cue, bins, new Dictionary<string, ITempFile> { ["disc.sbi"] = sidecar }, requiredBootProfile: absentBoot ? null : Ps1CdIdentifier.Profile);
+        await using var prepared = await workflow.PrepareAsync("disc.cue", cue, bins, new Dictionary<string, ITempFile> { ["disc.sbi"] = sidecar },
+            requiredBootProfile: absentBoot ? null : saturn != (mutation == "wrong-family") ? SaturnCdIdentifier.Profile : Ps1CdIdentifier.Profile);
+        if (mutation == "wrong-family")
+        {
+            await Should.ThrowAsync<RomCdWorkerFailureException>(() => workflow.EncodeAsync(prepared, tool, 2 << 20));
+            workflow.ProcessTreeStopped.ShouldBeTrue();
+            foreach (var original in originals)
+                await original.DisposeAsync();
+            return;
+        }
         await using var encoded = await workflow.EncodeAsync(prepared, tool, 2 << 20);
-        var observed = encoded.VerificationRun.Reply!.CdVerification!.Ps1Boot;
-        (observed is null).ShouldBe(absentBoot);
-        encoded.VerificationRun.Reply.CdInspection!.Ps1Boot.ShouldBe(observed);
+        var observed = encoded.VerificationRun.Reply!.CdVerification!.ObservedBoot;
+        (observed.Profile is null).ShouldBe(absentBoot);
+        encoded.VerificationRun.Reply.CdInspection!.ObservedBoot.ShouldBe(observed);
         if (mutation is "valid" or "new-boot" or "absent-boot")
         {
             // This child receives only the CHD, with no source request, original CUE/BINs or catalog.
@@ -82,17 +96,16 @@ public sealed class RomMediaVerificationCdTests : IDisposable
             raw.IsSuccess.ShouldBeTrue(raw.Failure?.ToString());
             raw.ProcessTreeStopped.ShouldBeTrue();
             raw.Reply!.CdVerification.ShouldBeNull();
-            raw.Reply.CdInspection!.Ps1Boot.ShouldBe(observed);
+            raw.Reply.CdInspection!.ObservedBoot.ShouldBe(observed);
             MediaWorkerTestFixture.IsRunning(raw.Execution!.ProcessId).ShouldBeFalse();
         }
         var measured = encoded.Measured;
         var layout = measured.Manifest.ShouldBeOfType<RomReconstructionManifest.CdTracks>();
-        var boot = observed is null ? null : new RomPs1CdBoot(observed.Profile, observed.FirstTrackIndex01, observed.VolumeBlocks, observed.RootBlock, observed.RootBytes, observed.BootPath,
-            observed.BootBlock, observed.BootBytes, observed.EntryPoint, observed.LoadAddress, observed.LoadBytes);
+        var boot = RomCdMeasurementMapper.MapBoot(observed);
         if (mutation == "boot")
         {
-            var positive = boot.ShouldNotBeNull();
-            boot = new(positive.Profile, positive.FirstTrackIndex01, positive.VolumeBlocks, positive.RootBlock, positive.RootBytes, "OTHER.EXE;1", positive.BootBlock, positive.BootBytes, positive.EntryPoint, positive.LoadAddress, positive.LoadBytes);
+            var positive = boot.ShouldBeOfType<RomPs1CdBoot>();
+            boot = new RomPs1CdBoot(positive.Profile, positive.FirstTrackIndex01, positive.VolumeBlocks, positive.RootBlock, positive.RootBytes, "OTHER.EXE;1", positive.BootBlock, positive.BootBytes, positive.EntryPoint, positive.LoadAddress, positive.LoadBytes);
         }
         var members = layout.Members.ToArray();
         if (mutation.EndsWith("member", StringComparison.Ordinal))

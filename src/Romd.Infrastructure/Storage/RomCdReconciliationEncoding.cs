@@ -127,7 +127,7 @@ public sealed class RomCdReconciliationEncoding
                 var stored = _originals.Stored;
                 var workflow = new ChdCdArchiveWorkflow(_staging, _supervisor, _clock);
                 var cue = _originals.Cue;
-                _prepared = await workflow.PrepareAsync(cue.Key, cue.Value, _originals.Bins, _originals.Sidecars, ct, Ps1CdIdentifier.Profile);
+                _prepared = await workflow.PrepareAsync(cue.Key, cue.Value, _originals.Bins, _originals.Sidecars, ct, _recipe.BootProfile);
                 ct.ThrowIfCancellationRequested();
                 stopped = false;
                 try
@@ -141,17 +141,17 @@ public sealed class RomCdReconciliationEncoding
                 stopped = workflow.ProcessTreeStopped && _processing.ProcessesStopped;
                 if (!stopped)
                     return RomMediaVerificationErrors.Custody;
-                if (_encoded.EncodingRun.Reply?.CdEncoding is not { Ps1Boot: { } } receipt || _encoded.EncodingRun.Reply.ToolIdentity is not { } toolIdentity ||
-                    _encoded.VerificationRun.Reply?.CdVerification?.Ps1Boot != receipt.Ps1Boot || !_recipe.Matches(_encoded.Measured) ||
+                if (_encoded.EncodingRun.Reply?.CdEncoding is not { } receipt || receipt.ObservedBoot.Profile != _recipe.BootProfile ||
+                    _encoded.EncodingRun.Reply.ToolIdentity is not { } toolIdentity ||
+                    _encoded.VerificationRun.Reply?.CdVerification?.ObservedBoot != receipt.ObservedBoot || !_recipe.Matches(_encoded.Measured) ||
                     !_policy.MatchesParameters(_encoded.Measured.Container) || !_encoded.Measured.Measurement.Decoder.Equals(_attempt.Capture.Decoder))
                     return MediaReconciliationErrors.Measurement;
                 if (_encoded.Measured.Manifest is not RomReconstructionManifest.CdTracks manifest || manifest.Members.Count != _inputs.Count ||
                     !_attempt.Capture.Sources.MatchesOriginals(manifest))
                     return MediaReconciliationErrors.Measurement;
-                var boot = receipt.Ps1Boot;
                 var observed = new RomCdEncodingObservation(_encoded.Measured, RecipeId.Parse(receipt.Recipe), ChdBuildEvidence.Encoder(toolIdentity),
                     Sha256.Parse(receipt.RequestSha256), receipt.RequestBytes, _encoded.VerificationRun.Reply!.Identity.DecoderBuild,
-                    new(boot.Profile, boot.FirstTrackIndex01, boot.VolumeBlocks, boot.RootBlock, boot.RootBytes, boot.BootPath, boot.BootBlock, boot.BootBytes, boot.EntryPoint, boot.LoadAddress, boot.LoadBytes));
+                    RomCdMeasurementMapper.MapBoot(receipt.ObservedBoot)!);
                 if (observed.Recipe != _attempt.Capture.Identity.Recipe || observed.Encoder.BuildLabel != _attempt.Capture.EncoderBuild)
                     return MediaReconciliationErrors.Measurement;
                 return new MediaReconciliationEncoded.Cd(_encoded.Artifact, _encoded.ArtifactMeasurement, _encoded.Measured, observed, stored, _clock.GetUtcNow());

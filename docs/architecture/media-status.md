@@ -17,7 +17,7 @@ path. Raw receipts, fixture identities and credentials stay in private evidence.
 - One fresh guarded PostgreSQL baseline with additive PSP observations, immutable
   reconstruction graphs, retained decoder measurements and one reconciliation
   family. Unmeasured holdings do not authorize bytes.
-- Whole-file GameCube/Wii RVZ and PS2 DVD/PSP UMD CHD; complete PS1 CD-track CHD.
+- Whole-file GameCube/Wii RVZ and PS2 DVD/PSP UMD CHD; complete PS1/Saturn CD-track CHD.
   Current kind policy controls Automatic reconciliation. Kind, eligibility and
   canonical status are derived from facts rather than persisted decisions.
 - Worker-only supervised inspection/encoding, separate verification, durable
@@ -28,8 +28,8 @@ path. Raw receipts, fixture identities and credentials stay in private evidence.
 - Compressed-only CD intake, DAT-exact or explicitly Derived CUEs, verified original
   CUE adoption, published disc-set snapshots and explicit partial-install consent.
 
-Not implemented: PS2 CD compression, a second CD-track kind's per-layout recipe
-routing, GDI/folder-tree reconstruction, MAME dependency media, coordinated limits
+Not implemented: PS2 CD compression, Saturn automatic conversion,
+GDI/folder-tree reconstruction, MAME dependency media, coordinated limits
 across every upload/archive/cache workspace, the delivery cache and multi-arch
 release images. New manifest families need their own contracts and qualification.
 
@@ -43,6 +43,7 @@ release images. New manifest families need their own contracts and qualification
 | Container recovery | Stock PID-1 worker, synthetic 1-GiB PS2 image, active chdman output, SIGKILL/recreation, ordinary lease recovery, released holds and both-format hashes on rootless Docker/Linux x64 (2026-10-19) | Synthetic containment/recovery evidence does not substitute for real discs, another RID or a published-bundle installation. |
 | PS1 CD storage and retained upgrades | Linux x64: three data-only and one 14-track mixed data/audio original set, exact 17-BIN reconstruction and unchanged CUEs; native recipe-2 encode/recovery and recipe-1 retained upgrade/recovery with complete hashes (2026-10-19–20) | Raw 2352-byte tracks and stored pregaps; virtual-pregap/subcode originals, native ARM64, emulator/gameplay and broader layouts remain unqualified. Later shared-BIN/correction paths have PostgreSQL/unit coverage beyond the earlier Compose drill. |
 | PS1 CUE regeneration | Three single-track MODE2 controls and two mixed data/audio inputs (20/57 tracks, 19/56 stored pregaps): 5/5 regenerated CUEs matched authenticated references byte for byte | One BIN per track; no population-wide match rate or real shared-BIN/multi-track-per-file qualification. |
+| Saturn CD storage and disc sets | Implemented distinct IP observations, per-layout recipes, explicit complete-disc conversion and the shared ordered ZIP/M3U delivery path; generated native and PostgreSQL cases cover the implementation | Real-disc recipe comparison, storage/load measurement, native ARM64, emulator launch, disc switching and shared saves remain unqualified. PS1 measurements do not qualify Saturn or enable Automatic. |
 | PS1 read/install capacity | The scoped loopback/FIFO and full-host runs below passed with bounded decoder/cache/queue accounting and native cleanup. Automatic was accepted after the mixed-track workload (2026-11-02). | One Linux x64 machine, warm uncontrolled caches; no whole-host memory bound, preemption of active transfers, generalized starvation freedom, simultaneous conversion throughput, packaged ingress, WAN or gameplay claim. |
 | PSP UMD CHD | Linux x64: five independently DAT-matched game ISOs, supervised source inspection, encoding, separate full-hash verification and exact random/boundary/sequential reads after staging disposal. Generated production-reconciliation fixtures cover re-encoding, publication and injected rollback/replay/deadlock/cancellation (2026-11-02). | Real-disc probe used isolated CAS/supervised children. Full-host PSP intake, authenticated HTTP/console delivery, native ARM64, launch and gameplay remain unqualified. No PSP native-runtime claim is registered. |
 | Disc sets, ZIP delivery and console acquisition | Source contracts cover ordered published selections, original/Derived provenance, dependency closure, partial consent, scoped grants, strict parsing, durable install/repair and direct-emulator ZIPs with per-disc CHD/original selection and byte verification | External-emulator gameplay remains unqualified. Production console group playback remains gated on actual disc switching and shared-save acceptance. Native desktop login/secure-store behavior is not established by Flutter test-engine installer runs. |

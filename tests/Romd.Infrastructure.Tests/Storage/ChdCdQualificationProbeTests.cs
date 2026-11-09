@@ -226,7 +226,7 @@ public sealed class ChdCdQualificationProbeTests
                 read.Decoder.Options.MaxIdle.ShouldBe(2);
                 read.Decoder.Options.CacheBytes.ShouldBe(64L << 20);
                 var target = RomDeliveryPlanner.Plan(content, "track.bin", media.DeliveryPolicy,
-                    MediaKindResolver.Resolve(media.Kinds, content, media.CdRecipe!.PlatformKeys), read.Admission)
+                    MediaKindResolver.Resolve(media.Kinds, content, media.CdRecipes.ForKind("ps1-cd-set")!.PlatformKeys), read.Admission)
                     .Single(option => option.Format == RomDeliveryFormat.Original).Target.ShouldNotBeNull();
                 var readCatalog = new ProbeCatalog(readDatabase.CreateOptions());
                 var parallelSnapshots = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => readCatalog.FindByRomIdAsync(member.RomId)));

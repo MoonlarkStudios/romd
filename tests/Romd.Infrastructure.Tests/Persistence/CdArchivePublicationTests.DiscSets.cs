@@ -27,9 +27,17 @@ namespace Romd.Infrastructure.Tests.Persistence;
 
 public sealed partial class CdArchivePublicationTests
 {
-    [Fact]
-    public async Task DiscSetDownload_PublishedChdAndOriginalDisc_BindsArchivesInsideAllMemberAuthorizationSnapshot()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiscSetDownload_PublishedChdAndOriginalDisc_BindsArchivesInsideAllMemberAuthorizationSnapshot(bool saturn)
     {
+        if (saturn)
+        {
+            _saturn = true;
+            await using var setup = database.CreateContext();
+            await setup.Platforms.ExecuteUpdateAsync(row => row.SetProperty(platform => platform.CanonicalKey, "saturn").SetProperty(platform => platform.ShortName, "saturn"));
+        }
         await SeedSecondReleaseAsync();
         await Publish();
         await Decide(1, "confirm");
@@ -69,6 +77,7 @@ public sealed partial class CdArchivePublicationTests
         status.Discs.ShouldAllBe(x => x.Readiness == "ready" && x.CdArchive == null);
         var download = (await reader.ReadForDownloadAsync(new(actor), 1, default)).ShouldBeOfType<ConsumerLibraryReadResult<ConsumerDiscSetPlan>.Found>().Value;
         download.Discs.Select(x => x.Ordinal).ShouldBe([1, 2]);
+        download.Discs.ShouldAllBe(disc => disc.Release.PlatformShortName == (saturn ? "saturn" : "psx"));
         download.Discs[0].CdArchive.ShouldNotBeNull().LayoutId.ShouldBe(1);
         download.Discs[1].CdArchive.ShouldBeNull();
         download.Discs.ShouldAllBe(x => x.Readiness == "ready");

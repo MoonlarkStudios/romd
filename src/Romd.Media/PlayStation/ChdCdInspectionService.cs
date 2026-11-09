@@ -102,7 +102,7 @@ public static partial class ChdCdInspectionService
                 return Reject(MediaWorkerStatus.Malformed, ChdRejectionStage.Integrity, "DecodedMetadataMismatch");
 
             using var bootSource = new BootTrack(image, tracks[0].Frames, ct);
-            var boot = Ps1CdIdentifier.Inspect(bootSource, tracks[0].Type,
+            var boot = CdBootObservation.Inspect(bootSource, tracks[0].Type,
                 tracks[0].PregapStored ? tracks[0].PregapFrames : 0, tracks.Sum(track => (long)track.Frames), ct);
 
             using var rawSha1 = IncrementalHash.CreateHash(HashAlgorithmName.SHA1);
@@ -130,7 +130,7 @@ public static partial class ChdCdInspectionService
                         if (firstFrame < layout.FirstFrame)
                             continue; // CHD-only alignment between tracks.
                         Span<byte> sector = hunk.AsSpan(offset, 2352);
-                        if (boot is not null && trackIndex == 0 && !bootSource.Matches((uint)(firstFrame - layout.FirstFrame), sector))
+                        if (boot.Profile is not null && trackIndex == 0 && !bootSource.Matches((uint)(firstFrame - layout.FirstFrame), sector))
                             return Reject(MediaWorkerStatus.Malformed, ChdRejectionStage.Integrity, "DecodedBootMismatch");
                         if (track.Type == ChdCdTrackType.Audio)
                             ChdCdImage.SwapAudioSamples16(sector);
@@ -170,7 +170,7 @@ public static partial class ChdCdInspectionService
                 return Reject(MediaWorkerStatus.IoFailure, stage, "SourceChanged");
             return new(MediaWorkerStatus.Inspected, new(Profile, ProjectionProfile, artifactSha256, header.Version, header.HasParent, facts,
                 integrity.StoredRawSha1.ToString(), integrity.ComputedRawSha1.ToString(),
-                integrity.StoredOverallSha1.ToString(), integrity.ComputedOverallSha1.ToString(), measured.ToArray(), metadata, boot), native);
+                integrity.StoredOverallSha1.ToString(), integrity.ComputedOverallSha1.ToString(), measured.ToArray(), metadata, boot.Ps1, boot.Saturn), native);
         }
         catch (ChdNativeCandidateException error) { return new(error.Status, Rejection: error.Rejection); }
         catch (ChdException error)

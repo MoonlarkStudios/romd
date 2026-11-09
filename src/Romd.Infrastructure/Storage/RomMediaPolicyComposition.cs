@@ -23,14 +23,15 @@ internal sealed record RomMediaKindRegistration(string Kind, MediaManifestType M
     IReadOnlyList<string> PlatformKeys, RomMediaRecipe Recipe, Func<string, IRomMediaTypePolicy>? WholeFilePolicy,
     IReadOnlyList<string> NativeRuntimes, string? OriginalExtension, IReadOnlyList<string> ProfileVersions,
     Func<string, IReadOnlyList<string>, RomCdStorageRecipe>? CdRecipe = null, string? QualifiedRuntime = null,
-    Func<RomContentDescriptor, bool>? MatchesFacts = null, string? QualifiedEncodingRuntime = null)
+    Func<RomContentDescriptor, bool>? MatchesFacts = null, string? QualifiedEncodingRuntime = null,
+    Func<RomRepresentationFacts, bool>? MatchesLayout = null)
 {
-    public MediaKindDescriptor Describe(IRomMediaTypePolicy? policy)
+    public MediaKindDescriptor Describe(IRomMediaTypePolicy? policy, string? bootProfile)
     {
         var matcher = MatchesFacts;
         if (matcher is null && policy is not null)
             matcher = policy.MatchesFacts;
-        return new(Kind, PlatformKeys, Recipe.Encoding, Recipe.Id, ManifestType, ConversionMode, NativeRuntimes, OriginalExtension, ProfileVersions, matcher);
+        return new(Kind, PlatformKeys, Recipe.Encoding, Recipe.Id, ManifestType, ConversionMode, NativeRuntimes, OriginalExtension, ProfileVersions, matcher, MatchesLayout, bootProfile);
     }
 }
 
@@ -45,7 +46,7 @@ public sealed record RomWholeEncodingProfile(RomIsoDiscKind DiscKind, Func<long,
 ///     every verified build.
 /// </summary>
 public sealed record RomMediaComposition(MediaKindCatalog Kinds, RomMediaPolicyRegistry Registry, RomDeliveryPolicy DeliveryPolicy,
-    RomCdStorageRecipe? CdRecipe, IReadOnlyDictionary<string, string> QualifiedRuntimes,
+    RomCdStorageRecipes CdRecipes, IReadOnlyDictionary<string, string> QualifiedRuntimes,
     IReadOnlyDictionary<string, MediaReconciliationPolicy> Reconciliation, IReadOnlyDictionary<string, RomWholeEncodingProfile> WholeEncoding)
 {
     /// <summary>Additional encoding-only qualification; shared codec read admission keeps its existing rules.</summary>
@@ -77,6 +78,8 @@ public static class RomMediaPolicyComposition
     private static readonly RomMediaRecipe _chdCdCanonical = new(ChdCdEncodingRecipe.Id, RomRepresentationEncoding.Chd,
         CdParameters(ChdCdEncodingRecipe.HunkBytes, _chdCdCodecs), MediaRecipeRebuild.MatchingParameters);
 
+    private static readonly RomMediaRecipe _saturnCanonical = _chdCdCanonical with { Id = ChdCdEncodingRecipe.SaturnId };
+
     /// <summary>Unclaimed content makes no runtime or conversion claim; admitted holdings remain deliverable.</summary>
     private static readonly MediaKindDescriptor _opaque = new("opaque", [], RomRepresentationEncoding.Identity, null,
         MediaManifestType.WholeFile, ConversionMode.OnRequest, [], null, [RomEncodingProfiles.Identity]);
@@ -96,7 +99,14 @@ public static class RomMediaPolicyComposition
         new("ps1-cd-set", MediaManifestType.CdTracks, ConversionMode.Automatic, ["psx"], _chdCdCanonical, null, [], null,
             [ChdCdVerification.CurrentProfile, ChdCdRetainedRequest.CurrentProfile, ChdCdInspectionService.Profile],
             (kind, platforms) => new RomCdStorageRecipe(kind, _chdCdCanonical.Id, ChdCdEncodingRecipe.HunkBytes, _chdCdCodecs, platforms),
-            _qualifiedX64Runtime, ChdCdMediaTypePolicy.MatchesFacts)
+            _qualifiedX64Runtime, content => ChdCdMediaTypePolicy.MatchesFacts(content, RomPs1CdBoot.CurrentProfile),
+            MatchesLayout: graph => ChdCdMediaTypePolicy.MatchesBoot(graph, RomPs1CdBoot.CurrentProfile)),
+        // Explicit conversion until native real-disc storage and load qualification accepts Automatic.
+        new("saturn-cd-set", MediaManifestType.CdTracks, ConversionMode.OnRequest, ["saturn"], _saturnCanonical, null, [], null,
+            [ChdCdVerification.CurrentProfile, ChdCdRetainedRequest.CurrentProfile, ChdCdInspectionService.Profile],
+            (kind, platforms) => new RomCdStorageRecipe(kind, _saturnCanonical.Id, ChdCdEncodingRecipe.HunkBytes, _chdCdCodecs, platforms, RomSaturnCdBoot.CurrentProfile),
+            _qualifiedX64Runtime, content => ChdCdMediaTypePolicy.MatchesFacts(content, RomSaturnCdBoot.CurrentProfile),
+            MatchesLayout: graph => ChdCdMediaTypePolicy.MatchesBoot(graph, RomSaturnCdBoot.CurrentProfile))
     ];
 
     public static RomMediaComposition Create() => Create(Registrations);
@@ -126,9 +136,6 @@ public static class RomMediaPolicyComposition
                 (registration.ManifestType == MediaManifestType.CdTracks) != (registration.CdRecipe is not null)) is { } cdLayout)
             throw new ArgumentException($"Media kind '{cdLayout.Kind}' needs a CD recipe exactly when it rebuilds CD tracks.",
                 nameof(registrations));
-        if (registrations.Count(registration => registration.CdRecipe is not null) > 1)
-            throw new ArgumentException("Only one media kind may rebuild CD tracks, because CD reconciliation serves one recipe.",
-                nameof(registrations));
         if (registrations.FirstOrDefault(registration => registration.QualifiedRuntime is { } runtime && !IsRuntime(runtime)) is { } runtimeDefect)
             throw new ArgumentException($"Media kind '{runtimeDefect.Kind}' names a qualified runtime that is not a runtime identifier.",
                 nameof(registrations));
@@ -152,14 +159,17 @@ public static class RomMediaPolicyComposition
         // Every view uses the same captured policy/profile metadata, including the originally registered profile instance.
         var registry = new RomMediaPolicyRegistry(declaredPolicies.Select(pair => pair.Policy));
         var policies = declaredPolicies.Select(pair => (pair.Registration, Policy: registry.ForDisc(pair.Policy.DiscKind)!)).ToArray();
+        var cdRecipes = new RomCdStorageRecipes(registrations.Where(registration => registration.CdRecipe is not null).Select(cd =>
+        {
+            var recipe = cd.CdRecipe!(cd.Kind, cd.PlatformKeys);
+            if (recipe is null || recipe.Kind != cd.Kind || recipe.Id != cd.Recipe.Id ||
+                !recipe.PlatformKeys.SequenceEqual(cd.PlatformKeys) || CdParameters(recipe.HunkBytes, recipe.Codecs) != cd.Recipe.Parameters)
+                throw new ArgumentException($"Media kind '{cd.Kind}' has a CD recipe for another kind, recipe, platform or parameters.", nameof(registrations));
+            return recipe;
+        }));
         var kinds = new MediaKindCatalog(registrations.Select(registration =>
-            registration.Describe(policies.FirstOrDefault(pair => ReferenceEquals(pair.Registration, registration)).Policy)).Append(_opaque));
-        var cd = registrations.SingleOrDefault(registration => registration.CdRecipe is not null);
-        var cdRecipe = cd is null ? null : cd.CdRecipe!(cd.Kind, cd.PlatformKeys);
-        if (cd is not null && (cdRecipe is null || cdRecipe.Kind != cd.Kind || cdRecipe.Id != cd.Recipe.Id ||
-                !cdRecipe.PlatformKeys.SequenceEqual(cd.PlatformKeys) || CdParameters(cdRecipe.HunkBytes, cdRecipe.Codecs) != cd.Recipe.Parameters))
-            throw new ArgumentException($"Media kind '{cd.Kind}' has a CD recipe for another kind, recipe, platform or parameters.",
-                nameof(registrations));
+            registration.Describe(policies.FirstOrDefault(pair => ReferenceEquals(pair.Registration, registration)).Policy,
+                cdRecipes.ForKind(registration.Kind)?.BootProfile)).Append(_opaque));
         var qualified = registrations.Where(registration => registration.QualifiedRuntime is not null)
             .ToFrozenDictionary(registration => registration.Kind, registration => registration.QualifiedRuntime!, StringComparer.Ordinal);
         var reconciliation = registrations.ToFrozenDictionary(registration => registration.Kind, registration =>
@@ -167,17 +177,17 @@ public static class RomMediaPolicyComposition
             var policy = policies.FirstOrDefault(pair => ReferenceEquals(pair.Registration, registration)).Policy;
             Func<RomContainerFacts, bool> parameters = policy is not null
                 ? container => policy.EncodingProfile.Classify(container) == RomRepresentationProfileClass.Canonical
-                : cdRecipe!.MatchesParameters;
+                : cdRecipes.ForKind(registration.Kind)!.MatchesParameters;
             return new MediaReconciliationPolicy(kinds.Find(registration.Kind)!, parameters, registration.Recipe.Rebuild,
                 policy is not null ? policy.IsEncodingEligible : ChdCdMediaTypePolicy.IsEncodingEligible,
-                policy is null ? ChdCdMediaTypePolicy.MatchesGraph : null,
+                policy is null ? registration.MatchesLayout ?? ChdCdMediaTypePolicy.MatchesGraph : null,
                 policy is null ? ChdCdVerification.CurrentProfile : null);
         }, StringComparer.Ordinal);
         return new(kinds, registry,
             new RomDeliveryPolicy(CreateFormats(), kinds, policies.Where(pair => pair.Policy.EncodingProfile.StoredEncoding == RomRepresentationEncoding.Chd)
                 .ToDictionary(pair => pair.Registration.Kind,
                     pair => (Func<RomContainerFacts.Chd, bool>)(container => pair.Policy.EncodingProfile.Classify(container) == RomRepresentationProfileClass.Canonical),
-                    StringComparer.Ordinal)), cdRecipe, qualified, reconciliation, policies.ToFrozenDictionary(pair => pair.Registration.Kind,
+                    StringComparer.Ordinal)), cdRecipes, qualified, reconciliation, policies.ToFrozenDictionary(pair => pair.Registration.Kind,
                 pair => new RomWholeEncodingProfile(pair.Policy.DiscKind, pair.Policy.EncodingProfile.GetMaximumOutputBytes, pair.Policy.ObservesEncodingLayout), StringComparer.Ordinal))
         {
             QualifiedEncodingRuntimes = registrations.Where(registration => registration.QualifiedEncodingRuntime is not null)

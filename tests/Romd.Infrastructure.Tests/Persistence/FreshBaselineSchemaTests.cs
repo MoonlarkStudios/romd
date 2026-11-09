@@ -15,11 +15,11 @@ public sealed class FreshBaselineSchemaTests
         await database.ProvisionAsync();
         await database.ProvisionAsync();
         await using var db = database.CreateContext();
-        (await db.Database.GetAppliedMigrationsAsync()).ShouldBe(["20261031050000_FreshMediaBaseline", "20261102000000_PspUmdObservations"]);
+        (await db.Database.GetAppliedMigrationsAsync()).ShouldBe(["20261031050000_FreshMediaBaseline", "20261102000000_PspUmdObservations", "20261109000000_SaturnCdObservations"]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(73);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(73);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(74);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(74);
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'romd' AND c.relname IN

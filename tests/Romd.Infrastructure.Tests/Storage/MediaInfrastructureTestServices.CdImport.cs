@@ -37,7 +37,7 @@ internal static partial class MediaInfrastructureTestServices
     }
 
     internal static async Task<CdImportInput> MeasuredCdInputAsync(LocalTempFileFactory files, RomCdStorageRecipe recipe,
-        RomChdDecoderBuild decoder, bool canonical, byte artifactVariant, int trackCount, RomPs1CdBoot? boot)
+        RomChdDecoderBuild decoder, bool canonical, byte artifactVariant, int trackCount, RomCdBoot? boot)
     {
         if (trackCount is < 1 or > 2)
             throw new ArgumentOutOfRangeException(nameof(trackCount));
@@ -58,10 +58,12 @@ internal static partial class MediaInfrastructureTestServices
         var source = await files.CreateAsync(new MemoryStream(bytes), includeDatHashes: _ => true);
         try
         {
+            bool mode1 = boot is RomSaturnCdBoot;
+            string Type(int number) => number == 1 ? mode1 ? "MODE1_RAW" : "MODE2_RAW" : "AUDIO";
             var metadata = Enumerable.Range(1, trackCount).Select(number => new RomChdMetadataEntry(0x43485432, 1,
-                Encoding.ASCII.GetBytes($"TRACK:{number} TYPE:{(number == 1 ? "MODE2_RAW" : "AUDIO")} SUBTYPE:NONE FRAMES:64 PREGAP:0 PGTYPE:{(number == 1 ? "MODE2_RAW" : "AUDIO")} PGSUB:NONE POSTGAP:0" + (char)0))).ToArray();
+                Encoding.ASCII.GetBytes($"TRACK:{number} TYPE:{Type(number)} SUBTYPE:NONE FRAMES:64 PREGAP:0 PGTYPE:{Type(number)} PGSUB:NONE POSTGAP:0" + (char)0))).ToArray();
             var tracks = Enumerable.Range(1, trackCount).Select(number => new RomCdInspectedTrack(
-                new(number, (uint)((number - 1) * 64), 64, number == 1 ? RomCdTrackKind.Mode2Raw : RomCdTrackKind.Audio), 0, 0, false, 0,
+                new(number, (uint)((number - 1) * 64), 64, number == 1 ? mode1 ? RomCdTrackKind.Mode1Raw : RomCdTrackKind.Mode2Raw : RomCdTrackKind.Audio), 0, 0, false, 0,
                 MediaFactFixtures.Identity(Enumerable.Repeat((byte)(6 + number), 64 * 2352).ToArray()))).ToArray();
             var names = Enumerable.Range(1, trackCount).Select(number => number == 1 ? "track.bin" : $"track-{number:00}.bin").ToArray();
             var container = MediaFactFixtures.Chd(logicalBytes, hunk, 2448, codecs, raw, overall, metadata);
@@ -76,7 +78,7 @@ internal static partial class MediaInfrastructureTestServices
         catch { await source.DisposeAsync(); throw; }
     }
 
-    internal static async Task<RomLogicalIdentity> SeedCdCatalogAsync(RomdDbContext db, CdImportInput input, bool exactCue)
+    internal static async Task<RomLogicalIdentity> SeedCdCatalogAsync(RomdDbContext db, CdImportInput input, bool exactCue, string platformKey = "psx")
     {
         var expected = MediaFactFixtures.Identity(exactCue ? input.CueBytes : Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(input.CueBytes).Replace("\r\n", "\n", StringComparison.Ordinal)));
         db.Platforms.Add(new()
@@ -87,8 +89,8 @@ internal static partial class MediaInfrastructureTestServices
             BuiltInVersion = 1,
             BaseName = "Synthetic PlayStation",
             BaseCompactLabel = "PS",
-            ShortName = "psx",
-            CanonicalKey = "psx"
+            ShortName = platformKey,
+            CanonicalKey = platformKey
         });
         db.Titles.Add(new() { Id = 1, PlatformId = 1, Name = "Synthetic disc", NormalizedName = "synthetic disc", EnrichmentStatus = "Completed" });
         db.CatalogReleases.Add(new() { Id = 1, PlatformId = 1, CatalogTitleId = 1, Fingerprint = "sha1:synthetic-cd", Name = "Synthetic disc" });
@@ -126,7 +128,7 @@ internal static partial class MediaInfrastructureTestServices
         ITrackedTitleRepository Tracking, EfUnitOfWork Work);
 
     internal static CdImportServices CdImport(RomdDbContext db, IContentAddressableStore cas, LocalTempFileFactory temp,
-        RomCdStorageRecipe recipe, IAdminEventOutbox applicationOutbox, bool tracked, IRomCdCueGenerator generator)
+        RomCdStorageRecipe recipe, IAdminEventOutbox applicationOutbox, bool tracked, IRomCdCueGenerator generator, RomCdStorageRecipes? recipes = null)
     {
         var work = new EfUnitOfWork(db);
         var locks = new FileMutationLock(db);
@@ -141,9 +143,10 @@ internal static partial class MediaInfrastructureTestServices
         var impact = Substitute.For<IRomPayloadAssertionImpactReader>();
         impact.ReadSourceEntryIdsBySha1Async(Arg.Any<Sha1>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<int>());
         var publisher = new RomCdArchivePublisher(files, work, facts, new JobItemRepository(db));
-        var publication = new RomCdImportPublication(publisher, store, recipe, trackedTitles, tracking, Substitute.For<ILibraryRepository>(), impact,
+        var routing = recipes ?? new RomCdStorageRecipes([recipe]);
+        var publication = new RomCdImportPublication(publisher, store, routing, trackedTitles, tracking, Substitute.For<ILibraryRepository>(), impact,
             Substitute.For<ITitlePayloadAvailabilityProjection>(), applicationOutbox, new MediaReconciliationRequests(db, TimeProvider.System), new JobAuditContext(), TimeProvider.System);
         var preparation = ManagedPreparation(new HashingService(), () => throw new InvalidOperationException("CUE bytes must not invoke an encoder or RVZ verifier."), new EmptyReferences());
-        return new(new RomCdIngestor(new RomCdImportCatalogReader(db), generator, publication, recipe, preparation), store, files, tracking, work);
+        return new(new RomCdIngestor(new RomCdImportCatalogReader(db), generator, publication, routing, preparation), store, files, tracking, work);
     }
 }

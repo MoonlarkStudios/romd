@@ -18,12 +18,19 @@ public sealed record ChdCdJobFailure(ChdCdJobCause Cause, ChdDvdEncodingCause? T
 public sealed record ChdCdFileHashes(long Bytes, string Sha256, string Sha1, string Md5, string Crc32);
 public sealed record ChdCdMemberVerification(string Name, string Role, IReadOnlyList<int> Tracks,
     ChdCdFileHashes Original, ChdCdFileHashes? Reconstructed);
-public sealed record ChdCdVerification(string Profile, string RequestSha256, IReadOnlyList<ChdCdMemberVerification> Members, Ps1CdObservedFacts? Ps1Boot)
+public sealed record ChdCdVerification(string Profile, string RequestSha256, IReadOnlyList<ChdCdMemberVerification> Members, Ps1CdObservedFacts? Ps1Boot,
+    SaturnCdObservedFacts? SaturnBoot = null)
 {
     public const string CurrentProfile = "chd-cd-whole-files/v1";
+    [System.Text.Json.Serialization.JsonIgnore]
+    public CdBootObservation ObservedBoot => new(Ps1Boot, SaturnBoot);
 }
 public sealed record ChdCdEncodedArtifact(string RequestSha256, long RequestBytes, ChdCdFileHashes Artifact,
-    ChdHeaderFacts Header, string Recipe, string PriorityKind, int PriorityValue, Ps1CdObservedFacts? Ps1Boot = null);
+    ChdHeaderFacts Header, string Recipe, string PriorityKind, int PriorityValue, Ps1CdObservedFacts? Ps1Boot = null, SaturnCdObservedFacts? SaturnBoot = null)
+{
+    [System.Text.Json.Serialization.JsonIgnore]
+    public CdBootObservation ObservedBoot => new(Ps1Boot, SaturnBoot);
+}
 public sealed record ChdCdVerificationOutcome(MediaWorkerStatus Status, ChdCdVerification? Verification = null,
     ChdCdInspection? Inspection = null, ChdNativeIdentity? Native = null, ChdCdJobFailure? Failure = null);
 
@@ -36,7 +43,7 @@ public static class ChdCdVerificationService
         try
         {
             using var sources = await ChdCdHeldSources.OpenAsync(requestPath, requestBytes, requestSha256, ct);
-            var ps1 = sources.IdentifyRequiredBoot(ct);
+            var boot = sources.IdentifyRequiredBoot(ct);
             var result = await ChdCdInspectionService.InspectAsync(artifactPath, candidate, artifactLimit, logicalLimit, ct);
             if (result.Status != MediaWorkerStatus.Inspected || result.Inspection is null || result.NativeIdentity is null)
                 return new(result.Status, Failure: new(ChdCdJobCause.InspectionRejected));
@@ -67,7 +74,9 @@ public static class ChdCdVerificationService
             using var finalArtifact = new ChdCdRawFile(artifactPath);
             if ((await ChdCdHashing.MeasureAsync(finalArtifact, ct)).Sha256 != inspection.ArtifactSha256)
                 return new(MediaWorkerStatus.IoFailure, Failure: new(ChdCdJobCause.SourceChanged));
-            return new(MediaWorkerStatus.Inspected, new(ChdCdVerification.CurrentProfile, requestSha256, members, ps1), inspection, result.NativeIdentity);
+            if (boot.Profile is not null && boot != inspection.ObservedBoot)
+                return new(MediaWorkerStatus.Malformed, Failure: new(ChdCdJobCause.ReconstructionMismatch));
+            return new(MediaWorkerStatus.Inspected, new(ChdCdVerification.CurrentProfile, requestSha256, members, boot.Ps1, boot.Saturn), inspection, result.NativeIdentity);
         }
         catch (ChdCdSourceException error) { return new(error.Cause == ChdCdJobCause.UnsupportedMedia ? MediaWorkerStatus.Unsupported : MediaWorkerStatus.Malformed, Failure: new(error.Cause)); }
         catch (Exception error) when (error is ArgumentException or JsonException or InvalidDataException or DecoderFallbackException)
@@ -132,13 +141,14 @@ internal sealed class ChdCdHeldSources : IDisposable
         }
         catch { file.Dispose(); throw; }
     }
-    internal Ps1CdObservedFacts? IdentifyRequiredBoot(CancellationToken ct)
+    internal CdBootObservation IdentifyRequiredBoot(CancellationToken ct)
     {
         if (Request.RequiredBootProfile is null)
-            return null;
-        return Ps1CdIdentifier.Inspect(Originals[Cue.Files[0].Name].File, Cue.TrackTypes[0], Cue.FirstTrackIndex01,
-            Cue.Files.Sum(file => Originals[file.Name].File.Length / 2352), ct)
-            ?? throw new ChdCdSourceException(ChdCdJobCause.UnsupportedMedia);
+            return default;
+        var observed = CdBootObservation.Inspect(Originals[Cue.Files[0].Name].File, Cue.TrackTypes[0], Cue.FirstTrackIndex01,
+            Cue.Files.Sum(file => Originals[file.Name].File.Length / 2352), ct);
+        return observed.Valid && observed.Profile == Request.RequiredBootProfile ? observed :
+            throw new ChdCdSourceException(ChdCdJobCause.UnsupportedMedia);
     }
     internal async Task AssertUnchangedAsync(CancellationToken ct)
     {

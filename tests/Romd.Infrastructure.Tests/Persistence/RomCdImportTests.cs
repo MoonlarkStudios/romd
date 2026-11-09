@@ -32,10 +32,40 @@ public sealed class RomCdImportTests : IAsyncLifetime
     private readonly PostgreSqlTestDatabase database = PostgreSqlTestDatabase.Create();
     private readonly string root = Directory.CreateTempSubdirectory("romd-cd-import-").FullName;
     private readonly List<ServiceProvider> providers = [];
-    private static RomCdStorageRecipe Recipe => RomMediaPolicyComposition.Create().CdRecipe ?? throw new InvalidOperationException("Missing registered CD recipe.");
+    private static RomCdStorageRecipe Recipe => RomMediaPolicyComposition.Create().CdRecipes.ForKind("ps1-cd-set") ?? throw new InvalidOperationException("Missing registered CD recipe.");
     private static RomChdDecoderBuild Decoder(char pin) => new("linux-x64", Sha1.Parse(new string(pin, 40)), 1);
     private static RomCdIngestIntent Intent(bool archiveOnly, UploadItemContext? upload) => new("disc.chd", archiveOnly, false, upload);
     public Task InitializeAsync() => Task.CompletedTask;
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task Ingest_SaturnObservation_BindsOnlyItsPlatformAndRetainsDistinctBootFacts(bool exactCue, bool wrongPlatform)
+    {
+        var composition = RomMediaPolicyComposition.Create();
+        var recipe = composition.CdRecipes.ForPlatform("saturn").ShouldNotBeNull();
+        var temp = Temp();
+        var boot = new RomSaturnCdBoot(RomSaturnCdBoot.CurrentProfile, 0, "T-00001", "JUE", 4096, Sha256.Parse(new string('1', 64)));
+        await using var input = await MediaInfrastructureTestServices.MeasuredCdInputAsync(temp, recipe, Decoder('a'), true, 0, 2, boot);
+        await using var db = database.CreateContext();
+        await MediaInfrastructureTestServices.SeedCdCatalogAsync(db, input, exactCue, wrongPlatform ? "psx" : "saturn");
+        var services = MediaInfrastructureTestServices.CdImport(db, Cas(), temp, recipe, new AdminRealtimeOutbox(db, TimeProvider.System),
+            false, new RomCdCueGenerator(temp), composition.CdRecipes);
+
+        var result = await services.Ingestor.IngestAsync(input.Prepared, Intent(true, null), default);
+
+        result.IsError.ShouldBe(wrongPlatform, result.IsError ? string.Join(';', result.Errors) : "");
+        if (wrongPlatform)
+        {
+            (await db.RomFiles.CountAsync()).ShouldBe(0);
+            (await CountAsync(db, "CatalogCdLayoutBindings")).ShouldBe(0);
+            return;
+        }
+        result.Value.Archive.CdBootInspections.ShouldHaveSingleItem().Boot.ShouldBe(boot);
+        result.Value.Archive.Creations.ShouldBeEmpty();
+        result.Value.Archive.Outputs.Count.ShouldBe(2);
+    }
 
     [Theory]
     [InlineData(false, false, 1)]
