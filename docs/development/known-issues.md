@@ -1894,3 +1894,27 @@ Agent guidance: preserve the receipt before diagnosing another startup failure.
 Do not raise the deadline, skip acknowledgments or accept a retry-only green
 run. The real control verifies startup barriers, not a complete deployment drill.
 Raw container output remains private and must not be included in CI artifacts.
+
+## Background GC can report phantom bytes in exact-zero allocation tests
+
+Status: MITIGATED
+
+Command: `dotnet test tests/Moonlark.Libchdr.Tests/Moonlark.Libchdr.Tests.csproj --configuration Release`
+
+Root cause: PR #5 CI run `42669479888` returned the expected metadata count but
+reported 5,848 allocated bytes in `MetadataNeverSilentlyTruncatesOrAllocatesPerEntry`.
+The runtime has an open [background-GC allocation-context accounting bug](https://github.com/dotnet/runtime/pull/134855).
+A package-free Linux x64 .NET 10.0.13 control reproduced 13 nonzero empty intervals
+out of 1,024 under concurrent collections, each reporting 8,136 bytes. Normal
+empty controls were zero and all 32 explicit-allocation controls reported 64 bytes.
+With background GC disabled, the same bounded diagnostic reported zero nonzero
+empty intervals and retained all 32 positive controls.
+
+Change: disable concurrent GC only in the `Moonlark.Libchdr.Tests` host. Keep
+the existing measured loops, warmups and exact-zero assertions. A counter control
+rejects a host with background GC enabled and verifies a real heap allocation is
+still counted. Production and other test hosts retain their GC configuration.
+
+Agent guidance: preserve exact-zero budgets and the runtime configuration guard.
+Do not accept a retry-only pass or raise allocation allowances. Requalify the
+empty and allocating controls before removing this mitigation after a runtime fix.
