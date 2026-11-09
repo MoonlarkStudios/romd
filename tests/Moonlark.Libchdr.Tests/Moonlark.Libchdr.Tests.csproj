@@ -3,6 +3,9 @@
   <PropertyGroup>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsTestProject>true</IsTestProject>
+    <!-- Background GC can charge unused allocation-context bytes to this thread's counter
+         (dotnet/runtime#134855). Keep exact-zero allocation checks on blocking GC. -->
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <!-- Program.cs holds the fuzz-gate commands (seed export, guard parity); the test runner does not use an entry point. -->
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
