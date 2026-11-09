@@ -47,8 +47,10 @@ COPY --from=govulncheck-build /tools/ /
 FROM almalinux:8.10@sha256:8b469a3a78515e8a18ea8fc727e6a3679e1d0c5ba6f58d5b30be3d0d9b86cffe AS native-builder
 ARG TARGETARCH
 COPY native/builder/linux-x64.rpm.txt native/builder/linux-arm64.rpm.txt /opt/rpm-pins/
+# The pinned toolchain uses only these repositories; unrelated Extras metadata
+# must not become a native-build dependency.
 RUN case "$TARGETARCH" in amd64) rid=linux-x64 ;; arm64) rid=linux-arm64 ;; *) exit 1 ;; esac \
-    && dnf --enablerepo=powertools install -y $(cat "/opt/rpm-pins/$rid.rpm.txt") \
+    && dnf --disablerepo='*' --enablerepo=baseos,appstream,powertools install -y $(cat "/opt/rpm-pins/$rid.rpm.txt") \
     && dnf clean all \
     && echo "$rid" > /opt/native-rid
 RUN case "$TARGETARCH" in \

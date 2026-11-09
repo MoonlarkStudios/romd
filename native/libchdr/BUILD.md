@@ -93,6 +93,9 @@ The GLIBC symbol ceiling is checked on the artifact, but a runner/toolchain buil
 against the documented baseline still needs separate qualification. Build Linux
 binaries in the AlmaLinux 8.10 builder (the root `Dockerfile` stage
 `native-builder`, with RPM pins in `native/builder/`), whose glibc 2.28 keeps
-the artifact under the ceiling. `mise run native:libchdr` builds and verifies it through the container engine
+the artifact under the ceiling. The pinned RPM install uses only BaseOS,
+AppStream and PowerTools; unrelated repositories such as Extras are disabled
+for that command. Required-repository and pinned-package failures remain fatal.
+`mise run native:libchdr` builds and verifies it through the container engine
 selected in the [development setup](../../docs/development/getting-started.md). Windows, musl, macOS x64 and cross compilation
 are unsupported.
