@@ -8,17 +8,17 @@ using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Source.Rom;
 using Romd.Admin.Application.Source.Rom.Reconciliation;
 using Romd.Admin.Application.Storage.Files;
-using Romd.Application.Common.Content;
 using Romd.Application.Common.Concurrency;
+using Romd.Application.Common.Content;
 using Romd.Application.Common.Ids;
-using Romd.Contracts.Management.Models;
 using Romd.Consumer.Application.Delivery;
 using Romd.Consumer.Application.Libraries;
+using Romd.Contracts.Management.Models;
 using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Persistence;
 using Romd.Persistence.Catalog;
 using Romd.Persistence.Entities;
@@ -43,7 +43,8 @@ public sealed partial class CdArchivePublicationTests : IAsyncLifetime
     private readonly string directory = Directory.CreateTempSubdirectory("romd-cd-publication-").FullName;
     private readonly Guid actor = Guid.NewGuid();
     private static readonly RomChdDecoderBuild Decoder = new("linux-x64", Sha1.Parse(new string('a', 40)), 2);
-    private static readonly RomCdStorageRecipe Recipe = RomMediaPolicyComposition.Create().CdRecipe!;
+    private bool _saturn;
+    private RomCdStorageRecipe Recipe => RomMediaPolicyComposition.Create().CdRecipes.ForKind(_saturn ? "saturn-cd-set" : "ps1-cd-set")!;
     private readonly Dictionary<string, byte[]> originals = new(StringComparer.Ordinal)
     {
         ["track.bin"] = Enumerable.Range(0, 64 * 2352).Select(i => (byte)(i * 7 + 3)).ToArray(),
@@ -111,7 +112,7 @@ public sealed partial class CdArchivePublicationTests : IAsyncLifetime
         descriptors.ReadAsync(5, second.Sha256, second.Size, Arg.Any<CancellationToken>()).Returns(second);
         return new(database.CreateOptions(), RomMediaPolicyComposition.Create().Kinds, descriptors);
     }
-    private static MediaReconciliationDecision Decision(RomChdDecoderBuild decoder, bool canEncode, bool qualified)
+    private MediaReconciliationDecision Decision(RomChdDecoderBuild decoder, bool canEncode, bool qualified)
     {
         var media = RomMediaPolicyComposition.Create();
         var capabilities = Substitute.For<IMediaHostCapabilities>();
@@ -268,10 +269,10 @@ public sealed partial class CdArchivePublicationTests : IAsyncLifetime
         await db.SaveChangesAsync();
     }
 
-    private const string CdProfile = Romd.Media.PlayStation.ChdCdVerification.CurrentProfile;
+    private const string CdProfile = Romd.Media.Cd.ChdCdVerification.CurrentProfile;
     private const string CdInspector = "fixture-cd-inspector/v1";
     private RomMeasuredRepresentation Measured() => Measure(72,
-        [new(1, 0, 64, RomCdTrackKind.Mode2Raw), new(2, 64, 5, RomCdTrackKind.Audio)],
+        [new(1, 0, 64, _saturn ? RomCdTrackKind.Mode1Raw : RomCdTrackKind.Mode2Raw), new(2, 64, 5, RomCdTrackKind.Audio)],
         originals.Select((pair, index) => index < 2 ? (RomCdFileMember)new RomCdBinMember(pair.Key, Identity(pair.Value), Identity(pair.Value), [index + 1])
             : new RomCdStoredMember(pair.Key, Identity(pair.Value), RomCdStoredRole.Cue)).ToArray(),
         Identity(Enumerable.Range(0, 1024).Select(index => (byte)index).ToArray()), Sha1.Parse(new string('b', 40)), Decoder);
@@ -284,14 +285,14 @@ public sealed partial class CdArchivePublicationTests : IAsyncLifetime
                 new RomCdStoredMember("b.cue",Identity(secondCue),RomCdStoredRole.Cue)],
             Identity(Enumerable.Range(0, 1024).Select(index => (byte)(255 - index)).ToArray()), Sha1.Parse(new string('d', 40)), Decoder);
     }
-    private static RomMeasuredRepresentation Measure(long frames, IReadOnlyList<RomCdTrack> tracks, IReadOnlyList<RomCdFileMember> members,
+    private RomMeasuredRepresentation Measure(long frames, IReadOnlyList<RomCdTrack> tracks, IReadOnlyList<RomCdFileMember> members,
         RomCdFileIdentity artifact, Sha1 raw, RomChdDecoderBuild decoder)
     {
         var manifest = new RomReconstructionManifest.CdTracks(frames, tracks, members);
         var container = new RomContainerFacts.Chd(5, frames * 2448, Recipe.HunkBytes, 2448,
             checked((uint)((frames * 2448 + Recipe.HunkBytes - 1) / Recipe.HunkBytes)), Recipe.Codecs, false, raw, raw,
             tracks.Select(track => new RomChdMetadataEntry(0x43485432, 1, Encoding.ASCII.GetBytes(
-                $"TRACK:{track.Number} TYPE:{(track.Kind == RomCdTrackKind.Audio ? "AUDIO" : "MODE2_RAW")} SUBTYPE:NONE FRAMES:{track.Frames} PREGAP:0 PGTYPE:{(track.Kind == RomCdTrackKind.Audio ? "AUDIO" : "MODE2_RAW")} PGSUB:NONE POSTGAP:0"))).ToArray());
+                $"TRACK:{track.Number} TYPE:{TrackType(track.Kind)} SUBTYPE:NONE FRAMES:{track.Frames} PREGAP:0 PGTYPE:{TrackType(track.Kind)} PGSUB:NONE POSTGAP:0"))).ToArray());
         var proof = new RomRepresentationVerification(Guid.NewGuid(), artifact.Sha256, artifact.Size, new RomDecoderIdentity.Native(decoder), CdProfile,
             "fixture-native-verifier/v1", DateTimeOffset.UtcNow, MeasuredOutputs(manifest), container, raw, raw);
         return new(container, manifest, proof);
@@ -300,12 +301,14 @@ public sealed partial class CdArchivePublicationTests : IAsyncLifetime
         manifest.Members.Select((member, ordinal) => (member, ordinal)).Where(pair => pair.member is RomCdBinMember)
             .Select(pair => new RomMeasuredOutput(new RomOutputSelector.Member(pair.ordinal), Logical(pair.member.Identity))).ToArray();
     private static RomLogicalIdentity Logical(RomCdFileIdentity member) => new(member.Size, member.Sha256, member.Sha1, member.Md5, member.Crc32);
-    private static RomCdEncodingObservation EncodingOf(RomMeasuredRepresentation measured, RomChdEncoderBuild? encoder = null)
+    private static string TrackType(RomCdTrackKind kind) => kind switch { RomCdTrackKind.Audio => "AUDIO", RomCdTrackKind.Mode1Raw => "MODE1_RAW", _ => "MODE2_RAW" };
+    private RomCdEncodingObservation EncodingOf(RomMeasuredRepresentation measured, RomChdEncoderBuild? encoder = null)
     {
         var manifest = (RomReconstructionManifest.CdTracks)measured.Manifest;
         return new(measured, RecipeId.Parse(Recipe.Id), encoder ?? new("linux-x64", "mame0289", Sha256.Parse(new string('c', 64)), 1),
             Sha256.Parse(new string('e', 64)), 100, CdInspector,
-            new(RomPs1CdBoot.CurrentProfile, 0, checked((uint)manifest.Tracks.Sum(track => track.Frames)), 24, 2048, "SLUS_000.01;1", 26, 4096, 0x80010000, 0x80010000, 2048));
+            _saturn ? new RomSaturnCdBoot(RomSaturnCdBoot.CurrentProfile, 0, "T-00001", "JUE", 4096, Sha256.Parse(new string('f', 64))) :
+                new RomPs1CdBoot(RomPs1CdBoot.CurrentProfile, 0, checked((uint)manifest.Tracks.Sum(track => track.Frames)), 24, 2048, "SLUS_000.01;1", 26, 4096, 0x80010000, 0x80010000, 2048));
     }
     private static async Task<RomRepresentationFacts> ArchiveAsync(RomdDbContext db, int layout = 1)
     {

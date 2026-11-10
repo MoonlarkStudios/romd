@@ -143,15 +143,28 @@ internal static class MediaReconciliationSourceFingerprint
             var facts = boot.Boot;
             writer.Write(facts.Profile);
             writer.Write(facts.FirstTrackIndex01);
-            writer.Write(facts.VolumeBlocks);
-            writer.Write(facts.RootBlock);
-            writer.Write(facts.RootBytes);
-            writer.Write(facts.BootPath);
-            writer.Write(facts.BootBlock);
-            writer.Write(facts.BootBytes);
-            writer.Write(facts.EntryPoint);
-            writer.Write(facts.LoadAddress);
-            writer.Write(facts.LoadBytes);
+            switch (facts)
+            {
+                case RomPs1CdBoot ps1:
+                    writer.Write(ps1.VolumeBlocks);
+                    writer.Write(ps1.RootBlock);
+                    writer.Write(ps1.RootBytes);
+                    writer.Write(ps1.BootPath);
+                    writer.Write(ps1.BootBlock);
+                    writer.Write(ps1.BootBytes);
+                    writer.Write(ps1.EntryPoint);
+                    writer.Write(ps1.LoadAddress);
+                    writer.Write(ps1.LoadBytes);
+                    break;
+                case RomSaturnCdBoot saturn:
+                    writer.Write(saturn.ProductCode);
+                    writer.Write(saturn.AreaSymbols);
+                    writer.Write(saturn.InitialProgramBytes);
+                    writer.Write(saturn.HeaderSha256.AsSpan());
+                    break;
+                default:
+                    throw new InvalidDataException("Unregistered CD boot observation.");
+            }
         }
     }
     private static void Identity(BinaryWriter writer, RomLogicalIdentity identity)

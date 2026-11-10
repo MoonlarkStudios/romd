@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Moonlark.Libchdr;
 using Romd.Media;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Storage;
 
 // This opt-in experiment verifies one libchdr build directory against the record its build wrote.

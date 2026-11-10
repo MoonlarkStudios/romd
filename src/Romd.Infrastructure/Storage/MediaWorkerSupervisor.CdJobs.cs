@@ -1,7 +1,8 @@
 using System.Security.Cryptography;
 using Romd.Admin.Application.Storage.Files;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
-using Romd.Media.PlayStation;
 
 namespace Romd.Infrastructure.Storage;
 
@@ -95,7 +96,7 @@ public sealed partial class MediaWorkerSupervisor
             var expected = job.Retained;
             if (expected is null || reply.Status != MediaWorkerStatus.Inspected || reply.CdVerification is not { } retained ||
                 retained.Profile != ChdCdRetainedRequest.CurrentProfile || retained.RequestSha256 != job.Request.FileSha256.ToString() ||
-                reply.CdInspection is not { } cd || retained.Ps1Boot != cd.Ps1Boot || !expected.Matches(cd) ||
+                reply.CdInspection is not { } cd || retained.ObservedBoot != cd.ObservedBoot || !expected.Matches(cd) ||
                 reply.NativeIdentity is null || !_chdCandidate!.Matches(reply.NativeIdentity) ||
                 !expected.MatchesVerification(retained))
                 return Bad();
@@ -104,7 +105,7 @@ public sealed partial class MediaWorkerSupervisor
         if (operation == "encode-chd-cd")
         {
             if (reply.Status != MediaWorkerStatus.Encoded || reply.CdEncoding is not { } encoded || reply.CdVerification is not null ||
-                (job.Specification!.RequiredBootProfile is not null) != (encoded.Ps1Boot is not null) ||
+                job.Specification!.RequiredBootProfile != encoded.ObservedBoot.Profile ||
                 candidate is null || reply.ToolIdentity is null || !candidate.Matches(reply.ToolIdentity) ||
                 encoded.RequestSha256 != job.Request.FileSha256.ToString() || encoded.RequestBytes != job.Request.FileSize ||
                 output is null || encoded.Artifact.Bytes > output.MaximumBytes || encoded.Header.LogicalBytes > (ulong)_options.MaxLogicalBytes ||
@@ -114,7 +115,7 @@ public sealed partial class MediaWorkerSupervisor
         else
         {
             if (reply.Status != MediaWorkerStatus.Inspected || reply.CdVerification is not { } verification || reply.CdInspection is not { } inspection ||
-                (job.Specification!.RequiredBootProfile is not null) != (verification.Ps1Boot is not null) ||
+                job.Specification!.RequiredBootProfile != verification.ObservedBoot.Profile ||
                 reply.NativeIdentity is null || !_chdCandidate!.Matches(reply.NativeIdentity) || reply.CdEncoding is not null ||
                 inspection.ArtifactSha256 != source.FileSha256.ToString() || inspection.Header.ArtifactBytes != source.FileSize ||
                 inspection.Header.LogicalBytes > (ulong)_options.MaxLogicalBytes || verification.RequestSha256 != job.Request.FileSha256.ToString() ||

@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Romd.Infrastructure.Tests.Persistence;
 
-public sealed class MediaCdObservationSchemaTests : IDisposable
+public sealed partial class MediaCdObservationSchemaTests : IDisposable
 {
     private readonly PostgreSqlTestDatabase _database = PostgreSqlTestDatabase.Create();
     public void Dispose() => _database.Dispose();
@@ -131,7 +131,9 @@ public sealed class MediaCdObservationSchemaTests : IDisposable
         long ticks = mutation == "negative-time" ? -1 : DateTimeOffset.UnixEpoch.UtcTicks;
         await using var transaction = await db.Database.BeginTransactionAsync();
         var error = await Should.ThrowAsync<PostgresException>(() => db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO romd."CdBootInspections" VALUES ({Guid.NewGuid()},{seed.Cd.Id},{proof},{inspector},{RomPs1CdBoot.CurrentProfile},{ticks},
+            INSERT INTO romd."CdBootInspections" ("Id","RepresentationId","VerificationId","InspectorBuild","Profile","ObservedAtUtcTicks","FirstTrackIndex01",
+                "VolumeBlocks","RootBlock","RootBytes","BootPath","BootBlock","BootBytes","EntryPoint","LoadAddress","LoadBytes")
+            VALUES ({Guid.NewGuid()},{seed.Cd.Id},{proof},{inspector},{RomPs1CdBoot.CurrentProfile},{ticks},
                 {index},{volume},{root},{rootBytes},'SLUS_123.45',{executable},{executableBytes},{entry},{load},2048)
             """));
         error.SqlState.ShouldBe(PostgresErrorCodes.CheckViolation);

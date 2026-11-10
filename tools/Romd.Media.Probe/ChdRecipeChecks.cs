@@ -9,7 +9,7 @@ using System.Xml;
 using System.Xml.Linq;
 using Microsoft.Win32.SafeHandles;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Media.Processes;
 using Romd.Storage;
 

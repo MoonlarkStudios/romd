@@ -11,7 +11,7 @@ namespace Romd.Persistence.MediaFacts;
 internal sealed class MediaCreationFactWriter(RomdDbContext context)
 {
     internal async Task<Guid> StageCdBootAsync(int representationId, Guid verificationId, string inspectorBuild,
-        DateTimeOffset observedAt, RomPs1CdBoot boot, CancellationToken ct)
+        DateTimeOffset observedAt, RomCdBoot boot, CancellationToken ct)
     {
         var rows = await MediaFactLockSet.ReadAsync(context, [representationId], ct);
         if (!rows.TryGetValue(representationId, out var retained) || retained.Manifest is not RomReconstructionManifest.CdTracks ||
@@ -23,13 +23,23 @@ internal sealed class MediaCreationFactWriter(RomdDbContext context)
         var observed = new RomCdBootInspection(Guid.NewGuid(), verificationId, inspectorBuild, observedAt, boot);
         _ = new RomRepresentationFacts(retained.Id, retained.FileId, retained.ArtifactSha256, retained.ArtifactSize, retained.Container, retained.Manifest,
             retained.Outputs, retained.Verifications, retained.Descriptors, retained.Creations, [.. retained.CdBootInspections, observed]);
-        await context.Database.ExecuteSqlInterpolatedAsync($"""
+        if (boot is RomPs1CdBoot ps1)
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO romd."CdBootInspections" ("Id","RepresentationId","VerificationId","InspectorBuild","Profile","ObservedAtUtcTicks","FirstTrackIndex01",
                 "VolumeBlocks","RootBlock","RootBytes","BootPath","BootBlock","BootBytes","EntryPoint","LoadAddress","LoadBytes")
             VALUES ({observed.Id},{retained.Id},{verificationId},{inspectorBuild},{boot.Profile},{observed.ObservedAt.UtcTicks},{boot.FirstTrackIndex01},
-                {(long)boot.VolumeBlocks},{(long)boot.RootBlock},{(long)boot.RootBytes},{boot.BootPath},{(long)boot.BootBlock},{(long)boot.BootBytes},
-                {(long)boot.EntryPoint},{(long)boot.LoadAddress},{(long)boot.LoadBytes})
+                {(long)ps1.VolumeBlocks},{(long)ps1.RootBlock},{(long)ps1.RootBytes},{ps1.BootPath},{(long)ps1.BootBlock},{(long)ps1.BootBytes},
+                {(long)ps1.EntryPoint},{(long)ps1.LoadAddress},{(long)ps1.LoadBytes})
             """, ct);
+        else if (boot is RomSaturnCdBoot saturn)
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO romd."CdBootInspections" ("Id","RepresentationId","VerificationId","InspectorBuild","Profile","ObservedAtUtcTicks","FirstTrackIndex01",
+                    "SaturnProductCode","SaturnAreaSymbols","SaturnInitialProgramBytes","SaturnHeaderSha256")
+                VALUES ({observed.Id},{retained.Id},{verificationId},{inspectorBuild},{boot.Profile},{observed.ObservedAt.UtcTicks},{boot.FirstTrackIndex01},
+                    {saturn.ProductCode},{saturn.AreaSymbols},{(long)saturn.InitialProgramBytes},{saturn.HeaderSha256.ToArray()})
+                """, ct);
+        else
+            throw new InvalidDataException("Unregistered CD boot observation.");
         return observed.Id;
     }
 

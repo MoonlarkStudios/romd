@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Media.TestSupport;
 using Shouldly;
 using Xunit;
@@ -103,7 +103,7 @@ public sealed class ChdNativeIsolationTests : IDisposable
         using Romd.Infrastructure;
         using Romd.Infrastructure.Readiness;
         using Romd.Infrastructure.Storage;
-        using Romd.Media.PlayStation;
+        using Romd.Media.Chd;
 
         AssemblyLoadContext.Default.Resolving += (_, name) =>
         {

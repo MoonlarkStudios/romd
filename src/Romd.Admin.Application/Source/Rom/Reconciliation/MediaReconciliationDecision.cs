@@ -38,10 +38,14 @@ public sealed class MediaReconciliationDecision
             string? qualifiedKind = null;
             if (graph.Manifest is RomReconstructionManifest.CdTracks)
             {
-                var matches = _policies.Values.Where(policy => policy.MatchesRetainedLayout(graph)).ToArray();
-                if (matches.Length != 1)
-                    return new MediaReconciliationDirective.Unavailable(matches.Length == 0 ? "cd-kind-unregistered" : "cd-kind-ambiguous");
-                qualifiedKind = matches[0].Kind.Kind;
+                var matches = MatchingCdKinds(graph);
+                if (matches.Length == 0)
+                    return new MediaReconciliationDirective.Unavailable("cd-kind-unregistered");
+                if (_capabilities.Decoder(RomRepresentationEncoding.Chd) is not { } resident ||
+                    matches.Any(kind => !_capabilities.CanDecode(kind.Kind) || !_capabilities.Qualifies(kind.Kind, resident.Rid)))
+                    return new MediaReconciliationDirective.Unavailable("decoder-unavailable");
+                // An unclassified CD still permits shared-codec verification, without inventing a family.
+                qualifiedKind = matches.Length == 1 ? matches[0].Kind : null;
             }
             var decoder = Decoder(graph.Container.Encoding, qualifiedKind);
             if (decoder is null)
@@ -125,7 +129,7 @@ public sealed class MediaReconciliationDecision
         }
         MediaReconciliationCapture Capture(MediaReconciliationOperation operation, MediaReconciliationSources sources, RomDecoderIdentity decoder, string? kindId,
             MediaReconciliationPolicy? policy, MediaReconciliationEncoder? encoder) => new(jobId, demand.Version, sources, operation, policy?.Recipe,
-                CapabilityFingerprint(kindId), _media.LimitsFingerprint, decoder, kindId, encoder?.Build, encoder?.WholeDiscKind);
+                CapabilityFingerprint(kindId, sources), _media.LimitsFingerprint, decoder, kindId, encoder?.Build, encoder?.WholeDiscKind);
         MediaReconciliationDirective Decide(MediaReconciliationPolicy policy, MediaReconciliationState actual, MediaReconciliationSources sources, RomContentDescriptor? singleton)
         {
             switch (MediaReconciliationPlanner.Decide(policy, actual, demand.ConversionRequested, _capabilities))
@@ -164,7 +168,8 @@ public sealed class MediaReconciliationDecision
     {
         if (capture.KindId is not { } kind || !_policies.TryGetValue(kind, out var policy) || policy.Recipe != encoded.Recipe ||
             policy.Kind.StoredEncoding != encoded.Measured.Container.Encoding || !policy.MatchesParameters(encoded.Measured.Container) ||
-            (policy.Kind.ManifestType == MediaManifestType.CdTracks) != (encoded.Measured.Manifest is RomReconstructionManifest.CdTracks))
+            (policy.Kind.ManifestType == MediaManifestType.CdTracks) != (encoded.Measured.Manifest is RomReconstructionManifest.CdTracks) ||
+            encoded is MediaReconciliationEncoded.Cd cd && policy.Kind.CdBootProfile is { } required && cd.Observation.Boot.Profile != required)
             return false;
         if (encoded is MediaReconciliationEncoded.Whole whole)
         {
@@ -216,20 +221,30 @@ public sealed class MediaReconciliationDecision
         var proof = artifact.Facts.Verifications.OrderBy(proof => proof.ObservedAt).ThenBy(proof => proof.Id).First();
         return new(MediaReconciliationSourceRole.Whole, filename, artifact.Facts, artifact.OutputId, proof.Id);
     }
-    private Sha256 CapabilityFingerprint(string? kind)
+    private MediaKindDescriptor[] MatchingCdKinds(RomRepresentationFacts graph) =>
+        _policies.Values.Where(policy => policy.MatchesRetainedLayout(graph)).Select(policy => policy.Kind).ToArray();
+
+    private Sha256 CapabilityFingerprint(string? kind, MediaReconciliationSources sources)
     {
         using var bytes = new MemoryStream();
         using (var writer = new BinaryWriter(bytes, Encoding.UTF8, leaveOpen: true))
         {
-            writer.Write("media-reconciliation-host/v1");
+            writer.Write("media-reconciliation-host/v2");
             writer.Write(_capabilities.ManagedDecoderBuild);
             var native = _capabilities.Decoder(RomRepresentationEncoding.Chd);
             writer.Write(native is not null);
             if (native is not null)
             { writer.Write(native.Rid); writer.Write(native.UpstreamCommit.AsSpan()); writer.Write(native.RecipeVersion); }
-            writer.Write(kind is not null);
-            if (kind is not null)
-            { writer.Write(kind); writer.Write(_capabilities.CanDecode(kind)); writer.Write(_capabilities.CanEncode(kind)); writer.Write(_capabilities.QualifiedRuntime(kind) ?? ""); }
+            var kinds = kind is not null ? [kind] : sources.Inputs.Select(input => input switch
+            {
+                MediaReconciliationInput.Logical logical => logical.Graph,
+                MediaReconciliationInput.Artifact artifact => artifact.Graph,
+                _ => null
+            }).OfType<RomRepresentationFacts>().Where(graph => graph.Manifest is RomReconstructionManifest.CdTracks)
+                .SelectMany(MatchingCdKinds).Select(candidate => candidate.Kind).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+            writer.Write(kinds.Length);
+            foreach (string candidate in kinds)
+            { writer.Write(candidate); writer.Write(_capabilities.CanDecode(candidate)); writer.Write(_capabilities.CanEncode(candidate)); writer.Write(_capabilities.QualifiedRuntime(candidate) ?? ""); }
         }
         return Sha256.FromSpan(SHA256.HashData(bytes.GetBuffer().AsSpan(0, checked((int)bytes.Length))));
     }

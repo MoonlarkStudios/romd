@@ -71,7 +71,7 @@ public sealed class MediaReconciliationEncoding : IMediaReconciliationEncoding
         if (new MediaReconciliationSources(refreshed, capture.Sources.Layout, capture.Sources.LogicalInspectionIds, capture.Sources.ReferenceFingerprint).Fingerprint != capture.Sources.Fingerprint)
             return MediaReconciliationErrors.Changed;
         if (policy.Kind.ManifestType == MediaManifestType.CdTracks)
-            return _composition.CdRecipe is { } recipe && recipe.Kind == kind ? await _cd.AcquireAsync(attempt, policy, recipe, ct) : RomMediaVerificationErrors.Unavailable;
+            return _composition.CdRecipes.ForKind(kind) is { } recipe ? await _cd.AcquireAsync(attempt, policy, recipe, ct) : RomMediaVerificationErrors.Unavailable;
         return _composition.WholeEncoding.TryGetValue(kind, out var settings) ? await _whole.AcquireAsync(attempt, policy, settings, ct) : RomMediaVerificationErrors.Unavailable;
     }
 }

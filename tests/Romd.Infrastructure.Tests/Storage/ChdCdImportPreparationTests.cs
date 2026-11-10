@@ -5,9 +5,10 @@ using Romd.Admin.Application.Source.Rom.Compressed;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Configuration;
 using Romd.Domain.Source.Rom;
-using Romd.Infrastructure.Storage;
 using Romd.Infrastructure.Hashing;
-using Romd.Media.PlayStation;
+using Romd.Infrastructure.Storage;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.TestSupport;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
@@ -48,8 +49,10 @@ public sealed class ChdCdImportPreparationTests : IDisposable
         using var admission = admitted ? (await adapter.AdmitAsync(prefix, default)).ShouldNotBeNull() : null;
         if (admitted)
         {
-            using var blocked = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-            await Should.ThrowAsync<OperationCanceledException>(() => runtime.AcquireAsync(ct: blocked.Token));
+            using var blocked = new CancellationTokenSource();
+            var waiting = runtime.AcquireAsync(ct: blocked.Token);
+            blocked.Cancel();
+            await Should.ThrowAsync<OperationCanceledException>(() => waiting);
         }
         await using var staged = await factory.CreateAsync(input,
             includeDatHashes: bytes => adapter.RequiresDatHashes(bytes.Span),
@@ -93,7 +96,7 @@ public sealed class ChdCdImportPreparationTests : IDisposable
         var bins = observed.Tracks.Select((track, index) => new CatalogCdBinBinding(
             new(20 + index, $"bin-{index}", names[index], track.Identity.Size, track.Identity.Sha1, track.Identity.Md5, track.Identity.Crc32, false),
             new(track.Placement.Number, track.Identity))).ToArray();
-        var binding = new RomCdImportBinding(13, 17, cueRequirement, bins);
+        var binding = new RomCdImportBinding(13, 17, cueRequirement, bins, "psx");
         PreparedRom.WholeFile? original = null;
         if (exactCue)
         {

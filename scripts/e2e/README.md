@@ -218,7 +218,7 @@ After `POST /api/upload/rom`, a `media-reconciliation` subject job is staged for
 the exact public logical-ROM ID. Acceptance does not establish eligibility or
 capture a recipe. The worker resolves current facts and reference authority;
 the committed creation must use the `Id` in
-`src/Romd.Media/PlayStation/ChdDvdCanonicalRecipe.cs`.
+`src/Romd.Media/Chd/ChdDvdCanonicalRecipe.cs`.
 
 ### 4. Crash recovery
 

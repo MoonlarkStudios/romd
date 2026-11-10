@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using Romd.Media.Inspection;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -29,7 +28,8 @@ using Romd.Hosting.IntegrationTests.Infrastructure;
 using Romd.Infrastructure.Identity;
 using Romd.Infrastructure.Jobs.Executors;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
+using Romd.Media.Inspection;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Identity;

@@ -6,6 +6,8 @@ using Microsoft.CodeAnalysis.CSharp;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Domain.Hashing;
 using Romd.Infrastructure.Storage;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
 using Romd.Media.PlayStation;
 using Shouldly;
@@ -68,7 +70,7 @@ internal sealed class MediaWorkerTestFixture : IDisposable
         string build = Path.Combine(_directory, "native-build");
         Directory.CreateDirectory(Path.Combine(build, "native"));
         File.WriteAllBytes(Path.Combine(build, "native", "libmoonlark_chdr.so"), [1, 2, 3]);
-        var identity = new ChdNativeIdentity(Romd.Media.PlayStation.NativeRuntimeIdentifier.Current!, "libmoonlark_chdr.so", 3,
+        var identity = new ChdNativeIdentity(Romd.Media.Chd.NativeRuntimeIdentifier.Current!, "libmoonlark_chdr.so", 3,
             Convert.ToHexStringLower(SHA256.HashData(new byte[] { 1, 2, 3 })), new string('d', 40), "fixture-upstream", 1,
             "fixture/v1", new string('e', 64), true, true, true);
         File.WriteAllText(Path.Combine(_directory, "candidate-identity.json"), MediaWorkerProtocol.WriteNativeIdentity(identity).GetRawText());
@@ -83,7 +85,7 @@ internal sealed class MediaWorkerTestFixture : IDisposable
         File.WriteAllBytes(Path.Combine(build, "native", "chdman"), binaryBytes);
         // Encoded replies come only from Linux tools, so the wire controls name a Linux build of this architecture.
         string rid = "linux-" + System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
-        var identity = new ChdmanToolIdentity(rid, Romd.Media.PlayStation.ChdmanPin.Tag, Romd.Media.PlayStation.ChdmanPin.SourceSha256, 1,
+        var identity = new ChdmanToolIdentity(rid, Romd.Media.Chd.ChdmanPin.Tag, Romd.Media.Chd.ChdmanPin.SourceSha256, 1,
             binaryBytes.Length, Convert.ToHexStringLower(SHA256.HashData(binaryBytes)));
         File.WriteAllText(Path.Combine(_directory, "tool-identity.json"), MediaWorkerProtocol.WriteToolIdentity(identity).GetRawText());
         return new(build, identity);
@@ -261,13 +263,13 @@ internal sealed class MediaWorkerTestFixture : IDisposable
                 // Authenticated operation-shape fixture, without a decoder or tool grandchild.
                 byte[] sourceBytes = await File.ReadAllBytesAsync(arguments[1]);
                 byte[] raw = Enumerable.Range(0, sourceBytes.Length).Select(index => (byte)(index % 251)).ToArray();
-                var facts = new Romd.Media.PlayStation.ChdDvdExtractionMetadata(
+                var facts = new Romd.Media.Chd.ChdDvdExtractionMetadata(
                     Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(sourceBytes)), sourceBytes.LongLength,
                     Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(raw)),
                     Convert.ToHexStringLower(System.Security.Cryptography.SHA1.HashData(raw)),
                     Convert.ToHexStringLower(System.Security.Cryptography.MD5.HashData(raw)),
                     System.IO.Hashing.Crc32.HashToUInt32(raw).ToString("x8", CultureInfo.InvariantCulture), raw.LongLength,
-                    Romd.Media.PlayStation.ChdDvdEncodingService.ExtractionProfile, "unix-nice", 10);
+                    Romd.Media.Chd.ChdDvdEncodingService.ExtractionProfile, "unix-nice", 10);
                 var execution = new ChdToolExecution(identity.ProcessId == int.MaxValue ? identity.ProcessId - 1 : identity.ProcessId + 1, 0, 0, 0);
                 if (arguments[0] == "extract-chd-dvd") await File.WriteAllBytesAsync(arguments[2], raw);
                 await Console.OpenStandardOutput().WriteAsync(MediaWorkerProtocol.Write(new(MediaWorkerStatus.Encoded, identity,
@@ -277,24 +279,24 @@ internal sealed class MediaWorkerTestFixture : IDisposable
             MediaWorkerReply injectedReply;
             if (mode is "chd-encode-source-rejection" or "chd-encode-wrong-source-path")
                 injectedReply = new(MediaWorkerStatus.Malformed, identity, ChdEncodingRejection: new(
-                    Romd.Media.PlayStation.ChdDvdEncodingStage.Source, Romd.Media.PlayStation.ChdDvdEncodingCause.SourceHashMismatch,
+                    Romd.Media.Chd.ChdDvdEncodingStage.Source, Romd.Media.Chd.ChdDvdEncodingCause.SourceHashMismatch,
                     arguments[1] + (mode == "chd-encode-wrong-source-path" ? ".other" : "")));
             else if (mode == "chd-encode-candidate-rejection")
                 injectedReply = new(MediaWorkerStatus.Malformed, identity, ChdEncodingRejection: new(
-                    Romd.Media.PlayStation.ChdDvdEncodingStage.ToolVerification, Romd.Media.PlayStation.ChdDvdEncodingCause.CandidateRejected,
+                    Romd.Media.Chd.ChdDvdEncodingStage.ToolVerification, Romd.Media.Chd.ChdDvdEncodingCause.CandidateRejected,
                     Path.Combine(Environment.GetEnvironmentVariable("ROMD_CHDMAN_DIRECTORY")!, "native", "chdman"), new(
-                        Romd.Media.PlayStation.ChdRejectionStage.NativeVerification, "BinaryMissing",
+                        Romd.Media.Chd.ChdRejectionStage.NativeVerification, "BinaryMissing",
                         Path.Combine(Environment.GetEnvironmentVariable("ROMD_CHDMAN_DIRECTORY")!, "native", "chdman"))));
             else if (mode == "chd-encode-wrong-output-path")
                 injectedReply = new(MediaWorkerStatus.Malformed, identity, ToolIdentity: tool, ChdEncodingRejection: new(
-                    Romd.Media.PlayStation.ChdDvdEncodingStage.Output, Romd.Media.PlayStation.ChdDvdEncodingCause.InvalidOutputHeader,
+                    Romd.Media.Chd.ChdDvdEncodingStage.Output, Romd.Media.Chd.ChdDvdEncodingCause.InvalidOutputHeader,
                     arguments[2] + ".other"));
             else if (mode is "chd-encode-tool-killed" or "chd-encode-external-kill" or "chd-encode-false-cpu-budget")
                 // A joined CPU budget rejection, with consumed CPU evidence.
                 injectedReply = new(mode == "chd-encode-external-kill" ? MediaWorkerStatus.Malformed : MediaWorkerStatus.LimitExceeded, identity, ToolIdentity: tool,
                     ToolExecution: new(identity.ProcessId == int.MaxValue ? identity.ProcessId - 1 : identity.ProcessId + 1, 128 + 9, 0, 0, mode == "chd-encode-tool-killed" ? 1_200_000_000 : 10_000),
-                    ChdEncodingRejection: new(Romd.Media.PlayStation.ChdDvdEncodingStage.ToolExecution,
-                        mode == "chd-encode-external-kill" ? Romd.Media.PlayStation.ChdDvdEncodingCause.ToolExitFailure : Romd.Media.PlayStation.ChdDvdEncodingCause.CpuBudgetExceeded,
+                    ChdEncodingRejection: new(Romd.Media.Chd.ChdDvdEncodingStage.ToolExecution,
+                        mode == "chd-encode-external-kill" ? Romd.Media.Chd.ChdDvdEncodingCause.ToolExitFailure : Romd.Media.Chd.ChdDvdEncodingCause.CpuBudgetExceeded,
                         Path.Combine(Environment.GetEnvironmentVariable("ROMD_CHDMAN_DIRECTORY")!, "native", "chdman")));
             else
             {
@@ -312,11 +314,11 @@ internal sealed class MediaWorkerTestFixture : IDisposable
                 string hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(artifact));
                 string md5 = Convert.ToHexStringLower(System.Security.Cryptography.MD5.HashData(artifact));
                 string sha1 = Convert.ToHexStringLower(System.Security.Cryptography.SHA1.HashData(artifact));
-                var header = new Romd.Media.PlayStation.ChdHeaderFacts(artifact.Length, (ulong)sourceBytes.LongLength, 16384, 2048,
+                var header = new Romd.Media.Chd.ChdHeaderFacts(artifact.Length, (ulong)sourceBytes.LongLength, 16384, 2048,
                     checked((uint)(sourceBytes.LongLength / 16384 + (sourceBytes.LongLength % 16384 == 0 ? 0 : 1))), 0x7a737464, 0, 0, 0);
-                var facts = new Romd.Media.PlayStation.ChdDvdArtifactMetadata(sourceHash, sourceBytes.LongLength, sourceBytes.LongLength,
-                    hash, md5, sha1, artifact.Length, header, Romd.Media.PlayStation.ChdDvdCanonicalRecipe.Id,
-                    Romd.Media.PlayStation.ChdDvdCanonicalRecipe.EncoderProfile, "unix-nice", 10);
+                var facts = new Romd.Media.Chd.ChdDvdArtifactMetadata(sourceHash, sourceBytes.LongLength, sourceBytes.LongLength,
+                    hash, md5, sha1, artifact.Length, header, Romd.Media.Chd.ChdDvdCanonicalRecipe.Id,
+                    Romd.Media.Chd.ChdDvdCanonicalRecipe.EncoderProfile, "unix-nice", 10);
                 // These are intentionally synthetic scalars; this fixture never starts an encoder grandchild.
                 var execution = new ChdToolExecution(identity.ProcessId == int.MaxValue ? identity.ProcessId - 1 : identity.ProcessId + 1, 0, 104, 88);
                 if (mode == "chd-encode-wrong-source-hash") facts = facts with { SourceSha256 = new string('a', 64) };
@@ -379,11 +381,11 @@ internal sealed class MediaWorkerTestFixture : IDisposable
             }
             else if (mode is "chd-ready" or "chd-wrong-native") injectedReply = new(MediaWorkerStatus.Ready, identity, NativeIdentity: native);
             else if (mode is "chd-native-rejection" or "chd-wrong-rejection-path")
-                injectedReply = new(MediaWorkerStatus.Malformed, identity, ChdRejection: new(Romd.Media.PlayStation.ChdRejectionStage.NativeVerification,
+                injectedReply = new(MediaWorkerStatus.Malformed, identity, ChdRejection: new(Romd.Media.Chd.ChdRejectionStage.NativeVerification,
                     "BinaryMissing", Path.Combine(Environment.GetEnvironmentVariable("ROMD_CHD_NATIVE_DIRECTORY")!, "native", native.File)
                         + (mode == "chd-wrong-rejection-path" ? ".other" : "")));
             else if (mode is "chd-header-rejection" or "chd-wrong-source-path")
-                injectedReply = new(MediaWorkerStatus.Malformed, identity, ChdRejection: new(Romd.Media.PlayStation.ChdRejectionStage.Header,
+                injectedReply = new(MediaWorkerStatus.Malformed, identity, ChdRejection: new(Romd.Media.Chd.ChdRejectionStage.Header,
                     "TruncatedHeader", arguments[1] + (mode == "chd-wrong-source-path" ? ".other" : "")));
             else if (mode == "chd-rvz-reply")
             {
@@ -405,8 +407,8 @@ internal sealed class MediaWorkerTestFixture : IDisposable
                         new("chd-dvd-metadata/v1", 1, 0x44564420, 1, 1, 0,
                             "c3ee3c942f2cbc35b3a4bec95ec700c2b9d21d5e90c7016b261504710490b406")),
                     Ps2Inspection: !ps2 ? null : mode == "chd-ps2-malformed"
-                        ? new(Ps2DvdIdentificationStatus.Malformed, Ps2DvdIdentifier.ProfileVersion)
-                        : new(Ps2DvdIdentificationStatus.Identified, Ps2DvdIdentifier.ProfileVersion,
+                        ? new(Romd.Media.PlayStation.Ps2DvdIdentificationStatus.Malformed, Romd.Media.PlayStation.Ps2DvdIdentifier.ProfileVersion)
+                        : new(Romd.Media.PlayStation.Ps2DvdIdentificationStatus.Identified, Romd.Media.PlayStation.Ps2DvdIdentifier.ProfileVersion,
                             new(131072, 64, 16, 24, 2048, 25, 60, 26, 512,
                                 "cdrom0:\\SLUS_203.12;1", "cdrom0:\\SLUS_203.12;1", "SLUS_203.12", 0x100000, 1)));
             }

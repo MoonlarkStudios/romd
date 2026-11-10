@@ -46,7 +46,7 @@
 void chd_fuzz_ubsan_canary(size_t size);
 #endif
 
-/* Header bounds equal to ROMD's CHD preflight limits (ChdDvdLimits in src/Romd.Media/PlayStation); never lower them. */
+/* Header bounds equal to ROMD's CHD preflight limits (ChdDvdLimits in src/Romd.Media/Chd); never lower them. */
 #define MAX_HUNK_BYTES (1u << 20)        /* above real hunks: 16,384 (DVD), 19,584 (CD), 223,668 (AVHuff) */
 #define MAX_HUNK_COUNT 2621440u
 /* Walk bounds that keep iterations fast and memory bounded. */

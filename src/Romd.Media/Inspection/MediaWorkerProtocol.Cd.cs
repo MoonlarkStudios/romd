@@ -1,6 +1,9 @@
 using System.Text.Json;
 using Moonlark.Libchdr;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.PlayStation;
+using Romd.Media.Saturn;
 
 namespace Romd.Media.Inspection;
 
@@ -30,6 +33,7 @@ public static partial class MediaWorkerProtocol
         storedOverallSha1 = cd.StoredOverallSha1,
         computedOverallSha1 = cd.ComputedOverallSha1,
         ps1Boot = JsonSerializer.SerializeToElement(cd.Ps1Boot, ChdCdJson.Options),
+        saturnBoot = JsonSerializer.SerializeToElement(cd.SaturnBoot, ChdCdJson.Options),
         metadata = cd.Metadata.Select(entry => new { tag = entry.Tag, flags = entry.Flags, payload = entry.PayloadHex }),
         tracks = cd.Tracks.Select(track => new
         {
@@ -59,7 +63,7 @@ public static partial class MediaWorkerProtocol
     {
         inspection = null;
         if (!HasFields(value, "profile", "projectionProfile", "artifactSha256", "header", "storedRawSha1", "computedRawSha1",
-                "storedOverallSha1", "computedOverallSha1", "tracks", "metadata", "ps1Boot") ||
+                "storedOverallSha1", "computedOverallSha1", "tracks", "metadata", "ps1Boot", "saturnBoot") ||
             Text(value, "profile") != ChdCdInspectionService.Profile || Text(value, "projectionProfile") != ChdCdInspectionService.ProjectionProfile ||
             !IdentityHash(Text(value, "artifactSha256"), 64) || !IdentityHash(Text(value, "storedRawSha1"), 40) ||
             !IdentityHash(Text(value, "storedOverallSha1"), 40) ||
@@ -144,11 +148,12 @@ public static partial class MediaWorkerProtocol
         }
         if (metadataBytes + 124 > artifact)
             return false;
-        if (!TryReadCdBoot(value.GetProperty("ps1Boot"), tracks, out var boot))
+        if (!TryReadCdBoot(value.GetProperty("ps1Boot"), tracks, out var boot) ||
+            !TryReadSaturnCdBoot(value.GetProperty("saturnBoot"), tracks, out var saturn) || boot is not null && saturn is not null)
             return false;
         inspection = new(ChdCdInspectionService.Profile, ChdCdInspectionService.ProjectionProfile, Text(value, "artifactSha256")!,
             (uint)version, false, new(artifact, (ulong)logical, (uint)hunk, ChdCdImage.FrameBytes, (uint)count, (uint)codec0, (uint)codec1, (uint)codec2, (uint)codec3),
-            Text(value, "storedRawSha1")!, Text(value, "computedRawSha1")!, Text(value, "storedOverallSha1")!, Text(value, "computedOverallSha1")!, tracks.ToArray(), metadata.ToArray(), boot);
+            Text(value, "storedRawSha1")!, Text(value, "computedRawSha1")!, Text(value, "storedOverallSha1")!, Text(value, "computedOverallSha1")!, tracks.ToArray(), metadata.ToArray(), boot, saturn);
         return true;
     }
 
@@ -170,6 +175,24 @@ public static partial class MediaWorkerProtocol
             observed.FirstTrackIndex01 + observed.VolumeBlocks > tracks.Sum(track => (long)track.Frames) ||
             observed.FirstTrackIndex01 + observed.RootBlock + (observed.RootBytes + 2047L) / 2048 > first.Frames ||
             observed.FirstTrackIndex01 + observed.BootBlock + (observed.BootBytes + 2047L) / 2048 > first.Frames)
+            return false;
+        boot = observed;
+        return true;
+    }
+
+    private static bool TryReadSaturnCdBoot(JsonElement value, IReadOnlyList<ChdCdTrackInspection> tracks, out SaturnCdObservedFacts? boot)
+    {
+        boot = null;
+        if (value.ValueKind == JsonValueKind.Null)
+            return true;
+        if (!HasFields(value, "profile", "firstTrackIndex01", "productCode", "areaSymbols", "initialProgramBytes", "headerSha256") ||
+            System.Text.Encoding.UTF8.GetByteCount(value.GetRawText()) > 1024)
+            return false;
+        var observed = value.Deserialize<SaturnCdObservedFacts>(ChdCdJson.Options);
+        var first = tracks[0];
+        if (observed is null || !SaturnCdIdentifier.Valid(observed) ||
+            !CdBootObservation.FromWire(null, observed).Fits(first.Type, first.Frames, tracks.Sum(t => (long)t.Frames)) ||
+            observed.FirstTrackIndex01 != (first.PregapStored ? first.PregapFrames : 0))
             return false;
         boot = observed;
         return true;

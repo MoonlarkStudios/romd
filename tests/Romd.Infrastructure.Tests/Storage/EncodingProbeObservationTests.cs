@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using Romd.Admin.Application.Source.Rom;
 using Romd.Domain.Source.Rom;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Media.Probe;
 using Romd.Media.TestSupport;
 using Romd.Storage;

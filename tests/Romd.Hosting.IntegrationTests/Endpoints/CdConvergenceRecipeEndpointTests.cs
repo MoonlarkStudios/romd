@@ -1,4 +1,3 @@
-using Romd.Admin.Application.Source.Rom;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
@@ -6,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.Catalog.Commands.DecideOriginalDiscLayout;
+using Romd.Admin.Application.Source.Rom;
 using Romd.Application.Common.Content;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.ReferenceCatalog;
@@ -17,7 +17,7 @@ using Romd.Host.Endpoints;
 using Romd.Hosting.IntegrationTests.Infrastructure;
 using Romd.Infrastructure.Identity;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Shouldly;
 using Xunit;
 
@@ -30,17 +30,20 @@ public sealed class CdConvergenceRecipeEndpointTests
     private const string Path = "/api/original-disc-layouts/compression-recipe";
 
     [Theory]
-    [InlineData("linux-x64", true)]
-    [InlineData("linux-arm64", false)]
-    public async Task GetCompressionRecipe_ProductionRegistration_ReturnsTheRegisteredRecipe(string rid, bool available)
+    [InlineData("linux-x64", true, "psx")]
+    [InlineData("linux-arm64", false, "psx")]
+    [InlineData("linux-x64", true, "saturn")]
+    [InlineData("linux-arm64", false, "saturn")]
+    public async Task GetCompressionRecipe_ProductionRegistration_ReturnsTheRegisteredRecipe(string rid, bool available, string systemKey)
     {
         await using var app = Build(RomMediaPolicyComposition.Create(), rid);
         await app.StartAsync();
         using var client = app.GetTestClient().WithTestUser(Guid.NewGuid(), roles: [RomdRoleType.Admin]);
 
-        string json = await client.GetStringAsync(Path);
+        string json = await client.GetStringAsync(Path + "?systemKey=" + systemKey);
 
-        json.ShouldBe($$"""{"available":{{(available ? "true" : "false")}},"recipeVersion":"chd-ps1-canonical/v1","hunkBytes":39168,"codecs":["cdzs","cdfl"],"qualifiedRid":"linux-x64"}""");
+        string recipe = systemKey == "saturn" ? "chd-saturn-canonical/v1" : "chd-ps1-canonical/v1";
+        json.ShouldBe($$"""{"available":{{(available ? "true" : "false")}},"recipeVersion":"{{recipe}}","hunkBytes":39168,"codecs":["cdzs","cdfl"],"qualifiedRid":"linux-x64"}""");
     }
 
     [Theory]
@@ -90,7 +93,7 @@ public sealed class CdConvergenceRecipeEndpointTests
         builder.Services.AddSingleton<IAuthorizationHandler, MinimumRoleHandler>();
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<ICurrentUser, CurrentUser>();
-        builder.Services.AddSingleton(media.CdRecipe!);
+        builder.Services.AddSingleton(media.CdRecipes);
         builder.Services.AddSingleton<IMediaHostCapabilities>(capabilities);
         builder.Services.AddSingleton<IReferenceCatalogService>(TestReferenceCatalog.Create());
         builder.Services.AddSingleton(Substitute.For<IOriginalDiscLayoutService>());

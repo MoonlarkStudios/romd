@@ -254,7 +254,8 @@ public sealed class PersistenceBoundaryArchitectureTests
         Sql(Persistence + "MediaFacts/MediaRepresentationOwnership.cs", "MediaRepresentationOwnership", "Owned", "FromSqlRaw"),
         Sql(Persistence + "MediaFacts/DiscReferenceAssertionReader.cs", "DiscReferenceAssertionReader", "ReadCoreAsync", "SqlQueryRaw"),
         Sql(Persistence + "MediaFacts/LogicalInspectionReader.cs", "LogicalInspectionReader", "ReadCoreAsync", "SqlQueryRaw", 2),
-        Sql(Persistence + "MediaFacts/MediaCreationFactWriter.cs", "MediaCreationFactWriter", "StageCdBootAsync", "ExecuteSqlInterpolatedAsync"),
+        // Separate PS1 and Saturn inserts retain their own fact columns under the same caller-owned publication transaction.
+        Sql(Persistence + "MediaFacts/MediaCreationFactWriter.cs", "MediaCreationFactWriter", "StageCdBootAsync", "ExecuteSqlInterpolatedAsync", 2),
         Sql(Persistence + "MediaFacts/MediaCreationFactWriter.cs", "MediaCreationFactWriter", "StageCreationAsync", "ExecuteSqlInterpolatedAsync", 3),
         Sql(Persistence + "MediaFacts/MediaFactLockSet.cs", "MediaFactLockSet", "ReadAsync", "ExecuteSqlRawAsync", 3),
         Sql(Persistence + "MediaFacts/MediaFactPublisher.cs", "MediaFactPublisher", "AppendVerificationAsync", "ExecuteSqlInterpolatedAsync"),

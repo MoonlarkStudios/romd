@@ -57,7 +57,7 @@ public sealed class RomCdAdoptionCaptureTests : IAsyncLifetime
     public async Task Reconcile_CanonicalImportedArchiveAndAuthenticCue_FencesScopeAndPublishesOnlyMeasuredOriginals(string change)
     {
         var composition = RomMediaPolicyComposition.Create();
-        var recipe = composition.CdRecipe.ShouldNotBeNull();
+        var recipe = composition.CdRecipes.ForKind("ps1-cd-set").ShouldNotBeNull();
         var decoder = new RomChdDecoderBuild("linux-x64", Sha1.Parse(new string('a', 40)), 2);
         var temp = Temp();
         await using var input = await MediaInfrastructureTestServices.MeasuredCdInputAsync(temp, recipe, decoder, true, 0, trackCount: 2, boot: null);

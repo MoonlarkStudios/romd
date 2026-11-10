@@ -1,6 +1,6 @@
 using Romd.Application.Common.Content;
 using Romd.Domain.Source.Rom;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 
 namespace Romd.Infrastructure.Storage;
 
@@ -20,7 +20,7 @@ public sealed class ChdDeliveryAdmission : IRomChdDeliveryAdmission
     private readonly Func<ChdNativeCandidate, ChdNativeIdentity> _verify;
     private readonly IMediaHostCapabilities _capabilities;
     private readonly string[] _dvdKinds;
-    private readonly string[] _cdKinds;
+    private readonly MediaKindDescriptor[] _cdKinds;
     private readonly string[] _managedKinds;
 
     /// <param name="runtime">The deployed native build, verified again on every assessment.</param>
@@ -56,7 +56,7 @@ public sealed class ChdDeliveryAdmission : IRomChdDeliveryAdmission
         _verify = verify;
         _capabilities = capabilities;
         _dvdKinds = kinds.Kinds.Where(kind => kind.StoredEncoding == Romd.Domain.Source.Rom.RomRepresentationEncoding.Chd && kind.ManifestType == MediaManifestType.WholeFile).Select(kind => kind.Kind).ToArray();
-        _cdKinds = kinds.Kinds.Where(kind => kind.StoredEncoding == Romd.Domain.Source.Rom.RomRepresentationEncoding.Chd && kind.ManifestType == MediaManifestType.CdTracks).Select(kind => kind.Kind).ToArray();
+        _cdKinds = kinds.Kinds.Where(kind => kind.StoredEncoding == Romd.Domain.Source.Rom.RomRepresentationEncoding.Chd && kind.ManifestType == MediaManifestType.CdTracks).ToArray();
         _managedKinds = kinds.Kinds.Where(kind => kind.ManifestType == MediaManifestType.WholeFile && kind.StoredEncoding == RomRepresentationEncoding.Rvz)
             .Select(kind => kind.Kind).ToArray();
     }
@@ -86,7 +86,8 @@ public sealed class ChdDeliveryAdmission : IRomChdDeliveryAdmission
     {
         ArgumentNullException.ThrowIfNull(member);
         // Decode capability gates the member's kind before any native work; encode capability is never consulted.
-        if (!Decodes(_cdKinds) || !_isReady() || _native() is not { } native ||
+        var matching = _cdKinds.Where(kind => kind.MatchesLayout?.Invoke(member.Facts) ?? true).Select(kind => kind.Kind).ToArray();
+        if (!Decodes(matching) || !_isReady() || _native() is not { } native ||
             !member.HasDecoder(ChdBuildEvidence.Decoder(native.ExpectedIdentity)))
             return null;
         try

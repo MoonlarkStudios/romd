@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Nodes;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
 using Romd.Media.Nintendo;
 using Romd.Media.PlayStation;
@@ -542,7 +543,7 @@ public sealed class MediaWorkerProtocolTests
         parsed.ShouldBe(ValidEncoding);
         parsed!.Inspection.ShouldBeNull();
         parsed.IsoInspection.ShouldBeNull();
-        MediaWorkerProtocol.Version.ShouldBe("romd-media/v12");
+        MediaWorkerProtocol.Version.ShouldBe("romd-media/v13");
     }
 
     [Theory]

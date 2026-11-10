@@ -601,11 +601,14 @@ describe('DiscLayouts', () => {
       expect(vi.mocked(listOriginalDiscLayouts).mock.calls.length).toBeGreaterThan(1),
     );
   });
-  it('queues whole-disc compression using the exact reviewed revision', async () => {
+  it.each([
+    'psx',
+    'saturn',
+  ])('queues %s compression using its recipe and the exact reviewed revision', async (systemKey) => {
     vi.mocked(getCdStorageRecipe).mockResolvedValue(
       result({
         available: true,
-        recipeVersion: 'chd-ps1-canonical/v1',
+        recipeVersion: systemKey === 'saturn' ? 'chd-saturn-canonical/v1' : 'chd-ps1-canonical/v1',
         hunkBytes: 39168,
         codecs: [
           'cdzs',
@@ -619,6 +622,7 @@ describe('DiscLayouts', () => {
         page([
           {
             ...layout,
+            systemKey,
             dependencies: [
               {
                 path: 'Track.bin',
@@ -664,6 +668,11 @@ describe('DiscLayouts', () => {
       }),
     );
     expect(randomUUID).not.toHaveBeenCalled();
+    expect(getCdStorageRecipe).toHaveBeenCalledWith({
+      query: {
+        systemKey,
+      },
+    });
     randomUUID.mockRestore();
     expect(updateOriginalDiscLayout).not.toHaveBeenCalled();
   });

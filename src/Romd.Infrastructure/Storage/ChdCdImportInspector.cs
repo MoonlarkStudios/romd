@@ -1,8 +1,9 @@
 using ErrorOr;
 using Romd.Admin.Application.Source.Rom.Compressed;
 using Romd.Admin.Application.Storage.Files;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
-using Romd.Media.PlayStation;
 
 namespace Romd.Infrastructure.Storage;
 

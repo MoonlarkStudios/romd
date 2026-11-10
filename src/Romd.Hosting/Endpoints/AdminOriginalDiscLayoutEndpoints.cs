@@ -59,11 +59,14 @@ public static class AdminOriginalDiscLayoutEndpoints
             .ProducesProblems(400, 404, 409).ConditionalWrite();
         // The admin host cannot see the worker's encoder, so availability is this host's qualified decode capability; the
         // worker refuses an encode it cannot perform. The composition requires a CD track kind to name its qualified runtime.
-        app.MapGet("original-disc-layouts/compression-recipe", (RomCdStorageRecipe recipe, IMediaHostCapabilities capabilities) =>
-            Results.Ok(new CdStorageRecipe(capabilities.CanDecode(recipe.Kind), recipe.Id, checked((int)recipe.HunkBytes), recipe.CodecNames,
-                capabilities.QualifiedRuntime(recipe.Kind)!)))
+        app.MapGet("original-disc-layouts/compression-recipe", (RomCdStorageRecipes recipes, IMediaHostCapabilities capabilities,
+            SystemKeyParameter? systemKey = null) =>
+            (systemKey is null ? recipes.Default : recipes.ForPlatform(systemKey.Key)) is { } recipe
+                ? Results.Ok(new CdStorageRecipe(capabilities.CanDecode(recipe.Kind), recipe.Id, checked((int)recipe.HunkBytes), recipe.CodecNames,
+                    capabilities.QualifiedRuntime(recipe.Kind)!))
+                : (IResult)ProblemResults.Problem(404, "OriginalLayout.NoCompressionRecipe", "No CD compression recipe is registered for this system."))
             .WithName("GetCdStorageRecipe").WithTags("Original Disc Layouts")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<CdStorageRecipe>();
+            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).Produces<CdStorageRecipe>().ProducesProblems(400, 404);
         app.MapGet("original-disc-layouts/{layoutId}/archive", async (Sqid layoutId, IRomCdArchiveDownloadCatalog catalog,
             IRomCdArchiveDownloadReader reader, HttpContext context, CancellationToken ct) =>
             await catalog.FindForLayoutAsync(layoutId, ct) is { } target

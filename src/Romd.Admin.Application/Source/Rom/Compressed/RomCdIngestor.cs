@@ -4,7 +4,7 @@ namespace Romd.Admin.Application.Source.Rom.Compressed;
 
 /// <summary>Associates immutable stopped-child observations outside publication transactions, then delegates the fenced commit.</summary>
 public sealed class RomCdIngestor(IRomCdImportCatalogReader catalog, IRomCdCueGenerator cues,
-    IRomCdImportPublication publication, RomCdStorageRecipe recipe, IRomPreparationService preparation) : IRomCdIngestor
+    IRomCdImportPublication publication, RomCdStorageRecipes recipes, IRomPreparationService preparation) : IRomCdIngestor
 {
     public async Task<ErrorOr<RomIngestResult.CdArchive>> IngestAsync(PreparedRom.Cd source, RomCdIngestIntent intent, CancellationToken ct)
     {
@@ -12,8 +12,9 @@ public sealed class RomCdIngestor(IRomCdImportCatalogReader catalog, IRomCdCueGe
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(intent);
         var tracks = source.Inspection.Tracks.Select(track => new RomCdImportTrack(track.Placement.Number, track.Identity)).ToArray();
-        var entries = await catalog.FindAsync(tracks.Select(track => track.Identity).ToArray(), recipe.PlatformKeys, ct);
-        var bound = RomCdImportBindings.Select(tracks, entries, recipe.PlatformKeys);
+        var platforms = recipes.PlatformsFor(source.Inspection.Boot);
+        var entries = await catalog.FindAsync(tracks.Select(track => track.Identity).ToArray(), platforms, ct);
+        var bound = RomCdImportBindings.Select(tracks, entries, platforms);
         if (bound.IsError)
             return bound.Errors;
         var generated = await cues.GenerateAsync(source.Inspection.Tracks, bound.Value.Bins.Select(bin => bin.Requirement.Name).ToArray(), ct);

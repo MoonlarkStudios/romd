@@ -51,14 +51,14 @@ public sealed class MediaOwnershipArchitectureTests
     {
         string[] shared =
         [
-            "src/Romd.Media/PlayStation/ChdmanToolRunner.cs",
-            "src/Romd.Media/PlayStation/ChdToolPaths.cs"
+            "src/Romd.Media/Chd/ChdmanToolRunner.cs",
+            "src/Romd.Media/Chd/ChdToolPaths.cs"
         ];
         var sharedReferences = shared.SelectMany(path => References(path, "ChdDvdEncodingService", "ChdCdEncodingService"));
         string[] cd =
         [
-            "src/Romd.Media/PlayStation/ChdCdEncodingService.cs",
-            "src/Romd.Media/PlayStation/ChdCdJobs.cs"
+            "src/Romd.Media/Cd/ChdCdEncodingService.cs",
+            "src/Romd.Media/Cd/ChdCdJobs.cs"
         ];
         var cdReferences = cd.SelectMany(path => References(path, "ChdDvdEncodingService"));
         sharedReferences.Concat(cdReferences).ShouldBeEmpty("Shared lifecycle ownership belongs to the runner, not one of its consumers.");

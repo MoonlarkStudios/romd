@@ -23,7 +23,7 @@ public sealed partial class CatalogCdLayoutBoundaryTests
 {
     private static RomMediaComposition CatalogComposition(ConversionMode mode) =>
         RomMediaPolicyComposition.Create(RomMediaPolicyComposition.Registrations.Select(row =>
-            row.ManifestType == MediaManifestType.CdTracks
+            row.Kind == "ps1-cd-set"
                 ? row with { PlatformKeys = ["fixture"], ConversionMode = mode } : row).ToArray());
     private static readonly RomChdEncoderBuild CatalogEncoder = new("linux-x64", "mame0280", MediaFactGraphFixture.Hash('e'), 1);
     private static MediaReconciliationDecision CatalogDecision(RomMediaComposition composition, bool canEncode)

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
 using Romd.PostgreSql.TestSupport;
 using Romd.Storage;
 

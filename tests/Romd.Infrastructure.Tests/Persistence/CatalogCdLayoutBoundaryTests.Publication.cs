@@ -86,7 +86,7 @@ public sealed partial class CatalogCdLayoutBoundaryTests
         var descriptor = Substitute.For<ITempFile>();
         descriptor.FileSha256.Returns(Cue.Sha256);
         descriptor.FileSize.Returns(Cue.Size);
-        var encoded = new MediaReconciliationEncoded.Cd(artifact, new(artifact.FileSha256, Md5.Parse(new string('e', 32)), Sha1.Parse(new string('e', 40)), artifact.FileSize), measured, new(measured, CatalogComposition(ConversionMode.Automatic).Reconciliation.Values.Single(row => row.Kind.ManifestType == Romd.Application.Common.Content.MediaManifestType.CdTracks).Recipe,
+        var encoded = new MediaReconciliationEncoded.Cd(artifact, new(artifact.FileSha256, Md5.Parse(new string('e', 32)), Sha1.Parse(new string('e', 40)), artifact.FileSize), measured, new(measured, CatalogComposition(ConversionMode.Automatic).Reconciliation["ps1-cd-set"].Recipe,
             CatalogEncoder, MediaFactGraphFixture.Hash('f'), 128, "actual-source-observer", MediaFactGraphFixture.Boot),
             new Dictionary<string, ITempFile> { ["disc.cue"] = descriptor }, Observed.AddTicks(3));
         var claim = await ClaimCatalogAsync(db, conversion: true);

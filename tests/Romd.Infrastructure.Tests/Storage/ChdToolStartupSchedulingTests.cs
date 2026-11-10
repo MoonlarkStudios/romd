@@ -3,8 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
-using Romd.Media.PlayStation;
 using Romd.Media.Processes;
 using Romd.Media.TestSupport;
 using Shouldly;
@@ -90,7 +90,7 @@ public sealed class ChdToolStartupSchedulingTests
         using System.Text.Json;
         using System.Threading;
         using System.Threading.Tasks;
-        using Romd.Media.PlayStation;
+        using Romd.Media.Chd;
         using Romd.Media.Processes;
         string directory = args[0], mode = args[2];
         string source = Path.Combine(directory, "source.iso"), artifact = Path.Combine(directory, "artifact.chd");

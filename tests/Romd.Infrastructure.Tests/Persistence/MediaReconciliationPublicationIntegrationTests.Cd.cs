@@ -32,10 +32,13 @@ namespace Romd.Infrastructure.Tests.Persistence;
 public sealed partial class MediaReconciliationPublicationIntegrationTests
 {
     [LinuxEncodingTheory]
-    [InlineData("commit")]
-    [InlineData("wrong-md5")]
-    [InlineData("wrong-sha1")]
-    public async Task Cd_RealReservedOutput_PublishesMeasuredChecksumsAndFactsWithoutDatHashes(string publication)
+    [InlineData("commit", false)]
+    [InlineData("wrong-md5", false)]
+    [InlineData("wrong-sha1", false)]
+    [InlineData("commit", true)]
+    [InlineData("wrong-md5", true)]
+    [InlineData("wrong-sha1", true)]
+    public async Task Cd_RealReservedOutput_PublishesMeasuredChecksumsAndFactsWithoutDatHashes(string publication, bool saturn)
     {
         await using var db = database.CreateContext();
         var work = new EfUnitOfWork(db);
@@ -44,7 +47,7 @@ public sealed partial class MediaReconciliationPublicationIntegrationTests
             LibchdrDirectory = NativeTestBuilds.LibchdrDirectory,
             ChdmanDirectory = NativeTestBuilds.ChdmanDirectory,
         });
-        byte[] data = SyntheticPs1Cd.ToRaw(SyntheticPs1Cd.Image());
+        byte[] data = saturn ? SyntheticSaturnCd.Raw() : SyntheticPs1Cd.ToRaw(SyntheticPs1Cd.Image());
         // Publication checks require observed live native execution, not a near-empty codec run.
         // Keep a complete generated PCM track; parser fixtures retain their small layouts.
         byte[] audio = new byte[8192 * 2352];
@@ -58,8 +61,8 @@ public sealed partial class MediaReconciliationPublicationIntegrationTests
             BuiltInVersion = 1,
             BaseName = "PlayStation",
             BaseCompactLabel = "PS",
-            ShortName = "psx",
-            CanonicalKey = "psx"
+            ShortName = saturn ? "saturn" : "psx",
+            CanonicalKey = saturn ? "saturn" : "psx"
         });
         db.Titles.Add(new() { Id = 1, PlatformId = 1, Name = "Generated CD", NormalizedName = "generated cd", EnrichmentStatus = "Completed" });
         db.CatalogReleases.Add(new() { Id = 1, PlatformId = 1, CatalogTitleId = 1, Fingerprint = "generated-cd", Name = "Generated CD" });
@@ -145,6 +148,11 @@ public sealed partial class MediaReconciliationPublicationIntegrationTests
                 output.WriteLine(media.ChildTrace);
                 result.IsError.ShouldBeFalse(result.IsError ? result.FirstError + "\n" + media.ChildTrace : null);
                 var encoded = result.Value.ShouldBeOfType<MediaReconciliationEncoded.Cd>();
+                encoded.Recipe.Value.ShouldBe(saturn ? "chd-saturn-canonical/v1" : "chd-ps1-canonical/v1");
+                if (saturn)
+                    encoded.Observation.Boot.ShouldBeOfType<RomSaturnCdBoot>();
+                else
+                    encoded.Observation.Boot.ShouldBeOfType<RomPs1CdBoot>();
                 encoded.Artifact.DatHashes.ShouldBeNull();
                 artifactPath = encoded.Artifact.Path;
                 byte[] actual = await File.ReadAllBytesAsync(artifactPath);
@@ -193,6 +201,17 @@ public sealed partial class MediaReconciliationPublicationIntegrationTests
                 (await db.Set<MediaReconciliationPinEntity>().CountAsync()).ShouldBe(0);
                 (await db.Set<RomVerificationEntity>().AnyAsync(row => row.Id == encoded.Measured.Measurement.Id)).ShouldBeTrue();
                 (await db.RomFiles.CountAsync()).ShouldBe(2);
+                int representationId = await db.Set<RomVerificationEntity>().Where(row => row.Id == encoded.Measured.Measurement.Id).Select(row => row.RepresentationId).SingleAsync();
+                var graph = (await new MediaFactReader(db).ReadAsync([representationId]))[representationId];
+                graph.CdBootInspections.Single().Boot.ShouldBe(encoded.Observation.Boot);
+                graph.Creations.Single().Recipe.ShouldBe(encoded.Recipe);
+                foreach (var (original, expected) in new[] { (first, data), (second, audio) })
+                {
+                    await using var decoded = (await media.Reader.OpenVerifiedByRomIdAsync(original.Outputs.Single().RomId!.Value)).ShouldNotBeNull();
+                    using var copy = new MemoryStream();
+                    await decoded.CopyToAsync(copy);
+                    copy.ToArray().ShouldBe(expected);
+                }
                 File.Exists(artifactPath).ShouldBeTrue();
             }
         }

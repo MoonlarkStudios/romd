@@ -26,6 +26,7 @@ how to get your games back out.
 | PS2 DVDs | CHD | `chd-dvd-canonical/v2`: zstd, 16 KiB hunks | Needs a matching Redump reference; see [PS2 DVDs](#ps2-dvds) |
 | PSP UMD game ISOs | CHD | `chd-dvd-canonical/v2`: zstd, 16 KiB hunks | Automatic, Linux x64 only; see [PSP games](#psp-games) |
 | PS1 CUE/BIN discs | One CHD per disc | `chd-ps1-canonical/v1`: `cdzs,cdfl`, 39,168-byte hunks | Automatic, Linux x64 only; see [PS1 discs](#ps1-discs) |
+| Saturn CUE/BIN discs | One CHD per disc | `chd-saturn-canonical/v1`: `cdzs,cdfl`, 39,168-byte hunks | On request, Linux x64 only; see [Saturn discs](#saturn-discs) |
 | Everything else (cartridge ROMs, unsupported discs) | Original bytes | Seekable Zstandard in ROMD's content store | Compressed transparently; downloads are always the original |
 
 Not compressed yet: PS2 CDs. ROMD stores these as their original files. Each
@@ -90,6 +91,26 @@ CSO, PBP and unsupported layouts do not enter this conversion path. Original
 and CHD downloads are available after verification. Ottercade runtime support
 and PSP gameplay remain separate work; WebDAV currently keeps PSP original names
 and serves reconstructed ISOs, including in its *stored* view.
+
+### Saturn discs
+
+Upload the complete original CUE and BIN files, then use **Disc layouts → Compress
+to CHD**. ROMD resolves the disc's current catalog platform before selecting its
+recipe. Every BIN must match one unambiguous Saturn release by SHA-1 and size;
+the encoder and a separate verifier must also recognize the Saturn initial-program
+header in the first raw MODE1 track. Data/audio layouts are supported. Incomplete,
+ambiguous, cooked-sector and required-sidecar layouts retain their originals.
+
+Every original BIN is independently reconstructed and checked with all its hashes
+before storage is released. The original CUE is retained byte for byte. Multi-disc
+ZIP downloads offer one verified CHD per available disc and an ordered M3U;
+discs without a usable archive keep their original layout. Choose the original
+download for emulators that do not accept CHD.
+
+Saturn conversion is explicit while real-disc compression, load and emulator
+qualification remain pending. It does not enable an Ottercade runtime or promise
+disc switching or shared-save compatibility. See the
+[qualification matrix](../architecture/media-status.md#qualification-status).
 
 ### PS1 discs
 

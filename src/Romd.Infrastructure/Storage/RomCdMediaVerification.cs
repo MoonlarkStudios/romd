@@ -6,7 +6,7 @@ using Romd.Admin.Application.Source.Rom.Reconciliation;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Content;
 using Romd.Domain.Source.Rom;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
 
 namespace Romd.Infrastructure.Storage;
 
@@ -69,16 +69,15 @@ public sealed class RomCdMediaVerification(LocalTempFileFactory staging,
                     return RomMediaVerificationErrors.Custody;
                 if (!result.IsSuccess || result.Reply is not { CdInspection: { } inspection, NativeIdentity: { } native, CdVerification: { } proof } ||
                     proof.Profile != ChdCdRetainedRequest.CurrentProfile || proof.RequestSha256 != request.FileSha256.ToString() ||
-                    !spec.MatchesVerification(proof) || !spec.Matches(inspection) || proof.Ps1Boot != inspection.Ps1Boot)
+                    !spec.MatchesVerification(proof) || !spec.Matches(inspection) || proof.ObservedBoot != inspection.ObservedBoot)
                     return MediaInspectionErrors.Failed(result.Failure ?? MediaWorkerFailure.Protocol);
                 var measured = RomCdMeasurementMapper.Map(inspection, proof, native, result.Reply.Identity.DecoderBuild + ";worker:" + result.Reply.Identity.WorkerBuild, clock.GetUtcNow());
                 if (!measured.MatchesRetained(facts) || !measured.Measurement.Decoder.Equals(selected.Decoder))
                     return RomMediaVerificationErrors.Mismatch;
-                var boot = proof.Ps1Boot;
+                var boot = proof.ObservedBoot;
                 var artifact = _inputs[0];
                 var hashes = artifact.DatHashes!;
-                return new RomMediaVerificationMeasurement.Cd(measured, result.Reply.Identity.DecoderBuild, boot is null ? null : new(boot.Profile, boot.FirstTrackIndex01, boot.VolumeBlocks, boot.RootBlock, boot.RootBytes, boot.BootPath,
-                        boot.BootBlock, boot.BootBytes, boot.EntryPoint, boot.LoadAddress, boot.LoadBytes),
+                return new RomMediaVerificationMeasurement.Cd(measured, result.Reply.Identity.DecoderBuild, RomCdMeasurementMapper.MapBoot(boot),
                     new(artifact.FileSha256, hashes.Md5, hashes.Sha1, artifact.FileSize));
             }
             catch (MediaWorkerStoppedCancellationException) { stopped = true; throw; }
@@ -143,7 +142,7 @@ public sealed class RomCdMediaVerification(LocalTempFileFactory staging,
         var boots = facts.CdBootInspections.Select(observation => observation.Boot).Distinct().ToArray();
         if (boots.Length > 1)
             throw new InvalidDataException("Retained positive boot observations disagree.");
-        var boot = boots.SingleOrDefault();
+        var boot = RomCdMeasurementMapper.BootObservation(boots.SingleOrDefault());
         ChdCdFileHashes Hashes(RomCdFileIdentity identity) => new(identity.Size, identity.Sha256.ToString(), identity.Sha1.ToString(), identity.Md5.ToString(), identity.Crc32.ToString());
         return new(ChdCdRetainedRequest.CurrentProfile, facts.ArtifactSha256.ToString(), facts.ArtifactSize, manifest.LogicalFrames,
             container.HunkBytes, container.Codecs, container.StoredRawSha1.ToString(), container.StoredOverallSha1.ToString(),
@@ -151,7 +150,6 @@ public sealed class RomCdMediaVerification(LocalTempFileFactory staging,
             { RomCdTrackKind.Mode1Raw => ChdCdTrackType.Mode1Raw, RomCdTrackKind.Mode2Raw => ChdCdTrackType.Mode2Raw, _ => ChdCdTrackType.Audio })).ToArray(),
             manifest.Members.Select(member => member is RomCdBinMember bin ? new ChdCdMemberVerification(member.Path, "bin", bin.Tracks, Hashes(member.Identity), Hashes(member.Identity)) :
                 new(member.Path, ((RomCdStoredMember)member).Role == RomCdStoredRole.Cue ? "cue" : "sidecar", [], Hashes(member.Identity), null)).ToArray(), stored,
-            boot is null ? null : new(boot.Profile, boot.FirstTrackIndex01, boot.VolumeBlocks, boot.RootBlock, boot.RootBytes, boot.BootPath, boot.BootBlock,
-                boot.BootBytes, boot.EntryPoint, boot.LoadAddress, boot.LoadBytes));
+            boot.Ps1, boot.Saturn);
     }
 }

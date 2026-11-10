@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using Romd.Persistence.MediaFacts;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
+using Romd.Persistence.MediaFacts;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
@@ -141,7 +141,7 @@ public sealed class MediaContainerFactSchemaTests : IAsyncLifetime
 
     [Fact]
     public void ContainerMetadataLimit_CoversEverySupportedCdTrack() =>
-        RomContainerFacts.MaximumMetadataEntries.ShouldBe(Romd.Media.PlayStation.ChdCdLimits.MaximumTracks);
+        RomContainerFacts.MaximumMetadataEntries.ShouldBe(Romd.Media.Cd.ChdCdLimits.MaximumTracks);
 
     private async Task SeedAsync(string encoding, string? mutation = null, RomContainerFacts.Chd? captured = null)
     {

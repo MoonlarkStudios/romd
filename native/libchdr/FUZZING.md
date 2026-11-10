@@ -84,7 +84,7 @@ Harness bounds, not ROMD limits, reject a header before `chd_open` when:
 - `hunkbytes` is above 1 MiB, or
 - there are more than 2,621,440 hunks.
 
-Both equal ROMD's CHD preflight limits (`ChdDvdLimits` in `src/Romd.Media/PlayStation/`), which refuse
+Both equal ROMD's CHD preflight limits (`ChdDvdLimits` in `src/Romd.Media/Chd/`), which refuse
 such files before `ChdFile` opens them, so every header ROMD admits reaches libchdr; libFuzzer's
 `-max_len` still caps input size.
 

@@ -11,7 +11,8 @@ using Romd.Application.Common.Content;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
 using Romd.Media;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Processes;
 using Romd.Storage;
 

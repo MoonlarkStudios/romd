@@ -6,7 +6,7 @@ using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Configuration;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Cd;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;

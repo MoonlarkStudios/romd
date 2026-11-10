@@ -14,19 +14,25 @@ namespace Romd.Hosting.IntegrationTests.Endpoints;
 public sealed partial class DiscSetDeliveryEndpointsTests
 {
     [Theory]
-    [InlineData("original", false)]
-    [InlineData("chd", false)]
-    [InlineData("original", true)]
-    public async Task DownloadTicket_CompleteAuthorizedSet_StreamsExactOriginalsAndOrderedPlaylist(string format, bool attached)
+    [InlineData("original", false, "psx")]
+    [InlineData("chd", false, "psx")]
+    [InlineData("original", true, "psx")]
+    [InlineData("original", false, "saturn")]
+    [InlineData("chd", true, "saturn")]
+    public async Task DownloadTicket_CompleteAuthorizedSet_StreamsExactOriginalsAndOrderedPlaylist(string format, bool attached, string systemKey)
     {
         await using var fixture = await ConsumerDeliveryFixture.CreateAsync();
         var seed = await fixture.SeedDeliveryDataAsync();
+        using (var db = fixture.CreateSetupDbContext())
+            await db.Platforms.Where(row => row.Id == 1).ExecuteUpdateAsync(row => row.SetProperty(platform => platform.CanonicalKey, systemKey)
+                .SetProperty(platform => platform.ShortName, systemKey));
         var (id, _, expected) = await SeedDiscSet(fixture, seed);
         if (attached)
             await SeedOriginalLayouts(fixture);
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "disc-download@test", seed.LibraryId);
         string root = $"/api/disc-sets/{IdCoder.Encode(id)}";
         var status = (await client.GetFromJsonAsync<ConsumerDiscSetStatus>(root + "/status"))!;
+        status.SystemKey.ShouldBe(systemKey);
         var request = new ConsumerDiscSetSelectionRequest(1, status.Revision, status.ObservationId, status.Discs.Select(x => x.ReleaseId).ToArray(), false);
         using var created = await client.PostAsJsonAsync(root + "/download-tickets?format=" + format, request);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());

@@ -4,8 +4,9 @@ using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Content;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Rom;
+using Romd.Media.Cd;
+using Romd.Media.Chd;
 using Romd.Media.Inspection;
-using Romd.Media.PlayStation;
 
 namespace Romd.Infrastructure.Storage;
 
@@ -19,7 +20,7 @@ internal sealed class RomCdWorkerFailureException(MediaWorkerFailure failure, Me
 }
 
 /// <summary>Independent original comparison and separate raw boot observation from the actual stopped inspection.</summary>
-public sealed record RomCdArchiveComparison(RomMeasuredRepresentation Measured, string InspectorBuild, RomPs1CdBoot? Boot);
+public sealed record RomCdArchiveComparison(RomMeasuredRepresentation Measured, string InspectorBuild, RomCdBoot? Boot);
 
 /// <summary>Borrowed originals plus two owned immutable tool inputs. Dispose after all supervised operations finish.</summary>
 public sealed class PreparedCdSources : IAsyncDisposable
@@ -150,7 +151,7 @@ public sealed class ChdCdArchiveWorkflow(ITempFileFactory temps, IMediaWorkerSup
                 if (beforeVerification is not null)
                     await beforeVerification(ct);
                 var (measuredRepresentation, verified) = await VerifyCoreAsync(artifact, sources, ct);
-                if (verified.Reply?.CdVerification?.Ps1Boot != metadata.Ps1Boot || verified.Reply?.CdInspection?.Header != metadata.Header || !ChdCdEncodingRecipe.Matches(verified.Reply.CdInspection.Header))
+                if (verified.Reply?.CdVerification?.ObservedBoot != metadata.ObservedBoot || verified.Reply?.CdInspection?.Header != metadata.Header || !ChdCdEncodingRecipe.Matches(verified.Reply.CdInspection.Header))
                     throw new InvalidDataException("Independent CD verification disagrees with the encoded recipe observation.");
                 return new(artifact, artifactMeasurement, measuredRepresentation, encoded, verified);
             }
@@ -184,7 +185,7 @@ public sealed class ChdCdArchiveWorkflow(ITempFileFactory temps, IMediaWorkerSup
         {
             var result = await VerifyCoreAsync(artifact, sources, ct);
             var reply = result.Run.Reply!;
-            return new(result.Measured, reply.Identity.DecoderBuild, RomCdMeasurementMapper.MapBoot(reply.CdInspection!.Ps1Boot));
+            return new(result.Measured, reply.Identity.DecoderBuild, RomCdMeasurementMapper.MapBoot(reply.CdInspection!.ObservedBoot));
         }
         catch
         {

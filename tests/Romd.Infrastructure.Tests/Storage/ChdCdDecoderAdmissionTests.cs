@@ -1,11 +1,11 @@
 using NSubstitute;
-using Romd.Application.Common.Content;
 using Romd.Admin.Application.Source.Rom.Reconciliation;
-using Romd.Domain.Jobs;
+using Romd.Application.Common.Content;
 using Romd.Domain.Hashing;
+using Romd.Domain.Jobs;
 using Romd.Domain.Source.Rom;
 using Romd.Infrastructure.Storage;
-using Romd.Media.PlayStation;
+using Romd.Media.Chd;
 using Romd.Storage;
 using Shouldly;
 using Xunit;
@@ -22,7 +22,7 @@ public sealed class ChdCdDecoderAdmissionTests
         internal RomReconstruction.CdMember Member => (RomReconstruction.CdMember)Content.Reconstruction;
         internal Fixture WithProofs(params RomRepresentationVerification[] proofs) => this with { Facts = Copy(Facts, proofs) };
     }
-    private static Fixture Create(string rid = "linux-x64")
+    private static Fixture Create(string rid = "linux-x64", bool mode1 = false)
     {
         var native = ChdDeliveryFixture.Create().Native with { Rid = rid, RecipeVersion = 3 };
         var hash = Sha256.Parse(new string('a', 64));
@@ -30,10 +30,11 @@ public sealed class ChdCdDecoderAdmissionTests
         var first = new RomCdFileIdentity(32 * 2352, hash, sha, Md5.Parse(new string('c', 32)), Crc32.FromUInt32(1));
         var second = new RomCdFileIdentity(32 * 2352, Sha256.Parse(new string('d', 64)), Sha1.Parse(new string('e', 40)), Md5.Parse(new string('f', 32)), Crc32.FromUInt32(2));
         var cue = new RomCdFileIdentity(98, Sha256.Parse(new string('1', 64)), sha, first.Md5, Crc32.FromUInt32(3));
+        string type = mode1 ? "MODE1_RAW" : "MODE2_RAW";
         var container = new RomContainerFacts.Chd(5, 64 * 2448, 39168, 2448, 4, [0x63647a73, 0x6364666c, 0, 0], false, sha, sha,
-            [new(0x43485432,1,"TRACK:1 TYPE:MODE2_RAW SUBTYPE:NONE FRAMES:32 PREGAP:0 PGTYPE:MODE2_RAW PGSUB:NONE POSTGAP:0"u8),
+            [new(0x43485432,1,System.Text.Encoding.ASCII.GetBytes($"TRACK:1 TYPE:{type} SUBTYPE:NONE FRAMES:32 PREGAP:0 PGTYPE:{type} PGSUB:NONE POSTGAP:0")),
              new(0x43485432,1,"TRACK:2 TYPE:AUDIO SUBTYPE:NONE FRAMES:32 PREGAP:0 PGTYPE:AUDIO PGSUB:NONE POSTGAP:0"u8)]);
-        var manifest = new RomReconstructionManifest.CdTracks(64, [new(1, 0, 32, RomCdTrackKind.Mode2Raw), new(2, 32, 32, RomCdTrackKind.Audio)],
+        var manifest = new RomReconstructionManifest.CdTracks(64, [new(1, 0, 32, mode1 ? RomCdTrackKind.Mode1Raw : RomCdTrackKind.Mode2Raw), new(2, 32, 32, RomCdTrackKind.Audio)],
             [new RomCdBinMember("data.bin", first, first, [1]), new RomCdBinMember("audio.bin", second, second, [2]), new RomCdStoredMember("disc.cue", cue, RomCdStoredRole.Cue)]);
         RomLogicalIdentity Identity(RomCdFileIdentity member) => new(member.Size, member.Sha256, member.Sha1, member.Md5, member.Crc32);
         RomMeasuredOutput[] outputs = [new(new RomOutputSelector.Member(0), Identity(first)), new(new RomOutputSelector.Member(1), Identity(second))];
@@ -198,6 +199,76 @@ public sealed class ChdCdDecoderAdmissionTests
         else
             decoder.ShouldBeNull();
         verified.ShouldBe(admitted ? 1 : 0);
+    }
+
+    [Fact]
+    public void AssessCd_AnotherCdKindIsUnqualified_DoesNotBlockTheMeasuredFamily()
+    {
+        var fixture = Create();
+        var facts = fixture.Facts;
+        var boot = new RomPs1CdBoot(RomPs1CdBoot.CurrentProfile, 0, 64, 20, 2048, "PSX.EXE", 24, 4096, 0x80010000, 0x80010000, 2048);
+        fixture = fixture with
+        {
+            Facts = new(facts.Id, facts.FileId, facts.ArtifactSha256, facts.ArtifactSize, facts.Container, facts.Manifest,
+            facts.Outputs, facts.Verifications, facts.Descriptors, cdBootInspections: [new(Guid.NewGuid(), fixture.Current.Id, "boot-inspector", DateTimeOffset.UnixEpoch, boot)])
+        };
+        var media = RomMediaPolicyComposition.Create(RomMediaPolicyComposition.Registrations.Select(kind =>
+            kind.Kind == "saturn-cd-set" ? kind with { QualifiedRuntime = "linux-arm64" } : kind).ToArray());
+        var capabilities = new MediaHostCapabilities(() => fixture.Native, () => null, media, encodes: false);
+        capabilities.CanDecode("saturn-cd-set").ShouldBeFalse();
+        capabilities.CanDecode("ps1-cd-set").ShouldBeTrue();
+        var admission = new ChdDeliveryAdmission(() => true, () => new("/synthetic/cd-native", fixture.Native), () => { },
+            _ => fixture.Native, capabilities, media.Kinds);
+
+        admission.AssessCd(fixture.Member).ShouldBe(ChdBuildEvidence.Decoder(fixture.Native));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AssessCd_UnclassifiedMode1_RequiresEveryConsistentKindsDecodeQualification(bool saturnQualified)
+    {
+        var fixture = Create(mode1: true);
+        var media = RomMediaPolicyComposition.Create(RomMediaPolicyComposition.Registrations.Select(kind =>
+            kind.Kind == "saturn-cd-set" && !saturnQualified ? kind with { QualifiedRuntime = "linux-arm64" } : kind).ToArray());
+        var capabilities = new MediaHostCapabilities(() => fixture.Native, () => null, media, encodes: false);
+        int verified = 0;
+        var admission = new ChdDeliveryAdmission(() => true, () => new("/synthetic/cd-native", fixture.Native), () => { },
+            _ => { verified++; return fixture.Native; }, capabilities, media.Kinds);
+
+        var result = admission.AssessCd(fixture.Member);
+
+        (result is not null).ShouldBe(saturnQualified);
+        verified.ShouldBe(saturnQualified ? 1 : 0);
+        fixture.Facts.CdBootInspections.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Decide_UnclassifiedCdOnNewDecoder_VerifiesOnlyWhenEveryCandidateIsQualified(bool saturnQualified)
+    {
+        var fixture = Create(mode1: true);
+        fixture = fixture.WithProofs(fixture.Historical);
+        var media = RomMediaPolicyComposition.Create(RomMediaPolicyComposition.Registrations.Select(kind =>
+            kind.Kind == "saturn-cd-set" && !saturnQualified ? kind with { QualifiedRuntime = "linux-arm64" } : kind).ToArray());
+        var capabilities = new MediaHostCapabilities(() => fixture.Native, () => null, media, encodes: false);
+        var profile = Substitute.For<IMediaReconciliationMediaProfile>();
+        profile.LimitsFingerprint.Returns(Sha256.Parse(new string('f', 64)));
+        var decision = new MediaReconciliationDecision(media.Kinds, media.Reconciliation, capabilities, profile);
+
+        var result = decision.Decide(Guid.NewGuid(), new(new MediaReconciliationSubject.Representation(fixture.Facts.Id), 1, false, false),
+            new MediaReconciliationFacts.Representation(fixture.Facts));
+
+        result.IsError.ShouldBeFalse();
+        if (saturnQualified)
+        {
+            var verify = result.Value.ShouldBeOfType<MediaReconciliationDirective.Verify>();
+            verify.Capture.KindId.ShouldBeNull();
+            verify.Source.Decoder.ShouldBe(new RomDecoderIdentity.Native(ChdBuildEvidence.Decoder(fixture.Native)));
+        }
+        else
+            result.Value.ShouldBeOfType<MediaReconciliationDirective.Unavailable>().Code.ShouldBe("decoder-unavailable");
     }
 
     [Fact]
