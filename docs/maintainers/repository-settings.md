@@ -119,7 +119,7 @@ intended commit and that `advisories` passed on that same tag.
 ## Container packages
 
 `scripts/release/publication.py` publishes `romd-admin`, `romd-consumer`,
-`romd-worker` and `romd-player` under `ghcr.io/<owner>`. The owner comes from
+`romd-worker`, `romd-player` and `romd-postgres` under `ghcr.io/<owner>`. The owner comes from
 `$GITHUB_REPOSITORY`, so here it is `ghcr.io/moonlarkstudios`. Operators pull
 these images when they install a deployment bundle (see the
 [deployment runbook](../self-hosting/production-deployment.md)), so release
@@ -133,18 +133,21 @@ this repository did not create gives the workflow no access: delete it, or
 grant this repository access under the package's **Manage Actions access**,
 before the first tag.
 
-GHCR creates new packages as private, and the release workflow's `metadata`
-job scans the published digests without credentials, so the first release tag
-stops there: it gets no SBOMs, scans or attestations, and `publish-complete`
-never runs. Treat it as a bootstrap candidate:
+GHCR creates new packages as private. Both downloaded-installation qualification
+and final-digest security scans require anonymous image pulls, so a new private
+package blocks qualification and `publish-complete`. This applies when adding a
+new image role as well as publishing the first release. Make new packages public
+after publication, before qualification pulls them; if a gate has already failed,
+treat that release as a bootstrap candidate:
 
 1. Push the first `-rc.1` tag, approve its `publish` job in the release
-   environment, and let it publish the four packages.
-2. Confirm that each package is linked to this repository, then make it public.
+   environment, and let it publish all five packages.
+2. Confirm that each package is linked to this repository, then make any new
+   packages public.
 3. Pull every image digest in that release's `images.env` without credentials:
 
    ```bash
-   DOCKER_CONFIG="$(mktemp -d)" sh -c "grep -E '^ROMD_(ADMIN|CONSUMER|WORKER|PLAYER)_IMAGE=' images.env | cut -d= -f2 | xargs -n1 docker pull --platform linux/amd64"
+   DOCKER_CONFIG="$(mktemp -d)" sh -c "grep -E '^ROMD_(ADMIN|CONSUMER|WORKER|PLAYER|POSTGRES)_IMAGE=' images.env | cut -d= -f2 | xargs -n1 docker pull --platform linux/amd64"
    ```
 
 4. Leave the bootstrap release as an unqualified prerelease and push the next
