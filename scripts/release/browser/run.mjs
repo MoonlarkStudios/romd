@@ -163,12 +163,24 @@ export async function ensureFixture(page, config) {
   return { librarySha256: hash(id), adminUserSha256: hash(me.json.id) };
 }
 
+export async function waitForPlaybackDiscovery(page, config) {
+  // Library cards discover playback too. Finish both configuration transfers
+  // before our full-page navigation can abort their in-flight fetches. Keep
+  // every failed response/request in Diagnostics; completion does not waive it.
+  await page.waitForFunction((endpoints) => endpoints.every((endpoint) =>
+    performance.getEntriesByType('resource').some((entry) => {
+      const url = new URL(entry.name);
+      return url.origin + url.pathname === endpoint && entry.responseEnd > 0;
+    })), [config.consumerOrigin + '/api/playback/config', config.playerOrigin + '/player-config.json']);
+}
+
 async function play(page, config, diagnostics, state) {
   const identity = await api(page, '/api/server/identity');
   if (typeof identity.json.instanceId !== 'string') throw new Error('Server instance identity is missing');
   const catalog = await poll(() => api(page, `/api/catalog?query=${encodeURIComponent(fixtureName)}`, { allowStatus: true }),
     (response) => response.status === 200 && response.json.items?.length === 1, 'Published synthetic library');
   const title = catalog.json.items[0];
+  await waitForPlaybackDiscovery(page, config);
   await page.goto(`${config.consumerOrigin}/titles/${encodeURIComponent(title.id)}`, { waitUntil: 'networkidle' });
   await page.getByRole('link', { name: 'Play Now', exact: true }).click();
   await page.waitForURL(/\/titles\/[^/]+\/releases\/[^/]+\/play$/);
@@ -239,7 +251,9 @@ export async function qualifyBrowser(config, chromium) {
       if (failure) diagnostics.resourceFailure(failure, response.url(), { status: response.status() });
     });
     context.on('requestfailed', (request) => {
-      if (requiredResource(request)) diagnostics.resourceFailure('required-request-failed', request.url());
+      if (requiredResource(request)) diagnostics.resourceFailure('required-request-failed', request.url(), {
+        cancelled: request.failure()?.errorText === 'net::ERR_ABORTED',
+      });
     });
     const admin = await context.newPage();
     stage = 'admin-browser-sign-in';

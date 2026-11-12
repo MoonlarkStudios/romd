@@ -904,6 +904,24 @@
       "required_ci": true
     },
     {
+      "id": "release.browser-discovery",
+      "groups": [
+        "release"
+      ],
+      "cwd": ".",
+      "prerequisites": [
+        "Locked Playwright Chromium"
+      ],
+      "local": [
+        "npm", "--prefix", "scripts/release/browser", "run", "test:discovery"
+      ],
+      "ci": [
+        "npm", "--prefix", "scripts/release/browser", "run", "test:discovery"
+      ],
+      "ci_job": "agent-infrastructure",
+      "required_ci": true
+    },
+    {
       "id": "release.browser-contracts",
       "groups": [
         "release"

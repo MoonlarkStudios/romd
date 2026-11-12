@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node --test *.test.mjs",
     "test:save-isolation": "node save-isolation.mjs",
+    "test:discovery": "node discovery-regression.mjs",
     "install:browser": "playwright install --with-deps chromium"
   },
   "dependencies": { "playwright": "1.58.2" }
