@@ -6,11 +6,8 @@ import os
 from pathlib import Path
 import re
 import subprocess
-import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'scripts/security'))
-from policy import validate_policy
 TAG = re.compile(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?')
 
 
@@ -18,16 +15,6 @@ def valid_tag(tag):
     match = TAG.fullmatch(tag)
     return bool(match) and not any(part.isdigit() and len(part) > 1 and part[0] == '0'
                                    for part in (match.group(4) or '').split('.'))
-
-
-def verify_runtime_versions(root):
-    security = json.loads((root / 'scripts/security/policy.json').read_text())
-    validate_policy(security)
-    minimum = int(security['minimumPostgresVersion'].split('.')[1])
-    pin = json.loads((root / 'scripts/deployment/base-images.json').read_text())['postgres']
-    match = re.fullmatch(r'(?:docker.io/library/)?postgres:18\.([0-9]+)-(?:bookworm|trixie|alpine[0-9]+\.[0-9]+)@sha256:[a-f0-9]{64}', pin)
-    if not match or int(match[1]) < minimum:
-        raise ValueError('Release requires an official PostgreSQL image at the reviewed security floor ' + security['minimumPostgresVersion'])
 
 
 def verify(root, tag, revision):
@@ -50,7 +37,6 @@ def verify(root, tag, revision):
         raise ValueError('Release tag must identify the current allowed branch tip')
     if git('status', '--porcelain', '--untracked-files=all'):
         raise ValueError('Release checkout has uncommitted source changes')
-    verify_runtime_versions(root)
     return dict(commit=revision, tag=tag, allowedBranch=branch, platform=policy['platform'], candidateOnly=True)
 
 

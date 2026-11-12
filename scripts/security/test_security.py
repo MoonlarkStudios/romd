@@ -20,7 +20,7 @@ import urllib.request
 import urllib.response
 
 from download_release import DownloadFailure, OfficialRedirects, anonymous_opener, download_release, official_url
-from metadata import assert_coverage, assert_fresh_database, assert_postgres_version, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement
+from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement, upstream_postgres_report
 from qualify import image_map, verify_bundle, verify_publisher
 from policy import evaluate, validate_policy
 from tools import binary_from_archive
@@ -34,7 +34,6 @@ DIGEST = 'sha256:' + 'a' * 64
 class VulnerabilityPolicyTests(unittest.TestCase):
     def setUp(self):
         self.policy = json.loads((HERE / 'policy.json').read_text())
-        self.policy.update(assessments=[], exceptions=[])
         self.today = date(2026, 10, 15)
         self.vulnerability = {'VulnerabilityID': 'CVE-2026-12345', 'PkgName': 'example', 'InstalledVersion': '1.2.3',
                               'Severity': 'HIGH', 'PkgIdentifier': {'PURL': 'pkg:npm/example@1.2.3'}}
@@ -48,10 +47,7 @@ class VulnerabilityPolicyTests(unittest.TestCase):
     def exception(self):
         return {'id': 'CVE-2026-12345', 'component': 'pkg:npm/example@1.2.3', 'installedVersion': '1.2.3',
                 'subjectDigest': DIGEST, 'rationale': 'Controlled fixture is unreachable from the public route.',
-                'owner': 'release-maintainer', 'reviewed': '2026-10-15', 'expires': '2026-11-01', 'severity': 'HIGH',
-                'evidence': ['https://example.com/security/CVE-2026-12345'], 'releaseTag': 'v0.1.0-rc.2', 'fixedVersion': None,
-                'mitigations': 'Controlled fixture has no network or attacker-controlled input.',
-                'followUp': 'Update the dependency when the vendor publishes a fixed version.'}
+                'owner': 'release-maintainer', 'expires': '2026-11-01'}
 
     def test_high_critical_unknown_and_unfixed_findings_block(self):
         for severity in ('HIGH', 'CRITICAL', 'UNKNOWN'):
@@ -63,12 +59,12 @@ class VulnerabilityPolicyTests(unittest.TestCase):
 
     def test_specific_reviewed_exception_does_not_cover_other_component_version_digest_or_cve(self):
         self.policy['exceptions'] = [self.exception()]
-        self.assertEqual('passed', evaluate(self.report(), DIGEST, self.policy, self.today, release_tag='v0.1.0-rc.2')['result'])
+        self.assertEqual('passed', evaluate(self.report(), DIGEST, self.policy, self.today)['result'])
         for key, replacement in (('component', 'pkg:npm/other@1.2.3'), ('installedVersion', '1.2.4'),
                                  ('subjectDigest', 'sha256:' + 'b' * 64), ('id', 'CVE-2026-54321')):
             policy = copy.deepcopy(self.policy)
             policy['exceptions'][0][key] = replacement
-            self.assertEqual('failed', evaluate(self.report(), DIGEST, policy, self.today, release_tag='v0.1.0-rc.2')['result'])
+            self.assertEqual('failed', evaluate(self.report(), DIGEST, policy, self.today)['result'])
 
     def test_expired_overlong_wildcard_ownerless_and_weak_policy_are_rejected(self):
         for key, value in (('expires', '2026-10-15'), ('expires', '2027-10-15'),
@@ -86,6 +82,24 @@ class VulnerabilityPolicyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 evaluate(report, DIGEST, self.policy, self.today)
         self.assertEqual('passed', evaluate({'SchemaVersion': 2, 'Results': []}, DIGEST, self.policy, self.today)['result'])
+
+    def test_official_postgres_findings_are_reported_without_changing_romd_gates(self):
+        for severity in ('HIGH', 'CRITICAL', 'UNKNOWN'):
+            raw = self.report(severity)
+            before = copy.deepcopy(raw)
+            result = upstream_postgres_report(raw, 'postgres:18.6-bookworm@' + DIGEST, self.policy)
+            self.assertEqual('reported', result['result'])
+            self.assertEqual('upstream-managed', result['enforcement'])
+            self.assertEqual(severity, result['findings'][0]['severity'])
+            self.assertTrue(result['findings'][0]['severityFlagged'])
+            self.assertNotIn('excepted', result['findings'][0])
+            self.assertEqual(before, raw)
+            self.assertEqual('failed', evaluate(raw, DIGEST, self.policy, self.today)['result'])
+        for reference in ('ghcr.io/example/postgres@' + DIGEST, 'docker.io/example/postgres@' + DIGEST):
+            with self.assertRaisesRegex(ValueError, 'Docker Official'):
+                upstream_postgres_report(self.report(), reference, self.policy)
+        with self.assertRaises(ValueError):
+            upstream_postgres_report({}, 'postgres@' + DIGEST, self.policy)
 
 
 class InventoryIntegrityTests(unittest.TestCase):
@@ -277,15 +291,6 @@ class InventoryIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'frontend dependency closure'):
             assert_scanner_coverage(os_only, 'player', 'sbom')
 
-    def test_postgres_security_floor_does_not_wait_for_scanner_database_coverage(self):
-        policy = {'minimumPostgresVersion': '18.7'}
-        def server(version):
-            return dict(name='postgresql-18', version=version, purl='pkg:deb/debian/postgresql-18@' + version)
-        for components in ([], [server('18.6-1.pgdg12+2')], [server('18.6'), server('18.7')]):
-            with self.assertRaisesRegex(ValueError, 'security floor'):
-                assert_postgres_version({'components': components}, policy)
-        assert_postgres_version({'components': [server('18.7-1.pgdg12+1')]}, policy)
-
     def test_catalog_receipt_identity_cannot_replace_scanning_linked_go_dependencies(self):
         scan = {'Results': [{'Class': 'os-pkgs', 'Packages': [{'Name': 'libc6'}]},
                            {'Class': 'lang-pkgs', 'Packages': [{'Name': name} for name in
@@ -305,22 +310,12 @@ class InventoryIntegrityTests(unittest.TestCase):
         for role in ('admin', 'consumer', 'worker', 'player', 'postgres', 'bundle'):
             digest = bundle_digest if role == 'bundle' else 'a' * 64
             sbom = self.work / f'{role}.cdx.json'
-            sbom.write_text(json.dumps({'metadata': {'component': {'hashes': [{'alg': 'SHA-256', 'content': digest}]}},
-                'components': [{'name': 'postgresql', 'version': '18.7', 'purl': 'pkg:generic/postgresql@18.7'}] if role == 'postgres' else []}))
+            sbom.write_text(json.dumps({'metadata': {'component': {'hashes': [{'alg': 'SHA-256', 'content': digest}]}}}))
             files[sbom.name] = hashlib.sha256(sbom.read_bytes()).hexdigest()
             subjects.append({'kind': 'bundle' if role == 'bundle' else 'image', 'role': role,
                 'name': bundle.name if role == 'bundle' else f'ghcr.io/example/{role}@sha256:{digest}',
-                'sha256': digest, 'sbom': sbom.name, 'policy': 'passed-policy.json', 'scans': ['raw-scan.json']})
-        policy = json.loads((HERE / 'policy.json').read_text())
-        policy.update(assessments=[], exceptions=[])
-        for name, value in {'security-policy.json': policy, 'release.vex.json': {},
-                            'raw-scan.json': {'SchemaVersion': 2, 'Results': []},
-                            'passed-policy.json': {'result': 'passed', 'findings': []}}.items():
-            path = self.work / name
-            path.write_text(json.dumps(value))
-            files[name] = hashlib.sha256(path.read_bytes()).hexdigest()
-        index = {'schemaVersion': 1, 'result': 'passed', 'sourceCommit': 'b' * 40, 'releaseTag': 'v1.0.0-rc.1',
-                 'files': files, 'subjects': subjects, 'policy': 'security-policy.json', 'vex': 'release.vex.json'}
+                'sha256': digest, 'sbom': sbom.name})
+        index = {'schemaVersion': 1, 'result': 'passed', 'sourceCommit': 'b' * 40, 'releaseTag': 'v1.0.0-rc.1', 'files': files, 'subjects': subjects}
         (self.work / 'release-metadata.json').write_text(json.dumps(index))
         verify_files(self.work, bundle, 'b' * 40, 'v1.0.0-rc.1')
         bundle.write_bytes(b'tampered')

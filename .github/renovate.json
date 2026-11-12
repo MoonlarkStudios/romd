@@ -71,6 +71,13 @@
         "mise"
       ],
       "groupName": "development toolchains"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres"],
+      "matchUpdateTypes": ["digest", "patch", "minor"],
+      "groupName": "PostgreSQL official image",
+      "schedule": ["at any time"]
     }
   ],
   "customManagers": [

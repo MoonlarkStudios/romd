@@ -26,8 +26,7 @@ IDENTIFIER = 'GO-2026-5932'
 NOW = datetime(2026, 10, 19, 18, tzinfo=timezone.utc)
 CHECKED = NOW.isoformat()
 PUBLISHED = '2026-10-08T22:31:09Z'
-POLICY = {'schemaVersion': 2, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN'], 'maxExceptionDays': 90,
-          'exceptions': [], 'assessments': [], 'minimumPostgresVersion': '18.7'}
+POLICY = {'schemaVersion': 1, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN'], 'maxExceptionDays': 90, 'exceptions': []}
 
 
 def encoded(messages):

@@ -311,14 +311,13 @@ def sbom_bound(sbom, module, version, evidence):
     return True
 
 
-def assess(report, subject_digest, policy, evidence, *, mode, sbom=None, release_tag=None):
+def assess(report, subject_digest, policy, evidence, *, mode, sbom=None):
     """Keep each original warning/severity; attach engineering applicability separately from risk exceptions."""
     require(mode in ('image', 'sbom'), 'unsupported assessment mode')
-    result = evaluate(report, subject_digest, policy, release_tag=release_tag)
+    result = evaluate(report, subject_digest, policy)
     raw = [(group, vulnerability) for group in report['Results'] for vulnerability in group.get('Vulnerabilities') or []]
     for finding, (group, vulnerability) in zip(result['findings'], raw):
-        if finding['applicability']['status'] == 'not_affected' or finding.get('riskAcceptance'):
-            continue
+        finding['rawBlocked'] = finding['blocked']
         finding['applicability'] = {'status': 'unresolved'}
         if group.get('Class') != 'lang-pkgs' or group.get('Type') not in ('gobinary', 'gomod'):
             continue
