@@ -1733,13 +1733,14 @@
       "releaseTag": "v0.1.0-rc.2",
       "evidence": [
         "https://security-tracker.debian.org/tracker/CVE-2026-9538",
-        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/compose.yaml"
+        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/compose.yaml",
+        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/scripts/backup/lib.sh"
       ],
       "reviewEvidence": {
         "primaryRecordSha256": "774c584dc3b6ecfb7b8650775a2642d87a5897265c4ab1208af9f936912f0c9f"
       },
-      "rationale": "The issue is in Perl Archive::Tar. Inspection of the exact stopped image found no Archive/Tar.pm module. Neither the official PostgreSQL entrypoint nor ROMD recovery uses Perl archive parsing.",
-      "justification": "vulnerable_code_not_present"
+      "rationale": "Perl Archive::Tar is present at /usr/share/perl/5.36.0/Archive/Tar.pm. The official entrypoint runs Bash and PostgreSQL; ROMD backup/restore invokes PostgreSQL client tools and GNU tar, not Perl Archive::Tar. The standard deployment does not route application uploads or archive inputs to the affected Perl module. This is an execution-path assessment, not an assertion that the module is absent or fixed.",
+      "justification": "vulnerable_code_not_in_execute_path"
     },
     {
       "id": "CVE-2026-53613",
@@ -2393,13 +2394,14 @@
       "releaseTag": "v0.1.0-rc.2",
       "evidence": [
         "https://security-tracker.debian.org/tracker/CVE-2026-9538",
-        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/compose.yaml"
+        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/compose.yaml",
+        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/scripts/backup/lib.sh"
       ],
       "reviewEvidence": {
         "primaryRecordSha256": "774c584dc3b6ecfb7b8650775a2642d87a5897265c4ab1208af9f936912f0c9f"
       },
-      "rationale": "The issue is in Perl Archive::Tar. Inspection of the exact stopped image found no Archive/Tar.pm module. Neither the official PostgreSQL entrypoint nor ROMD recovery uses Perl archive parsing.",
-      "justification": "vulnerable_code_not_present"
+      "rationale": "Perl Archive::Tar is present at /usr/share/perl/5.36.0/Archive/Tar.pm. The official entrypoint runs Bash and PostgreSQL; ROMD backup/restore invokes PostgreSQL client tools and GNU tar, not Perl Archive::Tar. The standard deployment does not route application uploads or archive inputs to the affected Perl module. This is an execution-path assessment, not an assertion that the module is absent or fixed.",
+      "justification": "vulnerable_code_not_in_execute_path"
     },
     {
       "id": "CVE-2026-9538",
@@ -2413,13 +2415,14 @@
       "releaseTag": "v0.1.0-rc.2",
       "evidence": [
         "https://security-tracker.debian.org/tracker/CVE-2026-9538",
-        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/compose.yaml"
+        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/compose.yaml",
+        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/scripts/backup/lib.sh"
       ],
       "reviewEvidence": {
         "primaryRecordSha256": "774c584dc3b6ecfb7b8650775a2642d87a5897265c4ab1208af9f936912f0c9f"
       },
-      "rationale": "The issue is in Perl Archive::Tar. Inspection of the exact stopped image found no Archive/Tar.pm module. Neither the official PostgreSQL entrypoint nor ROMD recovery uses Perl archive parsing.",
-      "justification": "vulnerable_code_not_present"
+      "rationale": "Perl Archive::Tar is present at /usr/share/perl/5.36.0/Archive/Tar.pm. The official entrypoint runs Bash and PostgreSQL; ROMD backup/restore invokes PostgreSQL client tools and GNU tar, not Perl Archive::Tar. The standard deployment does not route application uploads or archive inputs to the affected Perl module. This is an execution-path assessment, not an assertion that the module is absent or fixed.",
+      "justification": "vulnerable_code_not_in_execute_path"
     },
     {
       "id": "CVE-2026-9538",
@@ -2433,13 +2436,14 @@
       "releaseTag": "v0.1.0-rc.2",
       "evidence": [
         "https://security-tracker.debian.org/tracker/CVE-2026-9538",
-        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/compose.yaml"
+        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/compose.yaml",
+        "https://github.com/MoonlarkStudios/romd/blob/a367f66003cfea67fa12ab0ca602090bbead3e51/scripts/backup/lib.sh"
       ],
       "reviewEvidence": {
         "primaryRecordSha256": "774c584dc3b6ecfb7b8650775a2642d87a5897265c4ab1208af9f936912f0c9f"
       },
-      "rationale": "The issue is in Perl Archive::Tar. Inspection of the exact stopped image found no Archive/Tar.pm module. Neither the official PostgreSQL entrypoint nor ROMD recovery uses Perl archive parsing.",
-      "justification": "vulnerable_code_not_present"
+      "rationale": "Perl Archive::Tar is present at /usr/share/perl/5.36.0/Archive/Tar.pm. The official entrypoint runs Bash and PostgreSQL; ROMD backup/restore invokes PostgreSQL client tools and GNU tar, not Perl Archive::Tar. The standard deployment does not route application uploads or archive inputs to the affected Perl module. This is an execution-path assessment, not an assertion that the module is absent or fixed.",
+      "justification": "vulnerable_code_not_in_execute_path"
     },
     {
       "id": "CVE-2026-53613",
