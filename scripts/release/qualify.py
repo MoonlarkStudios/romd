@@ -114,6 +114,12 @@ def verify_bundle(bundle, checksum, expected_images, destination, revision, tag)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
             target.chmod(0o755 if member.mode & 0o111 else 0o644)
+        # These are public bundle assets bind-mounted into non-root containers.
+        # Keep the containing workspace private while making included directories
+        # traversable even when the qualifier's caller uses umask 077.
+        for directory in destination.rglob('*'):
+            if directory.is_dir():
+                directory.chmod(0o755)
     if image_map(destination / 'images.env') != expected:
         raise ValueError('Bundle image map differs from published digests')
     return {'sha256': digest, 'sourceCommit': revision, 'releaseTag': tag,

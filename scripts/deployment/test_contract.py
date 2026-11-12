@@ -1354,8 +1354,16 @@ romd_backup_data_export
                                                        'cp', 'tar', 'gzip', 'rm'))
             self.assertIsNone(shutil.which('shasum', path=environment['PATH']))
             subprocess.run([str(ROOT / 'scripts/deployment/bundle.sh'), str(images), str(archive), 'a' * 40, 'v0.0.0-test'],
-                           env=environment, check=True)
+                           env=environment, check=True, umask=0o077)
             with tarfile.open(archive) as bundle:
+                for member in bundle.getmembers():
+                    if member.isdir() and member.name not in ('.', './'):
+                        self.assertEqual(0o755, member.mode & 0o777, member.name)
+                    elif member.isfile():
+                        self.assertIn(member.mode & 0o777, (0o644, 0o755), member.name)
+                for name in ('compose.yaml', 'images.env', 'manifest.json'):
+                    self.assertEqual(0o644, bundle.getmember('./' + name).mode & 0o777, name)
+                self.assertEqual(0o755, bundle.getmember('./deploy/postgres/init/10-romd-roles.sh').mode & 0o777)
                 names = {name.removeprefix('./') for name in bundle.getnames()}
                 for required in ('compose.yaml', 'images.env', '.env.example',
                                  'scripts/backup/restore.sh', 'scripts/deployment/compose.sh',

@@ -202,6 +202,7 @@ test('browser sign-in observes canonical admin and consumer self responses befor
   const work = await mkdtemp(join(tmpdir(), 'romd-browser-auth-'));
   context.after(() => rm(work, { recursive: true, force: true }));
   const authenticatedPaths = [];
+  const authenticatedControls = [];
   let count = 0;
   const newPage = () => {
     const origin = count++ === 0 ? origins.admin : origins.consumer;
@@ -211,13 +212,22 @@ test('browser sign-in observes canonical admin and consumer self responses befor
       on: (event, listener) => { if (event === 'framenavigated') navigated = listener; },
       mainFrame: () => frame,
       goto: async () => {}, close: async () => {},
-      getByRole: () => ({ click: async () => { navigated(frame); }, waitFor: async () => {} }),
+      getByRole: (role, options) => ({
+        click: async () => { navigated(frame); },
+        waitFor: async () => {
+          assert.equal(role, 'button');
+          assert.equal(options.name, origin === origins.admin ? 'User menu' : 'Account');
+          assert.equal(options.exact, true);
+          authenticatedControls.push(origin);
+        },
+      }),
       getByLabel: () => ({ fill: async () => {} }),
       waitForURL: async () => {},
       waitForResponse: async (predicate) => {
         const reply = (path) => ({ url: () => origin + path, status: () => 200 });
         assert.equal(predicate(reply('/api/me')), true);
         assert.equal(predicate(reply('/api/auth/me')), false);
+        assert.equal(predicate({ url: () => origins.player + '/api/me', status: () => 200 }), false);
         authenticatedPaths.push(origin + '/api/me');
       },
       evaluate: async (_evaluate, argument) => {
@@ -237,6 +247,7 @@ test('browser sign-in observes canonical admin and consumer self responses befor
   }, { launch: async () => ({ version: () => 'fixture', newContext: async () => browserContext, close: async () => {} }) });
   assert.equal(passed, false, 'the fixture deliberately stops before real playback');
   assert.deepEqual(authenticatedPaths, [origins.admin + '/api/me', origins.consumer + '/api/me']);
+  assert.deepEqual(authenticatedControls, [origins.admin, origins.consumer]);
   const diagnostics = JSON.parse(await readFile(join(work, 'run/browser-diagnostics.json'), 'utf8'));
   assert.equal(diagnostics.checks.adminAuthenticatedView, true);
   assert.equal(diagnostics.checks.consumerAuthenticatedView, true);
