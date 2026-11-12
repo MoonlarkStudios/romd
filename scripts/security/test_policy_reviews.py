@@ -18,7 +18,7 @@ TODAY = date(2026, 11, 12)
 class ReviewPolicyTests(unittest.TestCase):
     def setUp(self):
         self.policy = dict(schemaVersion=2, blockedSeverities=['HIGH', 'CRITICAL', 'UNKNOWN'],
-                           maxExceptionDays=90, assessments=[], exceptions=[])
+                           maxExceptionDays=90, assessments=[], exceptions=[], minimumPostgresVersion='18.7')
         self.vulnerability = dict(VulnerabilityID='CVE-2026-12345', PkgName='example', InstalledVersion='1.2.3',
                                   Severity='HIGH', PkgIdentifier={'PURL': 'pkg:deb/debian/example@1.2.3'})
         self.report = dict(SchemaVersion=2, Results=[dict(Type='debian', Vulnerabilities=[self.vulnerability])])

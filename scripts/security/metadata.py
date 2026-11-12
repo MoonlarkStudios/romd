@@ -138,6 +138,14 @@ def assert_fresh_database(version, now=None):
         raise ValueError('Vulnerability database is stale or has an invalid future timestamp')
 
 
+def assert_postgres_version(sbom, policy):
+    minimum = tuple(int(part) for part in policy['minimumPostgresVersion'].split('.'))
+    versions = [tuple(int(part) for part in re.match(r'18\.[0-9]+', component['version'])[0].split('.'))
+                for component in sbom.get('components', []) if postgres_server(component)]
+    if not versions or any(version < minimum for version in versions):
+        raise ValueError('Official PostgreSQL image predates the reviewed security floor ' + policy['minimumPostgresVersion'])
+
+
 def assert_scanner_coverage(scan, role, mode):
     results = scan.get('Results', [])
     names = {package.get('Name', '').lower() for result in results for package in result.get('Packages', [])}
@@ -266,6 +274,8 @@ def generate(args):
                 digest = reference.rsplit('@sha256:', 1)[1]
                 sbom = merge_sbom(json.loads(raw.read_text()), supplements, reference, digest)
                 coverage = assert_coverage(sbom, role)
+                if role == 'postgres':
+                    assert_postgres_version(sbom, policy)
                 path = args.output / f'{role}.cdx.json'
                 json_write(path, sbom)
                 raw.unlink()

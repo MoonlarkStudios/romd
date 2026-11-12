@@ -20,7 +20,7 @@ import urllib.request
 import urllib.response
 
 from download_release import DownloadFailure, OfficialRedirects, anonymous_opener, download_release, official_url
-from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement
+from metadata import assert_coverage, assert_fresh_database, assert_postgres_version, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement
 from qualify import image_map, verify_bundle, verify_publisher
 from policy import evaluate, validate_policy
 from tools import binary_from_archive
@@ -277,6 +277,15 @@ class InventoryIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'frontend dependency closure'):
             assert_scanner_coverage(os_only, 'player', 'sbom')
 
+    def test_postgres_security_floor_does_not_wait_for_scanner_database_coverage(self):
+        policy = {'minimumPostgresVersion': '18.7'}
+        def server(version):
+            return dict(name='postgresql-18', version=version, purl='pkg:deb/debian/postgresql-18@' + version)
+        for components in ([], [server('18.6-1.pgdg12+2')], [server('18.6'), server('18.7')]):
+            with self.assertRaisesRegex(ValueError, 'security floor'):
+                assert_postgres_version({'components': components}, policy)
+        assert_postgres_version({'components': [server('18.7-1.pgdg12+1')]}, policy)
+
     def test_catalog_receipt_identity_cannot_replace_scanning_linked_go_dependencies(self):
         scan = {'Results': [{'Class': 'os-pkgs', 'Packages': [{'Name': 'libc6'}]},
                            {'Class': 'lang-pkgs', 'Packages': [{'Name': name} for name in
@@ -296,7 +305,8 @@ class InventoryIntegrityTests(unittest.TestCase):
         for role in ('admin', 'consumer', 'worker', 'player', 'postgres', 'bundle'):
             digest = bundle_digest if role == 'bundle' else 'a' * 64
             sbom = self.work / f'{role}.cdx.json'
-            sbom.write_text(json.dumps({'metadata': {'component': {'hashes': [{'alg': 'SHA-256', 'content': digest}]}}}))
+            sbom.write_text(json.dumps({'metadata': {'component': {'hashes': [{'alg': 'SHA-256', 'content': digest}]}},
+                'components': [{'name': 'postgresql', 'version': '18.7', 'purl': 'pkg:generic/postgresql@18.7'}] if role == 'postgres' else []}))
             files[sbom.name] = hashlib.sha256(sbom.read_bytes()).hexdigest()
             subjects.append({'kind': 'bundle' if role == 'bundle' else 'image', 'role': role,
                 'name': bundle.name if role == 'bundle' else f'ghcr.io/example/{role}@sha256:{digest}',

@@ -8,7 +8,7 @@ import re
 import subprocess
 import tempfile
 
-from metadata import sha256
+from metadata import assert_postgres_version, sha256
 from qualify import verify_bundle
 from credentials import anonymous_environment
 from policy import evaluate, validate_policy
@@ -74,6 +74,8 @@ def verify_files(directory, bundle, revision, tag):
         hashes = sbom.get('metadata', {}).get('component', {}).get('hashes', [])
         if {'alg': 'SHA-256', 'content': subject['sha256']} not in hashes:
             raise ValueError('SBOM subject digest mismatch')
+        if subject.get('role') == 'postgres':
+            assert_postgres_version(sbom, policy)
         if subject['kind'] == 'image' and not subject.get('name', '').endswith('@sha256:' + subject['sha256']):
             raise ValueError('Image subject is mutable or has a mismatched digest')
         if subject.get('policy') not in files or not subject.get('scans') or any(name not in files for name in subject['scans']):

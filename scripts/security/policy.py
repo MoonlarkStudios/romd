@@ -26,6 +26,9 @@ def validate_policy(policy, today=None):
             or policy.get('maxExceptionDays') != 90 or not isinstance(policy.get('exceptions'), list)
             or not isinstance(policy.get('assessments'), list)):
         raise ValueError('Release security policy requires applicability review and the severity/expiry gate')
+    minimum = policy.get('minimumPostgresVersion')
+    if not isinstance(minimum, str) or not re.fullmatch(r'18\.[0-9]+', minimum) or int(minimum.split('.')[1]) < 7:
+        raise ValueError('Release security policy requires PostgreSQL 18.7 or a later reviewed minor release')
     decisions = {}
     for kind, review in [('not_affected', item) for item in policy['assessments']] + [('accepted_risk', item) for item in policy['exceptions']]:
         required = ('id', 'component', 'installedVersion', 'subjectDigest', 'rationale', 'owner', 'reviewed', 'expires', 'severity')

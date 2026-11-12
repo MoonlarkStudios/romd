@@ -1,5 +1,6 @@
 {
   "schemaVersion": 2,
+  "minimumPostgresVersion": "18.7",
   "blockedSeverities": [
     "CRITICAL",
     "HIGH",

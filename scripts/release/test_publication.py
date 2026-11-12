@@ -10,12 +10,31 @@ from unittest.mock import patch, MagicMock
 import urllib.error
 from types import SimpleNamespace
 
-from preflight import valid_tag, verify
+from preflight import valid_tag, verify, verify_runtime_versions
 from publication import allow_retry, registry_exists, release_metadata, publish
 from qualify import verify_publisher, IMAGE_KEYS, canonical_digest
 
 
 class ReleasePolicyTests(unittest.TestCase):
+    def runtime_files(self, root, version='18.7', registry=''):
+        for path in ('scripts/security', 'scripts/deployment'):
+            (root / path).mkdir(parents=True, exist_ok=True)
+        (root / 'scripts/security/policy.json').write_text(json.dumps(dict(schemaVersion=2,
+            minimumPostgresVersion='18.7', blockedSeverities=['HIGH', 'CRITICAL', 'UNKNOWN'],
+            maxExceptionDays=90, assessments=[], exceptions=[])))
+        (root / 'scripts/deployment/base-images.json').write_text(json.dumps({
+            'postgres': registry + 'postgres:' + version + '-bookworm@sha256:' + 'a' * 64}))
+
+    def test_security_floor_blocks_old_and_unofficial_database_before_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for version, registry in (('18.6', ''), ('18.7', 'registry.example/'), ('18', '')):
+                self.runtime_files(root, version, registry)
+                with self.assertRaisesRegex(ValueError, 'security floor'):
+                    verify_runtime_versions(root)
+            self.runtime_files(root)
+            verify_runtime_versions(root)
+
     def test_tagged_official_pins_match_docker_normalized_repo_digests(self):
         digest = 'sha256:' + 'a' * 64
         self.assertEqual(canonical_digest('postgres:18-bookworm@' + digest),
@@ -39,6 +58,7 @@ class ReleasePolicyTests(unittest.TestCase):
             (root / '.github').mkdir()
             (root / '.github/release-policy.json').write_text(json.dumps(dict(schemaVersion=1,
                 allowedBranch='main', requireBranchTip=True, platform='linux/amd64', candidateOnly=True)))
+            self.runtime_files(root)
             git('add', '.')
             git('commit', '-qm', 'fixture')
             revision = git('rev-parse', 'HEAD')

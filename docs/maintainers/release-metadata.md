@@ -124,6 +124,15 @@ user/volume initialization behavior. Prefer an updated official digest for
 runtime-library fixes; ROMD does not publish a replacement database image to
 clear scanner alerts.
 
+The reviewed security floor is PostgreSQL **18.7**, following the
+[upstream security release](https://www.postgresql.org/about/news/postgresql-187-1712-1616-1520-1425-and-19-rc-2-released-3442/).
+`minimumPostgresVersion` in the policy is checked against the actual server SBOM,
+independently of scanner database coverage. Release preflight also rejects an
+older or unofficial image pin before any candidate is published. A clean scan does not
+override a known vendor security update. If the corresponding official image
+is not yet available, qualification waits for it; an accepted risk for an
+inherited OS library does not waive the database server's version floor.
+
 For Go findings in the image's `gosu` helper, follow the
 [upstream security guidance](https://github.com/tianon/gosu/blob/master/SECURITY.md)
 and [govulncheck binary analysis](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck).
