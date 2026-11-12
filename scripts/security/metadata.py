@@ -12,7 +12,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'release'))
@@ -92,6 +92,17 @@ def catalog_supplement(receipt_path, binary_path):
                        {'name': 'romd:build-receipt-sha256', 'value': sha256(receipt_path)}]}]}
 
 
+def postgres_server(component):
+    name, version, purl = (component.get(key) for key in ('name', 'version', 'purl'))
+    if not isinstance(version, str) or not isinstance(purl, str):
+        return False
+    purl = unquote(purl).split('?', 1)[0]
+    if name == 'postgresql':
+        return bool(re.fullmatch(r'18\.[0-9]+', version)) and purl == 'pkg:generic/postgresql@' + version
+    return (name == 'postgresql-18' and bool(re.fullmatch(r'18\.[0-9]+(?:-[0-9A-Za-z.+~]+)?', version))
+            and purl == 'pkg:deb/debian/postgresql-18@' + version)
+
+
 def assert_coverage(sbom, role):
     components = sbom.get('components', [])
     names = {component.get('name', '').lower() for component in components}
@@ -111,11 +122,7 @@ def assert_coverage(sbom, role):
     if role == 'worker':
         required['chdman'] = 'chdman' in names
     if role == 'postgres':
-        required['database-server'] = any(component.get('name') == 'postgresql'
-            and isinstance(component.get('version'), str)
-            and re.fullmatch(r'18\.\d+', component.get('version', ''))
-            and component.get('purl') == 'pkg:generic/postgresql@' + component['version']
-            for component in components)
+        required['database-server'] = any(postgres_server(component) for component in components)
     missing = [name for name, present in required.items() if not present]
     if missing:
         raise ValueError('Final-image SBOM coverage missing: ' + ', '.join(missing))

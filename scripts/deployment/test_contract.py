@@ -857,10 +857,10 @@ elif args != ['builder', 'prune', '--all', '--force']:
                 self.assertIn('outside GitHub-hosted Actions', result.stderr)
                 self.assertEqual([], calls)
 
-    def test_hosted_cleanup_only_prunes_build_cache_and_retains_all_five_images(self):
+    def test_hosted_cleanup_only_prunes_build_cache_and_retains_all_four_images(self):
         result, calls = self.run_cleanup()
         self.assertEqual(0, result.returncode, result.stderr)
-        images = ['romd-worker:test', 'romd-admin:test', 'romd-consumer:test', 'romd-player:test', 'romd-postgres:test']
+        images = ['romd-worker:test', 'romd-admin:test', 'romd-consumer:test', 'romd-player:test']
         inspect = ['image', 'inspect', '--format', '{{.Id}}', *images]
         self.assertEqual([inspect, ['builder', 'prune', '--all', '--force'], inspect], calls)
 
@@ -890,13 +890,14 @@ class ProductionContractTests(unittest.TestCase):
         self.assertEqual([], sorted(manifests - copied_sources),
                          'Frozen workspace installation needs every package manifest before source copying')
 
-    def test_postgres_source_build_uses_the_reviewed_upstream_pin(self):
+    def test_postgres_remains_a_digest_pinned_official_image(self):
         image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['postgres']
-        for arch in ('amd64', 'arm64'):
-            self.assertEqual(image, dockerfile_chain('romd-postgres', arch)[-1])
+        self.assertRegex(image, r'^postgres:18\.[0-9]+-bookworm@sha256:[a-f0-9]{64}$')
+        self.assertEqual(image, test_environment()['ROMD_POSTGRES_IMAGE'])
         config = render('compose.build.yaml')
-        self.assertEqual('romd-postgres', config['services']['postgres']['build']['target'])
-        self.assertEqual('romd-postgres:test', config['services']['postgres']['image'])
+        self.assertEqual(image, config['services']['postgres']['image'])
+        self.assertNotIn('build', config['services']['postgres'])
+        self.assertNotIn('romd-postgres', dockerfile_stages())
 
     def test_player_and_qualification_ingress_use_the_same_reviewed_image(self):
         image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
@@ -1386,7 +1387,7 @@ docker() {
                                  'deploy/examples/cloudflare/compose.yaml',
                                  'deploy/examples/cloudflare/templates/default.conf.template',
                                  'docs/media-processing.md', 'docs/configuration.md',
-                                 'deploy/postgres/init/10-romd-roles.sh', 'deploy/postgres/COPYRIGHT',
+                                 'deploy/postgres/init/10-romd-roles.sh',
                                  'LICENSE', 'THIRD_PARTY_NOTICES.md', 'TRADEMARKS.md',
                                  'brand/fonts/Fraunces-OFL.txt',
                                  'web/packages/romd-foundation/src/fonts/Archivo-OFL.txt',

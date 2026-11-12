@@ -86,7 +86,7 @@ class ReleasePolicyTests(unittest.TestCase):
                 status, 'fixture', {}, io.BytesIO(json.dumps(body).encode()))
         opener = MagicMock()
         with patch.dict(os.environ, GH_TOKEN='fixture', GITHUB_ACTOR='actor'), patch('publication.urllib.request.build_opener', return_value=opener):
-            for role in ('admin', 'consumer', 'worker', 'player', 'postgres'):
+            for role in ('admin', 'consumer', 'worker', 'player'):
                 for code in ('MANIFEST_UNKNOWN', 'NAME_UNKNOWN'):
                     with self.subTest(role=role, code=code):
                         opener.open.side_effect = [token(), error({'errors': [{'code': code}]})]
@@ -157,8 +157,10 @@ class ReleasePolicyTests(unittest.TestCase):
             upload = next(i for i, command in enumerate(commands) if command[:3] == ['gh', 'release', 'upload']
                           and str(source) in command)
             pushes = [i for i, command in enumerate(commands) if command[:2] == ['docker', 'push']]
-            self.assertEqual({f'ghcr.io/owner/romd-{role}:v1.2.3' for role in ('admin', 'consumer', 'worker', 'player', 'postgres')},
+            self.assertEqual({f'ghcr.io/owner/romd-{role}:v1.2.3' for role in ('admin', 'consumer', 'worker', 'player')},
                              {commands[i][2] for i in pushes})
+            self.assertEqual('postgres@sha256:' + 'b' * 64,
+                             json.loads((output / 'candidate.json').read_text())['images']['ROMD_POSTGRES_IMAGE'])
             self.assertTrue(all(upload < i for i in pushes))
             self.assertFalse(any('--clobber' in command for command in commands))
             self.assertIn('--prerelease', commands[-1])

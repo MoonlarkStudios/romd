@@ -251,11 +251,18 @@ class InventoryIntegrityTests(unittest.TestCase):
     def test_postgres_inventory_requires_the_supported_database_server(self):
         os_package = {'name': 'busybox', 'purl': 'pkg:apk/alpine/busybox@1.37.0'}
         for server in (None, {'name': 'postgresql'},
-                       {'name': 'postgresql', 'version': '17.8', 'purl': 'pkg:generic/postgresql@17.8'}):
+                       {'name': 'postgresql', 'version': '17.8', 'purl': 'pkg:generic/postgresql@17.8'},
+                       {'name': 'postgresql', 'version': '18', 'purl': 'pkg:deb/debian/postgresql@18'},
+                       {'name': 'postgresql-client-18', 'version': '18.6-1.pgdg12+2',
+                        'purl': 'pkg:deb/debian/postgresql-client-18@18.6-1.pgdg12%2B2'},
+                       {'name': 'postgresql-18', 'version': '18.6-1.pgdg12+2',
+                        'purl': 'pkg:deb/debian/postgresql-17@18.6-1.pgdg12%2B2'}):
             with self.subTest(server=server), self.assertRaisesRegex(ValueError, 'database-server'):
                 assert_coverage({'components': [os_package] + ([server] if server else [])}, 'postgres')
-        server = {'name': 'postgresql', 'version': '18.6', 'purl': 'pkg:generic/postgresql@18.6'}
-        self.assertTrue(all(assert_coverage({'components': [os_package, server]}, 'postgres').values()))
+        for server in ({'name': 'postgresql', 'version': '18.6', 'purl': 'pkg:generic/postgresql@18.6'},
+                       {'name': 'postgresql-18', 'version': '18.6-1.pgdg12+2',
+                        'purl': 'pkg:deb/debian/postgresql-18@18.6-1.pgdg12%2B2?arch=amd64&distro=debian-12.15'}):
+            self.assertTrue(all(assert_coverage({'components': [os_package, server]}, 'postgres').values()))
 
     def test_player_and_postgres_sbom_scans_reject_empty_and_os_only_frontend_results(self):
         for role in ('player', 'postgres'):

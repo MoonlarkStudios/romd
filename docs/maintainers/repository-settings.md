@@ -119,7 +119,7 @@ intended commit and that `advisories` passed on that same tag.
 ## Container packages
 
 `scripts/release/publication.py` publishes `romd-admin`, `romd-consumer`,
-`romd-worker`, `romd-player` and `romd-postgres` under `ghcr.io/<owner>`. The owner comes from
+`romd-worker` and `romd-player` under `ghcr.io/<owner>`. The owner comes from
 `$GITHUB_REPOSITORY`, so here it is `ghcr.io/moonlarkstudios`. Operators pull
 these images when they install a deployment bundle (see the
 [deployment runbook](../self-hosting/production-deployment.md)), so release
@@ -141,13 +141,13 @@ after publication, before qualification pulls them; if a gate has already failed
 treat that release as a bootstrap candidate:
 
 1. Push the first `-rc.1` tag, approve its `publish` job in the release
-   environment, and let it publish all five packages.
+   environment, and let it publish all four ROMD packages.
 2. Confirm that each package is linked to this repository, then make any new
    packages public.
 3. Pull every image digest in that release's `images.env` without credentials:
 
    ```bash
-   DOCKER_CONFIG="$(mktemp -d)" sh -c "grep -E '^ROMD_(ADMIN|CONSUMER|WORKER|PLAYER|POSTGRES)_IMAGE=' images.env | cut -d= -f2 | xargs -n1 docker pull --platform linux/amd64"
+   DOCKER_CONFIG="$(mktemp -d)" sh -c "grep -E '^ROMD_(ADMIN|CONSUMER|WORKER|PLAYER)_IMAGE=' images.env | cut -d= -f2 | xargs -n1 docker pull --platform linux/amd64"
    ```
 
 4. Leave the bootstrap release as an unqualified prerelease and push the next

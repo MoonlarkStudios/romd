@@ -101,7 +101,6 @@ def main():
     with tempfile.TemporaryDirectory(prefix='romd-compose-smoke-') as temporary:
         work = Path(temporary)
         env = test_environment()
-        env['ROMD_POSTGRES_IMAGE'] = 'romd-postgres:test'
         if args.source_revision:
             env.update(ROMD_SOURCE_REVISION=args.source_revision, ROMD_RELEASE_TAG=args.release_tag)
         if args.vfs:
@@ -232,8 +231,6 @@ def main():
                 result = subprocess.run(command + ['https://' + host + '/'], env=env, capture_output=True)
                 assert result.returncode == 60 and not result.stdout, 'TLS trust/hostname rejection failed'
             run([ROOT / 'scripts/deployment/verify.sh'], env)
-            run([compose, 'exec', '-T', 'postgres', 'sh', '-ec',
-                 'test "$(id -u)" -ne 0 && ! command -v gosu'], env)
             direct_status = run([compose, 'exec', '-T', 'romd-admin', 'curl', '-s', '-o', '/dev/null',
                 '-w', '%{http_code}', '-H', 'X-Forwarded-Proto: https', '-H', 'Host: admin.example.test',
                 'http://localhost:8080/.well-known/openid-configuration'], env, capture=True)

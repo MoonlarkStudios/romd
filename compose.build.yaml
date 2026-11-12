@@ -1,14 +1,5 @@
 # Source-build overlay for maintainers and CI. linux/arm64 installations build the same Dockerfile targets.
 services:
-  postgres:
-    image: ${ROMD_POSTGRES_BUILD_IMAGE:-romd-postgres:test}
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        ROMD_SOURCE_REVISION: ${ROMD_SOURCE_REVISION:-development}
-        ROMD_RELEASE_TAG: ${ROMD_RELEASE_TAG:-development}
-      target: romd-postgres
   romd-admin:
     build:
       context: .

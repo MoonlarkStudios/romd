@@ -116,6 +116,39 @@ digest-pinned runtime images. Frontend tooling is not installed into the bundle.
 Original license notices stay in the images and bundle; SBOMs do not replace
 those notices.
 
+## Official PostgreSQL image findings
+
+Select a digest-pinned Docker Official PostgreSQL 18 image in
+`scripts/deployment/base-images.json`. Preserve its upstream entrypoint and
+user/volume initialization behavior. Prefer an updated official digest for
+runtime-library fixes; ROMD does not publish a replacement database image to
+clear scanner alerts.
+
+For Go findings in the image's `gosu` helper, follow the
+[upstream security guidance](https://github.com/tianon/gosu/blob/master/SECURITY.md)
+and [govulncheck binary analysis](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck).
+Extract the actual helper from a stopped container created from the selected
+digest. Retain the image reference, binary SHA-256, pinned scanner identity,
+complete JSON output, database query time and primary advisory records with
+the private review evidence. Use the pinned govulncheck executable exported by
+`catalog-reader-security-artifacts`, rather than installing a moving latest tool:
+
+```bash
+/absolute/reader-artifacts/govulncheck -db=https://vuln.go.dev \
+  -mode=binary -scan=symbol -format=json /absolute/review/gosu \
+  > /absolute/review/gosu.govulncheck.jsonstream
+```
+
+JSON mode exits successfully even when vulnerabilities are reported. Inspect
+the complete findings and the upstream advisory's affected-function and input
+conditions. A version-only finding does not prove exploitability, and the
+vendor's general guidance does not prove an individual binary unaffected.
+Keep OS-library findings separate from Go-helper analysis. Record primary
+vendor evidence for proposed applicability dispositions; this procedure does
+not automatically suppress any finding. Applicable and unresolved findings
+remain subject to the severity gate below. An accepted-risk exception still
+requires the exact reviewed component/version/digest, owner and expiry.
+
 ## Severity and exception policy
 
 `scripts/security/policy.json` blocks **HIGH**, **CRITICAL**, and **UNKNOWN**
@@ -150,12 +183,11 @@ to that job. Publish the complete attestation bundles as downloadable JSONL,
 alongside the metadata files and checksummed deployment archive. Do not promote
 a prerelease before generation, policy checks and verification succeed.
 
-The PostgreSQL subject is ROMD's serviced image derived from the pinned official
-PostgreSQL 18 Alpine image. ROMD updates its runtime libraries and runs as the
-upstream `postgres` account without the root-only privilege helper; the upstream
-entrypoint, server, and backup tools are retained. Provenance covers ROMD's
-derived image build, without claiming the upstream publisher's build process.
-Retain the upstream component/source inventory in the final-image SBOM.
+The PostgreSQL subject records the official upstream digest selected and
+qualified by ROMD's workflow. The inventory must identify the PostgreSQL 18
+server version as well as its OS packages. ROMD does not rebuild PostgreSQL or
+attest the upstream publisher's build process. Retain the upstream component/source
+inventory and distinguish that qualification attestation from upstream origin.
 
 Download these public assets into a clean directory. Supply the intended source
 commit, tag, repository and exact trusted signer workflow independently of the

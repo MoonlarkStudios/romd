@@ -9,7 +9,6 @@ browser emulation, and typography used by the project.
 | Platform logo collection | Dan Patrick; respective platform trademark owners | [Platform logos](#platform-logos) |
 | Content-rating marks | ACB, CERO, Classificação Indicativa, ESRB, GRAC, PEGI, and USK | [Content-rating marks](#content-rating-marks) |
 | Browser emulation | EmulatorJS contributors and the individual emulator-core authors | [EmulatorJS and emulator cores](#emulatorjs-browser-runtime) |
-| Database image | PostgreSQL Global Development Group; University of California | [PostgreSQL image](#postgresql-image) |
 | CHD media | libchdr contributors; MAME contributors | [CHD media: libchdr and chdman](#chd-media-libchdr-and-chdman) |
 | Interface typography | Archivo Project Authors; IBM Corp. | [Fonts](#fonts) |
 | Bundled brand fonts | DM Sans Project Authors; Fraunces Project Authors | [Fonts](#fonts) |
@@ -20,15 +19,6 @@ notices, and trademark rights; this document does not relicense them. See also
 [Trademark Policy](TRADEMARKS.md). Package dependencies retain the notices and
 licenses supplied by their authors; this asset-focused document is not a complete
 dependency license inventory.
-
-## PostgreSQL image
-
-The serviced database image derives from the official PostgreSQL 18 Alpine image
-and retains the PostgreSQL server and tools. PostgreSQL uses the
-[PostgreSQL License](https://www.postgresql.org/about/licence/); the upstream
-[PostgreSQL 18.6 copyright notice](deploy/postgres/COPYRIGHT) accompanies the image
-at `/usr/local/share/doc/postgresql/COPYRIGHT` and the deployment bundle.
-Operating-system dependencies retain their upstream licenses and notices.
 
 ## Managed archive extraction and disc decompression
 
