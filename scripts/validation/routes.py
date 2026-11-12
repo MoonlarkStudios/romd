@@ -51,6 +51,10 @@ CI_ONLY_STEPS = {
         dict(command='.artifacts/ci-python/bin/python -B -m unittest discover -s scripts/agents', local='agents:check'),
     ('agent-infrastructure', 'Test validation runner'):
         dict(command='.artifacts/ci-python/bin/python -B -m unittest discover -s scripts/validation', local='agents:check'),
+    # Provision the hosted runner; the browser test itself has a required local/CI registry route.
+    ('agent-infrastructure', 'Install the locked qualification browser for release regressions'):
+        dict(command='npm ci --ignore-scripts --prefix scripts/release/browser',
+             reason='locked browser dependencies and native runner packages; local browser setup is documented in packaged-release-qualification'),
     ('console', 'Restore committed console dependencies'):
         dict(command='flutter pub get --enforce-lockfile', reason='dependency install and lockfile pin'),
     ('console', 'Install ripgrep for the theme governance scripts'):

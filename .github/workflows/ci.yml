@@ -105,6 +105,10 @@ jobs:
         run: .artifacts/ci-python/bin/python -B -m unittest discover -s scripts/agents -p 'test_*.py'
       - name: Test validation runner
         run: .artifacts/ci-python/bin/python -B -m unittest discover -s scripts/validation -p 'test_*.py'
+      - name: Install the locked qualification browser for release regressions
+        run: |
+          npm ci --ignore-scripts --prefix scripts/release/browser
+          scripts/release/browser/node_modules/.bin/playwright install --with-deps chromium
       - name: Run registered inventory and release contracts
         run: python3 scripts/validation/run.py --ci --job agent-infrastructure --evidence-parent coverage/agent-infrastructure
 
