@@ -3,10 +3,12 @@ import copy
 from datetime import date
 import json
 from pathlib import Path
+import tempfile
 import unittest
 
 from policy import evaluate, validate_policy
 from vex import document
+from verify import verify_policy_results
 
 DIGEST = 'sha256:' + 'a' * 64
 TAG = 'v0.1.0-rc.2'
@@ -124,6 +126,24 @@ class ReviewPolicyTests(unittest.TestCase):
         statement = document([self.evaluate()], 'b' * 64, TAG)['statements'][0]
         self.assertEqual('affected', statement['status'])
         self.assertIn(self.review['followUp'], statement['action_statement'])
+
+    def test_downloaded_policy_replay_rejects_wrong_candidate_and_forged_go_resolution(self):
+        self.accept_risk()
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary)
+            (work / 'raw.json').write_text(json.dumps(self.report))
+            result = self.evaluate()
+            (work / 'policy.json').write_text(json.dumps(result))
+            subject = dict(role='postgres', sha256=DIGEST.split(':')[1], scans=['raw.json'], policy='policy.json')
+            verify_policy_results(work, subject, self.policy, TAG)
+            with self.assertRaises(ValueError):
+                verify_policy_results(work, subject, self.policy, 'v0.1.0-rc.3')
+            self.policy['exceptions'] = []
+            result['findings'][0].update(excepted=False, applicability={'status': 'affected-packages-absent', 'evidence': {'forged': True}})
+            result['findings'][0].pop('riskAcceptance')
+            (work / 'policy.json').write_text(json.dumps(result))
+            with self.assertRaisesRegex(ValueError, 'Go package-absence'):
+                verify_policy_results(work, subject, self.policy, TAG)
 
     def test_committed_policy_has_current_complete_nonconflicting_reviews(self):
         policy = json.loads((Path(__file__).parent / 'policy.json').read_text())

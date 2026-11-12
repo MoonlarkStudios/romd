@@ -32,8 +32,15 @@ def verify_policy_results(directory, subject, policy, tag):
             # The separately attested reader proof may resolve Go package absence.
             # A manual decision must replay exactly against this tag and snapshot.
             if recorded.get('applicability', {}).get('status') == 'affected-packages-absent':
-                if not recorded['applicability'].get('evidence'):
+                proof = recorded['applicability'].get('evidence')
+                if subject.get('role') not in ('admin', 'worker') or not recorded['component'].startswith('pkg:golang/') or not isinstance(proof, dict):
                     raise ValueError('Go package-absence proof missing')
+                provenance = json.loads((directory / 'go-reader-provenance.json').read_text())
+                qualified = json.loads(provenance['qualification.json'])
+                if (proof.get('binarySha256') != qualified['files']['catalog-reader']
+                        or any(proof.get(key) != qualified['source'].get(key)
+                               for key in ('sourceCommit', 'sourceArchiveSha256', 'compilerImage'))):
+                    raise ValueError('Go package-absence proof differs from qualified reader provenance')
             elif expected['blocked'] or recorded.get('riskAcceptance') != expected.get('riskAcceptance'):
                 raise ValueError('Release subject has unreviewed vulnerability decisions')
         if any(finding.get('blocked') is not False for finding in result.get('goAdvisories', [])):
