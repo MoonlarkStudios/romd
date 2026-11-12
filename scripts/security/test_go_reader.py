@@ -240,6 +240,34 @@ class GoApplicabilityTests(GoEvidenceFixture):
         with self.assertRaisesRegex(ValueError, 'conflicting primary OSV'):
             self.scanned(events)
 
+    def test_stdlib_finding_version_spellings_preserve_package_findings_and_block(self):
+        identifier = 'GO-2026-9998'
+        primary = dict(osv(), id=identifier, affected=[{
+            'package': {'ecosystem': 'Go', 'name': 'stdlib'},
+            'ranges': [{'type': 'SEMVER', 'events': [{'introduced': '0'}, {'fixed': '1.27.4'}]}],
+            'ecosystem_specific': {'imports': [{'path': 'net/http'}]}}])
+        for version in ('v1.27.3', 'go1.27.3', '1.27.3'):
+            events = messages() + [{'osv': primary},
+                {'finding': {'osv': identifier, 'trace': [{'module': 'stdlib', 'version': version}]}},
+                {'finding': {'osv': identifier, 'trace': [{'module': 'stdlib', 'version': version, 'package': 'net/http'}]}}]
+            with self.subTest(version=version):
+                evidence = self.scanned(events)
+                self.assertEqual(events[-2:], [{'finding': item} for item in evidence['findings'][-2:]])
+                result = self.assess({'SchemaVersion': 2, 'Results': []}, evidence)
+                self.assertEqual('failed', result['result'])
+                advisory = next(item for item in result['goAdvisories'] if item['id'] == identifier)
+                self.assertTrue(advisory['blocked'])
+                self.assertIn('affected package', advisory['applicability']['reason'])
+
+    def test_finding_versions_cannot_change_compiler_or_normalize_other_modules(self):
+        for module, version in (('stdlib', 'v1.27.2'), ('stdlib', 'v1.27.30'),
+                                ('stdlib', 'go1.27.3-extra'), (DEP, 'go0.58.0'),
+                                ('unlisted.example/module', VERSION)):
+            events = messages()
+            events[-1]['finding']['trace'][0].update(module=module, version=version)
+            with self.subTest(module=module, version=version), self.assertRaises(ValueError):
+                self.scanned(events)
+
     def test_fresh_query_accepts_old_publication_but_rejects_stale_future_or_mismatched_query(self):
         self.scanned()  # Actual official Go DB publication may be older than 72h.
         for checked, index in (('2026-10-01T00:00:00Z', PUBLISHED), ('2026-10-20T00:00:00Z', PUBLISHED),

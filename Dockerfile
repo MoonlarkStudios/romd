@@ -3,18 +3,18 @@
 # Reader source remains at the reviewed companion revision. Service the compiler
 # patch independently; keep the build assertion and binary receipt in sync.
 # Build on the builder architecture; only the static target binary enters runtime.
-FROM --platform=$BUILDPLATFORM golang:1.27.3-bookworm@sha256:5c3e9b43cfd3bb95c7937462e29d87ada57b481a96fa23ad0eb61778d7a00110 AS catalog-reader-build
+FROM --platform=$BUILDPLATFORM golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea AS catalog-reader-build
 ARG TARGETARCH
 ENV GOTOOLCHAIN=local
 ENV CGO_ENABLED=0
 WORKDIR /reader
 ADD --checksum=sha256:d325486112281b0ef24d46e4ffce2fa28472359baf0829751de87de751f1f6cb https://codeload.github.com/MoonlarkStudios/romd-dat-catalogs/tar.gz/f41d480da850f534044d0ee690747af2ab5cd3c5 /tmp/reader.tar.gz
 RUN tar -xzf /tmp/reader.tar.gz --strip-components=1 \
-    && test "$(go env GOVERSION)" = go1.27.3 \
+    && test "$(go env GOVERSION)" = go1.27.4 \
     && GOOS=linux GOARCH="$TARGETARCH" go build -trimpath -o /out/catalog-reader ./cmd/distribution \
     && echo '6ab3222d28db2d8750c85fab1bfd6583b0fd9649252e24764865057200df7459  trust/1.root.json' | sha256sum -c - \
     && cp trust/1.root.json /out/1.root.json \
-    && printf '{"schemaVersion":1,"module":"github.com/MoonlarkStudios/romd-dat-catalogs","sourceCommit":"f41d480da850f534044d0ee690747af2ab5cd3c5","binarySha256":"%s","goVersion":"go1.27.3"}\n' "$(sha256sum /out/catalog-reader | cut -d ' ' -f 1)" > /out/catalog-reader.json
+    && printf '{"schemaVersion":1,"module":"github.com/MoonlarkStudios/romd-dat-catalogs","sourceCommit":"f41d480da850f534044d0ee690747af2ab5cd3c5","binarySha256":"%s","goVersion":"go1.27.4"}\n' "$(sha256sum /out/catalog-reader | cut -d ' ' -f 1)" > /out/catalog-reader.json
 
 # Qualification-only provenance and scanner exports; these tools never enter runtime images.
 FROM catalog-reader-build AS catalog-reader-security

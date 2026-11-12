@@ -246,7 +246,10 @@ def validate_scan(raw, evidence, index, checked_at, now=None):
     require(len(observed) == len(modules) and observed == expected, 'binary SBOM module coverage/version mismatch')
     for finding in findings:
         frame = finding['trace'][0]
-        require(finding['osv'] in osvs and expected.get(frame['module']) == frame['version'], 'finding lacks OSV or binary module coverage')
+        module = frame['module']
+        require(finding['osv'] in osvs, 'finding lacks primary OSV coverage')
+        require(module in expected and version_key(module, expected[module]) == version_key(module, frame['version']),
+                'finding module/version differs from binary SBOM')
     return {**evidence, 'osvs': osvs, 'findings': findings, 'dbCheckedAt': checked_at,
             'dbLastModified': config['db_last_modified'], 'scanSha256': hashlib.sha256(raw.encode()).hexdigest()}
 
