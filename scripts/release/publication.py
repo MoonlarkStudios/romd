@@ -79,7 +79,7 @@ def run(command, capture=False):
 
 
 def registry_exists(reference):
-    match = re.fullmatch(r'ghcr\.io/([a-z0-9][a-z0-9._-]*/romd-(?:admin|consumer|worker|player)):([0-9A-Za-z.-]+)', reference)
+    match = re.fullmatch(r'ghcr\.io/([a-z0-9][a-z0-9._-]*/romd-(?:admin|consumer|worker|player|postgres)):([0-9A-Za-z.-]+)', reference)
     token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
     actor = os.environ.get('GITHUB_ACTOR')
     if not match or not token or not actor:

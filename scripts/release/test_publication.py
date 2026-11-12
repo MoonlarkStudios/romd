@@ -86,8 +86,13 @@ class ReleasePolicyTests(unittest.TestCase):
                 status, 'fixture', {}, io.BytesIO(json.dumps(body).encode()))
         opener = MagicMock()
         with patch.dict(os.environ, GH_TOKEN='fixture', GITHUB_ACTOR='actor'), patch('publication.urllib.request.build_opener', return_value=opener):
-            opener.open.side_effect = [token(), error({'errors': [{'code': 'MANIFEST_UNKNOWN'}]})]
-            self.assertFalse(registry_exists(reference))
+            for role in ('admin', 'consumer', 'worker', 'player', 'postgres'):
+                for code in ('MANIFEST_UNKNOWN', 'NAME_UNKNOWN'):
+                    with self.subTest(role=role, code=code):
+                        opener.open.side_effect = [token(), error({'errors': [{'code': code}]})]
+                        self.assertFalse(registry_exists(f'ghcr.io/owner/romd-{role}:v1.2.3'))
+                        self.assertEqual(f'https://ghcr.io/v2/owner/romd-{role}/manifests/v1.2.3',
+                                         opener.open.call_args.args[0].full_url)
             for diagnostic in ('docker-buildx executable not found', 'authorization failed: token not found',
                                'credential configuration not found'):
                 opener.open.side_effect = [token(), urllib.error.URLError(diagnostic)]
