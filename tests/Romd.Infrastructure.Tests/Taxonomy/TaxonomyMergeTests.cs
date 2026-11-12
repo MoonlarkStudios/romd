@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -433,29 +434,35 @@ public sealed class TaxonomyMergeTests
 
         await using var rebuild = await CatalogRebuildHold.DeleteLinksAsync(database, release);
         var log = new CommandLog();
-        await using var mergeDb = AuditedContext(database, log);
+        var gate = new CatalogRebuildMergeGate();
+        await using var mergeDb = AuditedContext(database, log, gate);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         int mergeProcess = await mergeDb.OpenBackendProcessIdAsync(timeout.Token);
-        // The merge checks for a deadlock once it has waited this long. The test assumes the rebuild joins the cycle
-        // within that window, which stays under the merge's 10-second lock timeout so the deadlock check runs first.
-        await mergeDb.Database.ExecuteSqlRawAsync("SET deadlock_timeout = '8s'");
+        await mergeDb.Database.ExecuteSqlRawAsync("SET deadlock_timeout = '1s'");
 
-        // The merge holds the source and waits for the link the rebuild deleted; the rebuild's re-inserted link then
-        // waits for the source. The merge's deadlock check aborts the merge, which releases the source.
-        var (merge, mergeWaited) = await database.StartWaitingForALockAsync(mergeDb,
-            ct => Service(mergeDb).MergeAsync("dat-source", "dat-target", ct), timeout.Token);
+        var merge = Service(mergeDb).MergeAsync("dat-source", "dat-target", timeout.Token);
         Task? insert = null;
         Exception? failure = null;
         try
         {
-            mergeWaited.ShouldBeTrue();
+            // Queue the rebuild's foreign-key check behind the locked source before the merge can wait for the
+            // deleted link. The cycle is established by observed locks, not by beating a deadlock timer.
+            await gate.SourceLocked.Task.WaitAsync(timeout.Token);
             insert = rebuild.InsertLinkAsync(release, source.Id, timeout.Token);
+            (await database.WaitsForALockAsync(rebuild.ProcessId, insert, timeout.Token)).ShouldBeTrue();
+            gate.ContinueFirstAttempt.SetResult();
+
+            // Let the rebuild finish acquiring its source lock before the retry competes for that row again.
+            // PostgreSQL does not promise that releasing a deadlock victim schedules the rebuild first.
             await insert.WaitAsync(TimeSpan.FromSeconds(30));
+            await gate.RetryStarting.Task.WaitAsync(timeout.Token);
+            gate.ContinueRetry.SetResult();
             // The rebuild now references the source, so the merge's retry waits for the rebuild to commit.
             (await database.WaitsForALockAsync(mergeProcess, merge, timeout.Token)).ShouldBeTrue();
             await rebuild.CommitAsync();
 
             (await merge.WaitAsync(TimeSpan.FromSeconds(30))).IsError.ShouldBeFalse();
+            gate.Deadlocks.ShouldBe(1);
             log.Commands.Count(command => command.Contains("FOR UPDATE")).ShouldBe(2);
             await using var check = database.CreateContext();
             (await check.CatalogReleaseRegions.Select(link => new { link.CatalogReleaseId, link.RegionId }).SingleAsync())
@@ -697,12 +704,54 @@ public sealed class TaxonomyMergeTests
         return release.Id;
     }
 
+    private sealed class CatalogRebuildMergeGate : DbCommandInterceptor
+    {
+        private int _sourceLockAttempts;
+        public int Deadlocks { get; private set; }
+        public TaskCompletionSource SourceLocked { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ContinueFirstAttempt { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource RetryStarting { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ContinueRetry { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("FOR UPDATE") && Interlocked.Increment(ref _sourceLockAttempts) == 2)
+            {
+                RetryStarting.SetResult();
+                await ContinueRetry.Task.WaitAsync(cancellationToken);
+            }
+            return result;
+        }
+
+        public override async ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData,
+            DbDataReader result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("FOR UPDATE") && _sourceLockAttempts == 1)
+            {
+                SourceLocked.SetResult();
+                await ContinueFirstAttempt.Task.WaitAsync(cancellationToken);
+            }
+            return result;
+        }
+
+        public override Task CommandFailedAsync(DbCommand command, CommandErrorEventData eventData,
+            CancellationToken cancellationToken = default)
+        {
+            if (eventData.Exception is PostgresException { SqlState: PostgresErrorCodes.DeadlockDetected })
+                Deadlocks++;
+            return Task.CompletedTask;
+        }
+    }
+
     /// <summary>
     ///     A catalog rebuild of a release's platform, uncommitted: it deletes the release's region links, then inserts
     ///     them again, and its foreign-key check holds each re-linked region <c>FOR KEY SHARE</c> until it commits.
     /// </summary>
     private sealed class CatalogRebuildHold(NpgsqlConnection connection, NpgsqlTransaction transaction) : IAsyncDisposable
     {
+        public int ProcessId => connection.ProcessID;
+
         public static async Task<CatalogRebuildHold> DeleteLinksAsync(PostgreSqlTestDatabase database, int releaseId)
         {
             var connection = new NpgsqlConnection(database.ConnectionString);
