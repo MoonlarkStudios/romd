@@ -109,9 +109,12 @@ romd_backup_worker_container() {
 # data-protection keys, exports) is part of the installation.
 romd_backup_data_export() {
   if [[ "${ROMD_BACKUP_MODE}" == "compose" ]]; then
+    # Data includes private keys owned by the ROMD application user. These
+    # one-shot volume helpers need root independently of the image's default
+    # database identity; the PostgreSQL server continues running as postgres.
     # stdout is a binary archive, not application logs. Docker's default logger
     # otherwise duplicates it (and JSON escaping can greatly inflate disk use).
-    docker run --rm --log-driver none --volumes-from "$(romd_backup_worker_container)" "${ROMD_BACKUP_HELPER_IMAGE}" \
+    docker run --rm --user 0:0 --log-driver none --volumes-from "$(romd_backup_worker_container)" "${ROMD_BACKUP_HELPER_IMAGE}" \
       tar -C "${ROMD_BACKUP_CONTAINER_DATA_DIR}" -cf - --exclude ./temp --exclude ./logs --exclude ./content/.staging .
   else
     tar -C "${ROMD_BACKUP_DATA_DIR}" -cf - --exclude ./temp --exclude ./logs --exclude ./content/.staging .
@@ -121,7 +124,7 @@ romd_backup_data_export() {
 # Restores a tar stream from stdin into the data directory.
 romd_backup_data_import() {
   if [[ "${ROMD_BACKUP_MODE}" == "compose" ]]; then
-    docker run --rm -i --volumes-from "$(romd_backup_worker_container)" "${ROMD_BACKUP_HELPER_IMAGE}" \
+    docker run --rm --user 0:0 -i --volumes-from "$(romd_backup_worker_container)" "${ROMD_BACKUP_HELPER_IMAGE}" \
       tar -C "${ROMD_BACKUP_CONTAINER_DATA_DIR}" -xf -
   else
     mkdir -p "${ROMD_BACKUP_DATA_DIR}"
@@ -133,7 +136,7 @@ romd_backup_data_import() {
 romd_backup_data_is_empty() {
   local listing
   if [[ "${ROMD_BACKUP_MODE}" == "compose" ]]; then
-    listing="$(docker run --rm --volumes-from "$(romd_backup_worker_container)" "${ROMD_BACKUP_HELPER_IMAGE}" \
+    listing="$(docker run --rm --user 0:0 --volumes-from "$(romd_backup_worker_container)" "${ROMD_BACKUP_HELPER_IMAGE}" \
       find "${ROMD_BACKUP_CONTAINER_DATA_DIR}" -mindepth 1 -type f \
         -not -path '*/logs/*' -not -path '*/temp/*' 2>/dev/null | head -n 1)"
   else

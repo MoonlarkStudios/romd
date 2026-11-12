@@ -1918,3 +1918,23 @@ still counted. Production and other test hosts retain their GC configuration.
 Agent guidance: preserve exact-zero budgets and the runtime configuration guard.
 Do not accept a retry-only pass or raise allocation allowances. Requalify the
 empty and allocating controls before removing this mitigation after a runtime fix.
+## Source smoke contract can collide on derived port buckets
+
+Status: MITIGATED
+
+Command: `mise run agents:check`
+
+Root cause: `test_disposable_linked_worktrees_exclude_local_state_and_cleanup_preserves_main`
+creates two linked worktrees whose path hashes select one of 8,000 five-port
+buckets. Distinct checkout paths can select the same bucket. The source smoke
+guard then raises `Derived smoke port ranges collided; rerun with a fresh workspace.`
+before bootstrapping either application. The collision was confirmed in local
+command output and reproduced with distinct generated checkout paths.
+
+Change: None; the runner's collision guard remains fail-closed.
+
+Agent guidance: for this exact local contract-test failure, confirm the two
+generated checkout paths selected the same bucket, retain the failure evidence,
+and run the unchanged check in a fresh temporary workspace. Do not disable the
+guard, reuse another task's ports, or treat a startup/network failure as this
+collision. Hosted failures still require diagnosis before any retry.

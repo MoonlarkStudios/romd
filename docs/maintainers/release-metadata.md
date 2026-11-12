@@ -116,10 +116,28 @@ digest-pinned runtime images. Frontend tooling is not installed into the bundle.
 Original license notices stay in the images and bundle; SBOMs do not replace
 those notices.
 
+## Upstream PostgreSQL maintenance
+
+Use the latest available supported PostgreSQL 18 Bookworm Docker Official Image,
+pinned by version and digest in `scripts/deployment/base-images.json`. Preserve
+its upstream entrypoint and initialization behavior. Renovate proposes image
+updates separately without the weekly schedule restriction; review upstream
+release/security notes and run deployment/recovery qualification before adopting
+each update. ROMD does not build or maintain a patched PostgreSQL image.
+
+PostgreSQL image and SBOM scans retain every finding with `result: reported` and
+`enforcement: upstream-managed`. These reports inform upstream maintenance;
+they do not require a ROMD per-CVE ledger or imply that the image is free of
+vulnerabilities. Scanner errors, missing inventory, an unsupported OS and failed
+runtime/recovery qualification still block. This reporting boundary applies only
+to the Docker Official PostgreSQL image. ROMD-owned images and the deployment
+bundle retain the severity gate below.
+
 ## Severity and exception policy
 
 `scripts/security/policy.json` blocks **HIGH**, **CRITICAL**, and **UNKNOWN**
-findings, including findings with no available fix. LOW and MEDIUM findings are
+findings in ROMD-owned images and the deployment bundle, including findings with
+no available fix. LOW and MEDIUM findings are
 retained for triage. Scanner results are collected with `--exit-code 0` so the
 policy evaluator can assess every finding; the overall metadata command exits
 nonzero for blocked findings, malformed results, missing coverage or tool errors.
@@ -150,8 +168,9 @@ to that job. Publish the complete attestation bundles as downloadable JSONL,
 alongside the metadata files and checksummed deployment archive. Do not promote
 a prerelease before generation, policy checks and verification succeed.
 
-The PostgreSQL subject records the upstream digest selected and qualified by
-ROMD's workflow. It does not establish that ROMD built PostgreSQL or attest the
+The PostgreSQL subject records the official upstream digest selected and
+qualified by ROMD's workflow. Its inventory identifies the PostgreSQL 18 server
+and OS packages. It does not establish that ROMD built PostgreSQL or attest the
 upstream publisher's build process. Retain the upstream component/source
 inventory and distinguish that qualification attestation from upstream origin.
 

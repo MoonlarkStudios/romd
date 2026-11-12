@@ -162,6 +162,12 @@ qualification ingress; a custom Docker manager updates those JSON references.
 Compose's release image variables are populated from the immutable candidate
 map, not independently upgraded by the bot.
 
+PostgreSQL digest and minor/patch updates have a separate proposal group and
+no weekly schedule restriction. Use the current supported PostgreSQL 18
+Bookworm Docker Official Image, keep its version and digest pinned, and review
+and qualify upstream updates promptly. Major-version upgrades require a planned
+database upgrade; do not switch the deployment to an unbounded `latest` tag.
+
 For each refresh, verify the upstream repository, version, supported platform and
 manifest digest from the official registry. Review its release/security notes and
 preserve source/license notices. Keep .NET SDK selection consistent with

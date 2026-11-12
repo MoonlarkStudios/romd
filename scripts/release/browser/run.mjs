@@ -52,15 +52,18 @@ async function signIn(page, surface, config, diagnostics) {
   await page.getByRole('button', { name: /^sign in$/i }).click();
   await page.getByLabel('Email or username').fill(config.email);
   await page.getByLabel('Password', { exact: true }).fill(config.password);
-  const authenticated = page.waitForResponse((response) => new URL(response.url()).pathname === profilePath && response.status() === 200);
+  const authenticated = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.origin === origin && url.pathname === profilePath && response.status() === 200;
+  });
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await authenticated;
+  diagnostics.checks[`${surface}Profile`] = true;
   await page.waitForURL((url) => url.origin === origin && url.pathname !== '/login'
     && !url.pathname.startsWith('/auth/') && !url.pathname.startsWith('/connect/'));
   if (!callback) throw new Error('Browser authorization callback was not observed');
   diagnostics.checks[`${surface}Callback`] = true;
-  if (surface === 'admin') await page.getByRole('heading', { name: 'ROMD Admin', exact: true }).waitFor();
-  else await page.getByRole('button', { name: 'Account', exact: true }).waitFor();
+  await page.getByRole('button', { name: surface === 'admin' ? 'User menu' : 'Account', exact: true }).waitFor();
   diagnostics.checks[`${surface}AuthenticatedView`] = true;
 }
 
@@ -245,6 +248,17 @@ export async function qualifyBrowser(config, chromium) {
     const state = await ensureFixture(admin, config);
     await admin.close();
     const consumer = await context.newPage();
+    // Headless Chromium denies permission prompts. Approve only the real
+    // player's screen wake lock within this disposable browser context. Keep
+    // the CDP session attached: detaching it revokes its permission override.
+    const permissions = await context.newCDPSession(consumer);
+    const { targetInfo } = await permissions.send('Target.getTargetInfo');
+    if (!targetInfo.browserContextId) throw new Error('Disposable browser context is required');
+    await permissions.send('Browser.setPermission', {
+      permission: { name: 'screen-wake-lock' }, setting: 'granted',
+      origin: config.consumerOrigin, embeddedOrigin: config.playerOrigin,
+      browserContextId: targetInfo.browserContextId,
+    });
     stage = 'consumer-browser-sign-in';
     await signIn(consumer, 'consumer', config, diagnostics);
     stage = 'isolated-player-startup';

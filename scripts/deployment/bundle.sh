@@ -65,12 +65,18 @@ files = {}
 for path in sorted(stage.rglob('*')):
     if path.is_symlink():
         raise SystemExit('Release bundle cannot contain symlinks')
+    # The source-free bundle is public. Its assets must be usable by non-root
+    # container users regardless of the publisher's private umask.
+    if path.is_dir():
+        path.chmod(0o755)
     if path.is_file():
+        path.chmod(0o755 if path.stat().st_mode & 0o111 else 0o644)
         files[path.relative_to(stage).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
 images = dict(line.split('=', 1) for line in (stage / 'images.env').read_text().splitlines()
               if line and not line.startswith('#'))
 (stage / 'manifest.json').write_text(json.dumps(dict(schemaVersion=1, sourceCommit=sys.argv[2],
     releaseTag=sys.argv[3], platform='linux/amd64', files=files, images=images), indent=2) + '\n')
+(stage / 'manifest.json').chmod(0o644)
 PYMANIFEST
 # macOS tar otherwise adds AppleDouble metadata files to portable release bundles.
 COPYFILE_DISABLE=1 tar -czf "$out" -C "$stage" .

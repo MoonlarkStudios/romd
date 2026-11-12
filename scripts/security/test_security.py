@@ -20,7 +20,7 @@ import urllib.request
 import urllib.response
 
 from download_release import DownloadFailure, OfficialRedirects, anonymous_opener, download_release, official_url
-from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement
+from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement, upstream_postgres_report
 from qualify import image_map, verify_bundle, verify_publisher
 from policy import evaluate, validate_policy
 from tools import binary_from_archive
@@ -82,6 +82,24 @@ class VulnerabilityPolicyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 evaluate(report, DIGEST, self.policy, self.today)
         self.assertEqual('passed', evaluate({'SchemaVersion': 2, 'Results': []}, DIGEST, self.policy, self.today)['result'])
+
+    def test_official_postgres_findings_are_reported_without_changing_romd_gates(self):
+        for severity in ('HIGH', 'CRITICAL', 'UNKNOWN'):
+            raw = self.report(severity)
+            before = copy.deepcopy(raw)
+            result = upstream_postgres_report(raw, 'postgres:18.6-bookworm@' + DIGEST, self.policy)
+            self.assertEqual('reported', result['result'])
+            self.assertEqual('upstream-managed', result['enforcement'])
+            self.assertEqual(severity, result['findings'][0]['severity'])
+            self.assertTrue(result['findings'][0]['severityFlagged'])
+            self.assertNotIn('excepted', result['findings'][0])
+            self.assertEqual(before, raw)
+            self.assertEqual('failed', evaluate(raw, DIGEST, self.policy, self.today)['result'])
+        for reference in ('ghcr.io/example/postgres@' + DIGEST, 'docker.io/example/postgres@' + DIGEST):
+            with self.assertRaisesRegex(ValueError, 'Docker Official'):
+                upstream_postgres_report(self.report(), reference, self.policy)
+        with self.assertRaises(ValueError):
+            upstream_postgres_report({}, 'postgres@' + DIGEST, self.policy)
 
 
 class InventoryIntegrityTests(unittest.TestCase):
@@ -247,6 +265,22 @@ class InventoryIntegrityTests(unittest.TestCase):
             changed['Results'][1]['Packages'] = [item for item in changed['Results'][1]['Packages'] if item['Name'] != name]
             with self.assertRaises(ValueError):
                 assert_scanner_coverage(changed, 'admin', 'sbom')
+
+    def test_postgres_inventory_requires_the_supported_database_server(self):
+        os_package = {'name': 'busybox', 'purl': 'pkg:apk/alpine/busybox@1.37.0'}
+        for server in (None, {'name': 'postgresql'},
+                       {'name': 'postgresql', 'version': '17.8', 'purl': 'pkg:generic/postgresql@17.8'},
+                       {'name': 'postgresql', 'version': '18', 'purl': 'pkg:deb/debian/postgresql@18'},
+                       {'name': 'postgresql-client-18', 'version': '18.6-1.pgdg12+2',
+                        'purl': 'pkg:deb/debian/postgresql-client-18@18.6-1.pgdg12%2B2'},
+                       {'name': 'postgresql-18', 'version': '18.6-1.pgdg12+2',
+                        'purl': 'pkg:deb/debian/postgresql-17@18.6-1.pgdg12%2B2'}):
+            with self.subTest(server=server), self.assertRaisesRegex(ValueError, 'database-server'):
+                assert_coverage({'components': [os_package] + ([server] if server else [])}, 'postgres')
+        for server in ({'name': 'postgresql', 'version': '18.6', 'purl': 'pkg:generic/postgresql@18.6'},
+                       {'name': 'postgresql-18', 'version': '18.6-1.pgdg12+2',
+                        'purl': 'pkg:deb/debian/postgresql-18@18.6-1.pgdg12%2B2?arch=amd64&distro=debian-12.15'}):
+            self.assertTrue(all(assert_coverage({'components': [os_package, server]}, 'postgres').values()))
 
     def test_player_and_postgres_sbom_scans_reject_empty_and_os_only_frontend_results(self):
         for role in ('player', 'postgres'):

@@ -240,7 +240,10 @@ def main():
                 status, _, body = request(host, '/.well-known/openid-configuration')
                 assert status == 200 and json.loads(body)['issuer'] == f'https://{host}/', 'discovery origin mismatch'
                 assert request(host, '/')[0] == 200, 'portal unavailable'
-            assert request('play.example.test', '/player-config.json')[0] == 200
+            status, player_headers, _ = request('play.example.test', '/player-config.json')
+            assert status == 200
+            csp = dict(part.strip().split(' ', 1) for part in player_headers['content-security-policy'].split(';') if ' ' in part.strip())
+            assert csp.get('font-src') == "'self'", 'bundled player fonts must be allowed only from its own origin'
             assert request('unknown.example.test', '/')[0] == 421, 'unknown hostname accepted'
             host = 'admin.example.test'
             token = sign_in(host, 'romd-admin-spa')

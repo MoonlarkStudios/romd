@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+import os
 from contextlib import chdir, redirect_stdout, contextmanager
 from pathlib import Path
 import subprocess
@@ -92,6 +93,19 @@ class BundleQualificationTests(unittest.TestCase):
         result = self.verify()
         self.assertEqual(self.entries, result['images'])
         self.assertTrue((self.work / 'extracted/scripts/deployment/compose.sh').stat().st_mode & 0o100)
+
+    def test_public_bundle_directories_remain_readable_under_private_umask(self):
+        self.bundle()
+        previous = os.umask(0o077)
+        try:
+            self.verify()
+        finally:
+            os.umask(previous)
+        root = self.work / 'extracted'
+        self.assertEqual(0o700, root.stat().st_mode & 0o777)
+        for directory in root.rglob('*'):
+            if directory.is_dir():
+                self.assertEqual(0o755, directory.stat().st_mode & 0o777, directory)
 
     def test_tampered_download_is_refused_before_extraction(self):
         self.bundle()

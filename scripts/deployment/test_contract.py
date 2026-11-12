@@ -85,7 +85,7 @@ def test_environment():
         env[f'ROMD_POSTGRES_{role}_PASSWORD'] = str(index) * 64
     for name in ('ADMIN', 'CONSUMER', 'WORKER', 'PLAYER'):
         env[f'ROMD_{name}_IMAGE'] = f'romd-{name.lower()}:test'
-    env.update(ROMD_POSTGRES_IMAGE='postgres:18-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c', ROMD_JWT_SECRET='a' * 64,
+    env.update(ROMD_POSTGRES_IMAGE=base_images['postgres'], ROMD_JWT_SECRET='a' * 64,
                ROMD_DEFAULT_ADMIN_PASSWORD='TestAdmin123!', ROMD_CONSUMER_DELIVERY_SIGNING_SECRET='b' * 64,
                ROMD_ADMIN_PUBLIC_URL='https://admin.example.test', ROMD_CONSUMER_PUBLIC_URL='https://console.example.test',
                ROMD_PLAYER_PUBLIC_URL='https://play.example.test', ROMD_TRUSTED_PROXY='172.28.0.2',
@@ -890,6 +890,15 @@ class ProductionContractTests(unittest.TestCase):
         self.assertEqual([], sorted(manifests - copied_sources),
                          'Frozen workspace installation needs every package manifest before source copying')
 
+    def test_postgres_remains_a_digest_pinned_official_image(self):
+        image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['postgres']
+        self.assertRegex(image, r'^postgres:18\.[0-9]+-bookworm@sha256:[a-f0-9]{64}$')
+        self.assertEqual(image, test_environment()['ROMD_POSTGRES_IMAGE'])
+        config = render('compose.build.yaml')
+        self.assertEqual(image, config['services']['postgres']['image'])
+        self.assertNotIn('build', config['services']['postgres'])
+        self.assertNotIn('romd-postgres', dockerfile_stages())
+
     def test_player_and_qualification_ingress_use_the_same_reviewed_image(self):
         image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
         self.assertRegex(image, r'^nginx:[A-Za-z0-9._-]+@sha256:[a-f0-9]{64}$')
@@ -1154,7 +1163,7 @@ else:
         with self.assertRaisesRegex(AssertionError, 'cursor after its final page'):
             find_system_key(lambda path: {'items': [empty], 'nextCursor': 'unexpected', 'hasNextPage': False}, 'GameCube')
 
-    def test_binary_backup_export_disables_container_logging_and_preserves_stdout(self):
+    def test_volume_helpers_use_explicit_root_and_export_preserves_binary_stdout(self):
         with tempfile.TemporaryDirectory() as directory:
             trace = Path(directory) / 'docker-arguments'
             env = test_environment()
@@ -1165,18 +1174,26 @@ source "$1"
 romd_backup_worker_container() { printf '%s\n' fixture-worker; }
 docker() {
     printf '%s\n' "$@" > "$ROMD_TEST_DOCKER_TRACE"
-    printf 'archive\000bytes'
+    if [[ "$ROMD_TEST_ACTION" == export ]]; then printf 'archive\000bytes'; fi
+    return 0
 }
-romd_backup_data_export
+"$2"
 '''
-            result = subprocess.run(['bash', '-c', script, 'backup-contract',
-                                     str(ROOT / 'scripts/backup/lib.sh')], env=env,
-                                    capture_output=True, check=True)
-            self.assertEqual(b'archive\x00bytes', result.stdout)
-            arguments = trace.read_text().splitlines()
-            self.assertEqual('none', arguments[arguments.index('--log-driver') + 1])
-            self.assertEqual('fixture-worker', arguments[arguments.index('--volumes-from') + 1])
-            self.assertIn('--rm', arguments)
+            for action, function in [('export', 'romd_backup_data_export'),
+                                     ('import', 'romd_backup_data_import'),
+                                     ('empty', 'romd_backup_data_is_empty')]:
+                with self.subTest(action=action):
+                    result = subprocess.run(['bash', '-c', script, 'backup-contract',
+                                             str(ROOT / 'scripts/backup/lib.sh'), function],
+                                            env=dict(env, ROMD_TEST_ACTION=action),
+                                            input=b'', capture_output=True, check=True)
+                    self.assertEqual(b'archive\x00bytes' if action == 'export' else b'', result.stdout)
+                    arguments = trace.read_text().splitlines()
+                    self.assertEqual('0:0', arguments[arguments.index('--user') + 1])
+                    self.assertEqual('fixture-worker', arguments[arguments.index('--volumes-from') + 1])
+                    self.assertIn('--rm', arguments)
+                    if action == 'export':
+                        self.assertEqual('none', arguments[arguments.index('--log-driver') + 1])
 
     def test_vfs_is_opt_in_consumer_only_and_limits_are_validated(self):
         base = render()
@@ -1354,8 +1371,16 @@ romd_backup_data_export
                                                        'cp', 'tar', 'gzip', 'rm'))
             self.assertIsNone(shutil.which('shasum', path=environment['PATH']))
             subprocess.run([str(ROOT / 'scripts/deployment/bundle.sh'), str(images), str(archive), 'a' * 40, 'v0.0.0-test'],
-                           env=environment, check=True)
+                           env=environment, check=True, umask=0o077)
             with tarfile.open(archive) as bundle:
+                for member in bundle.getmembers():
+                    if member.isdir() and member.name not in ('.', './'):
+                        self.assertEqual(0o755, member.mode & 0o777, member.name)
+                    elif member.isfile():
+                        self.assertIn(member.mode & 0o777, (0o644, 0o755), member.name)
+                for name in ('compose.yaml', 'images.env', 'manifest.json'):
+                    self.assertEqual(0o644, bundle.getmember('./' + name).mode & 0o777, name)
+                self.assertEqual(0o755, bundle.getmember('./deploy/postgres/init/10-romd-roles.sh').mode & 0o777)
                 names = {name.removeprefix('./') for name in bundle.getnames()}
                 for required in ('compose.yaml', 'images.env', '.env.example',
                                  'scripts/backup/restore.sh', 'scripts/deployment/compose.sh',

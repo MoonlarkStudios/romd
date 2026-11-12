@@ -12,11 +12,11 @@ import re
 import subprocess
 import sys
 import tempfile
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'release'))
-from qualify import image_map, verify_bundle, verify_publisher
+from qualify import canonical_digest, image_map, verify_bundle, verify_publisher
 from policy import evaluate
 from tools import verify_installed
 from credentials import anonymous_environment
@@ -92,6 +92,28 @@ def catalog_supplement(receipt_path, binary_path):
                        {'name': 'romd:build-receipt-sha256', 'value': sha256(receipt_path)}]}]}
 
 
+def postgres_server(component):
+    name, version, purl = (component.get(key) for key in ('name', 'version', 'purl'))
+    if not isinstance(version, str) or not isinstance(purl, str):
+        return False
+    purl = unquote(purl).split('?', 1)[0]
+    if name == 'postgresql':
+        return bool(re.fullmatch(r'18\.[0-9]+', version)) and purl == 'pkg:generic/postgresql@' + version
+    return (name == 'postgresql-18' and bool(re.fullmatch(r'18\.[0-9]+(?:-[0-9A-Za-z.+~]+)?', version))
+            and purl == 'pkg:deb/debian/postgresql-18@' + version)
+
+
+def upstream_postgres_report(scan, reference, policy):
+    if canonical_digest(reference).split('@', 1)[0] != 'docker.io/library/postgres':
+        raise ValueError('Upstream-maintained reporting requires the Docker Official PostgreSQL image')
+    result = evaluate(scan, reference.rsplit('@', 1)[1], policy)
+    result.update(result='reported', enforcement='upstream-managed')
+    for finding in result['findings']:
+        finding['severityFlagged'] = finding['severity'] in policy['blockedSeverities']
+        del finding['blocked'], finding['excepted']
+    return result
+
+
 def assert_coverage(sbom, role):
     components = sbom.get('components', [])
     names = {component.get('name', '').lower() for component in components}
@@ -110,6 +132,8 @@ def assert_coverage(sbom, role):
         required['external-browser-runtime'] = 'emulatorjs' in names
     if role == 'worker':
         required['chdman'] = 'chdman' in names
+    if role == 'postgres':
+        required['database-server'] = any(postgres_server(component) for component in components)
     missing = [name for name, present in required.items() if not present]
     if missing:
         raise ValueError('Final-image SBOM coverage missing: ' + ', '.join(missing))
@@ -247,7 +271,7 @@ def generate(args):
                 evaluations, scans = [], []
                 for mode, target in (('image', reference), ('sbom', path)):
                     scan = args.output / f'{role}.{mode}.trivy.json'
-                    command = [trivy, mode, '--scanners', 'vuln', '--config', work / 'empty-config.json', '--ignorefile', work / 'empty-ignore',
+                    command = [trivy, mode, '--scanners', 'vuln', '--list-all-pkgs', '--config', work / 'empty-config.json', '--ignorefile', work / 'empty-ignore',
                                '--format', 'json', '--output', scan, '--exit-code', '0', '--disable-telemetry', target]
                     if mode == 'image':
                         command[2:2] = ['--platform', 'linux/amd64']
@@ -257,15 +281,19 @@ def generate(args):
                     if role in ('admin', 'worker'):
                         go_reader.assert_inventory(scan_result, reader_evidence, selected=False)
                         evaluations.append(assess_go_reader(scan_result, 'sha256:' + digest, policy, role_reader, mode=mode, sbom=sbom))
+                    elif role == 'postgres':
+                        evaluations.append(upstream_postgres_report(scan_result, reference, policy))
                     else:
                         evaluations.append(evaluate(scan_result, 'sha256:' + digest, policy))
                     scans.append(scan.name)
                 policy_path = args.output / f'{role}.policy.json'
                 json_write(policy_path, evaluations)
-                if any(result['result'] != 'passed' for result in evaluations):
+                expected = 'reported' if role == 'postgres' else 'passed'
+                if any(result['result'] != expected for result in evaluations):
                     raise ValueError('Release blocked by vulnerability severity/exception policy: ' + role)
                 report['subjects'].append({'kind': 'image', 'role': role, 'name': reference, 'sha256': digest,
-                                           'sbom': path.name, 'scans': scans, 'policy': policy_path.name, 'coverage': coverage})
+                                           'sbom': path.name, 'scans': scans, 'policy': policy_path.name, 'coverage': coverage,
+                                           'enforcement': 'upstream-managed' if role == 'postgres' else 'blocking'})
             raw = work / 'bundle.cdx.json'
             commands.run([syft, 'scan', 'dir:' + str(bundle), '--config', work / 'empty-config.json',
                           '-o', 'cyclonedx-json=' + str(raw)], 'syft-bundle')

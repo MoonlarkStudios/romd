@@ -65,7 +65,10 @@ each running container's image ID and configured reference. It refuses an ARM
 Docker daemon, including amd64 emulation on that daemon.
 
 The browser trusts only the generated fixture certificate's SPKI and maps the
-three fixture hostnames to this run's loopback address. It loads the real portal
+three fixture hostnames to this run's loopback address. Chromium receives explicit
+screen wake-lock permission for the consumer/player origin pair within that
+disposable browser context, since headless mode denies permission prompts.
+It loads the real portal
 JavaScript, signs in through each portal's button and the server's login form,
 observes each authorization callback, and requires the authenticated profile
 response and rendered authenticated view. It imports an original synthetic
