@@ -397,7 +397,9 @@ scripts/backup/backup.sh /absolute/backup/destination
 ```
 
 The command stops the three ROMD hosts, captures the set, writes its manifest
-last, and restarts them. PostgreSQL stays running. Copy complete sets off-host
+last, and restarts them. PostgreSQL stays running as its database user. The
+one-shot data-volume helpers run explicitly as root so they can preserve the
+application-owned private keys, file ownership and modes. Copy complete sets off-host
 and schedule retention in your infrastructure automation. ROM exports are not
 installation backups. Preserve the matching release bundle and a secure copy of
 installation configuration separately; backup sets do not include `.env`.

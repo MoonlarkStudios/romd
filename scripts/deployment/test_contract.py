@@ -1162,7 +1162,7 @@ else:
         with self.assertRaisesRegex(AssertionError, 'cursor after its final page'):
             find_system_key(lambda path: {'items': [empty], 'nextCursor': 'unexpected', 'hasNextPage': False}, 'GameCube')
 
-    def test_binary_backup_export_disables_container_logging_and_preserves_stdout(self):
+    def test_volume_helpers_use_explicit_root_and_export_preserves_binary_stdout(self):
         with tempfile.TemporaryDirectory() as directory:
             trace = Path(directory) / 'docker-arguments'
             env = test_environment()
@@ -1173,18 +1173,26 @@ source "$1"
 romd_backup_worker_container() { printf '%s\n' fixture-worker; }
 docker() {
     printf '%s\n' "$@" > "$ROMD_TEST_DOCKER_TRACE"
-    printf 'archive\000bytes'
+    if [[ "$ROMD_TEST_ACTION" == export ]]; then printf 'archive\000bytes'; fi
+    return 0
 }
-romd_backup_data_export
+"$2"
 '''
-            result = subprocess.run(['bash', '-c', script, 'backup-contract',
-                                     str(ROOT / 'scripts/backup/lib.sh')], env=env,
-                                    capture_output=True, check=True)
-            self.assertEqual(b'archive\x00bytes', result.stdout)
-            arguments = trace.read_text().splitlines()
-            self.assertEqual('none', arguments[arguments.index('--log-driver') + 1])
-            self.assertEqual('fixture-worker', arguments[arguments.index('--volumes-from') + 1])
-            self.assertIn('--rm', arguments)
+            for action, function in [('export', 'romd_backup_data_export'),
+                                     ('import', 'romd_backup_data_import'),
+                                     ('empty', 'romd_backup_data_is_empty')]:
+                with self.subTest(action=action):
+                    result = subprocess.run(['bash', '-c', script, 'backup-contract',
+                                             str(ROOT / 'scripts/backup/lib.sh'), function],
+                                            env=dict(env, ROMD_TEST_ACTION=action),
+                                            input=b'', capture_output=True, check=True)
+                    self.assertEqual(b'archive\x00bytes' if action == 'export' else b'', result.stdout)
+                    arguments = trace.read_text().splitlines()
+                    self.assertEqual('0:0', arguments[arguments.index('--user') + 1])
+                    self.assertEqual('fixture-worker', arguments[arguments.index('--volumes-from') + 1])
+                    self.assertIn('--rm', arguments)
+                    if action == 'export':
+                        self.assertEqual('none', arguments[arguments.index('--log-driver') + 1])
 
     def test_vfs_is_opt_in_consumer_only_and_limits_are_validated(self):
         base = render()
@@ -1378,7 +1386,7 @@ romd_backup_data_export
                                  'deploy/examples/cloudflare/compose.yaml',
                                  'deploy/examples/cloudflare/templates/default.conf.template',
                                  'docs/media-processing.md', 'docs/configuration.md',
-                                 'deploy/postgres/init/10-romd-roles.sh',
+                                 'deploy/postgres/init/10-romd-roles.sh', 'deploy/postgres/COPYRIGHT',
                                  'LICENSE', 'THIRD_PARTY_NOTICES.md', 'TRADEMARKS.md',
                                  'brand/fonts/Fraunces-OFL.txt',
                                  'web/packages/romd-foundation/src/fonts/Archivo-OFL.txt',

@@ -215,6 +215,7 @@ RUN case "$TARGETARCH" in arm64) rid=linux-arm64 ;; amd64) rid=linux-x64 ;; *) e
 FROM scratch AS notices
 WORKDIR /notices
 COPY LICENSE THIRD_PARTY_NOTICES.md TRADEMARKS.md ./
+COPY deploy/postgres/COPYRIGHT ./deploy/postgres/
 COPY brand/fonts/Fraunces-OFL.txt ./brand/fonts/
 COPY web/packages/romd-foundation/src/fonts/*-OFL.txt ./web/packages/romd-foundation/src/fonts/
 COPY reference-data/assets/presentation/platforms/ATTRIBUTION.md ./reference-data/assets/presentation/platforms/
@@ -360,6 +361,7 @@ LABEL org.opencontainers.image.revision=$ROMD_SOURCE_REVISION org.opencontainers
     org.opencontainers.image.source=https://github.com/MoonlarkStudios/romd org.opencontainers.image.licenses=PostgreSQL
 RUN apk add --no-cache krb5-libs=1.22.3-r0 libxslt=1.1.43-r4 \
     && rm /usr/local/bin/gosu
+COPY deploy/postgres/COPYRIGHT /usr/local/share/doc/postgresql/COPYRIGHT
 USER postgres
 
 FROM nginx:1.30.6-alpine-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893 AS romd-player

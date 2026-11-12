@@ -110,6 +110,12 @@ def assert_coverage(sbom, role):
         required['external-browser-runtime'] = 'emulatorjs' in names
     if role == 'worker':
         required['chdman'] = 'chdman' in names
+    if role == 'postgres':
+        required['database-server'] = any(component.get('name') == 'postgresql'
+            and isinstance(component.get('version'), str)
+            and re.fullmatch(r'18\.\d+', component.get('version', ''))
+            and component.get('purl') == 'pkg:generic/postgresql@' + component['version']
+            for component in components)
     missing = [name for name, present in required.items() if not present]
     if missing:
         raise ValueError('Final-image SBOM coverage missing: ' + ', '.join(missing))

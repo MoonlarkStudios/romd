@@ -248,6 +248,15 @@ class InventoryIntegrityTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 assert_scanner_coverage(changed, 'admin', 'sbom')
 
+    def test_postgres_inventory_requires_the_supported_database_server(self):
+        os_package = {'name': 'busybox', 'purl': 'pkg:apk/alpine/busybox@1.37.0'}
+        for server in (None, {'name': 'postgresql'},
+                       {'name': 'postgresql', 'version': '17.8', 'purl': 'pkg:generic/postgresql@17.8'}):
+            with self.subTest(server=server), self.assertRaisesRegex(ValueError, 'database-server'):
+                assert_coverage({'components': [os_package] + ([server] if server else [])}, 'postgres')
+        server = {'name': 'postgresql', 'version': '18.6', 'purl': 'pkg:generic/postgresql@18.6'}
+        self.assertTrue(all(assert_coverage({'components': [os_package, server]}, 'postgres').values()))
+
     def test_player_and_postgres_sbom_scans_reject_empty_and_os_only_frontend_results(self):
         for role in ('player', 'postgres'):
             with self.subTest(role=role), self.assertRaisesRegex(ValueError, 'OS packages'):
