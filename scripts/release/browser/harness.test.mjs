@@ -203,6 +203,7 @@ test('browser sign-in observes canonical admin and consumer self responses befor
   context.after(() => rm(work, { recursive: true, force: true }));
   const authenticatedPaths = [];
   const authenticatedControls = [];
+  let wakeLockApproved = false;
   let count = 0;
   const newPage = () => {
     const origin = count++ === 0 ? origins.admin : origins.consumer;
@@ -239,6 +240,19 @@ test('browser sign-in observes canonical admin and consumer self responses befor
     };
   };
   const browserContext = { setDefaultTimeout: () => {}, exposeBinding: async () => {}, addInitScript: async () => {},
+    newCDPSession: async () => ({
+      send: async (method, parameters) => {
+        if (method === 'Target.getTargetInfo') return { targetInfo: { browserContextId: 'disposable-context' } };
+        assert.equal(method, 'Browser.setPermission');
+        wakeLockApproved = true;
+        assert.deepEqual(parameters, {
+          permission: { name: 'screen-wake-lock' }, setting: 'granted',
+          origin: origins.consumer, embeddedOrigin: origins.player,
+          browserContextId: 'disposable-context',
+        });
+      },
+      detach: async () => { assert.fail('Wake-lock approval must remain active through real startup'); },
+    }),
     on: () => {}, newPage: async () => newPage() };
   const passed = await qualifyBrowser({ adminOrigin: origins.admin, consumerOrigin: origins.consumer,
     playerOrigin: origins.player, evidenceDir: join(work, 'run'), hostAddress: '127.23.42.8',
@@ -248,6 +262,7 @@ test('browser sign-in observes canonical admin and consumer self responses befor
   assert.equal(passed, false, 'the fixture deliberately stops before real playback');
   assert.deepEqual(authenticatedPaths, [origins.admin + '/api/me', origins.consumer + '/api/me']);
   assert.deepEqual(authenticatedControls, [origins.admin, origins.consumer]);
+  assert.equal(wakeLockApproved, true);
   const diagnostics = JSON.parse(await readFile(join(work, 'run/browser-diagnostics.json'), 'utf8'));
   assert.equal(diagnostics.checks.adminAuthenticatedView, true);
   assert.equal(diagnostics.checks.consumerAuthenticatedView, true);

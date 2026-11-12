@@ -258,7 +258,7 @@ COPY --from=chdman-license-texts /license/LICENSE.txt /native/chdman/notices/SDL
 COPY --from=native-builder /opt/rh/gcc-toolset-15/root/usr/share/doc/gcc-toolset-15-gcc/COPYING* /native/chdman/notices/runtime/gcc-toolset-15/
 COPY --from=native-builder /usr/share/licenses/glibc/ /native/chdman/notices/runtime/glibc-2.28/
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0.13-noble@sha256:d5633778c754e89a386882eddf8dbee6942447a8a4b8267c19cf1e1158d0b0ac AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.15-noble@sha256:bfd912c83295ce66d4b706ebb8541b9f14259b0e76fbb88b2751f58ce2399d2e AS runtime
 ARG ROMD_SOURCE_REVISION=development
 ARG ROMD_RELEASE_TAG=development
 LABEL org.opencontainers.image.revision=$ROMD_SOURCE_REVISION org.opencontainers.image.version=$ROMD_RELEASE_TAG \
@@ -351,7 +351,18 @@ RUN test -x /usr/bin/prlimit \
     && rm /tmp/chdman-help
 ENTRYPOINT ["dotnet", "romd-worker.dll"]
 
-FROM nginx:1.30.6-alpine-slim@sha256:3028fc1419f99b95c1c69f844bbaf49dc1b881750c51b497fc721ac4f02a14e6 AS romd-player
+# Retain PostgreSQL's upstream startup and tooling, service its runtime libraries,
+# and run directly as postgres so the root-only privilege helper is unnecessary.
+FROM docker.io/library/postgres:18-alpine@sha256:9ba53c7d41ea093baf5c1ba635ba5434c4f979880527d49bb7d9237d3193085b AS romd-postgres
+ARG ROMD_SOURCE_REVISION=development
+ARG ROMD_RELEASE_TAG=development
+LABEL org.opencontainers.image.revision=$ROMD_SOURCE_REVISION org.opencontainers.image.version=$ROMD_RELEASE_TAG \
+    org.opencontainers.image.source=https://github.com/MoonlarkStudios/romd org.opencontainers.image.licenses=PostgreSQL
+RUN apk add --no-cache krb5-libs=1.22.3-r0 libxslt=1.1.43-r4 \
+    && rm /usr/local/bin/gosu
+USER postgres
+
+FROM nginx:1.30.6-alpine-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893 AS romd-player
 ARG ROMD_SOURCE_REVISION=development
 ARG ROMD_RELEASE_TAG=development
 LABEL org.opencontainers.image.revision=$ROMD_SOURCE_REVISION org.opencontainers.image.version=$ROMD_RELEASE_TAG \

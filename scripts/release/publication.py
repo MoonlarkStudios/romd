@@ -132,7 +132,7 @@ def publish(args):
         raise ValueError('Worker source archive does not match the reviewed source pin')
     namespace = 'ghcr.io/' + args.repository.split('/')[0].lower()
     references = {service: f'{namespace}/romd-{service}:{args.tag}'
-                  for service in ('admin', 'consumer', 'worker', 'player')}
+                  for service in ('admin', 'consumer', 'worker', 'player', 'postgres')}
     metadata = release_metadata(args.repository, args.tag)
     allow_retry(metadata, args.revision)
     # Inspect every remote version before pushing any image. Network/auth errors
@@ -169,7 +169,6 @@ def publish(args):
         if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
             raise ValueError('Registry returned an invalid image digest')
         images[f'ROMD_{service.upper()}_IMAGE'] = reference.rsplit(':', 1)[0] + '@' + digest
-    images['ROMD_POSTGRES_IMAGE'] = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['postgres']
     image_file = args.output / 'images.env'
     image_file.write_text(''.join(f'{key}={value}\n' for key, value in images.items()))
     bundle = args.output / f'romd-{args.tag}-deployment.tar.gz'

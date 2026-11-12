@@ -85,7 +85,7 @@ def test_environment():
         env[f'ROMD_POSTGRES_{role}_PASSWORD'] = str(index) * 64
     for name in ('ADMIN', 'CONSUMER', 'WORKER', 'PLAYER'):
         env[f'ROMD_{name}_IMAGE'] = f'romd-{name.lower()}:test'
-    env.update(ROMD_POSTGRES_IMAGE='postgres:18-bookworm@sha256:afc7e2d441324c0388fa80c3d24f733b4194a4eb7f47dd8ee2b08eb1a24a647c', ROMD_JWT_SECRET='a' * 64,
+    env.update(ROMD_POSTGRES_IMAGE=base_images['postgres'], ROMD_JWT_SECRET='a' * 64,
                ROMD_DEFAULT_ADMIN_PASSWORD='TestAdmin123!', ROMD_CONSUMER_DELIVERY_SIGNING_SECRET='b' * 64,
                ROMD_ADMIN_PUBLIC_URL='https://admin.example.test', ROMD_CONSUMER_PUBLIC_URL='https://console.example.test',
                ROMD_PLAYER_PUBLIC_URL='https://play.example.test', ROMD_TRUSTED_PROXY='172.28.0.2',
@@ -857,10 +857,10 @@ elif args != ['builder', 'prune', '--all', '--force']:
                 self.assertIn('outside GitHub-hosted Actions', result.stderr)
                 self.assertEqual([], calls)
 
-    def test_hosted_cleanup_only_prunes_build_cache_and_retains_all_four_images(self):
+    def test_hosted_cleanup_only_prunes_build_cache_and_retains_all_five_images(self):
         result, calls = self.run_cleanup()
         self.assertEqual(0, result.returncode, result.stderr)
-        images = ['romd-worker:test', 'romd-admin:test', 'romd-consumer:test', 'romd-player:test']
+        images = ['romd-worker:test', 'romd-admin:test', 'romd-consumer:test', 'romd-player:test', 'romd-postgres:test']
         inspect = ['image', 'inspect', '--format', '{{.Id}}', *images]
         self.assertEqual([inspect, ['builder', 'prune', '--all', '--force'], inspect], calls)
 
@@ -889,6 +889,14 @@ class ProductionContractTests(unittest.TestCase):
         self.assertTrue(manifests, 'The frontend workspace inventory is empty')
         self.assertEqual([], sorted(manifests - copied_sources),
                          'Frozen workspace installation needs every package manifest before source copying')
+
+    def test_postgres_source_build_uses_the_reviewed_upstream_pin(self):
+        image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['postgres']
+        for arch in ('amd64', 'arm64'):
+            self.assertEqual(image, dockerfile_chain('romd-postgres', arch)[-1])
+        config = render('compose.build.yaml')
+        self.assertEqual('romd-postgres', config['services']['postgres']['build']['target'])
+        self.assertEqual('romd-postgres:test', config['services']['postgres']['image'])
 
     def test_player_and_qualification_ingress_use_the_same_reviewed_image(self):
         image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']

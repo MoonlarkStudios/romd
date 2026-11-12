@@ -6,7 +6,7 @@ if [[ "${GITHUB_ACTIONS:-}" != true || "${RUNNER_ENVIRONMENT:-}" != github-hoste
   exit 1
 fi
 
-romd_images=(romd-worker:test romd-admin:test romd-consumer:test romd-player:test)
+romd_images=(romd-worker:test romd-admin:test romd-consumer:test romd-player:test romd-postgres:test)
 romd_image_ids_before=$(docker image inspect --format '{{.Id}}' "${romd_images[@]}")
 df -h "${RUNNER_TEMP:?}"
 # Keep runtime images and all volumes. The following harness retains its disk-space guard.

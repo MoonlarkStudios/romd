@@ -147,7 +147,7 @@ asset_sources=''
 if [ -n "$asset_origin" ]; then
   asset_sources=" $asset_origin"
 fi
-ROMD_PLAYER_CSP="default-src 'none'; script-src 'self'${asset_sources} blob: 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self'${asset_sources} 'unsafe-inline'; img-src 'self'${asset_sources} blob: data:; connect-src 'self'${asset_sources} blob: data:; media-src 'self' blob: data:; worker-src 'self' blob:; frame-ancestors${frame_ancestors}; base-uri 'none'; form-action 'none'"
+ROMD_PLAYER_CSP="default-src 'none'; script-src 'self'${asset_sources} blob: 'wasm-unsafe-eval' 'unsafe-eval'; style-src 'self'${asset_sources} 'unsafe-inline'; font-src 'self'; img-src 'self'${asset_sources} blob: data:; connect-src 'self'${asset_sources} blob: data:; media-src 'self' blob: data:; worker-src 'self' blob:; frame-ancestors${frame_ancestors}; base-uri 'none'; form-action 'none'"
 export ROMD_PLAYER_CSP
 
 config_tmp="$CONFIG_ROOT/player-config.json.tmp"

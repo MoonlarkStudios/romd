@@ -248,6 +248,17 @@ export async function qualifyBrowser(config, chromium) {
     const state = await ensureFixture(admin, config);
     await admin.close();
     const consumer = await context.newPage();
+    // Headless Chromium denies permission prompts. Approve only the real
+    // player's screen wake lock within this disposable browser context. Keep
+    // the CDP session attached: detaching it revokes its permission override.
+    const permissions = await context.newCDPSession(consumer);
+    const { targetInfo } = await permissions.send('Target.getTargetInfo');
+    if (!targetInfo.browserContextId) throw new Error('Disposable browser context is required');
+    await permissions.send('Browser.setPermission', {
+      permission: { name: 'screen-wake-lock' }, setting: 'granted',
+      origin: config.consumerOrigin, embeddedOrigin: config.playerOrigin,
+      browserContextId: targetInfo.browserContextId,
+    });
     stage = 'consumer-browser-sign-in';
     await signIn(consumer, 'consumer', config, diagnostics);
     stage = 'isolated-player-startup';

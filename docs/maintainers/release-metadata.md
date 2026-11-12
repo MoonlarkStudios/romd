@@ -150,10 +150,12 @@ to that job. Publish the complete attestation bundles as downloadable JSONL,
 alongside the metadata files and checksummed deployment archive. Do not promote
 a prerelease before generation, policy checks and verification succeed.
 
-The PostgreSQL subject records the upstream digest selected and qualified by
-ROMD's workflow. It does not establish that ROMD built PostgreSQL or attest the
-upstream publisher's build process. Retain the upstream component/source
-inventory and distinguish that qualification attestation from upstream origin.
+The PostgreSQL subject is ROMD's serviced image derived from the pinned official
+PostgreSQL 18 Alpine image. ROMD updates its runtime libraries and runs as the
+upstream `postgres` account without the root-only privilege helper; the upstream
+entrypoint, server, and backup tools are retained. Provenance covers ROMD's
+derived image build, without claiming the upstream publisher's build process.
+Retain the upstream component/source inventory in the final-image SBOM.
 
 Download these public assets into a clean directory. Supply the intended source
 commit, tag, repository and exact trusted signer workflow independently of the

@@ -80,12 +80,19 @@ full release. Images are published under immutable version tags only, with no
 The bundle contains:
 
 - `compose.yaml`: production topology, health checks and bounded Docker logs;
-- `images.env`: immutable references for all four ROMD images and PostgreSQL;
+- `images.env`: immutable references for all five ROMD images, including serviced PostgreSQL;
 - `.env.example`: required installation settings with blank secrets;
 - `deploy/postgres/init/`: role/schema initialization for a fresh database;
 - `deploy/examples/`: optional HTTPS proxy and Cloudflare Tunnel overlays;
 - `scripts/backup/` and `scripts/deployment/`: compatible operational tools;
 - this runbook, configuration and media-processing guides.
+
+The serviced PostgreSQL image derives from the pinned official PostgreSQL 18
+Alpine image and runs as the upstream `postgres` account. Its named volume gets
+the image's database ownership on first creation. Operator-supplied bind mounts
+must already be writable by that container user. Use the matching release's
+backup/restore procedure when moving between database image variants; the
+fresh-install qualification does not establish an in-place variant upgrade.
 
 The release also attaches `mame0289.tar.gz`, the exact source archive of the
 worker image's `chdman` binary (see [CHD media binaries](#chd-media-binaries)).
@@ -435,22 +442,21 @@ images (and development targets) set
 `Romd__Native__ChdmanDirectory=/app/native/chdman`. The shipped `compose.yaml`
 and `.env.example` contain no native keys. Activation belongs to the images.
 
-Released images are amd64 only. A linux/arm64 installation builds the four ROMD
+Released images are amd64 only. A linux/arm64 installation builds the five ROMD
 images on an arm64 host from a clean checkout of the release tag:
 
 ```bash
-for service in admin consumer worker player; do
+for service in admin consumer worker player postgres; do
   docker build --platform linux/arm64 --target "romd-$service" \
     --tag "romd-$service:<version>" .
 done
 ```
 
 In the extracted release directory, replace `ROMD_ADMIN_IMAGE`,
-`ROMD_CONSUMER_IMAGE`, `ROMD_WORKER_IMAGE` and `ROMD_PLAYER_IMAGE` in
-`images.env` with these tags; `compose.sh` reads image references from that
-file. Keep `ROMD_POSTGRES_IMAGE`. Build the new tags instead of pulling ROMD
-images during installation and upgrades (`compose.sh pull postgres` pulls only
-PostgreSQL). Use a new tag for each build; never rebuild a tag in place.
+`ROMD_CONSUMER_IMAGE`, `ROMD_WORKER_IMAGE`, `ROMD_PLAYER_IMAGE` and
+`ROMD_POSTGRES_IMAGE` in `images.env` with these tags; `compose.sh` reads image
+references from that file. Build all five tags instead of pulling ROMD images
+during installation and upgrades. Use a new tag for each build; never rebuild a tag in place.
 
 Check [media status](../architecture/media-status.md#qualification-status) for
 the current RID/build/workload matrix. Image enablement is separate from platform

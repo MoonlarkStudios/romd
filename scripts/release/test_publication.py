@@ -152,7 +152,8 @@ class ReleasePolicyTests(unittest.TestCase):
             upload = next(i for i, command in enumerate(commands) if command[:3] == ['gh', 'release', 'upload']
                           and str(source) in command)
             pushes = [i for i, command in enumerate(commands) if command[:2] == ['docker', 'push']]
-            self.assertEqual(4, len(pushes))
+            self.assertEqual({f'ghcr.io/owner/romd-{role}:v1.2.3' for role in ('admin', 'consumer', 'worker', 'player', 'postgres')},
+                             {commands[i][2] for i in pushes})
             self.assertTrue(all(upload < i for i in pushes))
             self.assertFalse(any('--clobber' in command for command in commands))
             self.assertIn('--prerelease', commands[-1])
