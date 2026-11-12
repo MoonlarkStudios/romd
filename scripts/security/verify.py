@@ -11,6 +11,33 @@ import tempfile
 from metadata import sha256
 from qualify import verify_bundle
 from credentials import anonymous_environment
+from policy import evaluate, validate_policy
+
+
+def verify_policy_results(directory, subject, policy, tag):
+    evaluations = json.loads((directory / subject['policy']).read_text())
+    if isinstance(evaluations, dict):
+        evaluations = [evaluations]
+    if not isinstance(evaluations, list) or len(evaluations) != len(subject['scans']):
+        raise ValueError('Release subject policy/scan coverage mismatch')
+    for scan, result in zip(subject['scans'], evaluations):
+        raw = json.loads((directory / scan).read_text())
+        replay = evaluate(raw, 'sha256:' + subject['sha256'], policy, release_tag=tag)
+        if result.get('result') != 'passed' or not isinstance(result.get('findings'), list) or len(result['findings']) != len(replay['findings']):
+            raise ValueError('Release subject has unresolved or incomplete policy results')
+        for expected, recorded in zip(replay['findings'], result['findings']):
+            keys = ('id', 'component', 'installedVersion', 'subjectDigest', 'severity', 'fixedVersion', 'rawBlocked', 'excepted')
+            if any(recorded.get(key) != expected.get(key) for key in keys) or recorded.get('blocked') is not False:
+                raise ValueError('Release subject policy differs from its raw findings')
+            # The separately attested reader proof may resolve Go package absence.
+            # A manual decision must replay exactly against this tag and snapshot.
+            if recorded.get('applicability', {}).get('status') == 'affected-packages-absent':
+                if not recorded['applicability'].get('evidence'):
+                    raise ValueError('Go package-absence proof missing')
+            elif expected['blocked'] or recorded.get('riskAcceptance') != expected.get('riskAcceptance'):
+                raise ValueError('Release subject has unreviewed vulnerability decisions')
+        if any(finding.get('blocked') is not False for finding in result.get('goAdvisories', [])):
+            raise ValueError('Release subject has blocked Go advisory results')
 
 
 def verify_files(directory, bundle, revision, tag):
@@ -23,6 +50,10 @@ def verify_files(directory, bundle, revision, tag):
     for name, expected in files.items():
         if Path(name).name != name or not re.fullmatch('[0-9a-f]{64}', expected) or sha256(directory / name) != expected:
             raise ValueError('Release metadata file checksum mismatch or unsafe path')
+    if index.get('policy') not in files or index.get('vex') not in files:
+        raise ValueError('Release metadata lacks hash-bound security policy or VEX decisions')
+    policy = json.loads((directory / index['policy']).read_text())
+    validate_policy(policy)
     subjects = index.get('subjects', [])
     images = [subject for subject in subjects if subject.get('kind') == 'image']
     bundles = [subject for subject in subjects if subject.get('kind') == 'bundle']
@@ -38,6 +69,9 @@ def verify_files(directory, bundle, revision, tag):
             raise ValueError('SBOM subject digest mismatch')
         if subject['kind'] == 'image' and not subject.get('name', '').endswith('@sha256:' + subject['sha256']):
             raise ValueError('Image subject is mutable or has a mismatched digest')
+        if subject.get('policy') not in files or not subject.get('scans') or any(name not in files for name in subject['scans']):
+            raise ValueError('Release subject lacks hash-bound scans or policy results')
+        verify_policy_results(directory, subject, policy, tag)
     if bundle.name != bundles[0]['name'] or sha256(bundle) != bundles[0]['sha256']:
         raise ValueError('Downloaded deployment bundle checksum mismatch')
     # Independent valid attestations do not prove that these image subjects are

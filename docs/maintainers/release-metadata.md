@@ -144,34 +144,76 @@ the complete findings and the upstream advisory's affected-function and input
 conditions. A version-only finding does not prove exploitability, and the
 vendor's general guidance does not prove an individual binary unaffected.
 Keep OS-library findings separate from Go-helper analysis. Record primary
-vendor evidence for proposed applicability dispositions; this procedure does
-not automatically suppress any finding. Applicable and unresolved findings
-remain subject to the severity gate below. An accepted-risk exception still
-requires the exact reviewed component/version/digest, owner and expiry.
+vendor evidence for applicability decisions. The final-image gate extracts this
+helper again, scans it with the verified pinned tool, checks the current official
+Go database and primary records, and retains `postgres.go-helper.json`. A changed
+binary, primary alias, affected-symbol finding or incomplete evidence invalidates
+the reviewed Go assessment. No upstream ignore list is copied.
 
-## Severity and exception policy
+## Applicability and accepted-risk policy
 
-`scripts/security/policy.json` blocks **HIGH**, **CRITICAL**, and **UNKNOWN**
-findings, including findings with no available fix. LOW and MEDIUM findings are
-retained for triage. Scanner results are collected with `--exit-code 0` so the
-policy evaluator can assess every finding; the overall metadata command exits
-nonzero for blocked findings, malformed results, missing coverage or tool errors.
-This does not convert findings into a release pass.
+`scripts/security/policy.json` uses schema 2. **HIGH**, **CRITICAL**, and
+**UNKNOWN** findings trigger review and block while applicable or unresolved,
+including findings with no available fix. LOW and MEDIUM findings remain in the
+reports. Source advisory gates retain their existing strict severity and Go
+package-applicability rules; final-deployment exceptions do not cover source scans.
 
-An exception requires a reviewed policy change identifying all of:
+Two separate decision lists can resolve a final-artifact blocker:
 
-- the exact vulnerability ID;
-- exact package PURL, or the scanner ecosystem/package identity when no PURL exists;
-- installed package version and exact affected image/bundle `sha256:` digest;
-- a specific rationale and accountable owner;
-- an exclusive UTC expiry date, no more than 90 days away.
+- `assessments` records evidence-backed **not affected** conclusions, with an
+  OpenVEX justification. Upstream backports, absent vulnerable code, unavailable
+  execution paths and deployment mitigations require specific primary evidence.
+- `exceptions` records **accepted risk**. These findings remain affected. Each
+  exception requires explicit mitigations, follow-up and no available vendor
+  package fix; discovery of a fix invalidates it automatically.
 
-Wildcards, blanket directories/packages, mutable tags, absent owners, expired
-exceptions and severity-policy weakening are rejected. An exception for one
-version or image digest does not apply to a rebuild or upgrade. Renew through
-review with current evidence; remove resolved or stale entries. The default
-exception set is empty. Findings and proposed sensitive dispositions stay out of
-public Git history until their maintainer publication review.
+Every decision binds the vulnerability ID, exact component PURL (or scanner
+identity), installed version, subject digest, original severity, **exact prerelease
+tag**, rationale, accountable owner, review date, primary-source HTTPS evidence
+and exclusive UTC expiry. Expiry is at most 90 days after review; candidate
+reviews use a shorter interval where appropriate. Changed severity, component,
+version, digest or candidate requires fresh review. An accepted risk never
+applies to stable promotion. Future-dated, expired, duplicate, conflicting,
+wildcard, ownerless and incomplete reviews fail closed. The maintainer reviews
+the concrete decisions with the source change and protected release approval.
+Remove resolved or stale entries; do not renew mechanically.
+
+PostgreSQL remains a digest-pinned Docker Official Image with its upstream
+entrypoint and initialization behavior. Context-dependent decisions apply only
+to the unchanged ROMD deployment: private database network with no published
+PostgreSQL port, password/SCRAM authentication, separate least-privilege runtime
+roles, trusted operator backup files and no arbitrary SQL or optional
+LDAP/Kerberos/XML application features. Additional mounts, extensions, database
+exposure, authentication methods or application query features require another
+assessment. A database library being present alone proves neither exploitability
+nor non-applicability.
+
+The evaluator retains every original finding, identity, severity and fix version,
+with `rawBlocked`, applicability, any risk acceptance and the final gate decision
+as separate fields. Scanner exit zero only permits evaluation; it is not a
+release pass. All image and SBOM scans and the bundle are evaluated before an
+ordinary vulnerability-policy failure is reported. Tool errors, malformed
+reports and missing coverage still fail immediately.
+
+Release metadata includes the exact hash-bound `security-policy.json` snapshot,
+per-subject policy results and a `release.vex.json` OpenVEX 0.2 document. VEX
+statements identify the **exact ROMD deployment bundle** and its subcomponents;
+they do not assert that an upstream PostgreSQL image or library is safe in other
+applications. Accepted risks remain `affected` with an action statement;
+unreviewed findings remain `under_investigation`. The signed metadata index
+binds these files. Anonymous verification checks the policy's current expiry and
+refuses missing or blocked policy evidence. VEX has no native expiry mechanism;
+consumers must honor the review deadline in the impact/action statement and
+verify the accompanying ROMD policy snapshot.
+
+This workflow follows the [Docker Official Images guidance](https://github.com/docker-library/faq#why-does-my-security-scanner-show-that-an-image-has-cves),
+[gosu security policy](https://github.com/tianon/gosu/blob/master/SECURITY.md),
+[Docker's applicability and risk exceptions](https://docs.docker.com/scout/explore/exceptions/)
+and the [OpenVEX specification](https://github.com/openvex/spec/blob/main/OPENVEX-SPEC.md).
+External VEX is supporting evidence for a reviewed decision; the gate does not
+blindly trust an arbitrary VEX repository or suppress all unfixed CVEs. Keep raw
+diagnostics and private inventories out of Git; publish curated policy decisions
+and hash-bound release evidence through the reviewed release workflow.
 
 ## Attestation and anonymous verification
 

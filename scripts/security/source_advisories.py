@@ -454,7 +454,7 @@ def scan_go_reader(root, work):
 
 def audit(root, output, scanners=None):
     policy = json.loads((root / 'scripts/security/policy.json').read_text())
-    require(policy.get('schemaVersion') == 1 and set(policy.get('blockedSeverities', [])) ==
+    require(policy.get('schemaVersion') == 2 and set(policy.get('blockedSeverities', [])) ==
             {'HIGH', 'CRITICAL', 'UNKNOWN'}, 'Unexpected security severity policy')
     scanners = scanners or {'nuget': scan_nuget, 'npm': scan_javascript, 'pub': scan_pub, 'go-reader': scan_go_reader}
     report = {'schemaVersion': 1, 'checkedAt': datetime.now(timezone.utc).isoformat(),

@@ -22,7 +22,7 @@ class SourceAdvisoryTests(unittest.TestCase):
             root = Path(temporary)
             policy = root / 'scripts/security/policy.json'
             policy.parent.mkdir(parents=True)
-            policy.write_text(json.dumps({'schemaVersion': 1, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
+            policy.write_text(json.dumps({'schemaVersion': 2, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
             report = root / 'report.json'
             go_finding = source.finding('go-reader', 'Dockerfile/catalog-reader', 'example', 'v1.0.0', URL, 'UNKNOWN')
             go_finding.update(rawBlocked=True, blocked=False, applicability={'status': 'affected-packages-absent'})
@@ -159,7 +159,7 @@ class SourceAdvisoryTests(unittest.TestCase):
             root = Path(temporary)
             policy = root / 'scripts/security/policy.json'
             policy.parent.mkdir(parents=True)
-            policy.write_text(json.dumps({'schemaVersion': 1, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
+            policy.write_text(json.dumps({'schemaVersion': 2, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
             report = root / 'report.json'
 
             def error(*args):
@@ -185,7 +185,7 @@ class SourceAdvisoryTests(unittest.TestCase):
             root = Path(temporary)
             policy = root / 'scripts/security/policy.json'
             policy.parent.mkdir(parents=True)
-            policy.write_text(json.dumps({'schemaVersion': 1, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
+            policy.write_text(json.dumps({'schemaVersion': 2, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
             report = root / 'report.json'
 
             def interrupted(*args):

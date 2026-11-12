@@ -107,7 +107,7 @@ class JavascriptAdvisoryTests(unittest.TestCase):
             root = Path(temporary)
             policy = root / 'scripts/security/policy.json'
             policy.parent.mkdir(parents=True)
-            policy.write_text(json.dumps({'schemaVersion': 1, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
+            policy.write_text(json.dumps({'schemaVersion': 2, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
             findings = source.parse_npm(self.report('high'), self.packages(), SCOPE)
             with patch.object(source, 'scan_nuget', return_value=([], {})), \
                  patch.object(source, 'scan_javascript', return_value=(findings, {})), \

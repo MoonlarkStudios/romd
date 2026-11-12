@@ -34,6 +34,7 @@ DIGEST = 'sha256:' + 'a' * 64
 class VulnerabilityPolicyTests(unittest.TestCase):
     def setUp(self):
         self.policy = json.loads((HERE / 'policy.json').read_text())
+        self.policy.update(assessments=[], exceptions=[])
         self.today = date(2026, 10, 15)
         self.vulnerability = {'VulnerabilityID': 'CVE-2026-12345', 'PkgName': 'example', 'InstalledVersion': '1.2.3',
                               'Severity': 'HIGH', 'PkgIdentifier': {'PURL': 'pkg:npm/example@1.2.3'}}
@@ -47,7 +48,10 @@ class VulnerabilityPolicyTests(unittest.TestCase):
     def exception(self):
         return {'id': 'CVE-2026-12345', 'component': 'pkg:npm/example@1.2.3', 'installedVersion': '1.2.3',
                 'subjectDigest': DIGEST, 'rationale': 'Controlled fixture is unreachable from the public route.',
-                'owner': 'release-maintainer', 'expires': '2026-11-01'}
+                'owner': 'release-maintainer', 'reviewed': '2026-10-15', 'expires': '2026-11-01', 'severity': 'HIGH',
+                'evidence': ['https://example.com/security/CVE-2026-12345'], 'releaseTag': 'v0.1.0-rc.2', 'fixedVersion': None,
+                'mitigations': 'Controlled fixture has no network or attacker-controlled input.',
+                'followUp': 'Update the dependency when the vendor publishes a fixed version.'}
 
     def test_high_critical_unknown_and_unfixed_findings_block(self):
         for severity in ('HIGH', 'CRITICAL', 'UNKNOWN'):
@@ -59,12 +63,12 @@ class VulnerabilityPolicyTests(unittest.TestCase):
 
     def test_specific_reviewed_exception_does_not_cover_other_component_version_digest_or_cve(self):
         self.policy['exceptions'] = [self.exception()]
-        self.assertEqual('passed', evaluate(self.report(), DIGEST, self.policy, self.today)['result'])
+        self.assertEqual('passed', evaluate(self.report(), DIGEST, self.policy, self.today, release_tag='v0.1.0-rc.2')['result'])
         for key, replacement in (('component', 'pkg:npm/other@1.2.3'), ('installedVersion', '1.2.4'),
                                  ('subjectDigest', 'sha256:' + 'b' * 64), ('id', 'CVE-2026-54321')):
             policy = copy.deepcopy(self.policy)
             policy['exceptions'][0][key] = replacement
-            self.assertEqual('failed', evaluate(self.report(), DIGEST, policy, self.today)['result'])
+            self.assertEqual('failed', evaluate(self.report(), DIGEST, policy, self.today, release_tag='v0.1.0-rc.2')['result'])
 
     def test_expired_overlong_wildcard_ownerless_and_weak_policy_are_rejected(self):
         for key, value in (('expires', '2026-10-15'), ('expires', '2027-10-15'),
@@ -296,8 +300,17 @@ class InventoryIntegrityTests(unittest.TestCase):
             files[sbom.name] = hashlib.sha256(sbom.read_bytes()).hexdigest()
             subjects.append({'kind': 'bundle' if role == 'bundle' else 'image', 'role': role,
                 'name': bundle.name if role == 'bundle' else f'ghcr.io/example/{role}@sha256:{digest}',
-                'sha256': digest, 'sbom': sbom.name})
-        index = {'schemaVersion': 1, 'result': 'passed', 'sourceCommit': 'b' * 40, 'releaseTag': 'v1.0.0-rc.1', 'files': files, 'subjects': subjects}
+                'sha256': digest, 'sbom': sbom.name, 'policy': 'passed-policy.json', 'scans': ['raw-scan.json']})
+        policy = json.loads((HERE / 'policy.json').read_text())
+        policy.update(assessments=[], exceptions=[])
+        for name, value in {'security-policy.json': policy, 'release.vex.json': {},
+                            'raw-scan.json': {'SchemaVersion': 2, 'Results': []},
+                            'passed-policy.json': {'result': 'passed', 'findings': []}}.items():
+            path = self.work / name
+            path.write_text(json.dumps(value))
+            files[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+        index = {'schemaVersion': 1, 'result': 'passed', 'sourceCommit': 'b' * 40, 'releaseTag': 'v1.0.0-rc.1',
+                 'files': files, 'subjects': subjects, 'policy': 'security-policy.json', 'vex': 'release.vex.json'}
         (self.work / 'release-metadata.json').write_text(json.dumps(index))
         verify_files(self.work, bundle, 'b' * 40, 'v1.0.0-rc.1')
         bundle.write_bytes(b'tampered')

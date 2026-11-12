@@ -17,10 +17,12 @@ from urllib.parse import quote, unquote
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'release'))
 from qualify import image_map, verify_bundle, verify_publisher
-from policy import evaluate
+from policy import evaluate, validate_policy
+from vex import document as vex_document
 from tools import verify_installed
 from credentials import anonymous_environment
 import go_reader
+import postgres_helper
 from go_applicability import assess as assess_go_reader
 
 
@@ -172,7 +174,7 @@ class Commands:
                       stderrSha256=hashlib.sha256(result.stderr).hexdigest())
         if result.returncode:
             raise RuntimeError(stage + ' failed; scanner/command output is not copied into public diagnostic logs')
-        if stage == 'go-reader-govulncheck-binary-package' and result.stderr.strip():
+        if stage in ('go-reader-govulncheck-binary-package', 'go-helper-govulncheck-binary-symbol') and result.stderr.strip():
             raise RuntimeError('govulncheck diagnostics require investigation')
         return result.stdout.decode()
 
@@ -208,6 +210,9 @@ def generate(args):
             commands = Commands(work, args.output)
             report['commands'] = commands.records
             policy = json.loads(args.policy.read_text())
+            validate_policy(policy)
+            json_write(args.output / 'security-policy.json', policy)
+            report['policy'] = 'security-policy.json'
             # A fresh BuildKit export uses exactly the Dockerfile source and compiler.
             # Keep the export and complete scanner output in the signed evidence index.
             go_work = work / 'go-reader'
@@ -248,6 +253,13 @@ def generate(args):
                         role_reader = scan_packaged_reader(binary, receipt, reader_artifacts, reader_evidence, go_work,
                                                           args.output, commands, role)
                         supplements.append(catalog_supplement(receipt, binary))
+                    if role == 'postgres':
+                        binary = work / 'gosu'
+                        commands.extract(container, '/usr/local/bin/gosu', binary)
+                        helper = postgres_helper.scan(binary, reader_artifacts, policy, reference.rsplit('@', 1)[1], args.tag, commands.run)
+                        json_write(args.output / 'postgres.go-helper.json', helper)
+                        if helper.get('failure'):
+                            raise ValueError('Official PostgreSQL helper evidence failed validation')
                 finally:
                     if container:
                         commands.run(['docker', 'rm', container], 'cleanup-metadata-container-' + role)
@@ -260,7 +272,7 @@ def generate(args):
                 evaluations, scans = [], []
                 for mode, target in (('image', reference), ('sbom', path)):
                     scan = args.output / f'{role}.{mode}.trivy.json'
-                    command = [trivy, mode, '--scanners', 'vuln', '--config', work / 'empty-config.json', '--ignorefile', work / 'empty-ignore',
+                    command = [trivy, mode, '--scanners', 'vuln', '--list-all-pkgs', '--config', work / 'empty-config.json', '--ignorefile', work / 'empty-ignore',
                                '--format', 'json', '--output', scan, '--exit-code', '0', '--disable-telemetry', target]
                     if mode == 'image':
                         command[2:2] = ['--platform', 'linux/amd64']
@@ -269,14 +281,13 @@ def generate(args):
                     assert_scanner_coverage(scan_result, role, mode)
                     if role in ('admin', 'worker'):
                         go_reader.assert_inventory(scan_result, reader_evidence, selected=False)
-                        evaluations.append(assess_go_reader(scan_result, 'sha256:' + digest, policy, role_reader, mode=mode, sbom=sbom))
+                        evaluations.append(assess_go_reader(scan_result, 'sha256:' + digest, policy, role_reader,
+                                                           mode=mode, sbom=sbom, release_tag=args.tag))
                     else:
-                        evaluations.append(evaluate(scan_result, 'sha256:' + digest, policy))
+                        evaluations.append(evaluate(scan_result, 'sha256:' + digest, policy, release_tag=args.tag))
                     scans.append(scan.name)
                 policy_path = args.output / f'{role}.policy.json'
                 json_write(policy_path, evaluations)
-                if any(result['result'] != 'passed' for result in evaluations):
-                    raise ValueError('Release blocked by vulnerability severity/exception policy: ' + role)
                 report['subjects'].append({'kind': 'image', 'role': role, 'name': reference, 'sha256': digest,
                                            'sbom': path.name, 'scans': scans, 'policy': policy_path.name, 'coverage': coverage})
             raw = work / 'bundle.cdx.json'
@@ -293,15 +304,26 @@ def generate(args):
             commands.run([trivy, 'sbom', '--scanners', 'vuln', '--config', work / 'empty-config.json', '--ignorefile', work / 'empty-ignore',
                           '--format', 'json', '--output', scan, '--exit-code', '0', '--disable-telemetry',
                           args.output / 'bundle.cdx.json'], 'trivy-bundle')
-            policy_result = evaluate(json.loads(scan.read_text()), 'sha256:' + verified['sha256'], policy)
+            policy_result = evaluate(json.loads(scan.read_text()), 'sha256:' + verified['sha256'], policy, release_tag=args.tag)
             json_write(args.output / 'bundle.policy.json', policy_result)
-            if policy_result['result'] != 'passed':
-                raise ValueError('Release bundle blocked by vulnerability policy')
             report['subjects'].append({'kind': 'bundle', 'name': args.bundle.name, 'sha256': verified['sha256'],
                                        'sbom': 'bundle.cdx.json', 'scans': ['bundle.trivy.json'], 'policy': 'bundle.policy.json'})
             version = json.loads(commands.run([trivy, 'version', '--format', 'json'], 'scanner-database-version'))
             assert_fresh_database(version)
             json_write(args.output / 'trivy-version.json', version)
+            blocked = []
+            all_evaluations = []
+            for subject in report['subjects']:
+                evaluations = json.loads((args.output / subject['policy']).read_text())
+                if isinstance(evaluations, dict):
+                    evaluations = [evaluations]
+                all_evaluations.extend(evaluations)
+                if any(item['result'] != 'passed' for item in evaluations):
+                    blocked.append(subject.get('role', 'bundle'))
+            json_write(args.output / 'release.vex.json', vex_document(all_evaluations, verified['sha256'], args.tag))
+            report['vex'] = 'release.vex.json'
+            if blocked:
+                raise ValueError('Release blocked by unresolved/applicable vulnerability findings: ' + ', '.join(blocked))
             report['result'] = 'passed'
     except (ValueError, RuntimeError, OSError, subprocess.SubprocessError, KeyError, TypeError) as error:
         report['failure'] = str(error) if type(error) in (ValueError, RuntimeError) else type(error).__name__
