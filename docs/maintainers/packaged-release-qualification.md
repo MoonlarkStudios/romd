@@ -113,12 +113,20 @@ observes each authorization callback, and requires the authenticated profile
 response and rendered authenticated view. It imports an original synthetic
 NES NROM cartridge and matching DAT through the admin API, creates and publishes
 an assigned library with an explicit policy allowing its unrated content, and
-selects **Play Now** in the consumer portal. Before its deliberate full-page
-navigation to the title, it waits for both initial playback-discovery transfers
-to finish so that navigation cannot cancel the library's in-flight requests.
-Failed configuration responses and requests still block qualification. A real
-Chromium regression proves this ordering and rejection of HTTP and transport
-failures in PR CI and again before the downloaded-installation checks run.
+selects **Play Now** in the consumer portal. It waits for the library's title
+card (shelves deliberately hide card Play actions), follows its real link through
+SPA navigation, and waits for
+the title's Play Now action. A passive observer tracks current consumer/player
+configuration transfers before each navigation, including background refetches
+and the gap between the paired requests. The first discovery must be observed
+and completed before leaving the library. Historical Resource Timing entries
+cannot establish that a later request has finished. The runner never forces a
+full-page reload to reach the title. Failed configuration responses and requests
+still block qualification, with the fixed navigation stage recorded for diagnosis.
+A real Chromium regression reproduces the old initial/stale-history aborts,
+independently holds both transfers on both routes, and requires zero failures
+with the current sequence. HTTP and transport faults must still be rejected in
+PR CI and again before the downloaded-installation checks run.
 
 The actual isolated player must send its protocol hello, ready, and game-started
 events. The runner clicks the runtime's real **Start game** control and requires

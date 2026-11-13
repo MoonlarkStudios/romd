@@ -3,6 +3,7 @@ import { pathToFileURL } from 'node:url';
 import { assetResponseFailure, Diagnostics, hash, requiredResource } from './diagnostics.mjs';
 import { fixture, fixtureName } from './fixture.mjs';
 import { assertPersistedState } from './persistence.mjs';
+import { observePlaybackDiscovery } from './playback-discovery.mjs';
 
 // These observations do not acknowledge a handshake, supply ROMs to the player,
 // replace the runtime, or generate startup events. The native postMessage runs
@@ -163,27 +164,40 @@ export async function ensureFixture(page, config) {
   return { librarySha256: hash(id), adminUserSha256: hash(me.json.id) };
 }
 
-export async function waitForPlaybackDiscovery(page, config) {
-  // Library cards discover playback too. Finish both configuration transfers
-  // before our full-page navigation can abort their in-flight fetches. Keep
-  // every failed response/request in Diagnostics; completion does not waive it.
-  await page.waitForFunction((endpoints) => endpoints.every((endpoint) =>
-    performance.getEntriesByType('resource').some((entry) => {
-      const url = new URL(entry.name);
-      return url.origin + url.pathname === endpoint && entry.responseEnd > 0;
-    })), [config.consumerOrigin + '/api/playback/config', config.playerOrigin + '/player-config.json']);
+export async function openFixtureTitle(page, config, titleId, discovery, stage = () => {}) {
+  // Use the actual SPA links and current transfers, including background
+  // refetches. Keep Diagnostics subscribed to every request/response failure.
+  stage('consumer-home-discovery');
+  const path = `/titles/${encodeURIComponent(titleId)}`;
+  const title = page.getByRole('link', { name: fixtureName, exact: true }).first();
+  // Library shelves deliberately hide their card Play actions. The actual
+  // title link plus completed discovery establish readiness for this route.
+  await title.waitFor();
+  await discovery.wait();
+  if (await title.getAttribute('href') !== path) throw new Error('Synthetic title link has an unexpected destination');
+  stage('consumer-title-navigation');
+  // The card's hover Play action overlaps its center. Activate its actual
+  // title link by keyboard rather than clicking through that separate action.
+  await title.press('Enter');
+  await page.waitForURL((url) => url.origin === config.consumerOrigin && url.pathname === path);
+  const play = page.getByRole('link', { name: 'Play Now', exact: true });
+  stage('consumer-title-discovery');
+  await play.waitFor();
+  await discovery.wait();
+  return play;
 }
 
-async function play(page, config, diagnostics, state) {
+async function play(page, config, diagnostics, state, discovery, stage) {
   const identity = await api(page, '/api/server/identity');
   if (typeof identity.json.instanceId !== 'string') throw new Error('Server instance identity is missing');
   const catalog = await poll(() => api(page, `/api/catalog?query=${encodeURIComponent(fixtureName)}`, { allowStatus: true }),
     (response) => response.status === 200 && response.json.items?.length === 1, 'Published synthetic library');
   const title = catalog.json.items[0];
-  await waitForPlaybackDiscovery(page, config);
-  await page.goto(`${config.consumerOrigin}/titles/${encodeURIComponent(title.id)}`, { waitUntil: 'networkidle' });
-  await page.getByRole('link', { name: 'Play Now', exact: true }).click();
+  const launch = await openFixtureTitle(page, config, title.id, discovery, stage);
+  stage('consumer-play-navigation');
+  await launch.click();
   await page.waitForURL(/\/titles\/[^/]+\/releases\/[^/]+\/play$/);
+  stage('isolated-player-startup');
   const releaseId = new URL(page.url()).pathname.split('/')[4];
   const manifest = await api(page, `/api/releases/${encodeURIComponent(releaseId)}/manifest`, { method: 'POST' });
   const item = manifest.json.items?.[0];
@@ -221,6 +235,7 @@ export async function qualifyBrowser(config, chromium) {
   await mkdir(config.evidenceDir, { recursive: false, mode: 0o700 });
   let browser;
   let browserVersion;
+  let discovery;
   let stage = 'launch-browser';
   try {
     if (!/^[A-Za-z0-9+/]{43}=$/.test(config.certificateSpki ?? '')) throw new Error('Pinned disposable certificate is required');
@@ -248,11 +263,11 @@ export async function qualifyBrowser(config, chromium) {
     });
     context.on('response', (response) => {
       const failure = assetResponseFailure(response);
-      if (failure) diagnostics.resourceFailure(failure, response.url(), { status: response.status() });
+      if (failure) diagnostics.resourceFailure(failure, response.url(), { status: response.status(), stage });
     });
     context.on('requestfailed', (request) => {
       if (requiredResource(request)) diagnostics.resourceFailure('required-request-failed', request.url(), {
-        cancelled: request.failure()?.errorText === 'net::ERR_ABORTED',
+        cancelled: request.failure()?.errorText === 'net::ERR_ABORTED', stage,
       });
     });
     const admin = await context.newPage();
@@ -262,6 +277,7 @@ export async function qualifyBrowser(config, chromium) {
     const state = await ensureFixture(admin, config);
     await admin.close();
     const consumer = await context.newPage();
+    discovery = observePlaybackDiscovery(consumer, config);
     // Headless Chromium denies permission prompts. Approve only the real
     // player's screen wake lock within this disposable browser context. Keep
     // the CDP session attached: detaching it revokes its permission override.
@@ -276,11 +292,12 @@ export async function qualifyBrowser(config, chromium) {
     stage = 'consumer-browser-sign-in';
     await signIn(consumer, 'consumer', config, diagnostics);
     stage = 'isolated-player-startup';
-    await play(consumer, config, diagnostics, state);
+    await play(consumer, config, diagnostics, state, discovery, (next) => { stage = next; });
     // Let the actual postMessage observations settle before evaluating checks.
     await consumer.waitForFunction(() => document.querySelector('[data-testid="player-launch"]')?.dataset.playing === 'true');
     // Deliberate browser teardown is outside the tested startup window. It can
     // cancel in-flight requests; those cancellations are not server failures.
+    discovery.dispose();
     context.removeAllListeners('response');
     context.removeAllListeners('requestfailed');
     for (const page of context.pages()) {
@@ -291,6 +308,7 @@ export async function qualifyBrowser(config, chromium) {
   } catch (error) {
     diagnostics.record('qualification-stage-failed', { stage, messageSha256: hash(error.message) }, true);
   } finally {
+    discovery?.dispose();
     if (browser) {
       try { await browser.close(); }
       catch (error) { diagnostics.record('browser-cleanup-failed', { messageSha256: hash(error.message) }, true); }

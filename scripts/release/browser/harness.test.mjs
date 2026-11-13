@@ -211,6 +211,7 @@ test('browser sign-in observes canonical admin and consumer self responses befor
     const frame = { url: () => `${origin}/auth/callback?code=private-code` };
     return {
       on: (event, listener) => { if (event === 'framenavigated') navigated = listener; },
+      removeListener: () => {},
       mainFrame: () => frame,
       goto: async () => {}, close: async () => {},
       getByRole: (role, options) => ({
