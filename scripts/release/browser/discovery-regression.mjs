@@ -130,11 +130,13 @@ try {
           navigation.then(() => { complete = true; }, () => {});
           await renderTurn(page);
           assert.equal(complete, false, 'cached UI must not admit an active consumer transfer');
+          assert.equal(new URL(page.url()).pathname, '/home', 'title navigation must wait for the consumer transfer');
           consumerRelease[2].resolve();
           if (mode === 'current-transfers-and-spa') {
             await playerEntered[2].promise;
             await renderTurn(page);
             assert.equal(complete, false, 'the current player transfer must finish too');
+            assert.equal(new URL(page.url()).pathname, '/home', 'title navigation must wait for the player transfer');
             playerRelease[2].resolve();
             await consumerEntered[3].promise;
             await renderTurn(page);
