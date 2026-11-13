@@ -90,7 +90,8 @@ fixture generator contains only ROMD's small original NROM program, zero CHR,
 and reset vectors. No commercial ROM, BIOS, artwork, or downloaded game is used.
 
 The qualifier repeats browser sign-in and startup after a worker-first restart.
-It then runs the bundle's own backup tool, stops the source project before
+It then runs the bundle's own backup tool and waits for the resumed hosts to be
+healthy, with a lifecycle checkpoint. It stops the source project before
 exposing its restored identity, restores into a second empty project with the
 bundle's restore tool, and repeats the browser gate. Both projects' volumes and
 networks are removed on exit. Backup contents and credentials remain private in

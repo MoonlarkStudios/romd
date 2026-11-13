@@ -295,6 +295,10 @@ def qualify(args, evidence):
                 runner.browser('browser-after-restart', 'none')
                 with gate.stopping(env['COMPOSE_PROJECT_NAME'], HOSTS):
                     runner.run([bundle / 'scripts/backup/backup.sh', work / 'backups'], 'packaged-backup')
+                # The backup's EXIT trap starts hosts asynchronously. Finish that
+                # resume before stopping the source again, as the source smoke does.
+                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', stage='backup-resume-readiness')
+                gate.checkpoint(env['COMPOSE_PROJECT_NAME'])
                 backup_sets = list((work / 'backups').glob('*/manifest.json'))
                 if len(backup_sets) != 1:
                     raise RuntimeError('Packaged backup did not produce exactly one complete backup set')
