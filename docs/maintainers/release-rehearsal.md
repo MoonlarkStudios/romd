@@ -33,7 +33,7 @@ python3 scripts/release/readiness.py --revision "$revision" \
 ```
 
 The output directory must be new. `readiness.json` and `summary.md` record the
-source, intended version, gate results, blocking stage, exact image digests and
+source, intended version, gate results, blocking stage/check codes, exact image digests and
 verified receipt hash. Reports are updated before each long stage, so an
 interrupted run cannot leave a passed report. Arbitrary subprocess output stays
 in private temporary storage; retained records contain only output hashes.

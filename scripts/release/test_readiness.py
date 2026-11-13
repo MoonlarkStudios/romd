@@ -97,6 +97,31 @@ class ReadinessTests(unittest.TestCase):
         for name in ('readiness.json', 'summary.md'):
             self.assertNotIn('private-token', (self.output / name).read_text())
 
+    def test_failed_runtime_report_names_only_fixed_nested_blockers(self):
+        def failed_runtime(argv, stage):
+            record = self.command(argv, stage)
+            if stage == readiness.GATES[2]:
+                root = self.output / 'rehearsal'
+                receipt = json.loads((root / 'receipt.json').read_text())
+                receipt.update(result='failed', failure='private-token-do-not-publish', commands=[
+                    dict(stage='pre-publication-image-security', exitCode=0),
+                    dict(stage='packaged-positive-and-negative-suite', exitCode=1),
+                    dict(stage='private-token-do-not-publish', exitCode=1)])
+                write_json(root / 'receipt.json', receipt)
+                path = root / 'packaged/positive/qualification.json'
+                qualification = json.loads(path.read_text())
+                qualification['commands'] = [dict(stage='browser-after-restore', exitCode=1)]
+                write_json(path, qualification)
+                record['exitCode'] = 1
+            return record
+        report = readiness.readiness(self.output, REVISION, TAG, command=failed_runtime)
+        self.assertEqual('failed', report['result'])
+        self.assertEqual(['packaged-positive-and-negative-suite', 'browser-after-restore'], report['blockingChecks'])
+        summary = (self.output / 'summary.md').read_text()
+        self.assertIn('browser-after-restore', summary)
+        self.assertNotIn('private-token', summary)
+        self.assertEqual([], readiness.failure_detail(self.output, 'f' * 40, TAG))
+
     def test_child_output_is_hashed_without_retaining_secrets_or_tokens(self):
         with patch.dict(os.environ, {'GITHUB_TOKEN': 'private-token', 'GH_TOKEN': 'other-token',
                                     'GITHUB_OUTPUT': '/private/output', 'ROMD_SECRET': 'private-secret'}), \

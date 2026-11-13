@@ -14,9 +14,34 @@ import time
 
 from preflight import valid_tag
 from rehearsal_evidence import verify_rehearsal
+from suite import read_report
 
 ROOT = Path(__file__).resolve().parents[2]
 GATES = ('source', 'build-and-source-recovery', 'packaged-security-runtime-cleanup')
+BLOCKERS = {'native-docker', 'package-rehearsal', 'install-pinned-security-tools',
+            'pre-publication-image-security', 'packaged-positive-and-negative-suite'}
+RUNTIME_BLOCKERS = {'browser-initial', 'browser-after-restart', 'browser-after-restore',
+                    'cleanup-disposable-project'}
+
+
+def failure_detail(output, revision, tag):
+    """Surface only fixed child stage codes, never arbitrary failure strings."""
+    details = []
+    try:
+        root = output / 'rehearsal'
+        receipt = read_report(root, 'receipt.json')
+        if (receipt.get('sourceCommit') != revision or receipt.get('releaseTag') != tag
+                or receipt.get('evidenceType') != 'disposable-rehearsal'):
+            return details
+        details = [item['stage'] for item in receipt.get('commands', [])
+                   if item.get('exitCode') and item.get('stage') in BLOCKERS]
+        if 'packaged-positive-and-negative-suite' in details:
+            qualification = read_report(root / 'packaged', 'positive/qualification.json')
+            details += [item['stage'] for item in qualification.get('commands', [])
+                        if item.get('exitCode') and item.get('stage') in RUNTIME_BLOCKERS]
+    except (ValueError, OSError, KeyError, TypeError, AttributeError):
+        pass
+    return list(dict.fromkeys(details))
 
 
 def verify_source(root, revision, tag):
@@ -55,6 +80,8 @@ def write_report(output, report):
     lines.extend(f'| {gate} | {status} |' for gate, status in report['gates'].items())
     if report.get('blockingStage'):
         lines += ['', f'Blocking stage: `{report["blockingStage"]}`']
+    if report.get('blockingChecks'):
+        lines += ['', 'Failed checks: ' + ', '.join(f'`{check}`' for check in report['blockingChecks'])]
     if report.get('images'):
         lines += ['', '| Image | Digest |', '| --- | --- |']
         lines.extend(f'| {role} | `{digest}` |' for role, digest in report['images'].items())
@@ -99,6 +126,7 @@ def readiness(output, revision, tag, *, command=run_step):
     except (ValueError, RuntimeError, OSError, KeyError, TypeError, IndexError) as error:
         report['gates'][stage] = 'failed'
         report['blockingStage'] = stage
+        report['blockingChecks'] = failure_detail(output, revision, tag)
         # Exception text can contain paths or arbitrary child diagnostics.
         report['failureType'] = type(error).__name__
     finally:
