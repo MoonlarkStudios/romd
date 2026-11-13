@@ -99,7 +99,8 @@ def main():
               for error in policy_errors(path.read_text(), path.name) + concurrency_errors(path.read_text(), path.name)
               + gate_errors(path.read_text(), path.name) + environment_errors(path.read_text(), path.name)
               + release_gate_errors(path.read_text(), path.name) + early_errors(path.read_text(), path.name)
-              + maintenance_errors(path.read_text(), path.name) + network_probe_errors(path.read_text(), path.name)]
+              + maintenance_errors(path.read_text(), path.name) + network_probe_errors(path.read_text(), path.name)
+              + readiness_errors(path.read_text(), path.name)]
     for error in errors:
         print(error, file=sys.stderr)
     return bool(errors)
@@ -312,6 +313,51 @@ def maintenance_errors(text, name):
                 return ['security-maintenance.yml: CodeQL initialization and analysis must execute']
     except (yaml.YAMLError, KeyError, ValueError, TypeError, AttributeError):
         return ['security-maintenance.yml: invalid maintenance policy']
+    return []
+
+
+def readiness_errors(text, name):
+    """The no-publication rehearsal must stay executable and fail closed."""
+    if name != 'release-readiness.yml':
+        return []
+    try:
+        workflow = yaml.load(text, Loader=UniqueLoader)
+        triggers = workflow.get('on', workflow.get(True, {}))
+        if (set(triggers) != {'workflow_dispatch', 'schedule', 'pull_request'}
+                or triggers['schedule'] != [{'cron': '17 6 * * *'}]
+                or not {'.github/workflows/release-readiness.yml', 'scripts/release/readiness.py',
+                        'scripts/release/test_readiness.py'} <= set(triggers['pull_request']['paths'])
+                or set(triggers['workflow_dispatch']['inputs']) != {'revision', 'version'}):
+            return ['release-readiness.yml: preserve daily, manual and changed-entry-point rehearsal coverage']
+        if set(workflow['jobs']) != {'rehearse'}:
+            return ['release-readiness.yml: only the disposable rehearsal job may run']
+        job = workflow['jobs']['rehearse']
+        if ('if' in job or job.get('continue-on-error', False) is not False
+                or job.get('permissions', {'contents': 'read'}) != {'contents': 'read'}
+                or job.get('env') != {'SOURCE_REVISION': '${{ inputs.revision || github.sha }}',
+                                      'INTENDED_VERSION': '${{ inputs.version }}'}
+                or workflow.get('concurrency', {}).get('cancel-in-progress') is not False):
+            return ['release-readiness.yml: require the selected source without bypasses, secrets or cancellation']
+        command = ('python3 scripts/release/readiness.py --revision "$SOURCE_REVISION" '
+                   '--tag "$INTENDED_VERSION" --output "$RUNNER_TEMP/release-readiness"')
+        steps = job['steps']
+        if not any(step.get('run') == command and 'if' not in step
+                   and step.get('continue-on-error', False) is False for step in steps):
+            return ['release-readiness.yml: the complete common readiness command must execute']
+        checkout = next(step for step in steps if step.get('uses', '').startswith('actions/checkout@'))
+        if (checkout.get('with', {}).get('ref') != '${{ inputs.revision || github.sha }}'
+                or checkout['with'].get('fetch-depth') != 0):
+            return ['release-readiness.yml: checkout must match the full selected source revision']
+        if ('secrets.' in text or any(re.search(r'\bgh release\b|\bdocker (?:login|push)\b|scripts/release/publication.py',
+                                              step.get('run', '')) for step in steps)):
+            return ['release-readiness.yml: public writes and publication credentials are prohibited']
+        upload = next(step for step in steps if step.get('uses', '').startswith('actions/upload-artifact@'))
+        if (upload.get('if') != '${{ always() }}' or upload.get('with', {}).get('retention-days') != 7
+                or upload['with'].get('path') != '${{ runner.temp }}/release-readiness/'
+                or upload['with'].get('if-no-files-found') != 'error'):
+            return ['release-readiness.yml: retain bounded sanitized failure and success evidence']
+    except (yaml.YAMLError, KeyError, ValueError, TypeError, AttributeError, StopIteration):
+        return ['release-readiness.yml: invalid rehearsal routing']
     return []
 
 
