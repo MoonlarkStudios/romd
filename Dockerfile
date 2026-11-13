@@ -55,15 +55,15 @@ RUN case "$TARGETARCH" in amd64) rid=linux-x64 ;; arm64) rid=linux-arm64 ;; *) e
     && echo "$rid" > /opt/native-rid
 RUN case "$TARGETARCH" in \
       amd64) sdk=x64; cmake=x86_64; \
-        sdk_sha512=1904a98dda2db34ba78ba3c4fb1b224455329af91c341d83547843c1839e112b04ae699ee92fa2449a8f62249196a938723078c0c60b9f65c88539d5687729c2; \
+        sdk_sha512=577d0eb17fec33d029104c5c63a1ab0accc3e28776274abef2218dbac5af18d2109b5406d26b31d76f5c245215e3ba0926a94c20246c672c41847c9e1eb1dc50; \
         cmake_sha256=0dc2e9a6860f06bf10bd8fadc03e35d9eeb4df46e33763a7e480e987758f385c ;; \
       arm64) sdk=arm64; cmake=aarch64; \
-        sdk_sha512=db85ae85527251fbb1290720ac3bf324bb1d9eea74516ef291ed4bb1f8ff6ec63a17593367f49b456115e8b24ead6d0c2ece2801e501f36a6cd4444ed01a498f; \
+        sdk_sha512=3533a3869da219cac45c567aadac3d8e96cdf1c6a04fe1c1d5fdeefea5d45af8424488f0144730d11b4a751f7ad546fb11e4c2b2725cd8401efee726711f8f11; \
         cmake_sha256=83f8fd91d2038a56556e1400390fcfe42f79602940c494f6c6f1cdae7f9e7f40 ;; \
       *) exit 1 ;; \
     esac \
     && curl --fail --location --proto '=https' --proto-redir '=https' --max-time 600 --output /tmp/sdk.tar.gz \
-      "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.402/dotnet-sdk-10.0.402-linux-$sdk.tar.gz" \
+      "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.404/dotnet-sdk-10.0.404-linux-$sdk.tar.gz" \
     && echo "$sdk_sha512  /tmp/sdk.tar.gz" | sha512sum -c - \
     && curl --fail --location --proto '=https' --proto-redir '=https' --max-time 300 --output /tmp/cmake.tar.gz \
       "https://github.com/Kitware/CMake/releases/download/v3.31.12/cmake-3.31.12-linux-$cmake.tar.gz" \
@@ -172,7 +172,7 @@ RUN node /tmp/write-player-defaults.mjs \
     /web/tools/emulatorjs/pin.json \
     /tmp/player-defaults.env
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0.402-noble@sha256:0d99ebf1ccad15037b5c98c9fe8979d6b8dbac23812feae2277a0b277b5c5ffa AS backend-build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.404-noble@sha256:fe0fd4e93bd2fbb47c883b7a6369e5c8d3db8bf01cdc5981f6ee35fbdf3ff4fb AS backend-build
 ARG TARGETARCH
 WORKDIR /src
 
