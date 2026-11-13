@@ -141,6 +141,14 @@ independently holds both transfers on both routes, and requires zero failures
 with the current sequence. HTTP and transport faults must still be rejected in
 PR CI and again before the downloaded-installation checks run.
 
+The consumer's authenticated layout owns a playback-capability query observer.
+Late persisted play history can move the only title card between shelves;
+card subscriptions alone can cancel discovery during that move. A web regression
+holds the real query's cancellation signal while the actual shelves rearrange,
+requires the same request to stay active, and still requires cancellation when
+the authenticated layout closes. Keep this lifecycle coverage alongside the
+navigation barriers and the browser's request-failure gates.
+
 The actual isolated player must send its protocol hello, ready, and game-started
 events. The runner clicks the runtime's real **Start game** control and requires
 both the player's `body[data-playing]` and consumer's playing state. The passive
