@@ -16,7 +16,7 @@ from urllib.parse import quote, unquote
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'release'))
-from qualify import canonical_digest, image_map, verify_bundle, verify_publisher
+from qualify import canonical_digest, image_map, rehearsal_images, verify_bundle, verify_publisher
 from policy import evaluate
 from tools import verify_installed
 from credentials import anonymous_environment
@@ -208,13 +208,17 @@ def generate(args):
     pins = verify_installed(args.tools_dir)
     syft, trivy = args.tools_dir / 'syft', args.tools_dir / 'trivy'
     args.output.mkdir(parents=True, exist_ok=False, mode=0o700)
+    rehearsal = getattr(args, 'rehearsal', False)
     report = {'schemaVersion': 1, 'result': 'failed', 'sourceCommit': args.revision, 'releaseTag': args.tag,
+              'evidenceType': 'disposable-rehearsal' if rehearsal else 'disposable-release',
               'tools': pins, 'subjects': [], 'commands': []}
     try:
         with tempfile.TemporaryDirectory(prefix='romd-release-metadata-') as temporary:
             work = Path(temporary)
             bundle = work / 'bundle'
             verify_publisher(args.bundle, args.publisher_state, args.images, args.revision, args.tag)
+            if rehearsal:
+                rehearsal_images(image_map(args.images))
             verified = verify_bundle(args.bundle, args.checksum, args.images, bundle, args.revision, args.tag)
             commands = Commands(work, args.output)
             report['commands'] = commands.records
@@ -228,14 +232,18 @@ def generate(args):
             for key, reference in sorted(verified['images'].items()):
                 role = key[5:-6].lower()
                 raw = args.output / f'{role}.raw.cdx.json'
-                commands.run([syft, 'scan', 'registry:' + reference, '--platform', 'linux/amd64',
+                # The rehearsal registry is deliberately plain loopback HTTP.
+                # Scan its exact pulled Docker image without enabling insecure
+                # registry transport or a fallback to another container engine.
+                local = rehearsal and role != 'postgres'
+                commands.run(['docker', 'pull', '--platform', 'linux/amd64', reference], 'anonymous-pull-' + role)
+                commands.run([syft, 'scan', ('docker:' if local else 'registry:') + reference, '--platform', 'linux/amd64',
                               '--config', work / 'empty-config.json', '-o', 'cyclonedx-json=' + str(raw)], 'syft-' + role)
                 supplements = []
                 container = None
                 try:
                     # Create does not execute the image entrypoint. Only this returned
                     # disposable container ID is ever removed.
-                    commands.run(['docker', 'pull', '--platform', 'linux/amd64', reference], 'anonymous-pull-' + role)
                     container = commands.run(['docker', 'create', '--platform', 'linux/amd64', reference], 'metadata-container-' + role).strip()
                     if role in ('admin', 'consumer', 'player'):
                         frontend = work / f'{role}-frontend.cdx.json'
@@ -275,6 +283,8 @@ def generate(args):
                                '--format', 'json', '--output', scan, '--exit-code', '0', '--disable-telemetry', target]
                     if mode == 'image':
                         command[2:2] = ['--platform', 'linux/amd64']
+                        if local:
+                            command[2:2] = ['--image-src', 'docker']
                     commands.run(command, 'trivy-' + role + '-' + mode)
                     scan_result = json.loads(scan.read_text())
                     assert_scanner_coverage(scan_result, role, mode)
@@ -332,6 +342,7 @@ def main():
     parser.add_argument('--revision', required=True)
     parser.add_argument('--tag', required=True)
     parser.add_argument('--policy', type=Path, default=HERE / 'policy.json')
+    parser.add_argument('--rehearsal', action='store_true', help='Disposable local images; never public qualification evidence')
     args = parser.parse_args()
     args.tools_dir = args.tools_dir.resolve()
     args.output = args.output.resolve()

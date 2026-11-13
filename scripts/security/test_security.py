@@ -21,7 +21,7 @@ import urllib.response
 
 from download_release import DownloadFailure, OfficialRedirects, anonymous_opener, download_release, official_url
 from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement, upstream_postgres_report
-from qualify import image_map, verify_bundle, verify_publisher
+from qualify import image_map, rehearsal_images, verify_bundle, verify_publisher
 from policy import evaluate, validate_policy
 from tools import binary_from_archive
 from verify import matching_predicate, verify_attestations, verify_files
@@ -32,6 +32,23 @@ DIGEST = 'sha256:' + 'a' * 64
 
 
 class VulnerabilityPolicyTests(unittest.TestCase):
+    def test_rehearsal_scan_sources_cannot_escape_owned_roles_registry_or_official_database(self):
+        pins = json.loads((HERE.parent / 'deployment/base-images.json').read_text())
+        references = {f'ROMD_{role.upper()}_IMAGE':
+            f'127.0.0.1:51234/romd-rehearsal-abcd/romd-{role}@{DIGEST}'
+            for role in ('admin', 'consumer', 'worker', 'player')}
+        references['ROMD_POSTGRES_IMAGE'] = pins['postgres']
+        rehearsal_images(references)
+        for changed in (
+                dict(references, ROMD_ADMIN_IMAGE='ghcr.io/example/admin@' + DIGEST),
+                dict(references, ROMD_ADMIN_IMAGE=references['ROMD_WORKER_IMAGE']),
+                dict(references, ROMD_ADMIN_IMAGE=references['ROMD_ADMIN_IMAGE'].replace(':51234/', ':51235/')),
+                dict(references, ROMD_ADMIN_IMAGE=references['ROMD_ADMIN_IMAGE'].replace(':51234/', ':51234@evil.test/')),
+                dict(references, ROMD_POSTGRES_IMAGE='example/postgres@' + DIGEST),
+                {key: value for key, value in references.items() if key != 'ROMD_WORKER_IMAGE'}):
+            with self.subTest(references=changed), self.assertRaises(ValueError):
+                rehearsal_images(changed)
+
     def setUp(self):
         self.policy = json.loads((HERE / 'policy.json').read_text())
         self.today = date(2026, 10, 15)

@@ -1,6 +1,7 @@
 # Packaged release qualification
 
-The same packaged runtime suite runs before publication and against the downloaded
+The same image/bundle security policy and packaged runtime suite run before
+publication and against the downloaded
 deployment bundle and its published Linux amd64 image digests. A source Compose smoke, an HTTP login, a passing harness
 unit test, or `--verify-only` does not qualify an installation. Final publication
 also requires the plan's maintainer checkpoint and release metadata verification.
@@ -28,7 +29,8 @@ bundle needs no Node, browser tools, source checkout, or development SDK.
 ## Before publication
 
 Every PR's required Production Compose job builds source/version-labelled images,
-runs the source drill, then runs the full packaged suite on native Docker. It
+runs the source drill, then runs image/SBOM/bundle security checks and the full
+packaged suite on native Docker. It
 uses a fresh loopback registry to supply immutable references to those images.
 The publisher repeats that rehearsal on its exact second build before authenticating
 to GHCR or creating releases, assets or public image tags.
@@ -54,9 +56,20 @@ so that SIGTERM drains connections and exits cleanly; its default zero setting
 does not install that shutdown handler. A nonzero exit or OOM still fails the gate.
 PostgreSQL and nginx retain their reviewed official digest pins.
 
+The rehearsal installs the same checksum-pinned Syft and Trivy tools as final
+qualification and enforces the complete [release security policy](release-metadata.md).
+ROMD images are pulled by their disposable registry digests and scanned through
+the native Docker daemon explicitly; scanners cannot fall back to another
+engine or enable insecure external registry transport. PostgreSQL retains its
+official registry scan and upstream-maintained reporting boundary. Image and
+SBOM inventory, scanner failures, database freshness, supported OS and ROMD
+severity gates apply before public writes. Final published-digest scans still
+run independently after downloaded-installation qualification.
+
 `receipt.json` binds the source, version, built image IDs, registry manifest
 digests, dependency pins, installation payload and complete positive/negative
-suite reports. Publication refuses a missing, failed or mismatched receipt
+suite reports, plus the complete hash-bound security index and policy reports.
+Publication refuses a missing, failed or mismatched receipt
 before any public write. It checks the final bundle payload before publication
 and requires each pushed manifest digest to equal its rehearsed digest. Only the
 registry location and `images.env` may differ. Retained rehearsal artifacts have

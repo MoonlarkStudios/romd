@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 import subprocess
 
+from toolchain import check_sdk_servicing
+
 ROOT = Path(__file__).resolve().parents[2]
 IMAGE_PROJECTS = ('src/Romd.Admin.Host/Romd.Admin.Host.csproj',
                   'src/Romd.Consumer.Host/Romd.Consumer.Host.csproj',
@@ -32,6 +34,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--update', action='store_true', help='Regenerate locks for a reviewed dependency change')
     args = parser.parse_args()
+    try:
+        check_sdk_servicing(ROOT)
+    except ValueError as error:
+        parser.error(str(error))
     projects = set(subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard',
                                             '*.csproj'], cwd=ROOT, text=True).splitlines())
     solution = {p.replace('\\', '/') for p in re.findall(r'= "[^"]+", "([^"]+\.csproj)"',

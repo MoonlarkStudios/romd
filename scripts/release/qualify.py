@@ -238,6 +238,23 @@ class Runner:
         self.persisted_state = state
 
 
+def rehearsal_images(references):
+    """Allow exactly one disposable loopback registry and the reviewed database."""
+    if set(references) != IMAGE_KEYS:
+        raise ValueError('Rehearsal requires all five release images')
+    registry = set()
+    for key, reference in references.items():
+        if key != 'ROMD_POSTGRES_IMAGE':
+            role = key[5:-6].lower()
+            if not re.fullmatch(r'127\.0\.0\.1:[0-9]+/romd-rehearsal-[0-9a-f]+/romd-'
+                                + re.escape(role) + r'@sha256:[0-9a-f]{64}', reference):
+                raise ValueError('Rehearsal images must belong to a disposable loopback registry')
+            registry.add(reference.split('/')[0])
+    pins = json.loads((HERE.parent / 'deployment/base-images.json').read_text())
+    if len(registry) != 1 or references.get('ROMD_POSTGRES_IMAGE') != pins['postgres']:
+        raise ValueError('Rehearsal requires one disposable registry and the reviewed official dependency pins')
+
+
 def qualify(args, evidence):
     rehearsal = getattr(args, 'rehearsal', False)
     report = {'schemaVersion': 1, 'result': 'failed',
@@ -247,14 +264,7 @@ def qualify(args, evidence):
         verify_publisher(args.bundle, args.publisher_state, args.expected_images, args.expected_revision, args.expected_tag)
         if rehearsal:
             references = image_map(args.expected_images)
-            registry = set()
-            for key, reference in references.items():
-                if key != 'ROMD_POSTGRES_IMAGE':
-                    if not re.fullmatch(r'127\.0\.0\.1:[0-9]+/romd-rehearsal-[0-9a-f]+/romd-(admin|consumer|worker|player)@sha256:[0-9a-f]{64}', reference):
-                        raise ValueError('Rehearsal images must belong to a disposable loopback registry')
-                    registry.add(reference.split('/')[0])
-            if len(registry) != 1:
-                raise ValueError('Rehearsal images must use one disposable registry')
+            rehearsal_images(references)
             pins = json.loads((HERE.parent / 'deployment/base-images.json').read_text())
             if references['ROMD_POSTGRES_IMAGE'] != pins['postgres'] or args.nginx_image != pins['ingress']:
                 raise ValueError('Rehearsal must use the reviewed official dependency pins')
