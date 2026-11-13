@@ -140,13 +140,15 @@ class ReleasePolicyTests(unittest.TestCase):
                 command = [str(part) for part in command]
                 commands.append(command)
                 if command[:3] == ['docker', 'image', 'inspect']:
-                    return json.dumps([dict(Os='linux', Architecture='amd64', Config=dict(Labels=labels))])
+                    return json.dumps([dict(Id='sha256:' + 'c' * 64, Os='linux', Architecture='amd64', Config=dict(Labels=labels))])
                 if command[:3] == ['docker', 'buildx', 'imagetools']:
                     return json.dumps('sha256:' + 'b' * 64)
                 if command[0].endswith('/bundle.sh'):
                     Path(command[2]).write_bytes(b'synthetic bundle')
             with patch('publication.ROOT', root), patch('publication.release_metadata', return_value=None), \
-                    patch('publication.registry_exists', return_value=False), patch('publication.run', side_effect=execute):
+                    patch('publication.registry_exists', return_value=False), patch('publication.run', side_effect=execute), \
+                    patch('publication.verify_rehearsal', return_value={'images': {key: ('postgres' if key == 'ROMD_POSTGRES_IMAGE' else 'example') + '@sha256:' + 'b' * 64 for key in IMAGE_KEYS}}), \
+                    patch('publication.verify_published_bundle'):
                 # An image that would link its new package to another repository is refused before any upload or push.
                 with self.assertRaisesRegex(ValueError, 'source repository label'):
                     publish(args)

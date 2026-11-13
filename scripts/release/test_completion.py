@@ -60,9 +60,10 @@ class PublicationCompletionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             work = Path(temporary)
             for directory in ('bin', 'release-inputs/security-metadata', 'release-inputs/release-files',
-                              'attestation-parts', 'packaged-evidence'):
+                              'attestation-parts', 'packaged-evidence', 'scripts/deployment'):
                 (work / directory).mkdir(parents=True)
             (work / 'release-inputs/security-metadata/release-metadata.json').write_text('{}')
+            (work / 'scripts/deployment/base-images.json').write_text(json.dumps({'ingress': 'nginx@sha256:' + 'f' * 64}))
             (work / 'release-inputs/release-files/romd-v1.2.3-rc.1-deployment.tar.gz').write_bytes(b'bundle')
             double = f'#!{sys.executable}\n' + '''import json, os, pathlib, sys
 args = sys.argv[1:]
@@ -74,7 +75,10 @@ if pathlib.Path(sys.argv[0]).name == 'gh':
         sys.exit(1)
     sys.exit(0)
 script = args[0]
-if script.endswith('attestation_files.py'):
+if script.endswith('suite.py'):
+    if '--verify-suite' not in args or '--rehearsal' in args or fault == 'runtime-suite':
+        sys.exit(1)
+elif script.endswith('attestation_files.py'):
     pathlib.Path('attestations.jsonl').write_text('{}\\n')
 elif script.endswith('download_release.py'):
     if fault in ('private-404', 'missing-asset', 'altered-download'):
@@ -137,7 +141,7 @@ else:
         self.assertFalse(any('--clobber' in command for command in calls))
 
     def test_failed_upload_download_verification_or_tamper_gate_never_marks_qualified(self):
-        for fault in ('upload', 'private-404', 'missing-asset', 'altered-download',
+        for fault in ('runtime-suite', 'upload', 'private-404', 'missing-asset', 'altered-download',
                       'public-verification', 'source-verification', 'accept-tampered'):
             with self.subTest(fault=fault):
                 result, calls = self.execute(fault)

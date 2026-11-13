@@ -18,6 +18,7 @@ import urllib.parse
 import urllib.request
 
 from preflight import valid_tag
+from rehearsal_evidence import verify_rehearsal, verify_published_bundle
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMANDS = []
@@ -133,13 +134,7 @@ def publish(args):
     namespace = 'ghcr.io/' + args.repository.split('/')[0].lower()
     references = {service: f'{namespace}/romd-{service}:{args.tag}'
                   for service in ('admin', 'consumer', 'worker', 'player')}
-    metadata = release_metadata(args.repository, args.tag)
-    allow_retry(metadata, args.revision)
-    # Inspect every remote version before pushing any image. Network/auth errors
-    # are failures, never permission to overwrite. A partially published version
-    # requires explicit maintainer disposition instead of an implicit rebuild.
-    if any(registry_exists(reference) for reference in references.values()):
-        raise ValueError('Version image already exists; retry cannot replace published digests')
+    image_ids = {}
     for service in references:
         local = json.loads(run(['docker', 'image', 'inspect', f'romd-{service}:test'], True))[0]
         if (local['Os'], local['Architecture']) != ('linux', 'amd64'):
@@ -152,6 +147,26 @@ def publish(args):
         # when the label names the repository before the first push.
         if labels.get('org.opencontainers.image.source', '').lower() != f'https://github.com/{args.repository}'.lower():
             raise ValueError('Built image source repository label does not match the publishing repository')
+        image_ids[service] = local['Id']
+    rehearsal = verify_rehearsal(getattr(args, 'rehearsal', None), args.revision, args.tag, image_ids,
+                                json.loads((ROOT / 'scripts/deployment/base-images.json').read_text()))
+    # Registry location changes no manifest content. Prepare and compare the
+    # final payload before the first public write, using the rehearsed digests.
+    images = {f'ROMD_{service.upper()}_IMAGE': reference.rsplit(':', 1)[0] + '@'
+              + rehearsal['images'][f'ROMD_{service.upper()}_IMAGE'].rsplit('@', 1)[1]
+              for service, reference in references.items()}
+    images['ROMD_POSTGRES_IMAGE'] = rehearsal['images']['ROMD_POSTGRES_IMAGE']
+    image_file = args.output / 'images.env'
+    image_file.write_text(''.join(f'{key}={value}\n' for key, value in images.items()))
+    bundle = args.output / f'romd-{args.tag}-deployment.tar.gz'
+    run([ROOT / 'scripts/deployment/bundle.sh', image_file, bundle, args.revision, args.tag])
+    verify_published_bundle(rehearsal, bundle, image_file, args.revision, args.tag)
+    metadata = release_metadata(args.repository, args.tag)
+    allow_retry(metadata, args.revision)
+    # Inspect every remote version before pushing any image. Network/auth errors
+    # are failures, never permission to overwrite a partially published version.
+    if any(registry_exists(reference) for reference in references.values()):
+        raise ValueError('Version image already exists; retry cannot replace published digests')
     if metadata is None:
         notes = args.output / 'candidate-notes.txt'
         notes.write_text('Unqualified draft candidate. Packaged browser, recovery and security gates are pending.\n'
@@ -160,20 +175,15 @@ def publish(args):
              '--verify-tag', '--target', args.revision, '--title', args.tag, '--notes-file', notes])
     # Preserve GPL source before publishing the worker carrying chdman.
     run(['gh', 'release', 'upload', args.tag, args.source_archive, '--repo', args.repository])
-    images = {}
     for service, reference in references.items():
-        run(['docker', 'tag', f'romd-{service}:test', reference])
+        run(['docker', 'tag', image_ids[service], reference])
         run(['docker', 'push', reference])
         digest = json.loads(run(['docker', 'buildx', 'imagetools', 'inspect', reference,
                                  '--format', '{{json .Manifest.Digest}}'], True))
         if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
             raise ValueError('Registry returned an invalid image digest')
-        images[f'ROMD_{service.upper()}_IMAGE'] = reference.rsplit(':', 1)[0] + '@' + digest
-    images['ROMD_POSTGRES_IMAGE'] = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['postgres']
-    image_file = args.output / 'images.env'
-    image_file.write_text(''.join(f'{key}={value}\n' for key, value in images.items()))
-    bundle = args.output / f'romd-{args.tag}-deployment.tar.gz'
-    run([ROOT / 'scripts/deployment/bundle.sh', image_file, bundle, args.revision, args.tag])
+        if digest != rehearsal['images'][f'ROMD_{service.upper()}_IMAGE'].rsplit('@', 1)[1]:
+            raise ValueError('Public image digest differs from the rehearsed image')
     state = args.output / 'candidate.json'
     state.write_text(json.dumps(dict(sourceCommit=args.revision, releaseTag=args.tag, images=images,
                                     bundleSha256=hashlib.sha256(bundle.read_bytes()).hexdigest(),
@@ -192,6 +202,7 @@ def main():
     for option in ('repository', 'tag', 'revision'):
         parser.add_argument('--' + option, required=True)
     parser.add_argument('--source-archive', type=Path, required=True)
+    parser.add_argument('--rehearsal', type=Path, required=True, help='Passed receipt for these exact built images')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)

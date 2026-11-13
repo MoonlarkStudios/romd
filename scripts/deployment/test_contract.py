@@ -275,6 +275,25 @@ class FakeLifecycleDocker:
 
 
 class ContainerLifecycleTests(unittest.TestCase):
+    def test_shared_recovery_keeps_source_identity_and_worker_first_restore(self):
+        from recovery import RecoverySequence
+        source = {'COMPOSE_PROJECT_NAME': 'source'}
+        commands = []
+        gate = Mock()
+        gate.stopping.side_effect = lambda *args: contextlib.nullcontext()
+        recovery = RecoverySequence(lambda argv, stage, env: commands.append((list(argv), dict(env))),
+                                    Path('/fixture/compose.sh'), gate, source)
+        # Callers reuse their environment while switching to the restored project.
+        source['COMPOSE_PROJECT_NAME'] = 'restored'
+        recovery.restart()
+        self.assertTrue(all(env['COMPOSE_PROJECT_NAME'] == 'source' for _, env in commands))
+        self.assertEqual(['postgres', 'romd-worker'], commands[1][0][-2:])
+        commands.clear()
+        recovery.restore(Path('/fixture/restore.sh'), Path('/fixture/backup'), source)
+        self.assertTrue(all(env['COMPOSE_PROJECT_NAME'] == 'restored' for _, env in commands))
+        self.assertEqual(['postgres', 'romd-worker'], commands[-2][0][-2:])
+        gate.checkpoint.assert_has_calls([unittest.mock.call('source'), unittest.mock.call('restored')])
+
     def setUp(self):
         from container_lifecycle import ContainerLifecycle
         self.temporary = tempfile.TemporaryDirectory()
@@ -386,6 +405,7 @@ class ContainerLifecycleTests(unittest.TestCase):
                 self.assertEqual([ROOT / 'scripts/backup/backup.sh', backup_root], arguments)
                 phases.append('backup')
                 backup.mkdir(parents=True)
+                (backup / 'manifest.json').write_text('{}')
                 state['starting'] = True
                 for identifier, value in list(self.engine.containers.items()):
                     if value['labels'].get(PROJECT_LABEL) == source_project and value['labels'].get('com.docker.compose.service') in HOSTS:
@@ -442,6 +462,7 @@ class ContainerLifecycleTests(unittest.TestCase):
                     calls.append(arguments)
                     if arguments[0] == ROOT / 'scripts/backup/backup.sh':
                         (backup_root / 'captured-set').mkdir(parents=True)
+                        (backup_root / 'captured-set/manifest.json').write_text('{}')
                     elif arguments[1] == 'up':
                         if failure == 'readiness':
                             raise subprocess.CalledProcessError(1, arguments)

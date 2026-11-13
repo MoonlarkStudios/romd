@@ -23,7 +23,8 @@ IMAGE_KEYS = {f'ROMD_{name}_IMAGE' for name in ('ADMIN', 'CONSUMER', 'WORKER', '
 DIGEST_REF = re.compile(r'[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}')
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'deployment'))
-from container_lifecycle import ContainerLifecycle, HOSTS
+from container_lifecycle import ContainerLifecycle
+from recovery import RecoverySequence
 
 MAX_EXPANDED_BYTES = 32 * 1024 * 1024
 
@@ -123,7 +124,7 @@ def verify_bundle(bundle, checksum, expected_images, destination, revision, tag)
     if image_map(destination / 'images.env') != expected:
         raise ValueError('Bundle image map differs from published digests')
     return {'sha256': digest, 'sourceCommit': revision, 'releaseTag': tag,
-            'platform': 'linux/amd64', 'images': expected, 'fileCount': len(files)}
+            'platform': 'linux/amd64', 'images': expected, 'fileCount': len(files), 'files': manifest['files']}
 
 
 def verify_publisher(bundle, state_path, expected_images, revision, tag):
@@ -238,10 +239,25 @@ class Runner:
 
 
 def qualify(args, evidence):
-    report = {'schemaVersion': 1, 'result': 'failed', 'evidenceType': 'disposable-release',
+    rehearsal = getattr(args, 'rehearsal', False)
+    report = {'schemaVersion': 1, 'result': 'failed',
+              'evidenceType': 'disposable-rehearsal' if rehearsal else 'disposable-release',
               'injectedFault': args.inject_fault, 'commands': []}
     try:
         verify_publisher(args.bundle, args.publisher_state, args.expected_images, args.expected_revision, args.expected_tag)
+        if rehearsal:
+            references = image_map(args.expected_images)
+            registry = set()
+            for key, reference in references.items():
+                if key != 'ROMD_POSTGRES_IMAGE':
+                    if not re.fullmatch(r'127\.0\.0\.1:[0-9]+/romd-rehearsal-[0-9a-f]+/romd-(admin|consumer|worker|player)@sha256:[0-9a-f]{64}', reference):
+                        raise ValueError('Rehearsal images must belong to a disposable loopback registry')
+                    registry.add(reference.split('/')[0])
+            if len(registry) != 1:
+                raise ValueError('Rehearsal images must use one disposable registry')
+            pins = json.loads((HERE.parent / 'deployment/base-images.json').read_text())
+            if references['ROMD_POSTGRES_IMAGE'] != pins['postgres'] or args.nginx_image != pins['ingress']:
+                raise ValueError('Rehearsal must use the reviewed official dependency pins')
         with tempfile.TemporaryDirectory(prefix='romd-packaged-qualification-') as temporary:
             work = Path(temporary)
             bundle = work / 'bundle'
@@ -277,46 +293,21 @@ def qualify(args, evidence):
                     lambda current=selected, name=role: runner.compose('down', '--volumes', '--remove-orphans',
                         stage='cleanup-' + name + '-project', env=current)))
             with gate.monitor(cleanups):
+                recovery = RecoverySequence(runner.run, bundle / 'scripts/deployment/compose.sh', gate, env)
                 runner.run([bundle / 'scripts/deployment/validate.sh'], 'bundle-compose-validation')
                 runner.compose('pull', stage='pull-published-digests')
-                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', 'postgres', 'romd-worker',
-                               stage='worker-first-provisioning')
-                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', stage='packaged-startup')
-                gate.checkpoint(env['COMPOSE_PROJECT_NAME'])
+                recovery.start()
                 report['runningImages'] = runner.inspect_images(report['bundle']['images'])
                 runner.run([bundle / 'scripts/deployment/verify.sh'], 'packaged-http-verification')
                 runner.browser('browser-initial', args.inject_fault)
-                with gate.stopping(env['COMPOSE_PROJECT_NAME'], HOSTS):
-                    runner.compose('stop', 'romd-admin', 'romd-consumer', 'romd-worker', stage='restart-stop-hosts')
-                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', 'postgres', 'romd-worker',
-                               stage='restart-worker-first')
-                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', stage='restart-start-hosts')
-                gate.checkpoint(env['COMPOSE_PROJECT_NAME'])
+                recovery.restart()
                 runner.browser('browser-after-restart', 'none')
-                with gate.stopping(env['COMPOSE_PROJECT_NAME'], HOSTS):
-                    runner.run([bundle / 'scripts/backup/backup.sh', work / 'backups'], 'packaged-backup')
-                # The backup's EXIT trap starts hosts asynchronously. Finish that
-                # resume before stopping the source again, as the source smoke does.
-                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', stage='backup-resume-readiness')
-                gate.checkpoint(env['COMPOSE_PROJECT_NAME'])
-                backup_sets = list((work / 'backups').glob('*/manifest.json'))
-                if len(backup_sets) != 1:
-                    raise RuntimeError('Packaged backup did not produce exactly one complete backup set')
-                backup_set = backup_sets[0].parent
+                backup_set = recovery.backup_and_stop(bundle / 'scripts/backup/backup.sh', work / 'backups')
                 # Stop the source before exposing its restored identity, and free its ingress socket/network.
                 with gate.stopping(env['COMPOSE_PROJECT_NAME']):
-                    runner.compose('stop', stage='stop-source-before-restore')
                     gate.diagnostics(env['COMPOSE_PROJECT_NAME'])
                     runner.compose('down', stage='remove-source-before-restore')
-                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', 'postgres',
-                               stage='restore-empty-postgres', env=restore_env)
-                runner.compose('create', '--no-recreate', 'romd-worker', stage='restore-data-volume', env=restore_env)
-                with gate.stopping(restore_env['COMPOSE_PROJECT_NAME'], HOSTS):
-                    runner.run([bundle / 'scripts/backup/restore.sh', backup_set], 'packaged-restore', env=restore_env)
-                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', 'postgres', 'romd-worker',
-                               stage='restore-worker-first', env=restore_env)
-                runner.compose('up', '-d', '--wait', '--wait-timeout', '300', stage='restore-hosts', env=restore_env)
-                gate.checkpoint(restore_env['COMPOSE_PROJECT_NAME'])
+                recovery.restore(bundle / 'scripts/backup/restore.sh', backup_set, restore_env)
                 report['restoredRunningImages'] = runner.inspect_images(report['bundle']['images'], env=restore_env)
                 runner.run([bundle / 'scripts/deployment/verify.sh'], 'restored-http-verification', env=restore_env)
                 runner.browser('browser-after-restore', 'none')
@@ -330,7 +321,7 @@ def qualify(args, evidence):
     return report
 
 
-def main():
+def argument_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('bundle', 'checksum', 'expected-images', 'publisher-state', 'evidence-dir'):
         parser.add_argument('--' + name, type=Path, required=True)
@@ -339,13 +330,23 @@ def main():
     parser.add_argument('--nginx-image', help='Reviewed immutable ingress image reference')
     parser.add_argument('--inject-fault', choices=('none', 'portal-asset', 'player-startup'), default='none')
     parser.add_argument('--verify-only', action='store_true', help='Verify archive; this does not qualify an installation')
-    args = parser.parse_args()
+    parser.add_argument('--rehearsal', action='store_true', help='Disposable loopback images; never public release evidence')
+    return parser
+
+
+def validate_arguments(parser, args):
     if not re.fullmatch('[0-9a-f]{40}', args.expected_revision):
         parser.error('--expected-revision must be a full Git SHA-1')
     if not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?', args.expected_tag):
         parser.error('--expected-tag must be a release version tag')
     if not args.verify_only and not DIGEST_REF.fullmatch(args.nginx_image or ''):
         parser.error('--nginx-image must be digest-pinned')
+
+
+def main():
+    parser = argument_parser()
+    args = parser.parse_args()
+    validate_arguments(parser, args)
     # Browser commands run from the extracted bundle, not the caller's cwd.
     args.evidence_dir = args.evidence_dir.resolve()
     args.evidence_dir.mkdir(parents=True, exist_ok=False, mode=0o700)

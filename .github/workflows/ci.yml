@@ -484,7 +484,7 @@ jobs:
     needs: source-checks
     name: Production Compose and recovery drill
     runs-on: ubuntu-24.04
-    # Image build and smoke drill (about 30 minutes), then the bounded synthetic CHD step below.
+    # Reuse one image build for source and packaged drills, then the scoped CHD step.
     timeout-minutes: 90
     permissions:
       contents: read
@@ -492,11 +492,33 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Run registered production topology and CHD harness contracts
-        run: python3 scripts/validation/run.py --ci --job production-compose --evidence-parent coverage/production-compose
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.0'
+      - name: Install the locked packaged rehearsal browser
+        run: |
+          npm ci --ignore-scripts --prefix scripts/release/browser
+          scripts/release/browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Check production topology contracts
+        run: python3 scripts/validation/run.py --ci --id deployment.contracts --evidence-parent coverage/production-compose
+      - name: Check the CHD harness
+        run: python3 scripts/validation/run.py --ci --id e2e.harness-tests --evidence-parent coverage/production-compose
+      - name: Check production ingress
+        run: python3 scripts/validation/run.py --ci --id deployment.ingress --evidence-parent coverage/production-compose
       - name: Build images and exercise production deployment
-        if: ${{ needs.source-checks.outputs.chd == 'true' }}
-        run: python3 scripts/deployment/smoke.py --build --vfs --evidence-dir "$RUNNER_TEMP/production-smoke"
+        run: >-
+          python3 scripts/deployment/smoke.py --build --vfs --source-revision "$(git rev-parse HEAD)"
+          --release-tag "v0.0.0-rehearsal.r$(git rev-parse --short=12 HEAD)" --evidence-dir "$RUNNER_TEMP/production-smoke"
+      - name: Rehearse the extracted package before publication
+        run: python3 scripts/validation/run.py --ci --id deployment.packaged-rehearsal --evidence-parent coverage/packaged-rehearsal
+      - name: Retain sanitized packaged rehearsal evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: packaged-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: coverage/packaged-rehearsal/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Reclaim disposable CI build cache
         if: ${{ needs.source-checks.outputs.chd == 'true' }}
         timeout-minutes: 5

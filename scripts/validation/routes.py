@@ -20,6 +20,7 @@ CONSOLE = {
 }
 DEPENDENCIES = ['.artifacts/ci-python/bin/python', 'scripts/security/source_advisories.py',
                 '--output', '{evidence}/dependencies.json']
+REHEARSAL = ['python3', 'scripts/release/rehearsal.py', '--output', '{evidence}/rehearsal']
 
 
 # CI -> registry parity: every `run:` step in ci.yml must execute registered checks through
@@ -55,6 +56,9 @@ CI_ONLY_STEPS = {
     ('agent-infrastructure', 'Install the locked qualification browser for release regressions'):
         dict(command='npm ci --ignore-scripts --prefix scripts/release/browser',
              reason='locked browser dependencies and native runner packages; local browser setup is documented in packaged-release-qualification'),
+    ('production-compose', 'Install the locked packaged rehearsal browser'):
+        dict(command='npm ci --ignore-scripts --prefix scripts/release/browser',
+             reason='locked browser setup; the actual packaged rehearsal has a required local/CI registry route'),
     ('console', 'Restore committed console dependencies'):
         dict(command='flutter pub get --enforce-lockfile', reason='dependency install and lockfile pin'),
     ('console', 'Install ripgrep for the theme governance scripts'):
@@ -251,6 +255,11 @@ def check_registry(root, files, mise, errors, registry=None, workflow_text=None,
             or 'dependencies' not in advisory_check.get('groups', [])
             or any(advisory_check.get(mode) != DEPENDENCIES for mode in ('local', 'ci'))):
         errors.append('dependencies.source: source advisory gate must run locally and in required CI')
+    rehearsal = by_id.get('deployment.packaged-rehearsal', {})
+    if (not rehearsal.get('required_ci') or rehearsal.get('ci_job') != 'production-compose'
+            or 'release-runtime' not in rehearsal.get('groups', [])
+            or any(rehearsal.get(mode) != REHEARSAL for mode in ('local', 'ci'))):
+        errors.append('deployment.packaged-rehearsal: complete packaged runtime rehearsal must remain required')
     tasks = mise.get('tasks', {})
     group_tasks = {'backend': 'test', 'integration': 'test:integration', 'mount-dev': 'test:mount-dev',
                    'dependencies': 'dependencies:check'}

@@ -5,9 +5,11 @@ import json
 from pathlib import Path
 
 
-def assert_injected_failure(evidence, fault):
+def assert_injected_failure(evidence, fault, *, evidence_type=None):
     qualification = json.loads((evidence / 'qualification.json').read_text())
     browser = json.loads((evidence / 'browser-initial/browser-diagnostics.json').read_text())
+    if evidence_type is not None and qualification.get('evidenceType') != evidence_type:
+        raise ValueError('Negative drill evidence type mismatch')
     if (qualification.get('result') != 'failed' or qualification.get('injectedFault') != fault
             or len(qualification.get('runningImages', {})) != 5
             or browser.get('result') != 'failed' or browser.get('injectedFault') != fault):

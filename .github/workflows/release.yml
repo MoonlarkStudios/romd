@@ -59,9 +59,26 @@ jobs:
           persist-credentials: false
       - name: Recheck the allowed source revision
         run: python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24.22.0'
+      - name: Install the locked rehearsal browser
+        run: |
+          npm ci --ignore-scripts --prefix scripts/release/browser
+          scripts/release/browser/node_modules/.bin/playwright install --with-deps chromium
       # Keep the second build: these exact locally verified images are pushed.
       - name: Build and verify the exact candidate images
         run: python3 scripts/deployment/smoke.py --build --vfs --source-revision "$SOURCE_REVISION" --release-tag "$RELEASE_TAG"
+      - name: Rehearse the exact candidate before any public writes
+        run: python3 scripts/release/rehearsal.py --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" --output release-rehearsal
+      - name: Retain pre-publication rehearsal evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pre-publication-rehearsal-${{ github.sha }}
+          path: release-rehearsal/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Fetch and verify the worker's exact GPL source archive
         run: |
           set -euo pipefail
@@ -85,7 +102,7 @@ jobs:
           source_url="$(jq -er .sourceUrl native/chdman/mame.json)"
           python3 scripts/release/publication.py --repository "$GITHUB_REPOSITORY" \
             --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" \
-            --source-archive "release-output/${source_url##*/}" --output release-output
+            --source-archive "release-output/${source_url##*/}" --rehearsal release-rehearsal/receipt.json --output release-output
       - name: Retain the publisher's immutable subject map
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -144,14 +161,7 @@ jobs:
             --checksum "candidate-download/romd-$RELEASE_TAG-deployment.tar.gz.sha256"
             --expected-images publisher-subjects/images.env --publisher-state publisher-subjects/candidate.json --expected-revision "$SOURCE_REVISION"
             --expected-tag "$RELEASE_TAG" --nginx-image "$ingress")
-          python3 scripts/release/qualify.py "${args[@]}" --evidence-dir coverage/packaged/positive
-          for fault in portal-asset player-startup; do
-            if python3 scripts/release/qualify.py "${args[@]}" --inject-fault "$fault" --evidence-dir "coverage/packaged/$fault"; then
-              echo "Injected browser fault was incorrectly qualified: $fault" >&2
-              exit 1
-            fi
-            python3 scripts/release/assert_failure.py --fault "$fault" --evidence-dir "coverage/packaged/$fault"
-          done
+          python3 scripts/release/suite.py "${args[@]}" --evidence-dir coverage/packaged
       - name: Retain sanitized packaged/browser diagnostics even on failure
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -309,6 +319,14 @@ jobs:
         with:
           name: packaged-qualification-${{ github.sha }}
           path: packaged-evidence
+      - name: Reject rehearsal or mismatched runtime evidence before completion
+        run: |
+          python3 scripts/release/suite.py --verify-suite \
+            --bundle "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
+            --checksum "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz.sha256" \
+            --expected-images release-inputs/release-files/images.env --publisher-state release-inputs/release-files/candidate.json \
+            --expected-revision "$SOURCE_REVISION" --expected-tag "$RELEASE_TAG" \
+            --nginx-image "$(jq -er .ingress scripts/deployment/base-images.json)" --evidence-dir packaged-evidence
       - name: Assemble and verify anonymous offline attestations
         run: |
           python3 scripts/release/attestation_files.py merge --root attestation-parts --output attestations.jsonl

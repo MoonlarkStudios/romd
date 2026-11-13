@@ -717,8 +717,14 @@ same startup/restart/restore checks; CI continues using the small synthetic file
 ## Maintainer release candidates
 
 The release workflow checks a strict `v<SemVer>` tag against the clean current
-`main` tip before running reusable CI. It retains a second build and recovery
-drill, then publishes those exact source/version-labelled images. The worker's
+`main` tip before running reusable CI. Required PR CI rehearses the extracted
+package's browser and recovery paths before a release is tagged. The publisher
+retains a second build and recovery drill, then rehearses that exact build's
+full packaged suite against a disposable loopback registry before any public
+write. Publication requires a matching receipt and unchanged installation
+payload and image digests. Both drills share their recovery sequencing. See
+[the rehearsal procedure](../maintainers/packaged-release-qualification.md#before-publication).
+The worker's
 verified GPL source archive is uploaded before any image push. The candidate
 remains a prerelease throughout automated qualification; production promotion
 requires a separate maintainer decision (see
