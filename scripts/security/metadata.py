@@ -35,6 +35,9 @@ def json_write(path, value):
 
 def merge_sbom(sbom, supplements, name, digest):
     merged = copy.deepcopy(sbom)
+    # CycloneDX permits omitting components; Syft does so for the package-free
+    # deployment payload. Its reviewed image references still form an inventory.
+    merged.setdefault('components', [])
     if merged.get('bomFormat') != 'CycloneDX' or not isinstance(merged.get('components'), list):
         raise ValueError('Expected a CycloneDX component inventory')
     previous_root = merged.get('metadata', {}).get('component')
@@ -49,6 +52,8 @@ def merge_sbom(sbom, supplements, name, digest):
             component = copy.deepcopy(component)
             component['bom-ref'] = 'romd:supplement:' + component.get('purl', component['name'])
             merged['components'].append(component)
+    if not merged['components']:
+        raise ValueError('Expected a nonempty merged CycloneDX component inventory')
     merged.setdefault('metadata', {})['component'] = {
         'type': 'container' if '@sha256:' in name else 'file', 'name': name,
         'hashes': [{'alg': 'SHA-256', 'content': digest}],

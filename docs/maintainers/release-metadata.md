@@ -129,6 +129,11 @@ shipped. An empty scan or missing expected ecosystem cannot become a pass.
 
 The bundle SBOM inventories extracted deployment files and references all five
 digest-pinned runtime images. Frontend tooling is not installed into the bundle.
+Syft can omit the optional CycloneDX `components` field for this package-free
+payload; the merger adds the five reviewed image references and rejects an empty
+merged inventory. Trivy likewise omits an empty `Results` array for a package-free
+SBOM. The parser requires its complete versioned CycloneDX report envelope; image
+OS and ecosystem coverage checks still reject such an empty image scan.
 Original license notices stay in the images and bundle; SBOMs do not replace
 those notices.
 
