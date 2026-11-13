@@ -21,8 +21,10 @@ def verify_rehearsal(path, revision, tag, image_ids, pins):
             or receipt.get('evidenceType') != 'disposable-rehearsal'
             or receipt.get('sourceCommit') != revision or receipt.get('releaseTag') != tag
             or receipt.get('platform') != 'linux/amd64' or receipt.get('imageIds') != image_ids
+            or receipt.get('finalImageIds') != image_ids
             or set(image_ids) != set(ROLES) or receipt.get('dependencies') != pins
-            or receipt.get('registryCleanup') != 'passed'):
+            or receipt.get('registryCleanup') != 'passed'
+            or receipt.get('registryExit') != dict(exitCode=0, oomKilled=False)):
         raise ValueError('Rehearsal does not match the candidate images/source/version/dependencies')
     bundle = root / 'rehearsal-bundle.tar.gz'
     images = root / 'images.env'

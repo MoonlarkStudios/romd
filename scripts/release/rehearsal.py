@@ -75,14 +75,14 @@ def local_json(url):
         return json.loads(data), 'sha256:' + hashlib.sha256(data).hexdigest(), response.headers.get('Docker-Content-Digest')
 
 
-def cleanup_registry(command, container, volume, aliases, session):
+def cleanup_registry(command, container, volume, aliases, session, diagnostics=None):
     """Attempt every owned cleanup even if another cleanup or the drill failed."""
     errors = []
-    def attempt(action):
+    def attempt(stage, action):
         try:
             action()
         except (ValueError, RuntimeError, OSError, KeyError, TypeError, IndexError) as error:
-            errors.append(type(error).__name__)
+            errors.append(dict(stage=stage, error=type(error).__name__))
 
     def remove_container():
         state = json.loads(command(['docker', 'inspect', container], 'registry-owner'))[0]
@@ -90,6 +90,8 @@ def cleanup_registry(command, container, volume, aliases, session):
             raise ValueError('Registry ownership changed; cleanup refused')
         command(['docker', 'stop', container], 'stop-registry')
         state = json.loads(command(['docker', 'inspect', container], 'registry-exit'))[0]['State']
+        if diagnostics is not None:
+            diagnostics['registryExit'] = dict(exitCode=state.get('ExitCode'), oomKilled=state.get('OOMKilled'))
         command(['docker', 'rm', '--volumes', container], 'remove-registry')
         if state.get('ExitCode') != 0 or state.get('OOMKilled'):
             raise ValueError('Disposable registry did not exit cleanly')
@@ -101,11 +103,11 @@ def cleanup_registry(command, container, volume, aliases, session):
         command(['docker', 'volume', 'rm', volume], 'remove-registry-data')
 
     if container:
-        attempt(remove_container)
+        attempt('registry', remove_container)
     for alias in reversed(aliases):
-        attempt(lambda current=alias: command(['docker', 'image', 'rm', current], 'remove-owned-alias'))
+        attempt('image-alias', lambda current=alias: command(['docker', 'image', 'rm', current], 'remove-owned-alias'))
     if volume:
-        attempt(remove_volume)
+        attempt('registry-volume', remove_volume)
     return errors
 
 
@@ -150,7 +152,9 @@ def rehearse(output, revision, tag):
             container = command.run(['docker', 'create', '--name', name, '--label', 'io.romd.rehearsal=' + session,
                 '--publish', '127.0.0.1::5000',
                 '--mount', f'type=volume,source={volume},target=/var/lib/registry',
-                '--env', 'REGISTRY_HTTP_SECRET', '--env', 'OTEL_TRACES_EXPORTER=none', tool['registry']], 'create-registry').strip()
+                '--env', 'REGISTRY_HTTP_SECRET', '--env', 'OTEL_TRACES_EXPORTER=none',
+                # Distribution installs its SIGTERM handler only when drain is enabled.
+                '--env', 'REGISTRY_HTTP_DRAINTIMEOUT=5s', tool['registry']], 'create-registry').strip()
             if not re.fullmatch('[0-9a-f]{64}', container):
                 raise ValueError('Registry create did not return an owned container ID')
             command.run(['docker', 'start', container], 'start-registry')
@@ -200,12 +204,14 @@ def rehearse(output, revision, tag):
         except (ValueError, RuntimeError, OSError, KeyError, TypeError, IndexError) as error:
             receipt['failure'] = str(error) if type(error) in (ValueError, RuntimeError) else type(error).__name__
         finally:
-            cleanup_errors = cleanup_registry(command.run, container, volume, aliases, session)
+            cleanup_errors = cleanup_registry(command.run, container, volume, aliases, session, receipt)
             try:
-                if receipt.get('imageIds') and candidate_images(command.run, revision, tag) != receipt['imageIds']:
-                    raise ValueError('Built candidate images changed during rehearsal')
+                if receipt.get('imageIds'):
+                    receipt['finalImageIds'] = candidate_images(command.run, revision, tag)
+                    if receipt['finalImageIds'] != receipt['imageIds']:
+                        raise ValueError('Built candidate images changed during rehearsal')
             except (ValueError, RuntimeError, OSError, KeyError, TypeError, IndexError) as error:
-                cleanup_errors.append(type(error).__name__)
+                cleanup_errors.append(dict(stage='candidate-images', error=type(error).__name__))
             if cleanup_errors:
                 receipt.update(result='failed', cleanupFailures=cleanup_errors)
             else:

@@ -48,6 +48,10 @@ and tracked by Renovate. It binds only an ephemeral `127.0.0.1` port, uses an
 empty Docker credential configuration, and keeps data in a uniquely labelled
 temporary volume. No daemon settings change. Cleanup checks resource ownership,
 the registry's exit status and preservation of the original candidate image IDs.
+The registry explicitly enables its documented
+[`http.draintimeout`](https://distribution.github.io/distribution/about/configuration/#http)
+so that SIGTERM drains connections and exits cleanly; its default zero setting
+does not install that shutdown handler. A nonzero exit or OOM still fails the gate.
 PostgreSQL and nginx retain their reviewed official digest pins.
 
 `receipt.json` binds the source, version, built image IDs, registry manifest

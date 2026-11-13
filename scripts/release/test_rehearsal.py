@@ -89,7 +89,8 @@ def fixture(root):
                    files={name: digest(packaged / name) for name in REPORTS})
     write_json(packaged / 'suite.json', summary)
     receipt = dict(schemaVersion=1, result='passed', evidenceType='disposable-rehearsal', sourceCommit=REVISION,
-                   releaseTag=TAG, platform='linux/amd64', imageIds=IDS, dependencies=PINS, registryCleanup='passed',
+                   releaseTag=TAG, platform='linux/amd64', imageIds=IDS, finalImageIds=IDS,
+                   dependencies=PINS, registryCleanup='passed', registryExit=dict(exitCode=0, oomKilled=False),
                    images=images, bundleSha256=digest(args.bundle), suiteSha256=digest(packaged / 'suite.json'),
                    payloadFiles={name: value for name, value in bound['files'].items() if name != 'images.env'})
     path = root / 'receipt.json'
@@ -126,7 +127,8 @@ class RehearsalEvidenceTests(unittest.TestCase):
             verify_rehearsal(None, REVISION, TAG, IDS, PINS)
         for mutation in (dict(result='failed'), dict(evidenceType='disposable-release'), dict(sourceCommit='e' * 40),
                          dict(releaseTag='v9.9.9'), dict(platform='linux/arm64'), dict(registryCleanup='failed'),
-                         dict(imageIds={}), dict(dependencies={}), dict(payloadFiles={}), dict(suiteSha256='f' * 64)):
+                         dict(imageIds={}), dict(finalImageIds={}), dict(registryExit=dict(exitCode=2, oomKilled=False)),
+                         dict(dependencies={}), dict(payloadFiles={}), dict(suiteSha256='f' * 64)):
             with self.subTest(mutation=mutation):
                 write_json(self.path, dict(self.receipt, **mutation))
                 with self.assertRaises(ValueError):
@@ -287,3 +289,13 @@ class DisposableRegistryTests(unittest.TestCase):
             self.assertEqual(2, seen.count('remove-owned-alias'))
             self.assertIn('remove-registry-data', seen)
             self.assertEqual(not foreign, 'remove-registry' in seen)
+
+    def test_registry_exit_state_is_retained_and_only_clean_exit_passes(self):
+        for code, oom in ((0, False), (2, False), (0, True)):
+            def command(argv, stage):
+                return json.dumps([{'Config': {'Labels': {'io.romd.rehearsal': 'owned'}},
+                                    'State': {'ExitCode': code, 'OOMKilled': oom}}])
+            receipt = {}
+            errors = cleanup_registry(command, 'container', None, [], 'owned', receipt)
+            self.assertEqual(dict(exitCode=code, oomKilled=oom), receipt['registryExit'])
+            self.assertEqual(code != 0 or oom, bool(errors))
