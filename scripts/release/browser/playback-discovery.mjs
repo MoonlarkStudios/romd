@@ -38,7 +38,7 @@ export function observePlaybackDiscovery(page, config) {
       const deadline = Date.now() + 45_000;
       // A consumer response is followed by a separate player fetch. Do not
       // admit the gap between those transfers or reuse an older pair.
-      while (!closed && !failed && (pending.size || finishedPlayers < startedConsumers)) {
+      while (!closed && !failed && (!startedConsumers || pending.size || finishedPlayers < startedConsumers)) {
         const remaining = deadline - Date.now();
         if (remaining <= 0) throw new Error('Current playback discovery did not finish');
         await new Promise((resolve, reject) => {

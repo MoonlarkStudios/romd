@@ -168,10 +168,12 @@ export async function openFixtureTitle(page, config, titleId, discovery, stage =
   // Use the actual SPA links and current transfers, including background
   // refetches. Keep Diagnostics subscribed to every request/response failure.
   stage('consumer-home-discovery');
-  await page.getByRole('link', { name: `Play ${fixtureName}`, exact: true }).first().waitFor();
-  await discovery.wait();
   const path = `/titles/${encodeURIComponent(titleId)}`;
   const title = page.getByRole('link', { name: fixtureName, exact: true }).first();
+  // Library shelves deliberately hide their card Play actions. The actual
+  // title link plus completed discovery establish readiness for this route.
+  await title.waitFor();
+  await discovery.wait();
   if (await title.getAttribute('href') !== path) throw new Error('Synthetic title link has an unexpected destination');
   stage('consumer-title-navigation');
   // The card's hover Play action overlaps its center. Activate its actual

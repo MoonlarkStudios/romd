@@ -113,11 +113,13 @@ observes each authorization callback, and requires the authenticated profile
 response and rendered authenticated view. It imports an original synthetic
 NES NROM cartridge and matching DAT through the admin API, creates and publishes
 an assigned library with an explicit policy allowing its unrated content, and
-selects **Play Now** in the consumer portal. It waits for the library's available
-Play action, follows the real title link through SPA navigation, and waits for
+selects **Play Now** in the consumer portal. It waits for the library's title
+card (shelves deliberately hide card Play actions), follows its real link through
+SPA navigation, and waits for
 the title's Play Now action. A passive observer tracks current consumer/player
 configuration transfers before each navigation, including background refetches
-and the gap between the paired requests. Historical Resource Timing entries
+and the gap between the paired requests. The first discovery must be observed
+and completed before leaving the library. Historical Resource Timing entries
 cannot establish that a later request has finished. The runner never forces a
 full-page reload to reach the title. Failed configuration responses and requests
 still block qualification, with the fixed navigation stage recorded for diagnosis.

@@ -51,7 +51,6 @@ try {
         response.writeHead(200, { 'Content-Type': 'text/html' });
         response.end(`<body>
           <a id="title" href="/titles/synthetic-title" aria-label="${fixtureName}">Title</a>
-          <a id="play" href="/titles/synthetic-title/releases/synthetic-release/play" hidden>Play ${fixtureName}</a>
           <script>
             window.documentIdentity = 'original-library-document';
             async function discover(round) {
@@ -61,7 +60,6 @@ try {
               const player = await fetch(config.playerOrigin + '/player-config.json?round=' + round);
               if (!player.ok) throw new Error('player configuration unavailable');
               await player.json();
-              if (round === 1) document.querySelector('#play').hidden = false;
             }
             window.refetch = () => { void discover(2).catch(() => {}); };
             document.querySelector('#title').onclick = event => {
@@ -87,6 +85,10 @@ try {
     const diagnostics = new Diagnostics({ consumer: config.consumerOrigin, player: playerOrigin });
     const page = await context.newPage();
     const discovery = observePlaybackDiscovery(page, config);
+    // The observer must not admit an empty history before the first request.
+    let initiallyComplete = false;
+    const initialDiscovery = discovery.wait();
+    initialDiscovery.then(() => { initiallyComplete = true; }, () => {});
     const documentRequests = [];
     context.on('request', request => { if (request.resourceType() === 'document') documentRequests.push(new URL(request.url()).pathname); });
     context.on('response', response => {
@@ -101,6 +103,9 @@ try {
     try {
       await page.goto(config.consumerOrigin + '/home', { waitUntil: 'domcontentloaded' });
       await consumerEntered[1].promise;
+      assert.equal(initiallyComplete, false, 'an unseen first discovery cannot count as completed');
+      assert.equal(await page.getByRole('link', { name: `Play ${fixtureName}`, exact: true }).count(), 0,
+        'production library shelves deliberately hide card Play actions');
       if (mode === 'initial-navigation-abort') {
         const aborted = page.waitForEvent('requestfailed', request => new URL(request.url()).pathname === '/api/playback/config');
         await page.goto(config.consumerOrigin + '/titles/synthetic-title');
@@ -111,7 +116,7 @@ try {
         consumerRelease[1].resolve();
         await playerEntered[1].promise;
         playerRelease[1].resolve();
-        await page.getByRole('link', { name: `Play ${fixtureName}`, exact: true }).waitFor();
+        await initialDiscovery;
         await historicalTiming(page, config);
         await page.evaluate(() => window.refetch());
         await consumerEntered[2].promise;
