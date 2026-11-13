@@ -7,6 +7,7 @@ import sys
 import tempfile
 import tomllib
 import unittest
+import yaml
 from unittest.mock import patch
 
 from routes import check_registry
@@ -95,6 +96,13 @@ class RouteTests(unittest.TestCase):
     def test_required_ci_label_without_workflow_route_fails(self):
         self.assertTrue(any('no executable workflow route' in e for e in self.errors(workflow='run: echo skipped')))
 
+    def test_packaged_rehearsal_cannot_be_omitted_or_replaced_by_inventory(self):
+        for field, value in (('required_ci', False), ('groups', []), ('ci_job', 'other'),
+                             ('local', ['echo', 'passed']), ('ci', ['echo', 'passed'])):
+            registry = copy.deepcopy(self.registry)
+            next(c for c in registry['checks'] if c['id'] == 'deployment.packaged-rehearsal')[field] = value
+            self.assertTrue(any('deployment.packaged-rehearsal' in e for e in self.errors(registry)))
+
     def test_inventory_short_circuit_and_skipped_workflows_do_not_count(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         route = 'python3 scripts/validation/run.py --ci --job backend'
@@ -138,12 +146,13 @@ class RouteTests(unittest.TestCase):
 
     def test_allowlisted_ci_steps_cannot_be_repurposed_or_go_stale(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        repurposed = workflow.replace('run: python3 scripts/deployment/smoke.py --build --vfs',
-                                      'run: python3 scripts/deployment/other.py')
+        repurposed = workflow.replace('python3 scripts/deployment/smoke.py --build --vfs',
+                                      'python3 scripts/deployment/other.py')
         self.assertTrue(any('command changed from allowlisted' in e for e in self.parity_errors(repurposed)))
-        removed = workflow.replace('      - name: Build images and exercise production deployment\n'
-                                   "        if: ${{ needs.source-checks.outputs.chd == 'true' }}\n"
-                                   '        run: python3 scripts/deployment/smoke.py --build --vfs --evidence-dir "$RUNNER_TEMP/production-smoke"\n', '')
+        parsed = yaml.safe_load(workflow)
+        steps = parsed['jobs']['production-compose']['steps']
+        steps[:] = [step for step in steps if step.get('name') != 'Build images and exercise production deployment']
+        removed = yaml.safe_dump(parsed)
         self.assertNotEqual(workflow, removed)
         self.assertTrue(any('stale allowlist entry' in e for e in self.parity_errors(removed)))
         mise = copy.deepcopy(self.mise)

@@ -84,10 +84,11 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "/^scripts/deployment/base-images\\.json$/"
+        "/^scripts/deployment/base-images\\.json$/",
+        "/^scripts/release/rehearsal\\.json$/"
       ],
       "matchStrings": [
-        "\"(?:postgres|ingress)\":\\s*\"(?<depName>[^:@\"]+):(?<currentValue>[^@\"]+)@(?<currentDigest>sha256:[a-f0-9]{64})\""
+        "\"(?:postgres|ingress|registry)\":\\s*\"(?<depName>[^:@\"]+):(?<currentValue>[^@\"]+)@(?<currentDigest>sha256:[a-f0-9]{64})\""
       ],
       "datasourceTemplate": "docker"
     }

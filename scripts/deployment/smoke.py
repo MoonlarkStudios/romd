@@ -20,7 +20,8 @@ import xml.etree.ElementTree as ET
 from urllib.parse import urlencode, urlsplit, parse_qs
 
 from test_contract import ROOT, test_environment
-from container_lifecycle import ContainerLifecycle, HOSTS
+from container_lifecycle import ContainerLifecycle
+from recovery import RecoverySequence
 
 
 def run(args, env, capture=False):
@@ -58,18 +59,11 @@ def find_system_key(fetch, name):
 
 def backup_and_stop_source(compose, env, gate, backup_root):
     """Capture the source before stopping it to expose the restored identity."""
-    source_project = env['COMPOSE_PROJECT_NAME']
-    with gate.stopping(source_project, HOSTS):
-        run([ROOT / 'scripts/backup/backup.sh', backup_root], env)
-    # The backup's EXIT trap starts the hosts without waiting for readiness. Finish
-    # that restart before deliberately stopping the source installation again.
-    run([compose, 'up', '-d', '--wait', '--wait-timeout', '240'], env)
-    gate.checkpoint(source_project)
-    backup = next(backup_root.iterdir())
-    # Keep source data intact, but stop its containers before exposing a restored identity.
-    with gate.stopping(source_project):
-        run([compose, 'stop'], env)
-    return backup
+    return recovery_sequence(compose, env, gate).backup_and_stop(ROOT / 'scripts/backup/backup.sh', backup_root)
+
+
+def recovery_sequence(compose, env, gate):
+    return RecoverySequence(lambda command, stage, env: run(command, env), compose, gate, env, wait_timeout=240)
 
 
 def main():
@@ -388,26 +382,18 @@ def main():
                 lambda selected=cleanup_env: run([compose, 'stop'], selected),
                 lambda selected=cleanup_env: run([compose, 'down', '--volumes', '--remove-orphans'], selected)))
         with gate.monitor(cleanups):
-            run([compose, 'up', '-d', '--wait', '--wait-timeout', '240'], env)
-            gate.checkpoint(source_project)
+            recovery = recovery_sequence(compose, env, gate)
+            recovery.start()
             identity = verify()
             run([compose, 'exec', '-T', 'romd-worker', 'sh', '-c',
                  'mkdir -p /var/lib/romd/content/smoke && printf restore-proof > /var/lib/romd/content/smoke/proof'], env)
-            with gate.stopping(source_project, HOSTS):
-                run([compose, 'restart', 'romd-worker', 'romd-admin', 'romd-consumer'], env)
-            run([compose, 'up', '-d', '--wait', '--wait-timeout', '240'], env)
-            gate.checkpoint(source_project)
+            recovery.restart()
             assert identity == verify(), 'identity changed across restart'
             backup_root = work / 'backups'
             backup = backup_and_stop_source(compose, env, gate, backup_root)
             env['COMPOSE_PROJECT_NAME'] = target_project
             env.update(ROMD_EDGE_SUBNET='172.31.0.0/24', ROMD_EDGE_DYNAMIC_RANGE='172.31.0.128/25', ROMD_TRUSTED_PROXY='172.31.0.2', ROMD_ADMIN_EDGE_IP='172.31.0.3', ROMD_CONSUMER_EDGE_IP='172.31.0.4', ROMD_PLAYER_EDGE_IP='172.31.0.5')
-            run([compose, 'up', '-d', '--wait', 'postgres'], env)
-            run([compose, 'create', '--no-recreate', 'romd-worker'], env)
-            with gate.stopping(target_project, HOSTS):
-                run([ROOT / 'scripts/backup/restore.sh', backup], env)
-            run([compose, 'up', '-d', '--wait', '--wait-timeout', '240'], env)
-            gate.checkpoint(target_project)
+            recovery.restore(ROOT / 'scripts/backup/restore.sh', backup, env)
             assert identity == verify(), 'restored identity differs'
             proof = run([compose, 'exec', '-T', 'romd-worker', 'cat', '/var/lib/romd/content/smoke/proof'], env, capture=True)
             assert proof == 'restore-proof', 'content did not survive restore'

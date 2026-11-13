@@ -268,16 +268,26 @@ class BundleQualificationTests(unittest.TestCase):
         self.assertEqual('bundle', Path(location['cwd']).name)
         self.assertEqual(1, report['commands'][0]['exitCode'])
 
-    def test_packaged_flow_keeps_lifecycle_through_backup_restore_and_both_cleanups(self):
+    def packaged_flow(self, failure=None):
         self.bundle()
         state = self.work / 'publisher.json'
         state.write_text(json.dumps(dict(sourceCommit='a' * 40, releaseTag='v1.2.3-rc.1',
             images=self.entries, bundleSha256=hashlib.sha256(self.archive.read_bytes()).hexdigest())))
-        evidence = self.work / 'flow-evidence'
+        evidence = self.work / f'flow-evidence-{failure or "success"}'
         evidence.mkdir()
         instances, stages = [], []
+        resumed = {'starting': False, 'ready': False, 'checkpointed': False}
         def factory(*args):
             gate = RecordingLifecycle(*args)
+            checkpoint = gate.checkpoint
+            def admit(project):
+                if project == args[0]['COMPOSE_PROJECT_NAME'] and resumed['starting']:
+                    self.assertTrue(resumed['ready'], 'Lifecycle admission must follow backup-resume readiness')
+                    if failure == 'checkpoint':
+                        raise RuntimeError('Backup resume lifecycle failed')
+                    resumed['checkpointed'] = True
+                checkpoint(project)
+            gate.checkpoint = admit
             instances.append(gate)
             return gate
         def run(runner, command, stage, **kwargs):
@@ -288,6 +298,17 @@ class BundleQualificationTests(unittest.TestCase):
                 backup = runner.work / 'backups/fixture'
                 backup.mkdir(parents=True)
                 (backup / 'manifest.json').write_text('{}')
+                resumed['starting'] = True
+            if stage == 'backup-resume-readiness':
+                self.assertEqual([runner.bundle / 'scripts/deployment/compose.sh', 'up', '-d', '--wait',
+                                  '--wait-timeout', '300'], command)
+                if failure == 'readiness':
+                    raise RuntimeError('Backup resume readiness failed')
+                resumed['ready'] = True
+            if stage == 'stop-source-before-restore':
+                self.assertTrue(resumed['ready'], 'Stopping newly resumed hosts can exit 143 before startup finishes')
+                self.assertTrue(resumed['checkpointed'], 'Resume lifecycle must pass before the source is stopped')
+                resumed['starting'] = False
             return b'public-key' if kwargs.get('binary_result') else ''
         arguments = SimpleNamespace(bundle=self.archive, checksum=self.checksum,
             expected_images=self.images, publisher_state=state, expected_revision='a' * 40,
@@ -297,18 +318,31 @@ class BundleQualificationTests(unittest.TestCase):
                 patch.object(Runner, 'run', new=run), patch.object(Runner, 'browser'), \
                 patch.object(Runner, 'inspect_images', return_value={key: {} for key in self.entries}):
             report = qualification.qualify(arguments, evidence)
+        return report, instances[0].events, stages
+
+    def test_packaged_flow_keeps_lifecycle_through_backup_restore_and_both_cleanups(self):
+        report, events, stages = self.packaged_flow()
         self.assertEqual('passed', report['result'])
         self.assertEqual('passed', report['lifecycle']['result'])
-        events = instances[0].events
         self.assertEqual('monitor-start', events[0])
         self.assertEqual('monitor-finish', events[-1])
-        self.assertEqual(3, sum(value.startswith('checkpoint-') for value in events))
+        self.assertEqual(4, sum(value.startswith('checkpoint-') for value in events))
         self.assertEqual(2, sum(value.startswith('cleanup-') for value in events))
         self.assertIn('packaged-backup', stages)
         self.assertIn('packaged-restore', stages)
         self.assertIn('cleanup-restored-project', stages)
         self.assertIn('cleanup-disposable-project', stages)
         self.assertLess(stages.index('cleanup-restored-stop'), stages.index('cleanup-restored-project'))
+
+    def test_backup_resume_readiness_or_lifecycle_failure_blocks_source_stop_and_restore(self):
+        for failure in ('readiness', 'checkpoint'):
+            with self.subTest(failure=failure):
+                report, events, stages = self.packaged_flow(failure)
+                self.assertEqual('failed', report['result'])
+                self.assertIn('Backup resume', report['failure'])
+                self.assertNotIn('stop-source-before-restore', stages)
+                self.assertNotIn('packaged-restore', stages)
+                self.assertEqual(2, sum(value.startswith('cleanup-') for value in events))
 
     def test_running_container_requires_exact_published_image_id_digest_and_architecture(self):
         reference = self.entries['ROMD_ADMIN_IMAGE']

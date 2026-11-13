@@ -904,6 +904,16 @@
       "required_ci": true
     },
     {
+      "id": "deployment.packaged-rehearsal",
+      "groups": ["release-runtime"],
+      "cwd": ".",
+      "prerequisites": ["Native Linux amd64 Docker Engine", "Built source/version-labelled romd-*:test images", "Locked Playwright Chromium"],
+      "local": ["python3", "scripts/release/rehearsal.py", "--output", "{evidence}/rehearsal"],
+      "ci": ["python3", "scripts/release/rehearsal.py", "--output", "{evidence}/rehearsal"],
+      "ci_job": "production-compose",
+      "required_ci": true
+    },
+    {
       "id": "release.browser-discovery",
       "groups": [
         "release"

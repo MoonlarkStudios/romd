@@ -42,6 +42,10 @@ class WorkflowPolicyTests(unittest.TestCase):
             with self.subTest(changed=changed):
                 self.assertNotEqual(text, changed)
                 self.assertTrue(early_errors(changed, 'ci.yml'))
+        for label in ('Build images and exercise production deployment', 'Rehearse the extracted package before publication'):
+            for control in ('        if: false\n', '        continue-on-error: true\n'):
+                changed = text.replace(f'      - name: {label}\n', f'      - name: {label}\n' + control)
+                self.assertTrue(early_errors(changed, 'ci.yml'))
 
     def test_maintenance_is_scheduled_or_manual_with_only_sarif_write_access(self):
         text = (Path(__file__).resolve().parents[2] / '.github/workflows/security-maintenance.yml').read_text()
@@ -93,6 +97,26 @@ class WorkflowPolicyTests(unittest.TestCase):
             with self.subTest(changed=changed):
                 self.assertNotEqual(text, changed)
                 self.assertTrue(release_gate_errors(changed, 'release.yml'))
+
+    def test_packaged_rehearsal_and_public_runtime_gate_cannot_be_bypassed(self):
+        text = (Path(__file__).resolve().parents[2] / '.github/workflows/release.yml').read_text()
+        for changed in (text.replace('--rehearsal release-rehearsal/receipt.json', ''),
+                        text.replace('run: python3 scripts/release/rehearsal.py', 'run: echo rehearsal.py'),
+                        text.replace('      - name: Rehearse the exact candidate before any public writes\n',
+                                     '      - name: Rehearse the exact candidate before any public writes\n        if: false\n'),
+                        text.replace('      - name: Rehearse the exact candidate before any public writes\n',
+                                     '      - name: Rehearse the exact candidate before any public writes\n        continue-on-error: true\n'),
+                        text.replace('python3 scripts/release/suite.py "${args[@]}"',
+                                     'python3 scripts/release/suite.py --rehearsal "${args[@]}"')):
+            with self.subTest(changed=changed):
+                self.assertNotEqual(text, changed)
+                self.assertTrue(release_gate_errors(changed, 'release.yml'))
+        workflow = yaml.safe_load(text)
+        steps = workflow['jobs']['publish']['steps']
+        rehearsal = next(i for i, step in enumerate(steps) if step.get('run', '').startswith('python3 scripts/release/rehearsal.py'))
+        auth = next(i for i, step in enumerate(steps) if step.get('name') == 'Authenticate the publisher to GHCR')
+        steps[rehearsal], steps[auth] = steps[auth], steps[rehearsal]
+        self.assertTrue(release_gate_errors(yaml.safe_dump(workflow), 'release.yml'))
 
     def test_pr_cancellation_cannot_cancel_release_or_other_workflow_invocations(self):
         ci = ("concurrency:\n  group: ci-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}\n"

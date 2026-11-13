@@ -199,14 +199,37 @@ def release_gate_errors(text, name):
         if (not {'preflight', 'verify', 'advisories'} <= set(publish.get('needs', []))
                 or 'if' in publish or publish.get('continue-on-error', False) is not False):
             return ['release.yml/publish: must require successful preflight, CI and source advisories']
+        steps = publish.get('steps', [])
+        names = [step.get('name') for step in steps]
+        required = ('Build and verify the exact candidate images', 'Rehearse the exact candidate before any public writes',
+                    'Authenticate the publisher to GHCR', 'Publish immutable candidate images and assets without replacement')
+        if any(label not in names for label in required) or [names.index(label) for label in required] != sorted(names.index(label) for label in required):
+            return ['release.yml/publish: exact-image rehearsal must precede public authentication/publication']
+        rehearsal = steps[names.index(required[1])]
+        publication = steps[names.index(required[3])]
+        if (rehearsal.get('run') != 'python3 scripts/release/rehearsal.py --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" --output release-rehearsal'
+                or '--rehearsal release-rehearsal/receipt.json' not in publication.get('run', '')
+                or any('if' in step or step.get('continue-on-error', False) is not False
+                       for step in (steps[names.index(required[0])], rehearsal, publication))):
+            return ['release.yml/publish: rehearsal and its bound publication receipt cannot be bypassed']
+        for step in steps[:names.index(required[1])]:
+            if re.search(r'\bgh release\b|\bdocker push\b|scripts/release/publication.py', step.get('run', '')):
+                return ['release.yml/publish: public writes before rehearsal are prohibited']
+        qualify = jobs.get('qualify', {})
+        runtime = next((step for step in qualify.get('steps', [])
+                        if step.get('name') == 'Qualify the downloaded deployment and prove browser failures block it'), {})
+        if (not {'preflight', 'publish'} <= set(qualify.get('needs', [])) or 'if' in runtime
+                or runtime.get('continue-on-error', False) is not False
+                or 'python3 scripts/release/suite.py "${args[@]}" --evidence-dir coverage/packaged' not in runtime.get('run', '')
+                or '--rehearsal' in runtime.get('run', '')):
+            return ['release.yml/qualify: published inputs require the full non-rehearsal packaged suite']
     except (yaml.YAMLError, ValueError, TypeError, AttributeError):
         return ['release.yml: invalid publication gate']
     return []
 
 
 CHD_CONDITION = "${{ needs.source-checks.outputs.chd == 'true' }}"
-CHD_STEPS = {'Build images and exercise production deployment', 'Reclaim disposable CI build cache',
-             'Synthetic PS2 DVD CHD end to end'}
+CHD_STEPS = {'Reclaim disposable CI build cache', 'Synthetic PS2 DVD CHD end to end'}
 
 
 def early_errors(text, name):
@@ -239,6 +262,10 @@ def early_errors(text, name):
         if any(steps.get(label, {}).get('if') != CHD_CONDITION
                or steps[label].get('continue-on-error', False) is not False for label in CHD_STEPS):
             errors.append('ci.yml/production-compose: expensive drill steps must share the exact tested scope condition')
+        for label in ('Build images and exercise production deployment', 'Rehearse the extracted package before publication'):
+            step = steps.get(label, {})
+            if not step.get('run') or 'if' in step or step.get('continue-on-error', False) is not False:
+                errors.append('ci.yml/production-compose: source build and packaged rehearsal must always execute')
         return errors
     except (yaml.YAMLError, KeyError, ValueError, TypeError, AttributeError):
         return ['ci.yml: invalid early verification or CHD routing']

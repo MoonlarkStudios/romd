@@ -1,7 +1,7 @@
 # Packaged release qualification
 
-This gate qualifies the downloaded deployment bundle and its published Linux
-amd64 image digests. A source Compose smoke, an HTTP login, a passing harness
+The same packaged runtime suite runs before publication and against the downloaded
+deployment bundle and its published Linux amd64 image digests. A source Compose smoke, an HTTP login, a passing harness
 unit test, or `--verify-only` does not qualify an installation. Final publication
 also requires the plan's maintainer checkpoint and release metadata verification.
 
@@ -25,6 +25,45 @@ npm test
 `package-lock.json` pins Playwright and its browser revision. The installation
 bundle needs no Node, browser tools, source checkout, or development SDK.
 
+## Before publication
+
+Every PR's required Production Compose job builds source/version-labelled images,
+runs the source drill, then runs the full packaged suite on native Docker. It
+uses a fresh loopback registry to supply immutable references to those images.
+The publisher repeats that rehearsal on its exact second build before authenticating
+to GHCR or creating releases, assets or public image tags.
+
+To reproduce from the checkout root on a disposable native Docker runner after
+installing the locked browser:
+
+```bash
+revision="$(git rev-parse HEAD)"
+tag="v0.0.0-rehearsal.r$(git rev-parse --short=12 HEAD)"
+python3 scripts/deployment/smoke.py --build --vfs --source-revision "$revision" --release-tag "$tag"
+python3 scripts/validation/run.py --id deployment.packaged-rehearsal
+```
+
+The registry tool is an official image pinned in `scripts/release/rehearsal.json`
+and tracked by Renovate. It binds only an ephemeral `127.0.0.1` port, uses an
+empty Docker credential configuration, and keeps data in a uniquely labelled
+temporary volume. No daemon settings change. Cleanup checks resource ownership,
+the registry's exit status and preservation of the original candidate image IDs.
+The registry explicitly enables its documented
+[`http.draintimeout`](https://distribution.github.io/distribution/about/configuration/#http)
+so that SIGTERM drains connections and exits cleanly; its default zero setting
+does not install that shutdown handler. A nonzero exit or OOM still fails the gate.
+PostgreSQL and nginx retain their reviewed official digest pins.
+
+`receipt.json` binds the source, version, built image IDs, registry manifest
+digests, dependency pins, installation payload and complete positive/negative
+suite reports. Publication refuses a missing, failed or mismatched receipt
+before any public write. It checks the final bundle payload before publication
+and requires each pushed manifest digest to equal its rehearsed digest. Only the
+registry location and `images.env` may differ. Retained rehearsal artifacts have
+`evidenceType: disposable-rehearsal`; they cannot qualify a published release.
+
+## Downloaded release
+
 Download the prerelease bundle and its checksum from the intended repository
 and tag. Obtain the expected image map from the publisher's independently
 recorded digest output; copying `images.env` out of the same archive is not an
@@ -32,7 +71,7 @@ independent comparison. Use the full allowed source commit and exact release
 tag recorded by release preflight. From the qualification checkout root:
 
 ```bash
-python3 scripts/release/qualify.py \
+python3 scripts/release/suite.py \
   --bundle /absolute/download/romd-v1.2.3-rc.1-deployment.tar.gz \
   --checksum /absolute/download/romd-v1.2.3-rc.1-deployment.tar.gz.sha256 \
   --expected-images /absolute/publisher-evidence/images.env \
@@ -40,7 +79,7 @@ python3 scripts/release/qualify.py \
   --expected-revision FULL_40_CHARACTER_COMMIT_SHA \
   --expected-tag v1.2.3-rc.1 \
   --nginx-image REGISTRY/NGINX@sha256:REVIEWED_64_CHARACTER_DIGEST \
-  --evidence-dir .artifacts/release/UNIQUE_RUN/positive
+  --evidence-dir .artifacts/release/UNIQUE_RUN
 ```
 
 The evidence directory must be new. Archive verification rejects checksum or
@@ -89,8 +128,12 @@ arguments; it never supplies a handshake, ROM, runtime, or startup event. The
 fixture generator contains only ROMD's small original NROM program, zero CHR,
 and reset vectors. No commercial ROM, BIOS, artwork, or downloaded game is used.
 
+Source and packaged drills share `scripts/deployment/recovery.py` for worker-first
+startup, restart, backup-resume readiness and restore sequencing. Each keeps its
+own verification against the actual installation.
 The qualifier repeats browser sign-in and startup after a worker-first restart.
-It then runs the bundle's own backup tool, stops the source project before
+It then runs the bundle's own backup tool and waits for the resumed hosts to be
+healthy, with a lifecycle checkpoint. It stops the source project before
 exposing its restored identity, restores into a second empty project with the
 bundle's restore tool, and repeats the browser gate. Both projects' volumes and
 networks are removed on exit. Backup contents and credentials remain private in
@@ -114,16 +157,13 @@ persisted IDs by SHA-256, verify the manifest's content hash, and hash the actua
 downloaded cartridge bytes. A reset database or lost content cannot pass through
 bootstrap/reimport. Restored running container identities are checked again.
 
-After a positive run, perform **two separate new disposable runs** with the same
-inputs and new evidence directories, adding `--inject-fault portal-asset` or
-`--inject-fault player-startup`. Each command must exit nonzero. Then run:
-
-```bash
-python3 scripts/release/assert_failure.py \
-  --evidence-dir .artifacts/release/UNIQUE_RUN/broken-portal --fault portal-asset
-python3 scripts/release/assert_failure.py \
-  --evidence-dir .artifacts/release/UNIQUE_RUN/broken-player --fault player-startup
-```
+`suite.py` runs the positive case, then **two separate new disposable runs** with
+`portal-asset` and `player-startup` faults. Each negative run must fail at the
+intended browser check. `assert_failure.py` rejects an unrelated failure or a
+negative run that passes. The suite verifies all reports against the same
+bundle and image identities, and writes `suite.json` with their hashes. Release
+completion verifies that inventory and requires `disposable-release` evidence
+from the downloaded public inputs.
 
 The portal fault returns 503 for actual admin assets. The player fault returns
 503 for the actual EmulatorJS loader, after the real handshake. The assertion
@@ -149,7 +189,7 @@ Do not upload temporary credential/configuration or backup directories.
 Run the deterministic guards from the checkout root:
 
 ```bash
-python3 scripts/release/test_qualify.py
+python3 -m unittest discover -s scripts/release -p 'test_*.py'
 node --test scripts/release/browser/*.test.mjs
 ```
 
