@@ -18,6 +18,7 @@ import { IconChevronDown, IconLogout, IconSearch } from '@tabler/icons-react';
 import { type FormEvent, Suspense, useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
+import { useBrowserPlaybackCapability } from '../../hooks/useBrowserPlaybackCapability';
 import { readReturnContext } from '../navigation/titleNavigation';
 import { useReturnScrollRestoration } from '../navigation/useReturnScrollRestoration';
 import { StatusState } from '../status/StatusState';
@@ -52,6 +53,9 @@ export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  // Discovery belongs to the authenticated browsing session. Cards can move
+  // between shelves when play history arrives without cancelling its transfer.
+  useBrowserPlaybackCapability();
   useReturnScrollRestoration();
   const [searchOpened, setSearchOpened] = useState(false);
   const [search, setSearch] = useState('');
