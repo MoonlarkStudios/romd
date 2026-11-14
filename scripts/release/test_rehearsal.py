@@ -269,7 +269,7 @@ class RehearsalEvidenceTests(unittest.TestCase):
                 return
             self.fail('Publication wrote before binding passed: ' + repr(argv))
         with patch('publication.ROOT', self.root), patch('publication.run', side_effect=command), \
-                patch('publication.release_metadata') as lookup, patch('publication.registry_exists') as registry:
+                patch('publication.release_metadata') as lookup, patch('publication.Crane') as registry:
             with self.assertRaisesRegex(ValueError, 'requires a passed'):
                 publish(args)
             args.rehearsal = self.path

@@ -35,7 +35,7 @@ import urllib.request
 
 import publication
 from publication import NoRedirect, allow_retry, release_metadata, run
-from registry import Registry, image_repositories
+from crane import Crane, image_repositories
 from verify_release import attestations_name, verify_release
 from preflight import CANDIDATE, stable_tag, valid_tag
 from qualify import image_map, verify_bundle
@@ -180,9 +180,9 @@ def promote(args):
     # completion adds the version tags once every gate has passed.
     metadata = release_metadata(args.repository, args.tag)
     allow_retry(metadata, args.revision)
-    registries = {service: Registry(repository) for service, (repository, _) in repositories.items()}
-    for service, (_, digest) in repositories.items():
-        existing = registries[service].tagged_digest(args.tag)
+    crane = Crane()
+    for service, (repository, digest) in repositories.items():
+        existing = crane.digest(f'ghcr.io/{repository}:{args.tag}')
         if existing not in (None, digest):
             raise ValueError('Version image tag already identifies a different digest; promotion cannot replace it')
     if metadata is None:

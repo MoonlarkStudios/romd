@@ -1,7 +1,6 @@
 import hashlib
 import io
 import json
-import os
 from pathlib import Path
 import subprocess
 import tarfile
@@ -9,10 +8,10 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
-import urllib.error
 
 import promotion
-from promotion import (COMPLETION_JOB, Registry, check_candidate_release, compare_bundles, image_repositories,
+from test_crane import MemoryCrane
+from promotion import (COMPLETION_JOB, check_candidate_release, compare_bundles, image_repositories,
                        qualified_candidate_run)
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -65,47 +64,6 @@ def repack(bundle, change):
         with tarfile.open(bundle, 'w:gz') as archive:
             archive.add(stage, arcname='.')
     checksum(bundle)
-
-
-class Response(io.BytesIO):
-    def __init__(self, body=b'', headers=None, status=200):
-        super().__init__(body)
-        self.headers, self.status = headers or {}, status
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        self.close()
-
-
-class FakeRegistry:
-    """Registry double keyed by tag; records every request."""
-
-    def __init__(self, manifest=b'{"schemaVersion":2}', tags=None, stored=None):
-        self.manifest = manifest
-        self.digest = 'sha256:' + hashlib.sha256(manifest).hexdigest()
-        self.tags = dict(tags or {})
-        self.stored = stored
-        self.requests = []
-
-    def open(self, request, timeout=None):
-        url, method = request.full_url, request.get_method()
-        self.requests.append((method, url, request.data))
-        if url.startswith('https://ghcr.io/token?'):
-            return Response(json.dumps(dict(token='bearer')).encode())
-        reference = url.rsplit('/manifests/', 1)[1]
-        if method == 'GET' and reference.startswith('sha256:'):
-            return Response(self.manifest, {'Content-Type': 'application/vnd.oci.image.manifest.v1+json'})
-        if method == 'HEAD':
-            if reference not in self.tags:
-                raise urllib.error.HTTPError(url, 404, 'missing', {}, io.BytesIO())
-            return Response(headers={'Docker-Content-Digest': self.tags[reference]})
-        if method == 'PUT':
-            stored = self.stored or 'sha256:' + hashlib.sha256(request.data).hexdigest()
-            self.tags[reference] = stored
-            return Response(headers={'Docker-Content-Digest': stored}, status=201)
-        raise urllib.error.HTTPError(url, 404, 'missing', {}, io.BytesIO())
 
 
 class CandidateEvidenceTests(unittest.TestCase):
@@ -276,14 +234,14 @@ class PromotionOrderTests(unittest.TestCase):
         self.source = self.work / SOURCE_NAME
         self.source.write_bytes(b'')
         images = self.work / 'publisher.env'
-        images.write_text(image_lines('owner', FakeRegistry().digest))
+        images.write_text(image_lines('owner', DIGEST))
         self.bundle = self.work / 'candidate/romd-v1.2.3-rc.2-deployment.tar.gz'
         self.bundle.parent.mkdir()
         subprocess.run([ROOT / 'scripts/deployment/bundle.sh', images, self.bundle, REVISION, 'v1.2.3-rc.2'],
                        cwd=ROOT, check=True, capture_output=True)
         self.publisher_images = images
 
-    def promote(self, registries, metadata=None, **changes):
+    def promote(self, crane, metadata=None, **changes):
         commands = self.commands = []
         def run(command, capture=False):
             command = [str(part) for part in command]
@@ -297,22 +255,16 @@ class PromotionOrderTests(unittest.TestCase):
         with patch('promotion.run', run), patch('promotion.check_source_archive'), \
                 patch('promotion.verify_candidate', return_value=(77, self.bundle, self.publisher_images)), \
                 patch('promotion.release_metadata', return_value=metadata), \
-                patch('promotion.Registry', side_effect=lambda repository: registries[repository]):
+                patch('promotion.Crane', return_value=crane):
             promotion.promote(args)
         return args, commands
 
     def registries(self, **tags):
-        result = {}
-        with patch.dict(os.environ, GH_TOKEN='token', GITHUB_ACTOR='actor'):
-            for service in ('admin', 'consumer', 'worker', 'player'):
-                fake = FakeRegistry(tags=tags.get(service))
-                result[f'owner/romd-{service}'] = Registry(f'owner/romd-{service}', fake)
-                result[f'owner/romd-{service}'].fake = fake
-        return result
+        return MemoryCrane({(f'owner/romd-{service}', 'v1.2.3'): digest for service, digest in tags.items()})
 
     def test_promotion_makes_no_registry_writes_and_leaves_a_draft_for_qualification(self):
-        registries = self.registries()
-        args, commands = self.promote(registries)
+        crane = self.registries()
+        args, commands = self.promote(crane)
         writes = [command[1:3] for command in commands if command[0] == 'gh']
         self.assertEqual([['release', 'create'], ['release', 'upload'], ['release', 'upload']], writes)
         create = next(command for command in commands if command[1:3] == ['release', 'create'])
@@ -321,9 +273,9 @@ class PromotionOrderTests(unittest.TestCase):
         self.assertEqual(REVISION, create[create.index('--target') + 1])
         self.assertIn('Promoted without rebuilding from', (args.output / 'candidate-notes.txt').read_text())
         # Completion adds version tags only after every gate passes.
-        for registry in registries.values():
-            self.assertNotIn('v1.2.3', registry.fake.tags)
-            self.assertFalse(any(request[0] == 'PUT' for request in registry.fake.requests))
+        self.assertEqual([], crane.writes)
+        self.assertEqual({f'ghcr.io/owner/romd-{service}:v1.2.3' for service in ('admin', 'consumer', 'worker', 'player')},
+                         set(crane.reads))
         state = json.loads((args.output / 'candidate.json').read_text())
         self.assertEqual(('v1.2.3', 'v1.2.3-rc.2', 'draft-unqualified'),
                          (state['releaseTag'], state['promotedFrom'], state['result']))
@@ -332,16 +284,15 @@ class PromotionOrderTests(unittest.TestCase):
                          state['bundleSha256'])
 
     def test_existing_tag_for_another_digest_blocks_every_public_write(self):
-        registries = self.registries(worker={'v1.2.3': 'sha256:' + 'e' * 64})
+        crane = self.registries(worker='sha256:' + 'e' * 64)
         with self.assertRaisesRegex(ValueError, 'different digest'):
-            self.promote(registries)
+            self.promote(crane)
         self.assertFalse(any(command[0] == 'gh' for command in self.commands))
-        self.assertFalse(any(request[0] == 'PUT' for registry in registries.values() for request in registry.fake.requests))
+        self.assertEqual([], crane.writes)
 
     def test_same_digest_tag_from_an_interrupted_attempt_is_reused(self):
-        digest = FakeRegistry().digest
-        registries = self.registries(admin={'v1.2.3': digest})
-        _, commands = self.promote(registries, metadata=dict(draft=True, prerelease=True, target_commitish=REVISION, assets=[]))
+        crane = self.registries(admin=DIGEST)
+        _, commands = self.promote(crane, metadata=dict(draft=True, prerelease=True, target_commitish=REVISION, assets=[]))
         self.assertFalse(any(command[1:3] == ['release', 'create'] for command in commands))
 
     def test_exposed_or_partially_uploaded_release_blocks_promotion(self):

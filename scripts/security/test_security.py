@@ -215,6 +215,20 @@ class InventoryIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'not Linux amd64'):
             binary_from_archive(archive, 'syft', hashlib.sha256(archive.read_bytes()).hexdigest())
 
+    def test_tool_installer_accepts_only_pinned_tools_and_pins_crane(self):
+        import tools
+        pins = json.loads((HERE / 'tools.json').read_text())
+        self.assertEqual({'syft', 'trivy', 'crane'}, set(tools.TOOLS))
+        self.assertTrue(pins['crane']['url'].startswith('https://github.com/google/go-containerregistry/releases/download/v'))
+        for selection in ('curl', 'crane,crane', 'crane,', ''):
+            arguments = ['tools.py', '--output', str(self.work / 'tools'), '--tools', selection]
+            with self.subTest(selection=selection), patch.object(sys, 'argv', arguments), \
+                    patch('tools.urllib.request.urlopen', side_effect=AssertionError('no download')), \
+                    patch('sys.stderr', new_callable=io.StringIO), self.assertRaises(SystemExit) as failure:
+                tools.main()
+            self.assertEqual(2, failure.exception.code)
+        self.assertFalse((self.work / 'tools').exists())
+
     def test_native_inventory_comes_from_verified_packaged_binary_and_receipt(self):
         binary = self.work / 'libmoonlark_chdr.so'
         binary.write_bytes(b'controlled-native-binary')

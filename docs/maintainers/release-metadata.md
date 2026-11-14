@@ -17,10 +17,27 @@ that software has no vulnerabilities.
 Use a disposable native Linux amd64 runner with Python 3.11+, Docker, network
 access to the public image registry and vulnerability database, and a GitHub CLI
 supporting artifact attestations. `scripts/security/tools.json` pins official
-Syft and Trivy release archives by version, HTTPS URL and SHA-256. The installer
-downloads no install script, checks archive hashes and ELF architecture, and
-extracts only the named executable. Generation rechecks the archives and exact
-installed executable bytes before running them.
+Syft, Trivy and crane release archives by version, HTTPS URL and SHA-256.
+`scripts/security/tools.py` installs the scanners by default, or any subset
+with `--tools`. The installer downloads no install script, checks archive
+hashes and ELF architecture, and extracts only the named executable. Every
+consumer rechecks the archive and exact installed executable bytes before
+running it.
+
+The release jobs read and tag GHCR images only through
+[crane](https://github.com/google/go-containerregistry/tree/main/cmd/crane)
+(`scripts/release/crane.py`). It logs in with the job's `GITHUB_TOKEN` over
+stdin, into a private, temporary Docker config.
+
+- **Absence:** a reference counts as absent only when the exact manifest
+  endpoint returns GHCR's `MANIFEST_UNKNOWN` or `NAME_UNKNOWN`. Credential,
+  token, transport and tool errors stop the release instead.
+- **Tagging:** `crane tag` stores the manifest bytes already held under the
+  qualified digest, and every new tag is read back to confirm it names exactly
+  that digest.
+- **Provenance:** upstream publishes SLSA provenance (`multiple.intoto.jsonl`)
+  with each crane release. Review it alongside the checksum when updating the
+  pin.
 
 ROMD deliberately does not install scanners with `aquasecurity/trivy-action`,
 `setup-trivy` or `anchore/sbom-action`. In March 2026 attackers force-pushed
@@ -300,10 +317,10 @@ uploaded to the draft. Completion then:
 
 1. checks the packaged qualification reports against the publisher state;
 2. runs `verify_release.py` on the bundle, image map and merged attestations;
-3. runs `scripts/release/tag_images.py`, which adds the release's version tag
-   to each qualified ROMD image digest. It checks every tag first: a tag that
-   names a different digest blocks the release before any write, and a tag
-   already on the qualified digest from an interrupted attempt is kept;
+3. runs `scripts/release/tag_images.py`, which uses crane to add the release's
+   version tag to each qualified ROMD image digest. It checks every tag first: a
+   tag that names a different digest blocks the release before any write, and
+   a tag already on the qualified digest from an interrupted attempt is kept;
 4. uploads the attestations file to the draft;
 5. publishes the release once, as a prerelease with its qualified notes;
 6. runs `scripts/release/confirm_publication.py`, which requires the published
