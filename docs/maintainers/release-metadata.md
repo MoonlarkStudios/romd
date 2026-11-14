@@ -65,11 +65,17 @@ future; its version metadata is retained. An end-of-support OS reported by the
 scanner blocks the release.
 
 Refreshing tools requires a reviewed change to the exact version, official
-asset URL and SHA-256 in `tools.json`. Confirm the checksum against the official
-publisher's release metadata, run the deterministic tests, then exercise actual
-image/SBOM scans and public verification in a disposable release. A successful
-checksum verifies selected bytes; review of their publisher and update is still
-necessary. The relevant upstream command references are
+asset URL and SHA-256 in `tools.json`, or to the govulncheck pins in the
+Dockerfile. Do not adopt a release until it has been public for at least 14
+days. A checksum taken during a compromise only records the malicious file:
+the malicious Trivy v0.69.4 release was live for about three hours before it
+was pulled. The waiting period lets the publisher and the wider community find
+and withdraw a bad release before ROMD pins it. Renovate does not manage these
+pins, so the reviewer checks the release date. Then confirm the checksum
+against the official publisher's release metadata, run the deterministic
+tests, and exercise actual image/SBOM scans and public verification in a
+disposable release. A successful checksum verifies selected bytes; review of
+their publisher and update is still necessary. The relevant upstream command references are
 [Syft](https://github.com/anchore/syft),
 [Trivy image scanning](https://trivy.dev/docs/latest/references/configuration/cli/trivy_image/),
 and [Trivy SBOM scanning](https://trivy.dev/docs/latest/references/configuration/cli/trivy_sbom/).
