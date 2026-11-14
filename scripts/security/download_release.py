@@ -7,9 +7,14 @@ import json
 from pathlib import Path
 import re
 import ssl
+import sys
+import tarfile
 import urllib.error
 import urllib.parse
 import urllib.request
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'release'))
+from evidence_archive import read_archive, unpack_archive
 
 
 ALLOWED_HOSTS = {'github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com'}
@@ -76,35 +81,25 @@ def local_asset(path):
     return {'name': safe_name(path.name), 'expectedSize': size, 'expectedSha256': digest}
 
 
-def expected_assets(metadata_dir, bundle, attestations):
-    index_path = metadata_dir / 'release-metadata.json'
-    index = json.loads(index_path.read_text())
-    if not isinstance(index, dict) or index.get('schemaVersion') != 1 or index.get('result') != 'passed':
-        raise DownloadFailure('trusted-metadata-not-passed')
-    files = index.get('files')
-    if not isinstance(files, dict) or not files or len(files) > 512:
-        raise DownloadFailure('invalid-trusted-file-inventory')
-    names = [safe_name(name).casefold() for name in
-             ['release-metadata.json', *files, bundle.name, bundle.name + '.sha256', attestations.name, REPORT_NAME]]
+def expected_assets(archive, bundle, revision, tag):
+    checksum = Path(str(archive) + '.sha256')
+    # Validate all trusted members before making even the first network request.
+    # The existing cryptographic verifier runs separately before publication and
+    # again on the actual public download.
+    _, evidence = read_archive(archive, checksum, revision, tag)
+    paths = [archive, checksum, bundle, Path(str(bundle) + '.sha256')]
+    names = [safe_name(path.name).casefold() for path in paths] + [REPORT_NAME, 'verification']
     if len(set(names)) != len(names):
         raise DownloadFailure('duplicate-or-reserved-asset-name')
-    assets = [local_asset(index_path)]
-    for name, digest in sorted(files.items()):
-        safe_name(name)
-        if not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest):
-            raise DownloadFailure('invalid-trusted-file-digest')
-        asset = local_asset(metadata_dir / name)
-        if asset['expectedSha256'] != digest:
-            raise DownloadFailure('trusted-metadata-checksum-mismatch')
-        assets.append(asset)
+    assets = [local_asset(path) for path in paths]
     bundle_asset = local_asset(bundle)
+    if bundle_asset['expectedSha256'] != json.loads(evidence['publisher/candidate.json'])['bundleSha256']:
+        raise DownloadFailure('trusted-bundle-publisher-mismatch')
     checksum = Path(str(bundle) + '.sha256')
-    checksum_asset = local_asset(checksum)
     fields = checksum.read_text().strip().split()
     if (len(fields) != 2 or fields[0] != bundle_asset['expectedSha256']
             or fields[1].removeprefix('*') != bundle.name):
         raise DownloadFailure('trusted-bundle-checksum-mismatch')
-    assets.extend((bundle_asset, checksum_asset, local_asset(attestations)))
     return assets
 
 
@@ -145,7 +140,7 @@ def download_asset(opener, url, destination, record):
         partial.unlink(missing_ok=True)
 
 
-def download_release(repository, tag, metadata_dir, bundle, attestations, output):
+def download_release(repository, tag, revision, archive, bundle, output):
     # Never reuse or clean an existing directory, including after a failed run.
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
     report = {'schemaVersion': 1, 'result': 'failed', 'transport': 'anonymous-https', 'files': []}
@@ -153,14 +148,17 @@ def download_release(repository, tag, metadata_dir, bundle, attestations, output
         if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}', repository)
                 or len(tag) > 128 or not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?', tag)):
             raise DownloadFailure('invalid-release-identity')
-        report.update(repository=repository, tag=tag)
-        assets = expected_assets(metadata_dir, bundle, attestations)
+        report.update(repository=repository, tag=tag, sourceCommit=revision)
+        assets = expected_assets(archive, bundle, revision, tag)
         opener = anonymous_opener()
         for expected in assets:
             record = dict(expected, result='failed')
             report['files'].append(record)
             url = 'https://github.com/' + repository + '/releases/download/' + tag + '/' + expected['name']
             download_asset(opener, url, output / expected['name'], record)
+        manifest = unpack_archive(output / archive.name, output / (archive.name + '.sha256'),
+                                  output / 'verification', revision, tag)
+        report['verification'] = {'result': 'passed', 'members': len(manifest['files'])}
         report['result'] = 'passed'
     except DownloadFailure as error:
         report['failure'] = str(error)
@@ -169,7 +167,7 @@ def download_release(repository, tag, metadata_dir, bundle, attestations, output
         error.close()
     except (urllib.error.URLError, TimeoutError, ssl.SSLError, http.client.HTTPException):
         report['failure'] = 'network-error'
-    except (ValueError, TypeError, KeyError, OSError):
+    except (ValueError, TypeError, KeyError, OSError, tarfile.TarError):
         report['failure'] = 'invalid-trusted-input-or-io-error'
     (output / REPORT_NAME).write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
     return report['result'] == 'passed'
@@ -179,12 +177,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repository', required=True)
     parser.add_argument('--tag', required=True)
-    for name in ('metadata-dir', 'bundle', 'attestations', 'output'):
+    parser.add_argument('--revision', required=True)
+    for name in ('verification-archive', 'bundle', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()
     try:
-        passed = download_release(args.repository, args.tag, args.metadata_dir, args.bundle,
-                                  args.attestations, args.output)
+        passed = download_release(args.repository, args.tag, args.revision, args.verification_archive,
+                                  args.bundle, args.output)
     except OSError:
         print('Public release asset download: failed (output unavailable; choose a new directory)')
         return 1
