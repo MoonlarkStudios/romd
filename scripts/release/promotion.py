@@ -43,7 +43,9 @@ from release_notes import render
 
 ROOT = Path(__file__).resolve().parents[2]
 SERVICES = ('admin', 'consumer', 'worker', 'player')
-COMPLETION_JOB = 'Verify public evidence and mark a qualified prerelease'
+# Must equal the publish-complete job name in release.yml; a qualified candidate
+# is one whose run completed this job.
+COMPLETION_JOB = 'Verify attestations and publish the immutable qualified prerelease'
 MANIFEST_TYPES = ('application/vnd.oci.image.index.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json',
                   'application/vnd.oci.image.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v2+json')
 
