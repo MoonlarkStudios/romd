@@ -22,6 +22,7 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertIn('has not passed all release gates', page)
         self.assertNotIn('This exact release passed', page)
         self.assertNotIn('/romd-v1.2.3-verification.tar.gz)', page)
+        self.assertIn('Full verification details will be linked here after qualification passes.', page)
 
     def test_invalid_identity_cannot_inject_markdown_links_or_asset_paths(self):
         for repository, tag, revision, source in (

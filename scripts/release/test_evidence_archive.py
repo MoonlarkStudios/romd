@@ -76,6 +76,31 @@ class EvidenceArchiveTests(unittest.TestCase):
         checksum.write_text(hashlib.sha256(target.read_bytes()).hexdigest() + '  ' + target.name + '\n')
         return target, checksum
 
+    def extension_archive(self, kind, after_manifest, *, oversized=False):
+        """Keep every original evidence member intact behind a valid extension."""
+        raw = gzip.decompress(self.data.archive.read_bytes())
+        first = tarfile.TarInfo.frombuf(raw[:512], 'utf-8', 'strict')
+        cut = 512 + ((first.size + 511) // 512) * 512 if after_manifest else 0
+        following = tarfile.TarInfo.frombuf(raw[cut:cut + 512], 'utf-8', 'strict')
+        if kind in (tarfile.XHDTYPE, tarfile.XGLTYPE):
+            value = b' comment=transport-only\n'
+            size = len(value) + 1
+            while size != len(str(size)) + len(value):
+                size = len(str(size)) + len(value)
+            payload = str(size).encode() + value
+        else:
+            payload = following.name.encode() + b'\0' if kind == tarfile.GNUTYPE_LONGNAME else b'\0'
+        header = tarfile.TarInfo('extension')
+        header.type, header.size = kind, 16 * 1024 * 1024 * 1024 if oversized else len(payload)
+        extension = header.tobuf(format=tarfile.GNU_FORMAT)
+        extension += payload + b'\0' * (-len(payload) % 512)
+        archive = self.root / ('extension-' + kind.decode() + str(after_manifest) + str(oversized)) / self.data.archive.name
+        archive.parent.mkdir(exist_ok=True)
+        archive.write_bytes(gzip.compress(raw[:cut] + extension + raw[cut:]))
+        checksum = Path(str(archive) + '.sha256')
+        checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+        return archive, checksum
+
     def test_complete_inventory_roundtrips_exact_bytes_and_archive_is_reproducible(self):
         manifest = create(self.data)
         output = self.root / 'unpacked'
@@ -224,40 +249,42 @@ class EvidenceArchiveTests(unittest.TestCase):
 
     def test_oversized_pax_and_gnu_headers_are_rejected_before_any_extension_body_read(self):
         create(self.data)
-        raw = gzip.decompress(self.data.archive.read_bytes())
-        first = tarfile.TarInfo.frombuf(raw[:512], 'utf-8', 'strict')
-        manifest_end = 512 + ((first.size + 511) // 512) * 512
-        real_open = gzip.open
+        original_read = gzip.GzipFile.read
         for kind in (tarfile.XHDTYPE, tarfile.XGLTYPE, tarfile.GNUTYPE_LONGNAME, tarfile.GNUTYPE_LONGLINK):
             for after_manifest in (False, True):
                 with self.subTest(kind=kind, after_manifest=after_manifest):
-                    header = tarfile.TarInfo('extension')
-                    header.type, header.size = kind, 16 * 1024 * 1024 * 1024
-                    body = (raw[:manifest_end] if after_manifest else b'')
-                    body += header.tobuf(format=tarfile.GNU_FORMAT) + b'\0' * 1024
-                    archive = self.root / 'hostile' / self.data.archive.name
-                    archive.parent.mkdir(exist_ok=True)
-                    archive.write_bytes(gzip.compress(body))
-                    checksum = Path(str(archive) + '.sha256')
-                    checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+                    archive, checksum = self.extension_archive(kind, after_manifest, oversized=True)
                     reads = []
-                    class BoundedInput:
-                        def __enter__(self):
-                            self.stream = real_open(archive, 'rb')
-                            return self
-                        def __exit__(self, *args):
-                            self.stream.close()
-                        def read(self, count):
-                            reads.append(count)
-                            if count < 0 or count > MAX_MANIFEST:
-                                raise AssertionError('An untrusted extension requested an unbounded read')
-                            return self.stream.read(count)
+                    def bounded_read(stream, count=-1):
+                        reads.append(count)
+                        if count < 0 or count > MAX_MANIFEST:
+                            raise AssertionError('An untrusted extension requested an unbounded read')
+                        return original_read(stream, count)
                     output = self.root / ('out-' + kind.decode() + str(after_manifest))
-                    with patch('evidence_archive.gzip.open', return_value=BoundedInput()), \
-                            patch('evidence_archive.tarfile.open', side_effect=AssertionError('Streaming tar parser used')):
+                    with patch.object(gzip.GzipFile, 'read', bounded_read):
                         with self.assertRaisesRegex(ValueError, 'extension'):
                             unpack_archive(archive, checksum, output, self.data.revision, self.data.tag)
                     self.assertEqual(512, reads[-1])
+                    self.assertFalse(output.exists())
+
+    def test_valid_extension_wrapping_is_refused_without_changing_the_evidence(self):
+        create(self.data)
+        _, expected = read_archive(self.data.archive, Path(str(self.data.archive) + '.sha256'),
+                                   self.data.revision, self.data.tag)
+        for kind in (tarfile.XHDTYPE, tarfile.XGLTYPE, tarfile.GNUTYPE_LONGNAME, tarfile.GNUTYPE_LONGLINK):
+            for after_manifest in (False, True):
+                with self.subTest(kind=kind, after_manifest=after_manifest):
+                    archive, checksum = self.extension_archive(kind, after_manifest)
+                    # This is an otherwise valid tar: a standard parser returns
+                    # every original manifest/evidence byte unchanged. Only its
+                    # extension transport is outside our bounded format.
+                    with tarfile.open(archive) as standard:
+                        actual = {member.name: standard.extractfile(member).read() for member in standard}
+                    self.assertEqual(expected, {name: payload for name, payload in actual.items()
+                                                if name != 'manifest.json'})
+                    output = self.root / ('valid-extension-out-' + kind.decode() + str(after_manifest))
+                    with self.assertRaisesRegex(ValueError, 'extension'):
+                        unpack_archive(archive, checksum, output, self.data.revision, self.data.tag)
                     self.assertFalse(output.exists())
 
     def test_decompressed_budget_and_excess_trailer_fail_without_output(self):

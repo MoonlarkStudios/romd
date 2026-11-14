@@ -36,7 +36,7 @@ def render(repository, tag, revision, source_name, *, qualified=False):
         f'[Verification archive]({download}{evidence}) · [Archive checksum]({download}{evidence}.sha256) · '
         f'[CHD tooling source (GPL)]({download}{source_name})'
         if qualified else f'[CHD tooling source (GPL)]({download}{source_name})\n\n'
-        'The verification archive will be attached after qualification.')
+        'Full verification details will be linked here after qualification passes.')
     return f"""ROMD is a self-hosted home for your personal game library.
 
 {status}
