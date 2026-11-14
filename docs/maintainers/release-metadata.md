@@ -179,96 +179,81 @@ review with current evidence; remove resolved or stale entries. The default
 exception set is empty. Findings and proposed sensitive dispositions stay out of
 public Git history until their maintainer publication review.
 
-## Attestation and anonymous verification
+## Attestation and public verification
 
-The trusted publishing job must generate provenance for each final OCI digest,
-the deployment bundle, and `release-metadata.json`. It must also attest each
+The `publish-metadata` job attests provenance for each final ROMD image digest,
+the official PostgreSQL digest and the deployment bundle. It also attests each
 subject's matching CycloneDX SBOM with predicate type
 `https://cyclonedx.org/bom`. Attestation write and OIDC permissions belong only
-to that job. Preserve the complete attestation bundles as JSONL inside the
-checksummed verification archive, alongside all original metadata files and
-sanitized runtime reports. Do not promote
-a prerelease before generation, policy checks and verification succeed.
+to that job. Completion merges the attestation bundles into one public asset,
+`romd-vX.Y.Z-attestations.jsonl`. Generated SBOMs, scans, policy results and
+`release-metadata.json` stay in the run's `release-metadata-*` artifact for
+maintainer review; they are not release assets. A scan is a point-in-time
+result, and operators can rescan the attested digests themselves.
 
 The PostgreSQL subject records the official upstream digest selected and
 qualified by ROMD's workflow. Its inventory identifies the PostgreSQL 18 server
 and OS packages. It does not establish that ROMD built PostgreSQL or attest the
-upstream publisher's build process. Retain the upstream component/source
-inventory and distinguish that qualification attestation from upstream origin.
+upstream publisher's build process.
 
-Download the deployment bundle and checksum plus
-`romd-v1.2.3-rc.1-verification.tar.gz` and its `.sha256` file into a clean
-directory. The verification archive contains:
+### Verify a release
 
-- `metadata/`: the signed metadata index and all original SBOM, scan, policy and
-  component provenance JSON files;
-- `attestations.jsonl`: the complete provenance and SBOM attestation bundles;
-- `publisher/`: the original image map and candidate identity for traceability;
-- `packaged/`: the complete sanitized positive and negative qualification reports;
-- `manifest.json`: the exact member inventory, sizes and SHA-256 hashes.
-
-Supply the intended source
-commit, tag, repository and exact trusted signer workflow independently of the
-downloaded metadata. First use the bounded archive reader, which refuses unsafe
-paths, aliases, links, unexpected or duplicate members, oversized payloads,
-incomplete inventories and mismatched hashes. This transport emits regular
-USTAR records only; the reader rejects PAX/GNU extension headers before reading
-their bodies and bounds the entire decompressed stream, including headers,
-padding and trailer. The output directory must be new.
-Then run the unchanged cryptographic metadata verifier:
+Anyone can verify a release with the [GitHub CLI](https://cli.github.com/manual/gh_attestation_verify)
+and no GitHub login. Download the bundle, its checksum and the attestations
+file, then run:
 
 ```bash
-python3 scripts/release/evidence_archive.py unpack \
-  --archive /absolute/download/romd-v1.2.3-rc.1-verification.tar.gz \
-  --checksum /absolute/download/romd-v1.2.3-rc.1-verification.tar.gz.sha256 \
-  --revision FULL_40_CHARACTER_SOURCE_COMMIT --tag v1.2.3-rc.1 \
-  --output /absolute/download/verification
-python3 scripts/security/verify.py \
-  --metadata-dir /absolute/download/verification/metadata \
-  --bundle /absolute/download/romd-v1.2.3-rc.1-deployment.tar.gz \
-  --attestations /absolute/download/verification/attestations.jsonl \
-  --repository OWNER/REPOSITORY \
-  --revision FULL_40_CHARACTER_SOURCE_COMMIT \
-  --tag v1.2.3-rc.1 \
-  --signer-workflow OWNER/REPOSITORY/.github/workflows/release.yml
+sha256sum --check romd-v1.2.3-deployment.tar.gz.sha256
+gh attestation verify romd-v1.2.3-deployment.tar.gz \
+  --bundle romd-v1.2.3-attestations.jsonl --repo MoonlarkStudios/romd \
+  --signer-workflow MoonlarkStudios/romd/.github/workflows/release.yml --source-ref refs/tags/v1.2.3
+# For each image reference in the extracted bundle's images.env:
+gh attestation verify oci://ghcr.io/moonlarkstudios/romd-admin@sha256:DIGEST \
+  --bundle romd-v1.2.3-attestations.jsonl --repo MoonlarkStudios/romd \
+  --signer-workflow MoonlarkStudios/romd/.github/workflows/release.yml --source-ref refs/tags/v1.2.3
 ```
 
-Archive checksums and member hashes alone do not authenticate the publisher.
-The verifier checks the signed metadata index's file hashes, expected source
-revision/tag, complete image/bundle subject inventory and the downloaded bundle
-hash. It independently verifies the tar manifest and `images.env` select exactly
-the indexed image subjects. Internally consistent hashes or independently valid
-signatures cannot substitute different images for those selected by the bundle.
-It invokes GitHub's cryptographic verifier for provenance and SBOM
-attestations, enforcing repository, source digest/ref and signer workflow and
-rejecting self-hosted signing runners. It compares every downloaded SBOM with
-the verified attestation predicate, not merely with an unsigned JSON statement.
-See [GitHub CLI attestation verification](https://cli.github.com/manual/gh_attestation_verify).
+Add `--predicate-type https://cyclonedx.org/bom` to check a subject's SBOM
+attestation. The verified bundle's `images.env` pins every image by digest, so
+the bundle's provenance also authenticates the images it installs. With a
+GitHub login, `gh release verify-asset v1.2.3 romd-v1.2.3-deployment.tar.gz`
+additionally checks the file against GitHub's immutable release attestation.
 
-The verifier clears GitHub tokens, local GitHub configuration and registry
-credentials. Public images and attestations must actually support anonymous
-verification; YAML alone does not establish that access. A private registry
-requiring credentials fails this public-release gate. Offline attestation
-bundles avoid authenticated GitHub API lookup; trust-root fetching and public
-OCI manifest access may still need network connectivity.
+From a source checkout, `scripts/release/verify_release.py` runs all of these
+checks: the bundle checksum, manifest and image map, followed by provenance and
+SBOM verification of the bundle and all five images. It runs `gh` with no
+tokens, GitHub configuration or registry credentials, so a private image or
+attestation fails it:
 
-The final publishing job first verifies its trusted current-run inputs, packages
-the verification archive and uploads that archive and checksum while the
-candidate remains unqualified. It then downloads the actual GitHub release
-deployment bundle/checksum and verification archive/checksum into a new
-directory without authentication, cookies or inherited proxies.
-Only HTTPS redirects to the explicit GitHub release-asset hosts are accepted.
-Every byte count and SHA-256 must match the trusted current-run inputs. The job
-unpacks the actual public archive, verifies its metadata and attestations, and
-rechecks its packaged suite against the original same-workflow publisher state.
-It never substitutes the public archive's own state for that independent trust
-input. Both a tampered deployment bundle and a tampered verification archive
-must be rejected before changing the qualification notes.
-Inaccessible or changed public assets block that change;
-Actions artifact copies cannot substitute for this round trip. Sanitized download
-results are retained even on failure. A partial evidence upload remains an
-unqualified candidate requiring maintainer disposition; retries do not replace
-existing assets. Production promotion remains a separate checkpoint.
+```bash
+python3 scripts/release/verify_release.py --repository MoonlarkStudios/romd \
+  --revision FULL_40_CHARACTER_SOURCE_COMMIT --tag v1.2.3 \
+  --bundle romd-v1.2.3-deployment.tar.gz --checksum romd-v1.2.3-deployment.tar.gz.sha256 \
+  --images images.env --attestations romd-v1.2.3-attestations.jsonl
+```
+
+### Immutable publication
+
+Every release stays a draft until all gates pass. Downstream jobs take the
+bundle from the publisher's same-run artifact, which holds the exact bytes
+uploaded to the draft. Completion then:
+
+1. checks the packaged qualification reports against the publisher state;
+2. runs `verify_release.py` on the bundle, image map and merged attestations;
+3. uploads the attestations file to the draft;
+4. publishes the release once, as a prerelease with its qualified notes;
+5. runs `scripts/release/confirm_publication.py`, which requires the published
+   release to be immutable, to carry exactly the four expected assets, to pass
+   `gh release verify`, and to attest each verified local asset through
+   `gh release verify-asset`.
+
+[Release immutability](repository-settings.md#release-immutability) must be
+enabled. GitHub then locks the tag and assets at publication and signs a
+release attestation over them; the title, notes and prerelease/latest flags
+remain editable for the maintainer checkpoint. A release published without
+immutability fails confirmation and cannot be promoted. A failed gate before
+publication leaves only a draft, which maintainers delete or keep for diagnosis.
+Production promotion remains a separate checkpoint.
 
 ## Validation and evidence
 
@@ -279,21 +264,21 @@ mise run security:check
 
 These deterministic tests reject synthetic high/critical/unknown findings,
 unfixed findings, broad/expired/mismatched exceptions, incomplete scan coverage,
-stale databases, binary/receipt mismatches, changed metadata/bundles and SBOMs
-that differ from verified predicates. They also check the installed frontend
+stale databases, binary/receipt mismatches and changed metadata or bundles.
+They also check the installed frontend
 dependency closure and external runtime distinction.
 
-Archive tests additionally reject traversal, links, duplicates, incomplete or
-oversized inventories, evidence-type/source mismatches and changed indexed
-reports, even when an outer checksum is recomputed. Completion tests execute the
-actual workflow shell steps with controlled failures and require both public
-verification and tamper gates before qualification notes can be written.
+Completion tests execute the actual workflow shell steps with controlled
+failures. They require runtime evidence and attestation verification to pass
+before the attestations upload, and the single publish before confirmation.
+Verification tests require provenance and SBOM checks for the bundle and every
+image, from the release workflow at the exact tag and commit, without credentials.
 
 Release evidence additionally requires actual final-digest generation, inspection
-of expected components, anonymous verification from a clean environment, and a
-tampered downloaded bundle failing verification. Preserve the exact commit,
+of expected components and credential-free verification of the published
+attestations. Preserve the exact commit,
 tool/database versions, commands, environment, output file hashes and artifact
 locations. `release-metadata.json` records those commands and subject bindings;
-the sibling files inside `metadata/` retain SBOMs, scans and policy decisions. Keep local synthetic
+the sibling files in the `release-metadata-*` artifact retain SBOMs, scans and policy decisions. Keep local synthetic
 tests distinct from hosted and disposable-release results. Do not claim PR 14
 qualification from tests or documentation alone.

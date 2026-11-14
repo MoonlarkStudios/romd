@@ -6,18 +6,19 @@ digests. Before any public write this tool proves that:
 
 - the candidate's release workflow run on the same commit succeeded, including
   public-evidence completion;
-- the candidate's public bundle, metadata and attestations verify against the
-  trusted release workflow, its commit and its tag;
-- the candidate's retained packaged qualification evidence matches that bundle;
+- the candidate is a published, immutable GitHub release whose bundle matches
+  GitHub's release attestation;
+- the candidate's bundle and every image it selects verify with
+  `gh attestation verify` against the release workflow, its commit and its tag;
 - a bundle rebuilt from the same commit for the stable tag differs from the
   candidate bundle only in its manifest's `releaseTag`.
 
 It then adds the stable version tag to each existing image manifest (copying the
-exact manifest bytes, so digests and attestations are unchanged), creates a
-draft prerelease with the GPL source and the promoted bundle, and exposes it as
-an unqualified prerelease for the same downstream qualification, final-digest
-security metadata, attestation and public-download gates as a built candidate.
-Promotion to the latest full release remains a maintainer decision.
+exact manifest bytes, so digests and attestations are unchanged) and creates a
+draft prerelease with the GPL source and the promoted bundle. The draft then
+passes the same qualification, final-digest security metadata, attestation and
+publication gates as a built candidate. Marking it the latest full release
+remains a maintainer decision.
 """
 import argparse
 import base64
@@ -27,8 +28,7 @@ import os
 from pathlib import Path
 import re
 import shutil
-import subprocess
-import sys
+import tarfile
 import tempfile
 import urllib.error
 import urllib.parse
@@ -36,7 +36,7 @@ import urllib.request
 
 import publication
 from publication import NoRedirect, allow_retry, release_metadata, run
-from evidence_archive import archive_name, unpack_archive
+from verify_release import attestations_name, verify_release
 from preflight import CANDIDATE, stable_tag, valid_tag
 from qualify import image_map, verify_bundle
 from release_notes import render
@@ -90,15 +90,14 @@ def qualified_candidate_run(repository, candidate, revision, get=api_get):
 
 def candidate_assets(candidate, source_name):
     bundle = f'romd-{candidate}-deployment.tar.gz'
-    evidence = archive_name(candidate)
-    return {bundle, bundle + '.sha256', evidence, evidence + '.sha256', source_name}
+    return {bundle, bundle + '.sha256', attestations_name(candidate), source_name}
 
 
 def check_candidate_release(metadata, candidate, revision, source_name):
     if metadata is None:
         raise ValueError(f'{candidate} has no GitHub release')
-    if metadata.get('draft') or metadata.get('target_commitish') != revision:
-        raise ValueError(f'{candidate} release is a draft or targets a different commit')
+    if metadata.get('draft') or metadata.get('immutable') is not True or metadata.get('target_commitish') != revision:
+        raise ValueError(f'{candidate} is not a published immutable release of this commit')
     names = {asset.get('name') for asset in metadata.get('assets', []) if isinstance(asset, dict)}
     if names != candidate_assets(candidate, source_name):
         raise ValueError(f'{candidate} release does not carry exactly the qualified public assets')
@@ -191,38 +190,31 @@ def image_repositories(images, owner):
     return repositories
 
 
-def check_command(command):
-    """Run a public verifier with visible diagnostics; it receives no credentials."""
-    command = [str(part) for part in command]
-    environment = {key: value for key, value in os.environ.items() if key not in ('GH_TOKEN', 'GITHUB_TOKEN')}
-    result = subprocess.run(command, cwd=ROOT, env=environment, check=False)
-    publication.COMMANDS.append(dict(command=command, exitCode=result.returncode))
-    if result.returncode:
-        raise RuntimeError(f'{Path(command[1]).name} rejected the candidate (exit {result.returncode}); nothing was promoted')
+def bundle_images(bundle, destination):
+    """Copy the bundle's own image map; the bundle's attestation then authenticates it."""
+    with tarfile.open(bundle, 'r:gz') as archive:
+        members = [member for member in archive if member.name in ('images.env', './images.env')]
+        if len(members) != 1 or not members[0].isfile() or members[0].size > 4096:
+            raise ValueError('Candidate bundle must contain exactly one images.env')
+        destination.write_bytes(archive.extractfile(members[0]).read())
+    return destination
 
 
 def verify_candidate(args, source_name, work):
-    """Authenticate the candidate's public evidence; return its verified paths."""
+    """Authenticate the candidate's published assets; return its verified paths."""
     run_id = qualified_candidate_run(args.repository, args.candidate, args.revision)
     check_candidate_release(release_metadata(args.repository, args.candidate), args.candidate, args.revision, source_name)
     download = work / 'candidate'
     bundle = f'romd-{args.candidate}-deployment.tar.gz'
-    evidence = archive_name(args.candidate)
+    attestations = attestations_name(args.candidate)
     run(['gh', 'release', 'download', args.candidate, '--repo', args.repository, '--dir', download,
-         '--pattern', bundle, '--pattern', bundle + '.sha256', '--pattern', evidence, '--pattern', evidence + '.sha256'])
-    verification = work / 'candidate-verification'
-    unpack_archive(download / evidence, download / (evidence + '.sha256'), verification, args.revision, args.candidate)
-    signer = f'{args.repository}/.github/workflows/release.yml'
-    check_command([sys.executable, ROOT / 'scripts/security/verify.py', '--metadata-dir', verification / 'metadata',
-         '--bundle', download / bundle, '--attestations', verification / 'attestations.jsonl',
-         '--repository', args.repository, '--revision', args.revision, '--tag', args.candidate,
-         '--signer-workflow', signer])
-    nginx = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
-    check_command([sys.executable, ROOT / 'scripts/release/suite.py', '--verify-suite', '--bundle', download / bundle,
-         '--checksum', download / (bundle + '.sha256'), '--expected-images', verification / 'publisher/images.env',
-         '--publisher-state', verification / 'publisher/candidate.json', '--expected-revision', args.revision,
-         '--expected-tag', args.candidate, '--nginx-image', nginx, '--evidence-dir', verification / 'packaged'])
-    return run_id, download / bundle, verification / 'publisher/images.env'
+         '--pattern', bundle, '--pattern', bundle + '.sha256', '--pattern', attestations])
+    # GitHub's immutable-release attestation binds these bytes to the candidate release.
+    run(['gh', 'release', 'verify-asset', args.candidate, download / bundle, '--repo', args.repository])
+    images = bundle_images(download / bundle, work / 'candidate-images.env')
+    verify_release(download / bundle, download / (bundle + '.sha256'), images, download / attestations,
+                   args.repository, args.revision, args.candidate, f'{args.repository}/.github/workflows/release.yml')
+    return run_id, download / bundle, images
 
 
 def check_source_archive(path):
@@ -277,8 +269,9 @@ def promote(args):
         bundleSha256=hashlib.sha256(bundle.read_bytes()).hexdigest(), result='draft-unqualified',
         promotedFrom=args.candidate,
         candidateRun=f'https://github.com/{args.repository}/actions/runs/{run_id}'), indent=2) + '\n')
+    # The release stays a draft until every downstream gate passes, then
+    # completion publishes it once, immutably.
     run(['gh', 'release', 'upload', args.tag, bundle, str(bundle) + '.sha256', '--repo', args.repository])
-    run(['gh', 'release', 'edit', args.tag, '--repo', args.repository, '--draft=false', '--prerelease'])
 
 
 def main():
@@ -297,7 +290,7 @@ def main():
         (args.output / 'publication.json').write_text(json.dumps(dict(
             sourceCommit=args.revision, releaseTag=args.tag, promotedFrom=args.candidate,
             commands=publication.COMMANDS, environment='hosted/linux-amd64'), indent=2) + '\n')
-    print(f'Promoted {args.candidate} to unqualified prerelease {args.tag} without rebuilding')
+    print(f'Promoted {args.candidate} to draft {args.tag} without rebuilding; qualification follows')
 
 
 if __name__ == '__main__':

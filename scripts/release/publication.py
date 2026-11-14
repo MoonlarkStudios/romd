@@ -190,14 +190,13 @@ def publish(args):
                                     result='draft-unqualified'), indent=2) + '\n')
     # Never --clobber release assets. Retrying a partial upload cannot silently
     # replace a source, digest manifest, deployment bundle or hash file.
-    # The original image map and state stay in the same-run publisher artifact.
-    # They become public inside the complete verification archive after gates
-    # pass, rather than competing with the installation download.
+    # The original image map, state and bundle stay in the same-run publisher
+    # artifact, which downstream gates use as their trusted input.
     run(['gh', 'release', 'upload', args.tag, bundle, str(bundle) + '.sha256',
          '--repo', args.repository])
-    # Expose an explicitly unqualified prerelease for the separate read-only
-    # qualification runner. It remains a prerelease if any later gate fails.
-    run(['gh', 'release', 'edit', args.tag, '--repo', args.repository, '--draft=false', '--prerelease'])
+    # The release stays a draft: qualification reads the bundle from this run's
+    # publisher artifact, and completion publishes the release once, immutably,
+    # only after every gate passes. A failed candidate never becomes public.
 
 
 def main():

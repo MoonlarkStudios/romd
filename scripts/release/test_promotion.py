@@ -39,8 +39,9 @@ def release_run(run_id, **changes):
 
 def candidate_release(**changes):
     names = ['romd-v1.2.3-rc.2-deployment.tar.gz', 'romd-v1.2.3-rc.2-deployment.tar.gz.sha256',
-             'romd-v1.2.3-rc.2-verification.tar.gz', 'romd-v1.2.3-rc.2-verification.tar.gz.sha256', SOURCE_NAME]
-    item = dict(draft=False, prerelease=True, target_commitish=REVISION, assets=[dict(name=name) for name in names])
+             'romd-v1.2.3-rc.2-attestations.jsonl', SOURCE_NAME]
+    item = dict(draft=False, immutable=True, prerelease=True, target_commitish=REVISION,
+                assets=[dict(name=name) for name in names])
     item.update(changes)
     return item
 
@@ -135,6 +136,7 @@ class CandidateEvidenceTests(unittest.TestCase):
         check_candidate_release(candidate_release(), 'v1.2.3-rc.2', REVISION, SOURCE_NAME)
         assets = candidate_release()['assets']
         for state in (None, candidate_release(draft=True), candidate_release(target_commitish='main'),
+                      candidate_release(immutable=False), candidate_release(immutable=None),
                       candidate_release(assets=assets[:-1]), candidate_release(assets=assets + [dict(name='images.env')]),
                       candidate_release(assets=[dict(name=item['name'].replace('rc.2', 'rc.1')) for item in assets])):
             with self.subTest(state=state), self.assertRaises(ValueError):
@@ -154,38 +156,36 @@ class CandidateEvidenceTests(unittest.TestCase):
 
 
 class CandidateVerificationTests(unittest.TestCase):
-    def test_candidate_is_verified_as_its_own_tag_by_the_release_workflow_identity(self):
+    def test_candidate_is_verified_as_its_own_immutable_release_and_tag(self):
         commands = []
         args = SimpleNamespace(repository=REPOSITORY, candidate='v1.2.3-rc.2', revision=REVISION)
+        def run(command, capture=False):
+            command = [str(part) for part in command]
+            commands.append(command)
+            if command[:3] == ['gh', 'release', 'download']:
+                directory = Path(command[command.index('--dir') + 1])
+                directory.mkdir()
+                images = directory.parent / 'source-images.env'
+                images.write_text(image_lines())
+                subprocess.run([ROOT / 'scripts/deployment/bundle.sh', images,
+                                directory / 'romd-v1.2.3-rc.2-deployment.tar.gz', REVISION, 'v1.2.3-rc.2'],
+                               cwd=ROOT, check=True, capture_output=True)
         with tempfile.TemporaryDirectory() as temporary, \
                 patch('promotion.qualified_candidate_run', return_value=9) as run_lookup, \
                 patch('promotion.release_metadata', return_value=candidate_release()), \
-                patch('promotion.unpack_archive') as unpack, \
-                patch('promotion.run', side_effect=lambda command, capture=False: commands.append([str(part) for part in command])), \
-                patch('promotion.check_command', side_effect=lambda command: commands.append([str(part) for part in command])):
+                patch('promotion.verify_release') as verify, patch('promotion.run', side_effect=run):
             work = Path(temporary)
             run_id, bundle, images = promotion.verify_candidate(args, SOURCE_NAME, work)
+            self.assertEqual(image_lines(), images.read_text())
         run_lookup.assert_called_once_with(REPOSITORY, 'v1.2.3-rc.2', REVISION)
-        self.assertEqual((REVISION, 'v1.2.3-rc.2'), unpack.call_args.args[3:5])
-        self.assertEqual((9, 'romd-v1.2.3-rc.2-deployment.tar.gz', 'images.env'), (run_id, bundle.name, images.name))
-        download, verify, suite = commands
+        self.assertEqual((9, 'romd-v1.2.3-rc.2-deployment.tar.gz'), (run_id, bundle.name))
+        download, verify_asset = commands
         self.assertEqual(['gh', 'release', 'download', 'v1.2.3-rc.2'], download[:4])
-        self.assertTrue(verify[1].endswith('scripts/security/verify.py'))
-        self.assertEqual('v1.2.3-rc.2', verify[verify.index('--tag') + 1])
-        self.assertEqual(REVISION, verify[verify.index('--revision') + 1])
-        self.assertEqual(REPOSITORY + '/.github/workflows/release.yml', verify[verify.index('--signer-workflow') + 1])
-        self.assertIn('--verify-suite', suite)
-        self.assertNotIn('--rehearsal', suite)
-        self.assertEqual('v1.2.3-rc.2', suite[suite.index('--expected-tag') + 1])
-
-    def test_public_verifiers_run_without_workflow_credentials_and_block_on_failure(self):
-        with patch.dict(os.environ, GH_TOKEN='secret', GITHUB_TOKEN='secret'), \
-                patch('promotion.subprocess.run', return_value=subprocess.CompletedProcess([], 3)) as run:
-            with self.assertRaisesRegex(RuntimeError, 'verify.py rejected the candidate'):
-                promotion.check_command(['python3', 'scripts/security/verify.py'])
-        environment = run.call_args.kwargs['env']
-        self.assertNotIn('GH_TOKEN', environment)
-        self.assertNotIn('GITHUB_TOKEN', environment)
+        self.assertIn('romd-v1.2.3-rc.2-attestations.jsonl', download)
+        self.assertEqual(['gh', 'release', 'verify-asset', 'v1.2.3-rc.2'], verify_asset[:4])
+        call = verify.call_args.args
+        self.assertEqual('romd-v1.2.3-rc.2-attestations.jsonl', call[3].name)
+        self.assertEqual((REPOSITORY, REVISION, 'v1.2.3-rc.2', REPOSITORY + '/.github/workflows/release.yml'), call[4:])
 
     def test_unqualified_candidate_is_rejected_before_any_download(self):
         args = SimpleNamespace(repository=REPOSITORY, candidate='v1.2.3-rc.2', revision=REVISION)
@@ -193,6 +193,19 @@ class CandidateVerificationTests(unittest.TestCase):
                 patch('promotion.run') as run, self.assertRaises(ValueError):
             promotion.verify_candidate(args, SOURCE_NAME, Path('unused'))
         run.assert_not_called()
+
+    def test_bundle_must_carry_exactly_one_small_image_map(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary)
+            for members in ({}, {'README.md': b'x'}, {'images.env': b'x' * 5000}):
+                bundle = work / 'bundle.tar.gz'
+                with tarfile.open(bundle, 'w:gz') as archive:
+                    for name, data in members.items():
+                        info = tarfile.TarInfo(name)
+                        info.size = len(data)
+                        archive.addfile(info, io.BytesIO(data))
+                with self.subTest(members=list(members)), self.assertRaises(ValueError):
+                    promotion.bundle_images(bundle, work / 'images.env')
 
 
 class BundleEquivalenceTests(unittest.TestCase):
@@ -320,17 +333,16 @@ class PromotionOrderTests(unittest.TestCase):
                 result[f'owner/romd-{service}'].fake = fake
         return result
 
-    def test_promotion_tags_exact_digests_and_publishes_an_unqualified_prerelease(self):
+    def test_promotion_tags_exact_digests_and_leaves_a_draft_for_qualification(self):
         registries = self.registries()
         args, commands = self.promote(registries)
         writes = [command[1:3] for command in commands if command[0] == 'gh']
-        self.assertEqual([['release', 'create'], ['release', 'upload'], ['release', 'upload'], ['release', 'edit']], writes)
+        self.assertEqual([['release', 'create'], ['release', 'upload'], ['release', 'upload']], writes)
         create = next(command for command in commands if command[1:3] == ['release', 'create'])
         self.assertIn('--prerelease', create)
         self.assertIn('--draft', create)
         self.assertEqual(REVISION, create[create.index('--target') + 1])
         self.assertIn('Promoted without rebuilding from', (args.output / 'candidate-notes.txt').read_text())
-        self.assertEqual(['--draft=false', '--prerelease'], commands[-1][-2:])
         for registry in registries.values():
             self.assertEqual(registry.fake.digest, registry.fake.tags['v1.2.3'])
         state = json.loads((args.output / 'candidate.json').read_text())

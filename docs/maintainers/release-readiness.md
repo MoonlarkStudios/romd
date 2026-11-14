@@ -38,21 +38,23 @@ than dated receipts or agent transcripts.
   nothing replaces an existing version. Publication waits for a maintainer to
   approve the `publish` job in the protected
   [release environment](repository-settings.md#release-environment).
-- A failed candidate stays an unqualified prerelease, and the next attempt
-  takes the next number. If `main` CI for the tagged commit failed or was not
+- A release stays a draft until every gate passes and is then published once,
+  immutably. A failed candidate leaves only a draft (plus its version-tagged
+  images), and the next attempt takes the next number. If `main` CI for the tagged commit failed or was not
   found, nothing is published: diagnose or rerun that `main` run, then rerun the
   release job.
 - Tag a stable `vX.Y.Z` only on the commit of a qualified `vX.Y.Z-rc.N`.
   `main` may have moved on. The workflow then promotes the highest such
   candidate instead of rebuilding it (`scripts/release/promotion.py`). Before
-  any public write it requires the candidate's successful release run, verifies
-  the candidate's public bundle, metadata, attestations and packaged evidence
-  as that candidate tag, and proves that the stable bundle rebuilt from the same
+  any public write it requires the candidate's successful release run and a
+  published immutable candidate release, checks the candidate bundle against
+  GitHub's release attestation, verifies the bundle and its images with
+  `gh attestation verify` as that candidate tag, and proves that the stable bundle rebuilt from the same
   commit differs only in its manifest's `releaseTag`. It then adds the stable
   version tag to the existing image manifests, keeping their digests, and
-  publishes the bundle. The downloaded-bundle qualification, final-digest
-  scans, attestations and anonymous public verification then run for the stable
-  tag exactly as for a candidate. Promotion runs no CI, image build or
+  uploads the bundle to a draft. Packaged qualification, final-digest scans,
+  attestation and immutable publication then run for the stable tag exactly as
+  for a candidate. Promotion runs no CI, image build or
   pre-publication rehearsal. Image labels keep the candidate version that built
   them. A stable tag without a same-commit candidate is refused before any work.
 - Mark the qualified stable prerelease as the latest full release, replacing
@@ -70,32 +72,29 @@ than dated receipts or agent transcripts.
 
 ## Public downloads and release page
 
-A qualified release has five uploaded assets:
+A qualified release has four uploaded assets:
 
 | Download | Purpose |
 | --- | --- |
 | `romd-vX.Y.Z-deployment.tar.gz` | Operator installation: Compose, pinned images and operational tools |
 | `romd-vX.Y.Z-deployment.tar.gz.sha256` | Deployment archive integrity |
-| `romd-vX.Y.Z-verification.tar.gz` | Complete SBOMs, scans, policy results, attestations, publisher identities and sanitized packaged runtime evidence |
-| `romd-vX.Y.Z-verification.tar.gz.sha256` | Verification archive integrity |
+| `romd-vX.Y.Z-attestations.jsonl` | Signed provenance and SBOM attestations for the bundle and every image, for `gh attestation verify --bundle` |
 | Reviewed MAME source archive | Corresponding GPL source for the worker's CHD tooling |
 
-GitHub also provides its automatic source-code downloads. The original JSON and
-JSONL evidence stays intact inside the verification archive; it is not removed
-or replaced by a summary. The archive checksum and member manifest provide
-transport integrity, while the existing signed metadata and attestation checks
-establish the expected source and subjects. Follow
-[public verification](release-metadata.md#attestation-and-anonymous-verification).
+GitHub also provides its automatic source-code downloads and, because releases
+are immutable, a signed release attestation over these assets. Generated scans,
+policy results and packaged qualification reports stay in the release run's
+artifacts. Follow
+[public verification](release-metadata.md#attestation-and-public-verification).
 
 `scripts/release/release_notes.py` renders the page with prominent deployment
-and checksum links, installation and recovery guidance, and the supported
-platform and upgrade boundary. Initial notes clearly identify an unqualified
-prerelease. Completion attaches the verification archive and marks the notes
-qualified only after actual public downloads, runtime/security/provenance
-verification and both tamper controls pass. Keep the maintainer promotion
-checkpoint separate. Update the release notes with the accepted scope and
-achieved evidence before stable promotion, replacing the prerelease banner with
-the accepted final release status only at that checkpoint.
+and checksum links, installation and recovery guidance, verification commands,
+and the supported platform and upgrade boundary. The draft's notes say that
+qualification is in progress; completion replaces them with the qualified notes
+as it publishes the release. Keep the maintainer promotion checkpoint separate.
+Update the release notes with the accepted scope and achieved evidence before
+stable promotion, replacing the prerelease banner with the accepted final
+release status only at that checkpoint.
 
 ## Source checks available in a development environment
 
@@ -135,9 +134,9 @@ or a synthetic policy test.
 | API compatibility boundary | Before the first console build distributed independently of a server release, or 1.0, whichever comes first, maintainers record a compatibility decision defining supported server/console version skew; updating repository call sites does not update installed console builds | [API compatibility policy](../decisions/api-contract-policy.md#first-party-audience-and-repo-atomic-compatibility) |
 | Immutable candidate | Intended clean `main` revision and strict version tag; independently retained publisher bundle hash and image digests; no replacement of existing assets | [Maintainer release candidates](../self-hosting/production-deployment.md#maintainer-release-candidates) |
 | Pre-publication packaged rehearsal | Required PR CI and exact publisher build pass image/SBOM/bundle security policy, the extracted package's browser/restart/backup/restore suite and both real fault controls, using disposable registry digests; publication validates the bound runtime/security receipt before public writes | [Packaged rehearsal](packaged-release-qualification.md#before-publication) |
-| Downloaded Linux amd64 installation | Exact downloaded candidate passes fresh install, authenticated portal/browser playback, worker-first restart, backup/restore with identity/content preservation, and both required injected-failure runs | [Packaged release qualification](packaged-release-qualification.md) |
+| Packaged Linux amd64 installation | Exact published candidate bundle passes fresh install, authenticated portal/browser playback, worker-first restart, backup/restore with identity/content preservation, and both required injected-failure runs | [Packaged release qualification](packaged-release-qualification.md) |
 | Supported upgrade or approved reset baseline | Named starting release, schema, and content format upgrade to the candidate with worker-first migration/readiness, preserved identity/content, and demonstrated recovery using the matching pre-upgrade backup and previous release; unsupported starting formats have an explicit maintainer-approved fresh-install/reset baseline | [Upgrade](../self-hosting/production-deployment.md#upgrade) |
-| Final-artifact security and provenance | Actual final-digest SBOMs/scans satisfy policy; exact bundle and metadata have verified provenance; anonymous public downloads and tamper rejection pass | [Release metadata and vulnerability gate](release-metadata.md) |
+| Final-artifact security and provenance | Actual final-digest SBOMs/scans satisfy policy; the bundle and every image verify with `gh attestation verify` without credentials; the published release is immutable and attests the verified assets | [Release metadata and vulnerability gate](release-metadata.md) |
 | Native console support | Exact packaged console build and emulator/core versions pass the claimed OS/architecture/controller matrix, including install interruption, launch/exit/focus, reconnect, profile/instance save isolation, and offline use | [Console setup](../../clients/romd_console/README.md), [runtime pattern](../../clients/romd_console/docs/emulator-runtime-pattern.md), [controller roadmap](../../clients/romd_console/docs/roadmaps/controller-identity.md), [Dolphin scope](../../clients/romd_console/docs/roadmaps/dolphin-runtime.md) |
 | Promotion | Maintainer accepts the evidence, support matrix, known limitations, recovery instructions, and release notes; candidate remains a prerelease until that decision, then is promoted in place as described in [versions and promotion](#versions-and-promotion) | [Production deployment](../self-hosting/production-deployment.md#maintainer-release-candidates) |
 
@@ -149,7 +148,7 @@ images against an already migrated schema as rollback evidence.
 
 The packaged harness needs a disposable native Linux amd64 Docker runner and
 published candidate subjects. Public attestation generation/verification also
-needs the trusted publisher workflow and anonymous registry/release access.
+needs the trusted publisher workflow, public images and release immutability.
 A private checkout and local contract tests cannot establish those public gates.
 
 Native console acceptance needs the claimed OS SDKs, physical controllers,

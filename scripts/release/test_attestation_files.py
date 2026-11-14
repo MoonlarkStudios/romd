@@ -17,13 +17,17 @@ class AttestationTransportTests(unittest.TestCase):
         parts = self.work / 'parts'
         parts.mkdir()
         for role in ROLES:
-            records = [{'mediaType': 'controlled-provenance'}]
-            if role != 'index':
-                records.append({'mediaType': 'controlled-sbom'})
+            records = [{'mediaType': 'controlled-provenance'}, {'mediaType': 'controlled-sbom'}]
             (parts / (role + '.jsonl')).write_text(''.join(json.dumps(item) + '\n' for item in records))
         return parts
 
-    def test_action_bundles_without_newlines_are_normalized_and_all_thirteen_records_preserved(self):
+    def test_workflow_attests_exactly_the_roles_completion_merges(self):
+        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/release.yml').read_text()
+        job = workflow.split('\n  publish-metadata:\n', 1)[1].split('\n  publish-complete:\n', 1)[0]
+        matrix = [line.strip() for line in job.splitlines() if line.strip().startswith('role: [')]
+        self.assertEqual([f"role: [{', '.join(ROLES)}]"], matrix)
+
+    def test_action_bundles_without_newlines_are_normalized_and_all_twelve_records_preserved(self):
         bundle, output = self.work / 'action.json', self.work / 'part.jsonl'
         bundle.write_text('{"mediaType":"controlled"}')
         append_bundle(bundle, output)
@@ -31,7 +35,7 @@ class AttestationTransportTests(unittest.TestCase):
         self.assertEqual([{'mediaType': 'controlled'}] * 2, [json.loads(line) for line in output.read_text().splitlines()])
         merged = self.work / 'complete.jsonl'
         merge_bundles(self.parts(), merged)
-        self.assertEqual(13, len(merged.read_text().splitlines()))
+        self.assertEqual(12, len(merged.read_text().splitlines()))
         with self.assertRaises(FileExistsError):
             merge_bundles(self.work / 'parts', merged)
 
