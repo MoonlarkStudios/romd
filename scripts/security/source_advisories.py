@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Audit resolved source dependencies, retaining normalized results and Go proof.
+"""Audit resolved source dependencies, retaining normalized results and Go reader VEX evidence.
 
 Arbitrary diagnostics, environment, registry credentials and absolute checkout
-paths are excluded from normalized results. Public-source Go JSON/provenance is
-retained separately. Errors fail closed; final release digest scanning remains
+paths are excluded from normalized results. The Go reader's VEX and Trivy report
+are retained separately. Errors fail closed; final release digest scanning remains
 a separate gate.
 """
 import argparse
@@ -20,8 +20,8 @@ import tomllib
 from urllib.parse import urlsplit
 
 from source_tools import ensure_trivy
-import go_reader
-from go_applicability import assess
+import go_vex
+from policy import BLOCKED_SEVERITIES
 
 ROOT = Path(__file__).resolve().parents[2]
 SEVERITIES = {'LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'UNKNOWN'}
@@ -404,61 +404,65 @@ def scan_pub(root, work):
 
 
 def scan_go_reader(root, work):
-    # This evidence directory is retained independently of normalized diagnostics, including on failure.
+    """Scan the reader the Dockerfile builds, with govulncheck VEX applied and no exceptions."""
     def command(arguments, stage):
         result = run(arguments, work)
-        if stage == 'go-reader-govulncheck-binary-package':
+        if stage.endswith('govulncheck'):
             require(not result.stderr.strip(), 'govulncheck diagnostics require investigation')
         return result.stdout
     try:
-        artifact, evidence = go_reader.prepare(root, work, command)
-        qualified = go_reader.scan(artifact, evidence, work, command)
+        files = go_vex.export(root, work, command)
+        vulnerable = go_vex.scan(files['govulncheck'], files['catalog-reader'], work / 'reader.vex.json', command,
+                                 'catalog-reader-govulncheck')
     except ValueError as error:
-        if str(error).startswith('Go reader evidence:'):
-            raise ScanError(str(error)) from error
-        raise
-    sbom = go_reader.dependency_sbom(evidence)
-    (work / 'reader.cdx.json').write_text(json.dumps(sbom, indent=2) + '\n')
+        raise ScanError('Go reader: ' + str(error)) from error
+    reader = work / 'reader-rootfs' / go_vex.READER
+    reader.parent.mkdir(parents=True)
+    shutil.copyfile(files['catalog-reader'], reader)
+    reader.chmod(0o755)  # Trivy analyzes only executable Go binaries.
     scanner = ensure_trivy(root / '.artifacts/source-security/tools')
     (work / 'empty-config.json').write_text('{}')
     (work / 'empty-ignore').touch()
     environment = {k: v for k, v in os.environ.items() if not k.startswith('TRIVY_')}
-    run([scanner, 'sbom', '--scanners', 'vuln', '--config', 'empty-config.json', '--ignorefile', 'empty-ignore',
-         '--format', 'json', '--output', 'reader.trivy.json', '--exit-code', '0', '--list-all-pkgs',
-         '--disable-telemetry', '--quiet', '--cache-dir', root / '.artifacts/source-security/cache',
-         'reader.cdx.json'], work, environment=environment)
+    run([scanner, 'rootfs', '--scanners', 'vuln', '--config', 'empty-config.json', '--ignorefile', 'empty-ignore',
+         '--vex', 'reader.vex.json', '--show-suppressed', '--format', 'json', '--output', 'reader.trivy.json',
+         '--exit-code', '0', '--list-all-pkgs', '--disable-telemetry', '--quiet',
+         '--cache-dir', root / '.artifacts/source-security/cache', 'reader-rootfs'], work, environment=environment)
     raw = json.loads((work / 'reader.trivy.json').read_text())
-    coverage = go_reader.assert_inventory(raw, evidence)
+    coverage = go_vex.assert_reader_inventory(raw)
     # Trivy's content freshness contract differs from Go's publication timestamp semantics.
     from metadata import assert_fresh_database
     version = decode(run([scanner, 'version', '--cache-dir', root / '.artifacts/source-security/cache', '--format', 'json'],
                          work, environment=environment))
     assert_fresh_database(version)
     (work / 'trivy-version.json').write_text(json.dumps(version, indent=2) + '\n')
-    policy = json.loads((root / 'scripts/security/policy.json').read_text())
-    assessment = assess(raw, 'sha256:' + evidence['hashes']['catalog-reader'], policy, qualified, mode='sbom', sbom=sbom)
-    (work / 'reader.applicability.json').write_text(json.dumps(assessment, indent=2) + '\n')
     findings = []
-    for item in assessment['findings']:
-        normalized = finding('go-reader', 'Dockerfile/catalog-reader', item['component'], item['installedVersion'],
-                             'https://osv.dev/vulnerability/' + item['id'], item['severity'])
-        normalized.update(rawBlocked=item['rawBlocked'], blocked=item['blocked'], applicability=item['applicability'])
-        findings.append(normalized)
-    for item in assessment['goAdvisories']:
-        normalized = finding('go-reader', 'Dockerfile/catalog-reader', item['module'], item['installedVersion'],
-                             'https://osv.dev/vulnerability/' + item['id'], item['severity'])
-        normalized.update(rawBlocked=True, blocked=item['blocked'], applicability=item['applicability'])
+    for group in raw['Results']:
+        for item in group.get('Vulnerabilities') or []:
+            normalized = finding('go-reader', 'Dockerfile/catalog-reader', item['PkgName'], item['InstalledVersion'],
+                                 'https://osv.dev/vulnerability/' + item['VulnerabilityID'], item['Severity'])
+            normalized.update(blocked=True, applicability={'status': 'affected'})
+            findings.append(normalized)
+        for item in group.get('ExperimentalModifiedFindings') or []:
+            original = item['Finding']
+            normalized = finding('go-reader', 'Dockerfile/catalog-reader', original['PkgName'], original['InstalledVersion'],
+                                 'https://osv.dev/vulnerability/' + original['VulnerabilityID'], original['Severity'])
+            normalized.update(blocked=False, applicability={'status': item.get('Status'), 'source': 'govulncheck'})
+            findings.append(normalized)
+    # govulncheck found vulnerable code in the reader; block even if Trivy has no matching record.
+    for identifier in vulnerable:
+        normalized = finding('go-reader', 'Dockerfile/catalog-reader', 'catalog-reader', coverage['standardLibrary'],
+                             'https://osv.dev/vulnerability/' + identifier, 'UNKNOWN')
+        normalized.update(blocked=True, applicability={'status': 'affected', 'source': 'govulncheck'})
         findings.append(normalized)
     return findings, coverage
 
 
 def audit(root, output, scanners=None):
-    policy = json.loads((root / 'scripts/security/policy.json').read_text())
-    require(policy.get('schemaVersion') == 1 and set(policy.get('blockedSeverities', [])) ==
-            {'HIGH', 'CRITICAL', 'UNKNOWN'}, 'Unexpected security severity policy')
+    blocked_severities = list(BLOCKED_SEVERITIES)
     scanners = scanners or {'nuget': scan_nuget, 'npm': scan_javascript, 'pub': scan_pub, 'go-reader': scan_go_reader}
     report = {'schemaVersion': 1, 'checkedAt': datetime.now(timezone.utc).isoformat(),
-              'status': 'running', 'blockedSeverities': policy['blockedSeverities'],
+              'status': 'running', 'blockedSeverities': blocked_severities,
               'ecosystems': {name: {'status': 'not-run'} for name in scanners}}
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2) + '\n')
@@ -471,7 +475,7 @@ def audit(root, output, scanners=None):
                 findings, coverage = scanner(root, work)
                 unique = sorted({json.dumps(f, sort_keys=True) for f in findings})
                 findings = [json.loads(f) for f in unique]
-                blocked = sum(f['severity'] in policy['blockedSeverities'] and (f['blocked'] if name == 'go-reader' else True) for f in findings)
+                blocked = sum(f['severity'] in blocked_severities and (f['blocked'] if name == 'go-reader' else True) for f in findings)
                 report['ecosystems'][name] = dict(status='failed' if blocked else 'passed',
                                                   coverage=coverage, findings=findings, blocked=blocked)
                 print(f'{name}: {len(findings)} advisories, {blocked} blocking', flush=True)

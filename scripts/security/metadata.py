@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Generate final-digest SBOMs, vulnerability results and a hash-bound release index."""
+"""Generate final-digest SBOMs, vulnerability results and a hash-bound release index.
+
+Trivy applies the reviewed exceptions in `trivyignore.yaml` and, for the
+catalog reader, govulncheck VEX, then gates each ROMD scan on its remaining
+UNKNOWN, HIGH and CRITICAL findings. The official PostgreSQL image is reported,
+not gated. ROMD-specific code here only adds image-carried inventory (frontend,
+native and catalog reader components) and checks that each scan covered it.
+"""
 import argparse
 import copy
 from datetime import datetime, timedelta, timezone
@@ -17,11 +24,10 @@ from urllib.parse import quote, unquote
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'release'))
 from qualify import canonical_digest, image_map, rehearsal_images, verify_bundle, verify_publisher
-from policy import evaluate
+from policy import GATE_EXIT_CODE, IGNORE_FILE, gate_command, load_exceptions, suppressed
 from tools import verify_installed
 from credentials import anonymous_environment
-import go_reader
-from go_applicability import assess as assess_go_reader
+import go_vex
 
 
 def sha256(path):
@@ -108,15 +114,9 @@ def postgres_server(component):
             and purl == 'pkg:deb/debian/postgresql-18@' + version)
 
 
-def upstream_postgres_report(scan, reference, policy):
+def assert_official_postgres(reference):
     if canonical_digest(reference).split('@', 1)[0] != 'docker.io/library/postgres':
         raise ValueError('Upstream-maintained reporting requires the Docker Official PostgreSQL image')
-    result = evaluate(scan, reference.rsplit('@', 1)[1], policy)
-    result.update(result='reported', enforcement='upstream-managed')
-    for finding in result['findings']:
-        finding['severityFlagged'] = finding['severity'] in policy['blockedSeverities']
-        del finding['blocked'], finding['excepted']
-    return result
 
 
 def assert_coverage(sbom, role):
@@ -188,23 +188,22 @@ class Commands:
                       stderrSha256=hashlib.sha256(result.stderr).hexdigest())
         if result.returncode:
             raise RuntimeError(stage + ' failed; scanner/command output is not copied into public diagnostic logs')
-        if stage == 'go-reader-govulncheck-binary-package' and result.stderr.strip():
+        if stage.startswith('govulncheck-') and result.stderr.strip():
             raise RuntimeError('govulncheck diagnostics require investigation')
         return result.stdout.decode()
 
+    def gate(self, command, stage):
+        """Run a Trivy severity gate; False means blocked findings, any other failure raises."""
+        try:
+            self.run(command, stage)
+            return True
+        except RuntimeError:
+            if self.records[-1]['exitCode'] == GATE_EXIT_CODE:
+                return False
+            raise
+
     def extract(self, container, source, target):
         self.run(['docker', 'cp', container + ':' + source, target], 'extract-image-component-metadata')
-
-
-def scan_packaged_reader(binary, receipt, artifacts, evidence, work, output, commands, role):
-    go_reader.assert_final_binding(binary, receipt, evidence)
-    scan_output = work / role
-    try:
-        return go_reader.scan(artifacts, evidence, scan_output, commands.run, binary=binary)
-    finally:
-        # Malformed/truncated/non-clean output is investigation evidence too.
-        if scan_output.is_dir():
-            json_write(output / f'{role}.go-reader.json', go_reader.retained_scan(scan_output))
 
 
 def generate(args):
@@ -227,13 +226,13 @@ def generate(args):
             verified = verify_bundle(args.bundle, args.checksum, args.images, bundle, args.revision, args.tag)
             commands = Commands(work, args.output)
             report['commands'] = commands.records
-            policy = json.loads(args.policy.read_text())
-            # A fresh BuildKit export uses exactly the Dockerfile source and compiler.
-            # Keep the export and complete scanner output in the signed evidence index.
-            go_work = work / 'go-reader'
-            go_work.mkdir(mode=0o700)
-            reader_artifacts, reader_evidence = go_reader.prepare(HERE.parents[1], go_work, commands.run)
-            json_write(args.output / 'go-reader-provenance.json', go_reader.retained_provenance(reader_artifacts))
+            # Validate reviewed exceptions before any scan, and scan with this exact copy.
+            ignore = work / 'trivyignore.yaml'
+            ignore.write_bytes(args.ignore_file.read_bytes())
+            load_exceptions(ignore)
+            config, empty_ignore = work / 'empty-config.json', work / 'empty-ignore'
+            # govulncheck comes from the Dockerfile's pinned, checksum-verified build.
+            govulncheck = go_vex.export(HERE.parents[1], work, commands.run)['govulncheck']
             for key, reference in sorted(verified['images'].items()):
                 role = key[5:-6].lower()
                 raw = args.output / f'{role}.raw.cdx.json'
@@ -245,6 +244,7 @@ def generate(args):
                 commands.run([syft, 'scan', ('docker:' if local else 'registry:') + reference, '--platform', 'linux/amd64',
                               '--config', work / 'empty-config.json', '-o', 'cyclonedx-json=' + str(raw)], 'syft-' + role)
                 supplements = []
+                vex = None
                 container = None
                 try:
                     # Create does not execute the image entrypoint. Only this returned
@@ -269,9 +269,11 @@ def generate(args):
                         receipt, binary = work / f'{role}-catalog-reader.json', work / f'{role}-catalog-reader'
                         commands.extract(container, '/usr/share/romd/sbom/catalog-reader.json', receipt)
                         commands.extract(container, '/app/catalog-reader', binary)
-                        role_reader = scan_packaged_reader(binary, receipt, reader_artifacts, reader_evidence, go_work,
-                                                          args.output, commands, role)
                         supplements.append(catalog_supplement(receipt, binary))
+                        vex = args.output / f'{role}.vex.json'
+                        vulnerable = go_vex.scan(govulncheck, binary, vex, commands.run, 'govulncheck-' + role)
+                        if vulnerable:
+                            raise ValueError(f'Catalog reader in {role} contains vulnerable code: ' + ', '.join(vulnerable))
                 finally:
                     if container:
                         commands.run(['docker', 'rm', container], 'cleanup-metadata-container-' + role)
@@ -281,34 +283,42 @@ def generate(args):
                 path = args.output / f'{role}.cdx.json'
                 json_write(path, sbom)
                 raw.unlink()
-                evaluations, scans = [], []
+                if role == 'postgres':
+                    assert_official_postgres(reference)
+                records, scans, blocked = [], [], False
                 for mode, target in (('image', reference), ('sbom', path)):
                     scan = args.output / f'{role}.{mode}.trivy.json'
-                    command = [trivy, mode, '--scanners', 'vuln', '--list-all-pkgs', '--config', work / 'empty-config.json', '--ignorefile', work / 'empty-ignore',
-                               '--format', 'json', '--output', scan, '--exit-code', '0', '--disable-telemetry', target]
+                    # Upstream PostgreSQL findings are reported in full; ROMD exceptions never hide them.
+                    command = [trivy, mode, '--scanners', 'vuln', '--list-all-pkgs', '--show-suppressed', '--config', config,
+                               '--ignorefile', empty_ignore if role == 'postgres' else ignore,
+                               '--format', 'json', '--output', scan, '--exit-code', '0', '--disable-telemetry']
+                    if vex:
+                        command += ['--vex', vex]
                     if mode == 'image':
                         command[2:2] = ['--platform', 'linux/amd64']
                         if local:
                             command[2:2] = ['--image-src', 'docker']
-                    commands.run(command, 'trivy-' + role + '-' + mode)
+                    commands.run(command + [target], 'trivy-' + role + '-' + mode)
                     scan_result = json.loads(scan.read_text())
                     assert_scanner_coverage(scan_result, role, mode)
-                    if role in ('admin', 'worker'):
-                        go_reader.assert_inventory(scan_result, reader_evidence, selected=False)
-                        evaluations.append(assess_go_reader(scan_result, 'sha256:' + digest, policy, role_reader, mode=mode, sbom=sbom))
-                    elif role == 'postgres':
-                        evaluations.append(upstream_postgres_report(scan_result, reference, policy))
+                    if vex and mode == 'image':
+                        go_vex.assert_only_reader(scan_result)
+                    if role == 'postgres':
+                        record = {'result': 'reported', 'enforcement': 'upstream-managed'}
                     else:
-                        evaluations.append(evaluate(scan_result, 'sha256:' + digest, policy))
+                        passed = commands.gate(gate_command(trivy, scan, config), f'vulnerability-gate-{role}-{mode}')
+                        blocked = blocked or not passed
+                        record = {'result': 'passed' if passed else 'failed', 'enforcement': 'blocking'}
+                    records.append(dict(record, scan=scan.name, suppressed=suppressed(scan_result)))
                     scans.append(scan.name)
                 policy_path = args.output / f'{role}.policy.json'
-                json_write(policy_path, evaluations)
-                expected = 'reported' if role == 'postgres' else 'passed'
-                if any(result['result'] != expected for result in evaluations):
-                    raise ValueError('Release blocked by vulnerability severity/exception policy: ' + role)
+                json_write(policy_path, records)
+                if blocked:
+                    raise ValueError('Release blocked by vulnerability severity policy: ' + role)
                 report['subjects'].append({'kind': 'image', 'role': role, 'name': reference, 'sha256': digest,
                                            'sbom': path.name, 'scans': scans, 'policy': policy_path.name, 'coverage': coverage,
-                                           'enforcement': 'upstream-managed' if role == 'postgres' else 'blocking'})
+                                           'enforcement': 'upstream-managed' if role == 'postgres' else 'blocking',
+                                           **({'vex': vex.name} if vex else {})})
             raw = work / 'bundle.cdx.json'
             commands.run([syft, 'scan', 'dir:' + str(bundle), '--config', work / 'empty-config.json',
                           '-o', 'cyclonedx-json=' + str(raw)], 'syft-bundle')
@@ -320,13 +330,14 @@ def generate(args):
                                      args.bundle.name, verified['sha256'])
             json_write(args.output / 'bundle.cdx.json', bundle_sbom)
             scan = args.output / 'bundle.trivy.json'
-            commands.run([trivy, 'sbom', '--scanners', 'vuln', '--config', work / 'empty-config.json', '--ignorefile', work / 'empty-ignore',
+            commands.run([trivy, 'sbom', '--scanners', 'vuln', '--show-suppressed', '--config', config, '--ignorefile', ignore,
                           '--format', 'json', '--output', scan, '--exit-code', '0', '--disable-telemetry',
                           args.output / 'bundle.cdx.json'], 'trivy-bundle')
-            policy_result = evaluate(json.loads(scan.read_text()), 'sha256:' + verified['sha256'], policy)
-            json_write(args.output / 'bundle.policy.json', policy_result)
-            if policy_result['result'] != 'passed':
-                raise ValueError('Release bundle blocked by vulnerability policy')
+            passed = commands.gate(gate_command(trivy, scan, config), 'vulnerability-gate-bundle')
+            json_write(args.output / 'bundle.policy.json', [{'result': 'passed' if passed else 'failed', 'enforcement': 'blocking',
+                       'scan': scan.name, 'suppressed': suppressed(json.loads(scan.read_text()))}])
+            if not passed:
+                raise ValueError('Release bundle blocked by vulnerability severity policy')
             report['subjects'].append({'kind': 'bundle', 'name': args.bundle.name, 'sha256': verified['sha256'],
                                        'sbom': 'bundle.cdx.json', 'scans': ['bundle.trivy.json'], 'policy': 'bundle.policy.json'})
             version = json.loads(commands.run([trivy, 'version', '--format', 'json'], 'scanner-database-version'))
@@ -346,7 +357,7 @@ def main():
         parser.add_argument('--' + name, type=Path, required=True)
     parser.add_argument('--revision', required=True)
     parser.add_argument('--tag', required=True)
-    parser.add_argument('--policy', type=Path, default=HERE / 'policy.json')
+    parser.add_argument('--ignore-file', type=Path, default=IGNORE_FILE, help='Reviewed Trivy vulnerability exceptions')
     parser.add_argument('--rehearsal', action='store_true', help='Disposable local images; never public qualification evidence')
     args = parser.parse_args()
     args.tools_dir = args.tools_dir.resolve()

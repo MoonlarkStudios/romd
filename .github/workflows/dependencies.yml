@@ -49,7 +49,7 @@ jobs:
           docker buildx version
       - name: Run registered source advisory gate
         run: python3 scripts/validation/run.py --ci --job dependencies --evidence-parent coverage/dependencies
-      - name: Retain advisory results and public-source Go applicability evidence
+      - name: Retain advisory results and Go reader VEX evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
