@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock
 import urllib.error
 from types import SimpleNamespace
 
-from preflight import valid_tag, verify
+from preflight import promotion_source, valid_tag, verify
 from publication import allow_retry, registry_exists, release_metadata, publish
 from qualify import verify_publisher, IMAGE_KEYS, canonical_digest
 
@@ -29,31 +29,68 @@ class ReleasePolicyTests(unittest.TestCase):
         for tag in ('v01.2.3', 'v1.2.3-', 'v1.2.3-01', 'v1.2.3-a..b', 'v1.2.3;true', 'main'):
             self.assertFalse(valid_tag(tag))
 
-    def test_tag_must_be_allowed_branch_tip_and_clean_checkout(self):
+    def release_repository(self, temporary):
+        root = Path(temporary)
+        def git(*args):
+            return subprocess.check_output(['git', '-C', str(root), '-c', 'user.name=Test',
+                '-c', 'user.email=test@example.test', *args], text=True).strip()
+        git('init', '-q')
+        (root / '.github').mkdir()
+        (root / '.github/release-policy.json').write_text(json.dumps(dict(schemaVersion=1,
+            allowedBranch='main', requireBranchTip=True, platform='linux/amd64', candidateOnly=True)))
+        git('add', '.')
+        git('commit', '-qm', 'fixture')
+        revision = git('rev-parse', 'HEAD')
+        git('update-ref', 'refs/remotes/origin/main', revision)
+        return root, git, revision
+
+    def test_candidate_tag_must_be_allowed_branch_tip_and_clean_checkout(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            def git(*args):
-                return subprocess.check_output(['git', '-C', str(root), '-c', 'user.name=Test',
-                    '-c', 'user.email=test@example.test', *args], text=True).strip()
-            git('init', '-q')
-            (root / '.github').mkdir()
-            (root / '.github/release-policy.json').write_text(json.dumps(dict(schemaVersion=1,
-                allowedBranch='main', requireBranchTip=True, platform='linux/amd64', candidateOnly=True)))
-            git('add', '.')
-            git('commit', '-qm', 'fixture')
-            revision = git('rev-parse', 'HEAD')
-            git('tag', 'v1.2.3')
-            git('update-ref', 'refs/remotes/origin/main', revision)
-            self.assertEqual(revision, verify(root, 'v1.2.3', revision)['commit'])
+            root, git, revision = self.release_repository(temporary)
+            git('tag', 'v1.2.3-rc.1')
+            result = verify(root, 'v1.2.3-rc.1', revision)
+            self.assertEqual((revision, 'candidate', None), (result['commit'], result['mode'], result['promotedFrom']))
             (root / 'dirty').touch()
             with self.assertRaisesRegex(ValueError, 'uncommitted'):
-                verify(root, 'v1.2.3', revision)
+                verify(root, 'v1.2.3-rc.1', revision)
             (root / 'dirty').unlink()
             git('commit', '--allow-empty', '-qm', 'new tip')
             git('update-ref', 'refs/remotes/origin/main', git('rev-parse', 'HEAD'))
             git('checkout', '-q', '--detach', revision)
             with self.assertRaisesRegex(ValueError, 'branch tip'):
+                verify(root, 'v1.2.3-rc.1', revision)
+
+    def test_stable_tag_promotes_the_latest_same_version_candidate_on_its_commit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, git, revision = self.release_repository(temporary)
+            git('tag', 'v1.2.3')
+            with self.assertRaisesRegex(ValueError, 'promoted, never rebuilt'):
                 verify(root, 'v1.2.3', revision)
+            # Other versions and non-rc prereleases are never promotion sources.
+            for tag in ('v1.2.4-rc.1', 'v1.2.3-beta.1', 'v1.2.3-rc.1.1'):
+                git('tag', tag)
+            with self.assertRaisesRegex(ValueError, 'promoted, never rebuilt'):
+                verify(root, 'v1.2.3', revision)
+            for tag in ('v1.2.3-rc.2', 'v1.2.3-rc.10', 'v1.2.3-rc.9'):
+                git('tag', tag)
+            # Main may move on after qualification; promotion does not rebuild it.
+            git('commit', '--allow-empty', '-qm', 'later work')
+            git('update-ref', 'refs/remotes/origin/main', git('rev-parse', 'HEAD'))
+            git('checkout', '-q', '--detach', revision)
+            result = verify(root, 'v1.2.3', revision)
+            self.assertEqual(('promote', 'v1.2.3-rc.10'), (result['mode'], result['promotedFrom']))
+            # A candidate on a commit the allowed branch never contained is refused.
+            git('checkout', '-q', '--orphan', 'unreviewed')
+            git('commit', '-qm', 'unreviewed')
+            other = git('rev-parse', 'HEAD')
+            git('tag', 'v2.0.0-rc.1')
+            git('tag', 'v2.0.0')
+            with self.assertRaisesRegex(ValueError, 'not reachable'):
+                verify(root, 'v2.0.0', other)
+
+    def test_promotion_source_selection_is_exact(self):
+        self.assertEqual('v1.0.0-rc.2', promotion_source('v1.0.0', ['v1.0.0-rc.1', 'v1.0.0-rc.2', 'v1.0.1-rc.3']))
+        self.assertIsNone(promotion_source('v1.0.0', ['v1.0.0', 'v1.0.0-rc.01', 'v1.0.0-RC.1', 'v10.0.0-rc.1']))
 
     def test_partial_or_exposed_candidates_cannot_be_silently_replaced(self):
         revision = 'a' * 40

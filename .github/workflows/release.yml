@@ -18,6 +18,10 @@ jobs:
     timeout-minutes: 5
     outputs:
       revision: ${{ steps.policy.outputs.commit }}
+      # candidate: a -rc.N/prerelease tag on the main tip, built from source.
+      # promote: a stable tag on a qualified same-version -rc.N; never rebuilt.
+      mode: ${{ steps.policy.outputs.mode }}
+      promoted-from: ${{ steps.policy.outputs.promoted-from }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -30,16 +34,33 @@ jobs:
           SOURCE_REVISION: ${{ github.sha }}
         run: python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION"
 
+  # The tagged commit already ran the complete CI on its main push. Require that
+  # run instead of repeating it, so an unrelated flake cannot block a release.
   verify:
+    name: Require successful main CI for the tagged revision
     needs: preflight
-    uses: ./.github/workflows/ci.yml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require the allowed branch's completed CI for this exact commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release/ci_status.py --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_REVISION"
 
   advisories:
     needs: preflight
     uses: ./.github/workflows/dependencies.yml
 
   publish:
-    name: Publish an explicitly unqualified prerelease candidate
+    name: Publish or promote an explicitly unqualified prerelease
     needs: [preflight, verify, advisories]
     runs-on: ubuntu-24.04
     timeout-minutes: 100
@@ -52,27 +73,37 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.ref_name }}
       SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+      RELEASE_MODE: ${{ needs.preflight.outputs.mode }}
+      PROMOTED_FROM: ${{ needs.preflight.outputs.promoted-from }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Recheck the allowed source revision
-        run: python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION"
+      - name: Recheck the allowed source revision and release mode
+        run: |
+          set -euo pipefail
+          policy="$(python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION")"
+          jq -e --arg mode "$RELEASE_MODE" --arg source "$PROMOTED_FROM" \
+            '.mode == $mode and (.promotedFrom // "") == $source' <<< "$policy" > /dev/null
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         with:
           node-version: '24.22.0'
       - name: Install the locked rehearsal browser
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         run: |
           npm ci --ignore-scripts --prefix scripts/release/browser
           scripts/release/browser/node_modules/.bin/playwright install --with-deps chromium
       # Keep the second build: these exact locally verified images are pushed.
       - name: Build and verify the exact candidate images
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         run: python3 scripts/deployment/smoke.py --build --vfs --source-revision "$SOURCE_REVISION" --release-tag "$RELEASE_TAG"
       - name: Rehearse the exact candidate before any public writes
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         run: python3 scripts/release/rehearsal.py --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" --output release-rehearsal
       - name: Retain pre-publication rehearsal evidence
-        if: ${{ always() }}
+        if: ${{ always() && needs.preflight.outputs.mode == 'candidate' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: pre-publication-rehearsal-${{ github.sha }}
@@ -96,6 +127,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       - name: Publish immutable candidate images and assets without replacement
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -103,6 +135,17 @@ jobs:
           python3 scripts/release/publication.py --repository "$GITHUB_REPOSITORY" \
             --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" \
             --source-archive "release-output/${source_url##*/}" --rehearsal release-rehearsal/receipt.json --output release-output
+      # Stable tags reuse the qualified candidate's exact digests: no build, no
+      # rehearsal. Downstream qualification, metadata and attestation still run.
+      - name: Promote the qualified candidate's exact images and assets without rebuilding
+        if: ${{ needs.preflight.outputs.mode == 'promote' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source_url="$(jq -er .sourceUrl native/chdman/mame.json)"
+          python3 scripts/release/promotion.py --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" --candidate "$PROMOTED_FROM" \
+            --source-archive "release-output/${source_url##*/}" --output release-output
       - name: Retain the publisher's immutable subject map
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -405,5 +448,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 scripts/release/release_notes.py --repository "$GITHUB_REPOSITORY" \
-            --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" --qualified --output qualification-notes.txt
+            --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" --qualified \
+            --publisher-state release-inputs/release-files/candidate.json --output qualification-notes.txt
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease --notes-file qualification-notes.txt

@@ -54,18 +54,20 @@ the harmless reporting test below.
   `contents: write` and `packages: write`, so a tag push publishes container
   images to GHCR and creates a GitHub release. Restrict creation, update and
   deletion of `v*` tags to maintainers. `scripts/release/preflight.py` also
-  rejects a tag that is not valid SemVer or does not point at the current tip
-  of the branch named in `.github/release-policy.json` (`main`), but it cannot
-  stop an untrusted person from pushing a tag.
+  rejects a tag that is not valid SemVer, a candidate tag that does not point at
+  the current tip of the branch named in `.github/release-policy.json` (`main`),
+  and a stable tag without a same-version `-rc.N` candidate on a commit that
+  branch contains. It cannot stop an untrusted person from pushing a tag.
 
 ## Release environment
 
 `publish` in `.github/workflows/release.yml` declares `environment: release`,
 and `scripts/ci/lint_workflows.py` requires it. The job therefore waits for a
-reviewer after the tag's full CI and source advisory runs pass, before any image, release or
-asset exists for that tag. Rejecting it leaves nothing published, while
-`scripts/release/publication.py` refuses to republish a version that already
-exists, so this approval is the last point at which a mistaken tag costs
+reviewer after the tagged commit's successful `main` CI run is confirmed and the
+tag's source advisory run passes, before any image, release or asset exists for
+that tag. Rejecting it leaves nothing published, while
+`scripts/release/publication.py` and `scripts/release/promotion.py` refuse to
+replace a version that already exists, so this approval is the last point at which a mistaken tag costs
 nothing.
 
 Create the environment under **Settings → Environments** before the first tag.
@@ -83,8 +85,9 @@ rules, so an unconfigured first tag would publish without waiting. Configure:
 Check the result with the `environments/release` reads above: `protection_rules`
 names the reviewers, `can_admins_bypass` is `false`, and the only deployment
 policy is the `v*` tag pattern. Approve a run under the workflow run's
-**Review deployments** prompt, after checking that `verify` passed for the
-intended commit and that `advisories` passed on that same tag.
+**Review deployments** prompt, after checking the preflight mode (`candidate`
+build or `promote` from the named `-rc.N`), that `verify` found the intended
+commit's successful `main` CI run and that `advisories` passed on that same tag.
 
 ## Actions
 
