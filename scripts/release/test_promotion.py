@@ -109,6 +109,11 @@ class FakeRegistry:
 
 
 class CandidateEvidenceTests(unittest.TestCase):
+    def test_completion_job_name_matches_the_release_workflow(self):
+        workflow = (promotion.ROOT / '.github/workflows/release.yml').read_text()
+        job = workflow.split('\n  publish-complete:\n', 1)[1]
+        self.assertEqual(f'    name: {COMPLETION_JOB}', job.splitlines()[0])
+
     def jobs(self, conclusion='success'):
         return dict(jobs=[dict(name='Downloaded Linux amd64 bundle and real-browser qualification', conclusion='success'),
                           dict(name=COMPLETION_JOB, conclusion=conclusion)])
