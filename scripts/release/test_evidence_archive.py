@@ -1,4 +1,5 @@
 import hashlib
+import gzip
 import io
 import json
 from pathlib import Path
@@ -6,8 +7,9 @@ import tarfile
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
-from evidence_archive import (MAX_FILE, archive_name, create_archive, read_archive,
+from evidence_archive import (MAX_FILE, MAX_MANIFEST, archive_name, create_archive, read_archive,
                               unpack_archive)
 from suite import REPORTS
 
@@ -219,6 +221,61 @@ class EvidenceArchiveTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 create(self.data)
             self.assertFalse(self.data.archive.exists())
+
+    def test_oversized_pax_and_gnu_headers_are_rejected_before_any_extension_body_read(self):
+        create(self.data)
+        raw = gzip.decompress(self.data.archive.read_bytes())
+        first = tarfile.TarInfo.frombuf(raw[:512], 'utf-8', 'strict')
+        manifest_end = 512 + ((first.size + 511) // 512) * 512
+        real_open = gzip.open
+        for kind in (tarfile.XHDTYPE, tarfile.XGLTYPE, tarfile.GNUTYPE_LONGNAME, tarfile.GNUTYPE_LONGLINK):
+            for after_manifest in (False, True):
+                with self.subTest(kind=kind, after_manifest=after_manifest):
+                    header = tarfile.TarInfo('extension')
+                    header.type, header.size = kind, 16 * 1024 * 1024 * 1024
+                    body = (raw[:manifest_end] if after_manifest else b'')
+                    body += header.tobuf(format=tarfile.GNU_FORMAT) + b'\0' * 1024
+                    archive = self.root / 'hostile' / self.data.archive.name
+                    archive.parent.mkdir(exist_ok=True)
+                    archive.write_bytes(gzip.compress(body))
+                    checksum = Path(str(archive) + '.sha256')
+                    checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+                    reads = []
+                    class BoundedInput:
+                        def __enter__(self):
+                            self.stream = real_open(archive, 'rb')
+                            return self
+                        def __exit__(self, *args):
+                            self.stream.close()
+                        def read(self, count):
+                            reads.append(count)
+                            if count < 0 or count > MAX_MANIFEST:
+                                raise AssertionError('An untrusted extension requested an unbounded read')
+                            return self.stream.read(count)
+                    output = self.root / ('out-' + kind.decode() + str(after_manifest))
+                    with patch('evidence_archive.gzip.open', return_value=BoundedInput()), \
+                            patch('evidence_archive.tarfile.open', side_effect=AssertionError('Streaming tar parser used')):
+                        with self.assertRaisesRegex(ValueError, 'extension'):
+                            unpack_archive(archive, checksum, output, self.data.revision, self.data.tag)
+                    self.assertEqual(512, reads[-1])
+                    self.assertFalse(output.exists())
+
+    def test_decompressed_budget_and_excess_trailer_fail_without_output(self):
+        create(self.data)
+        output = self.root / 'budget-rejected'
+        with patch('evidence_archive.MAX_TAR', 512), self.assertRaisesRegex(ValueError, 'budget'):
+            unpack_archive(self.data.archive, Path(str(self.data.archive) + '.sha256'), output,
+                           self.data.revision, self.data.tag)
+        self.assertFalse(output.exists())
+        archive = self.root / 'trailer' / self.data.archive.name
+        archive.parent.mkdir()
+        archive.write_bytes(gzip.compress(gzip.decompress(self.data.archive.read_bytes())
+                                          + b'\0' * (tarfile.RECORDSIZE + 1)))
+        checksum = Path(str(archive) + '.sha256')
+        checksum.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + '  ' + archive.name + '\n')
+        with self.assertRaisesRegex(ValueError, 'trailer'):
+            unpack_archive(archive, checksum, output, self.data.revision, self.data.tag)
+        self.assertFalse(output.exists())
 
 
 if __name__ == '__main__':

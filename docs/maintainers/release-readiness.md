@@ -80,7 +80,8 @@ prerelease. Completion attaches the verification archive and marks the notes
 qualified only after actual public downloads, runtime/security/provenance
 verification and both tamper controls pass. Keep the maintainer promotion
 checkpoint separate. Update the release notes with the accepted scope and
-achieved evidence before stable promotion.
+achieved evidence before stable promotion, replacing the prerelease banner with
+the accepted final release status only at that checkpoint.
 
 ## Source checks available in a development environment
 

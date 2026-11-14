@@ -57,7 +57,7 @@ def render(repository, tag, revision, source_name, *, qualified=False):
 
 ## Installation and support
 
-This release targets **Linux amd64 with Docker** and establishes a **fresh-installation baseline**. Upgrades from experimental builds, earlier release candidates or the historical v0.3.0 are not qualified. Keep existing installations and backups until you have followed the recovery guidance.
+This release targets **Linux amd64 with Docker** and establishes a **fresh-installation baseline**. Upgrades from previous experimental builds or release candidates are not qualified. Keep existing installations and backups until you have followed the recovery guidance.
 
 Ottercade and native mount clients remain source-only and experimental. See the [playback compatibility guide]({docs}features/playback-compatibility.md) for the supported systems and runtime limits.
 

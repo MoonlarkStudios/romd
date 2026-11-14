@@ -211,7 +211,10 @@ Supply the intended source
 commit, tag, repository and exact trusted signer workflow independently of the
 downloaded metadata. First use the bounded archive reader, which refuses unsafe
 paths, aliases, links, unexpected or duplicate members, oversized payloads,
-incomplete inventories and mismatched hashes. The output directory must be new.
+incomplete inventories and mismatched hashes. This transport emits regular
+USTAR records only; the reader rejects PAX/GNU extension headers before reading
+their bodies and bounds the entire decompressed stream, including headers,
+padding and trailer. The output directory must be new.
 Then run the unchanged cryptographic metadata verifier:
 
 ```bash

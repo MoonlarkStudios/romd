@@ -21,6 +21,8 @@ from suite import REPORTS
 MAX_FILE = 64 * 1024 * 1024
 MAX_TOTAL = 256 * 1024 * 1024
 MAX_FILES = 1024
+MAX_MANIFEST = 256 * 1024
+MAX_TAR = MAX_TOTAL + MAX_MANIFEST + (MAX_FILES + 1) * 1024 + tarfile.RECORDSIZE + 1
 MANIFEST = 'manifest.json'
 FIXED = {'attestations.jsonl', 'publisher/images.env', 'publisher/candidate.json',
          'metadata/release-metadata.json', 'packaged/suite.json',
@@ -159,7 +161,7 @@ def create_archive(metadata, attestations, images, state, packaged, output, revi
                     files={name: dict(size=len(data), sha256=sha256(data)) for name, data in sorted(files.items())})
     manifest_bytes = (json.dumps(manifest, sort_keys=True, indent=2) + '\n').encode()
     with output.open('xb') as raw, gzip.GzipFile(fileobj=raw, mode='wb', filename='', mtime=0) as compressed:
-        with tarfile.open(fileobj=compressed, mode='w') as archive:
+        with tarfile.open(fileobj=compressed, mode='w', format=tarfile.USTAR_FORMAT) as archive:
             for name, data in [(MANIFEST, manifest_bytes), *sorted(files.items())]:
                 member = tarfile.TarInfo(name)
                 member.size, member.mode = len(data), 0o644
@@ -169,6 +171,36 @@ def create_archive(metadata, attestations, images, state, packaged, output, revi
     with checksum.open('x') as stream:
         stream.write(f'{digest}  {output.name}\n')
     return manifest
+
+
+def regular_header(read):
+    """Inspect raw fixed-size headers before any extension processor sees them."""
+    header = read(tarfile.BLOCKSIZE)
+    if header == b'\0' * tarfile.BLOCKSIZE:
+        trailer = read(tarfile.RECORDSIZE + 1)
+        if not tarfile.BLOCKSIZE <= len(trailer) <= tarfile.RECORDSIZE or any(trailer):
+            raise ValueError('Invalid or oversized verification archive trailer')
+        return None
+    # tarfile.open/next processes PAX/GNU bodies before returning a member.
+    # This closed transport emits only regular USTAR records, so refuse every
+    # extension/link/special type before its declared body can be read.
+    if len(header) != tarfile.BLOCKSIZE or header[156:157] not in (tarfile.REGTYPE, tarfile.AREGTYPE):
+        raise ValueError('Unsupported verification archive extension or member type')
+    member = tarfile.TarInfo.frombuf(header, 'utf-8', 'strict')
+    if not member.isfile() or member.linkname:
+        raise ValueError('Unsupported verification archive member type or alias')
+    return member
+
+
+def regular_body(read, member, limit):
+    if not 0 < member.size <= limit:
+        raise ValueError('Oversized verification archive member')
+    data = read(member.size)
+    padding_size = -member.size % tarfile.BLOCKSIZE
+    padding = read(padding_size)
+    if len(data) != member.size or len(padding) != padding_size or any(padding):
+        raise ValueError('Truncated verification archive member or invalid padding')
+    return data
 
 
 def read_archive(archive, checksum, revision, tag):
@@ -181,11 +213,19 @@ def read_archive(archive, checksum, revision, tag):
         actual = hashlib.file_digest(stream, 'sha256').hexdigest()
     if len(fields) != 2 or fields != [actual, archive.name]:
         raise ValueError('Verification archive checksum mismatch')
-    with tarfile.open(archive, 'r:gz') as packed:
-        first = packed.next()
-        if first is None or first.name != MANIFEST or not first.isfile() or not 0 < first.size <= 256 * 1024:
+    with gzip.open(archive, 'rb') as compressed:
+        remaining = MAX_TAR
+        def read(count):
+            nonlocal remaining
+            if not 0 <= count <= remaining:
+                raise ValueError('Verification archive decompressed budget exceeded')
+            data = compressed.read(count)
+            remaining -= len(data)
+            return data
+        first = regular_header(read)
+        if first is None or first.name != MANIFEST:
             raise ValueError('Verification archive manifest is missing or oversized')
-        manifest = json.load(packed.extractfile(first))
+        manifest = json.loads(regular_body(read, first, MAX_MANIFEST))
         if not isinstance(manifest, dict):
             raise ValueError('Invalid verification archive manifest')
         inventory = manifest.get('files')
@@ -203,14 +243,14 @@ def read_archive(archive, checksum, revision, tag):
                 or sum(record['size'] for record in inventory.values()) > MAX_TOTAL):
             raise ValueError('Duplicate or oversized verification archive inventory')
         files = {}
-        # No extract/extractall: reject every link, directory, special file,
-        # sparse entry, alias and unexpected member before creating output.
-        while (member := packed.next()) is not None:
+        # No streaming tar parser or extract/extractall. The verified inventory
+        # bounds every body, member count, header, padding and decompressed byte.
+        while (member := regular_header(read)) is not None:
             name = safe_member(member.name)
             if (name not in inventory or name in files or not member.isfile() or member.issparse()
                     or member.size != inventory[name]['size']):
                 raise ValueError('Unexpected verification archive member/type/size')
-            data = packed.extractfile(member).read(MAX_FILE + 1)
+            data = regular_body(read, member, MAX_FILE)
             if len(data) != member.size or sha256(data) != inventory[name]['sha256']:
                 raise ValueError('Verification archive member checksum mismatch')
             files[name] = data
