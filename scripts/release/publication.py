@@ -121,6 +121,12 @@ def registry_exists(reference):
         raise RuntimeError('Registry state lookup failed; no publication permitted') from None
 
 
+def staging_tag(revision):
+    if not re.fullmatch('[0-9a-f]{40}', revision):
+        raise ValueError('Staging tags require a full source commit')
+    return 'sha-' + revision
+
+
 def publish(args):
     if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', args.repository) or not valid_tag(args.tag):
         raise ValueError('Invalid release repository or tag')
@@ -133,8 +139,12 @@ def publish(args):
             or source_sha256 != source['sourceSha256']):
         raise ValueError('Worker source archive does not match the reviewed source pin')
     namespace = 'ghcr.io/' + args.repository.split('/')[0].lower()
-    references = {service: f'{namespace}/romd-{service}:{args.tag}'
-                  for service in ('admin', 'consumer', 'worker', 'player')}
+    # Candidates are pushed only under a staging tag. Completion adds the version
+    # tag to these exact digests after every gate passes, so a failed candidate
+    # never leaves a version-tagged image.
+    versions = {service: f'{namespace}/romd-{service}:{args.tag}'
+                for service in ('admin', 'consumer', 'worker', 'player')}
+    references = {service: f'{namespace}/romd-{service}:{staging_tag(args.revision)}' for service in versions}
     image_ids = {}
     for service in references:
         local = json.loads(run(['docker', 'image', 'inspect', f'romd-{service}:test'], True))[0]
@@ -166,7 +176,7 @@ def publish(args):
     allow_retry(metadata, args.revision)
     # Inspect every remote version before pushing any image. Network/auth errors
     # are failures, never permission to overwrite a partially published version.
-    if any(registry_exists(reference) for reference in references.values()):
+    if any(registry_exists(reference) for reference in versions.values()):
         raise ValueError('Version image already exists; retry cannot replace published digests')
     if metadata is None:
         notes = args.output / 'candidate-notes.txt'
@@ -183,7 +193,7 @@ def publish(args):
         if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
             raise ValueError('Registry returned an invalid image digest')
         if digest != rehearsal['images'][f'ROMD_{service.upper()}_IMAGE'].rsplit('@', 1)[1]:
-            raise ValueError('Public image digest differs from the rehearsed image')
+            raise ValueError('Staged image digest differs from the rehearsed image')
     state = args.output / 'candidate.json'
     state.write_text(json.dumps(dict(sourceCommit=args.revision, releaseTag=args.tag, images=images,
                                     bundleSha256=hashlib.sha256(bundle.read_bytes()).hexdigest(),

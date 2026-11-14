@@ -73,7 +73,7 @@ def policy_errors(text, name):
                 errors.append(f'{name}/{job_name}: use an explicit permission map')
                 continue
             for permission, value in permissions.items():
-                allowed = {'publish': {'contents', 'packages'}, 'publish-metadata': {'id-token', 'attestations'}, 'publish-complete': {'contents'}}
+                allowed = {'publish': {'contents', 'packages'}, 'publish-metadata': {'id-token', 'attestations'}, 'publish-complete': {'contents', 'packages'}}
                 allowed_write = name == 'release.yml' and permission in allowed.get(job_name, set())
                 allowed_write |= name == 'security-maintenance.yml' and job_name == 'codeql' and permission == 'security-events'
                 if value not in ('read', 'none') and not (value == 'write' and allowed_write):

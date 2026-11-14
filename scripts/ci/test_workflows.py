@@ -234,7 +234,7 @@ class WorkflowPolicyTests(unittest.TestCase):
 
     def test_attestation_and_final_publication_permissions_are_separate(self):
         for role, allowed in (('publish-metadata', ('id-token', 'attestations')),
-                              ('publish-complete', ('contents',))):
+                              ('publish-complete', ('contents', 'packages'))):
             for permission in ('contents', 'packages', 'id-token', 'attestations', 'issues'):
                 workflow = f'permissions: {{contents: read}}\njobs:\n  {role}:\n    permissions: {{{permission}: write}}\n'
                 self.assertEqual(permission not in allowed, bool(policy_errors(workflow, 'release.yml')))

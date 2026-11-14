@@ -74,8 +74,10 @@ ARM64 requires a source build and additional native qualification (see
 [CHD media binaries](#chd-media-binaries)).
 
 A release stays a prerelease while it is being qualified; install the latest
-full release. Images are published under immutable version tags only, with no
-`latest` tag, and the bundle's `images.env` pins each image by digest.
+full release. An image receives its version tag only after its release
+qualifies, and that tag is never moved. There is no `latest` tag; ignore
+`sha-<commit>` staging tags. The bundle's `images.env` pins each image by
+digest.
 
 The bundle contains:
 
@@ -765,9 +767,10 @@ player startup failures must fail qualification and leave sanitized diagnostics.
 See [packaged release qualification](../maintainers/packaged-release-qualification.md).
 
 The release stays a draft until qualification, security metadata and
-attestation verification all pass; completion then publishes it once as an
-immutable prerelease. Publishing does not overwrite version tags or release
-assets. A partial draft with assets, an existing release, an existing image
+attestation verification all pass. Until then, images carry only a
+`sha-<commit>` staging tag; completion adds the version tag to the qualified
+digests and then publishes the release once as an immutable prerelease.
+Publishing does not overwrite version tags or release assets. A partial draft with assets, an existing release, an existing image
 version, or an uncertain registry/API response blocks another publishing
 attempt. Preserve that state for maintainer review and use a new version for a
 new publish. Failed qualification jobs may be rerun against the original

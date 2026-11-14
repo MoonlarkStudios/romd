@@ -332,12 +332,13 @@ jobs:
           retention-days: 30
 
   publish-complete:
-    name: Verify attestations and publish the immutable qualified prerelease
+    name: Verify attestations, tag images and publish the immutable qualified prerelease
     needs: [preflight, qualify, metadata, publish-metadata]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
+      packages: write
     env:
       RELEASE_TAG: ${{ github.ref_name }}
       SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
@@ -374,6 +375,14 @@ jobs:
             --bundle "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
             --checksum "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz.sha256" \
             --images release-inputs/release-files/images.env --attestations "romd-$RELEASE_TAG-attestations.jsonl"
+      # Images were pushed only under a staging tag (or, for a promotion, already
+      # exist). Version tags appear only now, on the exact qualified digests.
+      - name: Add the version tag to the qualified image digests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/release/tag_images.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --images release-inputs/release-files/images.env
       - name: Attach the attestations while the release is still a draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

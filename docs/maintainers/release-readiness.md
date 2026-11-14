@@ -34,13 +34,16 @@ than dated receipts or agent transcripts.
   `main` tip. Instead of rerunning CI, the release workflow requires the
   successful `main` push CI run for that exact commit (`scripts/release/ci_status.py`,
   waiting while it is still running), plus fresh source dependency advisories.
-  Each tag publishes its own immutable images, bundle and GitHub release;
-  nothing replaces an existing version. Publication waits for a maintainer to
+  Each candidate builds its own images and bundle and pushes the images only
+  under a `sha-<commit>` staging tag; nothing replaces an existing version. Publication waits for a maintainer to
   approve the `publish` job in the protected
   [release environment](repository-settings.md#release-environment).
 - A release stays a draft until every gate passes and is then published once,
-  immutably. A failed candidate leaves only a draft (plus its version-tagged
-  images), and the next attempt takes the next number. If `main` CI for the tagged commit failed or was not
+  immutably. Immediately before publishing, completion adds the version tag to
+  the qualified image digests (`scripts/release/tag_images.py`), so no image
+  carries a version tag that did not pass every gate. A failed candidate leaves
+  only a draft and images under their staging tag, and the next attempt takes
+  the next number. If `main` CI for the tagged commit failed or was not
   found, nothing is published: diagnose or rerun that `main` run, then rerun the
   release job.
 - Tag a stable `vX.Y.Z` only on the commit of a qualified `vX.Y.Z-rc.N`.
@@ -50,10 +53,10 @@ than dated receipts or agent transcripts.
   published immutable candidate release, checks the candidate bundle against
   GitHub's release attestation, verifies the bundle and its images with
   `gh attestation verify` as that candidate tag, and proves that the stable bundle rebuilt from the same
-  commit differs only in its manifest's `releaseTag`. It then adds the stable
-  version tag to the existing image manifests, keeping their digests, and
-  uploads the bundle to a draft. Packaged qualification, final-digest scans,
-  attestation and immutable publication then run for the stable tag exactly as
+  commit differs only in its manifest's `releaseTag`. It then uploads the
+  bundle to a draft, with no registry writes. Packaged qualification,
+  final-digest scans, attestation, version tagging of the candidate's existing
+  digests and immutable publication then run for the stable tag exactly as
   for a candidate. Promotion runs no CI, image build or
   pre-publication rehearsal. Image labels keep the candidate version that built
   them. A stable tag without a same-commit candidate is refused before any work.
@@ -61,7 +64,9 @@ than dated receipts or agent transcripts.
   the workflow's qualification note with the release notes:
   `gh release edit vX.Y.Z --repo MoonlarkStudios/romd --prerelease=false --latest --notes-file NOTES.md`.
   Never copy, push or rebuild images by hand: attestations bind exact digests.
-- Publish version tags only. There are no `latest` or minor-version image tags:
+- Operator-facing image tags are version tags only. `sha-<commit>` staging
+  tags exist for qualification and are not an install path. There are no
+  `latest` or minor-version image tags:
   operators install a bundle whose `images.env` pins digests, and worker-first
   migration cannot be left to a tag-following updater.
 - Linux amd64 is the only published platform. The console and mount clients

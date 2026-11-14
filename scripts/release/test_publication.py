@@ -196,8 +196,10 @@ class ReleasePolicyTests(unittest.TestCase):
             upload = next(i for i, command in enumerate(commands) if command[:3] == ['gh', 'release', 'upload']
                           and str(source) in command)
             pushes = [i for i, command in enumerate(commands) if command[:2] == ['docker', 'push']]
-            self.assertEqual({f'ghcr.io/owner/romd-{role}:v1.2.3' for role in ('admin', 'consumer', 'worker', 'player')},
+            # Only the staging tag is pushed; the version tag waits for qualification.
+            self.assertEqual({f'ghcr.io/owner/romd-{role}:sha-{args.revision}' for role in ('admin', 'consumer', 'worker', 'player')},
                              {commands[i][2] for i in pushes})
+            self.assertFalse(any(':v1.2.3' in part for command in commands if command[0] == 'docker' for part in command))
             self.assertEqual('postgres@sha256:' + 'b' * 64,
                              json.loads((output / 'candidate.json').read_text())['images']['ROMD_POSTGRES_IMAGE'])
             self.assertTrue(all(upload < i for i in pushes))

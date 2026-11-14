@@ -268,34 +268,6 @@ class BundleEquivalenceTests(unittest.TestCase):
             self.compare('tag')
 
 
-class RegistryTests(unittest.TestCase):
-    def registry(self, fake):
-        with patch.dict(os.environ, GH_TOKEN='token', GITHUB_ACTOR='actor'):
-            return Registry('owner/romd-admin', fake)
-
-    def test_tag_copies_the_exact_manifest_bytes_and_confirms_the_digest(self):
-        fake = FakeRegistry()
-        registry = self.registry(fake)
-        self.assertIsNone(registry.tagged_digest('v1.2.3'))
-        registry.tag(fake.digest, 'v1.2.3')
-        put = [request for request in fake.requests if request[0] == 'PUT']
-        self.assertEqual([('PUT', 'https://ghcr.io/v2/owner/romd-admin/manifests/v1.2.3', fake.manifest)], put)
-        self.assertEqual(fake.digest, fake.tags['v1.2.3'])
-
-    def test_mismatched_manifest_or_stored_digest_is_refused(self):
-        fake = FakeRegistry()
-        with self.assertRaisesRegex(ValueError, 'does not match the qualified digest'):
-            self.registry(fake).tag('sha256:' + 'c' * 64, 'v1.2.3')
-        self.assertFalse(any(request[0] == 'PUT' for request in fake.requests))
-        fake = FakeRegistry(stored='sha256:' + 'd' * 64)
-        with self.assertRaisesRegex(ValueError, 'different digest'):
-            self.registry(fake).tag(fake.digest, 'v1.2.3')
-
-    def test_registry_requires_workflow_credentials(self):
-        with patch.dict(os.environ, {}, clear=True), self.assertRaises(ValueError):
-            Registry('owner/romd-admin', FakeRegistry())
-
-
 class PromotionOrderTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
@@ -338,7 +310,7 @@ class PromotionOrderTests(unittest.TestCase):
                 result[f'owner/romd-{service}'].fake = fake
         return result
 
-    def test_promotion_tags_exact_digests_and_leaves_a_draft_for_qualification(self):
+    def test_promotion_makes_no_registry_writes_and_leaves_a_draft_for_qualification(self):
         registries = self.registries()
         args, commands = self.promote(registries)
         writes = [command[1:3] for command in commands if command[0] == 'gh']
@@ -348,8 +320,10 @@ class PromotionOrderTests(unittest.TestCase):
         self.assertIn('--draft', create)
         self.assertEqual(REVISION, create[create.index('--target') + 1])
         self.assertIn('Promoted without rebuilding from', (args.output / 'candidate-notes.txt').read_text())
+        # Completion adds version tags only after every gate passes.
         for registry in registries.values():
-            self.assertEqual(registry.fake.digest, registry.fake.tags['v1.2.3'])
+            self.assertNotIn('v1.2.3', registry.fake.tags)
+            self.assertFalse(any(request[0] == 'PUT' for request in registry.fake.requests))
         state = json.loads((args.output / 'candidate.json').read_text())
         self.assertEqual(('v1.2.3', 'v1.2.3-rc.2', 'draft-unqualified'),
                          (state['releaseTag'], state['promotedFrom'], state['result']))

@@ -240,9 +240,13 @@ uploaded to the draft. Completion then:
 
 1. checks the packaged qualification reports against the publisher state;
 2. runs `verify_release.py` on the bundle, image map and merged attestations;
-3. uploads the attestations file to the draft;
-4. publishes the release once, as a prerelease with its qualified notes;
-5. runs `scripts/release/confirm_publication.py`, which requires the published
+3. runs `scripts/release/tag_images.py`, which adds the release's version tag
+   to each qualified ROMD image digest. It checks every tag first: a tag that
+   names a different digest blocks the release before any write, and a tag
+   already on the qualified digest from an interrupted attempt is kept;
+4. uploads the attestations file to the draft;
+5. publishes the release once, as a prerelease with its qualified notes;
+6. runs `scripts/release/confirm_publication.py`, which requires the published
    release to be immutable, to carry exactly the four expected assets, to pass
    `gh release verify`, and to attest each verified local asset through
    `gh release verify-asset`.
