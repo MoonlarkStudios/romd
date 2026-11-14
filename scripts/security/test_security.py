@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 import copy
 from datetime import date, datetime, timezone
-from email.message import Message
 import hashlib
-import http.client
 import io
 import json
 from pathlib import Path
@@ -14,18 +12,12 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import subprocess
-import urllib.error
-import urllib.parse
-import urllib.request
-import urllib.response
 
-from download_release import DownloadFailure, OfficialRedirects, anonymous_opener, download_release, official_url
-from test_evidence_archive import archive_fixture, create as create_archive_fixture
 from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement, upstream_postgres_report
 from qualify import image_map, rehearsal_images, verify_bundle, verify_publisher
 from policy import evaluate, validate_policy
 from tools import binary_from_archive
-from verify import matching_predicate, verify_attestations, verify_files
+from verify import verify_files
 from credentials import anonymous_environment
 
 HERE = Path(__file__).resolve().parent
@@ -396,36 +388,6 @@ class InventoryIntegrityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'file checksum'):
             verify_files(self.work, bundle, 'b' * 40, 'v1.0.0-rc.1')
 
-    def test_downloaded_sbom_must_match_cryptographically_verified_predicate(self):
-        expected = {'bomFormat': 'CycloneDX', 'components': [{'name': 'react'}]}
-        verified = [{'verificationResult': {'statement': {'predicate': expected}}}]
-        self.assertTrue(matching_predicate(verified, expected))
-        self.assertFalse(matching_predicate(verified, {'bomFormat': 'CycloneDX', 'components': []}))
-        self.assertFalse(matching_predicate([], expected))
-
-    def test_attestation_verifier_enforces_signer_source_predicate_and_discards_credentials(self):
-        sbom = {'bomFormat': 'CycloneDX', 'components': [{'name': 'controlled'}]}
-        (self.work / 'admin.cdx.json').write_text(json.dumps(sbom))
-        args = SimpleNamespace(repository='owner/romd', revision='a' * 40, tag='v1.0.0-rc.1',
-            signer_workflow='owner/romd/.github/workflows/release.yml', attestations=self.work / 'attestations.jsonl')
-        index = {'subjects': [{'kind': 'image', 'name': 'ghcr.io/owner/admin@' + DIGEST, 'sbom': 'admin.cdx.json'}]}
-        verified = json.dumps([{'verificationResult': {'statement': {'predicate': sbom}}}])
-        with patch.dict('os.environ', {'GH_TOKEN': 'private', 'GITHUB_TOKEN': 'private', 'DOCKER_AUTH_CONFIG': 'private'}):
-            with patch('verify.subprocess.run', return_value=subprocess.CompletedProcess([], 0, verified)) as run:
-                verify_attestations(self.work, self.work / 'bundle.tar.gz', index, args)
-                self.assertEqual(4, run.call_count)
-                for call in run.call_args_list:
-                    command, environment = call.args[0], call.kwargs['env']
-                    self.assertIn('--deny-self-hosted-runners', command)
-                    self.assertEqual('a' * 40, command[command.index('--source-digest') + 1])
-                    self.assertEqual('refs/tags/v1.0.0-rc.1', command[command.index('--source-ref') + 1])
-                    self.assertEqual(args.signer_workflow, command[command.index('--signer-workflow') + 1])
-                    self.assertTrue(call.kwargs['check'])
-                    self.assertFalse(any(key in environment for key in ('GH_TOKEN', 'GITHUB_TOKEN', 'DOCKER_AUTH_CONFIG')))
-        with patch('verify.subprocess.run', side_effect=subprocess.CalledProcessError(1, ['gh'])):
-            with self.assertRaises(subprocess.CalledProcessError):
-                verify_attestations(self.work, self.work / 'bundle.tar.gz', index, args)
-
     def test_anonymous_environment_excludes_home_cloud_tokens_and_podman_auth_fallback(self):
         inherited = {'HOME': '/private/caller-home', 'REGISTRY_AUTH_FILE': '/private/podman/auth.json',
             'XDG_RUNTIME_DIR': '/run/user/501', 'XDG_CONFIG_HOME': '/private/caller-config',
@@ -444,214 +406,6 @@ class InventoryIntegrityTests(unittest.TestCase):
         self.assertEqual({'auths': {}}, json.loads((Path(environment['DOCKER_CONFIG']) / 'config.json').read_text()))
         self.assertEqual({'auths': {}}, json.loads(Path(environment['REGISTRY_AUTH_FILE']).read_text()))
         self.assertEqual({'auths': {}}, json.loads((Path(environment['XDG_RUNTIME_DIR']) / 'containers/auth.json').read_text()))
-
-
-class PublicReleaseDownloadTests(unittest.TestCase):
-    def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temporary.cleanup)
-        self.work = Path(self.temporary.name)
-        self.bundle = self.work / 'release.tar.gz'
-        InventoryIntegrityTests.release_bundle(self, self.bundle)
-        Path(str(self.bundle) + '.sha256').write_text(hashlib.sha256(self.bundle.read_bytes()).hexdigest()
-                                                    + '  ' + self.bundle.name + '\n')
-        self.inputs = archive_fixture(self.work / 'trusted-evidence',
-                                      bundle_sha=hashlib.sha256(self.bundle.read_bytes()).hexdigest())
-        create_archive_fixture(self.inputs)
-        self.archive = self.inputs.archive
-        self.assets = {path.name: path.read_bytes() for path in
-                       (self.archive, Path(str(self.archive) + '.sha256'),
-                        self.bundle, Path(str(self.bundle) + '.sha256'))}
-        self.output = self.work / 'public-download'
-        self.requests = []
-        self.responses = []
-
-    def opener(self, route=None):
-        requests, responses, assets = self.requests, self.responses, self.assets
-
-        class MockHTTPS(urllib.request.BaseHandler):
-            handler_order = 100
-
-            def https_open(self, request):
-                requests.append(request)
-                name = urllib.parse.urlsplit(request.full_url).path.rsplit('/', 1)[-1]
-                headers, code, body = {'Content-Length': str(len(assets.get(name, b'')))}, 200, assets.get(name, b'')
-                if route is not None:
-                    code, headers, body = route(request, name, body)
-                message = Message()
-                for key, value in headers.items():
-                    message[key] = value
-                response = urllib.response.addinfourl(io.BytesIO(body), message, request.full_url, code)
-                response.msg = 'controlled response'
-                responses.append(response)
-                return response
-
-        opener = anonymous_opener()
-        opener.add_handler(MockHTTPS())
-        return opener
-
-    def run_download(self, opener=None):
-        with patch('download_release.anonymous_opener', return_value=opener or self.opener()):
-            passed = download_release('owner/repository', self.inputs.tag, self.inputs.revision,
-                                      self.archive, self.bundle, self.output)
-        return passed, json.loads((self.output / 'download-result.json').read_text())
-
-    def test_anonymous_download_matches_every_trusted_asset_and_records_hash_manifest(self):
-        passed, report = self.run_download()
-        self.assertTrue(passed)
-        self.assertEqual('passed', report['result'])
-        self.assertEqual(set(self.assets), {record['name'] for record in report['files']})
-        for record in report['files']:
-            self.assertEqual(self.assets[record['name']], (self.output / record['name']).read_bytes())
-            self.assertEqual(record['expectedSize'], record['actualSize'])
-            self.assertEqual(record['expectedSha256'], record['actualSha256'])
-            self.assertEqual('passed', record['result'])
-        self.assertEqual(set(self.assets) | {'download-result.json', 'verification'},
-                         {path.name for path in self.output.iterdir()})
-        self.assertEqual(self.inputs.attestations.read_bytes(),
-                         (self.output / 'verification/attestations.jsonl').read_bytes())
-        self.assertEqual(self.inputs.state.read_bytes(),
-                         (self.output / 'verification/publisher/candidate.json').read_bytes())
-        self.assertEqual('passed', report['verification']['result'])
-
-    def test_private_missing_release_and_network_errors_fail_with_sanitized_evidence(self):
-        secret_url = 'https://release-assets.githubusercontent.com/private?token=must-not-appear'
-
-        def missing(request, name, body):
-            return 404, {}, secret_url.encode()
-
-        def network_failure(request, name, body):
-            raise urllib.error.URLError(secret_url)
-
-        def incomplete_http(request, name, body):
-            raise http.client.IncompleteRead(secret_url.encode(), 999)
-
-        for index, (route, failure) in enumerate(((missing, 'http-error'), (network_failure, 'network-error'),
-                                                 (incomplete_http, 'network-error'))):
-            self.output = self.work / f'failed-download-{index}'
-            passed, report = self.run_download(self.opener(route))
-            self.assertFalse(passed)
-            self.assertEqual(failure, report['failure'])
-            self.assertNotIn('must-not-appear', json.dumps(report))
-            self.assertEqual({'download-result.json'}, {path.name for path in self.output.iterdir()})
-            if failure == 'http-error':
-                self.assertTrue(self.responses[-1].closed)
-
-    def test_altered_oversized_and_truncated_asset_bytes_fail_and_remove_partial_content(self):
-        routes = [
-            (lambda request, name, body: (200, {}, b'X' + body[1:]), 'download-checksum-mismatch'),
-            (lambda request, name, body: (200, {'Content-Length': str(len(body) + 1)}, body + b'X'), 'http-content-length-mismatch'),
-            (lambda request, name, body: (200, {}, body + b'X' * 100000), 'download-size-mismatch'),
-            (lambda request, name, body: (200, {}, body[:-1]), 'download-size-mismatch'),
-        ]
-        for index, (route, failure) in enumerate(routes):
-            with self.subTest(failure=failure, index=index):
-                self.output = self.work / f'bad-content-{index}'
-                passed, report = self.run_download(self.opener(route))
-                self.assertFalse(passed)
-                self.assertEqual(failure, report['failure'])
-                self.assertEqual({'download-result.json'}, {path.name for path in self.output.iterdir()})
-                if index == 2:
-                    self.assertEqual(report['files'][0]['expectedSize'] + 1, report['files'][0]['actualSize'])
-
-    def test_official_https_redirects_work_without_environment_auth_proxy_cookie_or_netrc(self):
-        inherited = {'HOME': str(self.work), 'GH_TOKEN': 'caller-secret', 'GITHUB_TOKEN': 'caller-secret',
-                     'HTTP_PROXY': 'http://user:caller-secret@attacker.test:8080',
-                     'HTTPS_PROXY': 'http://user:caller-secret@attacker.test:8080',
-                     'ALL_PROXY': 'http://user:caller-secret@attacker.test:8080',
-                     'NETRC': str(self.work / '.netrc')}
-        (self.work / '.netrc').write_text('machine github.com login user password caller-secret\n')
-
-        def redirect(request, name, body):
-            host = urllib.parse.urlsplit(request.full_url).hostname
-            if host == 'github.com':
-                return 302, {'Location': 'https://release-assets.githubusercontent.com/' + name + '?token=signed-url-secret'}, b''
-            if host == 'release-assets.githubusercontent.com':
-                return 307, {'Location': 'https://objects.githubusercontent.com/' + name}, b''
-            return 200, {'Content-Length': str(len(body))}, body
-
-        with patch.dict('os.environ', inherited), patch('netrc.netrc', side_effect=AssertionError('netrc was used')):
-            opener = self.opener(redirect)
-            self.assertFalse(any(isinstance(handler, (urllib.request.ProxyHandler, urllib.request.HTTPBasicAuthHandler,
-                urllib.request.HTTPDigestAuthHandler, urllib.request.HTTPCookieProcessor)) for handler in opener.handlers))
-            passed, report = self.run_download(opener)
-        self.assertTrue(passed)
-        self.assertEqual(3 * len(self.assets), len(self.requests))
-        for request in self.requests:
-            headers = {key.lower(): value for key, value in request.header_items()}
-            self.assertFalse({'authorization', 'proxy-authorization', 'cookie'} & headers.keys())
-            self.assertNotIn('caller-secret', json.dumps(headers))
-            self.assertIn(urllib.parse.urlsplit(request.full_url).hostname,
-                          ('github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com'))
-        self.assertNotIn('signed-url-secret', json.dumps(report))
-
-    def test_untrusted_redirect_hosts_schemes_userinfo_and_ports_are_rejected_before_contact(self):
-        locations = ('http://github.com/asset', 'https://attacker.test/asset',
-                     'https://github.com.attacker.test/asset', 'https://user:secret@github.com/asset',
-                     'https://github.com:444/asset', 'https://github.com/asset#fragment',
-                     'file:///private/asset', 'https://objects.githubusercontent.com:invalid/asset')
-        for index, location in enumerate(locations):
-            with self.subTest(location=location):
-                self.output = self.work / f'unsafe-redirect-{index}'
-                self.requests.clear()
-                route = lambda request, name, body: (302, {'Location': location}, b'')
-                passed, report = self.run_download(self.opener(route))
-                self.assertFalse(passed)
-                self.assertEqual('http-error' if location.startswith('file:') else 'unsafe-release-url', report['failure'])
-                self.assertEqual(1, len(self.requests))
-                self.assertTrue(self.responses[-1].closed)
-                self.assertNotIn(location, json.dumps(report))
-        for location in locations:
-            with self.assertRaises(DownloadFailure):
-                official_url(location)
-
-    def test_redirects_discard_explicit_authorization_and_cookie_headers(self):
-        request = urllib.request.Request('https://github.com/source', headers={
-            'Authorization': 'Bearer secret', 'Proxy-Authorization': 'Basic secret', 'Cookie': 'secret'})
-        redirected = OfficialRedirects().redirect_request(request, None, 302, '', {},
-                                                         'https://release-assets.githubusercontent.com/target')
-        self.assertFalse({'authorization', 'proxy-authorization', 'cookie'} &
-                         {key.lower() for key, value in redirected.header_items()})
-
-    def test_existing_output_directory_is_preserved_and_not_reused(self):
-        self.output.mkdir()
-        (self.output / 'keep.txt').write_text('existing evidence')
-        with self.assertRaises(FileExistsError):
-            self.run_download()
-        self.assertEqual(['keep.txt'], [path.name for path in self.output.iterdir()])
-        self.assertEqual('existing evidence', (self.output / 'keep.txt').read_text())
-        self.assertEqual([], self.requests)
-
-    def test_symlink_corrupt_or_colliding_trusted_archives_fail_before_network(self):
-        original = self.archive.read_bytes()
-        self.archive.unlink()
-        self.archive.symlink_to(self.bundle)
-        self.output = self.work / 'symlink-input'
-        passed, report = self.run_download()
-        self.assertFalse(passed)
-        self.assertEqual([], self.requests)
-        self.archive.unlink()
-        self.archive.write_bytes(b'changed trusted archive')
-        self.output = self.work / 'changed-trusted-input'
-        passed, report = self.run_download()
-        self.assertFalse(passed)
-        self.assertEqual([], self.requests)
-        self.archive.write_bytes(original)
-        self.bundle = self.archive
-        self.output = self.work / 'colliding-input'
-        passed, report = self.run_download()
-        self.assertFalse(passed)
-        self.assertEqual('duplicate-or-reserved-asset-name', report['failure'])
-        self.assertEqual([], self.requests)
-
-    def test_self_consistent_substituted_bundle_is_rejected_before_public_download(self):
-        self.bundle.write_bytes(b'substitute with its own checksum')
-        Path(str(self.bundle) + '.sha256').write_text(hashlib.sha256(self.bundle.read_bytes()).hexdigest()
-                                                    + '  ' + self.bundle.name + '\n')
-        passed, report = self.run_download()
-        self.assertFalse(passed)
-        self.assertEqual('trusted-bundle-publisher-mismatch', report['failure'])
-        self.assertEqual([], self.requests)
 
 
 if __name__ == '__main__':

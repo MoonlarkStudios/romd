@@ -59,6 +59,22 @@ the harmless reporting test below.
   and a stable tag without a same-version `-rc.N` candidate on a commit that
   branch contains. It cannot stop an untrusted person from pushing a tag.
 
+## Release immutability
+
+Enable **Settings → General → Releases → Enable release immutability** before
+the first tag. Completion publishes each release once, after every gate, and
+`scripts/release/confirm_publication.py` fails a release that GitHub did not
+publish as immutable. Promotion also refuses a candidate release that is not
+immutable. Check the setting with:
+
+```bash
+gh api repos/MoonlarkStudios/romd/immutable-releases
+```
+
+It must report `"enabled": true`. Immutability locks a published release's tag
+and assets and adds GitHub's signed release attestation. The maintainer can
+still edit its title, notes, and prerelease/latest flags.
+
 ## Release environment
 
 `publish` in `.github/workflows/release.yml` declares `environment: release`,
@@ -144,13 +160,14 @@ never runs. Treat it as a bootstrap candidate:
 1. Push the first `-rc.1` tag, approve its `publish` job in the release
    environment, and let it publish the four packages.
 2. Confirm that each package is linked to this repository, then make it public.
-3. Pull every image digest in that release's `images.env` without credentials:
+3. Pull every image digest in that run's `published-subjects-*` artifact
+   `images.env` without credentials:
 
    ```bash
    DOCKER_CONFIG="$(mktemp -d)" sh -c "grep -E '^ROMD_(ADMIN|CONSUMER|WORKER|PLAYER)_IMAGE=' images.env | cut -d= -f2 | xargs -n1 docker pull --platform linux/amd64"
    ```
 
-4. Leave the bootstrap release as an unqualified prerelease and push the next
+4. Leave the bootstrap release as a draft, or delete it, and push the next
    `-rc` tag for a complete run. See
    [versions and promotion](release-readiness.md#versions-and-promotion).
 

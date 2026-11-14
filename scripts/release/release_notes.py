@@ -6,8 +6,8 @@ from pathlib import Path
 import re
 from urllib.parse import urlsplit
 
-from evidence_archive import archive_name
 from preflight import valid_tag
+from verify_release import attestations_name
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -23,22 +23,18 @@ def render(repository, tag, revision, source_name, *, qualified=False, promoted_
     download = project + '/releases/download/' + tag + '/'
     docs = project + '/blob/' + tag + '/docs/'
     bundle = f'romd-{tag}-deployment.tar.gz'
-    evidence = archive_name(tag)
+    attestations = attestations_name(tag)
+    # Releases stay drafts until qualified, so only maintainers see the unqualified page.
     status = ('**Qualified prerelease · Linux amd64 · Docker Compose**' if qualified
-              else '**Unqualified prerelease · verification in progress**')
+              else '**Draft · qualification in progress**')
     qualification = (
         'This exact release passed packaged installation, authenticated browser playback, restart, '
         'backup/restore with preserved library identity and content, both injected-failure controls, '
-        'image/SBOM security policy, provenance, anonymous downloads and tamper rejection. '
+        'image security policy and provenance verification. Its assets are immutable. '
         'Stable promotion remains a separate maintainer checkpoint.'
         if qualified else
-        'Qualification is still in progress. This build is available for evaluation and has not '
-        'passed all release gates. Check the release workflow before installing it.')
-    verification_links = (
-        f'[Verification archive]({download}{evidence}) · [Archive checksum]({download}{evidence}.sha256) · '
-        f'[CHD tooling source (GPL)]({download}{source_name})'
-        if qualified else f'[CHD tooling source (GPL)]({download}{source_name})\n\n'
-        'Full verification details will be linked here after qualification passes.')
+        'Qualification is still in progress. This draft has not passed all release gates and '
+        'is published only after it does.')
     promotion = (f'\n\nPromoted without rebuilding from [{promoted_from}]({project}/releases/tag/{promoted_from}): '
                  'the same image digests and deployment files, with only the release tag changed. '
                  f'Image labels keep the candidate version that built them.' if promoted_from else '')
@@ -70,9 +66,16 @@ Ottercade and native mount clients remain source-only and experimental. See the 
 
 ## Verification and source
 
-{verification_links}
+[Attestations]({download}{attestations}) · [CHD tooling source (GPL)]({download}{source_name})
 
-The verification archive contains the complete SBOMs, vulnerability reports, policy results, provenance attestations and packaged qualification evidence. Follow the [verification guide]({docs}maintainers/release-metadata.md) to check its contents and signatures. Official PostgreSQL findings remain visible as upstream-managed dependency information.
+The attestations file holds the signed provenance and SBOM for the bundle and every image it installs. Verify them with the [GitHub CLI](https://cli.github.com/); no GitHub login is needed:
+
+```bash
+gh attestation verify {bundle} --bundle {attestations} --repo {repository}
+gh attestation verify oci://IMAGE@sha256:DIGEST --bundle {attestations} --repo {repository}
+```
+
+Run the second command for each image in the bundle's `images.env`. See the [verification guide]({docs}maintainers/release-metadata.md#attestation-and-public-verification).
 
 {qualification}{promotion}
 

@@ -88,7 +88,21 @@ The bundle contains:
 - this runbook, configuration and media-processing guides.
 
 The release also attaches `mame0289.tar.gz`, the exact source archive of the
-worker image's `chdman` binary (see [CHD media binaries](#chd-media-binaries)).
+worker image's `chdman` binary (see [CHD media binaries](#chd-media-binaries)),
+and `romd-vX.Y.Z-attestations.jsonl`, the signed provenance and SBOM
+attestations. Published releases are immutable: their tag and files cannot be
+changed. Check the download, and optionally its origin with the
+[GitHub CLI](https://cli.github.com/) (no login needed):
+
+```bash
+sha256sum --check romd-vX.Y.Z-deployment.tar.gz.sha256
+gh attestation verify romd-vX.Y.Z-deployment.tar.gz \
+  --bundle romd-vX.Y.Z-attestations.jsonl --repo MoonlarkStudios/romd
+```
+
+The bundle's `images.env` pins every image by digest, so a verified bundle also
+selects verified images. To check the images themselves, see
+[verify a release](../maintainers/release-metadata.md#verify-a-release).
 
 Until the first release is published, maintainers can build from source using
 `compose.build.yaml`; do not assume GHCR packages already exist. Package
@@ -741,18 +755,21 @@ Linux amd64 platform and image digest map in `manifest.json`:
 scripts/deployment/bundle.sh images.env release-output/deployment.tar.gz FULL_SOURCE_COMMIT v1.2.3-rc.1
 ```
 
-A separate runner downloads the actual candidate bundle and compares it with
-the publisher's independently retained bundle hash and image map before
-executing the installation. It verifies running image digests, worker-first
+A separate runner takes the exact bundle uploaded to the draft release from the
+publisher's same-run artifact and compares it with the publisher's
+independently retained bundle hash and image map before executing the
+installation. It verifies running image digests, worker-first
 provisioning, browser callbacks and authenticated views in both portals, real
 isolated-player startup, restart and restore. Broken required portal assets and
 player startup failures must fail qualification and leave sanitized diagnostics.
 See [packaged release qualification](../maintainers/packaged-release-qualification.md).
 
-Publishing does not overwrite version tags or release assets. A partial draft
-with assets, an exposed candidate, an existing image version, or an uncertain
-registry/API response blocks another publishing attempt. Preserve that state
-for maintainer review and use a new version for a new publish. Failed
-qualification jobs may be rerun against the original immutable candidate;
-rerunning the publisher cannot silently rebuild or replace it. No workflow
-command turns an unqualified candidate into a final release.
+The release stays a draft until qualification, security metadata and
+attestation verification all pass; completion then publishes it once as an
+immutable prerelease. Publishing does not overwrite version tags or release
+assets. A partial draft with assets, an existing release, an existing image
+version, or an uncertain registry/API response blocks another publishing
+attempt. Preserve that state for maintainer review and use a new version for a
+new publish. Failed qualification jobs may be rerun against the original
+candidate; rerunning the publisher cannot silently rebuild or replace it. No
+workflow command turns an unqualified candidate into a final release.

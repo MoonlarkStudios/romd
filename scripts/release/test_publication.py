@@ -210,7 +210,10 @@ class ReleasePolicyTests(unittest.TestCase):
             self.assertNotIn(str(output / 'candidate.json'), installation_upload)
             self.assertTrue((output / 'candidate.json').is_file())
             self.assertFalse(any('--clobber' in command for command in commands))
-            self.assertIn('--prerelease', commands[-1])
+            # The candidate stays a draft; only completion publishes it.
+            self.assertFalse(any(command[:3] == ['gh', 'release', 'edit'] for command in commands))
+            create = next(command for command in commands if command[:3] == ['gh', 'release', 'create'])
+            self.assertIn('--draft', create)
             source.write_bytes(b'tampered source')
             with patch('publication.ROOT', root), patch('publication.release_metadata') as lookup:
                 with self.assertRaisesRegex(ValueError, 'source archive'):

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'security'))
 from verify import verify_files
 from qualify import canonical_digest
 
-ROLES = ('admin', 'consumer', 'worker', 'player', 'postgres', 'bundle', 'index')
+ROLES = ('admin', 'consumer', 'worker', 'player', 'postgres', 'bundle')
 
 
 def select_subject(root, role, revision, tag):
@@ -21,8 +21,6 @@ def select_subject(root, role, revision, tag):
         raise ValueError('Expected exactly one safe deployment bundle name')
     bundle = root / 'release-files' / bundles[0]['name']
     index = verify_files(directory, bundle, revision, tag)
-    if role == 'index':
-        return {'kind': 'file', 'path': str(directory / 'release-metadata.json')}
     if role == 'bundle':
         return {'kind': 'file', 'path': str(bundle), 'sbom': str(directory / bundles[0]['sbom'])}
     if role not in ROLES:
@@ -56,7 +54,7 @@ def merge_bundles(root, output):
     records = []
     for role in ROLES:
         values = [json.loads(line) for line in (root / (role + '.jsonl')).read_text().splitlines()]
-        if len(values) != (1 if role == 'index' else 2) or any(not isinstance(value, dict) or not value for value in values):
+        if len(values) != 2 or any(not isinstance(value, dict) or not value for value in values):
             raise ValueError('Missing or malformed provenance/SBOM attestation part: ' + role)
         records.extend(values)
     with output.open('x') as destination:

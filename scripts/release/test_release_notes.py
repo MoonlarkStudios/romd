@@ -4,25 +4,26 @@ from release_notes import render
 
 
 class ReleaseNotesTests(unittest.TestCase):
-    def test_qualified_page_leads_with_installation_and_five_explicit_assets(self):
+    def test_qualified_page_leads_with_installation_and_four_explicit_assets(self):
         page = render('owner/repo', 'v1.2.3-rc.1', 'a' * 40, 'mame0289.tar.gz', qualified=True)
         self.assertLess(page.index('Download and install'), page.index('Verification and source'))
         for name in ('romd-v1.2.3-rc.1-deployment.tar.gz', 'romd-v1.2.3-rc.1-deployment.tar.gz.sha256',
-                     'romd-v1.2.3-rc.1-verification.tar.gz', 'romd-v1.2.3-rc.1-verification.tar.gz.sha256',
-                     'mame0289.tar.gz'):
+                     'romd-v1.2.3-rc.1-attestations.jsonl', 'mame0289.tar.gz'):
             self.assertIn('/releases/download/v1.2.3-rc.1/' + name + ')', page)
+        self.assertNotIn('verification.tar.gz', page)
+        self.assertIn('gh attestation verify romd-v1.2.3-rc.1-deployment.tar.gz '
+                      '--bundle romd-v1.2.3-rc.1-attestations.jsonl --repo owner/repo', page)
         self.assertIn('Qualified prerelease', page)
         self.assertIn('fresh-installation baseline', page)
         self.assertIn('source-only and experimental', page)
         self.assertIn('Stable promotion remains a separate', page)
 
-    def test_unqualified_page_never_claims_completed_qualification(self):
+    def test_draft_page_never_claims_completed_qualification(self):
         page = render('owner/repo', 'v1.2.3', 'a' * 40, 'mame0289.tar.gz')
-        self.assertIn('Unqualified prerelease', page)
+        self.assertIn('Draft · qualification in progress', page)
         self.assertIn('has not passed all release gates', page)
         self.assertNotIn('This exact release passed', page)
-        self.assertNotIn('/romd-v1.2.3-verification.tar.gz)', page)
-        self.assertIn('Full verification details will be linked here after qualification passes.', page)
+        self.assertNotIn('Qualified prerelease', page)
 
     def test_promoted_page_names_its_qualified_candidate(self):
         page = render('owner/repo', 'v1.2.3', 'a' * 40, 'mame0289.tar.gz', qualified=True, promoted_from='v1.2.3-rc.4')
