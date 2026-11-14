@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import copy
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 import hashlib
 import io
 import json
@@ -13,9 +13,10 @@ import unittest
 from unittest.mock import patch
 import subprocess
 
-from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement, upstream_postgres_report
+from metadata import (Commands, assert_coverage, assert_fresh_database, assert_official_postgres, assert_scanner_coverage,
+                      catalog_supplement, generate, main, merge_sbom, native_supplement)
 from qualify import image_map, rehearsal_images, verify_bundle, verify_publisher
-from policy import evaluate, validate_policy
+from policy import GATE_EXIT_CODE, IGNORE_FILE, gate_command, load_exceptions, suppressed
 from tools import binary_from_archive
 from verify import verify_files
 from credentials import anonymous_environment
@@ -43,89 +44,80 @@ class VulnerabilityPolicyTests(unittest.TestCase):
                 rehearsal_images(changed)
 
     def setUp(self):
-        self.policy = json.loads((HERE / 'policy.json').read_text())
-        self.today = date(2026, 10, 15)
-        self.vulnerability = {'VulnerabilityID': 'CVE-2026-12345', 'PkgName': 'example', 'InstalledVersion': '1.2.3',
-                              'Severity': 'HIGH', 'PkgIdentifier': {'PURL': 'pkg:npm/example@1.2.3'}}
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.work = Path(temporary.name)
+        self.now = datetime(2026, 10, 15, tzinfo=timezone.utc)
 
-    def report(self, severity=None):
-        vulnerability = dict(self.vulnerability)
-        if severity is not None:
-            vulnerability['Severity'] = severity
-        return {'SchemaVersion': 2, 'Results': [{'Type': 'npm', 'Vulnerabilities': [vulnerability]}]}
+    def exceptions(self, *entries):
+        path = self.work / 'trivyignore.yaml'
+        path.write_text(json.dumps({'vulnerabilities': list(entries)}))
+        return load_exceptions(path, self.now)
 
-    def exception(self):
-        return {'id': 'CVE-2026-12345', 'component': 'pkg:npm/example@1.2.3', 'installedVersion': '1.2.3',
-                'subjectDigest': DIGEST, 'rationale': 'Controlled fixture is unreachable from the public route.',
-                'owner': 'release-maintainer', 'expires': '2026-11-01'}
+    def exception(self, **changes):
+        return dict({'id': 'CVE-2026-12345', 'purls': ['pkg:npm/example@1.2.3'],
+                     'statement': 'Controlled fixture is unreachable from the public route.',
+                     'owner': 'release-maintainer', 'expired_at': '2026-11-01T00:00:00Z'}, **changes)
 
-    def test_high_critical_unknown_and_unfixed_findings_block(self):
-        for severity in ('HIGH', 'CRITICAL', 'UNKNOWN'):
-            with self.subTest(severity=severity):
-                result = evaluate(self.report(severity), DIGEST, self.policy, self.today)
-                self.assertEqual('failed', result['result'])
-                self.assertIsNone(result['findings'][0]['fixedVersion'])
-        self.assertEqual('passed', evaluate(self.report('MEDIUM'), DIGEST, self.policy, self.today)['result'])
+    def test_reviewed_exception_file_is_valid_and_empty_by_default(self):
+        self.assertEqual([], load_exceptions(IGNORE_FILE))
 
-    def test_specific_reviewed_exception_does_not_cover_other_component_version_digest_or_cve(self):
-        self.policy['exceptions'] = [self.exception()]
-        self.assertEqual('passed', evaluate(self.report(), DIGEST, self.policy, self.today)['result'])
-        for key, replacement in (('component', 'pkg:npm/other@1.2.3'), ('installedVersion', '1.2.4'),
-                                 ('subjectDigest', 'sha256:' + 'b' * 64), ('id', 'CVE-2026-54321')):
-            policy = copy.deepcopy(self.policy)
-            policy['exceptions'][0][key] = replacement
-            self.assertEqual('failed', evaluate(self.report(), DIGEST, policy, self.today)['result'])
+    def test_exact_owned_exception_within_ninety_days_is_accepted_in_trivys_format(self):
+        self.assertEqual([self.exception()], self.exceptions(self.exception()))
+        self.exceptions(self.exception(expired_at='2027-01-13T00:00:00Z'))
 
-    def test_expired_overlong_wildcard_ownerless_and_weak_policy_are_rejected(self):
-        for key, value in (('expires', '2026-10-15'), ('expires', '2027-10-15'),
-                           ('component', '*'), ('owner', ''), ('rationale', 'ignore')):
-            policy = copy.deepcopy(self.policy)
-            policy['exceptions'] = [dict(self.exception(), **{key: value})]
-            with self.assertRaises(ValueError):
-                validate_policy(policy, self.today)
-        self.policy['blockedSeverities'] = ['CRITICAL']
-        with self.assertRaises(ValueError):
-            validate_policy(self.policy, self.today)
+    def test_expired_overlong_wildcard_unversioned_ownerless_or_broad_exceptions_are_rejected(self):
+        for changes in ({'expired_at': '2026-10-15T00:00:00Z'}, {'expired_at': '2027-01-14T00:00:00Z'},
+                        {'expired_at': '2026-11-01'}, {'purls': ['pkg:npm/example@*']}, {'purls': ['pkg:npm/example']},
+                        {'purls': []}, {'id': '*'}, {'owner': ' '}, {'statement': 'ignore'}, {'paths': ['app/']}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.exceptions(self.exception(**changes))
+        entry = self.exception()
+        del entry['owner']
+        for entries in ((entry,), (self.exception(), self.exception())):
+            with self.subTest(entries=entries), self.assertRaises(ValueError):
+                self.exceptions(*entries)
+        for text in ('vulnerabilities: []\n', json.dumps({'vulnerabilities': [], 'misconfigurations': []}), '[]'):
+            (self.work / 'trivyignore.yaml').write_text(text)
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                load_exceptions(self.work / 'trivyignore.yaml', self.now)
 
-    def test_empty_or_malformed_scanner_report_does_not_pass(self):
-        for report in ({}, {'SchemaVersion': 1, 'Results': []}, self.report('unrecognized')):
-            with self.assertRaises(ValueError):
-                evaluate(report, DIGEST, self.policy, self.today)
-        self.assertEqual('passed', evaluate({'SchemaVersion': 2, 'Results': []}, DIGEST, self.policy, self.today)['result'])
+    def test_gate_blocks_unknown_high_and_critical_findings_including_unfixed_ones(self):
+        command = gate_command('trivy', 'admin.image.trivy.json', 'empty-config.json')
+        self.assertEqual(['trivy', 'convert'], command[:2])
+        self.assertEqual('UNKNOWN,HIGH,CRITICAL', command[command.index('--severity') + 1])
+        self.assertEqual(str(GATE_EXIT_CODE), command[command.index('--exit-code') + 1])
+        self.assertNotEqual(1, GATE_EXIT_CODE)
+        self.assertNotIn('--ignore-unfixed', command)
+        source = (HERE / 'metadata.py').read_text()
+        self.assertNotIn('--ignore-unfixed', source)
+        self.assertNotIn("'--severity'", source)
 
-    def test_complete_trivy_sbom_report_can_omit_empty_results_without_satisfying_image_coverage(self):
-        report = dict(SchemaVersion=2, Trivy=dict(Version='0.76.0'),
-                      ArtifactType='cyclonedx', ArtifactName='/controlled/bundle.cdx.json')
-        self.assertEqual('passed', evaluate(report, DIGEST, self.policy, self.today)['result'])
-        self.assertNotIn('Results', report)
-        for role in ('admin', 'consumer', 'worker', 'player', 'postgres'):
-            for mode in ('image', 'sbom'):
-                with self.subTest(role=role, mode=mode), self.assertRaises(ValueError):
-                    assert_scanner_coverage(report, role, mode)
-        for changed in (dict(report, Results=None), dict(report, Results={}),
-                        dict(report, SchemaVersion=1), dict(report, ArtifactType='container_image'),
-                        dict(report, ArtifactName=''), dict(report, Trivy={}), dict(report, Trivy=None),
-                        dict(report, Trivy={'Version': 76})):
-            with self.subTest(report=changed), self.assertRaises(ValueError):
-                evaluate(changed, DIGEST, self.policy, self.today)
+    def test_gate_separates_blocked_findings_from_scanner_failures(self):
+        commands = Commands(self.work, self.work)
+        for returncode, expected in ((0, True), (GATE_EXIT_CODE, False)):
+            with self.subTest(returncode=returncode), patch('metadata.subprocess.run',
+                    return_value=subprocess.CompletedProcess([], returncode, b'', b'')):
+                self.assertIs(expected, commands.gate(['trivy', 'convert'], 'vulnerability-gate-admin-image'))
+        with patch('metadata.subprocess.run', return_value=subprocess.CompletedProcess([], 1, b'', b'')), \
+                self.assertRaises(RuntimeError):
+            commands.gate(['trivy', 'convert'], 'vulnerability-gate-admin-image')
 
-    def test_official_postgres_findings_are_reported_without_changing_romd_gates(self):
-        for severity in ('HIGH', 'CRITICAL', 'UNKNOWN'):
-            raw = self.report(severity)
-            before = copy.deepcopy(raw)
-            result = upstream_postgres_report(raw, 'postgres:18.6-bookworm@' + DIGEST, self.policy)
-            self.assertEqual('reported', result['result'])
-            self.assertEqual('upstream-managed', result['enforcement'])
-            self.assertEqual(severity, result['findings'][0]['severity'])
-            self.assertTrue(result['findings'][0]['severityFlagged'])
-            self.assertNotIn('excepted', result['findings'][0])
-            self.assertEqual(before, raw)
-            self.assertEqual('failed', evaluate(raw, DIGEST, self.policy, self.today)['result'])
+    def test_suppressed_findings_are_recorded_with_their_reason(self):
+        finding = {'VulnerabilityID': 'GO-2026-5932', 'Severity': 'UNKNOWN',
+                   'PkgIdentifier': {'PURL': 'pkg:golang/golang.org/x/crypto@v0.58.0'}}
+        report = {'Results': [{'Vulnerabilities': [{'VulnerabilityID': 'CVE-2026-1'}],
+                               'ExperimentalModifiedFindings': [{'Status': 'not_affected', 'Finding': finding,
+                                                                 'Statement': 'vulnerable_code_not_present'}]}]}
+        self.assertEqual([{'id': 'GO-2026-5932', 'severity': 'UNKNOWN', 'purl': 'pkg:golang/golang.org/x/crypto@v0.58.0',
+                           'status': 'not_affected', 'statement': 'vulnerable_code_not_present'}], suppressed(report))
+        self.assertEqual([], suppressed({'Results': [{}]}))
+
+    def test_upstream_reporting_applies_only_to_the_docker_official_postgres_image(self):
+        assert_official_postgres('postgres:18.7-bookworm@' + DIGEST)
         for reference in ('ghcr.io/example/postgres@' + DIGEST, 'docker.io/example/postgres@' + DIGEST):
-            with self.assertRaisesRegex(ValueError, 'Docker Official'):
-                upstream_postgres_report(self.report(), reference, self.policy)
-        with self.assertRaises(ValueError):
-            upstream_postgres_report({}, 'postgres@' + DIGEST, self.policy)
+            with self.subTest(reference=reference), self.assertRaisesRegex(ValueError, 'Docker Official'):
+                assert_official_postgres(reference)
 
 
 class InventoryIntegrityTests(unittest.TestCase):
@@ -173,7 +165,7 @@ class InventoryIntegrityTests(unittest.TestCase):
                               'b' * 40, 'v1.0.0-rc.1')
                 args = SimpleNamespace(bundle=bundle, checksum=checksum, images=images,
                     publisher_state=publisher_state, revision='b' * 40, tag='v1.0.0-rc.1',
-                    tools_dir=self.work / 'tools', output=self.work / f'metadata-{index}', policy=HERE / 'policy.json')
+                    tools_dir=self.work / 'tools', output=self.work / f'metadata-{index}', ignore_file=IGNORE_FILE)
                 with patch('metadata.platform.system', return_value='Linux'), \
                         patch('metadata.platform.machine', return_value='x86_64'), \
                         patch('metadata.verify_installed', return_value={}), \

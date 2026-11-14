@@ -16,12 +16,9 @@ RUN tar -xzf /tmp/reader.tar.gz --strip-components=1 \
     && cp trust/1.root.json /out/1.root.json \
     && printf '{"schemaVersion":1,"module":"github.com/MoonlarkStudios/romd-dat-catalogs","sourceCommit":"f41d480da850f534044d0ee690747af2ab5cd3c5","binarySha256":"%s","goVersion":"go1.27.4"}\n' "$(sha256sum /out/catalog-reader | cut -d ' ' -f 1)" > /out/catalog-reader.json
 
-# Qualification-only provenance and scanner exports; these tools never enter runtime images.
-FROM catalog-reader-build AS catalog-reader-security
-RUN GOOS=linux GOARCH="$TARGETARCH" go list -deps -json ./cmd/distribution > /out/packages.json \
-    && go version -m -json /out/catalog-reader > /out/buildinfo.json \
-    && cp go.mod go.sum /tmp/reader.tar.gz /out/
-
+# Qualification-only scanner export; govulncheck never enters runtime images.
+# Its module checksums are verified by the Go checksum database and the pins
+# below, which scripts/security/go_vex.py checks against tools.json.
 FROM catalog-reader-build AS govulncheck-build
 WORKDIR /govulncheck
 ENV GOPROXY=https://proxy.golang.org
@@ -29,17 +26,15 @@ ENV GOSUMDB=sum.golang.org
 ENV GOMAXPROCS=2
 ENV GOFLAGS=-p=2
 RUN mkdir -p /tools \
-    && go mod download -json golang.org/x/vuln@v1.9.0 > /tools/govulncheck-module.json \
-    && grep -F '"Sum": "h1:12VaqnI9kJfqwRoPptxoqsUhQtdfrSbdksT7X/KY/sc="' /tools/govulncheck-module.json \
-    && grep -F '"GoModSum": "h1:E/Frwm0xp49fTyBW+6CQHdkvobknbwUM49yEpMGUauw="' /tools/govulncheck-module.json \
-    && cp /go/pkg/mod/cache/download/golang.org/x/vuln/@v/v1.9.0.zip /tools/govulncheck-source.zip \
-    && echo 'e4bcdca4303ab3e57e913d0b086bbf7916b97ed4d0b069c8e0eede39e8782c2c  /tools/govulncheck-source.zip' | sha256sum -c - \
-    && GOOS=linux GOARCH=amd64 GOBIN=/tools go install golang.org/x/vuln/cmd/govulncheck@v1.9.0 \
-    && go version -m -json /tools/govulncheck > /tools/govulncheck-buildinfo.json
+    && go mod download -json golang.org/x/vuln@v1.9.0 > /tmp/govulncheck-module.json \
+    && grep -F '"Sum": "h1:12VaqnI9kJfqwRoPptxoqsUhQtdfrSbdksT7X/KY/sc="' /tmp/govulncheck-module.json \
+    && grep -F '"GoModSum": "h1:E/Frwm0xp49fTyBW+6CQHdkvobknbwUM49yEpMGUauw="' /tmp/govulncheck-module.json \
+    && echo 'e4bcdca4303ab3e57e913d0b086bbf7916b97ed4d0b069c8e0eede39e8782c2c  /go/pkg/mod/cache/download/golang.org/x/vuln/@v/v1.9.0.zip' | sha256sum -c - \
+    && GOOS=linux GOARCH=amd64 GOBIN=/tools go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
 FROM scratch AS catalog-reader-security-artifacts
-COPY --from=catalog-reader-security /out/ /
-COPY --from=govulncheck-build /tools/ /
+COPY --from=catalog-reader-build /out/catalog-reader /out/catalog-reader.json /
+COPY --from=govulncheck-build /tools/govulncheck /
 
 # Native builder for libchdr and chdman. AlmaLinux 8.10 keeps the glibc 2.28
 # baseline under the GLIBC <= 2.31 native policy; RPMs are the reviewed pins and

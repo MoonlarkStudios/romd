@@ -54,12 +54,12 @@ def verify_files(directory, bundle, revision, tag, *, rehearsal=False):
                     assert_scanner_coverage(json.loads((directory / name).read_text()), role, mode)
             if subject.get('policy') not in files:
                 raise ValueError('Rehearsal security policy evidence is missing')
-            evaluations = json.loads((directory / subject['policy']).read_text())
-            evaluations = evaluations if isinstance(evaluations, list) else [evaluations]
-            expected = 'reported' if subject.get('role') == 'postgres' else 'passed'
-            if (len(evaluations) != (2 if subject['kind'] == 'image' else 1)
-                    or any(item.get('result') != expected or any(f.get('blocked') for f in item.get('findings', []))
-                           for item in evaluations)):
+            if role in ('admin', 'worker') and (subject.get('vex') != f'{role}.vex.json' or subject['vex'] not in files):
+                raise ValueError('Rehearsal catalog reader VEX evidence is missing')
+            records = json.loads((directory / subject['policy']).read_text())
+            expected = 'reported' if role == 'postgres' else 'passed'
+            if (not isinstance(records, list) or [item.get('scan') for item in records] != subject['scans']
+                    or any(item.get('result') != expected for item in records)):
                 raise ValueError('Rehearsal security policy did not pass all image/SBOM/bundle gates')
     if rehearsal:
         commands = index.get('commands')
