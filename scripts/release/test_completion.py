@@ -96,6 +96,9 @@ elif script.endswith('release_notes.py'):
     if '--qualified' not in args or fault == 'qualification-notes':
         sys.exit(1)
     pathlib.Path(args[args.index('--output') + 1]).write_text('Qualified prerelease with installation links')
+elif script.endswith('tag_images.py'):
+    if args[args.index('--images') + 1] != 'release-inputs/release-files/images.env' or fault == 'tag-images':
+        sys.exit(1)
 elif script.endswith('confirm_publication.py'):
     sys.exit(1 if fault == 'not-immutable' else 0)
 else:
@@ -126,10 +129,13 @@ else:
         suite = self.index(calls, lambda command: 'scripts/release/suite.py' in command)
         merge = self.index(calls, lambda command: 'scripts/release/attestation_files.py' in command)
         verify = self.index(calls, lambda command: 'scripts/release/verify_release.py' in command)
+        tag = self.index(calls, lambda command: 'scripts/release/tag_images.py' in command)
         upload = self.index(calls, lambda command: command[:3] == ['gh', 'release', 'upload'])
         edit = self.index(calls, lambda command: command[:3] == ['gh', 'release', 'edit'])
         confirm = self.index(calls, lambda command: 'scripts/release/confirm_publication.py' in command)
-        self.assertEqual(sorted([suite, merge, verify, upload, edit, confirm]), [suite, merge, verify, upload, edit, confirm])
+        order = [suite, merge, verify, tag, upload, edit, confirm]
+        self.assertEqual(sorted(order), order)
+        self.assertEqual('v1.2.3-rc.1', calls[tag][calls[tag].index('--tag') + 1])
         self.assertEqual(['romd-v1.2.3-rc.1-attestations.jsonl'], [part for part in calls[upload] if part.endswith('.jsonl')])
         self.assertIn('--draft=false', calls[edit])
         self.assertIn('--prerelease', calls[edit])
@@ -141,12 +147,14 @@ else:
         self.assertEqual('mame0289.tar.gz', confirmed[confirmed.index('--source-name') + 1])
         self.assertFalse(any('--clobber' in command for command in calls))
 
-    def test_failed_evidence_verification_or_upload_never_publishes(self):
-        for fault in ('runtime-suite', 'merge', 'verify-release', 'upload', 'qualification-notes'):
+    def test_failed_evidence_verification_tagging_or_upload_never_publishes(self):
+        for fault in ('runtime-suite', 'merge', 'verify-release', 'tag-images', 'upload', 'qualification-notes'):
             with self.subTest(fault=fault):
                 result, calls = self.execute(fault)
                 self.assertNotEqual(0, result.returncode)
                 self.assertFalse(any(command[:3] == ['gh', 'release', 'edit'] for command in calls))
+                if fault in ('runtime-suite', 'merge', 'verify-release'):
+                    self.assertFalse(any('scripts/release/tag_images.py' in command for command in calls))
 
     def test_unconfirmed_publication_fails_the_release(self):
         for fault in ('publish', 'not-immutable'):
