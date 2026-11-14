@@ -19,6 +19,7 @@ import urllib.request
 
 from preflight import valid_tag
 from rehearsal_evidence import verify_rehearsal, verify_published_bundle
+from release_notes import render
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMANDS = []
@@ -169,8 +170,7 @@ def publish(args):
         raise ValueError('Version image already exists; retry cannot replace published digests')
     if metadata is None:
         notes = args.output / 'candidate-notes.txt'
-        notes.write_text('Unqualified draft candidate. Packaged browser, recovery and security gates are pending.\n'
-                         'Final production promotion requires the separate maintainer checkpoint.\n')
+        notes.write_text(render(args.repository, args.tag, args.revision, args.source_archive.name))
         run(['gh', 'release', 'create', args.tag, '--repo', args.repository, '--draft', '--prerelease',
              '--verify-tag', '--target', args.revision, '--title', args.tag, '--notes-file', notes])
     # Preserve GPL source before publishing the worker carrying chdman.
@@ -190,7 +190,10 @@ def publish(args):
                                     result='draft-unqualified'), indent=2) + '\n')
     # Never --clobber release assets. Retrying a partial upload cannot silently
     # replace a source, digest manifest, deployment bundle or hash file.
-    run(['gh', 'release', 'upload', args.tag, image_file, bundle, str(bundle) + '.sha256', state,
+    # The original image map and state stay in the same-run publisher artifact.
+    # They become public inside the complete verification archive after gates
+    # pass, rather than competing with the installation download.
+    run(['gh', 'release', 'upload', args.tag, bundle, str(bundle) + '.sha256',
          '--repo', args.repository])
     # Expose an explicitly unqualified prerelease for the separate read-only
     # qualification runner. It remains a prerelease if any later gate fails.

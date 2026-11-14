@@ -109,6 +109,12 @@ from the downloaded-installation runtime gate below.
 The checksum verifies download integrity; provenance establishes origin through
 the separate release metadata gate.
 
+The public verification archive later carries these same sanitized suite
+reports. Completion rechecks the anonymously downloaded reports and bundle
+against the original publisher-subjects artifact from its workflow run. Copies
+of `images.env` and `candidate.json` inside the public verification archive are
+for traceability; they do not replace that independent qualification input.
+
 The qualifier uses only the extracted deployment files. It clears inherited
 ROMD/Compose settings, generates private disposable credentials, pulls the
 digest references, provisions PostgreSQL and worker first, and starts the APIs,
