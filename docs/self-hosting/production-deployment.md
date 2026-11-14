@@ -716,8 +716,12 @@ same startup/restart/restore checks; CI continues using the small synthetic file
 
 ## Maintainer release candidates
 
-The release workflow checks a strict `v<SemVer>` tag against the clean current
-`main` tip before running reusable CI. Required PR CI rehearses the extracted
+A `-rc.N` candidate tag must identify the clean current `main` tip. The release
+workflow requires that commit's successful `main` CI run instead of repeating
+it. A stable tag promotes a qualified candidate on the same commit without
+rebuilding (see
+[versions and promotion](../maintainers/release-readiness.md#versions-and-promotion)).
+Required PR CI rehearses the extracted
 package's browser and recovery paths before a release is tagged. The publisher
 retains a second build and recovery drill, then rehearses that exact build's
 full packaged suite against a disposable loopback registry before any public

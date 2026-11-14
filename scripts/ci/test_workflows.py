@@ -98,6 +98,49 @@ class WorkflowPolicyTests(unittest.TestCase):
                 self.assertNotEqual(text, changed)
                 self.assertTrue(release_gate_errors(changed, 'release.yml'))
 
+    def test_release_requires_green_main_ci_for_the_exact_revision(self):
+        text = (Path(__file__).resolve().parents[2] / '.github/workflows/release.yml').read_text()
+        status = 'run: python3 scripts/release/ci_status.py --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_REVISION"\n'
+        step = '      - name: Require the allowed branch\'s completed CI for this exact commit\n'
+        self.assertIn(status, text)
+        self.assertIn(step, text)
+        for changed in (text.replace(status, 'run: "true"\n'),
+                        text.replace(status, status.replace('"$SOURCE_REVISION"', '"$GITHUB_SHA"')),
+                        text.replace(step, step + '        continue-on-error: true\n'),
+                        text.replace(step, step + '        if: ${{ false }}\n'),
+                        text.replace('      SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\n        with:\n          persist-credentials: false\n      - name: Require',
+                                     '      SOURCE_REVISION: ${{ github.sha }}\n    steps:\n      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7\n        with:\n          persist-credentials: false\n      - name: Require'),
+                        text.replace('  verify:\n', '  verify:\n    continue-on-error: true\n')):
+            with self.subTest(changed=changed):
+                self.assertNotEqual(text, changed)
+                self.assertTrue(release_gate_errors(changed, 'release.yml'))
+
+    def test_build_and_promotion_run_only_under_their_exact_tested_mode(self):
+        text = (Path(__file__).resolve().parents[2] / '.github/workflows/release.yml').read_text()
+        candidate = "        if: ${{ needs.preflight.outputs.mode == 'candidate' }}\n"
+        promote = "        if: ${{ needs.preflight.outputs.mode == 'promote' }}\n"
+        rehearse = '      - name: Rehearse the exact candidate before any public writes\n'
+        promotion = '      - name: Promote the qualified candidate\'s exact images and assets without rebuilding\n'
+        self.assertIn(rehearse + candidate, text)
+        self.assertIn(promotion + promote, text)
+        for changed in (text.replace(rehearse + candidate, rehearse + promote),
+                        text.replace(rehearse + candidate, rehearse + "        if: ${{ needs.preflight.outputs.mode != 'promote' }}\n"),
+                        text.replace(promotion + promote, promotion + candidate),
+                        text.replace(promotion + promote, promotion),
+                        text.replace(promotion + promote, promotion + promote + '        continue-on-error: true\n'),
+                        text.replace('      mode: ${{ steps.policy.outputs.mode }}\n', "      mode: candidate\n"),
+                        text.replace('      promoted-from: ${{ steps.policy.outputs.promoted-from }}\n', '      promoted-from: v1.2.3-rc.1\n'),
+                        text.replace("'.mode == $mode and (.promotedFrom // \"\") == $source'", "'true'").replace('$RELEASE_MODE', 'x').replace('$PROMOTED_FROM', 'y')):
+            with self.subTest(changed=changed):
+                self.assertNotEqual(text, changed)
+                self.assertTrue(release_gate_errors(changed, 'release.yml'))
+        workflow = yaml.safe_load(text)
+        steps = workflow['jobs']['publish']['steps']
+        promoted = next(i for i, step in enumerate(steps) if 'scripts/release/promotion.py' in step.get('run', ''))
+        auth = next(i for i, step in enumerate(steps) if step.get('name') == 'Authenticate the publisher to GHCR')
+        steps.insert(auth, steps.pop(promoted))
+        self.assertTrue(release_gate_errors(yaml.safe_dump(workflow), 'release.yml'))
+
     def test_packaged_rehearsal_and_public_runtime_gate_cannot_be_bypassed(self):
         text = (Path(__file__).resolve().parents[2] / '.github/workflows/release.yml').read_text()
         for changed in (text.replace('--rehearsal release-rehearsal/receipt.json', ''),

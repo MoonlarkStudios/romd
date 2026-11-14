@@ -187,15 +187,39 @@ def environment_errors(text, name):
     return []
 
 
+CANDIDATE_MODE = "${{ needs.preflight.outputs.mode == 'candidate' }}"
+PROMOTE_MODE = "${{ needs.preflight.outputs.mode == 'promote' }}"
+CI_STATUS = 'python3 scripts/release/ci_status.py --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_REVISION"'
+PROMOTION = 'python3 scripts/release/promotion.py'
+
+
+def required_step(step, condition=None):
+    """A gate step runs unconditionally, or only under one exact tested mode condition."""
+    return ((step.get('if') == condition if condition else 'if' not in step)
+            and step.get('continue-on-error', False) is False)
+
+
 def release_gate_errors(text, name):
-    """Publication requires successful CI and fresh advisories from the tagged source."""
+    """Publication requires green main CI, fresh advisories and a mode-exact build or promotion."""
     if name != 'release.yml':
         return []
     try:
         jobs = yaml.load(text, Loader=UniqueLoader).get('jobs', {})
-        for job, workflow in (('verify', 'ci.yml'), ('advisories', 'dependencies.yml')):
-            if jobs.get(job) != {'needs': 'preflight', 'uses': './.github/workflows/' + workflow}:
-                return [f'release.yml/{job}: must call the current revision workflow after preflight without bypasses']
+        preflight = jobs.get('preflight', {})
+        policy = next((step for step in preflight.get('steps', []) if step.get('id') == 'policy'), {})
+        if ('if' in preflight or preflight.get('outputs', {}).get('mode') != '${{ steps.policy.outputs.mode }}'
+                or preflight['outputs'].get('promoted-from') != '${{ steps.policy.outputs.promoted-from }}'
+                or not required_step(policy) or not policy.get('run', '').startswith('python3 scripts/release/preflight.py ')):
+            return ['release.yml/preflight: release mode must come from the tested source policy']
+        if jobs.get('advisories') != {'needs': 'preflight', 'uses': './.github/workflows/dependencies.yml'}:
+            return ['release.yml/advisories: must call the current revision workflow after preflight without bypasses']
+        verify = jobs.get('verify', {})
+        status = [step for step in verify.get('steps', []) if step.get('run') == CI_STATUS]
+        if (verify.get('needs') != 'preflight' or 'if' in verify or 'uses' in verify
+                or verify.get('continue-on-error', False) is not False
+                or verify.get('env', {}).get('SOURCE_REVISION') != '${{ needs.preflight.outputs.revision }}'
+                or len(status) != 1 or not required_step(status[0])):
+            return ['release.yml/verify: must require successful main CI for the exact revision without bypasses']
         publish = jobs.get('publish', {})
         if (not {'preflight', 'verify', 'advisories'} <= set(publish.get('needs', []))
                 or 'if' in publish or publish.get('continue-on-error', False) is not False):
@@ -206,25 +230,32 @@ def release_gate_errors(text, name):
                     'Authenticate the publisher to GHCR', 'Publish immutable candidate images and assets without replacement')
         if any(label not in names for label in required) or [names.index(label) for label in required] != sorted(names.index(label) for label in required):
             return ['release.yml/publish: exact-image rehearsal must precede public authentication/publication']
-        rehearsal = steps[names.index(required[1])]
-        publication = steps[names.index(required[3])]
+        build, rehearsal, auth, publication = (steps[names.index(label)] for label in required)
         if (rehearsal.get('run') != 'python3 scripts/release/rehearsal.py --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" --output release-rehearsal'
                 or '--rehearsal release-rehearsal/receipt.json' not in publication.get('run', '')
-                or any('if' in step or step.get('continue-on-error', False) is not False
-                       for step in (steps[names.index(required[0])], rehearsal, publication))):
+                or not all(required_step(step, CANDIDATE_MODE) for step in (build, rehearsal, publication))
+                or not required_step(auth)):
             return ['release.yml/publish: rehearsal and its bound publication receipt cannot be bypassed']
+        promotions = [index for index, step in enumerate(steps) if PROMOTION in step.get('run', '')]
+        if (len(promotions) != 1 or promotions[0] < names.index(required[2])
+                or not required_step(steps[promotions[0]], PROMOTE_MODE)):
+            return ['release.yml/publish: promotion runs only in promote mode, after authentication']
+        recheck = next((step for step in steps if 'scripts/release/preflight.py' in step.get('run', '')), {})
+        if (not recheck or not required_step(recheck) or steps.index(recheck) > names.index(required[0])
+                or '$RELEASE_MODE' not in recheck.get('run', '') or '$PROMOTED_FROM' not in recheck.get('run', '')):
+            return ['release.yml/publish: the source policy and mode must be rechecked before any work']
         for step in steps[:names.index(required[1])]:
-            if re.search(r'\bgh release\b|\bdocker push\b|scripts/release/publication.py', step.get('run', '')):
+            if re.search(r'\bgh release\b|\bdocker push\b|scripts/release/(?:publication|promotion)\.py', step.get('run', '')):
                 return ['release.yml/publish: public writes before rehearsal are prohibited']
         qualify = jobs.get('qualify', {})
         runtime = next((step for step in qualify.get('steps', [])
                         if step.get('name') == 'Qualify the downloaded deployment and prove browser failures block it'), {})
-        if (not {'preflight', 'publish'} <= set(qualify.get('needs', [])) or 'if' in runtime
+        if (not {'preflight', 'publish'} <= set(qualify.get('needs', [])) or 'if' in qualify or 'if' in runtime
                 or runtime.get('continue-on-error', False) is not False
                 or 'python3 scripts/release/suite.py "${args[@]}" --evidence-dir coverage/packaged' not in runtime.get('run', '')
                 or '--rehearsal' in runtime.get('run', '')):
             return ['release.yml/qualify: published inputs require the full non-rehearsal packaged suite']
-    except (yaml.YAMLError, ValueError, TypeError, AttributeError):
+    except (yaml.YAMLError, ValueError, TypeError, AttributeError, KeyError):
         return ['release.yml: invalid publication gate']
     return []
 

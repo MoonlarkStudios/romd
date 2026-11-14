@@ -24,6 +24,15 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertNotIn('/romd-v1.2.3-verification.tar.gz)', page)
         self.assertIn('Full verification details will be linked here after qualification passes.', page)
 
+    def test_promoted_page_names_its_qualified_candidate(self):
+        page = render('owner/repo', 'v1.2.3', 'a' * 40, 'mame0289.tar.gz', qualified=True, promoted_from='v1.2.3-rc.4')
+        self.assertIn('Promoted without rebuilding from [v1.2.3-rc.4](https://github.com/owner/repo/releases/tag/v1.2.3-rc.4)', page)
+        self.assertIn('/releases/download/v1.2.3/romd-v1.2.3-deployment.tar.gz)', page)
+        self.assertNotIn('Promoted', render('owner/repo', 'v1.2.3-rc.4', 'a' * 40, 'mame0289.tar.gz', qualified=True))
+        for source in ('v1.2.4-rc.1', 'v1.2.3', 'v1.2.3-rc.1)[x](https://evil.test'):
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                render('owner/repo', 'v1.2.3', 'a' * 40, 'mame0289.tar.gz', promoted_from=source)
+
     def test_invalid_identity_cannot_inject_markdown_links_or_asset_paths(self):
         for repository, tag, revision, source in (
             ('owner/repo)[injected](https://evil.test)', 'v1.2.3', 'a' * 40, 'source.tar.gz'),

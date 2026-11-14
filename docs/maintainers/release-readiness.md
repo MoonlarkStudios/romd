@@ -30,21 +30,35 @@ than dated receipts or agent transcripts.
   [packaged runtime/security rehearsal](packaged-release-qualification.md#before-publication),
   and normal review/merge. The publisher rehearses its exact built images again
   before any public writes; downloaded-artifact qualification remains required.
-- Tag releases with a strict `v<SemVer>` on the current `main` tip. Each tag
-  publishes its own immutable images, bundle and GitHub release; nothing
-  replaces an existing version. Publication waits for a maintainer to approve
-  the `publish` job in the protected
-  [release environment](repository-settings.md#release-environment) after the
-  tag's CI and source dependency advisory runs pass.
-- Exercise a release with `-rc.N` tags. A failed candidate stays an unqualified
-  prerelease, and the next attempt takes the next number. When a candidate
-  passes every gate, keep `main` frozen and tag the final version on the same
-  commit; that run's artifacts are the release.
-- Promote by marking that same qualified release as the latest full release,
-  replacing the workflow's qualification note with the release notes:
+- Build every release as a `vX.Y.Z-rc.N` candidate tagged on the current
+  `main` tip. Instead of rerunning CI, the release workflow requires the
+  successful `main` push CI run for that exact commit (`scripts/release/ci_status.py`,
+  waiting while it is still running), plus fresh source dependency advisories.
+  Each tag publishes its own immutable images, bundle and GitHub release;
+  nothing replaces an existing version. Publication waits for a maintainer to
+  approve the `publish` job in the protected
+  [release environment](repository-settings.md#release-environment).
+- A failed candidate stays an unqualified prerelease, and the next attempt
+  takes the next number. If `main` CI for the tagged commit failed or was not
+  found, nothing is published: diagnose or rerun that `main` run, then rerun the
+  release job.
+- Tag a stable `vX.Y.Z` only on the commit of a qualified `vX.Y.Z-rc.N`.
+  `main` may have moved on. The workflow then promotes the highest such
+  candidate instead of rebuilding it (`scripts/release/promotion.py`). Before
+  any public write it requires the candidate's successful release run, verifies
+  the candidate's public bundle, metadata, attestations and packaged evidence
+  as that candidate tag, and proves that the stable bundle rebuilt from the same
+  commit differs only in its manifest's `releaseTag`. It then adds the stable
+  version tag to the existing image manifests, keeping their digests, and
+  publishes the bundle. The downloaded-bundle qualification, final-digest
+  scans, attestations and anonymous public verification then run for the stable
+  tag exactly as for a candidate. Promotion runs no CI, image build or
+  pre-publication rehearsal. Image labels keep the candidate version that built
+  them. A stable tag without a same-commit candidate is refused before any work.
+- Mark the qualified stable prerelease as the latest full release, replacing
+  the workflow's qualification note with the release notes:
   `gh release edit vX.Y.Z --repo MoonlarkStudios/romd --prerelease=false --latest --notes-file NOTES.md`.
-  Never retag, copy or rebuild images to promote: the bundle manifest records
-  its tag, and the attestations bind its exact digests.
+  Never copy, push or rebuild images by hand: attestations bind exact digests.
 - Publish version tags only. There are no `latest` or minor-version image tags:
   operators install a bundle whose `images.env` pins digests, and worker-first
   migration cannot be left to a tag-following updater.

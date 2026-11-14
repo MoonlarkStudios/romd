@@ -12,11 +12,13 @@ from preflight import valid_tag
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def render(repository, tag, revision, source_name, *, qualified=False):
+def render(repository, tag, revision, source_name, *, qualified=False, promoted_from=None):
     if (not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository)
             or not valid_tag(tag) or not re.fullmatch('[0-9a-f]{40}', revision)
             or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,199}', source_name)):
         raise ValueError('Invalid release page identity')
+    if promoted_from is not None and (not valid_tag(promoted_from) or not promoted_from.startswith(tag + '-rc.')):
+        raise ValueError('Invalid promotion source')
     project = 'https://github.com/' + repository
     download = project + '/releases/download/' + tag + '/'
     docs = project + '/blob/' + tag + '/docs/'
@@ -37,6 +39,9 @@ def render(repository, tag, revision, source_name, *, qualified=False):
         f'[CHD tooling source (GPL)]({download}{source_name})'
         if qualified else f'[CHD tooling source (GPL)]({download}{source_name})\n\n'
         'Full verification details will be linked here after qualification passes.')
+    promotion = (f'\n\nPromoted without rebuilding from [{promoted_from}]({project}/releases/tag/{promoted_from}): '
+                 'the same image digests and deployment files, with only the release tag changed. '
+                 f'Image labels keep the candidate version that built them.' if promoted_from else '')
     return f"""ROMD is a self-hosted home for your personal game library.
 
 {status}
@@ -69,7 +74,7 @@ Ottercade and native mount clients remain source-only and experimental. See the 
 
 The verification archive contains the complete SBOMs, vulnerability reports, policy results, provenance attestations and packaged qualification evidence. Follow the [verification guide]({docs}maintainers/release-metadata.md) to check its contents and signatures. Official PostgreSQL findings remain visible as upstream-managed dependency information.
 
-{qualification}
+{qualification}{promotion}
 
 Built from [{revision[:7]}]({project}/commit/{revision}).
 """
@@ -80,12 +85,20 @@ def main():
     for name in ('repository', 'tag', 'revision'):
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--qualified', action='store_true')
+    parser.add_argument('--publisher-state', type=Path,
+                        help='Same-run publisher state; records a promotion source when present')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     source = json.loads((ROOT / 'native/chdman/mame.json').read_text())
     source_name = Path(urlsplit(source['sourceUrl']).path).name
+    promoted_from = None
+    if args.publisher_state is not None:
+        state = json.loads(args.publisher_state.read_text())
+        if state.get('releaseTag') != args.tag or state.get('sourceCommit') != args.revision:
+            raise SystemExit('Publisher state belongs to a different release')
+        promoted_from = state.get('promotedFrom')
     args.output.write_text(render(args.repository, args.tag, args.revision, source_name,
-                                 qualified=args.qualified))
+                                 qualified=args.qualified, promoted_from=promoted_from))
 
 
 if __name__ == '__main__':
