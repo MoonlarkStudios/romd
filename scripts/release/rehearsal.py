@@ -192,6 +192,13 @@ def rehearse(output, revision, tag):
             state_file = output / 'candidate.json'
             state_file.write_text(json.dumps(dict(sourceCommit=revision, releaseTag=tag,
                 bundleSha256=digest(bundle), images=references), indent=2) + '\n')
+            security_tools = work / 'security-tools'
+            command.run([sys.executable, ROOT / 'scripts/security/tools.py', '--output', security_tools],
+                        'install-pinned-security-tools')
+            command.run([sys.executable, ROOT / 'scripts/security/metadata.py', '--bundle', bundle,
+                '--checksum', str(bundle) + '.sha256', '--images', image_file, '--publisher-state', state_file,
+                '--revision', revision, '--tag', tag, '--tools-dir', security_tools,
+                '--output', output / 'security', '--rehearsal'], 'pre-publication-image-security', timeout=1800)
             command.run([sys.executable, ROOT / 'scripts/release/suite.py', '--bundle', bundle,
                 '--checksum', str(bundle) + '.sha256', '--expected-images', image_file,
                 '--publisher-state', state_file, '--expected-revision', revision, '--expected-tag', tag,
@@ -199,6 +206,7 @@ def rehearse(output, revision, tag):
                 'packaged-positive-and-negative-suite', timeout=2400)
             positive = json.loads((output / 'packaged/positive/qualification.json').read_text())
             receipt.update(images=references, bundleSha256=digest(bundle), suiteSha256=digest(output / 'packaged/suite.json'),
+                securityMetadataSha256=digest(output / 'security/release-metadata.json'),
                 payloadFiles={key: value for key, value in positive['bundle']['files'].items() if key != 'images.env'})
             receipt['result'] = 'passed'
         except (ValueError, RuntimeError, OSError, KeyError, TypeError, IndexError) as error:

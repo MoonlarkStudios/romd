@@ -78,6 +78,13 @@
       "matchUpdateTypes": ["digest", "patch", "minor"],
       "groupName": "PostgreSQL official image",
       "schedule": ["at any time"]
+    },
+    {
+      "matchPackageNames": ["dotnet", "dotnet-sdk", "mcr.microsoft.com/dotnet/sdk", "mcr.microsoft.com/dotnet/aspnet"],
+      "matchUpdateTypes": ["digest", "patch", "minor"],
+      "groupName": ".NET servicing",
+      "schedule": ["at any time"],
+      "minimumReleaseAge": "0 days"
     }
   ],
   "customManagers": [

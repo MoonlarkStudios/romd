@@ -21,7 +21,7 @@ import urllib.response
 
 from download_release import DownloadFailure, OfficialRedirects, anonymous_opener, download_release, official_url
 from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement, upstream_postgres_report
-from qualify import image_map, verify_bundle, verify_publisher
+from qualify import image_map, rehearsal_images, verify_bundle, verify_publisher
 from policy import evaluate, validate_policy
 from tools import binary_from_archive
 from verify import matching_predicate, verify_attestations, verify_files
@@ -32,6 +32,23 @@ DIGEST = 'sha256:' + 'a' * 64
 
 
 class VulnerabilityPolicyTests(unittest.TestCase):
+    def test_rehearsal_scan_sources_cannot_escape_owned_roles_registry_or_official_database(self):
+        pins = json.loads((HERE.parent / 'deployment/base-images.json').read_text())
+        references = {f'ROMD_{role.upper()}_IMAGE':
+            f'127.0.0.1:51234/romd-rehearsal-abcd/romd-{role}@{DIGEST}'
+            for role in ('admin', 'consumer', 'worker', 'player')}
+        references['ROMD_POSTGRES_IMAGE'] = pins['postgres']
+        rehearsal_images(references)
+        for changed in (
+                dict(references, ROMD_ADMIN_IMAGE='ghcr.io/example/admin@' + DIGEST),
+                dict(references, ROMD_ADMIN_IMAGE=references['ROMD_WORKER_IMAGE']),
+                dict(references, ROMD_ADMIN_IMAGE=references['ROMD_ADMIN_IMAGE'].replace(':51234/', ':51235/')),
+                dict(references, ROMD_ADMIN_IMAGE=references['ROMD_ADMIN_IMAGE'].replace(':51234/', ':51234@evil.test/')),
+                dict(references, ROMD_POSTGRES_IMAGE='example/postgres@' + DIGEST),
+                {key: value for key, value in references.items() if key != 'ROMD_WORKER_IMAGE'}):
+            with self.subTest(references=changed), self.assertRaises(ValueError):
+                rehearsal_images(changed)
+
     def setUp(self):
         self.policy = json.loads((HERE / 'policy.json').read_text())
         self.today = date(2026, 10, 15)
@@ -82,6 +99,22 @@ class VulnerabilityPolicyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 evaluate(report, DIGEST, self.policy, self.today)
         self.assertEqual('passed', evaluate({'SchemaVersion': 2, 'Results': []}, DIGEST, self.policy, self.today)['result'])
+
+    def test_complete_trivy_sbom_report_can_omit_empty_results_without_satisfying_image_coverage(self):
+        report = dict(SchemaVersion=2, Trivy=dict(Version='0.76.0'),
+                      ArtifactType='cyclonedx', ArtifactName='/controlled/bundle.cdx.json')
+        self.assertEqual('passed', evaluate(report, DIGEST, self.policy, self.today)['result'])
+        self.assertNotIn('Results', report)
+        for role in ('admin', 'consumer', 'worker', 'player', 'postgres'):
+            for mode in ('image', 'sbom'):
+                with self.subTest(role=role, mode=mode), self.assertRaises(ValueError):
+                    assert_scanner_coverage(report, role, mode)
+        for changed in (dict(report, Results=None), dict(report, Results={}),
+                        dict(report, SchemaVersion=1), dict(report, ArtifactType='container_image'),
+                        dict(report, ArtifactName=''), dict(report, Trivy={}), dict(report, Trivy=None),
+                        dict(report, Trivy={'Version': 76})):
+            with self.subTest(report=changed), self.assertRaises(ValueError):
+                evaluate(changed, DIGEST, self.policy, self.today)
 
     def test_official_postgres_findings_are_reported_without_changing_romd_gates(self):
         for severity in ('HIGH', 'CRITICAL', 'UNKNOWN'):
@@ -232,6 +265,25 @@ class InventoryIntegrityTests(unittest.TestCase):
         self.assertEqual('romd:supplement:pkg:npm/react@19.2.3', merged['components'][1]['bom-ref'])
         self.assertEqual('a' * 64, merged['metadata']['component']['hashes'][0]['content'])
         self.assertEqual(1, len(original['components']))
+
+    def test_package_free_bundle_omits_optional_components_but_keeps_every_image(self):
+        original = {'bomFormat': 'CycloneDX', 'specVersion': '1.7'}
+        images = [dict(type='container', name=role, version=DIGEST,
+                       purl='pkg:oci/' + role + '@' + DIGEST,
+                       hashes=[dict(alg='SHA-256', content=DIGEST.removeprefix('sha256:'))])
+                  for role in ('admin', 'consumer', 'worker', 'player', 'postgres')]
+        merged = merge_sbom(original, [dict(bomFormat='CycloneDX', components=images)], 'bundle.tar.gz', 'a' * 64)
+        self.assertEqual(images, [{key: value for key, value in component.items() if key != 'bom-ref'}
+                                  for component in merged['components']])
+        self.assertEqual(5, len(merged['dependencies'][-1]['dependsOn']))
+        self.assertNotIn('components', original)
+        for malformed in (None, {}, 'not an inventory'):
+            with self.subTest(malformed=malformed), self.assertRaises(ValueError):
+                merge_sbom(dict(original, components=malformed), [], 'bundle.tar.gz', 'a' * 64)
+        with self.assertRaisesRegex(ValueError, 'nonempty'):
+            merge_sbom(original, [], 'bundle.tar.gz', 'a' * 64)
+        with self.assertRaisesRegex(ValueError, 'coverage'):
+            assert_coverage(merged, 'worker')
 
     def test_catalog_reader_receipt_binds_companion_commit_to_actual_packaged_binary(self):
         binary, receipt = self.work / 'catalog-reader', self.work / 'catalog-reader.json'

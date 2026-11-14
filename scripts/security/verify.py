@@ -8,15 +8,18 @@ import re
 import subprocess
 import tempfile
 
-from metadata import sha256
+from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, sha256
 from qualify import verify_bundle
 from credentials import anonymous_environment
 
 
-def verify_files(directory, bundle, revision, tag):
+def verify_files(directory, bundle, revision, tag, *, rehearsal=False):
     index = json.loads((directory / 'release-metadata.json').read_text())
     if index.get('schemaVersion') != 1 or index.get('result') != 'passed' or index.get('sourceCommit') != revision or index.get('releaseTag') != tag:
         raise ValueError('Release metadata result/revision/tag mismatch')
+    expected_type = 'disposable-rehearsal' if rehearsal else 'disposable-release'
+    if index.get('evidenceType', 'disposable-release') != expected_type:
+        raise ValueError('Security metadata evidence type mismatch')
     files = index.get('files')
     if not isinstance(files, dict) or not files:
         raise ValueError('Release metadata file inventory is missing')
@@ -38,6 +41,33 @@ def verify_files(directory, bundle, revision, tag):
             raise ValueError('SBOM subject digest mismatch')
         if subject['kind'] == 'image' and not subject.get('name', '').endswith('@sha256:' + subject['sha256']):
             raise ValueError('Image subject is mutable or has a mismatched digest')
+        if rehearsal:
+            role = subject.get('role')
+            scans = subject.get('scans')
+            expected_scans = ([f'{role}.image.trivy.json', f'{role}.sbom.trivy.json']
+                              if subject['kind'] == 'image' else ['bundle.trivy.json'])
+            if scans != expected_scans or any(name not in files for name in expected_scans):
+                raise ValueError('Rehearsal image/SBOM/bundle scans are missing')
+            if subject['kind'] == 'image':
+                assert_coverage(sbom, role)
+                for mode, name in zip(('image', 'sbom'), scans):
+                    assert_scanner_coverage(json.loads((directory / name).read_text()), role, mode)
+            if subject.get('policy') not in files:
+                raise ValueError('Rehearsal security policy evidence is missing')
+            evaluations = json.loads((directory / subject['policy']).read_text())
+            evaluations = evaluations if isinstance(evaluations, list) else [evaluations]
+            expected = 'reported' if subject.get('role') == 'postgres' else 'passed'
+            if (len(evaluations) != (2 if subject['kind'] == 'image' else 1)
+                    or any(item.get('result') != expected or any(f.get('blocked') for f in item.get('findings', []))
+                           for item in evaluations)):
+                raise ValueError('Rehearsal security policy did not pass all image/SBOM/bundle gates')
+    if rehearsal:
+        commands = index.get('commands')
+        if not isinstance(commands, list) or not commands or any(item.get('exitCode') != 0 for item in commands):
+            raise ValueError('Rehearsal security commands are missing or failed')
+        if 'trivy-version.json' not in files:
+            raise ValueError('Rehearsal vulnerability database evidence is missing')
+        assert_fresh_database(json.loads((directory / 'trivy-version.json').read_text()))
     if bundle.name != bundles[0]['name'] or sha256(bundle) != bundles[0]['sha256']:
         raise ValueError('Downloaded deployment bundle checksum mismatch')
     # Independent valid attestations do not prove that these image subjects are

@@ -28,12 +28,17 @@ class ToolchainTests(unittest.TestCase):
     def test_maintenance_sdk_must_match_the_strict_pin(self):
         workflow = self.root / '.github/workflows/security-maintenance.yml'
         workflow.write_text(workflow.read_text().replace('global-json-file: global.json', 'dotnet-version: 0.0.1'))
-        self.assertIn('CI step SDK disagrees with mise', check(self.root, runtime=False))
+        self.assertIn('CI .NET setup must read global.json without another SDK selector', check(self.root, runtime=False))
 
-    def test_stale_hardcoded_ci_step_sdk_is_rejected(self):
+    def test_hardcoded_or_missing_ci_step_sdk_selector_is_rejected(self):
         workflow = self.root / '.github/workflows/ci.yml'
-        workflow.write_text(workflow.read_text().replace(f'dotnet-version: {self.sdk}', 'dotnet-version: 0.0.1'))
-        self.assertIn('CI step SDK disagrees with mise', check(self.root, runtime=False))
+        original = workflow.read_text()
+        for selector in ('dotnet-version: 0.0.1', f'dotnet-version: {self.sdk}',
+                         'global-json-file: stale.json', ''):
+            with self.subTest(selector=selector):
+                workflow.write_text(original.replace('global-json-file: global.json', selector, 1))
+                self.assertIn('CI .NET setup must read global.json without another SDK selector',
+                              check(self.root, runtime=False))
 
     def test_node_in_every_workflow_must_match_regardless_of_quotes(self):
         node = tomllib.loads((self.root / '.mise.toml').read_text())['tools']['node']

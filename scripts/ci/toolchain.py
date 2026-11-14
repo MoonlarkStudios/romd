@@ -7,8 +7,36 @@ import re
 import subprocess
 import sys
 import tomllib
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def check_sdk_servicing(root, metadata=None):
+    """Compare the selected SDK's actual reference pack with the shipped runtime."""
+    version = json.loads((root / 'global.json').read_text())['sdk']['version']
+    if metadata is None:
+        actual = subprocess.check_output(['dotnet', '--version'], text=True).strip()
+        if actual != version:
+            raise ValueError('Selected SDK disagrees with global.json')
+        installed = subprocess.check_output(['dotnet', '--list-sdks'], text=True)
+        paths = re.findall(r'^' + re.escape(version) + r' \[(.+)\]$', installed, re.MULTILINE)
+        if len(paths) != 1:
+            raise ValueError('Cannot identify the selected SDK reference-pack metadata')
+        metadata = Path(paths[0]) / version / 'Microsoft.NETCoreSdk.BundledVersions.props'
+    target = 'net' + '.'.join(version.split('.')[:2])
+    try:
+        document = ET.parse(metadata)
+    except (OSError, ET.ParseError) as error:
+        raise ValueError('Selected SDK reference-pack metadata is unavailable or malformed') from error
+    frameworks = [node for node in document.iter()
+                  if node.get('Include') == 'Microsoft.AspNetCore.App' and node.get('TargetFramework') == target]
+    runtime = re.findall(r'^FROM mcr\.microsoft\.com/dotnet/aspnet:([0-9]+\.[0-9]+\.[0-9]+)-',
+                         (root / 'Dockerfile').read_text(), re.MULTILINE)
+    if (len(frameworks) != 1 or len(runtime) != 1
+            or frameworks[0].get('TargetingPackVersion') != runtime[0]
+            or frameworks[0].get('LatestRuntimeFrameworkVersion') != runtime[0]):
+        raise ValueError('SDK ASP.NET reference pack and shipped runtime must use the same servicing release')
 
 
 def check(root, runtime=True):
@@ -22,11 +50,11 @@ def check(root, runtime=True):
         errors.append('mise pnpm must match web/package.json packageManager')
     workflow = (root / '.github/workflows/ci.yml').read_text()
     workflows = '\n'.join(path.read_text() for path in sorted((root / '.github/workflows').glob('*.y*ml')))
-    if f'DOTNET_VERSION: "{tools["dotnet"]}"' not in workflow:
-        errors.append('CI SDK disagrees with mise')
-    for version in re.findall(r'^\s*dotnet-version:\s*(.+)$', workflows, re.MULTILINE):
-        if version.strip().strip('\'"') not in (tools['dotnet'], '${{ env.DOTNET_VERSION }}'):
-            errors.append('CI step SDK disagrees with mise')
+    setups = len(re.findall(r'uses:\s*actions/setup-dotnet@', workflows))
+    selectors = re.findall(r'^\s*global-json-file:\s*(.+)$', workflows, re.MULTILINE)
+    if (not setups or len(selectors) != setups or set(selectors) != {'global.json'}
+            or re.search(r'^\s*(?:dotnet-version|DOTNET_VERSION):', workflows, re.MULTILINE)):
+        errors.append('CI .NET setup must read global.json without another SDK selector')
     if set(re.findall(r'^\s*node-version:\s*[\'"]?([^\'"\s]+)', workflows, re.MULTILINE)) != {tools['node']}:
         errors.append('CI Node disagrees with mise')
     if 'dotnet-quality: preview' in workflows:
@@ -44,6 +72,10 @@ def check(root, runtime=True):
     if archive_versions != [(tools['dotnet'], tools['dotnet'])]:
         errors.append('native builder SDK archive disagrees with strict global.json selection')
     if runtime:
+        try:
+            check_sdk_servicing(root)
+        except ValueError as error:
+            errors.append(str(error))
         for command in ('dotnet', 'node', 'pnpm'):
             actual = subprocess.check_output([command, '--version'], text=True).strip().removeprefix('v')
             print(f'{command}: {actual} (expected {tools[command]})')

@@ -101,6 +101,8 @@ Release and repository operations.
 
 - [Release readiness](maintainers/release-readiness.md): the checklist for a
   release candidate.
+- [Release rehearsals](maintainers/release-rehearsal.md): manual and daily
+  package/security/runtime checks without public tags, with a readiness report.
 - [Packaged release qualification](maintainers/packaged-release-qualification.md)
   and [release metadata](maintainers/release-metadata.md): bundle qualification,
   SBOMs and provenance.

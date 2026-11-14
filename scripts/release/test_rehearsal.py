@@ -10,12 +10,14 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from datetime import datetime, timezone
 
 from qualify import verify_bundle
 from publication import publish
 from rehearsal import Commands, candidate_images, cleanup_registry, local_json, rehearse
 from rehearsal_evidence import ROLES, verify_rehearsal, verify_published_bundle
 from suite import CASES, CHECKS, REPORTS, STATES, digest, run_suite, verify_suite
+from verify import verify_files
 
 
 REVISION, TAG = 'a' * 40, 'v1.2.3-rc.1'
@@ -50,6 +52,45 @@ def package(root, images, *, extra=b''):
     write_json(state, dict(sourceCommit=REVISION, releaseTag=TAG, images=images, bundleSha256=digest(bundle)))
     return SimpleNamespace(bundle=bundle, checksum=checksum, expected_images=image_file, publisher_state=state,
                            expected_revision=REVISION, expected_tag=TAG, rehearsal=True, verify_only=False, inject_fault='none')
+
+
+def security_fixture(root, args, images):
+    security = root / 'security'
+    components = [dict(name=name, purl=purl, version=purl.rsplit('@', 1)[1]) for name, purl in (
+        ('libc6', 'pkg:deb/debian/libc6@2.0'), ('Npgsql', 'pkg:nuget/Npgsql@1.0'),
+        ('Microsoft.EntityFrameworkCore', 'pkg:nuget/Microsoft.EntityFrameworkCore@1.0'),
+        ('libchdr', 'pkg:generic/libchdr@1.0'), ('chdman', 'pkg:generic/chdman@1.0'),
+        ('romd-dat-catalogs', 'pkg:golang/example/romd-dat-catalogs@v1.0'),
+        ('react', 'pkg:npm/react@1.0'), ('@mantine/core', 'pkg:npm/mantine/core@1.0'),
+        ('oidc-client-ts', 'pkg:npm/oidc-client-ts@1.0'), ('EmulatorJS', 'pkg:generic/emulatorjs@1.0'),
+        ('postgresql', 'pkg:generic/postgresql@18.0'))]
+    scan = dict(Results=[dict(Class='os-pkgs', Packages=[dict(Name='libc6')]),
+        dict(Class='lang-pkgs', Packages=[dict(Name=name) for name in
+             ['Npgsql', 'Microsoft.EntityFrameworkCore', 'react', '@mantine/core', 'oidc-client-ts',
+              'github.com/sigstore/sigstore', 'github.com/theupdateframework/go-tuf']])])
+    subjects = []
+    for role in ('admin', 'consumer', 'worker', 'player', 'postgres', 'bundle'):
+        bundle = role == 'bundle'
+        name = args.bundle.name if bundle else images[f'ROMD_{role.upper()}_IMAGE']
+        sha = digest(args.bundle) if bundle else name.rsplit('@sha256:', 1)[1]
+        sbom = dict(metadata=dict(component=dict(hashes=[dict(alg='SHA-256', content=sha)])), components=components)
+        write_json(security / f'{role}.cdx.json', sbom)
+        scans = ['bundle.trivy.json'] if bundle else [f'{role}.{mode}.trivy.json' for mode in ('image', 'sbom')]
+        for path in scans:
+            write_json(security / path, scan)
+        evaluation = dict(result='reported' if role == 'postgres' else 'passed', findings=[])
+        write_json(security / f'{role}.policy.json', evaluation if bundle else [evaluation, evaluation])
+        subject = dict(kind='bundle' if bundle else 'image', name=name, sha256=sha,
+                       sbom=f'{role}.cdx.json', scans=scans, policy=f'{role}.policy.json')
+        if not bundle:
+            subject['role'] = role
+        subjects.append(subject)
+    write_json(security / 'trivy-version.json', dict(VulnerabilityDB=dict(UpdatedAt=datetime.now(timezone.utc).isoformat())))
+    index = dict(schemaVersion=1, result='passed', evidenceType='disposable-rehearsal',
+        sourceCommit=REVISION, releaseTag=TAG, subjects=subjects, commands=[dict(stage='scanner', exitCode=0)],
+        tools=json.loads((Path(__file__).resolve().parents[1] / 'security/tools.json').read_text()),
+        files={path.name: digest(path) for path in security.iterdir()})
+    write_json(security / 'release-metadata.json', index)
 
 
 def fixture(root):
@@ -88,10 +129,12 @@ def fixture(root):
                    releaseTag=TAG, bundleSha256=digest(args.bundle), images=images,
                    files={name: digest(packaged / name) for name in REPORTS})
     write_json(packaged / 'suite.json', summary)
+    security_fixture(root, args, images)
     receipt = dict(schemaVersion=1, result='passed', evidenceType='disposable-rehearsal', sourceCommit=REVISION,
                    releaseTag=TAG, platform='linux/amd64', imageIds=IDS, finalImageIds=IDS,
                    dependencies=PINS, registryCleanup='passed', registryExit=dict(exitCode=0, oomKilled=False),
                    images=images, bundleSha256=digest(args.bundle), suiteSha256=digest(packaged / 'suite.json'),
+                   securityMetadataSha256=digest(root / 'security/release-metadata.json'),
                    payloadFiles={name: value for name, value in bound['files'].items() if name != 'images.env'})
     path = root / 'receipt.json'
     write_json(path, receipt)
@@ -144,6 +187,54 @@ class RehearsalEvidenceTests(unittest.TestCase):
         self.args.rehearsal = False
         with self.assertRaisesRegex(ValueError, 'evidence type'):
             verify_suite(self.root / 'packaged', self.args)
+        with self.assertRaisesRegex(ValueError, 'evidence type'):
+            verify_files(self.root / 'security', self.args.bundle, REVISION, TAG)
+
+    def test_failed_incomplete_or_changed_security_cannot_unlock_publication(self):
+        for fault in ('failed-policy', 'blocked-finding', 'empty-inventory', 'missing-scan', 'failed-command',
+                      'stale-database', 'wrong-tools', 'wrong-evidence-type', 'wrong-subject'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                args, path, receipt = fixture(root)
+                directory = root / 'security'
+                index = json.loads((directory / 'release-metadata.json').read_text())
+                name = None
+                if fault in ('failed-policy', 'blocked-finding'):
+                    name = 'worker.policy.json'
+                    policy = json.loads((directory / name).read_text())
+                    if fault == 'failed-policy':
+                        policy[1]['result'] = 'failed'
+                    else:
+                        policy[1]['findings'] = [dict(blocked=True)]
+                    write_json(directory / name, policy)
+                elif fault == 'empty-inventory':
+                    name = 'worker.sbom.trivy.json'
+                    write_json(directory / name, dict(Results=[]))
+                elif fault == 'missing-scan':
+                    del index['files']['worker.sbom.trivy.json']
+                elif fault == 'failed-command':
+                    index['commands'][0]['exitCode'] = 2
+                elif fault == 'stale-database':
+                    name = 'trivy-version.json'
+                    write_json(directory / name, dict(VulnerabilityDB=dict(UpdatedAt='2000-01-01T00:00:00Z')))
+                elif fault == 'wrong-tools':
+                    index['tools'] = {}
+                elif fault == 'wrong-evidence-type':
+                    index['evidenceType'] = 'disposable-release'
+                elif fault == 'wrong-subject':
+                    index['subjects'][0]['name'] = 'ghcr.io/other/admin@sha256:' + 'e' * 64
+                if name:
+                    index['files'][name] = digest(directory / name)
+                # Even internally consistent hashes cannot turn failed policy,
+                # missing inventory, or foreign evidence into a release pass.
+                write_json(directory / 'release-metadata.json', index)
+                receipt['securityMetadataSha256'] = digest(directory / 'release-metadata.json')
+                write_json(path, receipt)
+                with self.assertRaises(ValueError):
+                    verify_rehearsal(path, REVISION, TAG, IDS, PINS)
+        (self.root / 'security/release-metadata.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'security evidence'):
+            verify_rehearsal(self.path, REVISION, TAG, IDS, PINS)
 
     def test_publication_cannot_write_before_receipt_and_payload_binding_pass(self):
         source = self.root / 'source.tar.gz'

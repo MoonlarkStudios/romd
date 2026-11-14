@@ -1,7 +1,12 @@
 # Release metadata and vulnerability gate
 
 The release gate generates SBOMs and vulnerability results for the **final
-published image digests** and the downloaded deployment bundle. It runs after
+published image digests** and the downloaded deployment bundle. The same generator
+and policy also run on the exact built images and bundle in the mandatory
+[pre-publication rehearsal](packaged-release-qualification.md#before-publication).
+That evidence is marked `disposable-rehearsal` and bound into the publisher's
+receipt. It cannot become public qualification or attestation evidence. The
+independent final-digest gate runs after
 packaged installation qualification and before final publication. A local policy
 test, source lockfile scan, or successful tool download is not release evidence.
 Provenance identifies the producing workflow and source; it does not establish
@@ -60,6 +65,17 @@ and [Trivy SBOM scanning](https://trivy.dev/docs/latest/references/configuration
 
 ## What the inventory covers
 
+Service the build SDK and ASP.NET runtime together. The qualification tool's
+published reference assemblies are shipped image contents even when NuGet
+lockfiles do not list them. Before any restore, the portable/Linux lock gate
+compares the selected SDK's own reference-pack and runtime servicing metadata
+with the Docker runtime pin. Every CI SDK installation reads `global.json`
+instead of maintaining a separate step version. Renovate groups SDK/runtime servicing proposals
+without the weekly schedule delay; automerge remains disabled. Update the native
+builder's SDK archive checksums from Microsoft's release metadata in the same
+review, then verify the actual published tool and full image scans. Updating
+only the runtime does not service SDK-supplied reference assemblies.
+
 Syft inventories the published images directly by registry digest. It must find
 OS packages in each image and actual backend dependencies in server images.
 The catalog reader's Go dependencies come from its packaged Go binary.
@@ -113,6 +129,11 @@ shipped. An empty scan or missing expected ecosystem cannot become a pass.
 
 The bundle SBOM inventories extracted deployment files and references all five
 digest-pinned runtime images. Frontend tooling is not installed into the bundle.
+Syft can omit the optional CycloneDX `components` field for this package-free
+payload; the merger adds the five reviewed image references and rejects an empty
+merged inventory. Trivy likewise omits an empty `Results` array for a package-free
+SBOM. The parser requires its complete versioned CycloneDX report envelope; image
+OS and ecosystem coverage checks still reject such an empty image scan.
 Original license notices stay in the images and bundle; SBOMs do not replace
 those notices.
 

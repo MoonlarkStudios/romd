@@ -3,9 +3,14 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
+import sys
 
 from qualify import image_map, verify_bundle, verify_publisher
 from suite import digest, verify_suite
+
+SECURITY = Path(__file__).resolve().parents[1] / 'security'
+sys.path.insert(0, str(SECURITY))
+from verify import verify_files
 
 
 ROLES = ('admin', 'consumer', 'worker', 'player')
@@ -32,6 +37,13 @@ def verify_rehearsal(path, revision, tag, image_ids, pins):
             or receipt.get('suiteSha256') != digest(root / 'packaged/suite.json')
             or receipt.get('images') != image_map(images)):
         raise ValueError('Rehearsal inputs or reports changed after execution')
+    security = root / 'security'
+    if (not (security / 'release-metadata.json').is_file()
+            or receipt.get('securityMetadataSha256') != digest(security / 'release-metadata.json')):
+        raise ValueError('Rehearsal security evidence is missing or changed')
+    index = verify_files(security, bundle, revision, tag, rehearsal=True)
+    if index.get('tools') != json.loads((SECURITY / 'tools.json').read_text()):
+        raise ValueError('Rehearsal security tools differ from the reviewed pins')
     args = SimpleNamespace(bundle=bundle, expected_images=images, expected_revision=revision,
                            expected_tag=tag, rehearsal=True, publisher_state=root / 'candidate.json',
                            checksum=root / 'rehearsal-bundle.tar.gz.sha256')

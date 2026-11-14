@@ -36,10 +36,19 @@ def evaluate(report, subject_digest, policy, today=None):
     exceptions = validate_policy(policy, today)
     if not re.fullmatch('sha256:[0-9a-f]{64}', subject_digest):
         raise ValueError('Scanner result requires an immutable subject digest')
-    if report.get('SchemaVersion') != 2 or not isinstance(report.get('Results'), list):
+    results = report.get('Results')
+    trivy = report.get('Trivy')
+    version = trivy.get('Version') if isinstance(trivy, dict) else None
+    # Trivy's JSON Report omits an empty Results slice for package-free SBOMs.
+    # Require its complete report envelope; image inventory is checked separately.
+    if ('Results' not in report and report.get('ArtifactType') == 'cyclonedx'
+            and isinstance(report.get('ArtifactName'), str) and report['ArtifactName']
+            and isinstance(version, str) and re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version)):
+        results = []
+    if report.get('SchemaVersion') != 2 or not isinstance(results, list):
         raise ValueError('Trivy report is missing the expected result schema')
     findings = []
-    for result in report['Results']:
+    for result in results:
         if result.get('Misconfigurations') or result.get('Secrets'):
             raise ValueError('Unexpected scanner type in vulnerability-only gate')
         vulnerabilities = result.get('Vulnerabilities') or []
