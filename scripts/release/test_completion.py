@@ -78,16 +78,35 @@ script = args[0]
 if script.endswith('suite.py'):
     if '--verify-suite' not in args or '--rehearsal' in args or fault == 'runtime-suite':
         sys.exit(1)
+    evidence = args[args.index('--evidence-dir') + 1]
+    if evidence.startswith('public-download/') and fault == 'public-runtime-suite':
+        sys.exit(1)
+    if args[args.index('--publisher-state') + 1] != 'release-inputs/release-files/candidate.json':
+        sys.exit('Public evidence must not supply its own trusted publisher state')
 elif script.endswith('attestation_files.py'):
     pathlib.Path('attestations.jsonl').write_text('{}\\n')
+elif script.endswith('evidence_archive.py'):
+    if args[1] == 'create':
+        if fault == 'archive-packaging':
+            sys.exit(1)
+        archive = pathlib.Path(args[args.index('--output') + 1])
+        archive.write_bytes(b'verification')
+        pathlib.Path(str(archive) + '.sha256').write_text('controlled checksum')
+    elif args[1] == 'unpack':
+        sys.exit(0 if fault == 'accept-tampered-archive' else 1)
+    else:
+        sys.exit(1)
 elif script.endswith('download_release.py'):
     if fault in ('private-404', 'missing-asset', 'altered-download'):
         sys.exit(1)
     directory = pathlib.Path(args[args.index('--output') + 1])
     directory.mkdir()
     (directory / 'romd-v1.2.3-rc.1-deployment.tar.gz').write_bytes(b'bundle')
-    (directory / 'release-metadata.json').write_text('{}')
-    (directory / 'attestations.jsonl').write_text('{}\\n')
+    (directory / 'romd-v1.2.3-rc.1-verification.tar.gz').write_bytes(b'verification')
+    (directory / 'romd-v1.2.3-rc.1-verification.tar.gz.sha256').write_text('controlled checksum')
+    (directory / 'verification/metadata').mkdir(parents=True)
+    (directory / 'verification/metadata/release-metadata.json').write_text('{}')
+    (directory / 'verification/attestations.jsonl').write_text('{}\\n')
 elif script.endswith('verify.py'):
     bundle = pathlib.Path(args[args.index('--bundle') + 1])
     directory = pathlib.Path(args[args.index('--metadata-dir') + 1])
@@ -96,10 +115,14 @@ elif script.endswith('verify.py'):
         sys.exit(1)
     if 'tampered' in bundle.parts:
         sys.exit(0 if fault == 'accept-tampered' else 1)
-    if fault == 'public-verification' and directory == pathlib.Path('public-download'):
+    if fault == 'public-verification' and directory.is_relative_to(pathlib.Path('public-download')):
         sys.exit(1)
-    if fault == 'source-verification' and directory != pathlib.Path('public-download'):
+    if fault == 'source-verification' and not directory.is_relative_to(pathlib.Path('public-download')):
         sys.exit(1)
+elif script.endswith('release_notes.py'):
+    if '--qualified' not in args or fault == 'qualification-notes':
+        sys.exit(1)
+    pathlib.Path(args[args.index('--output') + 1]).write_text('Qualified prerelease with installation links')
 else:
     sys.exit('Unexpected command double')
 '''
@@ -127,22 +150,33 @@ else:
         verifications = [(i, command) for i, command in enumerate(calls) if 'scripts/security/verify.py' in command]
         self.assertEqual(3, len(verifications))
         public, tampered = verifications[1:]
-        self.assertEqual('public-download', public[1][public[1].index('--metadata-dir') + 1])
-        self.assertEqual('public-download/attestations.jsonl', public[1][public[1].index('--attestations') + 1])
+        self.assertEqual('public-download/verification/metadata', public[1][public[1].index('--metadata-dir') + 1])
+        self.assertEqual('public-download/verification/attestations.jsonl', public[1][public[1].index('--attestations') + 1])
         self.assertEqual('public-download/romd-v1.2.3-rc.1-deployment.tar.gz',
                          public[1][public[1].index('--bundle') + 1])
-        self.assertEqual('public-download', tampered[1][tampered[1].index('--metadata-dir') + 1])
+        self.assertEqual('public-download/verification/metadata', tampered[1][tampered[1].index('--metadata-dir') + 1])
+        self.assertEqual(['romd-v1.2.3-rc.1-verification.tar.gz', 'romd-v1.2.3-rc.1-verification.tar.gz.sha256'],
+                         [part for part in calls[upload] if part.endswith(('.tar.gz', '.tar.gz.sha256'))])
+        runtime = [command for command in calls if 'scripts/release/suite.py' in command]
+        self.assertEqual(2, len(runtime))
+        self.assertEqual('public-download/verification/packaged',
+                         runtime[-1][runtime[-1].index('--evidence-dir') + 1])
+        archive_tamper = next(i for i, command in enumerate(calls)
+                              if 'scripts/release/evidence_archive.py' in command and 'unpack' in command)
         edit = next(i for i, command in enumerate(calls) if command[:3] == ['gh', 'release', 'edit'])
         self.assertLess(verifications[0][0], upload)
         self.assertLess(upload, download)
         self.assertLess(download, public[0])
         self.assertLess(public[0], tampered[0])
         self.assertLess(tampered[0], edit)
+        self.assertLess(tampered[0], archive_tamper)
+        self.assertLess(archive_tamper, edit)
         self.assertFalse(any('--clobber' in command for command in calls))
 
     def test_failed_upload_download_verification_or_tamper_gate_never_marks_qualified(self):
-        for fault in ('runtime-suite', 'upload', 'private-404', 'missing-asset', 'altered-download',
-                      'public-verification', 'source-verification', 'accept-tampered'):
+        for fault in ('runtime-suite', 'archive-packaging', 'upload', 'private-404', 'missing-asset', 'altered-download',
+                      'public-verification', 'source-verification', 'public-runtime-suite',
+                      'accept-tampered', 'accept-tampered-archive', 'qualification-notes'):
             with self.subTest(fault=fault):
                 result, calls = self.execute(fault)
                 self.assertNotEqual(0, result.returncode)

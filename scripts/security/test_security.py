@@ -20,6 +20,7 @@ import urllib.request
 import urllib.response
 
 from download_release import DownloadFailure, OfficialRedirects, anonymous_opener, download_release, official_url
+from test_evidence_archive import archive_fixture, create as create_archive_fixture
 from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, catalog_supplement, generate, main, merge_sbom, native_supplement, upstream_postgres_report
 from qualify import image_map, rehearsal_images, verify_bundle, verify_publisher
 from policy import evaluate, validate_policy
@@ -450,21 +451,17 @@ class PublicReleaseDownloadTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.work = Path(self.temporary.name)
-        self.metadata = self.work / 'trusted-metadata'
-        self.metadata.mkdir()
         self.bundle = self.work / 'release.tar.gz'
         InventoryIntegrityTests.release_bundle(self, self.bundle)
-        self.attestations = self.work / 'attestations.jsonl'
-        self.attestations.write_text('{"controlled":"attestation"}\n')
         Path(str(self.bundle) + '.sha256').write_text(hashlib.sha256(self.bundle.read_bytes()).hexdigest()
                                                     + '  ' + self.bundle.name + '\n')
-        self.sbom = self.metadata / 'admin.cdx.json'
-        self.sbom.write_text('{"bomFormat":"CycloneDX","components":[]}\n')
-        self.index = self.metadata / 'release-metadata.json'
-        self.index.write_text(json.dumps({'schemaVersion': 1, 'result': 'passed',
-            'files': {self.sbom.name: hashlib.sha256(self.sbom.read_bytes()).hexdigest()}}))
+        self.inputs = archive_fixture(self.work / 'trusted-evidence',
+                                      bundle_sha=hashlib.sha256(self.bundle.read_bytes()).hexdigest())
+        create_archive_fixture(self.inputs)
+        self.archive = self.inputs.archive
         self.assets = {path.name: path.read_bytes() for path in
-                       (self.index, self.sbom, self.bundle, self.attestations, Path(str(self.bundle) + '.sha256'))}
+                       (self.archive, Path(str(self.archive) + '.sha256'),
+                        self.bundle, Path(str(self.bundle) + '.sha256'))}
         self.output = self.work / 'public-download'
         self.requests = []
         self.responses = []
@@ -495,8 +492,8 @@ class PublicReleaseDownloadTests(unittest.TestCase):
 
     def run_download(self, opener=None):
         with patch('download_release.anonymous_opener', return_value=opener or self.opener()):
-            passed = download_release('owner/repository', 'v1.0.0-rc.1', self.metadata, self.bundle,
-                                      self.attestations, self.output)
+            passed = download_release('owner/repository', self.inputs.tag, self.inputs.revision,
+                                      self.archive, self.bundle, self.output)
         return passed, json.loads((self.output / 'download-result.json').read_text())
 
     def test_anonymous_download_matches_every_trusted_asset_and_records_hash_manifest(self):
@@ -509,7 +506,13 @@ class PublicReleaseDownloadTests(unittest.TestCase):
             self.assertEqual(record['expectedSize'], record['actualSize'])
             self.assertEqual(record['expectedSha256'], record['actualSha256'])
             self.assertEqual('passed', record['result'])
-        self.assertEqual(set(self.assets) | {'download-result.json'}, {path.name for path in self.output.iterdir()})
+        self.assertEqual(set(self.assets) | {'download-result.json', 'verification'},
+                         {path.name for path in self.output.iterdir()})
+        self.assertEqual(self.inputs.attestations.read_bytes(),
+                         (self.output / 'verification/attestations.jsonl').read_bytes())
+        self.assertEqual(self.inputs.state.read_bytes(),
+                         (self.output / 'verification/publisher/candidate.json').read_bytes())
+        self.assertEqual('passed', report['verification']['result'])
 
     def test_private_missing_release_and_network_errors_fail_with_sanitized_evidence(self):
         secret_url = 'https://release-assets.githubusercontent.com/private?token=must-not-appear'
@@ -619,32 +622,35 @@ class PublicReleaseDownloadTests(unittest.TestCase):
         self.assertEqual('existing evidence', (self.output / 'keep.txt').read_text())
         self.assertEqual([], self.requests)
 
-    def test_unsafe_duplicate_reserved_symlink_and_mismatched_trusted_files_fail_before_network(self):
-        original = self.index.read_text()
-        for index, name in enumerate(('../outside.json', '/absolute.json', 'back\\slash.json', '.env',
-                                      'release-metadata.json', 'download-result.json', 'attestations.jsonl')):
-            with self.subTest(name=name):
-                self.output = self.work / f'unsafe-name-{index}'
-                self.index.write_text(json.dumps({'schemaVersion': 1, 'result': 'passed',
-                    'files': {name: hashlib.sha256(self.index.read_bytes()).hexdigest()}}))
-                passed, report = self.run_download()
-                self.assertFalse(passed)
-                self.assertEqual([], self.requests)
-                self.assertEqual({'download-result.json'}, {path.name for path in self.output.iterdir()})
-        self.index.write_text(original)
-        self.sbom.unlink()
-        self.sbom.symlink_to(self.attestations)
+    def test_symlink_corrupt_or_colliding_trusted_archives_fail_before_network(self):
+        original = self.archive.read_bytes()
+        self.archive.unlink()
+        self.archive.symlink_to(self.bundle)
         self.output = self.work / 'symlink-input'
         passed, report = self.run_download()
         self.assertFalse(passed)
-        self.assertEqual('trusted-asset-not-regular-file', report['failure'])
         self.assertEqual([], self.requests)
-        self.sbom.unlink()
-        self.sbom.write_text('changed trusted metadata')
+        self.archive.unlink()
+        self.archive.write_bytes(b'changed trusted archive')
         self.output = self.work / 'changed-trusted-input'
         passed, report = self.run_download()
         self.assertFalse(passed)
-        self.assertEqual('trusted-metadata-checksum-mismatch', report['failure'])
+        self.assertEqual([], self.requests)
+        self.archive.write_bytes(original)
+        self.bundle = self.archive
+        self.output = self.work / 'colliding-input'
+        passed, report = self.run_download()
+        self.assertFalse(passed)
+        self.assertEqual('duplicate-or-reserved-asset-name', report['failure'])
+        self.assertEqual([], self.requests)
+
+    def test_self_consistent_substituted_bundle_is_rejected_before_public_download(self):
+        self.bundle.write_bytes(b'substitute with its own checksum')
+        Path(str(self.bundle) + '.sha256').write_text(hashlib.sha256(self.bundle.read_bytes()).hexdigest()
+                                                    + '  ' + self.bundle.name + '\n')
+        passed, report = self.run_download()
+        self.assertFalse(passed)
+        self.assertEqual('trusted-bundle-publisher-mismatch', report['failure'])
         self.assertEqual([], self.requests)
 
 

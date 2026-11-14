@@ -149,9 +149,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir candidate-download \
-            --pattern "romd-$RELEASE_TAG-deployment.tar.gz*" --pattern images.env --pattern candidate.json
-          cmp publisher-subjects/images.env candidate-download/images.env
-          cmp publisher-subjects/candidate.json candidate-download/candidate.json
+            --pattern "romd-$RELEASE_TAG-deployment.tar.gz*"
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       - name: Qualify the downloaded deployment and prove browser failures block it
         run: |
@@ -192,9 +190,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir release-files \
-            --pattern "romd-$RELEASE_TAG-deployment.tar.gz*" --pattern images.env --pattern candidate.json
-          cmp publisher-subjects/images.env release-files/images.env
-          cmp publisher-subjects/candidate.json release-files/candidate.json
+            --pattern "romd-$RELEASE_TAG-deployment.tar.gz*"
+          # Preserve the original same-workflow trust input, independently of
+          # the public bundle and the later verification archive.
+          cp publisher-subjects/images.env publisher-subjects/candidate.json release-files/
       - name: Install checksum-pinned scanners
         run: python3 scripts/security/tools.py --output .artifacts/security-tools
       - name: Generate final-digest SBOMs and enforce the vulnerability policy
@@ -335,24 +334,38 @@ jobs:
             --attestations attestations.jsonl --repository "$GITHUB_REPOSITORY" \
             --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+      - name: Package complete verification evidence without changing its signatures
+        run: |
+          python3 scripts/release/evidence_archive.py create \
+            --metadata-dir release-inputs/security-metadata --attestations attestations.jsonl \
+            --images release-inputs/release-files/images.env \
+            --publisher-state release-inputs/release-files/candidate.json --packaged-evidence packaged-evidence \
+            --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" --output "romd-$RELEASE_TAG-verification.tar.gz"
       - name: Attach evidence while the candidate remains unqualified
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tar -czf packaged-qualification.tar.gz -C packaged-evidence .
           gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-            release-inputs/security-metadata/*.json attestations.jsonl packaged-qualification.tar.gz
+            "romd-$RELEASE_TAG-verification.tar.gz" "romd-$RELEASE_TAG-verification.tar.gz.sha256"
       - name: Download and verify the actual public assets without credentials
         run: |
           python3 scripts/security/download_release.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
-            --metadata-dir release-inputs/security-metadata \
+            --revision "$SOURCE_REVISION" --verification-archive "romd-$RELEASE_TAG-verification.tar.gz" \
             --bundle "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
-            --attestations attestations.jsonl --output public-download
-          python3 scripts/security/verify.py --metadata-dir public-download \
+            --output public-download
+          python3 scripts/security/verify.py --metadata-dir public-download/verification/metadata \
             --bundle "public-download/romd-$RELEASE_TAG-deployment.tar.gz" \
-            --attestations public-download/attestations.jsonl --repository "$GITHUB_REPOSITORY" \
+            --attestations public-download/verification/attestations.jsonl --repository "$GITHUB_REPOSITORY" \
             --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
+          python3 scripts/release/suite.py --verify-suite \
+            --bundle "public-download/romd-$RELEASE_TAG-deployment.tar.gz" \
+            --checksum "public-download/romd-$RELEASE_TAG-deployment.tar.gz.sha256" \
+            --expected-images release-inputs/release-files/images.env \
+            --publisher-state release-inputs/release-files/candidate.json \
+            --expected-revision "$SOURCE_REVISION" --expected-tag "$RELEASE_TAG" \
+            --nginx-image "$(jq -er .ingress scripts/deployment/base-images.json)" \
+            --evidence-dir public-download/verification/packaged
       - name: Prove a tampered anonymously downloaded bundle is rejected
         run: |
           set -euo pipefail
@@ -360,11 +373,23 @@ jobs:
           bundle="romd-$RELEASE_TAG-deployment.tar.gz"
           cp "public-download/$bundle" ".artifacts/tampered/$bundle"
           printf 'tampered' >> ".artifacts/tampered/$bundle"
-          if python3 scripts/security/verify.py --metadata-dir public-download \
-              --bundle ".artifacts/tampered/$bundle" --attestations public-download/attestations.jsonl \
+          if python3 scripts/security/verify.py --metadata-dir public-download/verification/metadata \
+              --bundle ".artifacts/tampered/$bundle" --attestations public-download/verification/attestations.jsonl \
               --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
               --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"; then
             echo 'Tampered bundle was incorrectly verified' >&2
+            exit 1
+          fi
+      - name: Prove a tampered anonymously downloaded verification archive is rejected
+        run: |
+          set -euo pipefail
+          archive="romd-$RELEASE_TAG-verification.tar.gz"
+          cp "public-download/$archive" ".artifacts/tampered/$archive"
+          printf 'tampered' >> ".artifacts/tampered/$archive"
+          if python3 scripts/release/evidence_archive.py unpack --archive ".artifacts/tampered/$archive" \
+              --checksum "public-download/$archive.sha256" --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
+              --output .artifacts/tampered/verification; then
+            echo 'Tampered verification archive was incorrectly unpacked' >&2
             exit 1
           fi
       - name: Retain sanitized public-download diagnostics even on failure
@@ -379,5 +404,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          printf '%s\n' 'Qualified Linux amd64 prerelease: packaged browser/recovery, negative fault gates, SBOM/scanning and anonymous provenance verification passed. Production promotion still requires the final maintainer checkpoint. Native console binaries remain experimental.' > qualification-notes.txt
+          python3 scripts/release/release_notes.py --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" --qualified --output qualification-notes.txt
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease --notes-file qualification-notes.txt

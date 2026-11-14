@@ -54,6 +54,35 @@ than dated receipts or agent transcripts.
   state whether upgrading from the previous release is supported, and the
   upgrade gate below applies only to a supported path.
 
+## Public downloads and release page
+
+A qualified release has five uploaded assets:
+
+| Download | Purpose |
+| --- | --- |
+| `romd-vX.Y.Z-deployment.tar.gz` | Operator installation: Compose, pinned images and operational tools |
+| `romd-vX.Y.Z-deployment.tar.gz.sha256` | Deployment archive integrity |
+| `romd-vX.Y.Z-verification.tar.gz` | Complete SBOMs, scans, policy results, attestations, publisher identities and sanitized packaged runtime evidence |
+| `romd-vX.Y.Z-verification.tar.gz.sha256` | Verification archive integrity |
+| Reviewed MAME source archive | Corresponding GPL source for the worker's CHD tooling |
+
+GitHub also provides its automatic source-code downloads. The original JSON and
+JSONL evidence stays intact inside the verification archive; it is not removed
+or replaced by a summary. The archive checksum and member manifest provide
+transport integrity, while the existing signed metadata and attestation checks
+establish the expected source and subjects. Follow
+[public verification](release-metadata.md#attestation-and-anonymous-verification).
+
+`scripts/release/release_notes.py` renders the page with prominent deployment
+and checksum links, installation and recovery guidance, and the supported
+platform and upgrade boundary. Initial notes clearly identify an unqualified
+prerelease. Completion attaches the verification archive and marks the notes
+qualified only after actual public downloads, runtime/security/provenance
+verification and both tamper controls pass. Keep the maintainer promotion
+checkpoint separate. Update the release notes with the accepted scope and
+achieved evidence before stable promotion, replacing the prerelease banner with
+the accepted final release status only at that checkpoint.
+
 ## Source checks available in a development environment
 
 Use the pinned toolchain and prerequisites in [development setup](../development/getting-started.md).

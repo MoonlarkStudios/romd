@@ -164,6 +164,14 @@ class ReleasePolicyTests(unittest.TestCase):
             self.assertEqual('postgres@sha256:' + 'b' * 64,
                              json.loads((output / 'candidate.json').read_text())['images']['ROMD_POSTGRES_IMAGE'])
             self.assertTrue(all(upload < i for i in pushes))
+            installation_upload = next(command for command in commands
+                                       if command[:3] == ['gh', 'release', 'upload'] and str(source) not in command)
+            self.assertEqual([str(output / 'romd-v1.2.3-deployment.tar.gz'),
+                              str(output / 'romd-v1.2.3-deployment.tar.gz.sha256')],
+                             [part for part in installation_upload if part.endswith(('.tar.gz', '.tar.gz.sha256'))])
+            self.assertNotIn(str(output / 'images.env'), installation_upload)
+            self.assertNotIn(str(output / 'candidate.json'), installation_upload)
+            self.assertTrue((output / 'candidate.json').is_file())
             self.assertFalse(any('--clobber' in command for command in commands))
             self.assertIn('--prerelease', commands[-1])
             source.write_bytes(b'tampered source')

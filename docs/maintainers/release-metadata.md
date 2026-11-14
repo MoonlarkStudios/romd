@@ -185,8 +185,9 @@ The trusted publishing job must generate provenance for each final OCI digest,
 the deployment bundle, and `release-metadata.json`. It must also attest each
 subject's matching CycloneDX SBOM with predicate type
 `https://cyclonedx.org/bom`. Attestation write and OIDC permissions belong only
-to that job. Publish the complete attestation bundles as downloadable JSONL,
-alongside the metadata files and checksummed deployment archive. Do not promote
+to that job. Preserve the complete attestation bundles as JSONL inside the
+checksummed verification archive, alongside all original metadata files and
+sanitized runtime reports. Do not promote
 a prerelease before generation, policy checks and verification succeed.
 
 The PostgreSQL subject records the official upstream digest selected and
@@ -195,21 +196,44 @@ and OS packages. It does not establish that ROMD built PostgreSQL or attest the
 upstream publisher's build process. Retain the upstream component/source
 inventory and distinguish that qualification attestation from upstream origin.
 
-Download these public assets into a clean directory. Supply the intended source
+Download the deployment bundle and checksum plus
+`romd-v1.2.3-rc.1-verification.tar.gz` and its `.sha256` file into a clean
+directory. The verification archive contains:
+
+- `metadata/`: the signed metadata index and all original SBOM, scan, policy and
+  component provenance JSON files;
+- `attestations.jsonl`: the complete provenance and SBOM attestation bundles;
+- `publisher/`: the original image map and candidate identity for traceability;
+- `packaged/`: the complete sanitized positive and negative qualification reports;
+- `manifest.json`: the exact member inventory, sizes and SHA-256 hashes.
+
+Supply the intended source
 commit, tag, repository and exact trusted signer workflow independently of the
-downloaded metadata:
+downloaded metadata. First use the bounded archive reader, which refuses unsafe
+paths, aliases, links, unexpected or duplicate members, oversized payloads,
+incomplete inventories and mismatched hashes. This transport emits regular
+USTAR records only; the reader rejects PAX/GNU extension headers before reading
+their bodies and bounds the entire decompressed stream, including headers,
+padding and trailer. The output directory must be new.
+Then run the unchanged cryptographic metadata verifier:
 
 ```bash
+python3 scripts/release/evidence_archive.py unpack \
+  --archive /absolute/download/romd-v1.2.3-rc.1-verification.tar.gz \
+  --checksum /absolute/download/romd-v1.2.3-rc.1-verification.tar.gz.sha256 \
+  --revision FULL_40_CHARACTER_SOURCE_COMMIT --tag v1.2.3-rc.1 \
+  --output /absolute/download/verification
 python3 scripts/security/verify.py \
-  --metadata-dir /absolute/download/metadata \
+  --metadata-dir /absolute/download/verification/metadata \
   --bundle /absolute/download/romd-v1.2.3-rc.1-deployment.tar.gz \
-  --attestations /absolute/download/attestations.jsonl \
+  --attestations /absolute/download/verification/attestations.jsonl \
   --repository OWNER/REPOSITORY \
   --revision FULL_40_CHARACTER_SOURCE_COMMIT \
   --tag v1.2.3-rc.1 \
   --signer-workflow OWNER/REPOSITORY/.github/workflows/release.yml
 ```
 
+Archive checksums and member hashes alone do not authenticate the publisher.
 The verifier checks the signed metadata index's file hashes, expected source
 revision/tag, complete image/bundle subject inventory and the downloaded bundle
 hash. It independently verifies the tar manifest and `images.env` select exactly
@@ -228,14 +252,19 @@ requiring credentials fails this public-release gate. Offline attestation
 bundles avoid authenticated GitHub API lookup; trust-root fetching and public
 OCI manifest access may still need network connectivity.
 
-The final publishing job first verifies its trusted current-run inputs and uploads
-metadata while the candidate remains unqualified. It then downloads the actual
-GitHub release bundle/checksum, metadata index and indexed files, and attestation
-JSONL into a new directory without authentication, cookies or inherited proxies.
+The final publishing job first verifies its trusted current-run inputs, packages
+the verification archive and uploads that archive and checksum while the
+candidate remains unqualified. It then downloads the actual GitHub release
+deployment bundle/checksum and verification archive/checksum into a new
+directory without authentication, cookies or inherited proxies.
 Only HTTPS redirects to the explicit GitHub release-asset hosts are accepted.
 Every byte count and SHA-256 must match the trusted current-run inputs. The job
-verifies those downloaded files and rejects an altered copy before changing the
-qualification notes. Inaccessible or changed public assets block that change;
+unpacks the actual public archive, verifies its metadata and attestations, and
+rechecks its packaged suite against the original same-workflow publisher state.
+It never substitutes the public archive's own state for that independent trust
+input. Both a tampered deployment bundle and a tampered verification archive
+must be rejected before changing the qualification notes.
+Inaccessible or changed public assets block that change;
 Actions artifact copies cannot substitute for this round trip. Sanitized download
 results are retained even on failure. A partial evidence upload remains an
 unqualified candidate requiring maintainer disposition; retries do not replace
@@ -244,8 +273,8 @@ existing assets. Production promotion remains a separate checkpoint.
 ## Validation and evidence
 
 ```bash
-python3 scripts/security/test_security.py
-node --test scripts/security/*.test.mjs
+mise run release:check
+mise run security:check
 ```
 
 These deterministic tests reject synthetic high/critical/unknown findings,
@@ -254,11 +283,17 @@ stale databases, binary/receipt mismatches, changed metadata/bundles and SBOMs
 that differ from verified predicates. They also check the installed frontend
 dependency closure and external runtime distinction.
 
+Archive tests additionally reject traversal, links, duplicates, incomplete or
+oversized inventories, evidence-type/source mismatches and changed indexed
+reports, even when an outer checksum is recomputed. Completion tests execute the
+actual workflow shell steps with controlled failures and require both public
+verification and tamper gates before qualification notes can be written.
+
 Release evidence additionally requires actual final-digest generation, inspection
 of expected components, anonymous verification from a clean environment, and a
 tampered downloaded bundle failing verification. Preserve the exact commit,
 tool/database versions, commands, environment, output file hashes and artifact
 locations. `release-metadata.json` records those commands and subject bindings;
-the sibling files retain SBOMs, scans and policy decisions. Keep local synthetic
+the sibling files inside `metadata/` retain SBOMs, scans and policy decisions. Keep local synthetic
 tests distinct from hosted and disposable-release results. Do not claim PR 14
 qualification from tests or documentation alone.
