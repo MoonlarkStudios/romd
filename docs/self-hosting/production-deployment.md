@@ -10,11 +10,70 @@ full release when available; prerelease candidates are still being evaluated.
 Ottercade native builds remain experimental. Before the first qualified release,
 use [source development](../development/getting-started.md) to evaluate ROMD.
 
-For a new server, follow [prerequisites](#prerequisites-and-configuration),
-[release artifacts](#release-artifacts), [ingress](#choose-ingress) and
-[fresh installation](#fresh-installation), in that order. Existing operators can
-jump to [upgrade](#upgrade), [recovery](#administrator-recovery) or
+For a new server, start with the [quick start](#quick-start). The sections
+after it explain each step and the alternatives. Existing operators can jump to
+[upgrade](#upgrade), [recovery](#administrator-recovery) or
 [backup and restore](#backup-and-restore).
+
+## Quick start
+
+This path uses Cloudflare Tunnel: no certificates to manage and no open ports.
+You need a Linux amd64 server with Docker, Compose v2.24 or newer and Python 3,
+plus a domain whose DNS is on Cloudflare. To use your own certificate or an
+existing reverse proxy instead, see [choose ingress](#choose-ingress); `setup.sh`
+offers both.
+
+1. Download the bundle and its checksum from the
+   [release page](https://github.com/MoonlarkStudios/romd/releases), check it, and
+   extract it. Replace `vX.Y.Z` with the release you are installing:
+
+   ```bash
+   sha256sum --check romd-vX.Y.Z-deployment.tar.gz.sha256
+   tar -xzf romd-vX.Y.Z-deployment.tar.gz
+   cd romd-vX.Y.Z
+   ```
+
+   To also confirm the bundle was built by this project's release workflow, see
+   [release artifacts](#release-artifacts).
+2. In the Cloudflare dashboard, open **Zero Trust → Networks → Tunnels**, create a
+   tunnel with the **Docker** connector, and copy its token from the command it
+   shows. Don't run that command: ROMD runs the connector for you.
+3. Run setup and answer its questions:
+
+   ```bash
+   scripts/deployment/setup.sh
+   ```
+
+   It asks for your domain, the first administrator's email and password, how
+   visitors reach ROMD (choose **Cloudflare Tunnel**), the tunnel token and,
+   optionally, the directory of an existing ROM library on this server. It
+   generates every other secret, picks a free Docker network for the ingress,
+   and writes `.env`, readable only by you. It never prints a secret and never
+   replaces an existing `.env`.
+4. In the tunnel's **Public Hostname** settings, route each of the three
+   hostnames setup lists (by default `admin.`, `console.` and `play.` under your
+   domain) to the service `http://ingress:80`.
+5. Check the configuration, then start ROMD and confirm it is healthy:
+
+   ```bash
+   scripts/deployment/validate.sh
+   scripts/deployment/compose.sh pull
+   scripts/deployment/compose.sh up -d --wait --wait-timeout 240
+   scripts/deployment/verify.sh
+   ```
+
+6. Open the admin portal, sign in, and follow
+   [your first library](../features/first-library.md).
+
+Cloudflare's proxy rejects request bodies over 100 MB on Free and Pro plans, so
+large disc images can't be uploaded through the tunnel. The library directory
+from step 3 is mounted read-only for server-side
+[path import](configuration.md#path-import) instead.
+
+Back up `.env` with your other secrets: it holds the database passwords that
+restores need. The administrator password in it only creates the first account;
+change your password in the admin portal afterwards, since editing `.env` later
+has no effect.
 
 ## Prerequisites and configuration
 
@@ -25,12 +84,17 @@ Select HTTPS admin, consumer and player origins. Consumer and player must be
 separate origins under the same site; sibling subdomains work well.
 
 Download the bundle and its checksum to the same directory. Verify with
-`shasum -a 256 -c romd-<version>-deployment.tar.gz.sha256`, then extract into
-a release directory and copy `.env.example` to `.env`. Generate independent secrets, for example
-with `openssl rand -hex 32`; PostgreSQL passwords must be hex because Compose
-embeds them in connection strings. The bootstrap admin password must satisfy
-the application's password policy. Restrict `.env` permissions (`chmod 600`).
-Keep plaintext secrets out of Git; an encrypted secret store is appropriate.
+`sha256sum --check romd-<version>-deployment.tar.gz.sha256` (or
+`shasum -a 256 -c`), then extract it; it unpacks into its own `romd-<version>/`
+directory. Run `scripts/deployment/setup.sh` there to create `.env`: it prompts
+for the values you choose and generates the rest. To fill it by hand instead,
+copy `.env.example` to `.env` and generate independent secrets, for example with
+`openssl rand -hex 32`; PostgreSQL passwords must be hex because Compose embeds
+them in connection strings. The bootstrap admin password must satisfy the
+application's password policy. Restrict `.env` permissions (`chmod 600`).
+`COMPOSE_FILE` and `COMPOSE_PROJECT_NAME` in `.env` select the overlays and
+project for every operational script. Keep plaintext secrets out of Git; an
+encrypted secret store is appropriate.
 
 Set each `ROMD_*_PUBLIC_URL` to an exact HTTPS origin, without a trailing slash.
 The default deployment uses one canonical origin per portal. Additional origins
@@ -143,7 +207,10 @@ still require the [operator repair procedure](media-processing.md#recovery).
 The `scripts/deployment/compose.sh` wrapper consistently loads `images.env` and
 `.env`. `ROMD_ENV_FILE` can select an external secret file. Standard
 `COMPOSE_FILE` and `COMPOSE_PROJECT_NAME` variables apply to all operational tools;
-set them consistently, including for backup and restore.
+set them consistently, including for backup and restore. `setup.sh` records both
+in `.env`, with `COMPOSE_FILE` paths relative to the release directory, and the
+wrapper applies them unless you export your own. The `export` lines in the
+examples below are only needed with a hand-written `.env`.
 
 ### Existing reverse proxy
 

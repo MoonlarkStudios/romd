@@ -4,11 +4,22 @@ ROMD supports a single-server Docker Compose installation with PostgreSQL 18,
 one worker, the admin and consumer portals, and a separate browser player.
 Production uses published images; it does not need an application checkout or SDK.
 
-Download a versioned deployment bundle and verify its `.sha256` checksum. It
-contains `images.env` with the exact image digests, `compose.yaml`, database
-initialization assets, optional ingress examples, and backup/verification tools.
-Copy `.env.example` to `.env`, fill it in, and follow
-[the production runbook](../docs/self-hosting/production-deployment.md).
+To install from this release directory:
+
+```bash
+scripts/deployment/setup.sh            # asks a few questions, writes .env
+scripts/deployment/validate.sh
+scripts/deployment/compose.sh pull
+scripts/deployment/compose.sh up -d --wait --wait-timeout 240
+scripts/deployment/verify.sh
+```
+
+Follow the [quick start](../docs/self-hosting/production-deployment.md#quick-start)
+for the Cloudflare Tunnel setup around these commands, or
+[the production runbook](../docs/self-hosting/production-deployment.md) for
+every option. The release contains `images.env` with the exact image digests,
+`compose.yaml`, database initialization assets, optional ingress and library
+overlays, and setup, backup and verification tools.
 The bundle includes that guide as `docs/production-deployment.md`, with the
 configuration and media-processing references beside it. References to omitted
 source documentation use the bundle's exact source revision.
