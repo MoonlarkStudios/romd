@@ -140,7 +140,7 @@ jobs:
           git diff --exit-code -- pubspec.lock
       # The runner image has no ripgrep; the theme governance scripts need it.
       - name: Install ripgrep for the theme governance scripts
-        run: sudo apt-get update -qq && sudo apt-get install --yes --no-install-recommends ripgrep
+        run: python3 scripts/ci/apt_install.py ripgrep
       - name: Run registered console analysis and complete tests
         run: python3 scripts/validation/run.py --ci --job console --evidence-parent coverage/console
       - name: Retain console failure diagnostics
@@ -379,8 +379,7 @@ jobs:
             nuget-${{ runner.os }}-
       - name: Prepare verified loopback network probe tools
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nginx
+          python3 scripts/ci/apt_install.py nginx
           python3 scripts/ci/network_probes.py prepare "$RUNNER_TEMP/network-probes"
 
       - name: Restore integration dependencies

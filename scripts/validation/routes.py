@@ -62,7 +62,7 @@ CI_ONLY_STEPS = {
     ('console', 'Restore committed console dependencies'):
         dict(command='flutter pub get --enforce-lockfile', reason='dependency install and lockfile pin'),
     ('console', 'Install ripgrep for the theme governance scripts'):
-        dict(command='sudo apt-get update', reason='tool install; the hosted runner image has no ripgrep'),
+        dict(command='python3 scripts/ci/apt_install.py ripgrep', reason='bounded, retried tool install; the hosted runner image has no ripgrep'),
     **{(job, 'Unpack the native linux-x64 build'):
        dict(command='tar -xzf native-linux-x64.tar.gz', reason='artifact transfer from the native job')
        for job in ('backend', 'infrastructure', 'integration')},
@@ -78,7 +78,7 @@ CI_ONLY_STEPS = {
     ('integration', 'Build integration test surface'):
         dict(command='dotnet build', reason='build before registered checks'),
     ('integration', 'Prepare verified loopback network probe tools'):
-        dict(command='sudo apt-get update', reason='Ubuntu runner package setup and checksum-pinned rclone in runner temporary storage'),
+        dict(command='python3 scripts/ci/apt_install.py nginx', reason='bounded, retried Ubuntu runner package setup and checksum-pinned rclone in runner temporary storage'),
     ('integration', 'Require executed nginx and rclone protocol probes'):
         dict(command='python3 scripts/ci/network_probes.py verify', local='ci:network-probes'),
     ('native', 'Check the libchdr submodule against its pin'):
