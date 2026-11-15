@@ -131,6 +131,10 @@ def validate(config):
                     errors.append('Cloudflare tunnel listener must not publish port 80')
         except (ValueError, KeyError, TypeError):
             errors.append('Ingress and connector need valid static IPs and network configuration')
+    for name in ('ingress', 'cloudflared'):
+        # The examples default to reviewed pins; an override must stay immutable too.
+        if name in services and not re.fullmatch(r'[^\s@]+@sha256:[0-9a-f]{64}', str(services[name].get('image', ''))):
+            errors.append(f'{name}: image must be pinned by digest')
     player = services['romd-player']
     if player.get('volumes') or postgres_networks.intersection(player.get('networks', {})):
         errors.append('Player must be isolated from database and persistent volumes')

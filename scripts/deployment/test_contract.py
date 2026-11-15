@@ -90,7 +90,7 @@ def test_environment():
                ROMD_ADMIN_PUBLIC_URL='https://admin.example.test', ROMD_CONSUMER_PUBLIC_URL='https://console.example.test',
                ROMD_PLAYER_PUBLIC_URL='https://play.example.test', ROMD_TRUSTED_PROXY='172.28.0.2',
                ROMD_ADMIN_HOST='admin.example.test', ROMD_CONSUMER_HOST='console.example.test', ROMD_PLAYER_HOST='play.example.test',
-               ROMD_NGINX_IMAGE=base_images['ingress'], ROMD_CLOUDFLARED_IMAGE='cloudflare/cloudflared:test',
+               ROMD_NGINX_IMAGE=base_images['ingress'],
                CLOUDFLARE_TUNNEL_TOKEN='test-only', ROMD_TLS_DIRECTORY='/tmp/romd-test-certs')
     return env
 
@@ -1364,6 +1364,23 @@ docker() {
         config = copy.deepcopy(original)
         config['services']['romd-consumer']['environment']['Romd__ForwardedHeaders__KnownProxies__0'] = '172.28.0.6'
         self.assertIn('Ingress static IP must match the API trusted proxy', validate(config))
+
+    def test_ingress_examples_default_to_the_reviewed_pins_and_refuse_mutable_overrides(self):
+        pinned = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
+        environment = {key: value for key, value in test_environment().items()
+                       if key not in ('ROMD_NGINX_IMAGE', 'ROMD_CLOUDFLARED_IMAGE')}
+        for overlay in ('deploy/examples/https/compose.yaml', 'deploy/examples/cloudflare/compose.yaml'):
+            with self.subTest(overlay=overlay):
+                config = render(overlay, environment=environment)
+                self.assertEqual(pinned, config['services']['ingress']['image'])
+                self.assertEqual([], validate(config))
+        connector = render('deploy/examples/cloudflare/compose.yaml', environment=environment)['services']['cloudflared']['image']
+        self.assertRegex(connector, r'^cloudflare/cloudflared:[0-9]{4}\.[0-9]+\.[0-9]+@sha256:[a-f0-9]{64}$')
+        for name, variable in (('ingress', 'ROMD_NGINX_IMAGE'), ('cloudflared', 'ROMD_CLOUDFLARED_IMAGE')):
+            with self.subTest(override=variable):
+                config = render('deploy/examples/cloudflare/compose.yaml',
+                                environment=dict(environment, **{variable: 'example/mutable:latest'}))
+                self.assertIn(f'{name}: image must be pinned by digest', validate(config))
 
     def test_cloudflare_allows_separate_custom_listener_without_exposing_tunnel_port(self):
         config = render('deploy/examples/cloudflare/compose.yaml')

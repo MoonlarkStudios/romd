@@ -199,8 +199,9 @@ reverse proxy and any Cloudflare edge or tunnel log collection.
 ### HTTPS nginx example
 
 Provide a trusted certificate covering all three hosts as `fullchain.pem` and
-`privkey.pem` in `ROMD_TLS_DIRECTORY`. Set `ROMD_NGINX_IMAGE` to a reviewed
-release/digest, set the three `ROMD_*_HOST` values to match your public origins,
+`privkey.pem` in `ROMD_TLS_DIRECTORY`. The example runs the same nginx pin the
+release qualifies; to override it, set `ROMD_NGINX_IMAGE` to an image pinned by
+digest. Set the three `ROMD_*_HOST` values to match your public origins,
 and select a non-conflicting `ROMD_EDGE_SUBNET` and `ROMD_EDGE_DYNAMIC_RANGE`.
 Set `ROMD_TRUSTED_PROXY` to a free address inside the subnet and outside the dynamic
 allocation range (the example uses `172.28.0.2` with `172.28.0.128/25`).
@@ -223,8 +224,9 @@ verification URLs can omit the port even when the issuer is configured explicitl
 
 ### Cloudflare Tunnel example
 
-Select the nginx image, hosts and network settings as above, plus a reviewed
-`ROMD_CLOUDFLARED_IMAGE` and a tunnel token. Reserve `ROMD_CLOUDFLARED_EDGE_IP`
+Set the hosts and network settings as above, plus a tunnel token. The example
+ships reviewed nginx and cloudflared pins; overrides (`ROMD_NGINX_IMAGE`,
+`ROMD_CLOUDFLARED_IMAGE`) must be pinned by digest. Reserve `ROMD_CLOUDFLARED_EDGE_IP`
 (default `172.28.0.6`) inside the edge subnet, outside its dynamic range, distinct
 from ingress, the gateway and the API/player addresses. The overlay pins the
 connector to this address and publishes no ports:

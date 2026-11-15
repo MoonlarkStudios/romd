@@ -141,6 +141,11 @@ the appropriate existing checks. A failed check must leave the PR unmerged.
 The Dockerfile pins its syntax frontend and all base images to reviewed digests.
 `scripts/deployment/base-images.json` pins the PostgreSQL release input and
 qualification ingress; a custom Docker manager updates those JSON references.
+The ingress examples default to the same nginx pin and a reviewed cloudflared
+pin, written as `${ROMD_*_IMAGE:-image:version@digest}` in
+`deploy/examples/*/compose.yaml`. A second custom manager updates those
+defaults after a 14-day minimum release age, and the deployment contract tests
+require the nginx default to equal the qualification pin.
 Compose's release image variables are populated from the immutable candidate
 map, not independently upgraded by the bot.
 
