@@ -43,7 +43,7 @@ def package(root, images, *, extra=b''):
     bundle = root / 'rehearsal-bundle.tar.gz'
     with tarfile.open(bundle, 'w:gz') as archive:
         for name, data in dict(files, **{'manifest.json': json.dumps(manifest).encode()}).items():
-            member = tarfile.TarInfo(name)
+            member = tarfile.TarInfo(f'romd-{TAG}/{name}')
             member.size, member.mode = len(data), 0o755
             archive.addfile(member, io.BytesIO(data))
     checksum = Path(str(bundle) + '.sha256')

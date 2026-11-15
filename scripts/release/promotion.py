@@ -38,7 +38,7 @@ from publication import NoRedirect, allow_retry, release_metadata, run
 from crane import Crane, image_repositories
 from verify_release import attestations_name, verify_release
 from preflight import CANDIDATE, stable_tag, valid_tag
-from qualify import image_map, verify_bundle
+from qualify import bundle_root, image_map, verify_bundle
 from release_notes import render
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -119,10 +119,11 @@ def compare_bundles(candidate_bundle, promoted_bundle, images, revision, candida
         raise ValueError('Promoted manifest differs from the candidate beyond its release tag')
 
 
-def bundle_images(bundle, destination):
+def bundle_images(bundle, tag, destination):
     """Copy the bundle's own image map; the bundle's attestation then authenticates it."""
+    name = f'{bundle_root(tag)}/images.env'
     with tarfile.open(bundle, 'r:gz') as archive:
-        members = [member for member in archive if member.name in ('images.env', './images.env')]
+        members = [member for member in archive if member.name in (name, './' + name)]
         if len(members) != 1 or not members[0].isfile() or members[0].size > 4096:
             raise ValueError('Candidate bundle must contain exactly one images.env')
         destination.write_bytes(archive.extractfile(members[0]).read())
@@ -140,7 +141,7 @@ def verify_candidate(args, source_name, work):
          '--pattern', bundle, '--pattern', bundle + '.sha256', '--pattern', attestations])
     # GitHub's immutable-release attestation binds these bytes to the candidate release.
     run(['gh', 'release', 'verify-asset', args.candidate, download / bundle, '--repo', args.repository])
-    images = bundle_images(download / bundle, work / 'candidate-images.env')
+    images = bundle_images(download / bundle, args.candidate, work / 'candidate-images.env')
     verify_release(download / bundle, download / (bundle + '.sha256'), images, download / attestations,
                    args.repository, args.revision, args.candidate, f'{args.repository}/.github/workflows/release.yml')
     return run_id, download / bundle, images

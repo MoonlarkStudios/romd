@@ -17,8 +17,10 @@ for name in ('ADMIN', 'CONSUMER', 'WORKER', 'PLAYER', 'POSTGRES'):
     if not re.fullmatch(r'[^\s]+@sha256:[0-9a-f]{64}', value):
         sys.exit(f'ROMD_{name}_IMAGE must be digest-pinned')
 PY
-stage="$(mktemp -d)"
-trap 'rm -rf "$stage"' EXIT
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+# The archive holds exactly one top-level directory named for its release.
+stage="$work/romd-$tag"
 mkdir -p "$stage/deploy" "$stage/scripts" "$stage/docs"
 cp "$root/compose.yaml" "$stage/"
 cp "$images" "$stage/images.env"
@@ -62,6 +64,7 @@ import hashlib, json, sys
 from pathlib import Path
 stage = Path(sys.argv[1])
 files = {}
+stage.chmod(0o755)
 for path in sorted(stage.rglob('*')):
     if path.is_symlink():
         raise SystemExit('Release bundle cannot contain symlinks')
@@ -79,7 +82,7 @@ images = dict(line.split('=', 1) for line in (stage / 'images.env').read_text().
 (stage / 'manifest.json').chmod(0o644)
 PYMANIFEST
 # macOS tar otherwise adds AppleDouble metadata files to portable release bundles.
-COPYFILE_DISABLE=1 tar -czf "$out" -C "$stage" .
+COPYFILE_DISABLE=1 tar -czf "$out" -C "$work" "romd-$tag"
 python3 -I - "$out" > "$out.sha256" <<'PYCHECKSUM'
 import hashlib, sys
 from pathlib import Path

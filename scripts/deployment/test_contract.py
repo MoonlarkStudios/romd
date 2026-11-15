@@ -1393,16 +1393,19 @@ docker() {
             self.assertIsNone(shutil.which('shasum', path=environment['PATH']))
             subprocess.run([str(ROOT / 'scripts/deployment/bundle.sh'), str(images), str(archive), 'a' * 40, 'v0.0.0-test'],
                            env=environment, check=True, umask=0o077)
+            root = 'romd-v0.0.0-test'
             with tarfile.open(archive) as bundle:
+                # One versioned top-level directory, so extraction never spills into the current directory.
+                self.assertEqual({root}, {member.name.split('/')[0] for member in bundle.getmembers()})
                 for member in bundle.getmembers():
-                    if member.isdir() and member.name not in ('.', './'):
+                    if member.isdir():
                         self.assertEqual(0o755, member.mode & 0o777, member.name)
                     elif member.isfile():
                         self.assertIn(member.mode & 0o777, (0o644, 0o755), member.name)
                 for name in ('compose.yaml', 'images.env', 'manifest.json'):
-                    self.assertEqual(0o644, bundle.getmember('./' + name).mode & 0o777, name)
-                self.assertEqual(0o755, bundle.getmember('./deploy/postgres/init/10-romd-roles.sh').mode & 0o777)
-                names = {name.removeprefix('./') for name in bundle.getnames()}
+                    self.assertEqual(0o644, bundle.getmember(f'{root}/{name}').mode & 0o777, name)
+                self.assertEqual(0o755, bundle.getmember(f'{root}/deploy/postgres/init/10-romd-roles.sh').mode & 0o777)
+                names = {name.removeprefix(root + '/') for name in bundle.getnames()}
                 for required in ('compose.yaml', 'images.env', '.env.example',
                                  'scripts/backup/restore.sh', 'scripts/deployment/compose.sh',
                                  'deploy/examples/cloudflare/compose.yaml',
@@ -1418,19 +1421,19 @@ docker() {
                                  'reference-data/assets/presentation/ratings/ATTRIBUTION.md'):
                     self.assertIn(required, names)
                 self.assertIn('ROMD_CLOUDFLARED_EDGE_IP=172.28.0.6',
-                              bundle.extractfile('./.env.example').read().decode())
+                              bundle.extractfile(f'{root}/.env.example').read().decode())
                 self.assertIn('manifest.json', names)
                 self.assertIn('notices/Moonlark.Libchdr/LICENSE', names)
                 self.assertIn('native/libchdr/notices/LICENSE.txt', names)
                 self.assertIn('native/chdman/notices/THIRD_PARTY_NOTICES.md', names)
-                manifest = json.load(bundle.extractfile('./manifest.json'))
+                manifest = json.load(bundle.extractfile(f'{root}/manifest.json'))
                 self.assertEqual('a' * 40, manifest['sourceCommit'])
                 self.assertEqual('v0.0.0-test', manifest['releaseTag'])
                 self.assertEqual('linux/amd64', manifest['platform'])
                 self.assertNotIn('.env', names)
                 self.assertFalse(any(name.startswith(('src/', '.git/')) for name in names))
-                web_files = {member.name.removeprefix('./') for member in bundle.getmembers()
-                             if member.isfile() and member.name.removeprefix('./').startswith('web/')}
+                web_files = {member.name.removeprefix(root + '/') for member in bundle.getmembers()
+                             if member.isfile() and member.name.removeprefix(root + '/').startswith('web/')}
                 self.assertEqual({
                     'web/packages/romd-foundation/src/fonts/Archivo-OFL.txt',
                     'web/packages/romd-foundation/src/fonts/DMSans-OFL.txt',
@@ -1440,13 +1443,13 @@ docker() {
                 documentation.mkdir()
                 for member in bundle.getmembers():
                     if member.isfile() and member.name.endswith('.md'):
-                        target = documentation / member.name.removeprefix('./')
+                        target = documentation / member.name.removeprefix(root + '/')
                         target.parent.mkdir(parents=True, exist_ok=True)
                         target.write_bytes(bundle.extractfile(member).read())
                 # Include retained non-Markdown link targets without extracting arbitrary paths.
                 for member in bundle.getmembers():
                     if member.isfile() and not member.name.endswith('.md'):
-                        target = documentation / member.name.removeprefix('./')
+                        target = documentation / member.name.removeprefix(root + '/')
                         target.parent.mkdir(parents=True, exist_ok=True)
                         target.touch()
                 for document in documentation.rglob('*.md'):
