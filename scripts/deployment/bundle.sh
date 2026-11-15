@@ -28,7 +28,7 @@ cp "$root/deploy/.env.example" "$stage/.env.example"
 cp -R "$root/deploy/postgres" "$root/deploy/examples" "$stage/deploy/"
 cp -R "$root/scripts/backup" "$stage/scripts/"
 mkdir -p "$stage/scripts/deployment"
-for tool in compose.sh validate.sh validate.py verify.sh; do
+for tool in compose.sh setup.sh setup.py validate.sh validate.py verify.sh; do
   cp "$root/scripts/deployment/$tool" "$stage/scripts/deployment/"
 done
 cp "$root/docs/self-hosting/production-deployment.md" "$root/docs/self-hosting/media-processing.md" \

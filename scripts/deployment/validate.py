@@ -7,6 +7,14 @@ import sys
 from urllib.parse import urlsplit
 
 
+def import_mount(service, root):
+    """The (source, target) of the innermost mount containing an import root, or None."""
+    held = [(volume.get('source'), volume.get('target')) for volume in service.get('volumes', [])
+            if isinstance(volume, dict) and isinstance(volume.get('target'), str)
+            and (root == volume['target'] or root.startswith(volume['target'].rstrip('/') + '/'))]
+    return max(held, key=lambda mount: len(mount[1]), default=None)
+
+
 def validate(config):
     errors = []
     services = config['services']
@@ -131,6 +139,19 @@ def validate(config):
                     errors.append('Cloudflare tunnel listener must not publish port 80')
         except (ValueError, KeyError, TypeError):
             errors.append('Ingress and connector need valid static IPs and network configuration')
+    roots = {}
+    for name in ('romd-admin', 'romd-worker'):
+        environment = services[name].get('environment', {})
+        roots[name] = sorted(value for key, value in environment.items() if key.startswith('Romd__AllowedImportPaths__'))
+    if roots['romd-admin'] != roots['romd-worker']:
+        errors.append('Path import roots must be identical on romd-admin and romd-worker')
+    else:
+        for root in roots['romd-admin']:
+            # The worker deletes move-mode originals by the path admin staged, so the
+            # mount holding each root must be the same source at the same target on both.
+            holders = [import_mount(services[name], root) for name in ('romd-admin', 'romd-worker')]
+            if holders[0] is None or holders[0] != holders[1]:
+                errors.append(f'Path import root {root} must be inside the same mount on romd-admin and romd-worker')
     for name in ('ingress', 'cloudflared'):
         # The examples default to reviewed pins; an override must stay immutable too.
         if name in services and not re.fullmatch(r'[^\s@]+@sha256:[0-9a-f]{64}', str(services[name].get('image', ''))):
