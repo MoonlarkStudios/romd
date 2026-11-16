@@ -68,7 +68,8 @@ class BundleQualificationTests(unittest.TestCase):
         self.images.write_text(''.join(f'{name}={value}\n' for name, value in sorted(self.entries.items())))
         self.files = {name: b'fixture' for name in ('compose.yaml', '.env.example',
             'scripts/deployment/compose.sh', 'scripts/deployment/validate.sh', 'scripts/deployment/verify.sh',
-            'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/examples/https/compose.yaml')}
+            'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/ingress/templates/default.conf.template',
+            'deploy/examples/https/compose.yaml')}
         self.files['images.env'] = self.images.read_bytes()
 
     def bundle(self, manifest_changes=None, extra=None):

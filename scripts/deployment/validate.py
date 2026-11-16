@@ -84,10 +84,12 @@ def validate(config):
     init_targets = {volume.get('target'): volume.get('source') for volume in init.get('volumes', []) if isinstance(volume, dict)}
     # The signing secrets live in the data directory, so init must write the one the hosts mount.
     data = init_targets.pop('/init/data', None)
-    if (init.get('command') != ['--init-deployment', '/init'] or init.get('network_mode') != 'none'
+    certificate = init_targets.pop('/init/tls', None)
+    if ((init.get('command') or [])[:2] != ['--init-deployment', '/init'] or init.get('network_mode') != 'none'
             or init_targets != {'/init/postgres': 'romd-secrets-postgres', '/init/worker': 'romd-secrets-worker',
-                                '/init/admin': 'romd-secrets-admin', '/init/consumer': 'romd-secrets-consumer'}
-            or not data
+                                '/init/admin': 'romd-secrets-admin', '/init/consumer': 'romd-secrets-consumer',
+                                '/init/ca': 'romd-ca'}
+            or not data or not certificate
             or any(next((volume.get('source') for volume in services[name].get('volumes', [])
                          if isinstance(volume, dict) and volume.get('target') == '/var/lib/romd'), None) != data
                    for name in ('romd-worker', 'romd-admin', 'romd-consumer'))
@@ -111,12 +113,28 @@ def validate(config):
     if len(set(origins)) != 3:
         errors.append('Admin, consumer and player must use distinct origins')
     ingress = services.get('ingress')
-    if ingress and ingress.get('labels', {}).get('io.romd.ingress-example') == 'true':
+    if ingress:
         ingress_env = ingress.get('environment', {})
-        for surface, origin in zip(('ADMIN', 'CONSUMER', 'PLAYER'), origins):
-            host = ingress_env.get(f'ROMD_{surface}_HOST', '')
-            if host != urlsplit(origin).hostname or not re.fullmatch(r'[A-Za-z0-9.-]+', host):
-                errors.append(f'Ingress {surface} hostname must match its public origin')
+        if ingress.get('labels', {}).get('io.romd.ingress-example') == 'true':
+            for surface, origin in zip(('ADMIN', 'CONSUMER', 'PLAYER'), origins):
+                host = ingress_env.get(f'ROMD_{surface}_HOST', '')
+                if host != urlsplit(origin).hostname or not re.fullmatch(r'[A-Za-z0-9.-]+', host):
+                    errors.append(f'Ingress {surface} hostname must match its public origin')
+        else:
+            # Built-in ingress: one host name, and each surface on the port its listener is published at.
+            published = {port.get('target'): str(port.get('published')) for port in ingress.get('ports', [])
+                         if isinstance(port, dict)}
+            for surface, target, origin in zip(('ADMIN', 'CONSUMER', 'PLAYER'), (7664, 7663, 7665), origins):
+                try:
+                    parsed = urlsplit(origin)
+                    port = str(parsed.port or 443)
+                    if (parsed.hostname != ingress_env.get('ROMD_HOST') or port != ingress_env.get(f'ROMD_{surface}_PORT')
+                            or published.get(target) != port):
+                        errors.append(f'Ingress {surface} origin must be ROMD_HOST on its published port')
+                except ValueError:
+                    errors.append(f'Ingress {surface} origin must be ROMD_HOST on its published port')
+            if set(published) != {7663, 7664, 7665}:
+                errors.append('Built-in ingress publishes exactly its three surface listeners')
         try:
             proxy = ipaddress.ip_address(services['romd-admin']['environment']['Romd__ForwardedHeaders__KnownProxies__0'])
             assigned = (ingress.get('networks', {}).get('edge') or {}).get('ipv4_address')

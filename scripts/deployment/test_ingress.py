@@ -86,7 +86,7 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
 
     @classmethod
     def request(cls, *, source='127.0.0.2', host='console.example.test', path='/',
-                headers=None, check=True):
+                headers=None, check=True, port=80):
         lines = [f'GET {path} HTTP/1.1', f'Host: {host}', 'Connection: close']
         values = headers.items() if isinstance(headers, dict) else headers or []
         lines += [f'{key}: {value}' for key, value in values]
@@ -94,7 +94,7 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
         # Content-Length-delimited response arrives, without a timing sleep.
         output = b''
         with subprocess.Popen(cls.runtime.engine_command('exec', '-i', cls.container,
-                              'nc', '-s', source, '-w', '5', '127.0.0.1', '80'),
+                              'nc', '-s', source, '-w', '5', '127.0.0.1', str(port)),
                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               env=cls.environment) as process:
             try:
@@ -175,6 +175,84 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
                                                                'Upgrade': 'websocket'})
         self.assertEqual(200, status)
         self.assertTrue(body.endswith('/hubs/admin|websocket|upgrade'), body)
+
+
+class BuiltInIngressTests(CloudflareIngressTests):
+    """The default ingress: one host name, a listener per surface. TLS is removed from the
+    fixture so the pinned image's own client can reach the listeners; routing and headers
+    are what this covers."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.runtime = Runtime()
+        cls.environment = cls.runtime.child_environment()
+        temporary = tempfile.TemporaryDirectory(prefix='romd-built-in-ingress-contract-')
+        cls.addClassCleanup(temporary.cleanup)
+        work = Path(temporary.name)
+        template = (ROOT / 'deploy/ingress/templates/default.conf.template').read_text()
+        for index, surface in enumerate(('admin', 'consumer', 'player'), 1):
+            template = template.replace(f'http://romd-{surface}:8080', f'http://127.0.0.1:{8080 + index}')
+        lines = [line.replace(' ssl default_server;', ' default_server;') for line in template.splitlines()
+                 if not line.strip().startswith(('ssl_', 'error_page 497'))]
+        assert len(lines) == len(template.splitlines()) - 4 and sum(' default_server;' in line for line in lines) == 3
+        (work / 'default.conf.template').write_text('\n'.join(lines) + '\n')
+        (work / 'nginx.conf').write_text('''worker_processes 1;
+error_log /dev/stderr warn;
+events { worker_connections 64; }
+http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
+''')
+        (work / 'echo.conf').write_text('\n'.join(
+            f'''server {{
+    listen {8080 + index};
+    access_log off;
+    location / {{
+        return 200 '{surface}|$http_host|$http_x_forwarded_for|$http_x_forwarded_host|$http_x_forwarded_proto|$request_uri';
+    }}
+}}''' for index, surface in enumerate(('admin', 'consumer', 'player'), 1)))
+        cls.container = 'romd-built-in-ingress-contract-' + uuid.uuid4().hex[:12]
+        cls.addClassCleanup(cls.remove_container)
+        image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
+        cls.run_engine('run', '--detach', '--name', cls.container, '--network', 'none', '--memory', '96m', '--cpus', '1',
+                       '--env', 'ROMD_HOST=nas.example.test', '--env', 'ROMD_CONSUMER_PORT=7663',
+                       '--env', 'ROMD_ADMIN_PORT=9443', '--env', 'ROMD_PLAYER_PORT=7665',
+                       '--env', 'NGINX_ENVSUBST_FILTER=^ROMD_',
+                       '--volume', f'{work / "nginx.conf"}:/etc/nginx/nginx.conf:ro,Z',
+                       '--volume', f'{work / "echo.conf"}:/etc/nginx/conf.d/echo.conf:ro,Z',
+                       '--volume', f'{work / "default.conf.template"}:/etc/nginx/templates/default.conf.template:ro,Z',
+                       image)
+        for _ in range(30):
+            response = cls.request(host='nas.example.test', port=7663, check=False)
+            if response and response[0] == 200:
+                break
+            time.sleep(0.1)
+        else:
+            logs = cls.run_engine('logs', cls.container)
+            raise AssertionError(f'nginx did not become ready: {logs.stdout}{logs.stderr}')
+
+    def test_each_listener_routes_to_its_surface_with_the_published_origin(self):
+        # The admin listener is published on another host port; the application must see that port.
+        for port, surface, published in ((7663, 'consumer', 7663), (7664, 'admin', 9443), (7665, 'player', 7665)):
+            with self.subTest(surface=surface):
+                status, body = self.request(host='nas.example.test', port=port, path='/vfs/a%20b%23c?x=1',
+                                            headers={'X-Forwarded-For': '203.0.113.9', 'X-Forwarded-Host': 'evil.test',
+                                                     'X-Forwarded-Proto': 'http'})
+                self.assertEqual(200, status)
+                self.assertEqual([surface, f'nas.example.test:{published}', '127.0.0.2', f'nas.example.test:{published}',
+                                  'https', '/vfs/a%20b%23c?x=1'], body.split('|'))
+
+    def test_port_in_the_host_header_cannot_change_the_origin_the_application_sees(self):
+        status, body = self.request(host='nas.example.test:1', port=7663)
+        self.assertEqual((200, 'nas.example.test:7663'), (status, body.split('|')[1]))
+
+    def test_other_host_names_are_refused(self):
+        for host in ('evil.test', 'nas.example.test.evil.test', '192.0.2.1'):
+            with self.subTest(host=host):
+                self.assertEqual(421, self.request(host=host, port=7664)[0])
+
+
+# The inherited tunnel cases belong to CloudflareIngressTests alone.
+for _name in [name for name in vars(CloudflareIngressTests) if name.startswith('test_')]:
+    setattr(BuiltInIngressTests, _name, None)
 
 
 class IngressLoggingTests(unittest.TestCase):

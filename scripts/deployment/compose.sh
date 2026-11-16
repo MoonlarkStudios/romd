@@ -4,7 +4,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 env_file="${ROMD_ENV_FILE:-$root/.env}"
-# setup.sh records the selected overlays and project name in the env file.
+# The env file can record overlays (COMPOSE_FILE) and the project name.
 # Export them here so every tool sees the same project on any Compose release,
 # from any working directory: env-file paths are relative to the bundle root.
 # Values already exported by the caller keep Compose's own precedence.

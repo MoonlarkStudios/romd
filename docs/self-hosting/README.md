@@ -26,13 +26,14 @@ and upgrade scope of the version you plan to install.
 ## Installation path
 
 1. Read the [prerequisites](production-deployment.md#prerequisites-and-configuration):
-   Docker/Compose, local storage, HTTPS origins and installation secrets.
+   Docker/Compose and local storage.
 2. Obtain a versioned deployment bundle and verify its checksum. Keep the bundle
    and its pinned image references together; follow [release artifacts](production-deployment.md#release-artifacts).
-3. Run `scripts/deployment/setup.sh` to create the installation configuration and
-   [choose ingress](production-deployment.md#choose-ingress): Cloudflare Tunnel,
-   HTTPS nginx or an existing proxy. The [quick start](production-deployment.md#quick-start)
-   walks through the Cloudflare Tunnel path.
+3. Create `.env` as the [quick start](production-deployment.md#quick-start)
+   shows: the host name your devices use and the first administrator. The
+   [built-in ingress](production-deployment.md#built-in-ingress) serves ROMD over
+   HTTPS on your local network; overlays cover three host names, an existing
+   proxy and Cloudflare Tunnel.
 4. Follow [Fresh installation](production-deployment.md#fresh-installation),
    including validation and verification through your actual ingress.
 5. Sign in to the admin portal and build [your first library](../features/first-library.md).
