@@ -15,6 +15,7 @@ import unittest
 from unittest.mock import patch
 
 import qualify as qualification
+import compose_images
 from qualify import IMAGE_KEYS, Runner, deployment_environment, image_map, verify_bundle
 from assert_failure import assert_injected_failure
 
@@ -71,6 +72,8 @@ class BundleQualificationTests(unittest.TestCase):
             'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/ingress/templates/default.conf.template',
             'deploy/examples/https/compose.yaml')}
         self.files['images.env'] = self.images.read_bytes()
+        self.files['compose.yaml'] = compose_images.render(
+            ''.join(f'image: {compose_images.required(key)}\n' for key in compose_images.KEYS), self.entries).encode()
 
     def bundle(self, manifest_changes=None, extra=None):
         manifest = dict(schemaVersion=1, sourceCommit='a' * 40, releaseTag='v1.2.3-rc.1',
@@ -156,6 +159,39 @@ class BundleQualificationTests(unittest.TestCase):
         self.bundle(extra=(member, b'secret'))
         with self.assertRaisesRegex(ValueError, 'file inventory'):
             self.verify()
+
+    def test_compose_image_defaults_must_match_the_published_image_map(self):
+        published = self.files['compose.yaml'].decode()
+        for changed in (published.replace('a' * 64, 'b' * 64, 1),
+                        published.replace('${ROMD_WORKER_IMAGE:-', '${ROMD_WORKER_IMAGE:?', 1),
+                        published + 'image: ${ROMD_ADMIN_IMAGE:-ghcr.io/other/admin@sha256:' + 'c' * 64 + '}\n',
+                        'image: fixture\n'):
+            self.files['compose.yaml'] = changed.encode()
+            self.bundle()
+            with self.subTest(changed=changed[-80:]), self.assertRaisesRegex(ValueError, 'compose.yaml'):
+                self.verify()
+
+    def test_payload_ignores_only_the_image_references(self):
+        self.bundle()
+        first = self.verify()
+        self.assertNotIn('images.env', first['payload'])
+        self.assertNotEqual(first['files']['compose.yaml'], first['payload']['compose.yaml'])
+        # The same source published from another registry: only images.env and the compose defaults differ.
+        self.entries = {name: f'registry.example/{name.lower()}@sha256:{"d" * 64}' for name in IMAGE_KEYS}
+        self.images.write_text(''.join(f'{name}={value}\n' for name, value in sorted(self.entries.items())))
+        self.files['images.env'] = self.images.read_bytes()
+        self.files['compose.yaml'] = compose_images.render(
+            ''.join(f'image: {compose_images.required(key)}\n' for key in compose_images.KEYS), self.entries).encode()
+        self.bundle()
+        self.work = self.work / 'second'
+        self.work.mkdir()
+        second = self.verify()
+        self.assertEqual(first['payload'], second['payload'])
+        self.files['compose.yaml'] += b'# changed installation content\n'
+        self.bundle()
+        self.work = self.work / 'third'
+        self.work.mkdir()
+        self.assertNotEqual(first['payload'], self.verify()['payload'])
 
     def test_image_map_rejects_duplicates_mutable_and_unknown_keys(self):
         original = self.images.read_text()

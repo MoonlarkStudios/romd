@@ -50,7 +50,7 @@ domain or account with a third party is needed.
 3. Start ROMD:
 
    ```bash
-   scripts/deployment/compose.sh up -d --wait --wait-timeout 240
+   docker compose up -d --wait --wait-timeout 240
    ```
 
    On first start ROMD generates its database passwords, signing secrets and an
@@ -59,7 +59,7 @@ domain or account with a third party is needed.
    out of the installation, then install it as a trusted root certificate:
 
    ```bash
-   scripts/deployment/compose.sh cp ingress:/etc/romd/tls/ca.crt romd-ca.crt
+   docker compose cp ingress:/etc/romd/tls/ca.crt romd-ca.crt
    ```
 
    The authority can only vouch for the names in `ROMD_HOST`, so trusting it
@@ -153,8 +153,9 @@ digest.
 
 The bundle contains:
 
-- `compose.yaml`: production topology, health checks and bounded Docker logs;
-- `images.env`: immutable references for all four ROMD images and PostgreSQL;
+- `compose.yaml`: production topology, health checks and bounded Docker logs, with each
+  image defaulting to its exact digest so plain `docker compose` works from this directory;
+- `images.env`: the same immutable references for all four ROMD images and PostgreSQL;
 - `.env.example`: required installation settings;
 - `deploy/postgres/init/`: role/schema initialization for a fresh database;
 - `deploy/examples/`: optional HTTPS proxy and Cloudflare Tunnel overlays;
@@ -212,8 +213,10 @@ Changing the topology does not release existing unresolved runs recorded under
 an init-wrapped worker. Those records retain their original custody facts and
 still require the [operator repair procedure](media-processing.md#recovery).
 
-The `scripts/deployment/compose.sh` wrapper consistently loads `images.env` and
-`.env`. `ROMD_ENV_FILE` can select an external secret file. Standard
+Plain `docker compose`, run from the release directory, is enough: the bundled
+`compose.yaml` defaults each image to its exact digest and Compose reads `.env`.
+The `scripts/deployment/compose.sh` wrapper does the same from any directory,
+and the operational scripts use it. `ROMD_ENV_FILE` can select an external secret file. Standard
 `COMPOSE_FILE` and `COMPOSE_PROJECT_NAME` variables apply to all operational tools;
 set them consistently, including for backup and restore. Record both in `.env`,
 with `COMPOSE_FILE` paths relative to the release directory; the wrapper applies
