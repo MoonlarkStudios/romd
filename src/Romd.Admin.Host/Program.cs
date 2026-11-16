@@ -16,6 +16,8 @@ try
     Log.Information("Starting ROMD admin host");
 
     var builder = WebApplication.CreateBuilder(args);
+    builder.Configuration.AddRomdSecretFiles(
+        Environment.GetEnvironmentVariable(RomdSecretFilesExtensions.DirectoryVariable));
 
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
