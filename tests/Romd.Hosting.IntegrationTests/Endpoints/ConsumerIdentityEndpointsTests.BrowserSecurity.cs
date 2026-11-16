@@ -170,7 +170,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         await fixture.CreateConsumerUserAsync("cookie-player", "cookie-player@localhost", "Password123");
         using var browser = fixture.Factory.CreateClient(new() { BaseAddress = new Uri("https://localhost"), AllowAutoRedirect = false });
         using var get = await browser.GetAsync("/connect/login");
-        string csrf = get.Headers.GetValues("Set-Cookie").Single(value => value.StartsWith("romd_csrf="));
+        string csrf = get.Headers.GetValues("Set-Cookie").Single(value => value.StartsWith("romd_consumer_csrf="));
         csrf.ShouldContain("secure");
         csrf.ShouldContain("httponly");
         csrf.ShouldContain("samesite=strict");
@@ -178,7 +178,7 @@ public sealed partial class ConsumerIdentityEndpointsTests
         { ["login"] = "cookie-player", ["password"] = "Password123" });
         using var response = await browser.PostAsync("/connect/login", form);
         response.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        string login = response.Headers.GetValues("Set-Cookie").Single(value => value.StartsWith("romd_login="));
+        string login = response.Headers.GetValues("Set-Cookie").Single(value => value.StartsWith("romd_consumer_login="));
         login.ShouldContain("secure");
         login.ShouldContain("httponly");
         login.ShouldContain("samesite=lax");

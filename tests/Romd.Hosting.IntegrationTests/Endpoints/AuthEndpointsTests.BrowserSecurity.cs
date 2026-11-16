@@ -37,7 +37,7 @@ public sealed partial class AuthEndpointsTests
         browser.DefaultRequestHeaders.Remove("Sec-Fetch-Site");
         using var accepted = await browser.PostAsync("/connect/login", valid);
         accepted.StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        accepted.Headers.GetValues("Set-Cookie").ShouldContain(cookie => cookie.StartsWith("romd_login="));
+        accepted.Headers.GetValues("Set-Cookie").ShouldContain(cookie => cookie.StartsWith("romd_admin_login="));
         security.Hasher.Verifications.ShouldBe(1);
     }
 
