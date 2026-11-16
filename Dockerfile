@@ -347,7 +347,7 @@ RUN test -x /usr/bin/prlimit \
 # Mount points for --init-deployment. A new named volume takes its mount point's ownership,
 # so the secrets and data volumes start writable by the app user without a root step.
 USER root
-RUN install -d -o "${APP_UID}" -g 0 /init /init/postgres /init/worker /init/admin /init/consumer /init/data
+RUN install -d -o "${APP_UID}" -g 0 /init /init/postgres /init/worker /init/admin /init/consumer /init/data /init/ca /init/tls
 USER $APP_UID
 ENTRYPOINT ["dotnet", "romd-worker.dll"]
 

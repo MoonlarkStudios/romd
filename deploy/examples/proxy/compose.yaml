@@ -1,0 +1,7 @@
+# Your own reverse proxy in place of the built-in ingress. Add to the root
+# compose.yaml, set each ROMD_*_PUBLIC_URL to its https:// origin, and set
+# ROMD_TRUSTED_PROXY to your proxy's address as the ROMD containers see it.
+# Attach the proxy to this project's edge network, or publish the three
+# applications' port 8080 from a further overlay of your own.
+services:
+  ingress: !reset null

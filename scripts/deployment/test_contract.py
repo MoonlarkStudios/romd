@@ -97,7 +97,19 @@ def render(*overlays, environment=None):
     for overlay in overlays:
         args += ['-f', str(ROOT / overlay)]
     args += ['config', '--format', 'json']
-    return json.loads(subprocess.check_output(args, env=environment or test_environment()))
+    if environment is None:
+        environment = test_environment()
+        if not any('/examples/https/' in overlay or '/examples/cloudflare/' in overlay for overlay in overlays):
+            environment = built_in_ingress_environment(environment)
+    return json.loads(subprocess.check_output(args, env=environment))
+
+
+def built_in_ingress_environment(environment):
+    """The default installation: one host name, a port per surface, origins derived by Compose."""
+    selected = {key: value for key, value in environment.items()
+                if not key.endswith(('_PUBLIC_URL', '_HOST')) and key != 'ROMD_TLS_DIRECTORY'}
+    selected['ROMD_HOST'] = 'romd.example.test'
+    return selected
 
 
 def dockerfile_stages():
@@ -1228,7 +1240,7 @@ docker() {
     def test_vfs_is_opt_in_consumer_only_and_limits_are_validated(self):
         base = render()
         self.assertEqual('false', base['services']['romd-consumer']['environment']['Romd__Vfs__Enabled'])
-        env = test_environment()
+        env = built_in_ingress_environment(test_environment())
         env.update(ROMD_VFS_ENABLED='true', ROMD_VFS_MAX_REQUESTS='16',
                    ROMD_VFS_MAX_REQUESTS_PER_USER='2', ROMD_VFS_MAX_DIRECTORY_ENTRIES='500')
         enabled = render(environment=env)
@@ -1273,10 +1285,36 @@ docker() {
     def test_base_has_no_builds_ports_or_personal_container_names(self):
         config = render()
         self.assertEqual([], validate(config))
-        for service in config['services'].values():
-            for key in ('build', 'ports', 'container_name'):
+        for name, service in config['services'].items():
+            for key in ('build', 'container_name') + (() if name == 'ingress' else ('ports',)):
                 self.assertNotIn(key, service)
             self.assertIn('max-size', service['logging']['options'])
+        self.assertEqual({'7663': 7663, '7664': 7664, '7665': 7665},
+                         {port['published']: port['target'] for port in config['services']['ingress']['ports']})
+        self.assertEqual({'0.0.0.0'}, {port['host_ip'] for port in config['services']['ingress']['ports']})
+        self.assertEqual(['--init-deployment', '/init', 'romd.example.test'], config['services']['romd-init']['command'])
+        self.assertEqual(('https://romd.example.test:7664', 'https://romd.example.test:7663', 'https://romd.example.test:7665'),
+                         (config['services']['romd-admin']['environment']['Romd__AdminHost__PublicUrl'],
+                          config['services']['romd-consumer']['environment']['Romd__ConsumerHost__PublicUrl'],
+                          config['services']['romd-consumer']['environment']['Romd__BrowserPlayback__PlayerOrigins__0__Player']))
+
+    def test_built_in_ingress_origins_must_match_its_host_and_published_ports(self):
+        environment = built_in_ingress_environment(test_environment())
+        moved = render(environment=dict(environment, ROMD_CONSUMER_PORT='8443'))
+        self.assertEqual([], validate(moved))
+        self.assertEqual('https://romd.example.test:8443',
+                         moved['services']['romd-consumer']['environment']['Romd__ConsumerHost__PublicUrl'])
+        for override in (dict(ROMD_ADMIN_PUBLIC_URL='https://admin.example.test'),
+                         dict(ROMD_PLAYER_PUBLIC_URL='https://romd.example.test:9000')):
+            self.assertTrue(validate(render(environment=dict(environment, **override))), override)
+        config = render()
+        config['services']['ingress']['ports'].pop()
+        self.assertTrue(validate(config))
+        # Without a host name the stack still renders on every Compose release; validation names the problem.
+        missing = {key: value for key, value in environment.items() if key != 'ROMD_HOST'}
+        self.assertIn('Ingress ADMIN origin must be ROMD_HOST on its published port', validate(render(environment=missing)))
+        self.assertNotIn(':?', ''.join(line for line in (ROOT / 'compose.yaml').read_text().splitlines()
+                                       if 'ROMD_HOST' in line and not line.lstrip().startswith('#')))
 
     def test_rejects_disconnected_database_regression(self):
         config = render()
@@ -1477,6 +1515,7 @@ docker() {
                 names = {name.removeprefix(root + '/') for name in bundle.getnames()}
                 for required in ('compose.yaml', 'images.env', '.env.example',
                                  'scripts/backup/restore.sh', 'scripts/deployment/compose.sh',
+                                 'deploy/ingress/templates/default.conf.template',
                                  'deploy/examples/cloudflare/compose.yaml',
                                  'deploy/examples/cloudflare/templates/default.conf.template',
                                  'docs/media-processing.md', 'docs/configuration.md',
@@ -1594,12 +1633,75 @@ docker() {
             self.assertEqual(42, stale.returncode, stale.stdout + stale.stderr)
             self.assertNotIn('is current', stale.stdout)
 
-    def test_missing_public_origin_fails_compose_interpolation(self):
+    def test_missing_image_reference_fails_compose_interpolation(self):
         env = test_environment()
-        env['ROMD_ADMIN_PUBLIC_URL'] = ''
+        env['ROMD_WORKER_IMAGE'] = ''
         result = subprocess.run(compose('--env-file', '/dev/null', '-f', str(ROOT / 'compose.yaml'), 'config', '--quiet'),
                                 env=env, capture_output=True)
         self.assertNotEqual(0, result.returncode)
+
+
+class ImportMountValidationTests(unittest.TestCase):
+    def test_admin_and_worker_must_share_each_import_root_at_the_same_path(self):
+        environment = dict(built_in_ingress_environment(test_environment()), ROMD_LIBRARY_PATH='/srv/roms')
+        original = render('deploy/examples/library/compose.yaml', environment=environment)
+        self.assertEqual([], validate(original))
+        message = 'must be inside the same mount on romd-admin and romd-worker'
+        for change in ('drop-worker-mount', 'other-source', 'nested-root'):
+            config = copy.deepcopy(original)
+            admin, worker = config['services']['romd-admin'], config['services']['romd-worker']
+            if change == 'drop-worker-mount':
+                worker['volumes'] = [volume for volume in worker['volumes'] if volume['target'] != '/library']
+            elif change == 'other-source':
+                next(volume for volume in worker['volumes'] if volume['target'] == '/library')['source'] = '/srv/other'
+            else:
+                admin['environment']['Romd__AllowedImportPaths__0'] = '/library/nes'
+                worker['environment']['Romd__AllowedImportPaths__0'] = '/library/nes'
+            with self.subTest(change=change):
+                errors = validate(config)
+                self.assertEqual([] if change == 'nested-root' else [f'Path import root /library {message}'], errors)
+        config = copy.deepcopy(original)
+        config['services']['romd-worker']['environment'].pop('Romd__AllowedImportPaths__0')
+        self.assertIn('Path import roots must be identical on romd-admin and romd-worker', validate(config))
+
+
+class ReleaseLayoutTests(unittest.TestCase):
+    def test_extracted_release_feeds_compose_the_env_files_project_and_overlays(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary)
+            images = work / 'images.env'
+            images.write_text(''.join(f'ROMD_{name}_IMAGE=example/{name.lower()}@sha256:{"a" * 64}\n'
+                                      for name in ('ADMIN', 'CONSUMER', 'WORKER', 'PLAYER', 'POSTGRES')))
+            archive = work / 'romd-v1.2.3-deployment.tar.gz'
+            subprocess.run([ROOT / 'scripts/deployment/bundle.sh', images, archive, 'a' * 40, 'v1.2.3'],
+                           check=True, capture_output=True)
+            with tarfile.open(archive) as bundle:
+                bundle.extractall(work, filter='data')
+            release = work / 'romd-v1.2.3'
+            self.assertFalse((release / 'scripts/deployment/setup.sh').exists())
+            (release / '.env').write_text('ROMD_HOST=nas.example.test\n')
+            environment = {key: value for key, value in os.environ.items() if not key.startswith(('ROMD_', 'COMPOSE_'))}
+            # A stand-in docker reports what compose.sh hands to Compose, from an unrelated directory.
+            tools = work / 'bin'
+            tools.mkdir()
+            (tools / 'docker').write_text('#!/bin/sh\nprintf "%s\\n" "$COMPOSE_PROJECT_NAME" "$COMPOSE_FILE" "$@"\n')
+            (tools / 'docker').chmod(0o755)
+            environment['PATH'] = f'{tools}:{environment["PATH"]}'
+            arguments = ['compose', '--project-directory', str(release), '--env-file', f'{release}/images.env',
+                         '--env-file', f'{release}/.env', 'config']
+            seen = subprocess.run([release / 'scripts/deployment/compose.sh', 'config'], cwd=tools, env=environment,
+                                  capture_output=True, text=True, check=True).stdout.splitlines()
+            self.assertEqual(['', '', *arguments], seen)
+            (release / '.env').write_text('ROMD_HOST=nas.example.test\nCOMPOSE_PROJECT_NAME=romd\n'
+                                          'COMPOSE_FILE=compose.yaml:deploy/examples/library/compose.yaml\n')
+            seen = subprocess.run([release / 'scripts/deployment/compose.sh', 'config'], cwd=tools, env=environment,
+                                  capture_output=True, text=True, check=True).stdout.splitlines()
+            self.assertEqual(['romd', f'{release}/compose.yaml:{release}/deploy/examples/library/compose.yaml', *arguments], seen)
+            # Values the caller exports keep precedence over the env file.
+            seen = subprocess.run([release / 'scripts/deployment/compose.sh', 'config'], cwd=tools,
+                                  env=dict(environment, COMPOSE_PROJECT_NAME='other', COMPOSE_FILE='/x.yaml'),
+                                  capture_output=True, text=True, check=True).stdout.splitlines()
+            self.assertEqual(['other', '/x.yaml'], seen[:2])
 
 
 if __name__ == '__main__':

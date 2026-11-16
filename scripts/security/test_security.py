@@ -131,7 +131,8 @@ class InventoryIntegrityTests(unittest.TestCase):
                   for role in ('admin', 'consumer', 'worker', 'player', 'postgres')}
         files = {name: content for name in ('compose.yaml', '.env.example',
             'scripts/deployment/compose.sh', 'scripts/deployment/validate.sh', 'scripts/deployment/verify.sh',
-            'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/examples/https/compose.yaml')}
+            'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/ingress/templates/default.conf.template',
+            'deploy/examples/https/compose.yaml')}
         files['images.env'] = ''.join(f'{key}={value}\n' for key, value in images.items()).encode()
         manifest = {'schemaVersion': 1, 'sourceCommit': 'b' * 40, 'releaseTag': 'v1.0.0-rc.1',
                     'platform': 'linux/amd64', 'images': images,

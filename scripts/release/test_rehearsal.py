@@ -36,7 +36,8 @@ def package(root, images, *, extra=b''):
     image_file.write_text(''.join(f'{key}={value}\n' for key, value in images.items()))
     files = {name: b'fixture' + extra for name in ('compose.yaml', '.env.example',
         'scripts/deployment/compose.sh', 'scripts/deployment/validate.sh', 'scripts/deployment/verify.sh',
-        'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/examples/https/compose.yaml')}
+        'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/ingress/templates/default.conf.template',
+            'deploy/examples/https/compose.yaml')}
     files['images.env'] = image_file.read_bytes()
     manifest = dict(schemaVersion=1, sourceCommit=REVISION, releaseTag=TAG, platform='linux/amd64', images=images,
                     files={name: hashlib.sha256(data).hexdigest() for name, data in files.items()})

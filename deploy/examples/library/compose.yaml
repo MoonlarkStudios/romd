@@ -1,5 +1,5 @@
 # Optional: make an existing ROM library on this server available to path import.
-# setup.sh adds this overlay to COMPOSE_FILE when you give it a library directory.
+# Add it to COMPOSE_FILE in .env and set ROMD_LIBRARY_PATH.
 # Admin stages imports and the worker runs them, so both mount the same path.
 # The mount is read-only: ROMD copies files into its own storage and never
 # changes your library. Move-mode imports keep the originals and report why.
