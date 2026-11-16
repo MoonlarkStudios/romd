@@ -23,6 +23,7 @@ IMAGE_KEYS = {f'ROMD_{name}_IMAGE' for name in ('ADMIN', 'CONSUMER', 'WORKER', '
 DIGEST_REF = re.compile(r'[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}')
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'deployment'))
+import compose_images
 from container_lifecycle import ContainerLifecycle
 from recovery import RecoverySequence
 
@@ -124,6 +125,13 @@ def verify_bundle(bundle, checksum, expected_images, destination, revision, tag)
         if any(name.startswith(('.git/', '.agents/', '.codex/', '.github/', 'src/'))
                or name in ('.env', '.git') for name in files):
             raise ValueError('Deployment bundle includes source or installation secrets')
+        compose = files['compose.yaml'][1].decode()
+        try:
+            defaults = compose_images.images_in(compose)
+        except ValueError as error:
+            raise ValueError(f'Bundled compose.yaml: {error}') from None
+        if defaults != expected:
+            raise ValueError('Bundled compose.yaml image defaults differ from published digests')
         destination.mkdir(mode=0o700)
         for name, (member, data) in files.items():
             target = destination / name
@@ -138,8 +146,13 @@ def verify_bundle(bundle, checksum, expected_images, destination, revision, tag)
                 directory.chmod(0o755)
     if image_map(destination / 'images.env') != expected:
         raise ValueError('Bundle image map differs from published digests')
+    # Only the image references may differ between two bundles of one source: the payload leaves
+    # out images.env and describes compose.yaml with its references restored to variables.
+    payload = {name: value for name, value in manifest['files'].items() if name != 'images.env'}
+    payload['compose.yaml'] = hashlib.sha256(compose_images.normalize(compose).encode()).hexdigest()
     return {'sha256': digest, 'sourceCommit': revision, 'releaseTag': tag,
-            'platform': 'linux/amd64', 'images': expected, 'fileCount': len(files), 'files': manifest['files']}
+            'platform': 'linux/amd64', 'images': expected, 'fileCount': len(files), 'files': manifest['files'],
+            'payload': payload}
 
 
 def verify_publisher(bundle, state_path, expected_images, revision, tag):

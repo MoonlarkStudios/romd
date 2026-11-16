@@ -13,6 +13,7 @@ from unittest.mock import patch
 from datetime import datetime, timezone
 
 from qualify import verify_bundle
+import compose_images
 from publication import publish
 from rehearsal import Commands, candidate_images, cleanup_registry, local_json, rehearse
 from rehearsal_evidence import ROLES, verify_rehearsal, verify_published_bundle
@@ -39,6 +40,8 @@ def package(root, images, *, extra=b''):
         'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/ingress/templates/default.conf.template',
             'deploy/examples/https/compose.yaml')}
     files['images.env'] = image_file.read_bytes()
+    files['compose.yaml'] = compose_images.render(
+        ''.join(f'image: {compose_images.required(key)}\n' for key in compose_images.KEYS), images).encode() + b'# ' + extra + b'\n'
     manifest = dict(schemaVersion=1, sourceCommit=REVISION, releaseTag=TAG, platform='linux/amd64', images=images,
                     files={name: hashlib.sha256(data).hexdigest() for name, data in files.items()})
     bundle = root / 'rehearsal-bundle.tar.gz'
@@ -139,7 +142,7 @@ def fixture(root):
                    dependencies=PINS, registryCleanup='passed', registryExit=dict(exitCode=0, oomKilled=False),
                    images=images, bundleSha256=digest(args.bundle), suiteSha256=digest(packaged / 'suite.json'),
                    securityMetadataSha256=digest(root / 'security/release-metadata.json'),
-                   payloadFiles={name: value for name, value in bound['files'].items() if name != 'images.env'})
+                   payloadFiles=bound['payload'])
     path = root / 'receipt.json'
     write_json(path, receipt)
     return args, path, receipt

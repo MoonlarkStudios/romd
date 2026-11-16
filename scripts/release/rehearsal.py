@@ -207,7 +207,7 @@ def rehearse(output, revision, tag):
             positive = json.loads((output / 'packaged/positive/qualification.json').read_text())
             receipt.update(images=references, bundleSha256=digest(bundle), suiteSha256=digest(output / 'packaged/suite.json'),
                 securityMetadataSha256=digest(output / 'security/release-metadata.json'),
-                payloadFiles={key: value for key, value in positive['bundle']['files'].items() if key != 'images.env'})
+                payloadFiles=positive['bundle']['payload'])
             receipt['result'] = 'passed'
         except (ValueError, RuntimeError, OSError, KeyError, TypeError, IndexError) as error:
             receipt['failure'] = str(error) if type(error) in (ValueError, RuntimeError) else type(error).__name__

@@ -24,6 +24,8 @@ stage="$work/romd-$tag"
 mkdir -p "$stage/deploy" "$stage/scripts" "$stage/docs"
 cp "$root/compose.yaml" "$stage/"
 cp "$images" "$stage/images.env"
+# The bundled compose.yaml defaults each image to its exact reference, so plain `docker compose` works.
+python3 "$root/scripts/deployment/compose_images.py" "$stage/compose.yaml" "$images"
 cp "$root/deploy/.env.example" "$stage/.env.example"
 cp -R "$root/deploy/postgres" "$root/deploy/ingress" "$root/deploy/examples" "$stage/deploy/"
 cp -R "$root/scripts/backup" "$stage/scripts/"
