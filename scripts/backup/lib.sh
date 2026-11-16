@@ -130,6 +130,18 @@ romd_backup_init_container() {
   romd_backup_compose ps --all --quiet romd-init 2>/dev/null | head -n 1
 }
 
+# Runs where the authority directory is visible: prints its tar stream, prints nothing when the
+# installation has no authority, and fails for anything in between. Only absence is optional:
+# an authority with one file missing, or one that cannot be read, must fail the backup.
+ROMD_BACKUP_CA_EXPORT='
+  set -eu
+  [ -d "$1" ] || exit 0
+  cd "$1"
+  [ -e ca.key ] || [ -e ca.crt ] || exit 0
+  [ -f ca.key ] && [ -f ca.crt ] || { echo "certificate authority is incomplete: expected both ca.key and ca.crt" >&2; exit 3; }
+  tar -cf - ca.key ca.crt
+'
+
 # Emits the generated certificate authority as a tar stream on stdout, or nothing when the
 # installation has none (an operator-supplied certificate, or ROMD_BACKUP_CA_DIR unset in
 # local mode). Devices trust this authority, so a restore must bring it back.
@@ -139,11 +151,15 @@ romd_backup_ca_export() {
     container="$(romd_backup_init_container)"
     [[ -n "$container" ]] || return 0
     docker run --rm --user 0:0 --log-driver none --volumes-from "$container" "${ROMD_BACKUP_HELPER_IMAGE}" \
-      sh -c 'cd "$1" 2>/dev/null && [ -f ca.key ] && [ -f ca.crt ] && tar -cf - ca.key ca.crt || true' \
-      ca-export "${ROMD_BACKUP_CONTAINER_CA_DIR}"
-  elif [[ -n "${ROMD_BACKUP_CA_DIR:-}" && -f "${ROMD_BACKUP_CA_DIR}/ca.key" && -f "${ROMD_BACKUP_CA_DIR}/ca.crt" ]]; then
-    tar -C "${ROMD_BACKUP_CA_DIR}" -cf - ca.key ca.crt
+      sh -c "${ROMD_BACKUP_CA_EXPORT}" ca-export "${ROMD_BACKUP_CONTAINER_CA_DIR}"
+  elif [[ -n "${ROMD_BACKUP_CA_DIR:-}" ]]; then
+    sh -c "${ROMD_BACKUP_CA_EXPORT}" ca-export "${ROMD_BACKUP_CA_DIR}"
   fi
+}
+
+# Succeeds when a captured authority archive holds exactly the two files a restore needs.
+romd_backup_ca_archive_is_complete() {
+  [[ "$(tar -tf "$1" 2>/dev/null | LC_ALL=C sort | tr '\n' ' ')" == "ca.crt ca.key " ]]
 }
 
 # Replaces the destination's certificate authority with a tar stream from stdin. romd-init

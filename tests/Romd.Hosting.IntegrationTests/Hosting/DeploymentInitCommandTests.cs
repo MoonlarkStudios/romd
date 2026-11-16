@@ -167,11 +167,30 @@ public sealed class DeploymentInitCommandTests : IDisposable
         using X509Certificate2 authority = X509Certificate2.CreateFromPemFile(
             Path.Combine(_root, "ca", "ca.crt"), Path.Combine(_root, "ca", "ca.key"));
 
+        using X509Certificate2 issued = X509Certificate2.CreateFromPem(Read("tls", "fullchain.pem"));
         using X509Certificate2 permitted = Sign(authority, host);
         using X509Certificate2 forged = Sign(authority, other);
 
+        Chains(issued, authority).ShouldBeTrue("the certificate ROMD issued for this installation");
         Chains(permitted, authority).ShouldBeTrue();
         Chains(forged, authority).ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("192.168.1.50")]
+    [InlineData("nas.local")]
+    [InlineData("fd00::50")]
+    [InlineData("192.168.1.50", "nas.local", "fd00::50")]
+    public void Run_IssuedServerCertificate_ChainsAndNamesHostsOnlyAsAlternativeNames(params string[] hosts)
+    {
+        Run(hosts).ShouldBe(DeploymentInitCommand.Success);
+
+        using X509Certificate2 authority = X509Certificate2.CreateFromPem(Read("tls", "ca.crt"));
+        using X509Certificate2 server = X509Certificate2.CreateFromPem(Read("tls", "fullchain.pem"));
+        Chains(server, authority).ShouldBeTrue();
+        // A host-like common name is read as a DNS name by OpenSSL and checked against the DNS constraint.
+        server.Subject.ShouldBe(DeploymentCertificates.ServerSubject);
+        hosts.ShouldAllBe(host => !server.Subject.Contains(host, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -339,6 +358,23 @@ public sealed class DeploymentInitCommandTests : IDisposable
         Chains(refused, replaced).ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData("fullchain.pem", "privkey.pem")]
+    [InlineData("privkey.pem", "fullchain.pem")]
+    public void Run_HalfOfASuppliedCertificate_FailsWithInstructionsAndWritesNothing(string present, string missing)
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "tls"));
+        File.WriteAllText(Path.Combine(_root, "tls", present), "operator material");
+
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Failed);
+
+        _errors.ToString().ShouldContain($"tls/{present} exists without tls/{missing}");
+        _errors.ToString().ShouldContain("Supply both files");
+        Read("tls", present).ShouldBe("operator material");
+        Directory.GetFiles(Path.Combine(_root, "tls")).Length.ShouldBe(1);
+        Directory.Exists(Path.Combine(_root, "ca")).ShouldBeFalse();
+    }
+
     [Fact]
     public void Run_ServerCertificateLost_ReissuesUnderTheSameAuthority()
     {
@@ -397,7 +433,8 @@ public sealed class DeploymentInitCommandTests : IDisposable
     private static X509Certificate2 Sign(X509Certificate2 authority, string name)
     {
         using var key = System.Security.Cryptography.ECDsa.Create();
-        CertificateRequest request = new($"CN={name}", key, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        // As ROMD issues them: the name is an alternative name only, never the common name.
+        CertificateRequest request = new("CN=ROMD test certificate", key, System.Security.Cryptography.HashAlgorithmName.SHA256);
         SubjectAlternativeNameBuilder alternatives = new();
         if (IPAddress.TryParse(name, out IPAddress? address))
             alternatives.AddIpAddress(address);

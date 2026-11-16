@@ -35,8 +35,12 @@ romd_backup_pg pg_dump -U "${ROMD_BACKUP_PG_USER}" -d "${ROMD_BACKUP_PG_DATABASE
   </dev/null >"${set_dir}/romd.dump"
 romd_backup_data_export >"${set_dir}/data.tar"
 artifacts=(roles.sh romd.dump data.tar)
-romd_backup_ca_export >"${set_dir}/ca.tar"
+# The manifest is written last, so a failed export leaves an aborted set that restore refuses.
+romd_backup_ca_export >"${set_dir}/ca.tar" \
+  || romd_backup_fail "could not capture the certificate authority; the backup set is incomplete"
 if [[ -s "${set_dir}/ca.tar" ]]; then
+  romd_backup_ca_archive_is_complete "${set_dir}/ca.tar" \
+    || romd_backup_fail "the captured certificate authority archive is incomplete; the backup set is incomplete"
   artifacts+=(ca.tar)
 else
   rm -f "${set_dir}/ca.tar"

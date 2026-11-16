@@ -463,4 +463,6 @@ sites. No application host mounts the authority's key.
   cannot be read, initialization stops with an error instead of replacing the
   authority: restore `ca/` from a backup, or remove it to issue a new authority.
 - **Your own certificate.** A `tls/fullchain.pem` that this command did not issue
-  is treated as operator-supplied and never replaced.
+  is treated as operator-supplied and never replaced. If only one of
+  `fullchain.pem` and `privkey.pem` is present, initialization stops and changes
+  nothing: supply both, or remove the one that is there.

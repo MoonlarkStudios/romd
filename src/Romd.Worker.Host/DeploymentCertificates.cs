@@ -29,6 +29,7 @@ internal static class DeploymentCertificates
     private const string UnusableDnsName = "no-dns-names.romd.invalid";
     private const string AuthoritySubject = "CN=ROMD local authority";
     private const string NameConstraintsOid = "2.5.29.30";
+    internal const string ServerSubject = "CN=ROMD server certificate";
     private const string AuthoritySubjectPrefix = AuthoritySubject + " (";
 
     private const UnixFileMode OwnerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite;
@@ -46,7 +47,18 @@ internal static class DeploymentCertificates
     internal static Outcome Ensure(string root, IReadOnlyCollection<string> hosts, DateTimeOffset now)
     {
         SortedSet<string> names = new(hosts.Select(Normalize), StringComparer.Ordinal);
-        bool serverPresent = File.Exists(Path.Combine(root, ServerCertificate)) && File.Exists(Path.Combine(root, ServerKey));
+        bool certificatePresent = File.Exists(Path.Combine(root, ServerCertificate));
+        bool keyPresent = File.Exists(Path.Combine(root, ServerKey));
+        if (certificatePresent != keyPresent)
+        {
+            // Half of a certificate may be half of the operator's own. Never complete it by replacing it.
+            (string present, string missing) = certificatePresent ? (ServerCertificate, ServerKey) : (ServerKey, ServerCertificate);
+            throw new InvalidDataException(
+                $"{present} exists without {missing}. Supply both files to use your own certificate, "
+                + $"or remove {present} to let ROMD issue one.");
+        }
+
+        bool serverPresent = certificatePresent;
         using X509Certificate2? server = serverPresent ? TryLoad(Path.Combine(root, ServerCertificate)) : null;
         // Only a certificate this command issued is ever replaced; anything else belongs to the operator.
         if (serverPresent && server?.Issuer.StartsWith(AuthoritySubjectPrefix, StringComparison.Ordinal) != true)
@@ -154,7 +166,10 @@ internal static class DeploymentCertificates
     private static void WriteServer(string root, X509Certificate2 authority, IReadOnlyCollection<string> names, DateTimeOffset now)
     {
         using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        CertificateRequest request = new($"CN={names.First()}", key, HashAlgorithmName.SHA256);
+        // Names belong in the subject alternative names only. OpenSSL treats a common name that looks
+        // like a host name as a DNS name when there is no DNS alternative name, and "192.168.1.50"
+        // looks like one: an address-only certificate would then fail the authority's DNS constraint.
+        CertificateRequest request = new(ServerSubject, key, HashAlgorithmName.SHA256);
         SubjectAlternativeNameBuilder alternatives = new();
         foreach (string name in names)
         {
