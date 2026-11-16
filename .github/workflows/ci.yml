@@ -279,6 +279,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: true
+          # The drift check describes the libchdr submodule from its tags, as in the native job.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Key the native build by every tracked input
