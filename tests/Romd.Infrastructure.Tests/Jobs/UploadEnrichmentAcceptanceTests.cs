@@ -101,7 +101,7 @@ public sealed class UploadEnrichmentAcceptanceTests
 
     private static UploadJobExecutor Executor(ICommandHandler<QueueBulkEnrichmentJobCommand, Guid> acceptance,
         IEnumerable<IMetadataProvider> providers, ILogger<UploadJobExecutor> logger) =>
-        new(null!, null!, null!, null!, null!, acceptance, providers, null!, logger);
+        new(null!, null!, null!, null!, null!, null!, acceptance, providers, null!, logger);
 
     private static Task InvokeAsync(UploadJobExecutor executor, Guid? actor) => typeof(UploadJobExecutor)
         .GetMethod("TryEnqueueAutoEnrichmentAsync", BindingFlags.Instance | BindingFlags.NonPublic).ShouldNotBeNull()

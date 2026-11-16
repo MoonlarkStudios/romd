@@ -23,6 +23,7 @@ using Romd.Admin.Application.Hashing;
 using Romd.Admin.Application.Ingestion.Classification;
 using Romd.Admin.Application.Ingestion.Extraction;
 using Romd.Admin.Application.Ingestion.Import;
+using Romd.Admin.Application.Ingestion.Import.Queries.ListImportFolders;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Ingestion.Preparation;
 using Romd.Admin.Application.Libraries;
@@ -567,6 +568,7 @@ public static class DependencyInjection
         services.AddScoped<IUploadWorkspacePreparation, UploadWorkspacePreparation>();
         services.AddScoped<IReplaceDatWorkspacePreparation, ReplaceDatWorkspacePreparation>();
         services.AddScoped<IPathValidator, Import.PathValidator>();
+        services.AddScoped<IImportFolderBrowser, Import.ImportFolderBrowser>();
         services.AddScoped<IPathImportPreparation, Import.PathImportPreparation>();
         services.AddScoped<IEnrichmentJobEnqueuer, EnrichmentJobEnqueuer>();
         services.AddScoped<IRematerializationScheduler, RematerializationScheduler>();
@@ -747,6 +749,7 @@ public static class DependencyInjection
     public static IServiceCollection AddRomdJobExecution(this IServiceCollection services)
     {
         services.AddScoped<Import.ImportSourceCleanup>();
+        services.AddScoped<Import.PathImportStaging>();
         services.AddSingleton(new Import.ArchiveExtractionLimits());
         services.AddScoped<ArchiveExtractionStep>();
         services.AddScoped<IJobExecutor<UploadJob>, UploadJobExecutor>();

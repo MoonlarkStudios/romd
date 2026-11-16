@@ -50,7 +50,7 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Handle_CopyOrMove_CommitsExactUploadAndDispatchAfterPreparingBytesOutsideTransaction(bool move)
+    public async Task Handle_CopyOrMove_CommitsExactUploadAndDispatchAfterReservingEmptyWorkspaceOutsideTransaction(bool move)
     {
         await using var db = database.CreateContext();
         var work = Work(db);
@@ -77,7 +77,7 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public async Task Handle_FaultOrCancellationAfterActualCommitFlush_RollsBackDatabaseAndRetainsWorkspaceAndMoveManifest(bool cancel, bool cleanupFault)
+    public async Task Handle_FaultOrCancellationAfterActualCommitFlush_RollsBackDatabaseAndRetainsReservedWorkspace(bool cancel, bool cleanupFault)
     {
         await using var db = database.CreateContext();
         using var cancellation = new CancellationTokenSource();
@@ -119,7 +119,7 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Handle_UncertainAcknowledgement_RetainsCompletedWorkspaceAndManifestRegardlessOfDatabaseRead(bool databaseCommitted)
+    public async Task Handle_UncertainAcknowledgement_RetainsReservedWorkspaceRegardlessOfDatabaseRead(bool databaseCommitted)
     {
         await using var db = database.CreateContext();
         var work = Work(db);
@@ -146,7 +146,7 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
     }
 
     [Fact]
-    public async Task Handle_DisposalFailsAfterAcknowledgedCommit_ReturnsDurableAcceptanceAndRetainsMoveInputs()
+    public async Task Handle_DisposalFailsAfterAcknowledgedCommit_ReturnsDurableAcceptanceAndRetainsReservedWorkspace()
     {
         await using var db = database.CreateContext();
         var work = Work(db);
@@ -164,7 +164,7 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Handle_FailureBeforeCommitAttempt_DiscardsCompletedWorkspaceAndManifestAfterTransactionDisposalUnderLease(bool failBegin)
+    public async Task Handle_FailureBeforeCommitAttempt_DiscardsReservedWorkspaceAfterTransactionDisposalUnderLease(bool failBegin)
     {
         await using var db = database.CreateContext();
         var work = Work(db);
@@ -236,8 +236,7 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
         reference.ResolveSystemIdAsync("selected", Arg.Any<CancellationToken>()).Returns(1);
         var user = Substitute.For<ICurrentUser>();
         user.UserId.Returns(actor);
-        var preparation = new PathImportPreparation(options, new PathValidator(options), new FileSystem(), new FixedClock(),
-            NullLogger<PathImportPreparation>.Instance);
+        var preparation = new PathImportPreparation(options, new PathValidator(options), new FileSystem());
         return new(tracked, reference, user, new ObservedPreparation(preparation, work), new JobWorkspaceExclusion(options),
             acceptance ?? new UploadJobRepository(db, new FixedClock()), work, new FixedClock(), NullLogger<ImportFromPathCommandHandler>.Instance);
     }
@@ -288,29 +287,16 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
         (await File.ReadAllBytesAsync(Path.Combine(SourceRoot, "nested", "leaf.rom"))).ShouldBe(new byte[] { 4, 5 });
     }
 
+    /// <summary>
+    ///     Acceptance only reserves the job's empty workspace: the worker copies the source in the
+    ///     Copying phase, so no bytes or move manifest exist yet, whatever the transaction outcome.
+    /// </summary>
     private async Task AssertRetainedAsync(Guid id, bool move)
     {
         await AssertOriginalsAsync();
-        (await File.ReadAllBytesAsync(Path.Combine(Workspace(id), "top.rom"))).ShouldBe(new byte[] { 1, 2, 3 });
-        (await File.ReadAllBytesAsync(Path.Combine(Workspace(id), "nested", "leaf.rom"))).ShouldBe(new byte[] { 4, 5 });
-        File.Exists(ImportManifest.PathFor(DataRoot, id)).ShouldBe(move);
-        if (move)
-        {
-            var manifest = (await ImportManifest.ReadAsync(ImportManifest.PathFor(DataRoot, id), default)).ShouldNotBeNull();
-            manifest.Version.ShouldBe(ImportManifest.CurrentVersion);
-            manifest.AllowedRoot.ShouldBe(AllowedRoot);
-            manifest.SourceRoot.ShouldBe("originals");
-            manifest.Move.ShouldBeTrue();
-            manifest.Entries.Select(entry => entry.WorkspaceRelativePath).ShouldBe(["top.rom", "nested/leaf.rom"], ignoreOrder: true);
-            foreach (var entry in manifest.Entries)
-            {
-                entry.SourceRelativePath.ShouldBe("originals/" + entry.WorkspaceRelativePath);
-                var original = new FileInfo(Path.Combine(AllowedRoot, entry.SourceRelativePath));
-                entry.SizeBytes.ShouldBe(original.Length);
-                entry.LastWriteTimeUtc.ShouldBe(original.LastWriteTimeUtc);
-            }
-            Directory.GetFiles(Workspace(id), "*.import.json", SearchOption.AllDirectories).ShouldBeEmpty();
-        }
+        Directory.Exists(Workspace(id)).ShouldBeTrue();
+        Directory.EnumerateFileSystemEntries(Workspace(id)).ShouldBeEmpty();
+        File.Exists(ImportManifest.PathFor(DataRoot, id)).ShouldBeFalse($"move={move}: the worker writes the manifest after copying");
         using var successor = JobWorkspace.TryAcquireExecutionLock(DataRoot, id).ShouldNotBeNull();
     }
 
@@ -344,11 +330,10 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
     private sealed class ObservedPreparation(IPathImportPreparation inner, ObservedWork work) : IPathImportPreparation
     {
         public ErrorOr<IPathImportPlan> Inspect(string sourcePath, CancellationToken ct = default) => inner.Inspect(sourcePath, ct);
-        public async Task<ErrorOr<PreparedPathImport>> PrepareAsync(IPathImportPlan plan, Guid jobId, bool move,
-            IJobWorkspaceLease lease, CancellationToken ct = default)
+        public async Task<IPreparedJobWorkspace> ReserveAsync(Guid jobId, IJobWorkspaceLease lease, CancellationToken ct = default)
         {
             work.JobId = jobId;
-            return await inner.PrepareAsync(plan, jobId, move, lease, ct);
+            return await inner.ReserveAsync(jobId, lease, ct);
         }
     }
 
@@ -371,7 +356,7 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
         public async Task<ITransaction> BeginTransactionAsync(CancellationToken cancellationToken = default)
         {
             var id = PreparedId(this);
-            File.Exists(Path.Combine(dataRoot, "temp", "jobs", $"{id:N}", "top.rom")).ShouldBeTrue();
+            Directory.Exists(Path.Combine(dataRoot, "temp", "jobs", $"{id:N}")).ShouldBeTrue();
             PreparedBeforeBegin = true;
             AssertLeaseHeld();
             if (BeforeBegin is not null)
@@ -386,7 +371,7 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
         }
 
         private void AssertInputRetained() =>
-            File.Exists(Path.Combine(dataRoot, "temp", "jobs", $"{PreparedId(this):N}", "top.rom")).ShouldBeTrue();
+            Directory.Exists(Path.Combine(dataRoot, "temp", "jobs", $"{PreparedId(this):N}")).ShouldBeTrue();
 
         private async Task FlushForCommitAsync(CancellationToken ct)
         {

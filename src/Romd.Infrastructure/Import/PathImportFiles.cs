@@ -13,7 +13,10 @@ namespace Romd.Infrastructure.Import;
 internal sealed record InspectedPathImport(
     string DataDirectory, string RequestedPath, string AllowedRoot, ImmutableArray<ImportFile> Files, PathImportFacts Facts) : IPathImportPlan;
 
-/// <summary>Shared source inspection and copying; it never saves jobs or deletes source originals.</summary>
+/// <summary>
+///     Shared source inspection and copying; it never saves jobs or deletes source originals.
+///     Admin acceptance inspects; the worker's <see cref="PathImportStaging" /> inspects again and copies.
+/// </summary>
 internal static class PathImportFiles
 {
     internal const string TargetCleanupFailureKey = "Romd.PathImport.TargetCleanupFailure";
@@ -46,7 +49,7 @@ internal static class PathImportFiles
 
     internal static async Task<List<ImportManifestEntry>> PopulateAsync(
         InspectedPathImport plan, Guid jobId, IPathValidator validator, IFileSystem fileSystem, TimeProvider clock,
-        Action<ImportCopyIssue> recordIssue, CancellationToken ct)
+        Action<ImportCopyIssue> recordIssue, CancellationToken ct, Func<ImportFile, CancellationToken, Task>? beforeCopy = null)
     {
         string workDirectory = WorkspaceInputCopies.DirectoryFor(plan.DataDirectory, jobId);
         Directory.CreateDirectory(workDirectory);
@@ -60,6 +63,8 @@ internal static class PathImportFiles
                 recordIssue(new(file.AbsolutePath, revalidation.FirstError.Description, clock.GetUtcNow()));
                 continue;
             }
+            if (beforeCopy is not null)
+                await beforeCopy(file, ct);
             string targetPath = Path.Combine(workDirectory, file.RelativePath);
             try
             {

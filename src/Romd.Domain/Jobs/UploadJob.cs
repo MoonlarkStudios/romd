@@ -209,6 +209,20 @@ public sealed class UploadJob : CancellableJob
     }
 
     /// <summary>
+    ///     Completes the worker's path-import copy and moves to extraction. Issues found while
+    ///     enumerating or copying the source are recorded in the same in-memory transition, so one
+    ///     checkpoint persists both and a redelivered copy never records them twice.
+    /// </summary>
+    public void BeginExtraction(IEnumerable<JobError> copyIssues)
+    {
+        EnsurePhase(UploadPhase.Copying);
+        foreach (var issue in copyIssues)
+            AddError(issue.Item, issue.Message, issue.OccurredAt);
+        PhaseEnum = UploadPhase.Extracting;
+        CurrentItem = null;
+    }
+
+    /// <summary>
     ///     Transitions to classification phase.
     /// </summary>
     public void BeginClassification()
@@ -343,7 +357,8 @@ public sealed class UploadJob : CancellableJob
     protected override void TransitionFromPending()
     {
         EnsurePhase(UploadPhase.Pending);
-        PhaseEnum = UploadPhase.Extracting;
+        // Path imports are accepted with an empty workspace; the worker copies the source first.
+        PhaseEnum = ImportSourcePath is null ? UploadPhase.Extracting : UploadPhase.Copying;
     }
 
     /// <inheritdoc />
@@ -373,6 +388,7 @@ public sealed class UploadJob : CancellableJob
         return PhaseEnum switch
         {
             UploadPhase.Pending => 0,
+            UploadPhase.Copying => 2,
             UploadPhase.Extracting => 5,
             UploadPhase.Classifying => 10,
             UploadPhase.IngestingDats when DatsDiscovered == 0 => 20,

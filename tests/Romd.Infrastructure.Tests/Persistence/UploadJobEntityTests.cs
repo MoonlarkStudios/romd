@@ -63,6 +63,19 @@ public class UploadJobEntityTests
     }
 
     [Fact]
+    public void FromDomain_ToDomain_RoundTripsTheCopyingPhaseByName()
+    {
+        var domain = UploadJob.Create("roms-folder/", createdAt: DateTimeOffset.UtcNow);
+        domain.SetImportSource("/library/roms-folder", move: false);
+        domain.Start("delivery", startedAt: DateTimeOffset.UtcNow);
+
+        var entity = UploadJobEntity.FromDomain(domain);
+
+        entity.Phase.ShouldBe("Copying");
+        entity.ToDomain().PhaseEnum.ShouldBe(UploadPhase.Copying);
+    }
+
+    [Fact]
     public void Create_DefaultsImportSourceToNone()
     {
         var domain = UploadJob.Create("library.zip", createdAt: DateTimeOffset.UtcNow);

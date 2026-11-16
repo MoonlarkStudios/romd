@@ -67,8 +67,9 @@ offers both.
 
 Cloudflare's proxy rejects request bodies over 100 MB on Free and Pro plans, so
 large disc images can't be uploaded through the tunnel. The library directory
-from step 3 is mounted read-only for server-side
-[path import](configuration.md#path-import) instead.
+from step 3 is mounted read-only instead: Managers choose a folder from it under
+**Import from a server folder** on the import page
+([path import](configuration.md#path-import)).
 
 Back up `.env` with your other secrets: it holds the database passwords that
 restores need. The administrator password in it only creates the first account,

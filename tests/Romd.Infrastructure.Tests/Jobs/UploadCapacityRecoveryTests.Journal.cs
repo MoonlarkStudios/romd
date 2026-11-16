@@ -36,6 +36,7 @@ public sealed partial class UploadCapacityRecoveryTests
             entries.Add(new(name, name, file.Length, file.LastWriteTimeUtc));
         }
         job.SetImportSource(source, move: true);
+        CompleteWorkerCopy(job);
         for (int count = 0; count < 3; count++)
             job.RecordDeferral("Earlier pressure", _clock.GetUtcNow());
         await using (var db = _database.CreateContext())

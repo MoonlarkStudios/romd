@@ -781,6 +781,20 @@ export type IgdbProviderSettings = {
     revision: string;
 };
 
+export type ImportFolder = {
+    name: string;
+    path: string;
+};
+
+export type ImportFolderListing = {
+    enabled: boolean;
+    path?: null | string;
+    parentPath?: null | string;
+    folders: Array<ImportFolder>;
+    fileCount: number;
+    truncated: boolean;
+};
+
 export type ImportFromPath = {
     path: string;
     systemKey?: null | string;
@@ -4702,6 +4716,37 @@ export type ImportFromPathResponses = {
 };
 
 export type ImportFromPathResponse = ImportFromPathResponses[keyof ImportFromPathResponses];
+
+export type ListImportFoldersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        path?: string;
+    };
+    url: '/api/upload/from-path/folders';
+};
+
+export type ListImportFoldersErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type ListImportFoldersError = ListImportFoldersErrors[keyof ListImportFoldersErrors];
+
+export type ListImportFoldersResponses = {
+    /**
+     * OK
+     */
+    200: ImportFolderListing;
+};
+
+export type ListImportFoldersResponse = ListImportFoldersResponses[keyof ListImportFoldersResponses];
 
 export type ListJobsData = {
     body?: never;

@@ -32,6 +32,9 @@ public sealed class ImportFromPathCommandHandler(ITrackedTitleReader trackedTitl
         }
 
         var actor = user.UserId;
+        // Inspection validates the source, file count and workspace capacity so the request fails
+        // fast. The worker re-inspects and copies it during the job's Copying phase: acceptance
+        // never waits for the bytes, which can take far longer than a proxy allows a request.
         var inspected = preparation.Inspect(command.Path, ct);
         if (inspected.IsError)
             return inspected.Errors;
@@ -42,8 +45,6 @@ public sealed class ImportFromPathCommandHandler(ITrackedTitleReader trackedTitl
         job.SetArchiveOnly(command.ArchiveOnly);
         job.SetTrackedOnly(command.TrackedOnly);
         job.SetImportSource(plan.Facts.SourceRoot, command.Move);
-        foreach (var issue in plan.Facts.Skipped)
-            job.RecordError(issue.Path, issue.Message, clock.GetUtcNow());
 
         IJobWorkspaceLease? lease = null;
         IPreparedJobWorkspace? prepared = null;
@@ -55,12 +56,7 @@ public sealed class ImportFromPathCommandHandler(ITrackedTitleReader trackedTitl
         try
         {
             lease = await exclusion.AcquireAsync(job.Id, ct);
-            var copied = await preparation.PrepareAsync(plan, job.Id, command.Move, lease, ct);
-            if (copied.IsError)
-                return outcome = copied.Errors;
-            prepared = copied.Value.Workspace;
-            foreach (var issue in copied.Value.CopyIssues)
-                job.RecordError(issue.Path, issue.Message, issue.OccurredAt);
+            prepared = await preparation.ReserveAsync(job.Id, lease, ct);
 
             transaction = await work.BeginTransactionAsync(ct);
             await acceptance.AddStagedAsync(job, ct);
@@ -84,7 +80,7 @@ public sealed class ImportFromPathCommandHandler(ITrackedTitleReader trackedTitl
                     "Path import {JobId} {Resource} cleanup failed after its outcome settled", job.Id, resource));
             await cleanup.DisposeAsync(transaction, "transaction");
             // Once commit was attempted, neither a later rollback nor a negative database read proves
-            // publication failed. Keep both copied bytes and the sibling move manifest in that case.
+            // publication failed. Keep the reserved workspace in that case; orphan cleanup owns it.
             if (!commitAttempted && prepared is not null)
                 await cleanup.RunAsync(() => prepared.DiscardAsync(), "unaccepted workspace");
             await cleanup.DisposeAsync(lease, "workspace lease");

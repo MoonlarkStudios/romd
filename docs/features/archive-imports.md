@@ -89,7 +89,9 @@ same archive into the same directory. Publication precedes staged-source deletio
 depth and cumulative quotas survive replay. Policy/corruption failures are
 permanent; recoverable I/O failures use the existing bounded retry protocol.
 
-Path imports stage a copy even in move mode. Cleanup requires a persisted
+Path imports stage a copy even in move mode. The worker makes that copy in the
+job's Copying phase, after the request has returned, and restarts it from the
+source if the attempt is interrupted. Cleanup requires a persisted
 `Completed` phase, a direct durable-storage outcome for the original manifest
 entry, and matching source fingerprint/containment checks. ZIP and 7z archive
 originals are conservatively retained: member outcomes do not prove storage of

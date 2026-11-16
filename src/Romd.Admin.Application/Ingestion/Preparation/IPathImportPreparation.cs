@@ -16,13 +16,17 @@ public interface IPathImportPlan
     PathImportFacts Facts { get; }
 }
 
-public sealed record PreparedPathImport(
-    IPreparedJobWorkspace Workspace, ImmutableArray<ImportCopyIssue> CopyIssues);
-
+/// <summary>
+///     Admin-side path-import acceptance. Inspection validates the source and its capacity so the
+///     request fails fast; the worker re-inspects and copies it, so acceptance never waits for bytes.
+/// </summary>
 public interface IPathImportPreparation
 {
     ErrorOr<IPathImportPlan> Inspect(string sourcePath, CancellationToken ct = default);
 
-    Task<ErrorOr<PreparedPathImport>> PrepareAsync(
-        IPathImportPlan plan, Guid jobId, bool move, IJobWorkspaceLease lease, CancellationToken ct = default);
+    /// <summary>
+    ///     Reserves the empty job workspace the worker later copies the source into. The runner
+    ///     executes only jobs whose workspace exists, under the same cross-process lock.
+    /// </summary>
+    Task<IPreparedJobWorkspace> ReserveAsync(Guid jobId, IJobWorkspaceLease lease, CancellationToken ct = default);
 }

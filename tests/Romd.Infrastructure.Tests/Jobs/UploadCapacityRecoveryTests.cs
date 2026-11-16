@@ -27,6 +27,7 @@ using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Security;
 using Romd.Domain.Jobs;
 using Romd.Domain.Hashing;
+using Romd.Infrastructure.Import;
 using Romd.Infrastructure.Jobs;
 using Romd.Infrastructure.Jobs.Executors;
 using Romd.Infrastructure.Jobs.Processors;
@@ -295,6 +296,16 @@ public sealed partial class UploadCapacityRecoveryTests : IDisposable
         }
         await _handler.Received(2).HandleAsync(Arg.Any<IngestRomCommand>(), Arg.Any<CancellationToken>());
         Directory.Exists(Workspace(job)).ShouldBeFalse();
+    }
+
+    /// <summary>
+    ///     Fixtures that stage path-import bytes themselves represent the state after the worker's
+    ///     Copying phase: started and extracting, so redelivery never re-copies their sources.
+    /// </summary>
+    private void CompleteWorkerCopy(UploadJob job)
+    {
+        job.Start("fixture-copy", _clock.GetUtcNow());
+        job.BeginExtraction([]);
     }
 
     private async Task<UploadJob> SeedAsync()
@@ -966,7 +977,8 @@ public sealed partial class UploadCapacityRecoveryTests : IDisposable
     }
 
     private JobRunner<UploadJob> Runner(ServiceProvider host, IArchiveExtractorResolver? resolver = null,
-        Action<Exception>? onExecutorFailure = null, JobExecutionClaimOptions? claimOptions = null)
+        Action<Exception>? onExecutorFailure = null, JobExecutionClaimOptions? claimOptions = null,
+        IFileSystem? sourceFiles = null)
     {
         var classifier = Substitute.For<IFileClassifier>();
         classifier.ClassifyAsync(Arg.Any<Stream>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -980,7 +992,9 @@ public sealed partial class UploadCapacityRecoveryTests : IDisposable
         var extraction = new ArchiveExtractionStep(resolver, fs, new(), NullLogger<ArchiveExtractionStep>.Instance);
         var resilience = host.GetRequiredService<ResiliencePipelineProvider<string>>();
         var scopes = host.GetRequiredService<IServiceScopeFactory>();
-        var executor = new UploadJobExecutor(extraction, classifier,
+        var staging = new PathImportStaging(_options, new PathValidator(_options), sourceFiles ?? new FileSystem(),
+            _clock, NullLogger<PathImportStaging>.Instance);
+        var executor = new UploadJobExecutor(extraction, staging, classifier,
             new DatProcessor(host, resilience, NullLogger<DatProcessor>.Instance),
             new RomProcessor(host, resilience, NullLogger<RomProcessor>.Instance),
             null!, Substitute.For<ICommandHandler<QueueBulkEnrichmentJobCommand, Guid>>(), [], scopes, NullLogger<UploadJobExecutor>.Instance, _clock);
