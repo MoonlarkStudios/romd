@@ -436,7 +436,7 @@ each service one subdirectory to mount:
 | `postgres/<role>` | One password file per database role (`bootstrap`, `provisioner`, `worker`, `admin`, `consumer`) | PostgreSQL |
 | `worker/`, `admin/`, `consumer/` | `pgpass` with that host's database passwords | That host only |
 | `data/secrets/` | The JWT and delivery signing secrets every host shares. Mount the data directory at `data/` so backups and restores carry them | Every host |
-| `ca/` | The private certificate authority and its key | Initialization only |
+| `ca/` | The private certificate authority and its key | Initialization and backup tooling only |
 | `tls/` | `fullchain.pem`, `privkey.pem` and `ca.crt` for devices to trust | Ingress |
 
 A host reads the shared secrets when `ROMD_SECRETS_DIRECTORY` names that
@@ -447,9 +447,22 @@ strings at its password file with `Passfile=<directory>/pgpass` in place of
 `Password=`.
 
 A certificate is issued only when host names are given. The authority is
-limited to exactly those names, so trusting it on a device cannot be used to
-impersonate other sites. The server certificate lasts 825 days and is renewed
-under the same authority within 30 days of expiry; restart the ingress to serve
-a renewed certificate. Changing the names issues a new authority that devices
-must trust again. When `tls/fullchain.pem` and `tls/privkey.pem` exist without
-a generated authority, they are treated as operator-supplied and left alone.
+limited to exactly those DNS names (with their subdomains) and addresses, and to
+no name of any other kind: an authority issued for an address cannot sign a DNS
+name. Trusting it on a device therefore cannot be used to impersonate other
+sites. No application host mounts the authority's key.
+
+- **Renewal.** The server certificate lasts 825 days and is reissued under the
+  same authority within 30 days of expiry, when it is missing, and when it was
+  not issued by the authority in `ca/` (as after a restore). The ingress notices
+  replaced certificate files within a minute and serves them without a restart.
+- **New authority.** Changing the names, or an authority issued under an earlier
+  constraint policy or within 825 days of its own expiry, issues a new authority
+  that devices must trust again.
+- **Unusable authority.** If `ca/` holds only one of its two files, or files that
+  cannot be read, initialization stops with an error instead of replacing the
+  authority: restore `ca/` from a backup, or remove it to issue a new authority.
+- **Your own certificate.** A `tls/fullchain.pem` that this command did not issue
+  is treated as operator-supplied and never replaced. If only one of
+  `fullchain.pem` and `privkey.pem` is present, initialization stops and changes
+  nothing: supply both, or remove the one that is there.

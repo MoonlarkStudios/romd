@@ -34,6 +34,17 @@ romd_backup_pg pg_dump -U "${ROMD_BACKUP_PG_USER}" -d "${ROMD_BACKUP_PG_DATABASE
   -Fc --schema=romd --schema=hangfire \
   </dev/null >"${set_dir}/romd.dump"
 romd_backup_data_export >"${set_dir}/data.tar"
+artifacts=(roles.sh romd.dump data.tar)
+# The manifest is written last, so a failed export leaves an aborted set that restore refuses.
+romd_backup_ca_export >"${set_dir}/ca.tar" \
+  || romd_backup_fail "could not capture the certificate authority; the backup set is incomplete"
+if [[ -s "${set_dir}/ca.tar" ]]; then
+  romd_backup_ca_archive_is_complete "${set_dir}/ca.tar" \
+    || romd_backup_fail "the captured certificate authority archive is incomplete; the backup set is incomplete"
+  artifacts+=(ca.tar)
+else
+  rm -f "${set_dir}/ca.tar"
+fi
 
 {
   printf '{\n'
@@ -44,9 +55,9 @@ romd_backup_data_export >"${set_dir}/data.tar"
   printf '  "hangfireSchemaVersion": %s,\n' "${hangfire_schema_version}"
   printf '  "postgresServerVersion": "%s",\n' "${server_version}"
   printf '  "artifacts": {\n'
-  for artifact in roles.sh romd.dump data.tar; do
+  for artifact in "${artifacts[@]}"; do
     separator=","
-    [[ "${artifact}" == "data.tar" ]] && separator=""
+    [[ "${artifact}" == "${artifacts[${#artifacts[@]}-1]}" ]] && separator=""
     printf '    "%s": {\n      "sha256": "%s",\n      "bytes": %s\n    }%s\n' \
       "${artifact}" "$(romd_backup_sha256 "${set_dir}/${artifact}")" \
       "$(romd_backup_bytes "${set_dir}/${artifact}")" "${separator}"

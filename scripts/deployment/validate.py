@@ -104,9 +104,10 @@ def validate(config):
     for origin in origins:
         try:
             parsed = urlsplit(origin)
+            # Browsers send origins in lower case and the applications compare them exactly.
             if (parsed.scheme != 'https' or not parsed.hostname or parsed.path or parsed.query
-                    or parsed.fragment or parsed.username or parsed.port == 443):
-                errors.append('Public URLs must be canonical HTTPS origins without paths, '
+                    or parsed.fragment or parsed.username or parsed.port == 443 or origin != origin.lower()):
+                errors.append('Public URLs must be canonical lower-case HTTPS origins without paths, '
                               'trailing slashes or explicit default ports')
         except ValueError:
             errors.append('Public URLs must be valid HTTPS origins')

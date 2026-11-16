@@ -118,15 +118,27 @@ The sanitized suite reports stay in the run's `packaged-qualification-*`
 artifact. Completion rechecks them and the bundle against the original
 publisher-subjects artifact before publishing the release.
 
-The qualifier uses only the extracted deployment files. It clears inherited
-ROMD/Compose settings, generates private disposable credentials, pulls the
-digest references, provisions PostgreSQL and worker first, and starts the APIs,
-player and HTTPS ingress. It inspects pulled image architecture and digest and
+The qualifier uses only the extracted deployment files, and installs the way
+the quick start does: it sets a host name and the first administrator, and
+nothing else. ROMD generates its own secrets and certificate, Compose derives
+the three origins on that one host name (ports 7663, 7664 and 7665), and the
+built-in ingress serves them. The qualifier clears inherited ROMD/Compose
+settings, binds the ingress to a private loopback address, and puts the ingress
+network on a private subnet that no existing Docker network overlaps. It pulls
+the digest references, provisions PostgreSQL and worker first, and starts the
+APIs, player and HTTPS ingress. It inspects pulled image architecture and digest and
 each running container's image ID and configured reference. It refuses an ARM
 Docker daemon, including amd64 emulation on that daemon.
 
-The browser trusts only the generated fixture certificate's SPKI and maps the
-three fixture hostnames to this run's loopback address. Chromium receives explicit
+Before each browser phase the qualifier connects to all three surfaces as a
+device that trusts only the certificate authority copied from the first start,
+verifying the chain and the host name. It does this again after the restart and
+after the restore into fresh volumes, so a restored installation that served
+under any other authority fails: devices that trusted the original must not
+need to trust anything new. Each check includes a wrong-issuer control, an
+unrelated authority with the same subject, which must be rejected. The browser
+is then pinned to the SPKI of exactly the certificate those handshakes
+verified, and maps the host name to this run's loopback address. Chromium receives explicit
 screen wake-lock permission for the consumer/player origin pair within that
 disposable browser context, since headless mode denies permission prompts.
 It loads the real portal
