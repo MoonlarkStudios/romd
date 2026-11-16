@@ -7,6 +7,14 @@ import sys
 from urllib.parse import urlsplit
 
 
+def import_mount(service, root):
+    """The (source, target) of the innermost mount containing an import root, or None."""
+    held = [(volume.get('source'), volume.get('target')) for volume in service.get('volumes', [])
+            if isinstance(volume, dict) and isinstance(volume.get('target'), str)
+            and (root == volume['target'] or root.startswith(volume['target'].rstrip('/') + '/'))]
+    return max(held, key=lambda mount: len(mount[1]), default=None)
+
+
 def validate(config):
     errors = []
     services = config['services']
@@ -34,6 +42,11 @@ def validate(config):
             for key in ('Romd__JwtSecret', 'Romd__ConsumerDelivery__SigningSecret'):
                 if len(env.get(key, '')) < 32:
                     errors.append(f'{name}: {key} needs at least 32 characters')
+            if not env.get('Romd__ConsumerDelivery__SigningKeyId', '').strip():
+                errors.append(f'{name}: consumer delivery signing key ID is required')
+            ttl = env.get('Romd__ConsumerDelivery__SignedUrlTtlMinutes', '')
+            if not re.fullmatch(r'[0-9]+', ttl) or not 1 <= int(ttl) <= 2147483647:
+                errors.append(f'{name}: consumer delivery signed URL lifetime must be a positive integer')
         if name in ('romd-admin', 'romd-consumer'):
             env = service['environment']
             if any('Provisioning' in key for key in env):
@@ -66,9 +79,14 @@ def validate(config):
     origins.append(services['romd-consumer']['environment'].get(
         'Romd__BrowserPlayback__PlayerOrigins__0__Player', ''))
     for origin in origins:
-        parsed = urlsplit(origin)
-        if parsed.scheme != 'https' or not parsed.hostname or parsed.path or parsed.query or parsed.fragment or parsed.username:
-            errors.append('Public URLs must be HTTPS origins without paths or trailing slashes')
+        try:
+            parsed = urlsplit(origin)
+            if (parsed.scheme != 'https' or not parsed.hostname or parsed.path or parsed.query
+                    or parsed.fragment or parsed.username or parsed.port == 443):
+                errors.append('Public URLs must be canonical HTTPS origins without paths, '
+                              'trailing slashes or explicit default ports')
+        except ValueError:
+            errors.append('Public URLs must be valid HTTPS origins')
     if len(set(origins)) != 3:
         errors.append('Admin, consumer and player must use distinct origins')
     ingress = services.get('ingress')
@@ -131,6 +149,23 @@ def validate(config):
                     errors.append('Cloudflare tunnel listener must not publish port 80')
         except (ValueError, KeyError, TypeError):
             errors.append('Ingress and connector need valid static IPs and network configuration')
+    roots = {}
+    for name in ('romd-admin', 'romd-worker'):
+        environment = services[name].get('environment', {})
+        roots[name] = sorted(value for key, value in environment.items() if key.startswith('Romd__AllowedImportPaths__'))
+    if roots['romd-admin'] != roots['romd-worker']:
+        errors.append('Path import roots must be identical on romd-admin and romd-worker')
+    else:
+        for root in roots['romd-admin']:
+            # The worker deletes move-mode originals by the path admin staged, so the
+            # mount holding each root must be the same source at the same target on both.
+            holders = [import_mount(services[name], root) for name in ('romd-admin', 'romd-worker')]
+            if holders[0] is None or holders[0] != holders[1]:
+                errors.append(f'Path import root {root} must be inside the same mount on romd-admin and romd-worker')
+    for name in ('ingress', 'cloudflared'):
+        # The examples default to reviewed pins; an override must stay immutable too.
+        if name in services and not re.fullmatch(r'[^\s@]+@sha256:[0-9a-f]{64}', str(services[name].get('image', ''))):
+            errors.append(f'{name}: image must be pinned by digest')
     player = services['romd-player']
     if player.get('volumes') or postgres_networks.intersection(player.get('networks', {})):
         errors.append('Player must be isolated from database and persistent volumes')

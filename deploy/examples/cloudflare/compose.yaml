@@ -18,7 +18,8 @@ services:
   ingress:
     labels:
       io.romd.ingress-example: "true"
-    image: ${ROMD_NGINX_IMAGE:?select a reviewed nginx image}
+    # The release-qualified nginx pin (scripts/deployment/base-images.json); override only deliberately.
+    image: ${ROMD_NGINX_IMAGE:-nginx:1.30.6-alpine-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893}
     restart: unless-stopped
     logging:
       driver: json-file
@@ -36,7 +37,8 @@ services:
       - ./deploy/examples/cloudflare/templates:/etc/nginx/templates:ro
 
   cloudflared:
-    image: ${ROMD_CLOUDFLARED_IMAGE:?select a reviewed cloudflared image}
+    # Reviewed connector pin, adopted at least 14 days after its upstream release.
+    image: ${ROMD_CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba}
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:

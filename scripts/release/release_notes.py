@@ -46,8 +46,8 @@ def render(repository, tag, revision, source_name, *, qualified=False, promoted_
 
 **[Download the deployment bundle]({download}{bundle})** · [SHA-256 checksum]({download}{bundle}.sha256)
 
-1. Download the bundle and its checksum, then verify and extract the archive.
-2. Follow the [installation guide]({docs}self-hosting/production-deployment.md). The bundle includes the Compose configuration, pinned image references and operational tools.
+1. Download the bundle and its checksum, then verify and extract it: `sha256sum --check {bundle}.sha256 && tar -xzf {bundle}` creates `romd-{tag}/`.
+2. In that directory, run `scripts/deployment/setup.sh` and follow the [quick start]({docs}self-hosting/production-deployment.md#quick-start). Setup asks for your domain and administrator and generates every secret. The bundle also includes the Compose configuration, pinned image references and operational tools.
 3. [Create your first library]({docs}features/first-library.md), import your games and open the consumer portal.
 
 ## What you can do

@@ -139,7 +139,7 @@ class InventoryIntegrityTests(unittest.TestCase):
         files['manifest.json'] = json.dumps(manifest).encode()
         with tarfile.open(path, 'w:gz') as archive:
             for name, data in files.items():
-                member = tarfile.TarInfo(name)
+                member = tarfile.TarInfo('romd-v1.0.0-rc.1/' + name)
                 member.size = len(data)
                 archive.addfile(member, io.BytesIO(data))
 
@@ -149,7 +149,7 @@ class InventoryIntegrityTests(unittest.TestCase):
         publisher_state = self.work / 'candidate.json'
         self.release_bundle(bundle)
         with tarfile.open(bundle, 'r:gz') as archive:
-            images.write_bytes(archive.extractfile('images.env').read())
+            images.write_bytes(archive.extractfile('romd-v1.0.0-rc.1/images.env').read())
         publisher_state.write_text(json.dumps({'sourceCommit': 'b' * 40, 'releaseTag': 'v1.0.0-rc.1',
             'bundleSha256': hashlib.sha256(bundle.read_bytes()).hexdigest(), 'images': image_map(images)}))
         verify_publisher(bundle, publisher_state, images, 'b' * 40, 'v1.0.0-rc.1')
@@ -159,7 +159,7 @@ class InventoryIntegrityTests(unittest.TestCase):
                 # preserves the publisher's image map; the other rewrites it too.
                 self.release_bundle(bundle, image_digit, b'valid-but-substituted-installation-file')
                 with tarfile.open(bundle, 'r:gz') as archive:
-                    images.write_bytes(archive.extractfile('images.env').read())
+                    images.write_bytes(archive.extractfile('romd-v1.0.0-rc.1/images.env').read())
                 checksum.write_text(hashlib.sha256(bundle.read_bytes()).hexdigest() + '  ' + bundle.name + '\n')
                 verify_bundle(bundle, checksum, images, self.work / f'independent-extraction-{index}',
                               'b' * 40, 'v1.0.0-rc.1')

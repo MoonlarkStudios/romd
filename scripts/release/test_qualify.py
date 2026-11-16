@@ -19,6 +19,8 @@ from qualify import IMAGE_KEYS, Runner, deployment_environment, image_map, verif
 from assert_failure import assert_injected_failure
 
 
+ROOT_DIR = 'romd-v1.2.3-rc.1'
+
 class RecordingLifecycle:
     """Flow fixture: real collector protocol is covered by deployment tests."""
     def __init__(self, env, projects, image, evidence):
@@ -77,7 +79,7 @@ class BundleQualificationTests(unittest.TestCase):
         files = dict(self.files, **{'manifest.json': json.dumps(manifest).encode()})
         with tarfile.open(self.archive, 'w:gz') as archive:
             for name, value in files.items():
-                member = tarfile.TarInfo('./' + name)
+                member = tarfile.TarInfo(f'{ROOT_DIR}/{name}')
                 member.size, member.mode = len(value), 0o755
                 archive.addfile(member, io.BytesIO(value))
             if extra:
@@ -129,8 +131,8 @@ class BundleQualificationTests(unittest.TestCase):
 
     def test_traversal_absolute_duplicate_and_link_members_fail(self):
         for name, kind in (('../outside', tarfile.REGTYPE), ('/outside', tarfile.REGTYPE),
-                           ('./compose.yaml', tarfile.REGTYPE), ('./linked', tarfile.SYMTYPE),
-                           ('./hardlinked', tarfile.LNKTYPE), ('./device', tarfile.CHRTYPE)):
+                           (f'{ROOT_DIR}/compose.yaml', tarfile.REGTYPE), (f'{ROOT_DIR}/linked', tarfile.SYMTYPE),
+                           (f'{ROOT_DIR}/hardlinked', tarfile.LNKTYPE), (f'{ROOT_DIR}/device', tarfile.CHRTYPE)):
             with self.subTest(name=name):
                 member = tarfile.TarInfo(name)
                 member.type, member.linkname, member.size = kind, '../outside', 0
@@ -138,8 +140,17 @@ class BundleQualificationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.verify()
 
+    def test_members_outside_the_release_directory_are_refused(self):
+        for name in ('compose.override.yaml', './README.md', 'romd-v1.2.3-rc.2/compose.yaml', 'romd-v1.2.3-rc.1x/a'):
+            with self.subTest(name=name):
+                member = tarfile.TarInfo(name)
+                member.size = 0
+                self.bundle(extra=(member, b''))
+                with self.assertRaisesRegex(ValueError, f'inside {ROOT_DIR}/'):
+                    self.verify()
+
     def test_unmanifested_extra_file_is_refused(self):
-        member = tarfile.TarInfo('unexpected-secret.env')
+        member = tarfile.TarInfo(f'{ROOT_DIR}/unexpected-secret.env')
         member.size = 6
         self.bundle(extra=(member, b'secret'))
         with self.assertRaisesRegex(ValueError, 'file inventory'):

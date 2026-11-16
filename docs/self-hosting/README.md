@@ -10,7 +10,7 @@ their account and a browser; Ottercade is an optional, experimental console app.
 | What you are doing | Read this |
 | --- | --- |
 | Evaluating ROMD before a qualified release is available | [Run from source](../development/getting-started.md) with Docker or rootless Podman |
-| Installing a released server | [Production deployment](production-deployment.md#release-artifacts) |
+| Installing a released server | [Quick start](production-deployment.md#quick-start) |
 | Understanding settings and defaults | [Configuration reference](configuration.md) |
 | Adding your first games and people | [Your first library](../features/first-library.md) |
 | Upgrading an installation | [Upgrade procedure](production-deployment.md#upgrade) and that release's notes |
@@ -29,8 +29,10 @@ and upgrade scope of the version you plan to install.
    Docker/Compose, local storage, HTTPS origins and installation secrets.
 2. Obtain a versioned deployment bundle and verify its checksum. Keep the bundle
    and its pinned image references together; follow [release artifacts](production-deployment.md#release-artifacts).
-3. Fill in the installation configuration and [choose ingress](production-deployment.md#choose-ingress).
-   The examples cover an existing proxy, HTTPS nginx and Cloudflare Tunnel.
+3. Run `scripts/deployment/setup.sh` to create the installation configuration and
+   [choose ingress](production-deployment.md#choose-ingress): Cloudflare Tunnel,
+   HTTPS nginx or an existing proxy. The [quick start](production-deployment.md#quick-start)
+   walks through the Cloudflare Tunnel path.
 4. Follow [Fresh installation](production-deployment.md#fresh-installation),
    including validation and verification through your actual ingress.
 5. Sign in to the admin portal and build [your first library](../features/first-library.md).

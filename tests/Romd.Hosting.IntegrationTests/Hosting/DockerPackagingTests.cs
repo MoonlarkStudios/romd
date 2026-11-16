@@ -81,7 +81,9 @@ public sealed class DockerPackagingTests
 
         compose.ShouldContain("Romd__DataDirectory: /var/lib/romd");
         compose.ShouldContain("Romd__JwtSecret: ${ROMD_JWT_SECRET:?set ROMD_JWT_SECRET}");
-        compose.ShouldContain("Romd__DefaultAdminPassword: ${ROMD_DEFAULT_ADMIN_PASSWORD:?set ROMD_DEFAULT_ADMIN_PASSWORD}");
+        worker.ShouldContain("Romd__DefaultAdminPassword: ${ROMD_DEFAULT_ADMIN_PASSWORD:-}");
+        admin.ShouldNotContain("Romd__DefaultAdminPassword");
+        consumer.ShouldNotContain("Romd__DefaultAdminPassword");
         compose.ShouldContain("Romd__ConsumerDelivery__SigningSecret: ${ROMD_CONSUMER_DELIVERY_SIGNING_SECRET:?set ROMD_CONSUMER_DELIVERY_SIGNING_SECRET}");
     }
 

@@ -54,7 +54,7 @@ credentials. See [host ownership](../architecture/split-host-topology.md).
 | `Romd:DataDirectory` | `Romd__DataDirectory` | Platform user-data directory | Shared root for CAS content, media, logs, Data Protection keys and the OpenIddict signing key. PostgreSQL stores server database state separately. All hosts in one instance must use the same durable directory. |
 | `Romd:JwtSecret` | `Romd__JwtSecret` | Insecure development value | Derives token-encryption key material. Set a unique value of at least 32 characters outside local development. |
 | `Romd:DefaultAdminEmail` | `Romd__DefaultAdminEmail` | `admin@localhost` | Email used when bootstrapping the initial administrator. |
-| `Romd:DefaultAdminPassword` | `Romd__DefaultAdminPassword` | `ChangeMe123!` bootstrap fallback in Development | Initial administrator password. Container development supplies `LocalDev123` instead. Production requires an explicit secure password. Existing passwords are not changed by this setting. |
+| `Romd:DefaultAdminPassword` | `Romd__DefaultAdminPassword` | `ChangeMe123!` bootstrap fallback in Development | Initial administrator password. Container development supplies `LocalDev123` instead. Outside Development, the worker requires a secure password only while creating the first human account. Remove it after bootstrap; existing passwords are not changed by this setting. |
 | `Romd:MaxUploadBytes` | `Romd__MaxUploadBytes` | `68719476736` | Maximum ROM upload file size, in bytes. It must not exceed `Romd:Storage:MaxContentSize`; hosts refuse to start otherwise. ROM upload requests allow an additional 2 MiB for multipart overhead (capped at `long.MaxValue`); the file itself remains bounded by this setting. Other routes keep ASP.NET Core's default body limit; DAT and artwork routes allow 34 MiB. |
 | `Romd:Storage:WritePolicy` | `Romd__Storage__WritePolicy` | `SeekableZstandard` | Representation of new content-addressable storage objects: `SeekableZstandard`, which falls back to raw when it saves less than 5%, or `Raw`. Reads never depend on it. |
 | `Romd:Storage:SeekableFrameSize` | `Romd__Storage__SeekableFrameSize` | `262144` | Uncompressed bytes per frame for new seekable objects, from `65536` to `1048576`. Existing objects keep their own frame size. |
@@ -225,8 +225,10 @@ An active run retains its initial configuration. Disabling IGDB preserves existi
 metadata; an unavailable provider is a configuration failure, not a title search
 that returned no match.
 
-For deployment-managed installations, configure both credentials on **both the
-admin and worker hosts**:
+**Optional deployment overrides:** prefer Integrations for normal setup.
+Use these only when an operator intentionally manages credentials outside the app;
+they take precedence over saved credentials and lock UI editing.
+Configure both credentials on **both the admin and worker hosts**:
 
 ```sh
 export Providers__Igdb__ClientId=replace-me
@@ -289,8 +291,11 @@ archive workspace. Keep the durable reservation records across restarts. See
 ## SteamGridDB
 
 Configure the API key and enablement under **Integrations → SteamGridDB**.
-Artwork automation preferences remain under **Settings**. Deployment-managed
-configuration uses `Providers:SteamGridDb:ApiKey` and
+Artwork automation preferences remain under **Settings**. **Optional deployment
+overrides** are for operators who intentionally manage credentials outside the app.
+They require an explicit environment overlay on admin and worker; adding a
+variable to `.env` alone does not pass it into those containers. Configuration uses
+`Providers:SteamGridDb:ApiKey` and
 `Providers:SteamGridDb:Enabled` (`Providers__SteamGridDb__ApiKey` and
 `Providers__SteamGridDb__Enabled`) on both admin and worker. The options default
 to no key and `Enabled=true`; a usable credential is still required.

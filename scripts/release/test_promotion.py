@@ -56,13 +56,14 @@ def repack(bundle, change):
         stage = Path(temporary)
         with tarfile.open(bundle) as archive:
             archive.extractall(stage, filter='data')
+        [stage] = stage.iterdir()  # the bundle's single romd-<tag>/ directory
         change(stage)
         manifest = json.loads((stage / 'manifest.json').read_text())
         manifest['files'] = {path.relative_to(stage).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
                              for path in sorted(stage.rglob('*')) if path.is_file() and path.name != 'manifest.json'}
         (stage / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
         with tarfile.open(bundle, 'w:gz') as archive:
-            archive.add(stage, arcname='.')
+            archive.add(stage, arcname=stage.name)
     checksum(bundle)
 
 
@@ -160,7 +161,9 @@ class CandidateVerificationTests(unittest.TestCase):
     def test_bundle_must_carry_exactly_one_small_image_map(self):
         with tempfile.TemporaryDirectory() as temporary:
             work = Path(temporary)
-            for members in ({}, {'README.md': b'x'}, {'images.env': b'x' * 5000}):
+            prefix = 'romd-v1.2.3-rc.2/'
+            for members in ({}, {prefix + 'README.md': b'x'}, {prefix + 'images.env': b'x' * 5000},
+                            {'images.env': b'x'}, {'romd-v1.2.3-rc.1/images.env': b'x'}):
                 bundle = work / 'bundle.tar.gz'
                 with tarfile.open(bundle, 'w:gz') as archive:
                     for name, data in members.items():
@@ -168,7 +171,13 @@ class CandidateVerificationTests(unittest.TestCase):
                         info.size = len(data)
                         archive.addfile(info, io.BytesIO(data))
                 with self.subTest(members=list(members)), self.assertRaises(ValueError):
-                    promotion.bundle_images(bundle, work / 'images.env')
+                    promotion.bundle_images(bundle, 'v1.2.3-rc.2', work / 'images.env')
+            images = work / 'expected.env'
+            images.write_text(image_lines())
+            subprocess.run([ROOT / 'scripts/deployment/bundle.sh', images, bundle, REVISION, 'v1.2.3-rc.2'],
+                           cwd=ROOT, check=True, capture_output=True)
+            promotion.bundle_images(bundle, 'v1.2.3-rc.2', work / 'images.env')
+            self.assertEqual(images.read_bytes(), (work / 'images.env').read_bytes())
 
 
 class BundleEquivalenceTests(unittest.TestCase):
