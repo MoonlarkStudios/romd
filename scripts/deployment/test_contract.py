@@ -1317,6 +1317,14 @@ docker() {
         config = copy.deepcopy(original)
         config['services']['romd-player']['networks']['backend'] = None
         self.assertTrue(validate(config))
+        for key, value in (('ROMD_CONSUMER_DELIVERY_SIGNED_URL_TTL_MINUTES', '0'),
+                           ('ROMD_CONSUMER_DELIVERY_SIGNING_KEY_ID', ' '),
+                           ('ROMD_PLAYER_PUBLIC_URL', 'https://play.example.test:443'),
+                           ('ROMD_PLAYER_PUBLIC_URL', 'https://play.example.test:99999')):
+            with self.subTest(key=key, value=value):
+                env = test_environment()
+                env[key] = value
+                self.assertTrue(validate(render(environment=env)))
 
     def test_ingress_host_and_address_mismatch_are_rejected(self):
         config = render('deploy/examples/https/compose.yaml')
@@ -1381,6 +1389,17 @@ docker() {
                 config = render('deploy/examples/cloudflare/compose.yaml',
                                 environment=dict(environment, **{variable: 'example/mutable:latest'}))
                 self.assertIn(f'{name}: image must be pinned by digest', validate(config))
+
+    def test_tunnel_token_reaches_only_the_connector_and_provider_overrides_stay_opt_in(self):
+        config = render('deploy/examples/cloudflare/compose.yaml')
+        self.assertEqual('test-only', config['services']['cloudflared']['environment']['TUNNEL_TOKEN'])
+        for name, service in config['services'].items():
+            if name != 'cloudflared':
+                values = [str(value) for value in (service.get('environment') or {}).values()]
+                self.assertNotIn('test-only', values, name)
+        template = (ROOT / 'deploy/.env.example').read_text()
+        self.assertNotRegex(template, r'(?m)^IGDB_CLIENT_')
+        self.assertIn('# IGDB_CLIENT_ID=', template)
 
     def test_cloudflare_allows_separate_custom_listener_without_exposing_tunnel_port(self):
         config = render('deploy/examples/cloudflare/compose.yaml')

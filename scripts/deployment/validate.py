@@ -42,6 +42,11 @@ def validate(config):
             for key in ('Romd__JwtSecret', 'Romd__ConsumerDelivery__SigningSecret'):
                 if len(env.get(key, '')) < 32:
                     errors.append(f'{name}: {key} needs at least 32 characters')
+            if not env.get('Romd__ConsumerDelivery__SigningKeyId', '').strip():
+                errors.append(f'{name}: consumer delivery signing key ID is required')
+            ttl = env.get('Romd__ConsumerDelivery__SignedUrlTtlMinutes', '')
+            if not re.fullmatch(r'[0-9]+', ttl) or not 1 <= int(ttl) <= 2147483647:
+                errors.append(f'{name}: consumer delivery signed URL lifetime must be a positive integer')
         if name in ('romd-admin', 'romd-consumer'):
             env = service['environment']
             if any('Provisioning' in key for key in env):
@@ -74,9 +79,14 @@ def validate(config):
     origins.append(services['romd-consumer']['environment'].get(
         'Romd__BrowserPlayback__PlayerOrigins__0__Player', ''))
     for origin in origins:
-        parsed = urlsplit(origin)
-        if parsed.scheme != 'https' or not parsed.hostname or parsed.path or parsed.query or parsed.fragment or parsed.username:
-            errors.append('Public URLs must be HTTPS origins without paths or trailing slashes')
+        try:
+            parsed = urlsplit(origin)
+            if (parsed.scheme != 'https' or not parsed.hostname or parsed.path or parsed.query
+                    or parsed.fragment or parsed.username or parsed.port == 443):
+                errors.append('Public URLs must be canonical HTTPS origins without paths, '
+                              'trailing slashes or explicit default ports')
+        except ValueError:
+            errors.append('Public URLs must be valid HTTPS origins')
     if len(set(origins)) != 3:
         errors.append('Admin, consumer and player must use distinct origins')
     ingress = services.get('ingress')

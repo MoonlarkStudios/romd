@@ -312,7 +312,8 @@ def next_steps(ingress, values):
               f'  5. Sign in at https://{hosts[0]} as {values["ROMD_DEFAULT_ADMIN_EMAIL"]}.',
               '',
               'The administrator password in .env is only used to create the first account.',
-              'Changing it there later has no effect; change it in the admin portal instead.']
+              'After you sign in, change it in the admin portal and delete it from .env:',
+              'editing it there later has no effect.']
     return '\n'.join(steps)
 
 

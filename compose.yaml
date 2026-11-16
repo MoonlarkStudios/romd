@@ -35,8 +35,6 @@ x-romd-common-environment: &romd-common-environment
   Romd__Auth__ConsumerSpa__RedirectUris__0: ${ROMD_CONSUMER_PUBLIC_URL:?set ROMD_CONSUMER_PUBLIC_URL}/auth/callback
   Romd__Auth__ConsumerSpa__PostLogoutRedirectUris__0: ${ROMD_CONSUMER_PUBLIC_URL:?set ROMD_CONSUMER_PUBLIC_URL}
   Romd__JwtSecret: ${ROMD_JWT_SECRET:?set ROMD_JWT_SECRET}
-  Romd__DefaultAdminEmail: ${ROMD_DEFAULT_ADMIN_EMAIL:-admin@localhost}
-  Romd__DefaultAdminPassword: ${ROMD_DEFAULT_ADMIN_PASSWORD:?set ROMD_DEFAULT_ADMIN_PASSWORD}
   Romd__ConsumerDelivery__SigningKeyId: ${ROMD_CONSUMER_DELIVERY_SIGNING_KEY_ID:-primary}
   Romd__ConsumerDelivery__SigningSecret: ${ROMD_CONSUMER_DELIVERY_SIGNING_SECRET:?set ROMD_CONSUMER_DELIVERY_SIGNING_SECRET}
   Romd__ConsumerDelivery__SignedUrlTtlMinutes: ${ROMD_CONSUMER_DELIVERY_SIGNED_URL_TTL_MINUTES:-10}
@@ -92,6 +90,9 @@ services:
       <<: *romd-common-environment
       Providers__Igdb__ClientId: ${IGDB_CLIENT_ID:-}
       Providers__Igdb__ClientSecret: ${IGDB_CLIENT_SECRET:-}
+      # Only used while creating the first administrator; removable after bootstrap.
+      Romd__DefaultAdminEmail: ${ROMD_DEFAULT_ADMIN_EMAIL:-admin@localhost}
+      Romd__DefaultAdminPassword: ${ROMD_DEFAULT_ADMIN_PASSWORD:-}
       ConnectionStrings__Romd: "Host=postgres;Port=5432;Database=romd;Username=romd_worker;Password=${ROMD_POSTGRES_WORKER_PASSWORD:?set ROMD_POSTGRES_WORKER_PASSWORD}"
       ConnectionStrings__RomdProvisioning: "Host=postgres;Port=5432;Database=romd;Username=romd_provisioner;Password=${ROMD_POSTGRES_PROVISIONER_PASSWORD:?set ROMD_POSTGRES_PROVISIONER_PASSWORD}"
       ConnectionStrings__Hangfire: "Host=postgres;Port=5432;Database=romd;Username=romd_worker;Password=${ROMD_POSTGRES_WORKER_PASSWORD:?set ROMD_POSTGRES_WORKER_PASSWORD}"

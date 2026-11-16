@@ -206,13 +206,13 @@ environment-variable equivalents, is in [`configuration.md`](../self-hosting/con
   OpenIddict token encryption key material. The worker creates the OpenIddict signing key
   under `Romd__DataDirectory` (`keys/openiddict-signing.pem`); keep that directory durable
   so tokens survive host restarts.
-- `Romd__DefaultAdminEmail` and `Romd__DefaultAdminPassword`: initial admin bootstrap credentials.
+- `Romd__DefaultAdminEmail` and `Romd__DefaultAdminPassword`: worker-only first-account bootstrap credentials; removable after initialization.
 - `Romd__AdminHost__CorsOrigins__0`: admin browser origin when hosted separately.
 - `Romd__ConsumerHost__CorsOrigins__0`: consumer browser origin when hosted separately.
 - `Romd__AdminHost__JwtAudience` and `Romd__ConsumerHost__JwtAudience`: optional per-surface token audiences (default `romd-admin` / `romd-consumer`).
 - `Romd__Auth__AdminSpa__RedirectUris__0` and `Romd__Auth__ConsumerSpa__RedirectUris__0`: SPA auth-code callback URIs (plus matching `__PostLogoutRedirectUris__0`). Must exactly match the SPA origins; dev defaults are `http://localhost:5137/auth/callback` and `http://localhost:5174/auth/callback`.
 - `Romd__ConsumerDelivery__SigningKeyId`, `Romd__ConsumerDelivery__SigningSecret`, and `Romd__ConsumerDelivery__SignedUrlTtlMinutes`: required for signed consumer delivery links.
-- `Providers__Igdb__ClientId` and `Providers__Igdb__ClientSecret`: optional deployment override, identical on admin and worker. Otherwise configure IGDB at runtime in Integrations → IGDB.
+- `Providers__Igdb__ClientId` and `Providers__Igdb__ClientSecret`: optional deployment overrides, identical on admin and worker. Prefer runtime configuration in Integrations → IGDB. Explicit overrides take precedence and lock UI editing.
 
 When the API hosts run behind a reverse proxy (TLS termination, different public origin), enable
 forwarded-header processing with `Romd:ForwardedHeaders` and set each surface's public origin with

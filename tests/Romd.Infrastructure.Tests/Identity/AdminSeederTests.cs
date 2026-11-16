@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Romd.Application.Common.Configuration;
@@ -72,6 +73,8 @@ public sealed class AdminSeederTests
             }
         }
 
+        // Operators may remove the bootstrap password once the first account exists.
+        fixture.Options.DefaultAdminPassword.Returns((string?)null);
         await fixture.SeedAsync();
 
         await using var verify = fixture.Database.CreateContext();
@@ -87,6 +90,39 @@ public sealed class AdminSeederTests
             humans.ShouldAllBe(user => user.Email != Fixture.Email);
         if (change == "configuration")
             humans[0].Email.ShouldBe(Fixture.Email);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("ChangeMe123!")]
+    [InlineData("LocalOnly123")]
+    [InlineData("LocalDev123")]
+    public async Task StartAsync_ProductionWithoutSecureBootstrapPassword_RefusesEmptyInstallation(string? password)
+    {
+        await using var fixture = Fixture.Create();
+        fixture.Options.DefaultAdminPassword.Returns(password);
+
+        var error = await Should.ThrowAsync<InvalidOperationException>(() => fixture.SeedAsync());
+
+        error.Message.ShouldContain("initial administrator");
+        await using var db = fixture.Database.CreateContext();
+        (await db.Users.AnyAsync()).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task StartAsync_NonProductionWithoutBootstrapPassword_UsesDevelopmentFallback()
+    {
+        await using var fixture = Fixture.Create(environmentName: "Testing");
+        fixture.Options.DefaultAdminPassword.Returns((string?)null);
+
+        await fixture.SeedAsync();
+
+        await using var scope = fixture.Provider.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<RomdUser>>();
+        var admin = await users.FindByEmailAsync(Fixture.Email);
+        admin.ShouldNotBeNull();
+        (await users.CheckPasswordAsync(admin, "ChangeMe123!")).ShouldBeTrue();
     }
 
     [Fact]
@@ -206,13 +242,16 @@ public sealed class AdminSeederTests
         public IRomdOptions Options => options;
         public List<string> Logs { get; } = [];
 
-        public static Fixture Create(IUserValidator<RomdUser>? validator = null)
+        public static Fixture Create(IUserValidator<RomdUser>? validator = null, string environmentName = "Production")
         {
             var database = PostgreSqlTestDatabase.Create();
             var options = Substitute.For<IRomdOptions>();
             options.DefaultAdminEmail.Returns(Email);
             options.DefaultAdminPassword.Returns(Password);
             var services = new ServiceCollection();
+            var environment = Substitute.For<IHostEnvironment>();
+            environment.EnvironmentName.Returns(environmentName);
+            services.AddSingleton(environment);
             services.AddLogging();
             services.AddSingleton(options);
             services.AddDbContext<RomdDbContext>(builder => builder.UseNpgsql(database.ConnectionString).UseOpenIddict());
@@ -223,7 +262,8 @@ public sealed class AdminSeederTests
             return new Fixture(database, services.BuildServiceProvider(), options);
         }
 
-        public Task SeedAsync() => new AdminSeeder(provider, TimeProvider.System, new CapturingLogger(Logs)).StartAsync(default);
+        public Task SeedAsync() => new AdminSeeder(provider, TimeProvider.System, new CapturingLogger(Logs),
+            provider.GetRequiredService<IHostEnvironment>()).StartAsync(default);
         public async ValueTask DisposeAsync()
         {
             await provider.DisposeAsync();

@@ -76,16 +76,16 @@ public sealed class ProductionSecretValidatorTests
         exception.Message.ShouldContain("Configure Romd:JwtSecret with a secure value.");
     }
 
-    [Fact]
-    public void Validate_ProductionWithEnvExampleAdminPassword_Throws()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void Validate_ProductionWithoutBootstrapPassword_AllowsHostStartup(string? password)
     {
         var options = StrongOptions();
-        options.DefaultAdminPassword = "LocalOnly123";
+        options.DefaultAdminPassword = password;
 
-        var exception = Should.Throw<InvalidOperationException>(
-            () => ProductionSecretValidator.Validate(Environment("Production"), options, EmptyConfiguration));
-
-        exception.Message.ShouldContain("Configure Romd:DefaultAdminPassword with a secure value.");
+        // Only the worker's first-account seeder requires bootstrap credentials.
+        Should.NotThrow(() => ProductionSecretValidator.Validate(Environment("Production"), options, EmptyConfiguration));
     }
 
     [Fact]

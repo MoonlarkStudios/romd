@@ -71,9 +71,10 @@ from step 3 is mounted read-only for server-side
 [path import](configuration.md#path-import) instead.
 
 Back up `.env` with your other secrets: it holds the database passwords that
-restores need. The administrator password in it only creates the first account;
-change your password in the admin portal afterwards, since editing `.env` later
-has no effect.
+restores need. The administrator password in it only creates the first account,
+and only the worker receives it. After you sign in, change your password in the
+admin portal and delete `ROMD_DEFAULT_ADMIN_PASSWORD` from `.env`; editing it
+there later has no effect.
 
 ## Prerequisites and configuration
 
@@ -91,7 +92,8 @@ for the values you choose and generates the rest. To fill it by hand instead,
 copy `.env.example` to `.env` and generate independent secrets, for example with
 `openssl rand -hex 32`; PostgreSQL passwords must be hex because Compose embeds
 them in connection strings. The bootstrap admin password must satisfy the
-application's password policy. Restrict `.env` permissions (`chmod 600`).
+application's password policy; the worker refuses to create the first account
+without one and ignores it once any account exists. Restrict `.env` permissions (`chmod 600`).
 `COMPOSE_FILE` and `COMPOSE_PROJECT_NAME` in `.env` select the overlays and
 project for every operational script. Keep plaintext secrets out of Git; an
 encrypted secret store is appropriate.

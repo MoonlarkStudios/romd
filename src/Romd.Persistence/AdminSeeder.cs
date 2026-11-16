@@ -17,15 +17,18 @@ public sealed class AdminSeeder : IHostedService
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<AdminSeeder> _logger;
     private readonly TimeProvider _timeProvider;
+    private readonly IHostEnvironment _environment;
 
     public AdminSeeder(
         IServiceProvider serviceProvider,
         TimeProvider timeProvider,
-        ILogger<AdminSeeder> logger)
+        ILogger<AdminSeeder> logger,
+        IHostEnvironment environment)
     {
         _serviceProvider = serviceProvider;
         _timeProvider = timeProvider;
         _logger = logger;
+        _environment = environment;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -134,6 +137,18 @@ public sealed class AdminSeeder : IHostedService
         }
 
         string adminEmail = options.DefaultAdminEmail ?? "admin@localhost";
+        // Bootstrap credentials are needed only here, so production checks them here rather
+        // than at every host start: operators can remove them once the first account exists.
+        // Gated like ProductionSecretValidator so non-production fixtures keep the fallback.
+        if (_environment.IsProduction() &&
+            (string.IsNullOrWhiteSpace(options.DefaultAdminPassword) ||
+             options.DefaultAdminPassword is "ChangeMe123!" or "LocalOnly123" or "LocalDev123"))
+        {
+            throw new InvalidOperationException(
+                "Configure Romd:DefaultAdminPassword with a secure value to create the initial administrator. " +
+                "It can be removed after the first successful startup.");
+        }
+
         string adminPassword = options.DefaultAdminPassword ?? "ChangeMe123!";
 
         var adminUser = new RomdUser

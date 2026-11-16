@@ -25,12 +25,8 @@ public static class ProductionSecretValidator
             errors.Add("JwtSecret is set to the default development value. Configure Romd:JwtSecret with a secure value.");
         }
 
-        string[] developmentAdminPasswords = ["ChangeMe123!", "LocalOnly123"];
-        if (options.DefaultAdminPassword is null || developmentAdminPasswords.Contains(options.DefaultAdminPassword))
-        {
-            errors.Add(
-                "DefaultAdminPassword is not configured or set to the insecure default. Configure Romd:DefaultAdminPassword with a secure value.");
-        }
+        // The bootstrap administrator password is checked by the worker's AdminSeeder only
+        // while no human account exists, so it can be removed after initialization.
 
         const string developmentDeliverySigningSecret = "local-only-replace-this-delivery-secret-32-bytes-min";
         string? deliverySigningSecret = configuration
