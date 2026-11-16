@@ -88,7 +88,13 @@ CI_ONLY_STEPS = {
         dict(command='sha="$(jq -er .sourceSha256 native/chdman/mame.json)"', reason='cache key'),
     ('native', 'Build native code, fixtures and the drift check'):
         dict(command='scripts/native/build.sh test-inputs', local='native:test-inputs'),
-    ('native', 'Package the native linux-x64 build for the backend jobs'):
+    ('native-artifact', 'Key the native build by every tracked input'):
+        dict(command='inputs="$(git ls-files -s --', reason='cache key'),
+    ('native-artifact', 'Key the chdman build by MAME tarball SHA-256, recipe version, recipe sources and RID'):
+        dict(command='sha="$(jq -er .sourceSha256 native/chdman/mame.json)"', reason='cache key'),
+    ('native-artifact', 'Build native code and fixtures'):
+        dict(command='scripts/native/build.sh test-inputs', local='native:test-inputs'),
+    ('native-artifact', 'Package the native linux-x64 build for the backend jobs'):
         dict(command='tar -czf native-linux-x64.tar.gz', reason='artifact packaging'),
     ('web', 'Install web dependencies'): dict(command='pnpm install --frozen-lockfile', reason='dependency install'),
     ('web', 'Stage the once-built frontend assets'):
