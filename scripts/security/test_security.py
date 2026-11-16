@@ -13,6 +13,8 @@ import unittest
 from unittest.mock import patch
 import subprocess
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'deployment'))
+import compose_images
 from metadata import (Commands, assert_coverage, assert_fresh_database, assert_official_postgres, assert_scanner_coverage,
                       catalog_supplement, generate, main, merge_sbom, native_supplement)
 from qualify import image_map, rehearsal_images, verify_bundle, verify_publisher
@@ -134,6 +136,8 @@ class InventoryIntegrityTests(unittest.TestCase):
             'scripts/backup/backup.sh', 'scripts/backup/restore.sh', 'deploy/ingress/templates/default.conf.template',
             'deploy/examples/https/compose.yaml')}
         files['images.env'] = ''.join(f'{key}={value}\n' for key, value in images.items()).encode()
+        files['compose.yaml'] = compose_images.render(
+            ''.join(f'image: {compose_images.required(key)}\n' for key in compose_images.KEYS), images).encode() + b'# ' + content + b'\n'
         manifest = {'schemaVersion': 1, 'sourceCommit': 'b' * 40, 'releaseTag': 'v1.0.0-rc.1',
                     'platform': 'linux/amd64', 'images': images,
                     'files': {name: hashlib.sha256(data).hexdigest() for name, data in files.items()}}

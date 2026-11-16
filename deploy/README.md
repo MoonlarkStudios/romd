@@ -13,7 +13,7 @@ ROMD_DEFAULT_ADMIN_EMAIL=you@example.com
 ROMD_DEFAULT_ADMIN_PASSWORD=choose-a-strong-password
 EOF
 chmod 600 .env
-scripts/deployment/compose.sh up -d --wait --wait-timeout 240
+docker compose up -d --wait --wait-timeout 240
 ```
 
 ROMD generates its own database passwords, signing secrets and HTTPS

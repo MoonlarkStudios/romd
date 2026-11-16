@@ -1681,6 +1681,18 @@ class ReleaseLayoutTests(unittest.TestCase):
             self.assertFalse((release / 'scripts/deployment/setup.sh').exists())
             (release / '.env').write_text('ROMD_HOST=nas.example.test\n')
             environment = {key: value for key, value in os.environ.items() if not key.startswith(('ROMD_', 'COMPOSE_'))}
+            # Plain `docker compose` from the extracted bundle needs no wrapper: the images are defaults.
+            plain = json.loads(subprocess.check_output(compose('config', '--format', 'json'), cwd=release, env=environment))
+            self.assertEqual({'romd-worker': 'example/worker@sha256:' + 'a' * 64, 'romd-init': 'example/worker@sha256:' + 'a' * 64,
+                              'postgres': 'example/postgres@sha256:' + 'a' * 64, 'romd-admin': 'example/admin@sha256:' + 'a' * 64,
+                              'romd-consumer': 'example/consumer@sha256:' + 'a' * 64, 'romd-player': 'example/player@sha256:' + 'a' * 64},
+                             {name: service['image'] for name, service in plain['services'].items() if name != 'ingress'})
+            self.assertEqual('https://nas.example.test:7664',
+                             plain['services']['romd-admin']['environment']['Romd__AdminHost__PublicUrl'])
+            overridden = json.loads(subprocess.check_output(compose('config', '--format', 'json'), cwd=release,
+                                                            env=dict(environment, ROMD_POSTGRES_IMAGE='example/pinned@sha256:' + 'b' * 64)))
+            self.assertEqual('example/pinned@sha256:' + 'b' * 64, overridden['services']['postgres']['image'])
+            self.assertIn('${ROMD_WORKER_IMAGE:?', (ROOT / 'compose.yaml').read_text())
             # A stand-in docker reports what compose.sh hands to Compose, from an unrelated directory.
             tools = work / 'bin'
             tools.mkdir()

@@ -52,8 +52,7 @@ def verify_rehearsal(path, revision, tag, image_ids, pins):
     with tempfile.TemporaryDirectory(prefix='romd-rehearsal-binding-') as temporary:
         verified = verify_bundle(bundle, root / 'rehearsal-bundle.tar.gz.sha256', images,
                                  Path(temporary) / 'bundle', revision, tag)
-    payload = {name: value for name, value in verified['files'].items() if name != 'images.env'}
-    if receipt.get('payloadFiles') != payload:
+    if receipt.get('payloadFiles') != verified['payload']:
         raise ValueError('Rehearsed installation payload does not match its receipt')
     positive = json.loads((root / 'packaged/positive/qualification.json').read_text())
     for role, identifier in image_ids.items():
@@ -63,7 +62,7 @@ def verify_rehearsal(path, revision, tag, image_ids, pins):
 
 
 def verify_published_bundle(receipt, bundle, images, revision, tag):
-    """Only registry names/images.env may change between rehearsal and publication."""
+    """Only registry names (images.env and the compose.yaml image defaults) may change between rehearsal and publication."""
     actual = image_map(images)
     if set(actual) != set(receipt['images']):
         raise ValueError('Published image roles differ from rehearsal')
@@ -73,5 +72,5 @@ def verify_published_bundle(receipt, bundle, images, revision, tag):
     with tempfile.TemporaryDirectory(prefix='romd-published-rehearsal-binding-') as temporary:
         verified = verify_bundle(bundle, Path(str(bundle) + '.sha256'), images,
                                  Path(temporary) / 'bundle', revision, tag)
-    if {name: value for name, value in verified['files'].items() if name != 'images.env'} != receipt['payloadFiles']:
+    if verified['payload'] != receipt['payloadFiles']:
         raise ValueError('Published installation payload differs from rehearsal')
