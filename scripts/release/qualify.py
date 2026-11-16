@@ -118,7 +118,7 @@ def verify_bundle(bundle, checksum, expected_images, destination, revision, tag)
         required = {'compose.yaml', 'images.env', '.env.example', 'scripts/deployment/compose.sh',
                     'scripts/deployment/validate.sh', 'scripts/deployment/verify.sh',
                     'scripts/backup/backup.sh', 'scripts/backup/restore.sh',
-                    'deploy/examples/https/compose.yaml'}
+                    'deploy/ingress/templates/default.conf.template', 'deploy/examples/https/compose.yaml'}
         if not required <= set(files):
             raise ValueError('Deployment bundle lacks required installation/recovery files')
         if any(name.startswith(('.git/', '.agents/', '.codex/', '.github/', 'src/'))

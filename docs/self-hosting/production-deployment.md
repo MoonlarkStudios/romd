@@ -17,11 +17,9 @@ after it explain each step and the alternatives. Existing operators can jump to
 
 ## Quick start
 
-This path uses Cloudflare Tunnel: no certificates to manage and no open ports.
-You need a Linux amd64 server with Docker, Compose v2.24 or newer and Python 3,
-plus a domain whose DNS is on Cloudflare. To use your own certificate or an
-existing reverse proxy instead, see [choose ingress](#choose-ingress); `setup.sh`
-offers both.
+This path serves ROMD on your local network. You need a Linux amd64 server with
+Docker and Compose v2.24 or newer. Nothing else is installed on the host, and no
+domain or account with a third party is needed.
 
 1. Download the bundle and its checksum from the
    [release page](https://github.com/MoonlarkStudios/romd/releases), check it, and
@@ -35,46 +33,50 @@ offers both.
 
    To also confirm the bundle was built by this project's release workflow, see
    [release artifacts](#release-artifacts).
-2. In the Cloudflare dashboard, open **Zero Trust → Networks → Tunnels**, create a
-   tunnel with the **Docker** connector, and copy its token from the command it
-   shows. Don't run that command: ROMD runs the connector for you.
-3. Run setup and answer its questions:
+2. Create `.env` with the name or IP address your devices use to reach this
+   server and the first administrator:
 
    ```bash
-   scripts/deployment/setup.sh
+   cat > .env <<'EOF'
+   ROMD_HOST=nas.local
+   ROMD_DEFAULT_ADMIN_EMAIL=you@example.com
+   ROMD_DEFAULT_ADMIN_PASSWORD=choose-a-strong-password
+   EOF
+   chmod 600 .env
    ```
 
-   It asks for your domain, the first administrator's email and password, how
-   visitors reach ROMD (choose **Cloudflare Tunnel**), the tunnel token and,
-   optionally, the directory of an existing ROM library on this server. It
-   picks a free Docker network for the ingress and writes `.env`, readable only
-   by you. It never prints a secret and never replaces an existing `.env`. ROMD
-   generates its own database passwords and signing secrets on first start.
-4. In the tunnel's **Public Hostname** settings, route each of the three
-   hostnames setup lists (by default `admin.`, `console.` and `play.` under your
-   domain) to the service `http://ingress:80`.
-5. Check the configuration, then start ROMD and confirm it is healthy:
+   The password needs at least 12 characters with upper-case, lower-case and a
+   digit. `.env.example` lists every optional setting.
+3. Start ROMD:
 
    ```bash
-   scripts/deployment/validate.sh
-   scripts/deployment/compose.sh pull
    scripts/deployment/compose.sh up -d --wait --wait-timeout 240
-   scripts/deployment/verify.sh
    ```
 
-6. Open the admin portal, sign in, and follow
-   [your first library](../features/first-library.md).
+   On first start ROMD generates its database passwords, signing secrets and an
+   HTTPS certificate for `ROMD_HOST`.
+4. Trust ROMD's certificate authority on each device that will use it. Copy it
+   out of the installation, then install it as a trusted root certificate:
 
-Cloudflare's proxy rejects request bodies over 100 MB on Free and Pro plans, so
-large disc images can't be uploaded through the tunnel. The library directory
-from step 3 is mounted read-only instead: Managers choose a folder from it under
-**Import from a server folder** on the import page
-([path import](configuration.md#path-import)).
+   ```bash
+   scripts/deployment/compose.sh cp ingress:/etc/romd/tls/ca.crt romd-ca.crt
+   ```
 
-Keep `.env` with your other secrets. The administrator password in it only
-creates the first account, and only the worker receives it. After you sign in, change your password in the
-admin portal and delete `ROMD_DEFAULT_ADMIN_PASSWORD` from `.env`; editing it
-there later has no effect.
+   The authority can only vouch for the names in `ROMD_HOST`, so trusting it
+   cannot be used to impersonate other sites. See
+   [the built-in ingress](#built-in-ingress) for the alternatives: your own
+   certificate, three host names, an existing reverse proxy or Cloudflare Tunnel.
+5. Open the admin portal at `https://nas.local:7664`, sign in, and follow
+   [your first library](../features/first-library.md). The consumer portal is at
+   `https://nas.local:7663`; the player uses port 7665.
+
+After you sign in, change your password in the admin portal and delete
+`ROMD_DEFAULT_ADMIN_PASSWORD` from `.env`: it only creates the first account,
+only the worker receives it, and editing it later has no effect.
+
+To import an existing ROM library from this server without uploading through
+the browser, add the [library overlay](configuration.md#path-import) and choose
+**Import from a server folder** on the import page.
 
 ## Prerequisites and configuration
 
@@ -87,9 +89,8 @@ separate origins under the same site; sibling subdomains work well.
 Download the bundle and its checksum to the same directory. Verify with
 `sha256sum --check romd-<version>-deployment.tar.gz.sha256` (or
 `shasum -a 256 -c`), then extract it; it unpacks into its own `romd-<version>/`
-directory. Run `scripts/deployment/setup.sh` there to create `.env`: it prompts
-for the values you choose. To fill it by hand instead, copy `.env.example` to
-`.env`. On every start, the `romd-init` service runs first: it
+directory. Create `.env` there as in the [quick start](#quick-start), or copy
+`.env.example` to `.env` and fill it in. On every start, the `romd-init` service runs first: it
 [generates the database passwords and signing secrets](configuration.md#generated-secrets-and-certificates)
 once and never replaces them. The database passwords live in Docker volumes
 that only their own service mounts; the signing secrets live in the data
@@ -192,7 +193,7 @@ except within the bounded [CHD decoder upgrade](#chd-decoder-upgrades) window.
 
 The base stack has two project-scoped networks. PostgreSQL and worker use
 `backend`; both APIs use `backend` and `edge`; player uses only `edge`. Your
-proxy attaches only to `edge`. No fixed container names prevent multiple isolated
+ingress attaches only to `edge`. No fixed container names prevent multiple isolated
 installations. Keep `COMPOSE_PROJECT_NAME` stable across release directories to
 reuse the intended database/data volumes.
 
@@ -214,16 +215,53 @@ still require the [operator repair procedure](media-processing.md#recovery).
 The `scripts/deployment/compose.sh` wrapper consistently loads `images.env` and
 `.env`. `ROMD_ENV_FILE` can select an external secret file. Standard
 `COMPOSE_FILE` and `COMPOSE_PROJECT_NAME` variables apply to all operational tools;
-set them consistently, including for backup and restore. `setup.sh` records both
-in `.env`, with `COMPOSE_FILE` paths relative to the release directory, and the
-wrapper applies them unless you export your own. The `export` lines in the
-examples below are only needed with a hand-written `.env`.
+set them consistently, including for backup and restore. Record both in `.env`,
+with `COMPOSE_FILE` paths relative to the release directory; the wrapper applies
+them unless you export your own.
+
+### Built-in ingress
+
+The stack includes an nginx ingress that serves all three surfaces over HTTPS on
+one host name, a port each: the consumer portal on 7663, the admin portal on 7664
+and the player on 7665. Compose derives the three public origins from
+`ROMD_HOST` and those ports. Change a port with `ROMD_CONSUMER_PORT`,
+`ROMD_ADMIN_PORT` or `ROMD_PLAYER_PORT`, and the listening address with
+`ROMD_BIND`. A plain-HTTP request to one of these ports is redirected to HTTPS.
+
+`ROMD_HOST` is one name or address, and every device must use exactly it: the
+ingress refuses other host names, and sign-in is bound to these origins. A
+`.local` name, a name from your router's DNS or a fixed IP address all work.
+
+On every start the `romd-init` service makes sure a certificate exists:
+
+- **Generated (default).** It creates a private certificate authority limited to
+  `ROMD_HOST` and a server certificate valid for 825 days, renewed within 30
+  days of expiry when the stack next starts. Trust `ca.crt` once on each device.
+  Changing `ROMD_HOST` issues a new authority that devices must trust again.
+  To include more names in the certificate, list them all, space separated, in
+  `ROMD_CERTIFICATE_NAMES`.
+- **Your own.** Set `ROMD_TLS_DIRECTORY` to an absolute directory containing
+  `fullchain.pem` and `privkey.pem` valid for `ROMD_HOST`. ROMD never replaces
+  them. With a certificate from a public authority for a domain you own, and
+  that name resolving to this server on your network, devices need no setup,
+  and the same origins keep working if you later route the name from outside.
+
+The three overlays under `deploy/examples/` replace the built-in listeners. Each
+needs the three `ROMD_*_PUBLIC_URL` origins set explicitly; add the overlay to
+`COMPOSE_FILE` in `.env`.
+
+| Overlay | Use it for |
+| --- | --- |
+| `deploy/examples/https/compose.yaml` | Three host names on one HTTPS port with your own certificate |
+| `deploy/examples/cloudflare/compose.yaml` | Cloudflare Tunnel, with no published ports |
+| `deploy/examples/proxy/compose.yaml` | Your own reverse proxy; removes the built-in ingress |
 
 ### Existing reverse proxy
 
-Create an operator overlay attaching your proxy to `edge`, or publish the three
+Add `deploy/examples/proxy/compose.yaml`, which removes the built-in ingress.
+Then create an operator overlay attaching your proxy to `edge`, or publish the three
 HTTP container ports only to the interface needed by an external proxy. Both API
-containers and player listen on port 8080. Configure the actual trusted peer IP;
+containers and player listen on port 8080. Set `ROMD_TRUSTED_PROXY` to the actual trusted peer IP;
 Docker host-port forwarding can change the source address seen by a container.
 Use host firewall rules where LAN bindings are necessary. PostgreSQL and worker
 must remain unpublished.
