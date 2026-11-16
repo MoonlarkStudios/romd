@@ -209,9 +209,30 @@ class BundleQualificationTests(unittest.TestCase):
         self.assertNotIn('ROMD_ADMIN_IMAGE', environment)
         self.assertNotIn('COMPOSE_PROFILES', environment)
         self.assertRegex(environment['COMPOSE_PROJECT_NAME'], '^romd-qualify-[0-9a-f]{12}$')
-        self.assertRegex(environment['ROMD_HTTPS_BIND'], '^127\\.')
-        self.assertEqual('443', environment['ROMD_HTTPS_PORT'])
+        self.assertRegex(environment['ROMD_BIND'], '^127\\.')
         self.assertEqual(str(self.work / 'empty.env'), environment['ROMD_ENV_FILE'])
+        # The default installation: a host name and the first administrator; ROMD supplies the rest.
+        self.assertEqual('romd.example.test', environment['ROMD_HOST'])
+        self.assertEqual(str(self.work / 'bundle/compose.yaml'), environment['COMPOSE_FILE'])
+        self.assertFalse([key for key in environment if key.endswith(('_PUBLIC_URL', '_SECRET'))
+                          or key in ('ROMD_TLS_DIRECTORY', 'ROMD_ADMIN_HOST')])
+        self.assertEqual(['ROMD_DEFAULT_ADMIN_PASSWORD'], [key for key in environment if key.endswith('_PASSWORD')])
+
+    def test_disposable_ingress_network_avoids_every_existing_docker_network(self):
+        import ipaddress
+        taken = [ipaddress.ip_network(value) for value in ('10.253.16.0/24', '10.253.0.0/19', '172.28.0.0/24', 'fd00::/64')]
+        environment = deployment_environment(self.work, self.work / 'bundle', 'nginx@sha256:' + 'f' * 64, taken)
+        subnet = ipaddress.ip_network(environment['ROMD_EDGE_SUBNET'])
+        self.assertEqual('10.253.32.0/24', str(subnet))
+        self.assertFalse(any(subnet.overlaps(other) for other in taken if other.version == 4))
+        addresses = [ipaddress.ip_address(environment[key]) for key in
+                     ('ROMD_TRUSTED_PROXY', 'ROMD_ADMIN_EDGE_IP', 'ROMD_CONSUMER_EDGE_IP', 'ROMD_PLAYER_EDGE_IP')]
+        dynamic = ipaddress.ip_network(environment['ROMD_EDGE_DYNAMIC_RANGE'])
+        self.assertEqual(4, len(set(addresses)))
+        self.assertTrue(all(address in subnet and address not in dynamic for address in addresses))
+        with self.assertRaisesRegex(RuntimeError, 'No free private subnet'):
+            deployment_environment(self.work, self.work / 'bundle', 'nginx@sha256:' + 'f' * 64,
+                                   [ipaddress.ip_network('10.0.0.0/8')])
 
     def test_cli_writes_new_local_evidence_and_refuses_directory_reuse(self):
         self.bundle()
@@ -292,6 +313,8 @@ class BundleQualificationTests(unittest.TestCase):
                 return json.dumps({'Os': 'linux', 'Arch': 'amd64'})
             if kwargs.get('binary_result'):
                 return b'fixture-public-key'
+            if stage.startswith('generated-'):
+                return '-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n'
             return ''
 
         relative = Path('coverage/packaged/positive')
@@ -357,6 +380,11 @@ class BundleQualificationTests(unittest.TestCase):
                 self.assertTrue(resumed['ready'], 'Stopping newly resumed hosts can exit 143 before startup finishes')
                 self.assertTrue(resumed['checkpointed'], 'Resume lifecycle must pass before the source is stopped')
                 resumed['starting'] = False
+            if stage.startswith('generated-authority-'):
+                changed = failure == 'authority' and stage.endswith('after-restore')
+                return '-----BEGIN CERTIFICATE-----\n' + ('replaced' if changed else 'trusted') + '\n-----END CERTIFICATE-----\n'
+            if stage.startswith('generated-certificate-'):
+                return '-----BEGIN CERTIFICATE-----\nserver\n-----END CERTIFICATE-----\n'
             return b'public-key' if kwargs.get('binary_result') else ''
         arguments = SimpleNamespace(bundle=self.archive, checksum=self.checksum,
             expected_images=self.images, publisher_state=state, expected_revision='a' * 40,
@@ -381,6 +409,17 @@ class BundleQualificationTests(unittest.TestCase):
         self.assertIn('cleanup-restored-project', stages)
         self.assertIn('cleanup-disposable-project', stages)
         self.assertLess(stages.index('cleanup-restored-stop'), stages.index('cleanup-restored-project'))
+
+    def test_generated_certificate_is_pinned_each_phase_and_restore_must_keep_the_authority(self):
+        report, _, stages = self.packaged_flow()
+        for phase in ('initial', 'after-restart', 'after-restore'):
+            self.assertLess(stages.index(f'generated-authority-{phase}'), stages.index(f'certificate-spki-{phase}'))
+        self.assertRegex(report['certificateAuthoritySha256'], '^[0-9a-f]{64}$')
+        self.assertNotIn('fixture-certificate', stages)
+        report, _, stages = self.packaged_flow('authority')
+        self.assertEqual('failed', report['result'])
+        self.assertEqual('Restore replaced the certificate authority devices trust', report['failure'])
+        self.assertNotIn('certificate-spki-after-restore', stages)
 
     def test_backup_resume_readiness_or_lifecycle_failure_blocks_source_stop_and_restore(self):
         for failure in ('readiness', 'checkpoint'):

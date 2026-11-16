@@ -118,15 +118,24 @@ The sanitized suite reports stay in the run's `packaged-qualification-*`
 artifact. Completion rechecks them and the bundle against the original
 publisher-subjects artifact before publishing the release.
 
-The qualifier uses only the extracted deployment files. It clears inherited
-ROMD/Compose settings, generates private disposable credentials, pulls the
-digest references, provisions PostgreSQL and worker first, and starts the APIs,
-player and HTTPS ingress. It inspects pulled image architecture and digest and
+The qualifier uses only the extracted deployment files, and installs the way
+the quick start does: it sets a host name and the first administrator, and
+nothing else. ROMD generates its own secrets and certificate, Compose derives
+the three origins on that one host name (ports 7663, 7664 and 7665), and the
+built-in ingress serves them. The qualifier clears inherited ROMD/Compose
+settings, binds the ingress to a private loopback address, and puts the ingress
+network on a private subnet that no existing Docker network overlaps. It pulls
+the digest references, provisions PostgreSQL and worker first, and starts the
+APIs, player and HTTPS ingress. It inspects pulled image architecture and digest and
 each running container's image ID and configured reference. It refuses an ARM
 Docker daemon, including amd64 emulation on that daemon.
 
-The browser trusts only the generated fixture certificate's SPKI and maps the
-three fixture hostnames to this run's loopback address. Chromium receives explicit
+The browser trusts only the SPKI of the certificate ROMD generated for the
+installation, read again before each browser phase, and maps the host name to
+this run's loopback address. The qualifier also requires the generated
+certificate authority to be unchanged after the restart and after the restore
+into fresh volumes: devices that trusted the original installation must not need
+to trust anything new. Chromium receives explicit
 screen wake-lock permission for the consumer/player origin pair within that
 disposable browser context, since headless mode denies permission prompts.
 It loads the real portal

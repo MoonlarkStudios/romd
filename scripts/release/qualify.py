@@ -7,6 +7,7 @@ The browser tooling stays on the qualification runner, outside the install bundl
 import argparse
 import base64
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -170,21 +171,38 @@ def clean_environment():
             if not key.startswith(('ROMD_', 'COMPOSE_', 'IGDB_', 'CLOUDFLARE_'))}
 
 
-def deployment_environment(work, bundle, nginx_image):
+HOST = 'romd.example.test'
+# The default installation: one host name, a published port per surface.
+PORTS = {'consumer': 7663, 'admin': 7664, 'player': 7665}
+# Private /24 candidates for the disposable ingress network; the first one no existing
+# Docker network overlaps is used, so unrelated stacks on the runner cannot collide.
+EDGE_SUBNETS = tuple(f'10.253.{third}.0/24' for third in range(16, 48))
+
+
+def edge_network(existing):
+    for candidate in EDGE_SUBNETS:
+        subnet = ipaddress.ip_network(candidate)
+        if not any(subnet.overlaps(other) for other in existing if other.version == 4):
+            host = list(subnet.hosts())
+            return dict(ROMD_EDGE_SUBNET=str(subnet), ROMD_EDGE_DYNAMIC_RANGE=str(list(subnet.subnets(new_prefix=25))[1]),
+                        ROMD_TRUSTED_PROXY=str(host[1]), ROMD_ADMIN_EDGE_IP=str(host[2]),
+                        ROMD_CONSUMER_EDGE_IP=str(host[3]), ROMD_PLAYER_EDGE_IP=str(host[4]))
+    raise RuntimeError('No free private subnet for the disposable ingress network')
+
+
+def deployment_environment(work, bundle, nginx_image, existing_networks=()):
+    """The installation the quick start produces: a host name, the first administrator, nothing else.
+
+    ROMD generates its own secrets and certificate, and Compose derives the three origins.
+    Only the loopback bind address and the private subnet are chosen here, to stay isolated.
+    """
     env = clean_environment()
-    env.update(ROMD_DEFAULT_ADMIN_EMAIL='browser-qualification@example.test',
+    env.update(ROMD_HOST=HOST, ROMD_DEFAULT_ADMIN_EMAIL='browser-qualification@example.test',
                ROMD_DEFAULT_ADMIN_PASSWORD='Q-' + secrets.token_hex(20) + '!aA9',
-               ROMD_ADMIN_HOST='admin.example.test', ROMD_CONSUMER_HOST='console.example.test',
-               ROMD_PLAYER_HOST='play.example.test', ROMD_TLS_DIRECTORY=str(work),
                ROMD_NGINX_IMAGE=nginx_image, ROMD_ENV_FILE=str(work / 'empty.env'),
-               ROMD_TRUSTED_PROXY='172.30.0.2', ROMD_EDGE_SUBNET='172.30.0.0/24',
-               ROMD_EDGE_DYNAMIC_RANGE='172.30.0.128/25', ROMD_ADMIN_EDGE_IP='172.30.0.3',
-               ROMD_CONSUMER_EDGE_IP='172.30.0.4', ROMD_PLAYER_EDGE_IP='172.30.0.5',
-               ROMD_HTTPS_PORT='443', ROMD_HTTPS_BIND=f'127.{secrets.randbelow(200) + 20}.{secrets.randbelow(254) + 1}.{secrets.randbelow(254) + 1}',
+               ROMD_BIND=f'127.{secrets.randbelow(200) + 20}.{secrets.randbelow(254) + 1}.{secrets.randbelow(254) + 1}',
                COMPOSE_PROJECT_NAME='romd-qualify-' + secrets.token_hex(6),
-               COMPOSE_FILE=f'{bundle}/compose.yaml:{bundle}/deploy/examples/https/compose.yaml')
-    for surface, host in (('ADMIN', 'admin'), ('CONSUMER', 'console'), ('PLAYER', 'play')):
-        env[f'ROMD_{surface}_PUBLIC_URL'] = f'https://{host}.example.test'
+               COMPOSE_FILE=f'{bundle}/compose.yaml', **edge_network(existing_networks))
     (work / 'empty.env').touch(mode=0o600)
     return env
 
@@ -235,14 +253,41 @@ class Runner:
             running[service] = {'reference': reference, 'imageId': image['Id'], 'platform': 'linux/amd64'}
         return running
 
+    def existing_networks(self):
+        names = self.run(['docker', 'network', 'ls', '--quiet'], 'docker-networks').split()
+        if not names:
+            return []
+        subnets = self.run(['docker', 'network', 'inspect', '--format',
+                            '{{range .IPAM.Config}}{{.Subnet}} {{end}}', *names], 'docker-network-subnets').split()
+        return [ipaddress.ip_network(value, strict=False) for value in subnets]
+
+    def ingress_file(self, name, stage, env=None):
+        text = self.compose('exec', '-T', 'ingress', 'cat', f'/etc/romd/tls/{name}', stage=stage, env=env)
+        if '-----BEGIN CERTIFICATE-----' not in text:
+            raise RuntimeError('The ingress holds no generated certificate')
+        return text
+
+    def pin_served_certificate(self, phase, env=None):
+        """The browser trusts exactly the certificate ROMD generated for this installation."""
+        certificate = self.ingress_file('fullchain.pem', f'generated-certificate-{phase}', env=env)
+        public_key = self.run(['openssl', 'x509', '-pubkey', '-noout'], f'certificate-public-key-{phase}',
+                              input_bytes=certificate.encode())
+        # DER bytes need a binary subprocess boundary, not text decoding.
+        spki = self.run(['openssl', 'pkey', '-pubin', '-outform', 'DER'], f'certificate-spki-{phase}',
+                        input_bytes=public_key.encode(), binary_result=True)
+        self.certificate_spki = base64.b64encode(hashlib.sha256(spki).digest()).decode()
+
+    def authority(self, phase, env=None):
+        return hashlib.sha256(self.ingress_file('ca.crt', f'generated-authority-{phase}', env=env).encode()).hexdigest()
+
     def browser(self, stage, inject_fault):
         config = self.work / 'browser-input.json'
-        config.write_text(json.dumps({'adminOrigin': self.env['ROMD_ADMIN_PUBLIC_URL'],
-                                     'consumerOrigin': self.env['ROMD_CONSUMER_PUBLIC_URL'],
-                                     'playerOrigin': self.env['ROMD_PLAYER_PUBLIC_URL'],
+        config.write_text(json.dumps({'adminOrigin': f'https://{HOST}:{PORTS["admin"]}',
+                                     'consumerOrigin': f'https://{HOST}:{PORTS["consumer"]}',
+                                     'playerOrigin': f'https://{HOST}:{PORTS["player"]}',
                                      'email': self.env['ROMD_DEFAULT_ADMIN_EMAIL'],
                                      'password': self.env['ROMD_DEFAULT_ADMIN_PASSWORD'],
-                                     'hostAddress': self.env['ROMD_HTTPS_BIND'],
+                                     'hostAddress': self.env['ROMD_BIND'],
                                      'certificateSpki': self.certificate_spki,
                                      'allowProvision': stage == 'browser-initial',
                                      'expectedState': self.persisted_state,
@@ -300,23 +345,13 @@ def qualify(args, evidence):
             if args.verify_only:
                 report.update(result='verified-bundle-only', evidenceType='local')
                 return report
-            env = deployment_environment(work, bundle, args.nginx_image)
-            runner = Runner(work, evidence, bundle, env)
+            runner = Runner(work, evidence, bundle, clean_environment())
             report['commands'] = runner.commands
+            env = runner.env = deployment_environment(work, bundle, args.nginx_image, runner.existing_networks())
             server = json.loads(runner.run(['docker', 'version', '--format', '{{json .Server}}'], 'docker-version'))
             if (server.get('Os'), server.get('Arch')) != ('linux', 'amd64'):
                 raise RuntimeError('Qualification requires a native Linux amd64 Docker daemon')
             report['docker'] = {key: server.get(key) for key in ('Version', 'Os', 'Arch')}
-            runner.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
-                        '-keyout', work / 'privkey.pem', '-out', work / 'fullchain.pem', '-days', '1',
-                        '-subj', '/CN=ROMD disposable qualification', '-addext',
-                        'subjectAltName=DNS:admin.example.test,DNS:console.example.test,DNS:play.example.test'],
-                       'fixture-certificate')
-            public_key = runner.run(['openssl', 'x509', '-in', work / 'fullchain.pem', '-pubkey', '-noout'], 'certificate-public-key')
-            # DER bytes need a binary subprocess boundary, not text decoding.
-            spki = runner.run(['openssl', 'pkey', '-pubin', '-outform', 'DER'], 'certificate-spki',
-                              input_bytes=public_key.encode(), binary_result=True)
-            runner.certificate_spki = base64.b64encode(hashlib.sha256(spki).digest()).decode()
             restore_env = dict(env, COMPOSE_PROJECT_NAME=env['COMPOSE_PROJECT_NAME'] + '-restore')
             gate = ContainerLifecycle(env, (env['COMPOSE_PROJECT_NAME'], restore_env['COMPOSE_PROJECT_NAME']),
                                       args.nginx_image, evidence / 'lifecycle.json')
@@ -333,8 +368,13 @@ def qualify(args, evidence):
                 recovery.start()
                 report['runningImages'] = runner.inspect_images(report['bundle']['images'])
                 runner.run([bundle / 'scripts/deployment/verify.sh'], 'packaged-http-verification')
+                trusted_authority = runner.authority('initial')
+                runner.pin_served_certificate('initial')
                 runner.browser('browser-initial', args.inject_fault)
                 recovery.restart()
+                if runner.authority('after-restart') != trusted_authority:
+                    raise RuntimeError('Restart replaced the certificate authority devices trust')
+                runner.pin_served_certificate('after-restart')
                 runner.browser('browser-after-restart', 'none')
                 backup_set = recovery.backup_and_stop(bundle / 'scripts/backup/backup.sh', work / 'backups')
                 # Stop the source before exposing its restored identity, and free its ingress socket/network.
@@ -344,7 +384,12 @@ def qualify(args, evidence):
                 recovery.restore(bundle / 'scripts/backup/restore.sh', backup_set, restore_env)
                 report['restoredRunningImages'] = runner.inspect_images(report['bundle']['images'], env=restore_env)
                 runner.run([bundle / 'scripts/deployment/verify.sh'], 'restored-http-verification', env=restore_env)
+                # A restore into fresh volumes must keep the authority devices already trust.
+                if runner.authority('after-restore', env=restore_env) != trusted_authority:
+                    raise RuntimeError('Restore replaced the certificate authority devices trust')
+                runner.pin_served_certificate('after-restore', env=restore_env)
                 runner.browser('browser-after-restore', 'none')
+                report['certificateAuthoritySha256'] = trusted_authority
             report['result'] = 'passed'
     except (ValueError, RuntimeError, KeyError, OSError, IndexError, TypeError, AttributeError,
             subprocess.SubprocessError, json.JSONDecodeError, tarfile.TarError) as error:
