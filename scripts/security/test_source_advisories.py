@@ -17,15 +17,12 @@ URL = 'https://github.com/advisories/GHSA-1234-1234-1234'
 
 
 class SourceAdvisoryTests(unittest.TestCase):
-    def test_default_gate_includes_go_reader_and_retains_raw_unknown_with_proven_absence(self):
+    def test_default_gate_includes_go_reader_and_retains_vex_suppressed_unknown_without_blocking(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            policy = root / 'scripts/security/policy.json'
-            policy.parent.mkdir(parents=True)
-            policy.write_text(json.dumps({'schemaVersion': 1, 'blockedSeverities': ['HIGH', 'CRITICAL', 'UNKNOWN']}))
             report = root / 'report.json'
             go_finding = source.finding('go-reader', 'Dockerfile/catalog-reader', 'example', 'v1.0.0', URL, 'UNKNOWN')
-            go_finding.update(rawBlocked=True, blocked=False, applicability={'status': 'affected-packages-absent'})
+            go_finding.update(blocked=False, applicability={'status': 'not_affected', 'source': 'govulncheck'})
             with patch.object(source, 'scan_nuget', return_value=([], {})), \
                  patch.object(source, 'scan_javascript', return_value=([], {})), \
                  patch.object(source, 'scan_pub', return_value=([], {})), \
@@ -36,10 +33,48 @@ class SourceAdvisoryTests(unittest.TestCase):
             self.assertEqual({'nuget', 'npm', 'pub', 'go-reader'}, set(data['ecosystems']))
             retained = data['ecosystems']['go-reader']['findings'][0]
             self.assertEqual('UNKNOWN', retained['severity'])
-            self.assertTrue(retained['rawBlocked'])
             self.assertFalse(retained['blocked'])
+            self.assertEqual(['UNKNOWN', 'HIGH', 'CRITICAL'], data['blockedSeverities'])
             self.assertEqual(root / 'go-reader-evidence', go_scan.call_args.args[1])
             self.assertEqual(0o700, (root / 'go-reader-evidence').stat().st_mode & 0o777)
+
+    def test_go_reader_scans_the_built_binary_with_vex_and_blocks_affected_or_unsuppressed_findings(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, work = Path(temporary) / 'root', Path(temporary) / 'work'
+            work.mkdir(parents=True)
+            exported = Path(temporary) / 'export'
+            exported.mkdir()
+            for name in ('catalog-reader', 'catalog-reader.json', 'govulncheck'):
+                (exported / name).write_bytes(b'controlled')
+            packages = [{'Name': name, 'Version': 'v1.27.4' if name == 'stdlib' else 'v1.0.0'} for name in
+                        ('stdlib', 'github.com/sigstore/sigstore', 'github.com/theupdateframework/go-tuf/v2')]
+            suppressed = {'Status': 'not_affected', 'Finding': {'VulnerabilityID': 'GO-2026-5932', 'PkgName': 'golang.org/x/crypto',
+                          'InstalledVersion': 'v0.58.0', 'Severity': 'UNKNOWN'}}
+            reported = {'VulnerabilityID': 'GO-2026-7000', 'PkgName': 'stdlib', 'InstalledVersion': 'v1.27.4', 'Severity': 'HIGH'}
+            trivy_report = {'SchemaVersion': 2, 'Results': [{'Target': 'app/catalog-reader', 'Class': 'lang-pkgs', 'Type': 'gobinary',
+                            'Packages': packages, 'Vulnerabilities': [reported], 'ExperimentalModifiedFindings': [suppressed]}]}
+            commands = []
+            def run(command, cwd, **kwargs):
+                commands.append([str(value) for value in command])
+                if command[1] == 'rootfs':
+                    self.assertTrue((work / 'reader-rootfs/app/catalog-reader').stat().st_mode & 0o100)
+                    (work / 'reader.trivy.json').write_text(json.dumps(trivy_report))
+                    return subprocess.CompletedProcess(command, 0, '', '')
+                return subprocess.CompletedProcess(command, 0, json.dumps({'VulnerabilityDB': {'UpdatedAt': 'fresh'}}), '')
+            files = {name: exported / name for name in ('catalog-reader', 'catalog-reader.json', 'govulncheck')}
+            with patch.object(source.go_vex, 'export', return_value=files), \
+                 patch.object(source.go_vex, 'scan', return_value=['GO-2026-8000']) as vex_scan, \
+                 patch.object(source, 'ensure_trivy', return_value=Path('/tools/trivy')), \
+                 patch.object(source, 'run', side_effect=run), patch('metadata.assert_fresh_database'):
+                findings, coverage = source.scan_go_reader(root, work)
+        scan = next(command for command in commands if command[1] == 'rootfs')
+        for flag, value in (('--vex', 'reader.vex.json'), ('--ignorefile', 'empty-ignore'), ('--exit-code', '0')):
+            self.assertEqual(value, scan[scan.index(flag) + 1])
+        self.assertEqual('catalog-reader-govulncheck', vex_scan.call_args.args[4])
+        self.assertEqual({'goModules': 2, 'standardLibrary': 'v1.27.4'}, coverage)
+        status = {finding['advisory'].rsplit('/', 1)[1]: (finding['severity'], finding['blocked']) for finding in findings}
+        self.assertEqual({'GO-2026-7000': ('HIGH', True), 'GO-2026-5932': ('UNKNOWN', False),
+                          'GO-2026-8000': ('UNKNOWN', True)}, status)
 
     def nuget(self):
         package = {'id': 'Example', 'resolvedVersion': '1.2.3'}

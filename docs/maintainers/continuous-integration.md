@@ -93,7 +93,8 @@ build, workflow or unknown path requires full verification. Rename detection is
 disabled so both old and new paths are classified; missing/invalid base history
 fails the early job. Empty inventories require full verification.
 
-Main pushes and reusable release invocations always run the complete drill.
+Main pushes always run the complete drill. The release workflow does not
+repeat CI: it requires the successful `main` push run for the tagged commit.
 Deployment/ingress and CHD harness contract tests always run, including on an
 unrelated PR. The three expensive steps share one tested condition. New paths
 default to full coverage; extend the unrelated list only with regression tests.

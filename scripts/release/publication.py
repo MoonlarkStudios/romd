@@ -6,7 +6,6 @@ registry objects for maintainer disposition; use a new version for a new attempt
 No command in this tool promotes a candidate or creates a final release.
 """
 import argparse
-import base64
 import hashlib
 import json
 import os
@@ -14,11 +13,12 @@ from pathlib import Path
 import re
 import subprocess
 import urllib.error
-import urllib.parse
 import urllib.request
 
+from crane import Crane
 from preflight import valid_tag
 from rehearsal_evidence import verify_rehearsal, verify_published_bundle
+from release_notes import render
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMANDS = []
@@ -79,45 +79,10 @@ def run(command, capture=False):
     return result.stdout if capture else None
 
 
-def registry_exists(reference):
-    match = re.fullmatch(r'ghcr\.io/([a-z0-9][a-z0-9._-]*/romd-(?:admin|consumer|worker|player)):([0-9A-Za-z.-]+)', reference)
-    token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
-    actor = os.environ.get('GITHUB_ACTOR')
-    if not match or not token or not actor:
-        raise ValueError('Authenticated exact-reference registry lookup is required')
-    repository, tag = match.groups()
-    opener = urllib.request.build_opener(NoRedirect)
-    query = urllib.parse.urlencode({'service': 'ghcr.io', 'scope': f'repository:{repository}:pull,push'})
-    basic = base64.b64encode((actor + ':' + token).encode()).decode()
-    request = urllib.request.Request('https://ghcr.io/token?' + query,
-                                     headers={'Authorization': 'Basic ' + basic})
-    try:
-        with opener.open(request, timeout=30) as response:
-            bearer = json.load(response).get('token')
-        if not isinstance(bearer, str) or not bearer:
-            raise ValueError('Registry did not issue a scoped token')
-        request = urllib.request.Request(f'https://ghcr.io/v2/{repository}/manifests/{tag}',
-            headers={'Authorization': 'Bearer ' + bearer,
-                     'Accept': 'application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'})
-        try:
-            with opener.open(request, timeout=30) as response:
-                if response.status != 200:
-                    raise ValueError('Registry lookup returned an unexpected status')
-                return True
-        except urllib.error.HTTPError as error:
-            # Only the authenticated exact manifest endpoint can establish
-            # absence. Tool, credential, transport and generic 404 text cannot.
-            with error:
-                if error.code == 404:
-                    payload = json.load(error)
-                    codes = {item.get('code') for item in payload.get('errors', [])}
-                    if codes and codes <= {'MANIFEST_UNKNOWN', 'NAME_UNKNOWN'}:
-                        return False
-            raise ValueError('Registry manifest state could not be verified') from None
-    except (urllib.error.URLError, OSError, json.JSONDecodeError) as error:
-        if isinstance(error, urllib.error.HTTPError):
-            error.close()
-        raise RuntimeError('Registry state lookup failed; no publication permitted') from None
+def staging_tag(revision):
+    if not re.fullmatch('[0-9a-f]{40}', revision):
+        raise ValueError('Staging tags require a full source commit')
+    return 'sha-' + revision
 
 
 def publish(args):
@@ -132,8 +97,12 @@ def publish(args):
             or source_sha256 != source['sourceSha256']):
         raise ValueError('Worker source archive does not match the reviewed source pin')
     namespace = 'ghcr.io/' + args.repository.split('/')[0].lower()
-    references = {service: f'{namespace}/romd-{service}:{args.tag}'
-                  for service in ('admin', 'consumer', 'worker', 'player')}
+    # Candidates are pushed only under a staging tag. Completion adds the version
+    # tag to these exact digests after every gate passes, so a failed candidate
+    # never leaves a version-tagged image.
+    versions = {service: f'{namespace}/romd-{service}:{args.tag}'
+                for service in ('admin', 'consumer', 'worker', 'player')}
+    references = {service: f'{namespace}/romd-{service}:{staging_tag(args.revision)}' for service in versions}
     image_ids = {}
     for service in references:
         local = json.loads(run(['docker', 'image', 'inspect', f'romd-{service}:test'], True))[0]
@@ -165,12 +134,12 @@ def publish(args):
     allow_retry(metadata, args.revision)
     # Inspect every remote version before pushing any image. Network/auth errors
     # are failures, never permission to overwrite a partially published version.
-    if any(registry_exists(reference) for reference in references.values()):
+    crane = Crane()
+    if any(crane.digest(reference) is not None for reference in versions.values()):
         raise ValueError('Version image already exists; retry cannot replace published digests')
     if metadata is None:
         notes = args.output / 'candidate-notes.txt'
-        notes.write_text('Unqualified draft candidate. Packaged browser, recovery and security gates are pending.\n'
-                         'Final production promotion requires the separate maintainer checkpoint.\n')
+        notes.write_text(render(args.repository, args.tag, args.revision, args.source_archive.name))
         run(['gh', 'release', 'create', args.tag, '--repo', args.repository, '--draft', '--prerelease',
              '--verify-tag', '--target', args.revision, '--title', args.tag, '--notes-file', notes])
     # Preserve GPL source before publishing the worker carrying chdman.
@@ -178,23 +147,22 @@ def publish(args):
     for service, reference in references.items():
         run(['docker', 'tag', image_ids[service], reference])
         run(['docker', 'push', reference])
-        digest = json.loads(run(['docker', 'buildx', 'imagetools', 'inspect', reference,
-                                 '--format', '{{json .Manifest.Digest}}'], True))
-        if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
-            raise ValueError('Registry returned an invalid image digest')
+        digest = crane.digest(reference)
         if digest != rehearsal['images'][f'ROMD_{service.upper()}_IMAGE'].rsplit('@', 1)[1]:
-            raise ValueError('Public image digest differs from the rehearsed image')
+            raise ValueError('Staged image digest differs from the rehearsed image')
     state = args.output / 'candidate.json'
     state.write_text(json.dumps(dict(sourceCommit=args.revision, releaseTag=args.tag, images=images,
                                     bundleSha256=hashlib.sha256(bundle.read_bytes()).hexdigest(),
                                     result='draft-unqualified'), indent=2) + '\n')
     # Never --clobber release assets. Retrying a partial upload cannot silently
     # replace a source, digest manifest, deployment bundle or hash file.
-    run(['gh', 'release', 'upload', args.tag, image_file, bundle, str(bundle) + '.sha256', state,
+    # The original image map, state and bundle stay in the same-run publisher
+    # artifact, which downstream gates use as their trusted input.
+    run(['gh', 'release', 'upload', args.tag, bundle, str(bundle) + '.sha256',
          '--repo', args.repository])
-    # Expose an explicitly unqualified prerelease for the separate read-only
-    # qualification runner. It remains a prerelease if any later gate fails.
-    run(['gh', 'release', 'edit', args.tag, '--repo', args.repository, '--draft=false', '--prerelease'])
+    # The release stays a draft: qualification reads the bundle from this run's
+    # publisher artifact, and completion publishes the release once, immutably,
+    # only after every gate passes. A failed candidate never becomes public.
 
 
 def main():

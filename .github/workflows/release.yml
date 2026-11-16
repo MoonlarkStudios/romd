@@ -18,6 +18,10 @@ jobs:
     timeout-minutes: 5
     outputs:
       revision: ${{ steps.policy.outputs.commit }}
+      # candidate: a -rc.N/prerelease tag on the main tip, built from source.
+      # promote: a stable tag on a qualified same-version -rc.N; never rebuilt.
+      mode: ${{ steps.policy.outputs.mode }}
+      promoted-from: ${{ steps.policy.outputs.promoted-from }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -30,16 +34,33 @@ jobs:
           SOURCE_REVISION: ${{ github.sha }}
         run: python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION"
 
+  # The tagged commit already ran the complete CI on its main push. Require that
+  # run instead of repeating it, so an unrelated flake cannot block a release.
   verify:
+    name: Require successful main CI for the tagged revision
     needs: preflight
-    uses: ./.github/workflows/ci.yml
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require the allowed branch's completed CI for this exact commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/release/ci_status.py --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_REVISION"
 
   advisories:
     needs: preflight
     uses: ./.github/workflows/dependencies.yml
 
   publish:
-    name: Publish an explicitly unqualified prerelease candidate
+    name: Publish or promote an explicitly unqualified prerelease
     needs: [preflight, verify, advisories]
     runs-on: ubuntu-24.04
     timeout-minutes: 100
@@ -52,27 +73,38 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.ref_name }}
       SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+      RELEASE_MODE: ${{ needs.preflight.outputs.mode }}
+      PROMOTED_FROM: ${{ needs.preflight.outputs.promoted-from }}
+      ROMD_CRANE: .artifacts/release-tools/crane
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Recheck the allowed source revision
-        run: python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION"
+      - name: Recheck the allowed source revision and release mode
+        run: |
+          set -euo pipefail
+          policy="$(python3 scripts/release/preflight.py --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION")"
+          jq -e --arg mode "$RELEASE_MODE" --arg source "$PROMOTED_FROM" \
+            '.mode == $mode and (.promotedFrom // "") == $source' <<< "$policy" > /dev/null
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         with:
           node-version: '24.22.0'
       - name: Install the locked rehearsal browser
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         run: |
           npm ci --ignore-scripts --prefix scripts/release/browser
           scripts/release/browser/node_modules/.bin/playwright install --with-deps chromium
       # Keep the second build: these exact locally verified images are pushed.
       - name: Build and verify the exact candidate images
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         run: python3 scripts/deployment/smoke.py --build --vfs --source-revision "$SOURCE_REVISION" --release-tag "$RELEASE_TAG"
       - name: Rehearse the exact candidate before any public writes
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         run: python3 scripts/release/rehearsal.py --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" --output release-rehearsal
       - name: Retain pre-publication rehearsal evidence
-        if: ${{ always() }}
+        if: ${{ always() && needs.preflight.outputs.mode == 'candidate' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: pre-publication-rehearsal-${{ github.sha }}
@@ -91,11 +123,14 @@ jobs:
             --max-filesize "$bytes" --output "$archive" "$url"
           test "$(stat -c %s "$archive")" = "$bytes"
           echo "$sha256  $archive" | sha256sum --check --strict -
+      - name: Install the checksum-pinned crane
+        run: python3 scripts/security/tools.py --tools crane --output .artifacts/release-tools
       - name: Authenticate the publisher to GHCR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       - name: Publish immutable candidate images and assets without replacement
+        if: ${{ needs.preflight.outputs.mode == 'candidate' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -103,6 +138,17 @@ jobs:
           python3 scripts/release/publication.py --repository "$GITHUB_REPOSITORY" \
             --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" \
             --source-archive "release-output/${source_url##*/}" --rehearsal release-rehearsal/receipt.json --output release-output
+      # Stable tags reuse the qualified candidate's exact digests: no build, no
+      # rehearsal. Downstream qualification, metadata and attestation still run.
+      - name: Promote the qualified candidate's exact images and assets without rebuilding
+        if: ${{ needs.preflight.outputs.mode == 'promote' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source_url="$(jq -er .sourceUrl native/chdman/mame.json)"
+          python3 scripts/release/promotion.py --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" --candidate "$PROMOTED_FROM" \
+            --source-archive "release-output/${source_url##*/}" --output release-output
       - name: Retain the publisher's immutable subject map
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -112,6 +158,8 @@ jobs:
             release-output/images.env
             release-output/candidate.json
             release-output/publication.json
+            release-output/romd-${{ github.ref_name }}-deployment.tar.gz
+            release-output/romd-${{ github.ref_name }}-deployment.tar.gz.sha256
           if-no-files-found: ignore
           retention-days: 30
 
@@ -144,21 +192,18 @@ jobs:
         with:
           name: published-subjects-${{ github.sha }}
           path: publisher-subjects
-      - name: Download the actual candidate bundle and compare its image map
+      # The release is still a draft. The publisher's same-run artifact carries the
+      # exact bundle uploaded to it; completion later proves the published bytes.
+      - name: Authenticate candidate image pulls
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir candidate-download \
-            --pattern "romd-$RELEASE_TAG-deployment.tar.gz*" --pattern images.env --pattern candidate.json
-          cmp publisher-subjects/images.env candidate-download/images.env
-          cmp publisher-subjects/candidate.json candidate-download/candidate.json
-          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
       - name: Qualify the downloaded deployment and prove browser failures block it
         run: |
           set -euo pipefail
           ingress="$(jq -er .ingress scripts/deployment/base-images.json)"
-          args=(--bundle "candidate-download/romd-$RELEASE_TAG-deployment.tar.gz"
-            --checksum "candidate-download/romd-$RELEASE_TAG-deployment.tar.gz.sha256"
+          args=(--bundle "publisher-subjects/romd-$RELEASE_TAG-deployment.tar.gz"
+            --checksum "publisher-subjects/romd-$RELEASE_TAG-deployment.tar.gz.sha256"
             --expected-images publisher-subjects/images.env --publisher-state publisher-subjects/candidate.json --expected-revision "$SOURCE_REVISION"
             --expected-tag "$RELEASE_TAG" --nginx-image "$ingress")
           python3 scripts/release/suite.py "${args[@]}" --evidence-dir coverage/packaged
@@ -187,14 +232,11 @@ jobs:
         with:
           name: published-subjects-${{ github.sha }}
           path: publisher-subjects
-      - name: Download immutable candidate inputs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Collect the publisher's same-run candidate inputs
         run: |
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir release-files \
-            --pattern "romd-$RELEASE_TAG-deployment.tar.gz*" --pattern images.env --pattern candidate.json
-          cmp publisher-subjects/images.env release-files/images.env
-          cmp publisher-subjects/candidate.json release-files/candidate.json
+          mkdir release-files
+          cp "publisher-subjects/romd-$RELEASE_TAG-deployment.tar.gz" "publisher-subjects/romd-$RELEASE_TAG-deployment.tar.gz.sha256" \
+            publisher-subjects/images.env publisher-subjects/candidate.json release-files/
       - name: Install checksum-pinned scanners
         run: python3 scripts/security/tools.py --output .artifacts/security-tools
       - name: Generate final-digest SBOMs and enforce the vulnerability policy
@@ -231,7 +273,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        role: [admin, consumer, worker, player, postgres, bundle, index]
+        role: [admin, consumer, worker, player, postgres, bundle]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -293,19 +335,23 @@ jobs:
           retention-days: 30
 
   publish-complete:
-    name: Verify public evidence and mark a qualified prerelease
+    name: Verify attestations, tag images and publish the immutable qualified prerelease
     needs: [preflight, qualify, metadata, publish-metadata]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
+      packages: write
     env:
       RELEASE_TAG: ${{ github.ref_name }}
       SOURCE_REVISION: ${{ needs.preflight.outputs.revision }}
+      ROMD_CRANE: .artifacts/release-tools/crane
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Install the checksum-pinned crane
+        run: python3 scripts/security/tools.py --tools crane --output .artifacts/release-tools
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-metadata-${{ github.sha }}
@@ -327,57 +373,42 @@ jobs:
             --expected-images release-inputs/release-files/images.env --publisher-state release-inputs/release-files/candidate.json \
             --expected-revision "$SOURCE_REVISION" --expected-tag "$RELEASE_TAG" \
             --nginx-image "$(jq -er .ingress scripts/deployment/base-images.json)" --evidence-dir packaged-evidence
-      - name: Assemble and verify anonymous offline attestations
+      - name: Verify the bundle and every image as an operator would, without credentials
         run: |
-          python3 scripts/release/attestation_files.py merge --root attestation-parts --output attestations.jsonl
-          python3 scripts/security/verify.py --metadata-dir release-inputs/security-metadata \
-            --bundle "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
-            --attestations attestations.jsonl --repository "$GITHUB_REPOSITORY" \
+          python3 scripts/release/attestation_files.py merge --root attestation-parts --output "romd-$RELEASE_TAG-attestations.jsonl"
+          python3 scripts/release/verify_release.py --repository "$GITHUB_REPOSITORY" \
             --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
-      - name: Attach evidence while the candidate remains unqualified
+            --bundle "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
+            --checksum "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz.sha256" \
+            --images release-inputs/release-files/images.env --attestations "romd-$RELEASE_TAG-attestations.jsonl"
+      # Images were pushed only under a staging tag (or, for a promotion, already
+      # exist). Version tags appear only now, on the exact qualified digests.
+      - name: Add the version tag to the qualified image digests
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tar -czf packaged-qualification.tar.gz -C packaged-evidence .
-          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-            release-inputs/security-metadata/*.json attestations.jsonl packaged-qualification.tar.gz
-      - name: Download and verify the actual public assets without credentials
-        run: |
-          python3 scripts/security/download_release.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
-            --metadata-dir release-inputs/security-metadata \
-            --bundle "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
-            --attestations attestations.jsonl --output public-download
-          python3 scripts/security/verify.py --metadata-dir public-download \
-            --bundle "public-download/romd-$RELEASE_TAG-deployment.tar.gz" \
-            --attestations public-download/attestations.jsonl --repository "$GITHUB_REPOSITORY" \
-            --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"
-      - name: Prove a tampered anonymously downloaded bundle is rejected
-        run: |
-          set -euo pipefail
-          mkdir -p .artifacts/tampered
-          bundle="romd-$RELEASE_TAG-deployment.tar.gz"
-          cp "public-download/$bundle" ".artifacts/tampered/$bundle"
-          printf 'tampered' >> ".artifacts/tampered/$bundle"
-          if python3 scripts/security/verify.py --metadata-dir public-download \
-              --bundle ".artifacts/tampered/$bundle" --attestations public-download/attestations.jsonl \
-              --repository "$GITHUB_REPOSITORY" --revision "$SOURCE_REVISION" --tag "$RELEASE_TAG" \
-              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"; then
-            echo 'Tampered bundle was incorrectly verified' >&2
-            exit 1
-          fi
-      - name: Retain sanitized public-download diagnostics even on failure
-        if: ${{ always() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: public-download-verification-${{ github.sha }}
-          path: public-download/download-result.json
-          if-no-files-found: error
-          retention-days: 30
-      - name: Mark the anonymously verified prerelease and retain the maintainer checkpoint
+          python3 scripts/release/tag_images.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --images release-inputs/release-files/images.env
+      - name: Attach the attestations while the release is still a draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          printf '%s\n' 'Qualified Linux amd64 prerelease: packaged browser/recovery, negative fault gates, SBOM/scanning and anonymous provenance verification passed. Production promotion still requires the final maintainer checkpoint. Native console binaries remain experimental.' > qualification-notes.txt
-          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --prerelease --notes-file qualification-notes.txt
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "romd-$RELEASE_TAG-attestations.jsonl"
+      # Publishing locks the tag and assets when release immutability is enabled.
+      - name: Publish the qualified prerelease once, with its final notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/release/release_notes.py --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION" --qualified \
+            --publisher-state release-inputs/release-files/candidate.json --output qualification-notes.txt
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease --notes-file qualification-notes.txt
+      - name: Confirm the published release is immutable and attests the verified bytes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/release/confirm_publication.py --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --asset "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz" \
+            --asset "release-inputs/release-files/romd-$RELEASE_TAG-deployment.tar.gz.sha256" \
+            --asset "romd-$RELEASE_TAG-attestations.jsonl" \
+            --source-name "$(basename "$(jq -er .sourceUrl native/chdman/mame.json)")"

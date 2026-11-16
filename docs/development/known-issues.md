@@ -1938,3 +1938,31 @@ generated checkout paths selected the same bucket, retain the failure evidence,
 and run the unchanged check in a fresh temporary workspace. Do not disable the
 guard, reuse another task's ports, or treat a startup/network failure as this
 collision. Hosted failures still require diagnosis before any retry.
+
+## CHD pool pressure watchdog overlaps unrelated media workloads
+
+Status: MITIGATED
+
+Command: `python3 scripts/validation/run.py --ci --id backend.media`
+
+Root cause: the pressure test's three-second demand-source watchdog also
+depends on process-wide ThreadPool scheduling while a speculative native
+callback deliberately blocks a worker. The [v0.1.0 release run](https://github.com/MoonlarkStudios/romd/actions/runs/43541978930)
+timed out at that watchdog; the demand read subsequently succeeded during
+cleanup. The precise hosted scheduling cause was not captured, and no concrete
+production admission defect was found. Unchanged isolated and full-media
+controls passed; those later passes do not establish that the watchdog issue
+was corrected.
+
+Change: `ChdReadPoolTests` uses an exclusive xUnit collection. Its real concurrent
+decodes, admission/resource limits, deadlines, assertions and cleanup remain
+unchanged. Matching coverage runs retained all 1,579 test/data rows; the 17 pool
+cases went from 138 overlaps with outside tests to zero. Timeout diagnostics
+now report demand-task status and process-wide ThreadPool counters without
+acquiring pool/cache locks or delaying cleanup. This proves collection isolation,
+not the original timeout's cause or immunity to host stalls.
+
+Agent guidance: retain failed CI evidence and inspect the new diagnostics if the
+watchdog fires again. Do not increase its deadline, remove the real concurrent
+reads or accept an unchanged retry as a fix. Validate corrected source with the
+focused CHD/cache tests, registered media check and fresh hosted CI.

@@ -1,0 +1,318 @@
+import hashlib
+import io
+import json
+from pathlib import Path
+import subprocess
+import tarfile
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import patch
+
+import promotion
+from test_crane import MemoryCrane
+from promotion import (COMPLETION_JOB, check_candidate_release, compare_bundles, image_repositories,
+                       qualified_candidate_run)
+
+ROOT = Path(__file__).resolve().parents[2]
+REPOSITORY = 'Owner/romd'
+REVISION = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+DIGEST = 'sha256:' + 'a' * 64
+SOURCE = json.loads((ROOT / 'native/chdman/mame.json').read_text())
+SOURCE_NAME = SOURCE['sourceUrl'].rsplit('/', 1)[1]
+
+
+def image_lines(owner='owner', digest=DIGEST):
+    services = {f'ROMD_{name.upper()}_IMAGE': f'ghcr.io/{owner}/romd-{name}@{digest}'
+                for name in ('admin', 'consumer', 'worker', 'player')}
+    services['ROMD_POSTGRES_IMAGE'] = 'postgres:18.7-bookworm@' + DIGEST
+    return ''.join(f'{key}={value}\n' for key, value in services.items())
+
+
+def release_run(run_id, **changes):
+    item = dict(id=run_id, head_sha=REVISION, head_branch='v1.2.3-rc.2', event='push', status='completed',
+                conclusion='success', path='.github/workflows/release.yml', repository=dict(full_name=REPOSITORY))
+    item.update(changes)
+    return item
+
+
+def candidate_release(**changes):
+    names = ['romd-v1.2.3-rc.2-deployment.tar.gz', 'romd-v1.2.3-rc.2-deployment.tar.gz.sha256',
+             'romd-v1.2.3-rc.2-attestations.jsonl', SOURCE_NAME]
+    item = dict(draft=False, immutable=True, prerelease=True, target_commitish=REVISION,
+                assets=[dict(name=name) for name in names])
+    item.update(changes)
+    return item
+
+
+def checksum(path):
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    Path(str(path) + '.sha256').write_text(f'{digest}  {path.name}\n')
+
+
+def repack(bundle, change):
+    """Rewrite a bundle with a consistent manifest/checksum after `change(directory)`."""
+    with tempfile.TemporaryDirectory() as temporary:
+        stage = Path(temporary)
+        with tarfile.open(bundle) as archive:
+            archive.extractall(stage, filter='data')
+        change(stage)
+        manifest = json.loads((stage / 'manifest.json').read_text())
+        manifest['files'] = {path.relative_to(stage).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+                             for path in sorted(stage.rglob('*')) if path.is_file() and path.name != 'manifest.json'}
+        (stage / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+        with tarfile.open(bundle, 'w:gz') as archive:
+            archive.add(stage, arcname='.')
+    checksum(bundle)
+
+
+class CandidateEvidenceTests(unittest.TestCase):
+    def test_completion_job_name_matches_the_release_workflow(self):
+        workflow = (promotion.ROOT / '.github/workflows/release.yml').read_text()
+        job = workflow.split('\n  publish-complete:\n', 1)[1]
+        self.assertEqual(f'    name: {COMPLETION_JOB}', job.splitlines()[0])
+
+    def jobs(self, conclusion='success'):
+        return dict(jobs=[dict(name='Downloaded Linux amd64 bundle and real-browser qualification', conclusion='success'),
+                          dict(name=COMPLETION_JOB, conclusion=conclusion)])
+
+    def test_only_a_completed_same_commit_candidate_release_run_qualifies(self):
+        calls = []
+        def get(path):
+            calls.append(path)
+            return self.jobs() if '/jobs?' in path else dict(workflow_runs=[release_run(1), release_run(2, conclusion='failure')])
+        self.assertEqual(1, qualified_candidate_run(REPOSITORY, 'v1.2.3-rc.2', REVISION, get))
+        self.assertIn('/actions/workflows/release.yml/runs?head_sha=' + REVISION, calls[0])
+        for impostor in (release_run(1, head_branch='v1.2.3-rc.1'), release_run(1, head_sha='b' * 40),
+                         release_run(1, event='workflow_dispatch'), release_run(1, status='in_progress'),
+                         release_run(1, conclusion='cancelled'), release_run(1, path='.github/workflows/ci.yml'),
+                         release_run(1, repository=dict(full_name='fork/romd'))):
+            with self.subTest(impostor=impostor), self.assertRaisesRegex(ValueError, 'no successful release workflow run'):
+                qualified_candidate_run(REPOSITORY, 'v1.2.3-rc.2', REVISION,
+                                        lambda path: self.jobs() if '/jobs?' in path else dict(workflow_runs=[impostor]))
+        for jobs in (self.jobs('failure'), self.jobs('skipped'), dict(jobs=[])):
+            with self.subTest(jobs=jobs), self.assertRaises(ValueError):
+                qualified_candidate_run(REPOSITORY, 'v1.2.3-rc.2', REVISION,
+                                        lambda path: jobs if '/jobs?' in path else dict(workflow_runs=[release_run(1)]))
+
+    def test_candidate_release_must_carry_exactly_the_qualified_public_assets(self):
+        check_candidate_release(candidate_release(), 'v1.2.3-rc.2', REVISION, SOURCE_NAME)
+        assets = candidate_release()['assets']
+        for state in (None, candidate_release(draft=True), candidate_release(target_commitish='main'),
+                      candidate_release(immutable=False), candidate_release(immutable=None),
+                      candidate_release(assets=assets[:-1]), candidate_release(assets=assets + [dict(name='images.env')]),
+                      candidate_release(assets=[dict(name=item['name'].replace('rc.2', 'rc.1')) for item in assets])):
+            with self.subTest(state=state), self.assertRaises(ValueError):
+                check_candidate_release(state, 'v1.2.3-rc.2', REVISION, SOURCE_NAME)
+
+    def test_candidate_images_must_be_this_repositorys_published_roles(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'images.env'
+            path.write_text(image_lines())
+            images = promotion.image_map(path)
+        self.assertEqual(('owner/romd-admin', DIGEST), image_repositories(images, 'owner')['admin'])
+        for changed in (dict(images, ROMD_ADMIN_IMAGE='ghcr.io/other/romd-admin@' + DIGEST),
+                        dict(images, ROMD_ADMIN_IMAGE='ghcr.io/owner/romd-worker@' + DIGEST),
+                        dict(images, ROMD_ADMIN_IMAGE='docker.io/owner/romd-admin@' + DIGEST)):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                image_repositories(changed, 'owner')
+
+
+class CandidateVerificationTests(unittest.TestCase):
+    def test_candidate_is_verified_as_its_own_immutable_release_and_tag(self):
+        commands = []
+        args = SimpleNamespace(repository=REPOSITORY, candidate='v1.2.3-rc.2', revision=REVISION)
+        def run(command, capture=False):
+            command = [str(part) for part in command]
+            commands.append(command)
+            if command[:3] == ['gh', 'release', 'download']:
+                directory = Path(command[command.index('--dir') + 1])
+                directory.mkdir()
+                images = directory.parent / 'source-images.env'
+                images.write_text(image_lines())
+                subprocess.run([ROOT / 'scripts/deployment/bundle.sh', images,
+                                directory / 'romd-v1.2.3-rc.2-deployment.tar.gz', REVISION, 'v1.2.3-rc.2'],
+                               cwd=ROOT, check=True, capture_output=True)
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch('promotion.qualified_candidate_run', return_value=9) as run_lookup, \
+                patch('promotion.release_metadata', return_value=candidate_release()), \
+                patch('promotion.verify_release') as verify, patch('promotion.run', side_effect=run):
+            work = Path(temporary)
+            run_id, bundle, images = promotion.verify_candidate(args, SOURCE_NAME, work)
+            self.assertEqual(image_lines(), images.read_text())
+        run_lookup.assert_called_once_with(REPOSITORY, 'v1.2.3-rc.2', REVISION)
+        self.assertEqual((9, 'romd-v1.2.3-rc.2-deployment.tar.gz'), (run_id, bundle.name))
+        download, verify_asset = commands
+        self.assertEqual(['gh', 'release', 'download', 'v1.2.3-rc.2'], download[:4])
+        self.assertIn('romd-v1.2.3-rc.2-attestations.jsonl', download)
+        self.assertEqual(['gh', 'release', 'verify-asset', 'v1.2.3-rc.2'], verify_asset[:4])
+        call = verify.call_args.args
+        self.assertEqual('romd-v1.2.3-rc.2-attestations.jsonl', call[3].name)
+        self.assertEqual((REPOSITORY, REVISION, 'v1.2.3-rc.2', REPOSITORY + '/.github/workflows/release.yml'), call[4:])
+
+    def test_unqualified_candidate_is_rejected_before_any_download(self):
+        args = SimpleNamespace(repository=REPOSITORY, candidate='v1.2.3-rc.2', revision=REVISION)
+        with patch('promotion.qualified_candidate_run', side_effect=ValueError('no successful run')), \
+                patch('promotion.run') as run, self.assertRaises(ValueError):
+            promotion.verify_candidate(args, SOURCE_NAME, Path('unused'))
+        run.assert_not_called()
+
+    def test_bundle_must_carry_exactly_one_small_image_map(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary)
+            for members in ({}, {'README.md': b'x'}, {'images.env': b'x' * 5000}):
+                bundle = work / 'bundle.tar.gz'
+                with tarfile.open(bundle, 'w:gz') as archive:
+                    for name, data in members.items():
+                        info = tarfile.TarInfo(name)
+                        info.size = len(data)
+                        archive.addfile(info, io.BytesIO(data))
+                with self.subTest(members=list(members)), self.assertRaises(ValueError):
+                    promotion.bundle_images(bundle, work / 'images.env')
+
+
+class BundleEquivalenceTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.work = Path(temporary.name)
+        self.images = self.work / 'images.env'
+        self.images.write_text(image_lines())
+        self.candidate = self.work / 'romd-v1.2.3-rc.2-deployment.tar.gz'
+        self.promoted = self.work / 'romd-v1.2.3-deployment.tar.gz'
+        for bundle, tag in ((self.candidate, 'v1.2.3-rc.2'), (self.promoted, 'v1.2.3')):
+            subprocess.run([ROOT / 'scripts/deployment/bundle.sh', self.images, bundle, REVISION, tag],
+                           cwd=ROOT, check=True, capture_output=True)
+
+    def compare(self, name):
+        compare_bundles(self.candidate, self.promoted, self.images, REVISION, 'v1.2.3-rc.2', 'v1.2.3', self.work / name)
+
+    def test_rebuilt_bundle_from_the_same_commit_differs_only_in_its_release_tag(self):
+        (self.work / 'ok').mkdir()
+        self.compare('ok')
+
+    def test_any_installed_file_mode_or_manifest_change_is_refused(self):
+        def edit_readme(stage):
+            (stage / 'README.md').write_text((stage / 'README.md').read_text() + '\nchanged\n')
+        def add_file(stage):
+            (stage / 'extra.sh').write_text('true\n')
+        def mode(stage):
+            (stage / 'scripts/deployment/compose.sh').chmod(0o644)
+        def manifest(stage):
+            data = json.loads((stage / 'manifest.json').read_text())
+            (stage / 'manifest.json').write_text(json.dumps(dict(data, platform='linux/amd64', extra=True)))
+        for index, change in enumerate((edit_readme, add_file, mode, manifest)):
+            with self.subTest(change=change.__name__):
+                original = self.promoted.read_bytes()
+                repack(self.promoted, change)
+                (self.work / str(index)).mkdir()
+                with self.assertRaises(ValueError):
+                    self.compare(str(index))
+                self.promoted.write_bytes(original)
+                checksum(self.promoted)
+
+    def test_bundle_for_other_images_or_tag_is_refused(self):
+        other = self.work / 'other.env'
+        other.write_text(image_lines(digest='sha256:' + 'b' * 64))
+        subprocess.run([ROOT / 'scripts/deployment/bundle.sh', other, self.promoted, REVISION, 'v1.2.3'],
+                       cwd=ROOT, check=True, capture_output=True)
+        (self.work / 'images').mkdir()
+        with self.assertRaises(ValueError):
+            self.compare('images')
+        subprocess.run([ROOT / 'scripts/deployment/bundle.sh', self.images, self.promoted, REVISION, 'v1.2.4'],
+                       cwd=ROOT, check=True, capture_output=True)
+        (self.work / 'tag').mkdir()
+        with self.assertRaises(ValueError):
+            self.compare('tag')
+
+
+class PromotionOrderTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.work = Path(temporary.name)
+        self.source = self.work / SOURCE_NAME
+        self.source.write_bytes(b'')
+        images = self.work / 'publisher.env'
+        images.write_text(image_lines('owner', DIGEST))
+        self.bundle = self.work / 'candidate/romd-v1.2.3-rc.2-deployment.tar.gz'
+        self.bundle.parent.mkdir()
+        subprocess.run([ROOT / 'scripts/deployment/bundle.sh', images, self.bundle, REVISION, 'v1.2.3-rc.2'],
+                       cwd=ROOT, check=True, capture_output=True)
+        self.publisher_images = images
+
+    def promote(self, crane, metadata=None, **changes):
+        commands = self.commands = []
+        def run(command, capture=False):
+            command = [str(part) for part in command]
+            commands.append(command)
+            if command[0].endswith('bundle.sh'):
+                subprocess.run(command, cwd=ROOT, check=True, capture_output=True)
+        args = SimpleNamespace(repository=REPOSITORY, tag='v1.2.3', revision=REVISION, candidate='v1.2.3-rc.2',
+                               source_archive=self.source, output=self.work / 'output')
+        vars(args).update(changes)
+        args.output.mkdir(exist_ok=True)
+        with patch('promotion.run', run), patch('promotion.check_source_archive'), \
+                patch('promotion.verify_candidate', return_value=(77, self.bundle, self.publisher_images)), \
+                patch('promotion.release_metadata', return_value=metadata), \
+                patch('promotion.Crane', return_value=crane):
+            promotion.promote(args)
+        return args, commands
+
+    def registries(self, **tags):
+        return MemoryCrane({(f'owner/romd-{service}', 'v1.2.3'): digest for service, digest in tags.items()})
+
+    def test_promotion_makes_no_registry_writes_and_leaves_a_draft_for_qualification(self):
+        crane = self.registries()
+        args, commands = self.promote(crane)
+        writes = [command[1:3] for command in commands if command[0] == 'gh']
+        self.assertEqual([['release', 'create'], ['release', 'upload'], ['release', 'upload']], writes)
+        create = next(command for command in commands if command[1:3] == ['release', 'create'])
+        self.assertIn('--prerelease', create)
+        self.assertIn('--draft', create)
+        self.assertEqual(REVISION, create[create.index('--target') + 1])
+        self.assertIn('Promoted without rebuilding from', (args.output / 'candidate-notes.txt').read_text())
+        # Completion adds version tags only after every gate passes.
+        self.assertEqual([], crane.writes)
+        self.assertEqual({f'ghcr.io/owner/romd-{service}:v1.2.3' for service in ('admin', 'consumer', 'worker', 'player')},
+                         set(crane.reads))
+        state = json.loads((args.output / 'candidate.json').read_text())
+        self.assertEqual(('v1.2.3', 'v1.2.3-rc.2', 'draft-unqualified'),
+                         (state['releaseTag'], state['promotedFrom'], state['result']))
+        self.assertEqual((args.output / 'images.env').read_text(), self.publisher_images.read_text())
+        self.assertEqual(hashlib.sha256((args.output / 'romd-v1.2.3-deployment.tar.gz').read_bytes()).hexdigest(),
+                         state['bundleSha256'])
+
+    def test_existing_tag_for_another_digest_blocks_every_public_write(self):
+        crane = self.registries(worker='sha256:' + 'e' * 64)
+        with self.assertRaisesRegex(ValueError, 'different digest'):
+            self.promote(crane)
+        self.assertFalse(any(command[0] == 'gh' for command in self.commands))
+        self.assertEqual([], crane.writes)
+
+    def test_same_digest_tag_from_an_interrupted_attempt_is_reused(self):
+        crane = self.registries(admin=DIGEST)
+        _, commands = self.promote(crane, metadata=dict(draft=True, prerelease=True, target_commitish=REVISION, assets=[]))
+        self.assertFalse(any(command[1:3] == ['release', 'create'] for command in commands))
+
+    def test_exposed_or_partially_uploaded_release_blocks_promotion(self):
+        for metadata in (dict(draft=False, prerelease=True, target_commitish=REVISION, assets=[]),
+                         dict(draft=True, prerelease=True, target_commitish=REVISION, assets=[dict(name=SOURCE_NAME)])):
+            with self.subTest(metadata=metadata):
+                with self.assertRaises(ValueError):
+                    self.promote(self.registries(), metadata=metadata)
+                self.assertFalse(any(command[0] == 'gh' for command in self.commands))
+
+    def test_source_archive_must_match_the_reviewed_gpl_pin(self):
+        with self.assertRaisesRegex(ValueError, 'reviewed source pin'):
+            promotion.check_source_archive(self.source)
+
+    def test_only_stable_tags_promote_same_version_rc_candidates(self):
+        for changes in (dict(tag='v1.2.3-rc.3'), dict(candidate='v1.2.4-rc.1'), dict(candidate='v1.2.3-beta.1'),
+                        dict(candidate='v1.2.3'), dict(revision='main'), dict(repository='owner/romd;x')):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.promote(self.registries(), **changes)
+
+
+if __name__ == '__main__':
+    unittest.main()

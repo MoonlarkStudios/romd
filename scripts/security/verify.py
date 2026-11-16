@@ -1,16 +1,16 @@
-#!/usr/bin/env python3
-"""Verify public release metadata and offline GitHub attestation bundles without credentials."""
-import argparse
+"""Verify generated security metadata files and bind them to a deployment bundle.
+
+Used for pre-publication rehearsal evidence and to select attestation subjects.
+Published releases are verified with `gh attestation verify`
+(scripts/release/verify_release.py).
+"""
 import json
-import os
 from pathlib import Path
 import re
-import subprocess
 import tempfile
 
 from metadata import assert_coverage, assert_fresh_database, assert_scanner_coverage, sha256
 from qualify import verify_bundle
-from credentials import anonymous_environment
 
 
 def verify_files(directory, bundle, revision, tag, *, rehearsal=False):
@@ -54,12 +54,12 @@ def verify_files(directory, bundle, revision, tag, *, rehearsal=False):
                     assert_scanner_coverage(json.loads((directory / name).read_text()), role, mode)
             if subject.get('policy') not in files:
                 raise ValueError('Rehearsal security policy evidence is missing')
-            evaluations = json.loads((directory / subject['policy']).read_text())
-            evaluations = evaluations if isinstance(evaluations, list) else [evaluations]
-            expected = 'reported' if subject.get('role') == 'postgres' else 'passed'
-            if (len(evaluations) != (2 if subject['kind'] == 'image' else 1)
-                    or any(item.get('result') != expected or any(f.get('blocked') for f in item.get('findings', []))
-                           for item in evaluations)):
+            if role in ('admin', 'worker') and (subject.get('vex') != f'{role}.vex.json' or subject['vex'] not in files):
+                raise ValueError('Rehearsal catalog reader VEX evidence is missing')
+            records = json.loads((directory / subject['policy']).read_text())
+            expected = 'reported' if role == 'postgres' else 'passed'
+            if (not isinstance(records, list) or [item.get('scan') for item in records] != subject['scans']
+                    or any(item.get('result') != expected for item in records)):
                 raise ValueError('Rehearsal security policy did not pass all image/SBOM/bundle gates')
     if rehearsal:
         commands = index.get('commands')
@@ -81,63 +81,3 @@ def verify_files(directory, bundle, revision, tag, *, rehearsal=False):
         checksum.write_text(f'{bundles[0]["sha256"]}  {bundle.name}\n')
         verify_bundle(bundle, checksum, expected_images, work / 'extracted', revision, tag)
     return index
-
-
-def matching_predicate(verified, expected):
-    return any(result.get('verificationResult', {}).get('statement', {}).get('predicate') == expected for result in verified)
-
-
-def verify_attestations(directory, bundle, index, args):
-    with tempfile.TemporaryDirectory(prefix='romd-public-attestation-') as temporary:
-        # Explicitly discard local registry/GitHub credentials. Public access is
-        # a release requirement, and offline bundles avoid authenticated API use.
-        environment = anonymous_environment(Path(temporary))
-        common = ['--repo', args.repository, '--source-digest', args.revision,
-                  '--source-ref', 'refs/tags/' + args.tag, '--signer-workflow', args.signer_workflow,
-                  '--deny-self-hosted-runners', '--format', 'json']
-
-        def verify(subject, predicate):
-            command = ['gh', 'attestation', 'verify', str(subject), *common, '--bundle', args.attestations,
-                       '--predicate-type', predicate]
-            result = subprocess.run(command, env=environment, cwd=temporary, capture_output=True, check=True, text=True)
-            verified = json.loads(result.stdout)
-            if not isinstance(verified, list) or not verified:
-                raise ValueError('No verified attestation returned')
-            return verified
-
-        provenance = 'https://slsa.dev/provenance/v1'
-        verify(directory / 'release-metadata.json', provenance)
-        verify(bundle, provenance)
-        for subject in index['subjects']:
-            artifact = 'oci://' + subject['name'] if subject['kind'] == 'image' else str(bundle)
-            if subject['kind'] == 'image':
-                verify(artifact, provenance)
-            verified = verify(artifact, 'https://cyclonedx.org/bom')
-            expected = json.loads((directory / subject['sbom']).read_text())
-            if not matching_predicate(verified, expected):
-                raise ValueError('Verified SBOM predicate differs from the downloaded SBOM')
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--metadata-dir', type=Path, required=True)
-    parser.add_argument('--bundle', type=Path, required=True)
-    parser.add_argument('--attestations', type=Path, required=True, help='Downloaded JSONL containing all provenance and SBOM attestation bundles')
-    parser.add_argument('--repository', required=True)
-    parser.add_argument('--revision', required=True)
-    parser.add_argument('--tag', required=True)
-    parser.add_argument('--signer-workflow', required=True, help='owner/repo/.github/workflows/release.yml')
-    args = parser.parse_args()
-    if (not re.fullmatch('[0-9a-f]{40}', args.revision) or not re.fullmatch('[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', args.repository)
-            or not re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?', args.tag)):
-        parser.error('Expected repository identity and full source commit')
-    args.metadata_dir = args.metadata_dir.resolve()
-    args.bundle = args.bundle.resolve()
-    args.attestations = args.attestations.resolve()
-    index = verify_files(args.metadata_dir, args.bundle, args.revision, args.tag)
-    verify_attestations(args.metadata_dir, args.bundle, index, args)
-    print('Verified bundle, all image digests, SBOM predicates, metadata checksums and release provenance')
-
-
-if __name__ == '__main__':
-    main()
