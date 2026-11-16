@@ -18,6 +18,8 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 SERVICES = frozenset(('postgres', 'romd-worker', 'romd-admin', 'romd-consumer', 'romd-player', 'ingress'))
 HOSTS = frozenset(('romd-worker', 'romd-admin', 'romd-consumer'))
+# Runs to completion on every start: it may start again and exit with status 0 unrequested.
+ONE_SHOT = frozenset(('romd-init',))
 PROJECT_LABEL = 'com.docker.compose.project'
 SESSION_LABEL = 'io.romd.lifecycle-session'
 ID = re.compile('[0-9a-f]{64}')
@@ -104,7 +106,7 @@ class Ledger:
             return
         probe = attributes.get(SESSION_LABEL) == self.session
         service = 'probe' if probe else attributes.get('com.docker.compose.service')
-        if not isinstance(service, str) or service not in SERVICES and not probe:
+        if not isinstance(service, str) or service not in SERVICES | ONE_SHOT and not probe:
             self.fail('unexpected-project-service')
             return
         if len(self.events) >= MAX_EVENTS or len(self.containers) >= 256 and identifier not in self.containers:
@@ -130,7 +132,7 @@ class Ledger:
         elif action == 'start':
             if probe:
                 self.fail('probe-started')
-            if state['running'] or state['starts'] and not state['stopped']:
+            if state['running'] or state['starts'] and not state['stopped'] and service not in ONE_SHOT:
                 self.fail('unexpected-restart')
             state.update(running=True, starts=state['starts'] + 1, stopped=False)
         elif action == 'die':
@@ -143,7 +145,7 @@ class Ledger:
                 record['exitCode'] = int(code)
                 if int(code) != 0:
                     self.fail('nonzero-container-exit')
-            if service not in self.allowed_stops and not state['stopped']:
+            if service not in self.allowed_stops | ONE_SHOT and not state['stopped']:
                 self.fail('unrequested-container-exit')
             state.update(running=False, deaths=state['deaths'] + 1)
         elif action == 'stop':
@@ -156,7 +158,7 @@ class Ledger:
             state['stopped'] = True
         elif action == 'destroy':
             if (state['running'] or state['starts'] != state['deaths']
-                    or not probe and state['starts'] and not state['stopped']):
+                    or not probe and state['starts'] and not state['stopped'] and service not in ONE_SHOT):
                 self.fail('destroy-with-incomplete-lifecycle')
             state['destroyed'] = True
         elif action == 'oom':
@@ -280,7 +282,7 @@ class ContainerLifecycle:
                 or probe and data.get(SESSION_LABEL) != self.session
                 or not probe and data.get(SESSION_LABEL) != self.session
                     and (not isinstance(data.get('com.docker.compose.service'), str)
-                         or data.get('com.docker.compose.service') not in SERVICES)):
+                         or data.get('com.docker.compose.service') not in SERVICES | ONE_SHOT)):
             raise LifecycleError('resource-ownership-mismatch')
 
     def verify_resources(self, project):
@@ -415,7 +417,7 @@ class ContainerLifecycle:
                     ledger.fail('container-not-destroyed')
                 real = [state for state in ledger.containers.values() if not state['probe']]
                 if ledger.role == 'source' or require_restore or real:
-                    if {state['service'] for state in real if state['starts']} != SERVICES:
+                    if {state['service'] for state in real if state['starts']} - ONE_SHOT != SERVICES:
                         ledger.fail('required-service-coverage-missing')
                 if ledger.reader_done or ledger.process is not None and ledger.process.poll() is not None:
                     ledger.fail('collector-exited-before-final-drain')

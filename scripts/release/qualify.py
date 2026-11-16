@@ -159,10 +159,6 @@ def clean_environment():
 
 def deployment_environment(work, bundle, nginx_image):
     env = clean_environment()
-    for role in ('BOOTSTRAP', 'PROVISIONER', 'WORKER', 'ADMIN', 'CONSUMER'):
-        env[f'ROMD_POSTGRES_{role}_PASSWORD'] = secrets.token_hex(32)
-    for key in ('ROMD_JWT_SECRET', 'ROMD_CONSUMER_DELIVERY_SIGNING_SECRET'):
-        env[key] = secrets.token_hex(32)
     env.update(ROMD_DEFAULT_ADMIN_EMAIL='browser-qualification@example.test',
                ROMD_DEFAULT_ADMIN_PASSWORD='Q-' + secrets.token_hex(20) + '!aA9',
                ROMD_ADMIN_HOST='admin.example.test', ROMD_CONSUMER_HOST='console.example.test',
