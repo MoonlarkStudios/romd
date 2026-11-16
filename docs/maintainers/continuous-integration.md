@@ -105,6 +105,22 @@ and source deployment drill, and the deployment, ingress and CHD harness
 contract tests, run on every pull request. Extend the path lists only with
 regression tests.
 
+## Native build for backend tests
+
+The backend, infrastructure and integration jobs need the linux-x64 libchdr
+build, chdman and CHD fixtures. The `native-artifact` job supplies them so
+those jobs do not wait for native verification. It keys the packaged build by
+every tracked input: the `Dockerfile`, `.dockerignore`, central package
+versions, `global.json`, `build/Moonlark.Native.props`, `native/` (including
+the libchdr submodule commit), the native engineering tool and the native and
+container scripts. A pull request restores the build `main` saved for an
+identical key; a miss builds and saves it. Main pushes never restore, so the
+runs a release depends on always build from source.
+
+The `native` job is independent: on every run it builds from source, checks
+binding drift and runs the registered native tests. Add any new build input to
+the key in the same change that introduces it.
+
 ## Build web assets once
 
 The web job installs the frozen workspace, runs lint/tests/build/OpenAPI drift,

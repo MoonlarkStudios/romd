@@ -288,7 +288,8 @@ def early_errors(text, name):
         if not any(step.get('id') == 'scope' and step.get('run') == 'python3 scripts/ci/change_scope.py'
                    for step in source.get('steps', [])):
             errors.append('ci.yml/source-checks: drill outputs must come from the tested scope selector')
-        for job_name in ('console', 'native', 'backend', 'infrastructure', 'integration', 'web', 'production-compose'):
+        for job_name in ('console', 'native', 'native-artifact', 'backend', 'infrastructure', 'integration', 'web',
+                         'production-compose'):
             needs = jobs[job_name].get('needs', [])
             if 'source-checks' not in ([needs] if isinstance(needs, str) else needs):
                 errors.append(f'ci.yml/{job_name}: expensive work must wait for early checks')

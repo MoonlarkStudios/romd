@@ -155,7 +155,7 @@ jobs:
 
   backend:
     name: Backend deterministic tests
-    needs: [source-checks, native]
+    needs: [source-checks, native-artifact]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -207,7 +207,7 @@ jobs:
 
   infrastructure:
     name: Backend infrastructure tests (${{ matrix.part }})
-    needs: [source-checks, native]
+    needs: [source-checks, native-artifact]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # The suite is split by namespace; the two filters are exact complements.
@@ -266,6 +266,90 @@ jobs:
           if-no-files-found: ignore
           retention-days: 5
 
+  # Supplies the backend jobs' native inputs without making them wait for native verification.
+  # A pull request reuses the build main saved for identical inputs; main always builds, and
+  # the native job below builds and verifies independently on every run.
+  native-artifact:
+    needs: source-checks
+    name: Native linux-x64 build for backend tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+          # The drift check describes the libchdr submodule from its tags, as in the native job.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Key the native build by every tracked input
+        id: key
+        run: |
+          inputs="$(git ls-files -s -- Dockerfile .dockerignore Directory.Packages.props global.json build/Moonlark.Native.props native tools/Moonlark.Native.Engineering scripts/native scripts/containers)"
+          test -n "$inputs"
+          echo "key=native-linux-x64-$(printf '%s' "$inputs" | sha256sum | cut -c1-32)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the native build
+        id: native
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native-linux-x64.tar.gz
+          key: ${{ steps.key.outputs.key }}
+
+      - name: Setup .NET
+        if: ${{ steps.native.outputs.cache-hit != 'true' }}
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Key the chdman build by MAME tarball SHA-256, recipe version, recipe sources and RID
+        if: ${{ steps.native.outputs.cache-hit != 'true' }}
+        id: chdman
+        run: |
+          sha="$(jq -er .sourceSha256 native/chdman/mame.json)"
+          recipe="$(sed -n 's/.*internal const int RecipeVersion = \([0-9][0-9]*\);.*/\1/p' tools/Moonlark.Native.Engineering/Chdman/ChdmanBuild.cs)"
+          test -n "$recipe"
+          sources="$(find tools/Moonlark.Native.Engineering/Chdman -name '*.cs' | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -c1-16)"
+          echo "key=chdman-linux-x64-$sha-r$recipe-$sources" >> "$GITHUB_OUTPUT"
+
+      - name: Restore chdman
+        if: ${{ steps.native.outputs.cache-hit != 'true' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: artifacts/tools/chdman/linux-x64
+          key: ${{ steps.chdman.outputs.key }}
+
+      - name: Build native code and fixtures
+        if: ${{ steps.native.outputs.cache-hit != 'true' }}
+        run: scripts/native/build.sh test-inputs
+
+      - name: Package the native linux-x64 build for the backend jobs
+        if: ${{ steps.native.outputs.cache-hit != 'true' }}
+        run: >-
+          tar -czf native-linux-x64.tar.gz
+          artifacts/native/libchdr/linux-x64/build-manifest.json artifacts/native/libchdr/linux-x64/native
+          artifacts/tools/chdman/linux-x64/build-manifest.json artifacts/tools/chdman/linux-x64/native
+          artifacts/fixtures/libchdr-final
+
+      - name: Save the native build
+        if: ${{ steps.native.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native-linux-x64.tar.gz
+          key: ${{ steps.key.outputs.key }}
+
+      - name: Upload the native linux-x64 build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-linux-x64-${{ github.run_id }}
+          path: native-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+          # Partial reruns reuse this run's upload; a full rerun replaces it.
+          overwrite: true
+
   native:
     needs: source-checks
     name: Native libchdr wrapper and tools
@@ -318,29 +402,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 5
 
-      - name: Package the native linux-x64 build for the backend jobs
-        run: >-
-          tar -czf native-linux-x64.tar.gz
-          artifacts/native/libchdr/linux-x64/build-manifest.json artifacts/native/libchdr/linux-x64/native
-          artifacts/tools/chdman/linux-x64/build-manifest.json artifacts/tools/chdman/linux-x64/native
-          artifacts/fixtures/libchdr-final
-
-      - name: Upload the native linux-x64 build
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: native-linux-x64-${{ github.run_id }}
-          path: native-linux-x64.tar.gz
-          if-no-files-found: error
-          retention-days: 1
-          # Partial reruns reuse this run's upload; a full rerun replaces it.
-          overwrite: true
-
       - name: Run registered native tests
         run: python3 scripts/validation/run.py --ci --job native --evidence-parent coverage/native
 
   integration:
     name: Backend integration tests (${{ matrix.part }})
-    needs: [source-checks, native]
+    needs: [source-checks, native-artifact]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # The serial suite is split by namespace; the two filters are exact complements.
@@ -548,7 +615,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: ${{ always() }}
-    needs: [source-checks, agent-infrastructure, console, native, backend, infrastructure, integration, web, production-compose]
+    needs: [source-checks, agent-infrastructure, console, native, native-artifact, backend, infrastructure, integration, web, production-compose]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
