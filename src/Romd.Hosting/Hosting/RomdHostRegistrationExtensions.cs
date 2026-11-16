@@ -180,6 +180,7 @@ public static class RomdHostRegistrationExtensions
         string audience,
         string? issuer,
         IReadOnlyCollection<string> allowedClientIds,
+        string cookiePrefix,
         bool enableDeviceFlow = false,
         IConfiguration? configuration = null)
     {
@@ -191,7 +192,8 @@ public static class RomdHostRegistrationExtensions
         services.AddSingleton<AuthenticationAttemptLimiter>();
         services.AddAntiforgery(options =>
         {
-            options.Cookie.Name = "romd_csrf";
+            // Cookies ignore ports, so surfaces that share one hostname need distinct names.
+            options.Cookie.Name = $"{cookiePrefix}_csrf";
             options.Cookie.HttpOnly = true;
             options.Cookie.SameSite = SameSiteMode.Strict;
             options.Cookie.SecurePolicy = environment.IsProduction()
@@ -219,7 +221,7 @@ public static class RomdHostRegistrationExtensions
             })
             .AddCookie(InteractiveLoginScheme, options =>
             {
-                options.Cookie.Name = "romd_login";
+                options.Cookie.Name = $"{cookiePrefix}_login";
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
                 options.Cookie.SecurePolicy = environment.IsProduction()
@@ -390,6 +392,7 @@ public static class RomdHostRegistrationExtensions
             options.JwtAudience ?? RomdHostSurfaceOptions.DefaultAdminAudience,
             options.PublicUrl,
             allowedClientIds: [RomdOpenIddictClients.AdminSpa],
+            cookiePrefix: "romd_admin",
             configuration: configuration);
     }
 
@@ -411,6 +414,7 @@ public static class RomdHostRegistrationExtensions
             options.JwtAudience ?? RomdHostSurfaceOptions.DefaultConsumerAudience,
             options.PublicUrl,
             allowedClientIds: [RomdOpenIddictClients.ConsumerSpa, RomdOpenIddictClients.Console, RomdOpenIddictClients.Mount],
+            cookiePrefix: "romd_consumer",
             enableDeviceFlow: true,
             configuration: configuration);
     }

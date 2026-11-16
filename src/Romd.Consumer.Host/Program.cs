@@ -18,6 +18,8 @@ try
     Log.Information("Starting ROMD consumer host");
 
     var builder = WebApplication.CreateBuilder(args);
+    builder.Configuration.AddRomdSecretFiles(
+        Environment.GetEnvironmentVariable(RomdSecretFilesExtensions.DirectoryVariable));
 
     await ConsumerHostTestStartupGate.WaitIfRequestedAsync(builder.Environment);
 
