@@ -203,7 +203,9 @@ environment-variable equivalents, is in [`configuration.md`](../self-hosting/con
 
 - `Romd__DataDirectory`: shared durable data directory used by all hosts.
 - `Romd__JwtSecret`: production secret with at least 32 characters; also derives
-  OpenIddict token encryption key material. The worker creates the OpenIddict signing key
+  OpenIddict token encryption key material. Production Compose does not pass it or
+  `Romd__ConsumerDelivery__SigningSecret` through the environment: `romd-init` generates both
+  under `Romd__DataDirectory` (`secrets/`) and every host reads them through `ROMD_SECRETS_DIRECTORY`. The worker creates the OpenIddict signing key
   under `Romd__DataDirectory` (`keys/openiddict-signing.pem`); keep that directory durable
   so tokens survive host restarts.
 - `Romd__DefaultAdminEmail` and `Romd__DefaultAdminPassword`: worker-only first-account bootstrap credentials; removable after initialization.

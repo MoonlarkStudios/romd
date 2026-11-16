@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Create a new installation's .env: ask for the few choices a person must make
-and generate every secret.
+"""Create a new installation's .env: ask for the few choices a person must make.
+ROMD generates its own database passwords and signing secrets on first start.
 
 Run from an extracted release with `scripts/deployment/setup.sh`. It never
 overwrites an existing env file and never prints a secret. Answers can also be
@@ -15,7 +15,6 @@ import json
 import os
 from pathlib import Path
 import re
-import secrets
 import shutil
 import subprocess
 import sys
@@ -31,7 +30,6 @@ INGRESS = {
 LIBRARY_OVERLAY = 'deploy/examples/library/compose.yaml'
 HOSTNAME = re.compile(r'(?=.{1,253}$)(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+')
 EMAIL = re.compile(r'[^@\s]+@[^@\s]+\.[^@\s]+')
-DATABASE_ROLES = ('BOOTSTRAP', 'PROVISIONER', 'WORKER', 'ADMIN', 'CONSUMER')
 # Tried in order; the first /24 that no existing Docker network overlaps is used.
 EDGE_SUBNETS = tuple(f'172.{second}.0.0/24' for second in range(28, 32)) + tuple(
     f'10.254.{third}.0/24' for third in range(0, 8))
@@ -39,11 +37,6 @@ EDGE_SUBNETS = tuple(f'172.{second}.0.0/24' for second in range(28, 32)) + tuple
 
 class SetupError(Exception):
     pass
-
-
-def secret():
-    # Hex keeps every secret safe inside connection strings and env files.
-    return secrets.token_hex(32)
 
 
 def password_problem(value):
@@ -254,10 +247,6 @@ def collect(args, prompt, existing_subnets):
 
     values['COMPOSE_PROJECT_NAME'] = args.project
     values['COMPOSE_FILE'] = ':'.join(overlays)
-    values['ROMD_JWT_SECRET'] = secret()
-    values['ROMD_CONSUMER_DELIVERY_SIGNING_SECRET'] = secret()
-    for role in DATABASE_ROLES:
-        values[f'ROMD_POSTGRES_{role}_PASSWORD'] = secret()
     return ingress, values
 
 

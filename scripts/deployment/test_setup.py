@@ -98,16 +98,14 @@ class SetupTests(unittest.TestCase):
         self.assertEqual('romd', values['COMPOSE_PROJECT_NAME'])
         self.assertEqual('compose.yaml:deploy/examples/cloudflare/compose.yaml:deploy/examples/library/compose.yaml',
                          values['COMPOSE_FILE'])
-        generated = [values[key] for key in ('ROMD_JWT_SECRET', 'ROMD_CONSUMER_DELIVERY_SIGNING_SECRET',
-                                             *(f'ROMD_POSTGRES_{role}_PASSWORD' for role in setup.DATABASE_ROLES))]
-        self.assertTrue(all(re.fullmatch('[0-9a-f]{64}', value) for value in generated))
-        self.assertEqual(len(generated), len(set(generated)))
+        # ROMD generates its own database passwords and signing secrets on first start.
+        self.assertFalse([key for key in values if key.endswith(('_SECRET', '_PASSWORD')) and key != 'ROMD_DEFAULT_ADMIN_PASSWORD'])
         config = self.assert_valid_stack(values)
         self.assertEqual('/library', config['services']['romd-worker']['environment']['Romd__AllowedImportPaths__0'])
         mount = next(volume for volume in config['services']['romd-admin']['volumes'] if volume['target'] == '/library')
         self.assertEqual((str(self.library), True), (mount['source'], mount['read_only']))
         # No secret reaches the terminal.
-        for value in [*generated, PASSWORD, TOKEN]:
+        for value in [PASSWORD, TOKEN]:
             self.assertNotIn(value, session.text())
         self.assertIn('http://ingress:80', session.text())
 

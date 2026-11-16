@@ -959,6 +959,13 @@ class OverlayTests(TemporaryTree):
                                  client_image='romd-admin:t', ingress_templates=self.base / 'templates',
                                  fixtures=fixtures, mock=mock, **options)
 
+    def test_init_writes_secrets_into_the_data_folder_the_hosts_mount(self):
+        services = self.overlay()['services']
+        data = {'type': 'bind', 'source': str(self.base / 'data'), 'read_only': False}
+        self.assertEqual([dict(data, target='/init/data')], services['romd-init']['volumes'])
+        for name in ('romd-admin', 'romd-consumer', 'romd-worker'):
+            self.assertIn(dict(data, target='/var/lib/romd'), services[name]['volumes'])
+
     def test_ingress_streams_downloads_through_a_generated_template(self):
         self.assertEqual([{'type': 'bind', 'source': str(self.base / 'templates'), 'target': '/etc/nginx/templates',
                            'read_only': True}], self.overlay()['services']['ingress']['volumes'])
