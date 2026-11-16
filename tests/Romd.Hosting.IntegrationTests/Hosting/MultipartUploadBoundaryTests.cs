@@ -16,6 +16,8 @@ using Romd.Admin.Application.Ingestion.Classification;
 using Romd.Admin.Application.Ingestion.Commands.AcceptUpload;
 using Romd.Admin.Application.Ingestion.Preparation;
 using Romd.Admin.Application.Ingestion.Import.Commands.ImportFromPath;
+using Romd.Admin.Application.Ingestion.Import.Queries.ListImportFolders;
+using Romd.Contracts.Management.Models;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Titles;
 using Romd.Application.Common.Configuration;
@@ -183,6 +185,7 @@ public sealed class MultipartUploadBoundaryTests
         builder.Services.AddSingleton(Substitute.For<ICurrentUser>());
         builder.Services.AddSingleton(Substitute.For<IUploadJobRepository>());
         builder.Services.AddSingleton(Substitute.For<ICommandHandler<ImportFromPathCommand, Guid>>());
+        builder.Services.AddSingleton(Substitute.For<IQueryHandler<ListImportFoldersQuery, ImportFolderListing>>());
         var classifier = Substitute.For<IFileClassifier>();
         classifier.ClassifyAsync(Arg.Any<Stream>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new FileClassification(classification, null, 1));

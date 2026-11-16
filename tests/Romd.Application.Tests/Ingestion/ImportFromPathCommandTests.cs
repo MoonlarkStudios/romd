@@ -64,7 +64,7 @@ public sealed class ImportFromPathCommandTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Handle_PreparedInput_PreservesFactsFlagsClockSamplesAndResourceOrder(bool move)
+    public async Task Handle_AcceptedSource_PreservesFactsFlagsClockAndResourceOrderWithoutCopying(bool move)
     {
         var fixture = new Fixture();
         using var cancellation = new CancellationTokenSource();
@@ -86,13 +86,9 @@ public sealed class ImportFromPathCommandTests
         job.ArchiveOnly.ShouldBeTrue();
         job.TrackedOnly.ShouldBeTrue();
         job.PhaseEnum.ShouldBe(UploadPhase.Pending);
-        job.Errors.Select(error => (error.Item, error.Message, error.OccurredAt)).ShouldBe(new[]
-        {
-            ("skipped-a", "unsafe a", Now.AddSeconds(1)),
-            ("skipped-b", "unsafe b", Now.AddSeconds(2)),
-            ("copy-issue", "read failed", Now.AddMinutes(1))
-        });
-        fixture.Events.ShouldBe(["tracked", "system", "actor", "inspect", "clock", "clock", "clock", "lease", "copy", "begin", "stage", "commit", "transaction-dispose", "lease-dispose"]);
+        // The worker re-enumerates and copies the source, recording skipped entries itself.
+        job.Errors.ShouldBeEmpty();
+        fixture.Events.ShouldBe(["tracked", "system", "actor", "inspect", "clock", "lease", "reserve", "begin", "stage", "commit", "transaction-dispose", "lease-dispose"]);
         fixture.Tokens.ShouldAllBe(token => token == cancellation.Token);
         fixture.Prepared.DiscardCount.ShouldBe(0);
         await fixture.Work.DidNotReceiveWithAnyArgs().FlushAsync(default);
@@ -118,23 +114,9 @@ public sealed class ImportFromPathCommandTests
         fixture.Events.ShouldNotContain("system");
     }
 
-    [Fact]
-    public async Task Handle_PreparationRejected_PreservesErrorAndReleasesLeaseWithoutTransaction()
-    {
-        var error = ImportErrors.NoFilesFound(Source);
-        var fixture = new Fixture { PreparationError = error, CleanupFaults = true };
-
-        var result = await fixture.Handler.HandleAsync(new(Source));
-
-        result.FirstError.ShouldBe(error);
-        fixture.TransactionOpened.ShouldBeFalse();
-        fixture.Prepared.DiscardCount.ShouldBe(0);
-        fixture.AssertReleased();
-    }
-
     [Theory]
     [InlineData("lease")]
-    [InlineData("copy")]
+    [InlineData("reserve")]
     [InlineData("begin")]
     [InlineData("stage")]
     [InlineData("commit")]
@@ -151,14 +133,14 @@ public sealed class ImportFromPathCommandTests
     }
 
     [Theory]
-    [InlineData("copy")]
+    [InlineData("reserve")]
     [InlineData("begin")]
     [InlineData("stage")]
     [InlineData("commit")]
     public async Task Handle_CancellationAndCleanupFaults_PreservesOriginalExceptionAndToken(string phase)
     {
         using var cancellation = new CancellationTokenSource();
-        var expected = new OperationCanceledException("Path copy cancelled.", cancellation.Token);
+        var expected = new OperationCanceledException("Path acceptance cancelled.", cancellation.Token);
         var fixture = new Fixture { FaultAt = phase, Fault = expected, CleanupFaults = true };
 
         OperationCanceledException? error = null;
@@ -178,7 +160,7 @@ public sealed class ImportFromPathCommandTests
     }
 
     [Fact]
-    public async Task Handle_CancelledAfterStaging_DiscardsCompletedInputAfterTransactionDisposalWithoutCommit()
+    public async Task Handle_CancelledAfterStaging_DiscardsReservedWorkspaceAfterTransactionDisposalWithoutCommit()
     {
         using var cancellation = new CancellationTokenSource();
         var fixture = new Fixture { AfterStage = cancellation.Cancel, CleanupFaults = true };
@@ -195,7 +177,7 @@ public sealed class ImportFromPathCommandTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Handle_CommitOrDisposalPending_KeepsCopiedInputAndManifestUnderLeaseUntilSettled(bool disposal)
+    public async Task Handle_CommitOrDisposalPending_KeepsReservedWorkspaceUnderLeaseUntilSettled(bool disposal)
     {
         var fixture = new Fixture();
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -263,13 +245,12 @@ public sealed class ImportFromPathCommandTests
                 LeaseAcquired = true;
                 return Task.FromResult(_lease);
             });
-            _preparation.PrepareAsync(Arg.Any<IPathImportPlan>(), Arg.Any<Guid>(), Arg.Any<bool>(), _lease, Arg.Any<CancellationToken>()).Returns(call =>
+            _preparation.ReserveAsync(Arg.Any<Guid>(), _lease, Arg.Any<CancellationToken>()).Returns(call =>
             {
                 TransactionOpened.ShouldBeFalse();
                 call.Arg<Guid>().ShouldBe(Prepared.JobId);
-                Phase("copy", call.Arg<CancellationToken>());
-                return Task.FromResult<ErrorOr<PreparedPathImport>>(PreparationError is { } error ? error
-                    : new PreparedPathImport(Prepared, [new("copy-issue", "read failed", Now.AddMinutes(1))]));
+                Phase("reserve", call.Arg<CancellationToken>());
+                return Task.FromResult<IPreparedJobWorkspace>(Prepared);
             });
             Work.BeginTransactionAsync(Arg.Any<CancellationToken>()).Returns(call =>
             {
@@ -308,7 +289,6 @@ public sealed class ImportFromPathCommandTests
         public int? ResolvedSystem { get; init; } = 7;
         public Guid? Actor { get; init; } = Guid.NewGuid();
         public Error? InspectionError { get; init; }
-        public Error? PreparationError { get; init; }
         public string? FaultAt { get; init; }
         public Exception Fault { get; init; } = new IOException("Path import failed.");
         public bool CleanupFaults { get; init; }

@@ -16,6 +16,7 @@ vi.mock('@romd/admin-api-client', async () => {
     getJob: vi.fn(),
     getTrackedCollectionStats: vi.fn(),
     listAdminSystems: vi.fn(),
+    listImportFolders: vi.fn(),
   };
 });
 
@@ -34,6 +35,7 @@ import {
   getRomStats,
   getTrackedCollectionStats,
   listAdminSystems,
+  listImportFolders,
   listJobs,
 } from '@romd/admin-api-client';
 import { uploadWithProgress } from '../../hooks/api/uploadWithProgress';
@@ -130,6 +132,15 @@ const runningJob: Job = {
 
 describe('ImportPage', () => {
   beforeEach(() => {
+    vi.mocked(listImportFolders).mockResolvedValue({
+      data: {
+        enabled: false,
+        folders: [],
+        fileCount: 0,
+        truncated: false,
+      },
+      error: undefined,
+    } as Awaited<ReturnType<typeof listImportFolders>>);
     mockGetCurrentUser.mockResolvedValue({
       data: null,
       error: {

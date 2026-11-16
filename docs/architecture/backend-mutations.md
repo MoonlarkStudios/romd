@@ -475,23 +475,38 @@ optional body system key, captures the current actor, and inspects the allowlist
 source before sampling acceptance time. Path import retains its existing concurrency
 values; the multipart upload range check does not apply to it.
 
-Inspection fixes the selected files. Preparation revalidates each source and copies
-originals under the worker/orphan workspace lease, before the database transaction.
-Only copies whose owned streams finish successfully enter the workspace manifest.
-A failed copy is removed before another file can be accepted; inability to prove
-that removal aborts preparation and preserves the original failure. Workers never
-receive a partial failed copy alongside successful files.
-Move mode writes its fingerprint manifest beside the workspace; source originals
-stay untouched until the successful worker cleanup protocol permits removal.
-The owner stages the upload and commits its dispatch in one transaction. GUID
-acceptance requires no intermediate identity flush.
+Inspection validates the source, file count and workspace capacity so the request
+fails fast, but acceptance copies no bytes: copying a large library can outlast any
+proxy's request timeout (Cloudflare closes origin responses after 100 seconds).
+Under the worker/orphan workspace lease, acceptance reserves the job's empty
+workspace, then stages the upload and commits its dispatch in one transaction.
+GUID acceptance requires no intermediate identity flush.
 
 Keep the same lease through transaction disposal and any discard. Before any commit
-attempt, completed preparation can be discarded after transaction disposal. After
-any attempted commit, retain both workspace and manifest, including when a later
-rollback or database read suggests no acceptance. Preserve the primary fault or
-cancellation token through stream, transaction and lease cleanup. An acknowledged
-commit still returns its accepted job ID if cleanup subsequently fails.
+attempt, the reserved workspace can be discarded after transaction disposal. After
+any attempted commit, retain it, including when a later rollback or database read
+suggests no acceptance; orphan cleanup owns it. Preserve the primary fault or
+cancellation token through transaction and lease cleanup. An acknowledged commit
+still returns its accepted job ID if cleanup subsequently fails.
+
+### Worker copy
+
+A path-import job starts in the `Copying` phase instead of `Extracting`.
+`PathImportStaging` empties the workspace, re-inspects the source under the
+worker's own allowlist, revalidates each file immediately before opening it, and
+copies it; progress names the current file. Only copies whose owned streams finish
+successfully stay in the workspace. A failed copy is removed before another file
+is copied; inability to prove that removal aborts the attempt and preserves the
+original failure. Move mode then writes its fingerprint manifest beside the
+workspace; source originals stay untouched until the successful worker cleanup
+protocol permits removal. Skipped and failed sources are recorded in the same
+transition to `Extracting`, so one checkpoint persists both.
+
+Any fault or cancellation empties the workspace and removes the manifest, so
+extraction never sees a partial copy and redelivery restarts the copy from the
+source. Recoverable I/O failures use the bounded upload retry protocol; a source
+that is missing, disallowed or empty on the worker fails the job permanently with
+the validation message.
 
 ## Search continuations
 

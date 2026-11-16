@@ -3958,6 +3958,58 @@
         }
       }
     },
+    "/api/upload/from-path/folders": {
+      "get": {
+        "tags": [
+          "Upload"
+        ],
+        "description": "List the allowed import roots, or the folders directly inside one, for choosing a path import source.",
+        "operationId": "ListImportFolders",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "schema": {
+              "maxLength": 4096,
+              "minLength": 0,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportFolderListing"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/jobs": {
       "get": {
         "tags": [
@@ -19990,6 +20042,60 @@
           "revision": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ImportFolder": {
+        "required": [
+          "name",
+          "path"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "ImportFolderListing": {
+        "required": [
+          "enabled",
+          "folders",
+          "fileCount",
+          "truncated"
+        ],
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "path": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "parentPath": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportFolder"
+            }
+          },
+          "fileCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "truncated": {
+            "type": "boolean"
           }
         }
       },

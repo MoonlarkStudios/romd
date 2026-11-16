@@ -48,5 +48,11 @@ public enum UploadPhase
     /// <summary>
     ///     Job was cancelled by user or system.
     /// </summary>
-    Cancelled = 8
+    Cancelled = 8,
+
+    /// <summary>
+    ///     Path import only: the worker is copying the server-local source into the job workspace.
+    ///     Precedes <see cref="Extracting" />; persisted by name, so the value follows the existing ones.
+    /// </summary>
+    Copying = 9
 }

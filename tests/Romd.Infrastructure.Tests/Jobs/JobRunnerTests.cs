@@ -409,6 +409,8 @@ public sealed class JobRunnerTests
             var executor = Substitute.For<IJobExecutor<UploadJob>>();
             executor.ExecuteAsync(job, Arg.Any<JobContext>()).Returns(_ =>
             {
+                // Path imports start in Copying; this executor stands in for the worker's copy too.
+                job.BeginExtraction([]);
                 job.BeginClassification();
                 job.SetDiscoveredFiles(0, 1);
                 job.BeginDatIngestion();
