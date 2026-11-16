@@ -90,7 +90,7 @@ def test_environment():
                ROMD_ADMIN_PUBLIC_URL='https://admin.example.test', ROMD_CONSUMER_PUBLIC_URL='https://console.example.test',
                ROMD_PLAYER_PUBLIC_URL='https://play.example.test', ROMD_TRUSTED_PROXY='172.28.0.2',
                ROMD_ADMIN_HOST='admin.example.test', ROMD_CONSUMER_HOST='console.example.test', ROMD_PLAYER_HOST='play.example.test',
-               ROMD_NGINX_IMAGE=base_images['ingress'], ROMD_CLOUDFLARED_IMAGE='cloudflare/cloudflared:test',
+               ROMD_NGINX_IMAGE=base_images['ingress'],
                CLOUDFLARE_TUNNEL_TOKEN='test-only', ROMD_TLS_DIRECTORY='/tmp/romd-test-certs')
     return env
 
@@ -1317,6 +1317,14 @@ docker() {
         config = copy.deepcopy(original)
         config['services']['romd-player']['networks']['backend'] = None
         self.assertTrue(validate(config))
+        for key, value in (('ROMD_CONSUMER_DELIVERY_SIGNED_URL_TTL_MINUTES', '0'),
+                           ('ROMD_CONSUMER_DELIVERY_SIGNING_KEY_ID', ' '),
+                           ('ROMD_PLAYER_PUBLIC_URL', 'https://play.example.test:443'),
+                           ('ROMD_PLAYER_PUBLIC_URL', 'https://play.example.test:99999')):
+            with self.subTest(key=key, value=value):
+                env = test_environment()
+                env[key] = value
+                self.assertTrue(validate(render(environment=env)))
 
     def test_ingress_host_and_address_mismatch_are_rejected(self):
         config = render('deploy/examples/https/compose.yaml')
@@ -1365,6 +1373,34 @@ docker() {
         config['services']['romd-consumer']['environment']['Romd__ForwardedHeaders__KnownProxies__0'] = '172.28.0.6'
         self.assertIn('Ingress static IP must match the API trusted proxy', validate(config))
 
+    def test_ingress_examples_default_to_the_reviewed_pins_and_refuse_mutable_overrides(self):
+        pinned = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
+        environment = {key: value for key, value in test_environment().items()
+                       if key not in ('ROMD_NGINX_IMAGE', 'ROMD_CLOUDFLARED_IMAGE')}
+        for overlay in ('deploy/examples/https/compose.yaml', 'deploy/examples/cloudflare/compose.yaml'):
+            with self.subTest(overlay=overlay):
+                config = render(overlay, environment=environment)
+                self.assertEqual(pinned, config['services']['ingress']['image'])
+                self.assertEqual([], validate(config))
+        connector = render('deploy/examples/cloudflare/compose.yaml', environment=environment)['services']['cloudflared']['image']
+        self.assertRegex(connector, r'^cloudflare/cloudflared:[0-9]{4}\.[0-9]+\.[0-9]+@sha256:[a-f0-9]{64}$')
+        for name, variable in (('ingress', 'ROMD_NGINX_IMAGE'), ('cloudflared', 'ROMD_CLOUDFLARED_IMAGE')):
+            with self.subTest(override=variable):
+                config = render('deploy/examples/cloudflare/compose.yaml',
+                                environment=dict(environment, **{variable: 'example/mutable:latest'}))
+                self.assertIn(f'{name}: image must be pinned by digest', validate(config))
+
+    def test_tunnel_token_reaches_only_the_connector_and_provider_overrides_stay_opt_in(self):
+        config = render('deploy/examples/cloudflare/compose.yaml')
+        self.assertEqual('test-only', config['services']['cloudflared']['environment']['TUNNEL_TOKEN'])
+        for name, service in config['services'].items():
+            if name != 'cloudflared':
+                values = [str(value) for value in (service.get('environment') or {}).values()]
+                self.assertNotIn('test-only', values, name)
+        template = (ROOT / 'deploy/.env.example').read_text()
+        self.assertNotRegex(template, r'(?m)^IGDB_CLIENT_')
+        self.assertIn('# IGDB_CLIENT_ID=', template)
+
     def test_cloudflare_allows_separate_custom_listener_without_exposing_tunnel_port(self):
         config = render('deploy/examples/cloudflare/compose.yaml')
         config['services']['ingress']['ports'] = [{'target': 8443, 'published': '8443',
@@ -1393,16 +1429,19 @@ docker() {
             self.assertIsNone(shutil.which('shasum', path=environment['PATH']))
             subprocess.run([str(ROOT / 'scripts/deployment/bundle.sh'), str(images), str(archive), 'a' * 40, 'v0.0.0-test'],
                            env=environment, check=True, umask=0o077)
+            root = 'romd-v0.0.0-test'
             with tarfile.open(archive) as bundle:
+                # One versioned top-level directory, so extraction never spills into the current directory.
+                self.assertEqual({root}, {member.name.split('/')[0] for member in bundle.getmembers()})
                 for member in bundle.getmembers():
-                    if member.isdir() and member.name not in ('.', './'):
+                    if member.isdir():
                         self.assertEqual(0o755, member.mode & 0o777, member.name)
                     elif member.isfile():
                         self.assertIn(member.mode & 0o777, (0o644, 0o755), member.name)
                 for name in ('compose.yaml', 'images.env', 'manifest.json'):
-                    self.assertEqual(0o644, bundle.getmember('./' + name).mode & 0o777, name)
-                self.assertEqual(0o755, bundle.getmember('./deploy/postgres/init/10-romd-roles.sh').mode & 0o777)
-                names = {name.removeprefix('./') for name in bundle.getnames()}
+                    self.assertEqual(0o644, bundle.getmember(f'{root}/{name}').mode & 0o777, name)
+                self.assertEqual(0o755, bundle.getmember(f'{root}/deploy/postgres/init/10-romd-roles.sh').mode & 0o777)
+                names = {name.removeprefix(root + '/') for name in bundle.getnames()}
                 for required in ('compose.yaml', 'images.env', '.env.example',
                                  'scripts/backup/restore.sh', 'scripts/deployment/compose.sh',
                                  'deploy/examples/cloudflare/compose.yaml',
@@ -1418,19 +1457,19 @@ docker() {
                                  'reference-data/assets/presentation/ratings/ATTRIBUTION.md'):
                     self.assertIn(required, names)
                 self.assertIn('ROMD_CLOUDFLARED_EDGE_IP=172.28.0.6',
-                              bundle.extractfile('./.env.example').read().decode())
+                              bundle.extractfile(f'{root}/.env.example').read().decode())
                 self.assertIn('manifest.json', names)
                 self.assertIn('notices/Moonlark.Libchdr/LICENSE', names)
                 self.assertIn('native/libchdr/notices/LICENSE.txt', names)
                 self.assertIn('native/chdman/notices/THIRD_PARTY_NOTICES.md', names)
-                manifest = json.load(bundle.extractfile('./manifest.json'))
+                manifest = json.load(bundle.extractfile(f'{root}/manifest.json'))
                 self.assertEqual('a' * 40, manifest['sourceCommit'])
                 self.assertEqual('v0.0.0-test', manifest['releaseTag'])
                 self.assertEqual('linux/amd64', manifest['platform'])
                 self.assertNotIn('.env', names)
                 self.assertFalse(any(name.startswith(('src/', '.git/')) for name in names))
-                web_files = {member.name.removeprefix('./') for member in bundle.getmembers()
-                             if member.isfile() and member.name.removeprefix('./').startswith('web/')}
+                web_files = {member.name.removeprefix(root + '/') for member in bundle.getmembers()
+                             if member.isfile() and member.name.removeprefix(root + '/').startswith('web/')}
                 self.assertEqual({
                     'web/packages/romd-foundation/src/fonts/Archivo-OFL.txt',
                     'web/packages/romd-foundation/src/fonts/DMSans-OFL.txt',
@@ -1440,13 +1479,13 @@ docker() {
                 documentation.mkdir()
                 for member in bundle.getmembers():
                     if member.isfile() and member.name.endswith('.md'):
-                        target = documentation / member.name.removeprefix('./')
+                        target = documentation / member.name.removeprefix(root + '/')
                         target.parent.mkdir(parents=True, exist_ok=True)
                         target.write_bytes(bundle.extractfile(member).read())
                 # Include retained non-Markdown link targets without extracting arbitrary paths.
                 for member in bundle.getmembers():
                     if member.isfile() and not member.name.endswith('.md'):
-                        target = documentation / member.name.removeprefix('./')
+                        target = documentation / member.name.removeprefix(root + '/')
                         target.parent.mkdir(parents=True, exist_ok=True)
                         target.touch()
                 for document in documentation.rglob('*.md'):

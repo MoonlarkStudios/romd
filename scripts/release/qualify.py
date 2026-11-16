@@ -62,6 +62,21 @@ def member_path(name):
     return path.as_posix().removeprefix('./')
 
 
+def bundle_root(tag):
+    """The bundle's single top-level directory, so extraction never spills into the caller's directory."""
+    return f'romd-{tag}'
+
+
+def bundle_member(name, tag):
+    """Return a member's path inside the release directory, or '' for the directory itself."""
+    path, root = member_path(name), bundle_root(tag)
+    if path == root:
+        return ''
+    if not path.startswith(root + '/'):
+        raise ValueError(f'Every bundle member must be inside {root}/')
+    return path.removeprefix(root + '/')
+
+
 def verify_bundle(bundle, checksum, expected_images, destination, revision, tag):
     """Verify before extraction; refuse links, duplicate paths, extra files and mixed releases."""
     checksum_fields = Path(checksum).read_text().strip().split()
@@ -79,7 +94,7 @@ def verify_bundle(bundle, checksum, expected_images, destination, revision, tag)
         for index, member in enumerate(archive):
             if index >= 1024:
                 raise ValueError('Deployment bundle contains too many archive members')
-            name = member_path(member.name)
+            name = bundle_member(member.name, tag)
             if member.isdir():
                 continue
             if not member.isfile() or name in files or name in ('', '.'):

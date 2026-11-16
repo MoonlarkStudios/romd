@@ -80,6 +80,11 @@
       "schedule": ["at any time"]
     },
     {
+      "description": "Ingress example images ship as defaults; adopt a release only after 14 days.",
+      "matchFileNames": ["deploy/examples/**"],
+      "minimumReleaseAge": "14 days"
+    },
+    {
       "matchPackageNames": ["dotnet", "dotnet-sdk", "mcr.microsoft.com/dotnet/sdk", "mcr.microsoft.com/dotnet/aspnet"],
       "matchUpdateTypes": ["digest", "patch", "minor"],
       "groupName": ".NET servicing",
@@ -88,6 +93,14 @@
     }
   ],
   "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/examples/[a-z]+/compose\\.yaml$/"],
+      "matchStrings": [
+        "\\$\\{ROMD_(?:NGINX|CLOUDFLARED)_IMAGE:-(?<depName>[^:@}]+):(?<currentValue>[^@}]+)@(?<currentDigest>sha256:[a-f0-9]{64})\\}"
+      ],
+      "datasourceTemplate": "docker"
+    },
     {
       "customType": "regex",
       "managerFilePatterns": [
