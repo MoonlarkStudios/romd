@@ -261,6 +261,8 @@ def release_gate_errors(text, name):
 
 CHD_CONDITION = "${{ needs.source-checks.outputs.chd == 'true' }}"
 CHD_STEPS = {'Reclaim disposable CI build cache', 'Synthetic PS2 DVD CHD end to end'}
+PACKAGED_CONDITION = "${{ needs.source-checks.outputs.packaged == 'true' }}"
+PACKAGED_STEP = 'Rehearse the extracted package before publication'
 
 
 def early_errors(text, name):
@@ -272,8 +274,9 @@ def early_errors(text, name):
         errors = []
         if 'if' in source or source.get('continue-on-error', False) is not False:
             errors.append('ci.yml/source-checks: early checks cannot be optional')
-        if source.get('outputs') != {'chd': '${{ steps.scope.outputs.chd }}'}:
-            errors.append('ci.yml/source-checks: missing exact CHD selection output')
+        if source.get('outputs') != {'chd': '${{ steps.scope.outputs.chd }}',
+                                     'packaged': '${{ steps.scope.outputs.packaged }}'}:
+            errors.append('ci.yml/source-checks: missing exact drill selection outputs')
         commands = {'python3 scripts/ci/change_scope.py',
                     'python3 scripts/ci/secret_scan.py --gitleaks "$RUNNER_TEMP/gitleaks/gitleaks"',
                     'python3 scripts/ci/nuget_locks.py',
@@ -284,7 +287,7 @@ def early_errors(text, name):
             errors.append('ci.yml/source-checks: scope, secret, complete lock and registered style checks must execute')
         if not any(step.get('id') == 'scope' and step.get('run') == 'python3 scripts/ci/change_scope.py'
                    for step in source.get('steps', [])):
-            errors.append('ci.yml/source-checks: CHD output must come from the tested scope selector')
+            errors.append('ci.yml/source-checks: drill outputs must come from the tested scope selector')
         for job_name in ('console', 'native', 'backend', 'infrastructure', 'integration', 'web', 'production-compose'):
             needs = jobs[job_name].get('needs', [])
             if 'source-checks' not in ([needs] if isinstance(needs, str) else needs):
@@ -293,10 +296,13 @@ def early_errors(text, name):
         if any(steps.get(label, {}).get('if') != CHD_CONDITION
                or steps[label].get('continue-on-error', False) is not False for label in CHD_STEPS):
             errors.append('ci.yml/production-compose: expensive drill steps must share the exact tested scope condition')
-        for label in ('Build images and exercise production deployment', 'Rehearse the extracted package before publication'):
-            step = steps.get(label, {})
-            if not step.get('run') or 'if' in step or step.get('continue-on-error', False) is not False:
-                errors.append('ci.yml/production-compose: source build and packaged rehearsal must always execute')
+        packaged = steps.get(PACKAGED_STEP, {})
+        if (not packaged.get('run') or packaged.get('if') != PACKAGED_CONDITION
+                or packaged.get('continue-on-error', False) is not False):
+            errors.append('ci.yml/production-compose: packaged rehearsal must use the exact tested scope condition')
+        build = steps.get('Build images and exercise production deployment', {})
+        if not build.get('run') or 'if' in build or build.get('continue-on-error', False) is not False:
+            errors.append('ci.yml/production-compose: source build must always execute')
         return errors
     except (yaml.YAMLError, KeyError, ValueError, TypeError, AttributeError):
         return ['ci.yml: invalid early verification or CHD routing']

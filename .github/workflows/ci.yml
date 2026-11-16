@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       chd: ${{ steps.scope.outputs.chd }}
+      packaged: ${{ steps.scope.outputs.packaged }}
     env:
       ROMD_CI_EVENT: ${{ github.event_name }}
       ROMD_CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '0000000000000000000000000000000000000000' }}
@@ -53,7 +54,7 @@ jobs:
         run: .artifacts/ci-python/bin/python -B -W error -m unittest discover -s scripts/ci -p 'test_*.py'
       - name: Scan new commits for secrets
         run: python3 scripts/ci/secret_scan.py --gitleaks "$RUNNER_TEMP/gitleaks/gitleaks"
-      - name: Select expensive CHD verification
+      - name: Select expensive drills
         id: scope
         run: python3 scripts/ci/change_scope.py
       - name: Lint workflows
@@ -482,7 +483,7 @@ jobs:
     needs: source-checks
     name: Production Compose and recovery drill
     runs-on: ubuntu-24.04
-    # Reuse one image build for source and packaged drills, then the scoped CHD step.
+    # Reuse one image build for the source drill and the scoped packaged and CHD drills.
     timeout-minutes: 90
     permissions:
       contents: read
@@ -508,6 +509,7 @@ jobs:
           python3 scripts/deployment/smoke.py --build --vfs --source-revision "$(git rev-parse HEAD)"
           --release-tag "v0.0.0-rehearsal.r$(git rev-parse --short=12 HEAD)" --evidence-dir "$RUNNER_TEMP/production-smoke"
       - name: Rehearse the extracted package before publication
+        if: ${{ needs.source-checks.outputs.packaged == 'true' }}
         run: python3 scripts/validation/run.py --ci --id deployment.packaged-rehearsal --evidence-parent coverage/packaged-rehearsal
       - name: Retain sanitized packaged rehearsal evidence
         if: ${{ always() }}

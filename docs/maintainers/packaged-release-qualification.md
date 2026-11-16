@@ -28,8 +28,10 @@ bundle needs no Node, browser tools, source checkout, or development SDK.
 
 ## Before publication
 
-Every PR's required Production Compose job builds source/version-labelled images,
-runs the source drill, then runs image/SBOM/bundle security checks and the full
+The required Production Compose job builds source/version-labelled images and
+runs the source drill on every pull request. On `main`, and on pull requests
+that [change release paths](continuous-integration.md#expensive-drill-selection),
+it then runs image/SBOM/bundle security checks and the full
 packaged suite on native Docker. It
 uses a fresh loopback registry to supply immutable references to those images.
 The publisher repeats that rehearsal on its exact second build before authenticating
@@ -146,7 +148,7 @@ still block qualification, with the fixed navigation stage recorded for diagnosi
 A real Chromium regression reproduces the old initial/stale-history aborts,
 independently holds both transfers on both routes, and requires zero failures
 with the current sequence. HTTP and transport faults must still be rejected in
-PR CI and again before the downloaded-installation checks run.
+`main` CI and again before the downloaded-installation checks run.
 
 The consumer's authenticated layout owns a playback-capability query observer.
 Late persisted play history can move the only title card between shelves;

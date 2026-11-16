@@ -46,7 +46,7 @@ the harmless reporting test below.
   administrators as appropriate for the maintainer team. Confirm both required
   check names against the current workflows and their hosted runs.
 - [CI operation and scope](continuous-integration.md) owns early checks, the
-  conservative PR-only CHD selection, once-built web assets, secret scanning
+  path-based selection of expensive pull request drills, once-built web assets, secret scanning
   and weekly/manual CodeQL/native maintenance. Those maintenance jobs add no
   required PR status check.
 - **Restrict `v*` tags to maintainers.** `.github/workflows/release.yml` runs on
