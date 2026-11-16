@@ -31,8 +31,10 @@ For source setup, replacement and removal, see
 
 Use **Import files** on the Dashboard or the import action in **ROMs**. Select
 the target system and upload your files or supported ZIP/7z archives. Large
-collections can also use a server-side path import when the operator has
-configured an allowed import directory.
+collections can skip the browser upload: when the operator has configured an
+allowed import directory, Managers see **Import from a server folder** on the
+import page. Pick a folder from the list and choose **Import this folder**; ROMD
+copies it in the background and leaves the original unchanged.
 
 Wait for the job to complete and inspect its file outcomes. ROMD matches
 content against the catalog by checksum. Import failures or unmatched files

@@ -258,4 +258,55 @@ public sealed class ImportFromPathEndpointsTests(IntegrationTestFixture fixture)
         errorCode.ShouldBe(route == "symlink" ? "Import.LinkRejected" : "Import.PathNotAllowed");
         (Directory.Exists(jobs) ? Directory.GetDirectories(jobs) : []).ShouldBeSubsetOf(workspacesBefore);
     }
+
+    [Fact]
+    public async Task ListImportFolders_Manager_BrowsesFromTheRootsIntoASubfolder()
+    {
+        using var client = fixture.CreateClient()
+            .WithTestUser(Guid.NewGuid(), "manager@localhost", [RomdRoleType.Manager]);
+        string source = CreateSourceTree(out _, out _);
+
+        var roots = (await client.GetFromJsonAsync<ImportFolderListing>("/api/upload/from-path/folders")).ShouldNotBeNull();
+        roots.Enabled.ShouldBeTrue();
+        roots.Folders.ShouldContain(folder => folder.Path == fixture.ImportRootPath);
+
+        var listing = (await client.GetFromJsonAsync<ImportFolderListing>(
+            $"/api/upload/from-path/folders?path={Uri.EscapeDataString(source)}")).ShouldNotBeNull();
+        listing.Path.ShouldBe(source);
+        listing.ParentPath.ShouldBe(fixture.ImportRootPath);
+        listing.Folders.ShouldHaveSingleItem().Name.ShouldBe("nested");
+        listing.FileCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ListImportFolders_Contributor_Returns403()
+    {
+        using var client = fixture.CreateClient()
+            .WithTestUser(Guid.NewGuid(), "contributor@localhost", [RomdRoleType.Contributor]);
+
+        using var response = await client.GetAsync("/api/upload/from-path/folders");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Theory]
+    [InlineData("dot-dot")]
+    [InlineData("symlink")]
+    public async Task ListImportFolders_EscapeToDataDirectory_Returns400WithoutListing(string route)
+    {
+        using var client = fixture.CreateAuthenticatedClient();
+        string path = Path.Combine(fixture.ImportRootPath, "..");
+        if (route == "symlink")
+        {
+            path = Path.Combine(fixture.ImportRootPath, $"data-link-{Guid.NewGuid():N}");
+            Directory.CreateSymbolicLink(path, fixture.DataDirectoryPath);
+        }
+
+        using var response = await client.GetAsync($"/api/upload/from-path/folders?path={Uri.EscapeDataString(path)}");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        string body = await response.Content.ReadAsStringAsync();
+        body.ShouldContain(route == "symlink" ? "Import.LinkRejected" : "Import.PathNotAllowed");
+        body.ShouldNotContain("import-root\"");
+    }
 }

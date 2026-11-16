@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { ImportJobCard } from './ImportJobCard';
 import { RecentImports } from './RecentImports';
+import { ServerFolderPanel } from './ServerFolderPanel';
 import { StagePanel } from './StagePanel';
 import { useImportSession } from './useImportSession';
 
@@ -31,7 +32,15 @@ export function ImportPage({ embedded = false }: { embedded?: boolean }) {
         </Title>
       )}
       {showStage ? (
-        <StagePanel {...session} />
+        <>
+          <StagePanel {...session} />
+          {session.staged.length === 0 && (
+            <ServerFolderPanel
+              disabled={session.isStarting}
+              onStarted={session.reopenJob}
+            />
+          )}
+        </>
       ) : (
         <Group justify="flex-end">
           <Button

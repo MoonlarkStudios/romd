@@ -8,6 +8,7 @@ import { formatDuration } from '../../utils/format';
 
 const PHASE_LABELS: Record<string, string> = {
   Pending: 'Queued',
+  Copying: 'Copying from server folder',
   Extracting: 'Extracting archives',
   Classifying: 'Discovering files',
   IngestingDats: 'Importing DAT catalogs',

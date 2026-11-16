@@ -268,10 +268,17 @@ job; the worker host copies the source into the job workspace (the import's
 **Copying** phase) and executes it, including move-mode deletion of source
 originals. The request therefore returns before any bytes move, however large
 the folder. Both hosts must mount each allowed import root at an identical
-absolute path; `scripts/deployment/validate.sh` checks this for Compose. If a source is
-not visible from the executing host it is never counted as moved: the original
-is retained with a warning and the deletion is retried by the periodic sweep
-until its manifest ages out.
+absolute path; `scripts/deployment/validate.sh` checks this for Compose. If a
+source is not visible from the executing host it is never counted as moved: the
+original is retained with a warning and the deletion is retried by the periodic
+sweep until its manifest ages out.
+
+The admin import page shows **Import from a server folder** to Managers only
+while at least one root is configured. It lists the allowed roots and the real
+subfolders beneath them (`GET /api/upload/from-path/folders`); nobody types a
+path, hidden folders and symbolic links are never listed, and the picker always
+copies, never moves. Mount the library read-only so neither ROMD nor a mistaken
+request can change it.
 
 ## Temporary staging
 

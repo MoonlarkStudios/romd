@@ -1,11 +1,14 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Romd.Admin.Application.Ingestion.Commands.AcceptUpload;
 using Romd.Admin.Application.Ingestion.Import.Commands.ImportFromPath;
+using Romd.Admin.Application.Ingestion.Import.Queries.ListImportFolders;
 using Romd.Application.Common.Configuration;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
 using Romd.Host.Authorization;
 using Romd.Hosting;
+using Romd.Contracts.Management.Models;
 using Commands = Romd.Contracts.Management.Commands;
 
 namespace Romd.Host.Endpoints;
@@ -67,6 +70,15 @@ public static class UploadEndpoints
             .ProducesProblems(StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
+        group.MapGet("from-path/folders", ListImportFolders)
+            .WithName("ListImportFolders")
+            .WithDescription(
+                "List the allowed import roots, or the folders directly inside one, for choosing a path import source.")
+            .Produces<ImportFolderListing>()
+            .ProducesProblems(StatusCodes.Status400BadRequest)
+            .ProducesProblems(StatusCodes.Status404NotFound)
+            .RequireAuthorization(AuthorizationPolicies.RequireManager);
+
         return app;
     }
 
@@ -123,5 +135,9 @@ public static class UploadEndpoints
 
         return result.ToAccepted();
     }
+
+    private static async Task<IResult> ListImportFolders(IQueryHandler<ListImportFoldersQuery, ImportFolderListing> handler,
+        CancellationToken ct, [FromQuery, StringLength(4096)] string? path = null) =>
+        (await handler.HandleAsync(new(path), ct)).Match(Results.Ok, errors => errors.ToProblem());
 
 }
