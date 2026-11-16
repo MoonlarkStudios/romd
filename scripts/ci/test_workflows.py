@@ -37,6 +37,7 @@ class WorkflowPolicyTests(unittest.TestCase):
                         text.replace('python3 scripts/ci/secret_scan.py --gitleaks', 'echo skipped --gitleaks'),
                         text.replace('run: python3 scripts/ci/change_scope.py', 'run: echo chd=false'),
                         text.replace("${{ needs.source-checks.outputs.chd == 'true' }}", '${{ false }}'),
+                        text.replace("${{ needs.source-checks.outputs.packaged == 'true' }}", '${{ true }}'),
                         text.replace('python3 scripts/ci/nuget_locks.py', 'echo locks'),
                         text.replace('--job source-checks --evidence-parent', '--job backend --evidence-parent')):
             with self.subTest(changed=changed):

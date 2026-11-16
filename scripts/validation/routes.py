@@ -40,8 +40,8 @@ CI_ONLY_STEPS = {
         dict(command='.artifacts/ci-python/bin/python -B -W error -m unittest discover -s scripts/ci', local='workflows:lint'),
     ('source-checks', 'Scan new commits for secrets'):
         dict(command='python3 scripts/ci/secret_scan.py', local='secrets:check'),
-    ('source-checks', 'Select expensive CHD verification'):
-        dict(command='python3 scripts/ci/change_scope.py', reason='conservative PR-only selection; main and releases always full'),
+    ('source-checks', 'Select expensive drills'):
+        dict(command='python3 scripts/ci/change_scope.py', reason='path-based PR-only selection; main and releases always full'),
     ('source-checks', 'Lint workflows'):
         dict(command='curl --fail', reason='downloads hash-pinned actionlint; local workflows:lint uses mise pin'),
     ('agent-infrastructure', 'Prepare hash-locked workflow parser'):
@@ -184,6 +184,11 @@ def execution_route(command, check):
     return selected
 
 
+# Required checks that a pull request may skip only under the exact condition
+# scripts/ci/change_scope.py computes; main and reusable runs always execute them.
+SCOPED_ROUTES = {'deployment.packaged-rehearsal': "${{ needs.source-checks.outputs.packaged == 'true' }}"}
+
+
 def workflow_routes(text, check):
     # Parse YAML so alternate indentation, flow mappings and step/job conditions
     # cannot turn a required check into an inventory-only or skipped route.
@@ -194,7 +199,8 @@ def workflow_routes(text, check):
         if 'if' in job or job.get('continue-on-error', False) is not False:
             continue
         for step in job.get('steps', []):
-            if 'if' not in step and step.get('continue-on-error', False) is False:
+            scoped = 'if' in step and step['if'] == SCOPED_ROUTES.get(check['id'])
+            if ('if' not in step or scoped) and step.get('continue-on-error', False) is False:
                 if execution_route(step.get('run', ''), check):
                     return True
     return False
