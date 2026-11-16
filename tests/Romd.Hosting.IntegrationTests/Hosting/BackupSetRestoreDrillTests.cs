@@ -64,6 +64,14 @@ public sealed class BackupSetRestoreDrillTests
             Stop(sourceWorker);
             await SeedDrillContentAsync(source.WorkerConnectionString, sourceData);
             InstallationFacts expected = await CaptureFactsAsync(source.BootstrapConnectionString, sourceData);
+            // The generated certificate authority lives outside the data directory; devices trust it,
+            // so the set must carry it and a restore must replace the destination's fresh one.
+            Directory.CreateDirectory(AuthorityDirectory(sourceData));
+            File.WriteAllText(Path.Combine(AuthorityDirectory(sourceData), "ca.key"), "source authority key");
+            File.WriteAllText(Path.Combine(AuthorityDirectory(sourceData), "ca.crt"), "source authority certificate");
+            Directory.CreateDirectory(AuthorityDirectory(targetData));
+            File.WriteAllText(Path.Combine(AuthorityDirectory(targetData), "ca.key"), "fresh destination key");
+            File.WriteAllText(Path.Combine(AuthorityDirectory(targetData), "ca.crt"), "fresh destination certificate");
 
             ProcessResult backup = await RunBackupScriptAsync(
                 "backup.sh",
@@ -81,6 +89,8 @@ public sealed class BackupSetRestoreDrillTests
                 target.ContainerId,
                 targetData);
             restore.ExitCode.ShouldBe(0, restore.Output);
+            File.ReadAllText(Path.Combine(AuthorityDirectory(targetData), "ca.key")).ShouldBe("source authority key");
+            File.ReadAllText(Path.Combine(AuthorityDirectory(targetData), "ca.crt")).ShouldBe("source authority certificate");
 
             var monitoring = CreateRuntimeStorage(target.WorkerConnectionString).GetMonitoringApi();
             var restoredServers = monitoring.Servers().Select(server => server.Name).ToHashSet();
@@ -141,6 +151,16 @@ public sealed class BackupSetRestoreDrillTests
             mixed.ExitCode.ShouldBe(2, mixed.Output);
             mixed.Output.ShouldContain("mixed-generation");
 
+            string forgedAuthority = CopySet(setDirectory, "forged-authority");
+            await TamperAsync(Path.Combine(forgedAuthority, "ca.tar"));
+            ProcessResult forged = await RunBackupScriptAsync(
+                "restore.sh",
+                forgedAuthority,
+                target.ContainerId,
+                targetData);
+            forged.ExitCode.ShouldBe(2, forged.Output);
+            forged.Output.ShouldContain("ca.tar does not match the manifest");
+
             string incomplete = CopySet(setDirectory, "incomplete");
             File.Delete(Path.Combine(incomplete, "roles.sh"));
             ProcessResult missing = await RunBackupScriptAsync(
@@ -159,7 +179,8 @@ public sealed class BackupSetRestoreDrillTests
                 Stop(targetAdmin);
             if (targetWorker is not null)
                 Stop(targetWorker);
-            foreach (string directory in new[] { sourceData, backupRoot, targetData })
+            foreach (string directory in new[]
+                     { sourceData, backupRoot, targetData, AuthorityDirectory(sourceData), AuthorityDirectory(targetData) })
             {
                 if (Directory.Exists(directory))
                     Directory.Delete(directory, recursive: true);
@@ -299,7 +320,7 @@ public sealed class BackupSetRestoreDrillTests
 
     private static void AssertManifest(string setDirectory)
     {
-        foreach (string artifact in new[] { "manifest.json", "roles.sh", "romd.dump", "data.tar" })
+        foreach (string artifact in new[] { "manifest.json", "roles.sh", "romd.dump", "data.tar", "ca.tar" })
         {
             File.Exists(Path.Combine(setDirectory, artifact)).ShouldBeTrue(artifact);
         }
@@ -313,7 +334,7 @@ public sealed class BackupSetRestoreDrillTests
         manifest.RootElement.GetProperty("hangfireSchemaVersion").GetInt32()
             .ShouldBe(HangfirePostgreSqlConfiguration.ExpectedSchemaVersion);
         JsonElement artifacts = manifest.RootElement.GetProperty("artifacts");
-        foreach (string artifact in new[] { "roles.sh", "romd.dump", "data.tar" })
+        foreach (string artifact in new[] { "roles.sh", "romd.dump", "data.tar", "ca.tar" })
         {
             byte[] bytes = File.ReadAllBytes(Path.Combine(setDirectory, artifact));
             artifacts.GetProperty(artifact).GetProperty("sha256").GetString()
@@ -383,6 +404,8 @@ public sealed class BackupSetRestoreDrillTests
             .ShouldContain(DrillTitleName);
     }
 
+    private static string AuthorityDirectory(string dataDirectory) => dataDirectory + "-authority";
+
     private static async Task<ProcessResult> RunBackupScriptAsync(
         string script,
         string argument,
@@ -402,6 +425,7 @@ public sealed class BackupSetRestoreDrillTests
         start.Environment.Remove("ROMD_BACKUP_PG_EXEC");
         start.Environment["ROMD_BACKUP_CONTAINER_ID"] = containerId;
         start.Environment["ROMD_BACKUP_DATA_DIR"] = dataDirectory;
+        start.Environment["ROMD_BACKUP_CA_DIR"] = AuthorityDirectory(dataDirectory);
         using Process process = Process.Start(start)
             ?? throw new InvalidOperationException($"Failed to start scripts/backup/{script}.");
         Task<string> standardOutput = process.StandardOutput.ReadToEndAsync();

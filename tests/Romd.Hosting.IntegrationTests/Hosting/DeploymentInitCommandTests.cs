@@ -42,6 +42,15 @@ public sealed class DeploymentInitCommandTests : IDisposable
     }
 
     [Fact]
+    public void Run_MixedCaseHostName_IsRefusedWithTheLowerCaseNameToUse()
+    {
+        Run("NAS.example.test").ShouldBe(DeploymentInitCommand.InvalidArguments);
+
+        _errors.ToString().ShouldContain("use nas.example.test in place of NAS.example.test");
+        Directory.EnumerateFileSystemEntries(_root).ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Run_NewDirectory_GivesEachServiceOnlyItsOwnDatabasePasswords()
     {
         Run().ShouldBe(DeploymentInitCommand.Success);
@@ -143,6 +152,48 @@ public sealed class DeploymentInitCommandTests : IDisposable
         Chains(forged, authority).ShouldBeFalse();
     }
 
+    [Theory]
+    [InlineData("192.168.1.50", "bank.example")]
+    [InlineData("192.168.1.50", "192.168.1.51")]
+    [InlineData("192.168.1.50", "2001:db8::1")]
+    [InlineData("nas.local", "192.168.1.50")]
+    [InlineData("nas.local", "2001:db8::1")]
+    [InlineData("nas.local", "local")]
+    [InlineData("fd00::50", "bank.example")]
+    [InlineData("fd00::50", "192.168.1.50")]
+    public void Run_AuthorityAskedToSignANameOfAnyOtherKind_IsRejectedByItsNameConstraints(string host, string other)
+    {
+        Run(host).ShouldBe(DeploymentInitCommand.Success);
+        using X509Certificate2 authority = X509Certificate2.CreateFromPemFile(
+            Path.Combine(_root, "ca", "ca.crt"), Path.Combine(_root, "ca", "ca.key"));
+
+        using X509Certificate2 permitted = Sign(authority, host);
+        using X509Certificate2 forged = Sign(authority, other);
+
+        Chains(permitted, authority).ShouldBeTrue();
+        Chains(forged, authority).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Run_MixedNames_PermitExactlyThoseNamesAndTheirSubdomains()
+    {
+        Run("nas.local", "192.168.1.50", "fd00::50").ShouldBe(DeploymentInitCommand.Success);
+        using X509Certificate2 authority = X509Certificate2.CreateFromPemFile(
+            Path.Combine(_root, "ca", "ca.crt"), Path.Combine(_root, "ca", "ca.key"));
+
+        foreach (string permitted in new[] { "nas.local", "media.nas.local", "192.168.1.50", "fd00::50" })
+        {
+            using X509Certificate2 certificate = Sign(authority, permitted);
+            Chains(certificate, authority).ShouldBeTrue(permitted);
+        }
+
+        foreach (string refused in new[] { "bank.example", "local", "notnas.local", "192.168.1.51", "fd00::51", "10.0.0.1" })
+        {
+            using X509Certificate2 certificate = Sign(authority, refused);
+            Chains(certificate, authority).ShouldBeFalse(refused);
+        }
+    }
+
     [Fact]
     public void Run_CertificateFarFromExpiry_IsLeftUnchanged()
     {
@@ -167,7 +218,7 @@ public sealed class DeploymentInitCommandTests : IDisposable
 
         Read("tls", "ca.crt").ShouldBe(authority);
         Read("tls", "fullchain.pem").ShouldNotBe(server);
-        _output.ToString().ShouldContain("renewed");
+        _output.ToString().ShouldContain("reissued under the existing authority");
     }
 
     [Fact]
@@ -198,6 +249,125 @@ public sealed class DeploymentInitCommandTests : IDisposable
     }
 
     [Fact]
+    public void Run_RestoredAuthority_IsKeptAndTheServerCertificateReissuedUnderIt()
+    {
+        // The installation devices already trust, as its backup captured it.
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+        string trusted = Read("tls", "ca.crt");
+        string backup = Directory.CreateTempSubdirectory("romd-init-backup-").FullName;
+        CopyDirectory(Path.Combine(_root, "ca"), backup);
+        // A fresh installation initializes first, then the restore replaces its authority.
+        Directory.Delete(_root, recursive: true);
+        Directory.CreateDirectory(_root);
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+        Read("tls", "ca.crt").ShouldNotBe(trusted);
+        Directory.Delete(Path.Combine(_root, "ca"), recursive: true);
+        CopyDirectory(backup, Path.Combine(_root, "ca"));
+        Directory.Delete(backup, recursive: true);
+
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+
+        Read("tls", "ca.crt").ShouldBe(trusted);
+        using X509Certificate2 authority = X509Certificate2.CreateFromPem(trusted);
+        using X509Certificate2 server = X509Certificate2.CreateFromPemFile(
+            Path.Combine(_root, "tls", "fullchain.pem"), Path.Combine(_root, "tls", "privkey.pem"));
+        Chains(server, authority).ShouldBeTrue();
+        string reissued = Read("tls", "fullchain.pem");
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+        Read("tls", "fullchain.pem").ShouldBe(reissued);
+    }
+
+    [Theory]
+    [InlineData("ca.key")]
+    [InlineData("ca.crt")]
+    public void Run_IncompleteAuthority_FailsWithRecoveryInstructionsAndChangesNothing(string missing)
+    {
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+        string server = Read("tls", "fullchain.pem");
+        File.Delete(Path.Combine(_root, "ca", missing));
+
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Failed);
+
+        _errors.ToString().ShouldContain("Restore that directory from a backup, or remove it");
+        Read("tls", "fullchain.pem").ShouldBe(server);
+        Directory.GetFiles(Path.Combine(_root, "ca")).Length.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Run_CorruptAuthority_FailsWithRecoveryInstructionsAndChangesNothing()
+    {
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+        File.WriteAllText(Path.Combine(_root, "ca", "ca.key"), "not a key");
+
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Failed);
+
+        _errors.ToString().ShouldContain("cannot be used");
+        Read("ca", "ca.key").ShouldBe("not a key");
+    }
+
+    [Fact]
+    public void Run_AuthorityIssuedUnderAnEarlierConstraintPolicy_IsReplaced()
+    {
+        // An authority for an address that constrains addresses only, as the first policy issued it.
+        Run("192.168.1.50").ShouldBe(DeploymentInitCommand.Success);
+        using (X509Certificate2 current = X509Certificate2.CreateFromPemFile(
+                   Path.Combine(_root, "ca", "ca.crt"), Path.Combine(_root, "ca", "ca.key")))
+        using (var key = System.Security.Cryptography.ECDsa.Create())
+        {
+            CertificateRequest request = new(current.SubjectName, key, System.Security.Cryptography.HashAlgorithmName.SHA256);
+            request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, true, 0, true));
+            request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+            // permittedSubtrees { iPAddress 192.168.1.50/32 } and nothing about DNS names.
+            request.CertificateExtensions.Add(new X509Extension("2.5.29.30",
+                Convert.FromHexString("300EA00C300A8708C0A80132FFFFFFFF"), critical: true));
+            using X509Certificate2 flawed = request.CreateSelfSigned(Start.AddDays(-1), Start.AddDays(3650));
+            using X509Certificate2 forged = Sign(flawed, "bank.example");
+            Chains(forged, flawed).ShouldBeTrue("the earlier policy left DNS names unrestricted");
+            File.WriteAllText(Path.Combine(_root, "ca", "ca.crt"), flawed.ExportCertificatePem());
+            File.WriteAllText(Path.Combine(_root, "ca", "ca.key"), key.ExportPkcs8PrivateKeyPem());
+        }
+
+        string flawedAuthority = Read("ca", "ca.crt");
+
+        Run("192.168.1.50").ShouldBe(DeploymentInitCommand.Success);
+
+        Read("ca", "ca.crt").ShouldNotBe(flawedAuthority);
+        _output.ToString().ShouldContain("Trust tls/ca.crt on each device");
+        using X509Certificate2 replaced = X509Certificate2.CreateFromPemFile(
+            Path.Combine(_root, "ca", "ca.crt"), Path.Combine(_root, "ca", "ca.key"));
+        using X509Certificate2 refused = Sign(replaced, "bank.example");
+        Chains(refused, replaced).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Run_ServerCertificateLost_ReissuesUnderTheSameAuthority()
+    {
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+        string authority = Read("tls", "ca.crt");
+        Directory.Delete(Path.Combine(_root, "tls"), recursive: true);
+
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+
+        Read("tls", "ca.crt").ShouldBe(authority);
+        File.Exists(Path.Combine(_root, "tls", "fullchain.pem")).ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Run_OperatorCertificateBesideAnEarlierGeneratedAuthority_IsNeverReplaced()
+    {
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+        using X509Certificate2 other = Sign(SelfSigned("CN=Operator authority"), "nas.local");
+        File.WriteAllText(Path.Combine(_root, "tls", "fullchain.pem"), other.ExportCertificatePem());
+        File.WriteAllText(Path.Combine(_root, "tls", "privkey.pem"), "operator key");
+
+        Run("nas.local").ShouldBe(DeploymentInitCommand.Success);
+
+        Read("tls", "fullchain.pem").ShouldBe(other.ExportCertificatePem());
+        Read("tls", "privkey.pem").ShouldBe("operator key");
+        _output.ToString().ShouldContain("using the supplied certificate");
+    }
+
+    [Fact]
     public void AddRomdSecretFiles_ConfiguredDirectoryMissing_FailsInsteadOfStartingWithoutSecrets()
     {
         new ConfigurationBuilder().AddRomdSecretFiles(null).Build().AsEnumerable().ShouldBeEmpty();
@@ -206,12 +376,33 @@ public sealed class DeploymentInitCommandTests : IDisposable
             new ConfigurationBuilder().AddRomdSecretFiles(Path.Combine(_root, "missing")).Build());
     }
 
+    private static X509Certificate2 SelfSigned(string subject)
+    {
+        using var key = System.Security.Cryptography.ECDsa.Create();
+        CertificateRequest request = new(subject, key, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
+        return request.CreateSelfSigned(Start.AddDays(-1), Start.AddDays(30));
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        foreach (string file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            string target = Path.Combine(destination, Path.GetRelativePath(source, file));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
+    }
+
     private static X509Certificate2 Sign(X509Certificate2 authority, string name)
     {
         using var key = System.Security.Cryptography.ECDsa.Create();
         CertificateRequest request = new($"CN={name}", key, System.Security.Cryptography.HashAlgorithmName.SHA256);
         SubjectAlternativeNameBuilder alternatives = new();
-        alternatives.AddDnsName(name);
+        if (IPAddress.TryParse(name, out IPAddress? address))
+            alternatives.AddIpAddress(address);
+        else
+            alternatives.AddDnsName(name);
         request.CertificateExtensions.Add(alternatives.Build());
         return request.Create(authority, Start.AddDays(-1), Start.AddDays(30), [1, 2, 3, 4]);
     }

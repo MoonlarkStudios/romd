@@ -5,7 +5,8 @@
 # A backup set is one quiesced capture of a ROMD installation: the declarative
 # role/schema/grant artifact, a PostgreSQL custom-format dump of the romd and
 # hangfire schemas, a tar of the data directory (CAS content, keys, identity,
-# data-protection keys), and a manifest that binds them under one id with
+# data-protection keys), the generated certificate authority when the
+# installation has one, and a manifest that binds them under one id with
 # digests and schema versions. See docs/self-hosting/production-deployment.md.
 #
 # Modes (ROMD_BACKUP_MODE):
@@ -28,6 +29,8 @@ ROMD_BACKUP_PG_USER="${ROMD_BACKUP_PG_USER:-romd_bootstrap}"
 ROMD_BACKUP_PG_DATABASE="${ROMD_BACKUP_PG_DATABASE:-romd}"
 ROMD_BACKUP_ROLES_SCRIPT="${ROMD_BACKUP_ROLES_SCRIPT:-${ROMD_REPO_ROOT}/deploy/postgres/init/10-romd-roles.sh}"
 ROMD_BACKUP_CONTAINER_DATA_DIR="/var/lib/romd"
+# Where romd-init keeps the generated certificate authority; only it mounts that volume.
+ROMD_BACKUP_CONTAINER_CA_DIR="/init/ca"
 ROMD_BACKUP_HOSTS=(romd-worker romd-admin romd-consumer)
 ROMD_BACKUP_MANIFEST_FORMAT=1
 
@@ -118,6 +121,45 @@ romd_backup_data_export() {
       tar -C "${ROMD_BACKUP_CONTAINER_DATA_DIR}" -cf - --exclude ./temp --exclude ./logs --exclude ./content/.staging .
   else
     tar -C "${ROMD_BACKUP_DATA_DIR}" -cf - --exclude ./temp --exclude ./logs --exclude ./content/.staging .
+  fi
+}
+
+# The romd-init container, which alone mounts the certificate authority volume. Empty when
+# the installation has none (for example a stack that predates it, or local mode).
+romd_backup_init_container() {
+  romd_backup_compose ps --all --quiet romd-init 2>/dev/null | head -n 1
+}
+
+# Emits the generated certificate authority as a tar stream on stdout, or nothing when the
+# installation has none (an operator-supplied certificate, or ROMD_BACKUP_CA_DIR unset in
+# local mode). Devices trust this authority, so a restore must bring it back.
+romd_backup_ca_export() {
+  if [[ "${ROMD_BACKUP_MODE}" == "compose" ]]; then
+    local container
+    container="$(romd_backup_init_container)"
+    [[ -n "$container" ]] || return 0
+    docker run --rm --user 0:0 --log-driver none --volumes-from "$container" "${ROMD_BACKUP_HELPER_IMAGE}" \
+      sh -c 'cd "$1" 2>/dev/null && [ -f ca.key ] && [ -f ca.crt ] && tar -cf - ca.key ca.crt || true' \
+      ca-export "${ROMD_BACKUP_CONTAINER_CA_DIR}"
+  elif [[ -n "${ROMD_BACKUP_CA_DIR:-}" && -f "${ROMD_BACKUP_CA_DIR}/ca.key" && -f "${ROMD_BACKUP_CA_DIR}/ca.crt" ]]; then
+    tar -C "${ROMD_BACKUP_CA_DIR}" -cf - ca.key ca.crt
+  fi
+}
+
+# Replaces the destination's certificate authority with a tar stream from stdin. romd-init
+# then reissues the server certificate under it on the next start.
+romd_backup_ca_import() {
+  if [[ "${ROMD_BACKUP_MODE}" == "compose" ]]; then
+    local container
+    container="$(romd_backup_init_container)"
+    [[ -n "$container" ]] || romd_backup_fail "the backup set holds a certificate authority but this stack has no romd-init service"
+    docker run --rm --user 0:0 -i --volumes-from "$container" "${ROMD_BACKUP_HELPER_IMAGE}" \
+      sh -c 'mkdir -p "$1" && rm -f "$1/ca.key" "$1/ca.crt" && tar -C "$1" -xf -' ca-import "${ROMD_BACKUP_CONTAINER_CA_DIR}"
+  else
+    [[ -n "${ROMD_BACKUP_CA_DIR:-}" ]] || romd_backup_fail "the backup set holds a certificate authority; set ROMD_BACKUP_CA_DIR to restore it"
+    mkdir -p "${ROMD_BACKUP_CA_DIR}"
+    rm -f "${ROMD_BACKUP_CA_DIR}/ca.key" "${ROMD_BACKUP_CA_DIR}/ca.crt"
+    tar -C "${ROMD_BACKUP_CA_DIR}" -xf -
   fi
 }
 

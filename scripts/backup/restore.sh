@@ -27,7 +27,12 @@ romd_schema_version="$(romd_backup_manifest_field "${manifest}" romdSchemaVersio
 [[ -n "${backup_set_id}" && "${romd_schema_version}" =~ ^[0-9]+$ ]] \
   || romd_backup_fail "manifest is missing its id or schema version" 2
 
-for artifact in roles.sh romd.dump data.tar; do
+artifacts=(roles.sh romd.dump data.tar)
+# Present only when the source installation generated its own certificate authority.
+[[ -z "$(romd_backup_manifest_sha256 "${manifest}" ca.tar)" ]] || artifacts+=(ca.tar)
+[[ -n "$(romd_backup_manifest_sha256 "${manifest}" ca.tar)" || ! -e "${set_dir}/ca.tar" ]] \
+  || romd_backup_fail "backup set ${backup_set_id} holds a ca.tar its manifest does not list: mixed-generation set" 2
+for artifact in "${artifacts[@]}"; do
   [[ -f "${set_dir}/${artifact}" ]] || romd_backup_fail "backup set ${backup_set_id} is missing ${artifact}" 2
   expected="$(romd_backup_manifest_sha256 "${manifest}" "${artifact}")"
   actual="$(romd_backup_sha256 "${set_dir}/${artifact}")"
@@ -72,6 +77,9 @@ romd_backup_pg sh -c '
 ' restore-dump "${ROMD_BACKUP_PG_USER}" "${ROMD_BACKUP_PG_DATABASE}" <"${set_dir}/romd.dump"
 
 romd_backup_data_import <"${set_dir}/data.tar"
+if [[ " ${artifacts[*]} " == *" ca.tar "* ]]; then
+  romd_backup_ca_import <"${set_dir}/ca.tar"
+fi
 
 restored_version="$(romd_backup_scalar "SELECT version FROM romd.romd_schema WHERE singleton")"
 [[ "${restored_version}" == "${romd_schema_version}" ]] \
