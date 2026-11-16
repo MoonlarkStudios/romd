@@ -130,12 +130,15 @@ APIs, player and HTTPS ingress. It inspects pulled image architecture and digest
 each running container's image ID and configured reference. It refuses an ARM
 Docker daemon, including amd64 emulation on that daemon.
 
-The browser trusts only the SPKI of the certificate ROMD generated for the
-installation, read again before each browser phase, and maps the host name to
-this run's loopback address. The qualifier also requires the generated
-certificate authority to be unchanged after the restart and after the restore
-into fresh volumes: devices that trusted the original installation must not need
-to trust anything new. Chromium receives explicit
+Before each browser phase the qualifier connects to all three surfaces as a
+device that trusts only the certificate authority copied from the first start,
+verifying the chain and the host name. It does this again after the restart and
+after the restore into fresh volumes, so a restored installation that served
+under any other authority fails: devices that trusted the original must not
+need to trust anything new. Each check includes a wrong-issuer control, an
+unrelated authority with the same subject, which must be rejected. The browser
+is then pinned to the SPKI of exactly the certificate those handshakes
+verified, and maps the host name to this run's loopback address. Chromium receives explicit
 screen wake-lock permission for the consumer/player origin pair within that
 disposable browser context, since headless mode denies permission prompts.
 It loads the real portal

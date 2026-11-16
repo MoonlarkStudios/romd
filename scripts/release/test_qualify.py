@@ -6,6 +6,7 @@ import json
 import os
 from contextlib import chdir, redirect_stdout, contextmanager
 from pathlib import Path
+import ssl
 import subprocess
 import sys
 import tarfile
@@ -21,6 +22,11 @@ from assert_failure import assert_injected_failure
 
 
 ROOT_DIR = 'romd-v1.2.3-rc.1'
+
+TRUSTED_AUTHORITY = '-----BEGIN CERTIFICATE-----\ndHJ1c3RlZA==\n-----END CERTIFICATE-----\n'
+UNRELATED_AUTHORITY = '-----BEGIN CERTIFICATE-----\ndW5yZWxhdGVk\n-----END CERTIFICATE-----\n'
+SERVED_CERTIFICATE = '-----BEGIN CERTIFICATE-----\nc2VydmVk\n-----END CERTIFICATE-----\n'
+
 
 class RecordingLifecycle:
     """Flow fixture: real collector protocol is covered by deployment tests."""
@@ -313,8 +319,10 @@ class BundleQualificationTests(unittest.TestCase):
                 return json.dumps({'Os': 'linux', 'Arch': 'amd64'})
             if kwargs.get('binary_result'):
                 return b'fixture-public-key'
-            if stage.startswith('generated-'):
-                return '-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----\n'
+            if stage == 'generated-authority':
+                return TRUSTED_AUTHORITY
+            if stage == 'control-authority':
+                (runner.work / 'control-authority.crt').write_text(UNRELATED_AUTHORITY)
             return ''
 
         relative = Path('coverage/packaged/positive')
@@ -322,7 +330,13 @@ class BundleQualificationTests(unittest.TestCase):
                 '--expected-images', str(self.images), '--publisher-state', str(state),
                 '--expected-revision', 'a' * 40, '--expected-tag', 'v1.2.3-rc.1',
                 '--nginx-image', 'nginx@sha256:' + 'f' * 64, '--evidence-dir', str(relative)]
+        def handshake(address, port, host, authority):
+            if authority != TRUSTED_AUTHORITY:
+                raise ssl.SSLCertVerificationError('fixture: unable to get local issuer certificate')
+            return ssl.PEM_cert_to_DER_cert(SERVED_CERTIFICATE)
+
         with chdir(self.work), patch.object(sys, 'argv', argv), patch.object(Runner, 'run', new=run), \
+                patch.object(qualification, 'served_certificate', new=handshake), \
                 patch.object(Runner, 'inspect_images', return_value={}), \
                 patch.object(qualification, 'ContainerLifecycle', RecordingLifecycle), redirect_stdout(io.StringIO()):
             self.assertEqual(1, qualification.main())
@@ -337,7 +351,7 @@ class BundleQualificationTests(unittest.TestCase):
         self.assertEqual(str((evidence / 'browser-initial').resolve()), location['evidenceDir'])
         self.assertNotEqual(str(self.work.resolve()), location['cwd'])
         self.assertEqual('bundle', Path(location['cwd']).name)
-        self.assertEqual(1, report['commands'][0]['exitCode'])
+        self.assertEqual(1, next(command for command in report['commands'] if command['stage'] == 'browser-initial')['exitCode'])
 
     def packaged_flow(self, failure=None):
         self.bundle()
@@ -380,20 +394,34 @@ class BundleQualificationTests(unittest.TestCase):
                 self.assertTrue(resumed['ready'], 'Stopping newly resumed hosts can exit 143 before startup finishes')
                 self.assertTrue(resumed['checkpointed'], 'Resume lifecycle must pass before the source is stopped')
                 resumed['starting'] = False
-            if stage.startswith('generated-authority-'):
-                changed = failure == 'authority' and stage.endswith('after-restore')
-                return '-----BEGIN CERTIFICATE-----\n' + ('replaced' if changed else 'trusted') + '\n-----END CERTIFICATE-----\n'
-            if stage.startswith('generated-certificate-'):
-                return '-----BEGIN CERTIFICATE-----\nserver\n-----END CERTIFICATE-----\n'
+            if stage == 'generated-authority':
+                return TRUSTED_AUTHORITY
+            if stage == 'control-authority':
+                (runner.work / 'control-authority.crt').write_text(UNRELATED_AUTHORITY)
             return b'public-key' if kwargs.get('binary_result') else ''
+        phases = []
+        def handshake(address, port, host, authority):
+            self.assertEqual('romd.example.test', host)
+            self.assertRegex(address, '^127\\.')
+            phase = 'restore' if any(stage == 'packaged-restore' for stage in stages) else 'source'
+            phases.append((phase, port, authority == TRUSTED_AUTHORITY))
+            # The fake installation serves under the trusted authority, unless a restore replaced it.
+            issuer = UNRELATED_AUTHORITY if failure == 'unsound-control' else TRUSTED_AUTHORITY
+            if failure == 'authority' and phase == 'restore':
+                issuer = 'another authority'
+            if authority != issuer and failure != 'unsound-control':
+                raise ssl.SSLCertVerificationError('fixture: unable to get local issuer certificate')
+            return ssl.PEM_cert_to_DER_cert(SERVED_CERTIFICATE)
         arguments = SimpleNamespace(bundle=self.archive, checksum=self.checksum,
             expected_images=self.images, publisher_state=state, expected_revision='a' * 40,
             expected_tag='v1.2.3-rc.1', verify_only=False, inject_fault='none',
             nginx_image='nginx@sha256:' + 'f' * 64)
         with patch.object(qualification, 'ContainerLifecycle', side_effect=factory), \
                 patch.object(Runner, 'run', new=run), patch.object(Runner, 'browser'), \
+                patch.object(qualification, 'served_certificate', new=handshake), \
                 patch.object(Runner, 'inspect_images', return_value={key: {} for key in self.entries}):
             report = qualification.qualify(arguments, evidence)
+        self.handshakes = phases
         return report, instances[0].events, stages
 
     def test_packaged_flow_keeps_lifecycle_through_backup_restore_and_both_cleanups(self):
@@ -410,16 +438,68 @@ class BundleQualificationTests(unittest.TestCase):
         self.assertIn('cleanup-disposable-project', stages)
         self.assertLess(stages.index('cleanup-restored-stop'), stages.index('cleanup-restored-project'))
 
-    def test_generated_certificate_is_pinned_each_phase_and_restore_must_keep_the_authority(self):
+    def test_served_certificate_requires_the_given_authority_and_host_name_over_real_tls(self):
+        import http.server
+        import threading
+
+        def openssl(*arguments):
+            subprocess.run(['openssl', *arguments], check=True, capture_output=True, cwd=self.work)
+
+        ec = ('-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes')
+        for name in ('trusted', 'unrelated'):
+            # The same subject on both: only the key distinguishes the wrong issuer.
+            openssl('req', '-x509', *ec, '-keyout', f'{name}.key', '-out', f'{name}.crt', '-days', '2',
+                    '-subj', '/CN=ROMD local authority (romd.example.test)', '-addext', 'basicConstraints=critical,CA:TRUE')
+        openssl('req', '-new', *ec, '-keyout', 'server.key', '-out', 'server.csr', '-subj', '/CN=ROMD server certificate',
+                '-addext', 'subjectAltName=DNS:romd.example.test')
+        openssl('x509', '-req', '-in', 'server.csr', '-CA', 'trusted.crt', '-CAkey', 'trusted.key', '-days', '2',
+                '-copy_extensions', 'copy', '-out', 'server.crt')
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(self.work / 'server.crt', self.work / 'server.key')
+        server = http.server.HTTPServer(('127.0.0.1', 0), http.server.BaseHTTPRequestHandler)
+        server.handle_error = lambda *arguments: None  # refused handshakes are the point of this test
+        server.socket = context.wrap_socket(server.socket, server_side=True)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(lambda: (server.shutdown(), server.server_close(), thread.join(5)))
+        port = server.server_address[1]
+        trusted, unrelated = ((self.work / f'{name}.crt').read_text() for name in ('trusted', 'unrelated'))
+
+        served = qualification.served_certificate('127.0.0.1', port, 'romd.example.test', trusted)
+        self.assertEqual(ssl.PEM_cert_to_DER_cert((self.work / 'server.crt').read_text()), served)
+        with self.assertRaises(ssl.SSLCertVerificationError):
+            qualification.served_certificate('127.0.0.1', port, 'romd.example.test', unrelated)
+        with self.assertRaises(ssl.SSLCertVerificationError):
+            qualification.served_certificate('127.0.0.1', port, 'other.example.test', trusted)
+
+    def test_every_phase_verifies_live_tls_against_the_original_authority_before_pinning(self):
         report, _, stages = self.packaged_flow()
-        for phase in ('initial', 'after-restart', 'after-restore'):
-            self.assertLess(stages.index(f'generated-authority-{phase}'), stages.index(f'certificate-spki-{phase}'))
+        self.assertEqual('passed', report['result'])
         self.assertRegex(report['certificateAuthoritySha256'], '^[0-9a-f]{64}$')
+        self.assertEqual(1, stages.count('generated-authority'), 'the authority is copied once, as a person would')
         self.assertNotIn('fixture-certificate', stages)
+        # Three surfaces with the trusted authority, then one wrong-issuer control, in each of three phases.
+        self.assertEqual([True, True, True, False] * 3, [trusted for _, _, trusted in self.handshakes])
+        self.assertEqual(['source'] * 8 + ['restore'] * 4, [phase for phase, _, _ in self.handshakes])
+        records = [command for command in report['commands'] if command['stage'].startswith('trusted-tls-')]
+        self.assertEqual(['trusted-tls-initial', 'trusted-tls-after-restart', 'trusted-tls-after-restore'],
+                         [record['stage'] for record in records])
+        self.assertTrue(all(record['result'] == 'trusted' and record['wrongIssuerRejected'] for record in records))
+        for phase in ('initial', 'after-restart', 'after-restore'):
+            self.assertIn(f'certificate-spki-{phase}', stages)
+
+    def test_restore_that_serves_under_another_authority_fails_before_the_browser_is_pinned(self):
         report, _, stages = self.packaged_flow('authority')
         self.assertEqual('failed', report['result'])
-        self.assertEqual('Restore replaced the certificate authority devices trust', report['failure'])
+        self.assertEqual('after-restore: the served certificate does not chain to the authority devices trust',
+                         report['failure'])
         self.assertNotIn('certificate-spki-after-restore', stages)
+
+    def test_verification_that_accepts_an_unrelated_authority_fails_qualification(self):
+        report, _, stages = self.packaged_flow('unsound-control')
+        self.assertEqual('failed', report['result'])
+        self.assertEqual('initial: TLS verification accepted an unrelated authority', report['failure'])
+        self.assertNotIn('certificate-spki-initial', stages)
 
     def test_backup_resume_readiness_or_lifecycle_failure_blocks_source_stop_and_restore(self):
         for failure in ('readiness', 'checkpoint'):

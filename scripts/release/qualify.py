@@ -13,6 +13,8 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import secrets
+import socket
+import ssl
 import subprocess
 import sys
 import tarfile
@@ -179,6 +181,16 @@ PORTS = {'consumer': 7663, 'admin': 7664, 'player': 7665}
 EDGE_SUBNETS = tuple(f'10.253.{third}.0/24' for third in range(16, 48))
 
 
+def served_certificate(address, port, host, authority):
+    """The DER certificate a surface serves, after verifying its chain to `authority` and its host name."""
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    # No system roots: this client trusts the one authority it is given, as a device would after installing it.
+    context.load_verify_locations(cadata=authority)
+    with socket.create_connection((address, port), timeout=15) as connection:
+        with context.wrap_socket(connection, server_hostname=host) as secured:
+            return secured.getpeercert(binary_form=True)
+
+
 def edge_network(existing):
     for candidate in EDGE_SUBNETS:
         subnet = ipaddress.ip_network(candidate)
@@ -267,18 +279,44 @@ class Runner:
             raise RuntimeError('The ingress holds no generated certificate')
         return text
 
-    def pin_served_certificate(self, phase, env=None):
-        """The browser trusts exactly the certificate ROMD generated for this installation."""
-        certificate = self.ingress_file('fullchain.pem', f'generated-certificate-{phase}', env=env)
+    def control_authority(self):
+        """An unrelated authority with the generated authority's own subject: the wrong-issuer control."""
+        self.run(['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes',
+                  '-keyout', self.work / 'control-authority.key', '-out', self.work / 'control-authority.crt',
+                  '-days', '1', '-subj', f'/CN=ROMD local authority ({HOST})',
+                  '-addext', 'basicConstraints=critical,CA:TRUE'], 'control-authority')
+        self.unrelated_authority = (self.work / 'control-authority.crt').read_text()
+
+    def trust(self, phase, authority, env=None):
+        """Connect to every surface as a device that trusts only `authority`.
+
+        The handshake verifies the chain and the host name, so a certificate that does not chain to
+        that authority fails here. The browser is then pinned to exactly the certificate these
+        handshakes verified, never to whatever the ingress happens to hold.
+        """
+        address = (env or self.env)['ROMD_BIND']
+        record = {'stage': f'trusted-tls-{phase}', 'host': HOST, 'ports': sorted(PORTS.values())}
+        self.commands.append(record)
+        try:
+            served = {served_certificate(address, port, HOST, authority) for port in PORTS.values()}
+        except ssl.SSLCertVerificationError:
+            record['result'] = 'untrusted'
+            raise RuntimeError(f'{phase}: the served certificate does not chain to the authority devices trust') from None
+        if len(served) != 1:
+            raise RuntimeError(f'{phase}: the surfaces serve different certificates')
+        certificate = served.pop()
+        try:
+            served_certificate(address, PORTS['consumer'], HOST, self.unrelated_authority)
+        except ssl.SSLCertVerificationError:
+            record.update(result='trusted', wrongIssuerRejected=True, certificateSha256=hashlib.sha256(certificate).hexdigest())
+        else:
+            raise RuntimeError(f'{phase}: TLS verification accepted an unrelated authority')
         public_key = self.run(['openssl', 'x509', '-pubkey', '-noout'], f'certificate-public-key-{phase}',
-                              input_bytes=certificate.encode())
+                              input_bytes=ssl.DER_cert_to_PEM_cert(certificate).encode())
         # DER bytes need a binary subprocess boundary, not text decoding.
         spki = self.run(['openssl', 'pkey', '-pubin', '-outform', 'DER'], f'certificate-spki-{phase}',
                         input_bytes=public_key.encode(), binary_result=True)
         self.certificate_spki = base64.b64encode(hashlib.sha256(spki).digest()).decode()
-
-    def authority(self, phase, env=None):
-        return hashlib.sha256(self.ingress_file('ca.crt', f'generated-authority-{phase}', env=env).encode()).hexdigest()
 
     def browser(self, stage, inject_fault):
         config = self.work / 'browser-input.json'
@@ -352,6 +390,7 @@ def qualify(args, evidence):
             if (server.get('Os'), server.get('Arch')) != ('linux', 'amd64'):
                 raise RuntimeError('Qualification requires a native Linux amd64 Docker daemon')
             report['docker'] = {key: server.get(key) for key in ('Version', 'Os', 'Arch')}
+            runner.control_authority()
             restore_env = dict(env, COMPOSE_PROJECT_NAME=env['COMPOSE_PROJECT_NAME'] + '-restore')
             gate = ContainerLifecycle(env, (env['COMPOSE_PROJECT_NAME'], restore_env['COMPOSE_PROJECT_NAME']),
                                       args.nginx_image, evidence / 'lifecycle.json')
@@ -368,13 +407,12 @@ def qualify(args, evidence):
                 recovery.start()
                 report['runningImages'] = runner.inspect_images(report['bundle']['images'])
                 runner.run([bundle / 'scripts/deployment/verify.sh'], 'packaged-http-verification')
-                trusted_authority = runner.authority('initial')
-                runner.pin_served_certificate('initial')
+                # What a person installs on their devices, copied once from the first start.
+                trusted_authority = runner.ingress_file('ca.crt', 'generated-authority')
+                runner.trust('initial', trusted_authority)
                 runner.browser('browser-initial', args.inject_fault)
                 recovery.restart()
-                if runner.authority('after-restart') != trusted_authority:
-                    raise RuntimeError('Restart replaced the certificate authority devices trust')
-                runner.pin_served_certificate('after-restart')
+                runner.trust('after-restart', trusted_authority)
                 runner.browser('browser-after-restart', 'none')
                 backup_set = recovery.backup_and_stop(bundle / 'scripts/backup/backup.sh', work / 'backups')
                 # Stop the source before exposing its restored identity, and free its ingress socket/network.
@@ -384,12 +422,10 @@ def qualify(args, evidence):
                 recovery.restore(bundle / 'scripts/backup/restore.sh', backup_set, restore_env)
                 report['restoredRunningImages'] = runner.inspect_images(report['bundle']['images'], env=restore_env)
                 runner.run([bundle / 'scripts/deployment/verify.sh'], 'restored-http-verification', env=restore_env)
-                # A restore into fresh volumes must keep the authority devices already trust.
-                if runner.authority('after-restore', env=restore_env) != trusted_authority:
-                    raise RuntimeError('Restore replaced the certificate authority devices trust')
-                runner.pin_served_certificate('after-restore', env=restore_env)
+                # A restore into fresh volumes must still be trusted by devices that only know the original authority.
+                runner.trust('after-restore', trusted_authority, env=restore_env)
                 runner.browser('browser-after-restore', 'none')
-                report['certificateAuthoritySha256'] = trusted_authority
+                report['certificateAuthoritySha256'] = hashlib.sha256(trusted_authority.encode()).hexdigest()
             report['result'] = 'passed'
     except (ValueError, RuntimeError, KeyError, OSError, IndexError, TypeError, AttributeError,
             subprocess.SubprocessError, json.JSONDecodeError, tarfile.TarError) as error:
