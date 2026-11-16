@@ -39,9 +39,18 @@ def validate(config):
             if not postgres_networks.intersection(service.get('networks', {})):
                 errors.append(f'{name}: no shared network with PostgreSQL')
             env = service.get('environment', {})
-            for key in ('Romd__JwtSecret', 'Romd__ConsumerDelivery__SigningSecret'):
-                if len(env.get(key, '')) < 32:
-                    errors.append(f'{name}: {key} needs at least 32 characters')
+            # romd-init generates every secret; none may pass through the environment.
+            if (env.get('ROMD_SECRETS_DIRECTORY') != '/var/lib/romd/secrets'
+                    or any(key in env for key in ('Romd__JwtSecret', 'Romd__ConsumerDelivery__SigningSecret'))):
+                errors.append(f'{name}: signing secrets must be read from /var/lib/romd/secrets')
+            if any('Password=' in value or 'Passfile=/etc/romd/database/pgpass' not in value
+                   for key, value in env.items() if key.startswith('ConnectionStrings__')):
+                errors.append(f'{name}: connection strings must use the generated password file')
+            secret_volumes = {volume.get('source'): volume for volume in service.get('volumes', [])
+                              if isinstance(volume, dict) and str(volume.get('source', '')).startswith('romd-secrets-')}
+            own = secret_volumes.get('romd-secrets-' + name.removeprefix('romd-'), {})
+            if len(secret_volumes) != 1 or own.get('target') != '/etc/romd/database' or own.get('read_only') is not True:
+                errors.append(f'{name}: mount only its own password volume, read-only')
             if not env.get('Romd__ConsumerDelivery__SigningKeyId', '').strip():
                 errors.append(f'{name}: consumer delivery signing key ID is required')
             ttl = env.get('Romd__ConsumerDelivery__SignedUrlTtlMinutes', '')
@@ -67,11 +76,18 @@ def validate(config):
         value = vfs.get('Romd__Vfs__' + key, str(default))
         if not re.fullmatch(r'[0-9]+', value) or not 1 <= int(value) <= maximum:
             errors.append(f'romd-consumer: VFS {key} must be an integer from 1 to {maximum}')
-    passwords = [value for key, value in pg_env.items() if key.endswith('PASSWORD')]
-    if len(passwords) != 5 or len(set(passwords)) != 5:
-        errors.append('PostgreSQL requires five distinct role passwords')
-    if any(not re.fullmatch(r'[0-9a-fA-F]{32,}', value or '') for value in passwords):
-        errors.append('PostgreSQL role passwords must be at least 32 hex characters')
+    if (pg_env.get('POSTGRES_PASSWORD_FILE') != '/run/romd-postgres/bootstrap'
+            or pg_env.get('ROMD_POSTGRES_SECRETS_DIRECTORY') != '/run/romd-postgres'
+            or any(key.endswith('PASSWORD') for key in pg_env)):
+        errors.append('PostgreSQL must read its role passwords from the generated password files')
+    init = services.get('romd-init', {})
+    init_targets = {volume.get('source'): volume.get('target') for volume in init.get('volumes', []) if isinstance(volume, dict)}
+    if (init.get('command') != ['--init-deployment', '/init'] or init.get('network_mode') != 'none'
+            or init_targets != {'romd-secrets-postgres': '/init/postgres', 'romd-secrets-worker': '/init/worker',
+                                'romd-secrets-admin': '/init/admin', 'romd-secrets-consumer': '/init/consumer',
+                                'romd-data': '/init/data'}
+            or services['postgres'].get('depends_on', {}).get('romd-init', {}).get('condition') != 'service_completed_successfully'):
+        errors.append('romd-init: must generate every secret, offline, before PostgreSQL starts')
     worker_env = services['romd-worker']['environment']
     origins = []
     for surface in ('Admin', 'Consumer'):

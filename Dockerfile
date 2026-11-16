@@ -344,6 +344,11 @@ RUN test -x /usr/bin/prlimit \
     && { /app/native/chdman/native/chdman help > /tmp/chdman-help || true; } \
     && grep -q '^chdman - MAME Compressed Hunks of Data (CHD) manager ' /tmp/chdman-help \
     && rm /tmp/chdman-help
+# Mount points for --init-deployment. A new named volume takes its mount point's ownership,
+# so the secrets and data volumes start writable by the app user without a root step.
+USER root
+RUN install -d -o "${APP_UID}" -g 0 /init /init/postgres /init/worker /init/admin /init/consumer /init/data
+USER $APP_UID
 ENTRYPOINT ["dotnet", "romd-worker.dll"]
 
 FROM nginx:1.30.6-alpine-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893 AS romd-player

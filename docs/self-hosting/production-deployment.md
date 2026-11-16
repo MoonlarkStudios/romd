@@ -47,9 +47,9 @@ offers both.
    It asks for your domain, the first administrator's email and password, how
    visitors reach ROMD (choose **Cloudflare Tunnel**), the tunnel token and,
    optionally, the directory of an existing ROM library on this server. It
-   generates every other secret, picks a free Docker network for the ingress,
-   and writes `.env`, readable only by you. It never prints a secret and never
-   replaces an existing `.env`.
+   picks a free Docker network for the ingress and writes `.env`, readable only
+   by you. It never prints a secret and never replaces an existing `.env`. ROMD
+   generates its own database passwords and signing secrets on first start.
 4. In the tunnel's **Public Hostname** settings, route each of the three
    hostnames setup lists (by default `admin.`, `console.` and `play.` under your
    domain) to the service `http://ingress:80`.
@@ -71,9 +71,8 @@ from step 3 is mounted read-only instead: Managers choose a folder from it under
 **Import from a server folder** on the import page
 ([path import](configuration.md#path-import)).
 
-Back up `.env` with your other secrets: it holds the database passwords that
-restores need. The administrator password in it only creates the first account,
-and only the worker receives it. After you sign in, change your password in the
+Keep `.env` with your other secrets. The administrator password in it only
+creates the first account, and only the worker receives it. After you sign in, change your password in the
 admin portal and delete `ROMD_DEFAULT_ADMIN_PASSWORD` from `.env`; editing it
 there later has no effect.
 
@@ -89,10 +88,12 @@ Download the bundle and its checksum to the same directory. Verify with
 `sha256sum --check romd-<version>-deployment.tar.gz.sha256` (or
 `shasum -a 256 -c`), then extract it; it unpacks into its own `romd-<version>/`
 directory. Run `scripts/deployment/setup.sh` there to create `.env`: it prompts
-for the values you choose and generates the rest. To fill it by hand instead,
-copy `.env.example` to `.env` and generate independent secrets, for example with
-`openssl rand -hex 32`; PostgreSQL passwords must be hex because Compose embeds
-them in connection strings. The bootstrap admin password must satisfy the
+for the values you choose. To fill it by hand instead, copy `.env.example` to
+`.env`. On every start, the `romd-init` service runs first: it
+[generates the database passwords and signing secrets](configuration.md#generated-secrets-and-certificates)
+once and never replaces them. The database passwords live in Docker volumes
+that only their own service mounts; the signing secrets live in the data
+volume, so backups carry them. The bootstrap admin password must satisfy the
 application's password policy; the worker refuses to create the first account
 without one and ignores it once any account exists. Restrict `.env` permissions (`chmod 600`).
 `COMPOSE_FILE` and `COMPOSE_PROJECT_NAME` in `.env` select the overlays and
@@ -112,8 +113,9 @@ Never publish a plaintext listener that lets arbitrary clients claim HTTPS.
 Optional IGDB credentials can be supplied to admin and worker; leave both empty
 to manage them through **Integrations**. For path imports, mount the source at the
 same container path on admin and worker and configure `Romd__AllowedImportPaths__*`
-on both. Changing role password environment variables does not rotate credentials
-in an already initialized PostgreSQL cluster.
+on both. Removing a `romd-secrets-*` volume does not rotate a database
+password: the initialized PostgreSQL cluster keeps the old one and the hosts can
+no longer connect. Remove those volumes only together with the database volume.
 
 ROM uploads accept files up to `Romd__MaxUploadBytes` (default 64 GiB). While an
 upload is in flight, the data volume holds the request buffer under
@@ -150,7 +152,7 @@ The bundle contains:
 
 - `compose.yaml`: production topology, health checks and bounded Docker logs;
 - `images.env`: immutable references for all four ROMD images and PostgreSQL;
-- `.env.example`: required installation settings with blank secrets;
+- `.env.example`: required installation settings;
 - `deploy/postgres/init/`: role/schema initialization for a fresh database;
 - `deploy/examples/`: optional HTTPS proxy and Cloudflare Tunnel overlays;
 - `scripts/backup/` and `scripts/deployment/`: compatible operational tools;

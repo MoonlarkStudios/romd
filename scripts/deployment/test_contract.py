@@ -81,12 +81,9 @@ def test_environment():
     base_images = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(('ROMD_', 'COMPOSE_', 'IGDB_', 'CLOUDFLARE_'))}
-    for index, role in enumerate(('BOOTSTRAP', 'PROVISIONER', 'WORKER', 'ADMIN', 'CONSUMER'), 1):
-        env[f'ROMD_POSTGRES_{role}_PASSWORD'] = str(index) * 64
     for name in ('ADMIN', 'CONSUMER', 'WORKER', 'PLAYER'):
         env[f'ROMD_{name}_IMAGE'] = f'romd-{name.lower()}:test'
-    env.update(ROMD_POSTGRES_IMAGE=base_images['postgres'], ROMD_JWT_SECRET='a' * 64,
-               ROMD_DEFAULT_ADMIN_PASSWORD='TestAdmin123!', ROMD_CONSUMER_DELIVERY_SIGNING_SECRET='b' * 64,
+    env.update(ROMD_POSTGRES_IMAGE=base_images['postgres'], ROMD_DEFAULT_ADMIN_PASSWORD='TestAdmin123!',
                ROMD_ADMIN_PUBLIC_URL='https://admin.example.test', ROMD_CONSUMER_PUBLIC_URL='https://console.example.test',
                ROMD_PLAYER_PUBLIC_URL='https://play.example.test', ROMD_TRUSTED_PROXY='172.28.0.2',
                ROMD_ADMIN_HOST='admin.example.test', ROMD_CONSUMER_HOST='console.example.test', ROMD_PLAYER_HOST='play.example.test',
@@ -636,6 +633,18 @@ class ContainerLifecycleTests(unittest.TestCase):
         for action, attributes in (('create', {}), ('start', {}), ('die', {'exitCode': '0'}), ('destroy', {})):
             self.accept(ledger, action, **attributes)
         self.assertIn('destroy-with-incomplete-lifecycle', ledger.errors)
+
+    def test_one_shot_init_may_rerun_and_exit_cleanly_but_not_fail(self):
+        init = {'com.docker.compose.service': 'romd-init'}
+        ledger = self.ledger()
+        for action, attributes in (('create', {}), ('start', {}), ('die', {'exitCode': '0'}),
+                                   ('start', {}), ('die', {'exitCode': '0'}), ('destroy', {})):
+            self.accept(ledger, action, **init, **attributes)
+        self.assertEqual([], ledger.errors)
+        ledger = self.ledger()
+        for action, attributes in (('create', {}), ('start', {}), ('die', {'exitCode': '1'})):
+            self.accept(ledger, action, **init, **attributes)
+        self.assertIn('nonzero-container-exit', ledger.errors)
 
     def test_malformed_service_label_fails_without_crashing_reader(self):
         ledger = self.ledger()
@@ -1309,7 +1318,22 @@ docker() {
     def test_secrets_origins_and_player_boundary_are_validated(self):
         original = render()
         config = copy.deepcopy(original)
-        config['services']['postgres']['environment']['ROMD_POSTGRES_ADMIN_PASSWORD'] = 'unsafe;password'
+        config['services']['postgres']['environment']['POSTGRES_PASSWORD'] = 'in-environment'
+        self.assertTrue(validate(config))
+        for service, key, value in (
+                ('romd-admin', 'ConnectionStrings__Romd', 'Host=postgres;Username=romd_admin;Password=in-environment'),
+                ('romd-consumer', 'Romd__JwtSecret', 'a' * 64),
+                ('romd-worker', 'ROMD_SECRETS_DIRECTORY', '/tmp/elsewhere')):
+            config = copy.deepcopy(original)
+            config['services'][service]['environment'][key] = value
+            self.assertTrue(validate(config), key)
+        config = copy.deepcopy(original)
+        consumer = config['services']['romd-consumer']['volumes']
+        consumer.append(dict(next(volume for volume in config['services']['romd-worker']['volumes']
+                                  if volume.get('source') == 'romd-secrets-worker'), target='/etc/romd/worker'))
+        self.assertTrue(validate(config))
+        config = copy.deepcopy(original)
+        config['services']['romd-init']['network_mode'] = 'bridge'
         self.assertTrue(validate(config))
         config = copy.deepcopy(original)
         config['services']['romd-worker']['environment']['Romd__Auth__ConsumerSpa__PostLogoutRedirectUris__0'] = 'http://console.example.test'
@@ -1561,9 +1585,9 @@ docker() {
             self.assertEqual(42, stale.returncode, stale.stdout + stale.stderr)
             self.assertNotIn('is current', stale.stdout)
 
-    def test_missing_secret_fails_compose_interpolation(self):
+    def test_missing_public_origin_fails_compose_interpolation(self):
         env = test_environment()
-        env['ROMD_POSTGRES_ADMIN_PASSWORD'] = ''
+        env['ROMD_ADMIN_PUBLIC_URL'] = ''
         result = subprocess.run(compose('--env-file', '/dev/null', '-f', str(ROOT / 'compose.yaml'), 'config', '--quiet'),
                                 env=env, capture_output=True)
         self.assertNotEqual(0, result.returncode)

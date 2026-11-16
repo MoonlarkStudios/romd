@@ -132,17 +132,18 @@ romd_backup_data_import() {
   fi
 }
 
-# Succeeds when the data directory holds nothing but empty scaffolding.
+# Succeeds when the data directory holds nothing but empty scaffolding and the signing
+# secrets romd-init generates for a new installation; the restored set replaces those.
 romd_backup_data_is_empty() {
   local listing
   if [[ "${ROMD_BACKUP_MODE}" == "compose" ]]; then
     listing="$(docker run --rm --user 0:0 --volumes-from "$(romd_backup_worker_container)" "${ROMD_BACKUP_HELPER_IMAGE}" \
       find "${ROMD_BACKUP_CONTAINER_DATA_DIR}" -mindepth 1 -type f \
-        -not -path '*/logs/*' -not -path '*/temp/*' 2>/dev/null | head -n 1)"
+        -not -path '*/logs/*' -not -path '*/temp/*' -not -path '*/secrets/*' 2>/dev/null | head -n 1)"
   else
     [[ -d "${ROMD_BACKUP_DATA_DIR}" ]] || return 0
     listing="$(find "${ROMD_BACKUP_DATA_DIR}" -mindepth 1 -type f \
-      -not -path '*/logs/*' -not -path '*/temp/*' | head -n 1)"
+      -not -path '*/logs/*' -not -path '*/temp/*' -not -path '*/secrets/*' | head -n 1)"
   fi
   [[ -z "${listing}" ]]
 }

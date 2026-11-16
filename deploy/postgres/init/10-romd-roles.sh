@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Compose supplies one password file per role; other callers set the variables directly.
+if [[ -n "${ROMD_POSTGRES_SECRETS_DIRECTORY:-}" ]]; then
+  for role in provisioner worker admin consumer; do
+    export "ROMD_POSTGRES_${role^^}_PASSWORD=$(<"${ROMD_POSTGRES_SECRETS_DIRECTORY}/${role}")"
+  done
+fi
+
 psql --set ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<'SQL'
 \getenv provisioner_password ROMD_POSTGRES_PROVISIONER_PASSWORD
 \getenv worker_password ROMD_POSTGRES_WORKER_PASSWORD
