@@ -232,14 +232,18 @@ and the player on 7665. Compose derives the three public origins from
 `ROMD_BIND`. A plain-HTTP request to one of these ports is redirected to HTTPS.
 
 `ROMD_HOST` is one name or address, and every device must use exactly it: the
-ingress refuses other host names, and sign-in is bound to these origins. A
+ingress refuses other host names, and sign-in is bound to these origins. Write
+it in lower case: browsers send lower-case origins, so ROMD refuses to start
+with a mixed-case name and says which name to use. A
 `.local` name, a name from your router's DNS or a fixed IP address all work.
 
 On every start the `romd-init` service makes sure a certificate exists:
 
 - **Generated (default).** It creates a private certificate authority limited to
   `ROMD_HOST` and a server certificate valid for 825 days, renewed within 30
-  days of expiry when the stack next starts. Trust `ca.crt` once on each device.
+  days of expiry when the stack next starts and served without restarting the
+  ingress. Trust `ca.crt` once on each device; backups carry the authority, so a
+  restore keeps that trust.
   Changing `ROMD_HOST` issues a new authority that devices must trust again.
   To include more names in the certificate, list them all, space separated, in
   `ROMD_CERTIFICATE_NAMES`.
@@ -248,6 +252,13 @@ On every start the `romd-init` service makes sure a certificate exists:
   them. With a certificate from a public authority for a domain you own, and
   that name resolving to this server on your network, devices need no setup,
   and the same origins keep working if you later route the name from outside.
+
+The ingress and the applications share a private network, `172.28.0.0/24` by
+default. If Docker reports `Pool overlaps with other one on this address space`,
+another network on this host already uses that range (a second ROMD
+installation, for example): set `ROMD_EDGE_SUBNET`, `ROMD_EDGE_DYNAMIC_RANGE`,
+`ROMD_TRUSTED_PROXY` and the three `ROMD_*_EDGE_IP` addresses to a free range, as
+`.env.example` shows.
 
 The three overlays under `deploy/examples/` replace the built-in listeners. Each
 needs the three `ROMD_*_PUBLIC_URL` origins set explicitly; add the overlay to
@@ -515,8 +526,10 @@ identity simultaneously.
 
 A backup is a quiesced set of PostgreSQL application/Hangfire schemas plus the
 complete ROMD data directory, excluding temporary files and logs. It includes
-content, identity, signing keys and Data Protection keys. Protect it as secret
-material. Saved provider credentials need the matching Data Protection keys.
+content, identity, signing keys and Data Protection keys. When ROMD generated
+the installation's certificate authority, the set also holds it (`ca.tar`), so
+devices that trusted the original installation trust a restored one without
+any change. Protect the set as secret material. Saved provider credentials need the matching Data Protection keys.
 
 ```bash
 scripts/backup/backup.sh /absolute/backup/destination
@@ -530,7 +543,8 @@ and schedule retention in your infrastructure automation. ROM exports are not
 installation backups. Preserve the matching release bundle and a secure copy of
 installation configuration separately; backup sets do not include `.env`.
 
-Each set contains `roles.sh`, `romd.dump`, `data.tar` and `manifest.json`, with
+Each set contains `roles.sh`, `romd.dump`, `data.tar`, `manifest.json` and, for a generated
+certificate authority, `ca.tar`, with
 schema versions, PostgreSQL version, artifact sizes and SHA-256 hashes. Missing
 manifests, mismatched artifacts and incompatible role definitions are refused.
 

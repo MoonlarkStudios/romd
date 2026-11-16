@@ -7,10 +7,13 @@ echo upstreams expose the headers the application actually receives. This is
 ingress behavior coverage, not Docker production-image/release qualification.
 """
 from contextlib import contextmanager
+import hashlib
 import json
 import re
 from pathlib import Path
 import select
+import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -192,9 +195,10 @@ class BuiltInIngressTests(CloudflareIngressTests):
         template = (ROOT / 'deploy/ingress/templates/default.conf.template').read_text()
         for index, surface in enumerate(('admin', 'consumer', 'player'), 1):
             template = template.replace(f'http://romd-{surface}:8080', f'http://127.0.0.1:{8080 + index}')
-        lines = [line.replace(' ssl default_server;', ' default_server;') for line in template.splitlines()
-                 if not line.strip().startswith(('ssl_', 'error_page 497'))]
+        lines = [line.replace(' ssl default_server;', ' default_server;').replace(' ssl;', ';')
+                 for line in template.splitlines() if not line.strip().startswith(('ssl_', 'error_page 497'))]
         assert len(lines) == len(template.splitlines()) - 4 and sum(' default_server;' in line for line in lines) == 3
+        assert not any(' ssl' in line for line in lines if line.strip().startswith('listen'))
         (work / 'default.conf.template').write_text('\n'.join(lines) + '\n')
         (work / 'nginx.conf').write_text('''worker_processes 1;
 error_log /dev/stderr warn;
@@ -244,15 +248,135 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
         status, body = self.request(host='nas.example.test:1', port=7663)
         self.assertEqual((200, 'nas.example.test:7663'), (status, body.split('|')[1]))
 
-    def test_other_host_names_are_refused(self):
-        for host in ('evil.test', 'nas.example.test.evil.test', '192.0.2.1'):
-            with self.subTest(host=host):
-                self.assertEqual(421, self.request(host=host, port=7664)[0])
+    def test_other_host_names_are_refused_on_every_listener(self):
+        for port in (7663, 7664, 7665):
+            for host in ('evil.test', 'nas.example.test.evil.test', 'xnas.example.test', '192.0.2.1'):
+                with self.subTest(host=host, port=port):
+                    self.assertEqual(421, self.request(host=host, port=port)[0])
+            # nginx itself rejects a request without a host name before any server is chosen.
+            self.assertEqual(400, self.request(host='', port=port)[0])
+
+    def test_host_names_match_without_regard_to_case(self):
+        status, body = self.request(host='NAS.Example.TEST', port=7663)
+        self.assertEqual((200, 'nas.example.test:7663'), (status, body.split('|')[1]))
 
 
 # The inherited tunnel cases belong to CloudflareIngressTests alone.
 for _name in [name for name in vars(CloudflareIngressTests) if name.startswith('test_')]:
     setattr(BuiltInIngressTests, _name, None)
+
+
+class BuiltInIngressTlsTests(unittest.TestCase):
+    """The shipped template and certificate reloader, unmodified, over real TLS on a loopback port."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.runtime = Runtime()
+        cls.environment = cls.runtime.child_environment()
+        temporary = tempfile.TemporaryDirectory(prefix='romd-built-in-ingress-tls-')
+        cls.addClassCleanup(temporary.cleanup)
+        cls.work = Path(temporary.name)
+        (cls.work / 'tls').mkdir()
+        cls.first = cls.issue('first')
+        cls.container = 'romd-built-in-ingress-tls-' + uuid.uuid4().hex[:12]
+        cls.addClassCleanup(lambda: subprocess.run(cls.runtime.engine_command('rm', '--force', cls.container),
+                                                    env=cls.environment, capture_output=True, timeout=30, check=True))
+        image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
+        ingress = ROOT / 'deploy/ingress'
+        # Mixed case, as an operator may type it. The upstreams do not exist: only the listeners are exercised.
+        subprocess.run(cls.runtime.engine_command(
+            'run', '--detach', '--name', cls.container, '--memory', '96m', '--cpus', '1',
+            '--publish', '127.0.0.1::7663', '--env', 'ROMD_HOST=NAS.example.test',
+            '--env', 'ROMD_CONSUMER_PORT=7663', '--env', 'ROMD_ADMIN_PORT=7664', '--env', 'ROMD_PLAYER_PORT=7665',
+            '--env', 'ROMD_CERTIFICATE_CHECK_SECONDS=1', '--env', 'NGINX_ENVSUBST_FILTER=^ROMD_',
+            '--volume', f'{ingress / "templates"}:/etc/nginx/templates:ro,Z',
+            '--volume', f'{ingress / "entrypoint/40-romd-reload-certificate.sh"}:/docker-entrypoint.d/40-romd-reload-certificate.sh:ro,Z',
+            '--volume', f'{cls.work / "tls"}:/etc/romd/tls:ro,Z', image),
+            env=cls.environment, capture_output=True, text=True, timeout=60, check=True)
+        published = subprocess.run(cls.runtime.engine_command('port', cls.container, '7663/tcp'), env=cls.environment,
+                                   capture_output=True, text=True, timeout=30, check=True).stdout.split()[0]
+        cls.port = int(published.rsplit(':', 1)[1])
+        for _ in range(100):
+            if cls.served() == cls.first:
+                break
+            time.sleep(0.1)
+        else:
+            raise AssertionError('The ingress did not start serving its certificate')
+
+    @classmethod
+    def issue(cls, name):
+        """Replace the certificate files as romd-init does, and return the new certificate's DER SHA-256."""
+        for suffix in ('key', 'crt'):
+            (cls.work / f'{name}.{suffix}').unlink(missing_ok=True)
+        subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes',
+                        '-keyout', cls.work / f'{name}.key', '-out', cls.work / f'{name}.crt', '-days', '2',
+                        '-subj', f'/CN={name}', '-addext', 'subjectAltName=DNS:nas.example.test'],
+                       capture_output=True, check=True)
+        for source, target in ((f'{name}.key', 'privkey.pem'), (f'{name}.crt', 'fullchain.pem')):
+            (cls.work / source).chmod(0o644)
+            (cls.work / source).replace(cls.work / 'tls' / target)
+        der = ssl.PEM_cert_to_DER_cert((cls.work / 'tls/fullchain.pem').read_text())
+        return hashlib.sha256(der).hexdigest()
+
+    @classmethod
+    def connection(cls, host):
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname, context.verify_mode = False, ssl.CERT_NONE
+        return context.wrap_socket(socket.create_connection(('127.0.0.1', cls.port), timeout=5), server_hostname=host)
+
+    @classmethod
+    def served(cls):
+        try:
+            with cls.connection('nas.example.test') as connection:
+                return hashlib.sha256(connection.getpeercert(binary_form=True)).hexdigest()
+        except OSError:
+            return None
+
+    def status(self, host, plain=False):
+        request = f'GET /x HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n'.encode()
+        with (socket.create_connection(('127.0.0.1', self.port), timeout=5) if plain else self.connection(host)) as connection:
+            connection.sendall(request)
+            connection.settimeout(3)
+            response = b''
+            try:
+                while chunk := connection.recv(65536):
+                    response += chunk
+            except TimeoutError:
+                # The request was accepted and is waiting on an upstream that does not exist here.
+                return None, None
+        head = response.decode(errors='replace').split('\r\n\r\n')[0].split('\r\n')
+        location = next((line.split(': ', 1)[1] for line in head if line.lower().startswith('location:')), None)
+        return int(head[0].split()[1]), location
+
+    def test_configured_name_is_served_in_any_case_and_other_names_are_refused(self):
+        # No upstream exists here, so a routed request waits or fails as a gateway error; a refused one is 421.
+        for host in ('nas.example.test', 'NAS.example.test', 'Nas.Example.Test'):
+            with self.subTest(host=host):
+                self.assertIn(self.status(host)[0], (None, 502, 504))
+        for host in ('evil.test', 'nas.example.test.evil.test', '203.0.113.7'):
+            with self.subTest(host=host):
+                self.assertEqual(421, self.status(host)[0])
+
+    def test_plain_http_is_redirected_to_https_on_the_published_port(self):
+        self.assertEqual((308, 'https://NAS.example.test:7663/x'), self.status('nas.example.test', plain=True))
+
+    def test_replaced_certificate_is_served_without_restarting_and_a_broken_one_is_not(self):
+        started = subprocess.run(self.runtime.engine_command('inspect', '--format', '{{.State.StartedAt}}', self.container),
+                                 env=self.environment, capture_output=True, text=True, timeout=30, check=True).stdout
+        renewed = self.issue('renewed')
+        self.assertNotEqual(self.first, renewed)
+        deadline = time.monotonic() + 30
+        while self.served() != renewed and time.monotonic() < deadline:
+            time.sleep(0.2)
+        self.assertEqual(renewed, self.served(), 'the renewed certificate was not served')
+        # A key that does not match its certificate must not take the listeners down.
+        (self.work / 'tls/privkey.pem').write_text('not a key\n')
+        (self.work / 'tls/fullchain.pem').write_text((self.work / 'tls/fullchain.pem').read_text() + '\n')
+        time.sleep(3)
+        self.assertEqual(renewed, self.served())
+        self.assertEqual(started, subprocess.run(
+            self.runtime.engine_command('inspect', '--format', '{{.State.StartedAt}}', self.container),
+            env=self.environment, capture_output=True, text=True, timeout=30, check=True).stdout)
 
 
 class IngressLoggingTests(unittest.TestCase):

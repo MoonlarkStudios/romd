@@ -1310,6 +1310,8 @@ docker() {
         config = render()
         config['services']['ingress']['ports'].pop()
         self.assertTrue(validate(config))
+        mixed = validate(render(environment=dict(environment, ROMD_HOST='NAS.example.test')))
+        self.assertTrue(any('lower-case' in error for error in mixed), mixed)
         # Without a host name the stack still renders on every Compose release; validation names the problem.
         missing = {key: value for key, value in environment.items() if key != 'ROMD_HOST'}
         self.assertIn('Ingress ADMIN origin must be ROMD_HOST on its published port', validate(render(environment=missing)))
@@ -1512,10 +1514,14 @@ docker() {
                 for name in ('compose.yaml', 'images.env', 'manifest.json'):
                     self.assertEqual(0o644, bundle.getmember(f'{root}/{name}').mode & 0o777, name)
                 self.assertEqual(0o755, bundle.getmember(f'{root}/deploy/postgres/init/10-romd-roles.sh').mode & 0o777)
+                # The nginx image only runs entrypoint scripts that are executable.
+                self.assertEqual(0o755, bundle.getmember(
+                    f'{root}/deploy/ingress/entrypoint/40-romd-reload-certificate.sh').mode & 0o777)
                 names = {name.removeprefix(root + '/') for name in bundle.getnames()}
                 for required in ('compose.yaml', 'images.env', '.env.example',
                                  'scripts/backup/restore.sh', 'scripts/deployment/compose.sh',
                                  'deploy/ingress/templates/default.conf.template',
+                                 'deploy/ingress/entrypoint/40-romd-reload-certificate.sh',
                                  'deploy/examples/cloudflare/compose.yaml',
                                  'deploy/examples/cloudflare/templates/default.conf.template',
                                  'docs/media-processing.md', 'docs/configuration.md',

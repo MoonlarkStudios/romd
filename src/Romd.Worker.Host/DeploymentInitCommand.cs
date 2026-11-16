@@ -38,6 +38,14 @@ internal static class DeploymentInitCommand
             return InvalidArguments;
         }
 
+        // Browsers send origins in lower case and the applications compare them exactly, so a
+        // mixed-case name would start a stack nobody can sign in to. Refuse it before anything is written.
+        if (hosts.FirstOrDefault(host => host != host.ToLowerInvariant()) is { } mixedCase)
+        {
+            errors.WriteLine($"Host names must be lower case: use {mixedCase.ToLowerInvariant()} in place of {mixedCase} (ROMD_HOST).");
+            return InvalidArguments;
+        }
+
         try
         {
             IReadOnlyList<string> created = DeploymentSecrets.Ensure(directory);
@@ -54,7 +62,7 @@ internal static class DeploymentInitCommand
             {
                 DeploymentCertificates.Outcome.OperatorSupplied => "Certificate: using the supplied certificate.",
                 DeploymentCertificates.Outcome.Current => "Certificate: current.",
-                DeploymentCertificates.Outcome.Renewed => "Certificate: renewed; restart the ingress to serve it.",
+                DeploymentCertificates.Outcome.Renewed => "Certificate: reissued under the existing authority; the ingress serves it within a minute.",
                 _ => $"Certificate: issued a new authority and certificate for {string.Join(", ", hosts)}. "
                      + $"Trust {DeploymentCertificates.PublishedAuthority} on each device."
             });

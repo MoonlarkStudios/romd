@@ -218,6 +218,8 @@ services:
       NGINX_ENVSUBST_FILTER: "^ROMD_"
     volumes:
       - ./deploy/ingress/templates:/etc/nginx/templates:ro
+      # Reloads nginx when the certificate files change, so a renewal is served without a restart.
+      - ./deploy/ingress/entrypoint/40-romd-reload-certificate.sh:/docker-entrypoint.d/40-romd-reload-certificate.sh:ro
       - ${ROMD_TLS_DIRECTORY:-romd-tls}:/etc/romd/tls:ro
     ports:
       - "${ROMD_BIND:-0.0.0.0}:${ROMD_CONSUMER_PORT:-7663}:7663"
