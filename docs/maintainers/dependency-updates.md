@@ -20,7 +20,7 @@ Make that status check required in the
 | npm/pnpm | The complete `web/pnpm-lock.yaml`, including every workspace importer and development, transitive and optional dependencies, through pinned pnpm's registry audit. A temporary copy uses neutral configuration, so local ignore lists and production-only settings cannot hide findings. No install scripts or web build run. |
 | Release browser npm | `scripts/release/browser/package-lock.json` through the pinned Node distribution's `npm audit --package-lock-only`, including development, optional and peer dependencies. The audit uses a temporary copy, neutral configuration and no install scripts. Package counts, advisory totals, affected versions and the root manifest must match the lockfile. |
 | Dart/Pub | Every pub.dev-hosted package in the committed console `pubspec.lock`, including direct/transitive and development dependencies, through the release-pinned, SHA-256-verified Trivy. Package coverage must match the lockfile. Trivy uses the GitHub Advisory Database for Pub. Flutter/Dart SDK components are outside this lockfile check; git/path/custom-registry packages require explicit coverage before introduction. |
-| Go reader | Every direct and indirect `require` from the checksum-verified source archive selected by the Dockerfile, plus the actual compiler's standard library, through pinned Trivy. `go.sum` is checksum history, not the selected graph; the source `go` directive is a minimum, not the compiler. A fresh qualification-only Docker target exports the actual reader, trust root, runtime receipt, compiler build information, complete package graph and checksum-verified official govulncheck tool. |
+| Go reader | The catalog reader binary built fresh from the Dockerfile's checksum-verified source and pinned compiler: every linked module plus the compiler's standard library, through pinned Trivy, with the pinned govulncheck's binary-mode OpenVEX applied. The scan must find the standard library and the linked Sigstore and TUF modules. |
 
 The check reports all returned advisory severities and blocks **HIGH, CRITICAL
 and UNKNOWN**, matching the existing release severity policy. Missing or changed
@@ -33,32 +33,14 @@ JavaScript coverage compares every tracked/current `package.json` and lockfile
 with the audited pnpm importers and browser package. A new manifest or lockfile
 fails until it is covered; adding a separate tool cannot silently bypass audits.
 
-Go module warnings remain in the raw Trivy report with their original severity
-and `rawBlocked` status. The shared source/final-image helper can establish that
-all affected packages are absent only when a complete pinned govulncheck
-`-mode=binary -scan=package -format=json` stream agrees with the compiler and
-linked-module inventory, the complete source import graph, and fresh official
-primary Go OSV records for the exact affected module/version and ID or alias.
-Any affected package import blocks even when its vulnerable symbol is uncalled.
-Conservative package findings from missing binary symbols also block. Unknown
-IDs, ambiguous aliases, unsupported records, missing inventory or malformed,
-truncated and failed scans remain unresolved and blocking. A JSON exit code of
-zero alone does not establish absence. This is a package applicability proof,
-not a risk exception, vulnerability ignore list or baseline.
-
-The Go DB publication timestamp can legitimately be older than 72 hours. The
-proof instead binds a successful current fetch of the official DB index and
-primary records, rejects future/malformed timestamps, and requires the index to
-agree with the scanner. Trivy retains the separate 72-hour database freshness
-requirement. Neither database is frozen to achieve a pass.
-
-The final admin/worker image scans use this same helper after extracting the
-actual reader and checking its hash and receipt against a fresh qualification.
-They scan that extracted binary; image findings must identify its exact path,
-and SBOM findings must belong exclusively to that path. Other Go binaries and
-unbound components cannot inherit its proof. Flat release JSON evidence retains
-the full raw Go stream, primary OSVs, compiler/module/package inventories and
-hash-bound source/tool receipts alongside the unchanged raw Trivy reports.
+Go reader advisories are filtered the same way as in the release gate (see
+[catalog reader applicability](release-metadata.md#catalog-reader-applicability)):
+govulncheck checks the reader's actual symbols and Trivy suppresses only the
+advisories it marks `not_affected` / `vulnerable_code_not_present`. Suppressed
+advisories stay in the results with `blocked: false` and their VEX status. Any
+other govulncheck status blocks whatever its severity, as does an unsuppressed
+HIGH, CRITICAL or UNKNOWN finding. This is binary applicability evidence, not
+a risk exception: the source check applies no ignore file.
 
 Trivy is installed only from the existing release pin in
 `scripts/security/tools.json` into ignored `.artifacts/source-security/` and
@@ -68,9 +50,9 @@ needs several GiB of cache/scratch storage; see the
 [tmpfs quota mitigation](../development/known-issues.md#source-advisory-database-extraction-exceeds-tmpfs-checkout-quota)
 when using a worktree under `/tmp`. The check
 retains normalized package/version/advisory/severity/coverage results in the
-validation evidence directory, plus the complete public-source Go export and
-proof in its private `go-reader-evidence` subdirectory. Use a new evidence output
-for each run; existing Go evidence is never reused. CI retains these for seven
+validation evidence directory, plus the reader's VEX and raw Trivy report in its
+private `go-reader-evidence` subdirectory. Use a new evidence output for each
+run; existing Go evidence is never reused. CI retains these for seven
 days. `ROMD_GO_READER_BUILDER` can select an explicitly prepared Buildx builder.
 For desktop Go qualification, bound the Docker-container builder to two CPUs,
 3.5 GiB RAM with no swap and BuildKit `max-parallelism = 1`; Go tool compilation
@@ -81,7 +63,7 @@ configuration; release scanners retain their anonymous environment. This local
 harness does not establish a published-image or release-attestation pass.
 Arbitrary scanner
 diagnostics, credentials and absolute source paths are not copied into normalized
-advisory results. Go export evidence describes only pinned public-source inputs.
+advisory results. Go reader evidence describes only pinned public-source inputs.
 A scanner error is an investigation requirement, not evidence
 that dependencies are safe. Run the relevant native command privately to
 diagnose detailed registry errors without publishing credential-bearing logs.

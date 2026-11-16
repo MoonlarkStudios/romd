@@ -44,9 +44,9 @@ logs, backups or credentials from outside that evidence directory.
 A passing report means that the named inputs passed a disposable rehearsal.
 It does not qualify a public release or replace normal source CI/review.
 Publication still rehearses its exact build and requires its own bound receipt.
-Downloaded final artifacts still require runtime/security checks, provenance,
-anonymous public verification, tamper rejection and the maintainer's promotion
-decision. Changed source, version, image digests or advisory data require fresh
+Published final artifacts still require runtime/security checks, provenance,
+credential-free attestation verification, immutable publication and the
+maintainer's promotion decision. Changed source, version, image digests or advisory data require fresh
 evidence. Follow [release readiness](release-readiness.md) for those gates.
 
 For each release failure, identify whether the product, packaging, test harness

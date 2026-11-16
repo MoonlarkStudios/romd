@@ -78,10 +78,13 @@ def security_fixture(root, args, images):
         scans = ['bundle.trivy.json'] if bundle else [f'{role}.{mode}.trivy.json' for mode in ('image', 'sbom')]
         for path in scans:
             write_json(security / path, scan)
-        evaluation = dict(result='reported' if role == 'postgres' else 'passed', findings=[])
-        write_json(security / f'{role}.policy.json', evaluation if bundle else [evaluation, evaluation])
+        result = 'reported' if role == 'postgres' else 'passed'
+        write_json(security / f'{role}.policy.json', [dict(result=result, scan=path, suppressed=[]) for path in scans])
         subject = dict(kind='bundle' if bundle else 'image', name=name, sha256=sha,
                        sbom=f'{role}.cdx.json', scans=scans, policy=f'{role}.policy.json')
+        if role in ('admin', 'worker'):
+            write_json(security / f'{role}.vex.json', dict(statements=[]))
+            subject['vex'] = f'{role}.vex.json'
         if not bundle:
             subject['role'] = role
         subjects.append(subject)
@@ -191,7 +194,7 @@ class RehearsalEvidenceTests(unittest.TestCase):
             verify_files(self.root / 'security', self.args.bundle, REVISION, TAG)
 
     def test_failed_incomplete_or_changed_security_cannot_unlock_publication(self):
-        for fault in ('failed-policy', 'blocked-finding', 'empty-inventory', 'missing-scan', 'failed-command',
+        for fault in ('failed-policy', 'missing-gate', 'missing-vex', 'empty-inventory', 'missing-scan', 'failed-command',
                       'stale-database', 'wrong-tools', 'wrong-evidence-type', 'wrong-subject'):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
@@ -199,14 +202,16 @@ class RehearsalEvidenceTests(unittest.TestCase):
                 directory = root / 'security'
                 index = json.loads((directory / 'release-metadata.json').read_text())
                 name = None
-                if fault in ('failed-policy', 'blocked-finding'):
+                if fault in ('failed-policy', 'missing-gate'):
                     name = 'worker.policy.json'
                     policy = json.loads((directory / name).read_text())
                     if fault == 'failed-policy':
                         policy[1]['result'] = 'failed'
                     else:
-                        policy[1]['findings'] = [dict(blocked=True)]
+                        del policy[1]
                     write_json(directory / name, policy)
+                elif fault == 'missing-vex':
+                    del next(subject for subject in index['subjects'] if subject.get('role') == 'worker')['vex']
                 elif fault == 'empty-inventory':
                     name = 'worker.sbom.trivy.json'
                     write_json(directory / name, dict(Results=[]))
@@ -264,7 +269,7 @@ class RehearsalEvidenceTests(unittest.TestCase):
                 return
             self.fail('Publication wrote before binding passed: ' + repr(argv))
         with patch('publication.ROOT', self.root), patch('publication.run', side_effect=command), \
-                patch('publication.release_metadata') as lookup, patch('publication.registry_exists') as registry:
+                patch('publication.release_metadata') as lookup, patch('publication.Crane') as registry:
             with self.assertRaisesRegex(ValueError, 'requires a passed'):
                 publish(args)
             args.rehearsal = self.path

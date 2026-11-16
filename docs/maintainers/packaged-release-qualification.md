@@ -77,10 +77,13 @@ registry location and `images.env` may differ. Retained rehearsal artifacts have
 
 ## Downloaded release
 
-Download the prerelease bundle and its checksum from the intended repository
-and tag. Obtain the expected image map from the publisher's independently
-recorded digest output; copying `images.env` out of the same archive is not an
-independent comparison. Use the full allowed source commit and exact release
+The release workflow qualifies the exact bundle and checksum that the publisher
+uploaded to the still-draft release, taken from the publisher's same-run
+`published-subjects-*` artifact; completion later proves the published assets
+are those bytes. To rerun qualification yourself, download a published bundle
+and its checksum from the intended repository and tag. Obtain the expected
+image map from the publisher's independently recorded digest output; copying
+`images.env` out of the same archive is not an independent comparison. Use the full allowed source commit and exact release
 tag recorded by release preflight. From the qualification checkout root:
 
 ```bash
@@ -108,6 +111,10 @@ anchors before hashing the rewritten documents. This link check is separate
 from the downloaded-installation runtime gate below.
 The checksum verifies download integrity; provenance establishes origin through
 the separate release metadata gate.
+
+The sanitized suite reports stay in the run's `packaged-qualification-*`
+artifact. Completion rechecks them and the bundle against the original
+publisher-subjects artifact before publishing the release.
 
 The qualifier uses only the extracted deployment files. It clears inherited
 ROMD/Compose settings, generates private disposable credentials, pulls the

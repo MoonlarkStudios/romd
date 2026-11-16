@@ -7,6 +7,7 @@ using static Romd.Media.Tests.Chd.ChdBlockDeviceTests;
 
 namespace Romd.Media.Tests.Chd;
 
+[Collection(nameof(ChdReadPoolWorkloads))]
 public sealed class ChdReadPoolTests
 {
     [Theory]
@@ -330,7 +331,16 @@ public sealed class ChdReadPoolTests
             await first.ReadAtAsync(2048, new byte[2048]);
             await speculative.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
             demand = second.ReadAtAsync(4096, new byte[53]).AsTask();
-            await demandSource.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            try
+            {
+                await demandSource.Entered.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            }
+            catch (TimeoutException error)
+            {
+                throw new TimeoutException(
+                    $"The CHD demand source did not enter its gate within the test watchdog. Demand status: {demand.Status}. " +
+                    $"Process-wide ThreadPool: {ThreadPool.ThreadCount} threads, {ThreadPool.PendingWorkItemCount} queued work items.", error);
+            }
             // The zero-timeout demand borrowed the one reserved non-speculative permit.
             pool.Snapshot.ActiveHandles.ShouldBe(2);
             pool.Snapshot.OpeningHandles.ShouldBe(0);

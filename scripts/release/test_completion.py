@@ -47,23 +47,23 @@ def completion_steps(workflow=None):
 class PublicationCompletionTests(unittest.TestCase):
     def test_publication_steps_cannot_be_made_optional_or_ignore_shell_failures(self):
         workflow = (ROOT / '.github/workflows/release.yml').read_text()
-        marker = '      - name: Download and verify the actual public assets without credentials\n'
+        marker = '      - name: Verify the bundle and every image as an operator would, without credentials\n'
         self.assertIn(marker, workflow)
         for control in ('        if: ${{ false }}\n', '        continue-on-error: true\n',
                         '        shell: bash {0}\n'):
             with self.subTest(control=control), self.assertRaises(ValueError):
                 completion_steps(workflow.replace(marker, marker + control))
         with self.assertRaises(ValueError):
-            completion_steps(workflow.replace(marker, '      - if: ${{ false }}\n        name: Public download\n'))
+            completion_steps(workflow.replace(marker, '      - if: ${{ false }}\n        name: Verification\n'))
 
     def execute(self, fault=''):
         with tempfile.TemporaryDirectory() as temporary:
             work = Path(temporary)
             for directory in ('bin', 'release-inputs/security-metadata', 'release-inputs/release-files',
-                              'attestation-parts', 'packaged-evidence', 'scripts/deployment'):
+                              'attestation-parts', 'packaged-evidence', 'scripts/deployment', 'native/chdman'):
                 (work / directory).mkdir(parents=True)
-            (work / 'release-inputs/security-metadata/release-metadata.json').write_text('{}')
             (work / 'scripts/deployment/base-images.json').write_text(json.dumps({'ingress': 'nginx@sha256:' + 'f' * 64}))
+            (work / 'native/chdman/mame.json').write_text(json.dumps({'sourceUrl': 'https://example.test/mame0289.tar.gz'}))
             (work / 'release-inputs/release-files/romd-v1.2.3-rc.1-deployment.tar.gz').write_bytes(b'bundle')
             double = f'#!{sys.executable}\n' + '''import json, os, pathlib, sys
 args = sys.argv[1:]
@@ -73,33 +73,34 @@ fault = os.environ.get('TEST_PUBLICATION_FAULT', '')
 if pathlib.Path(sys.argv[0]).name == 'gh':
     if args[:2] == ['release', 'upload'] and fault == 'upload':
         sys.exit(1)
+    if args[:2] == ['release', 'edit'] and fault == 'publish':
+        sys.exit(1)
     sys.exit(0)
 script = args[0]
 if script.endswith('suite.py'):
     if '--verify-suite' not in args or '--rehearsal' in args or fault == 'runtime-suite':
         sys.exit(1)
+    if args[args.index('--publisher-state') + 1] != 'release-inputs/release-files/candidate.json':
+        sys.exit('Runtime evidence must be checked against the same-run publisher state')
 elif script.endswith('attestation_files.py'):
-    pathlib.Path('attestations.jsonl').write_text('{}\\n')
-elif script.endswith('download_release.py'):
-    if fault in ('private-404', 'missing-asset', 'altered-download'):
+    if fault == 'merge':
         sys.exit(1)
-    directory = pathlib.Path(args[args.index('--output') + 1])
-    directory.mkdir()
-    (directory / 'romd-v1.2.3-rc.1-deployment.tar.gz').write_bytes(b'bundle')
-    (directory / 'release-metadata.json').write_text('{}')
-    (directory / 'attestations.jsonl').write_text('{}\\n')
-elif script.endswith('verify.py'):
-    bundle = pathlib.Path(args[args.index('--bundle') + 1])
-    directory = pathlib.Path(args[args.index('--metadata-dir') + 1])
+    pathlib.Path(args[args.index('--output') + 1]).write_text('{}\\n')
+elif script.endswith('verify_release.py'):
     attestations = pathlib.Path(args[args.index('--attestations') + 1])
-    if not bundle.is_file() or not (directory / 'release-metadata.json').is_file() or not attestations.is_file():
+    if not attestations.is_file() or fault == 'verify-release':
         sys.exit(1)
-    if 'tampered' in bundle.parts:
-        sys.exit(0 if fault == 'accept-tampered' else 1)
-    if fault == 'public-verification' and directory == pathlib.Path('public-download'):
+    if args[args.index('--images') + 1] != 'release-inputs/release-files/images.env':
+        sys.exit('Release images must come from the same-run publisher state')
+elif script.endswith('release_notes.py'):
+    if '--qualified' not in args or fault == 'qualification-notes':
         sys.exit(1)
-    if fault == 'source-verification' and directory != pathlib.Path('public-download'):
+    pathlib.Path(args[args.index('--output') + 1]).write_text('Qualified prerelease with installation links')
+elif script.endswith('tag_images.py'):
+    if args[args.index('--images') + 1] != 'release-inputs/release-files/images.env' or fault == 'tag-images':
         sys.exit(1)
+elif script.endswith('confirm_publication.py'):
+    sys.exit(1 if fault == 'not-immutable' else 0)
 else:
     sys.exit('Unexpected command double')
 '''
@@ -119,34 +120,47 @@ else:
             calls = [json.loads(line) for line in (work / 'calls.jsonl').read_text().splitlines()]
             return result, calls
 
-    def test_only_verified_actual_anonymous_downloads_can_receive_qualification_notes(self):
+    def index(self, calls, predicate):
+        return next(i for i, command in enumerate(calls) if predicate(command))
+
+    def test_release_is_published_once_only_after_runtime_evidence_and_attestations_verify(self):
         result, calls = self.execute()
         self.assertEqual(0, result.returncode, result.stderr)
-        upload = next(i for i, command in enumerate(calls) if command[:3] == ['gh', 'release', 'upload'])
-        download = next(i for i, command in enumerate(calls) if 'scripts/security/download_release.py' in command)
-        verifications = [(i, command) for i, command in enumerate(calls) if 'scripts/security/verify.py' in command]
-        self.assertEqual(3, len(verifications))
-        public, tampered = verifications[1:]
-        self.assertEqual('public-download', public[1][public[1].index('--metadata-dir') + 1])
-        self.assertEqual('public-download/attestations.jsonl', public[1][public[1].index('--attestations') + 1])
-        self.assertEqual('public-download/romd-v1.2.3-rc.1-deployment.tar.gz',
-                         public[1][public[1].index('--bundle') + 1])
-        self.assertEqual('public-download', tampered[1][tampered[1].index('--metadata-dir') + 1])
-        edit = next(i for i, command in enumerate(calls) if command[:3] == ['gh', 'release', 'edit'])
-        self.assertLess(verifications[0][0], upload)
-        self.assertLess(upload, download)
-        self.assertLess(download, public[0])
-        self.assertLess(public[0], tampered[0])
-        self.assertLess(tampered[0], edit)
+        suite = self.index(calls, lambda command: 'scripts/release/suite.py' in command)
+        merge = self.index(calls, lambda command: 'scripts/release/attestation_files.py' in command)
+        verify = self.index(calls, lambda command: 'scripts/release/verify_release.py' in command)
+        tag = self.index(calls, lambda command: 'scripts/release/tag_images.py' in command)
+        upload = self.index(calls, lambda command: command[:3] == ['gh', 'release', 'upload'])
+        edit = self.index(calls, lambda command: command[:3] == ['gh', 'release', 'edit'])
+        confirm = self.index(calls, lambda command: 'scripts/release/confirm_publication.py' in command)
+        order = [suite, merge, verify, tag, upload, edit, confirm]
+        self.assertEqual(sorted(order), order)
+        self.assertEqual('v1.2.3-rc.1', calls[tag][calls[tag].index('--tag') + 1])
+        self.assertEqual(['romd-v1.2.3-rc.1-attestations.jsonl'], [part for part in calls[upload] if part.endswith('.jsonl')])
+        self.assertIn('--draft=false', calls[edit])
+        self.assertIn('--prerelease', calls[edit])
+        self.assertEqual(1, sum(command[:3] == ['gh', 'release', 'edit'] for command in calls))
+        verified = calls[verify]
+        self.assertEqual('romd-v1.2.3-rc.1-attestations.jsonl', verified[verified.index('--attestations') + 1])
+        confirmed = calls[confirm]
+        self.assertEqual(3, confirmed.count('--asset'))
+        self.assertEqual('mame0289.tar.gz', confirmed[confirmed.index('--source-name') + 1])
         self.assertFalse(any('--clobber' in command for command in calls))
 
-    def test_failed_upload_download_verification_or_tamper_gate_never_marks_qualified(self):
-        for fault in ('runtime-suite', 'upload', 'private-404', 'missing-asset', 'altered-download',
-                      'public-verification', 'source-verification', 'accept-tampered'):
+    def test_failed_evidence_verification_tagging_or_upload_never_publishes(self):
+        for fault in ('runtime-suite', 'merge', 'verify-release', 'tag-images', 'upload', 'qualification-notes'):
             with self.subTest(fault=fault):
                 result, calls = self.execute(fault)
                 self.assertNotEqual(0, result.returncode)
                 self.assertFalse(any(command[:3] == ['gh', 'release', 'edit'] for command in calls))
+                if fault in ('runtime-suite', 'merge', 'verify-release'):
+                    self.assertFalse(any('scripts/release/tag_images.py' in command for command in calls))
+
+    def test_unconfirmed_publication_fails_the_release(self):
+        for fault in ('publish', 'not-immutable'):
+            with self.subTest(fault=fault):
+                result, _ = self.execute(fault)
+                self.assertNotEqual(0, result.returncode)
 
 
 if __name__ == '__main__':
