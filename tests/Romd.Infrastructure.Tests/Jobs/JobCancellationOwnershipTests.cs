@@ -283,6 +283,7 @@ public sealed class JobCancellationOwnershipTests
         job.SetTrackedOnly(true);
         job.SetImportSource("/source/roms", true);
         job.Start("original-delivery", Now.AddMinutes(-20));
+        job.BeginExtraction([]);
         job.BeginClassification();
         job.SetDiscoveredFiles(2, 5);
         job.BeginDatIngestion();

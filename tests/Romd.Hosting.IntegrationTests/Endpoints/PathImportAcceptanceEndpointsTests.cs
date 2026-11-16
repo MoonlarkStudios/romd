@@ -29,7 +29,7 @@ public sealed class PathImportAcceptanceEndpointsTests(IntegrationTestFixture fi
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Import_ManagerCopyOrMove_ReturnsAcceptedCanonicalJobAndAtomicallyPersistsPreparedInputsAndDispatch(bool move)
+    public async Task Import_ManagerCopyOrMove_ReturnsAcceptedCanonicalJobAndAtomicallyPersistsReservedWorkspaceAndDispatch(bool move)
     {
         await using var host = new AcceptanceFixture();
         await host.InitializeAsync();
@@ -61,10 +61,11 @@ public sealed class PathImportAcceptanceEndpointsTests(IntegrationTestFixture fi
         job.Phase.ShouldBe("Pending");
         var dispatch = await db.JobDispatches.SingleAsync(row => row.JobId == reference.JobId);
         dispatch.JobType.ShouldBe("upload");
-        (await File.ReadAllBytesAsync(Path.Combine(host.DataDirectoryPath, "temp", "jobs", $"{reference.JobId:N}", "nested", "game.rom")))
-            .ShouldBe(new byte[] { 11, 22, 33 });
+        // The request answers before any bytes move; the worker copies during the Copying phase.
+        Directory.EnumerateFileSystemEntries(Path.Combine(host.DataDirectoryPath, "temp", "jobs", $"{reference.JobId:N}"))
+            .ShouldBeEmpty();
         (await File.ReadAllBytesAsync(Path.Combine(source, "nested", "game.rom"))).ShouldBe(new byte[] { 11, 22, 33 });
-        File.Exists(ImportManifest.PathFor(host.DataDirectoryPath, reference.JobId)).ShouldBe(move);
+        File.Exists(ImportManifest.PathFor(host.DataDirectoryPath, reference.JobId)).ShouldBeFalse();
     }
 
     [Theory]

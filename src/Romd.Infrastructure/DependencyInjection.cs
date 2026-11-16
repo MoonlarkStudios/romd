@@ -747,6 +747,7 @@ public static class DependencyInjection
     public static IServiceCollection AddRomdJobExecution(this IServiceCollection services)
     {
         services.AddScoped<Import.ImportSourceCleanup>();
+        services.AddScoped<Import.PathImportStaging>();
         services.AddSingleton(new Import.ArchiveExtractionLimits());
         services.AddScoped<ArchiveExtractionStep>();
         services.AddScoped<IJobExecutor<UploadJob>, UploadJobExecutor>();

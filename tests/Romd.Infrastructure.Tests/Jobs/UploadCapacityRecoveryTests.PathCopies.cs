@@ -25,7 +25,7 @@ public sealed partial class UploadCapacityRecoveryTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task PathImport_PartialCopyNeverReachesWorkerEnumerationOrDurableOutcome(bool move)
+    public async Task PathImport_WorkerCopyAdmitsOnlyCompleteFilesToEnumerationAndDurableOutcome(bool move)
     {
         string source = Directory.CreateTempSubdirectory("romd-worker-copy-source-").FullName;
         try
@@ -37,8 +37,7 @@ public sealed partial class UploadCapacityRecoveryTests
             _options.AllowedImportPaths.Returns([source]);
             var files = new PathCopyFailureFileSystem();
             files.CopyFailures["z-bad.rom"] = new IOException("source failed after two bytes");
-            var preparation = new PathImportPreparation(_options, new PathValidator(_options), files.FileSystem,
-                _clock, NullLogger<PathImportPreparation>.Instance);
+            var preparation = new PathImportPreparation(_options, new PathValidator(_options), files.FileSystem);
             Guid id;
             await using (var db = _database.CreateContext())
             {
@@ -52,21 +51,17 @@ public sealed partial class UploadCapacityRecoveryTests
                 accepted.IsError.ShouldBeFalse();
                 id = accepted.Value;
             }
+            // Acceptance answers before any bytes move: the workspace is reserved and empty.
             string workspace = Path.Combine(_root, "temp", "jobs", id.ToString("N"));
-            Directory.GetFiles(workspace, "*", SearchOption.AllDirectories)
-                .Select(path => Path.GetRelativePath(workspace, path)).ShouldBe(["a-good.rom"]);
-            (await File.ReadAllBytesAsync(Path.Combine(workspace, "a-good.rom"))).ShouldBe(good);
-            files.DeleteAttempts.ShouldHaveSingleItem().Bytes.ShouldBe(new byte[] { 5, 6 });
-            if (move)
-            {
-                var manifest = (await ImportManifest.ReadAsync(ImportManifest.PathFor(_root, id), default)).ShouldNotBeNull();
-                manifest.Entries.ShouldHaveSingleItem().WorkspaceRelativePath.ShouldBe("a-good.rom");
-            }
+            Directory.EnumerateFileSystemEntries(workspace).ShouldBeEmpty();
+            File.Exists(ImportManifest.PathFor(_root, id)).ShouldBeFalse();
+            files.Streams.ShouldBeEmpty();
             await using (var read = _database.CreateContext())
             {
                 (await read.JobDispatches.SingleAsync()).JobId.ShouldBe(id);
-                var job = await read.Jobs.OfType<UploadJobEntity>().SingleAsync();
-                job.GetErrors().ShouldContain(error => error.Item.EndsWith("z-bad.rom", StringComparison.Ordinal));
+                var accepted = await read.Jobs.OfType<UploadJobEntity>().SingleAsync();
+                accepted.Phase.ShouldBe("Pending");
+                accepted.GetErrors().ShouldBeEmpty();
             }
 
             // The real executor discovers workspace files itself and journals through the real scoped sink.
@@ -74,13 +69,15 @@ public sealed partial class UploadCapacityRecoveryTests
                 services.AddScoped<IJobCompletionCleanup<UploadJob>>(provider =>
                     new MoveImportCompletionCleanup(new ImportSourceCleanup(_options, new PathValidator(_options),
                         provider.GetRequiredService<IJobItemRepository>(), NullLogger<ImportSourceCleanup>.Instance)))))
-                await Runner(host).RunAsync(id, "path-partial-copy", default);
+                await Runner(host, sourceFiles: files.FileSystem).RunAsync(id, "path-partial-copy", default);
 
             _attempts.ShouldBe(["a-good.rom"]);
+            files.DeleteAttempts.ShouldHaveSingleItem().Bytes.ShouldBe(new byte[] { 5, 6 });
             await using (var read = _database.CreateContext())
             {
                 var job = await read.Jobs.OfType<UploadJobEntity>().SingleAsync();
                 job.Phase.ShouldBe("CompletedWithErrors");
+                job.GetErrors().ShouldContain(error => error.Item.EndsWith("z-bad.rom", StringComparison.Ordinal));
                 job.DatsDiscovered.ShouldBe(0);
                 job.RomsDiscovered.ShouldBe(1);
                 job.RomsProcessed.ShouldBe(1);

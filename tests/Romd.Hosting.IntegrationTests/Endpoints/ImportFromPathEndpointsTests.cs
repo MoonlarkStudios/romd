@@ -229,4 +229,33 @@ public sealed class ImportFromPathEndpointsTests(IntegrationTestFixture fixture)
         status.ShouldBe(HttpStatusCode.BadRequest);
         errorCode.ShouldBe("Import.PathNotAllowed");
     }
+
+    /// <summary>
+    ///     ROMD's own data directory (signing keys, content store) shares the container with the
+    ///     library mount, so the path checks are its only guard: neither a dot-dot path nor a link
+    ///     planted in the library may reach it, and a refusal never creates a job or workspace.
+    /// </summary>
+    [Theory]
+    [InlineData("dot-dot")]
+    [InlineData("symlink")]
+    public async Task ImportFromPath_EscapeToDataDirectory_RefusesWithoutAcceptingAJob(string route)
+    {
+        using var client = fixture.CreateAuthenticatedClient();
+        string keys = Directory.CreateDirectory(Path.Combine(fixture.DataDirectoryPath, "keys")).FullName;
+        await File.WriteAllTextAsync(Path.Combine(keys, $"escape-{Guid.NewGuid():N}.pem"), "secret");
+        string path = Path.Combine(fixture.ImportRootPath, "..", "keys");
+        if (route == "symlink")
+        {
+            path = Path.Combine(fixture.ImportRootPath, $"keys-link-{Guid.NewGuid():N}");
+            Directory.CreateSymbolicLink(path, keys);
+        }
+        string jobs = Path.Combine(fixture.DataDirectoryPath, "temp", "jobs");
+        var workspacesBefore = Directory.Exists(jobs) ? Directory.GetDirectories(jobs).ToHashSet() : [];
+
+        var (status, errorCode) = await PostImportAsync(client, new { path });
+
+        status.ShouldBe(HttpStatusCode.BadRequest);
+        errorCode.ShouldBe(route == "symlink" ? "Import.LinkRejected" : "Import.PathNotAllowed");
+        (Directory.Exists(jobs) ? Directory.GetDirectories(jobs) : []).ShouldBeSubsetOf(workspacesBefore);
+    }
 }

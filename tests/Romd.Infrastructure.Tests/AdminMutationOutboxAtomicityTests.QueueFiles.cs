@@ -47,6 +47,7 @@ public sealed partial class AdminMutationOutboxAtomicityTests
                 }
                 database.Context.ChangeTracker.Clear();
                 job.Start(job.Id.ToString(), startedAt: DateTimeOffset.UtcNow);
+                job.BeginExtraction([]);
                 job.BeginClassification();
                 job.BeginDatIngestion();
                 job.BeginRomIngestion();

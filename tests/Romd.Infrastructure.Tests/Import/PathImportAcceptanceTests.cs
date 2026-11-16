@@ -70,76 +70,35 @@ public sealed class PathImportAcceptanceTests : IDisposable
         ImportManifest.PathFor(_dataDirectory, jobId);
 
     private PathImportPreparation Preparation(IPathValidator? validator = null) => new(
-        _options, validator ?? new PathValidator(_options), _fileSystem, TimeProvider.System,
-        NullLogger<PathImportPreparation>.Instance);
+        _options, validator ?? new PathValidator(_options), _fileSystem);
 
     [Fact]
-    public async Task PrepareAsync_InspectionFreezesSelectionAndRetainsCompletedMoveInputsOnRelease()
-    {
-        await File.WriteAllTextAsync(Path.Combine(_sourceRoot, "first.rom"), "first");
-        var preparation = Preparation();
-        var plan = preparation.Inspect(_sourceRoot).Value;
-        plan.Facts.FileCount.ShouldBe(1);
-        plan.Facts.SourceRoot.ShouldBe(_sourceRoot);
-        plan.Facts.SourceFilename.ShouldBe("roms-folder/");
-        await File.WriteAllTextAsync(Path.Combine(_sourceRoot, "later.rom"), "not observed");
-        var id = Guid.NewGuid();
-        var lease = await new JobWorkspaceExclusion(_options).AcquireAsync(id);
-
-        var result = await preparation.PrepareAsync(plan, id, move: true, lease);
-
-        result.Value.Workspace.JobId.ShouldBe(id);
-        result.Value.CopyIssues.ShouldBeEmpty();
-        (await File.ReadAllTextAsync(Path.Combine(WorkspacePathFor(id), "first.rom"))).ShouldBe("first");
-        File.Exists(Path.Combine(WorkspacePathFor(id), "later.rom")).ShouldBeFalse();
-        var manifest = (await ImportManifest.ReadAsync(ManifestPathFor(id), default)).ShouldNotBeNull();
-        manifest.Entries.ShouldHaveSingleItem().WorkspaceRelativePath.ShouldBe("first.rom");
-        await lease.DisposeAsync();
-        File.Exists(ManifestPathFor(id)).ShouldBeTrue();
-        File.Exists(Path.Combine(_sourceRoot, "first.rom")).ShouldBeTrue();
-        await _acceptance.DidNotReceiveWithAnyArgs().AddStagedAsync(default!, default);
-    }
-
-    [Fact]
-    public async Task DiscardAsync_PreparedMoveRemovesOnlyWorkspaceAndManifest()
+    public async Task ReserveAsync_CreatesOnlyAnEmptyWorkspaceUnderTheLease()
     {
         await File.WriteAllTextAsync(Path.Combine(_sourceRoot, "game.rom"), "source stays");
-        var preparation = Preparation();
-        var plan = preparation.Inspect(_sourceRoot).Value;
         var id = Guid.NewGuid();
         await using var lease = await new JobWorkspaceExclusion(_options).AcquireAsync(id);
-        var prepared = (await preparation.PrepareAsync(plan, id, move: true, lease)).Value;
 
-        await prepared.Workspace.DiscardAsync();
+        var reserved = await Preparation().ReserveAsync(id, lease);
 
-        Directory.Exists(WorkspacePathFor(id)).ShouldBeFalse();
+        reserved.JobId.ShouldBe(id);
+        Directory.EnumerateFileSystemEntries(WorkspacePathFor(id)).ShouldBeEmpty();
         File.Exists(ManifestPathFor(id)).ShouldBeFalse();
-        (await File.ReadAllTextAsync(Path.Combine(_sourceRoot, "game.rom"))).ShouldBe("source stays");
+        await Should.ThrowAsync<InvalidOperationException>(() => Preparation().ReserveAsync(id, lease));
     }
 
     [Fact]
-    public async Task PrepareAsync_FileRejectedAfterInspectionIsNeverOpenedOrAccepted()
+    public async Task DiscardAsync_ReservedWorkspaceRemovesOnlyTheWorkspace()
     {
-        await File.WriteAllTextAsync(Path.Combine(_sourceRoot, "game.rom"), "unchanged source");
-        var validator = Substitute.For<IPathValidator>();
-        validator.ValidateImportRoot(Arg.Any<string>()).Returns(Path.Combine(_tempRoot, "allowed"));
-        bool rejected = false;
-        validator.ValidateImportFile(Arg.Any<string>()).Returns(_ => rejected
-            ? ErrorOr.Error.Validation("Import.UnsafePath", "Source changed after inspection.")
-            : ErrorOr.Result.Success);
-        var preparation = Preparation(validator);
-        var plan = preparation.Inspect(_sourceRoot).Value;
-        rejected = true;
+        await File.WriteAllTextAsync(Path.Combine(_sourceRoot, "game.rom"), "source stays");
         var id = Guid.NewGuid();
         await using var lease = await new JobWorkspaceExclusion(_options).AcquireAsync(id);
+        var reserved = await Preparation().ReserveAsync(id, lease);
 
-        var result = await preparation.PrepareAsync(plan, id, move: true, lease);
+        await reserved.DiscardAsync();
 
-        result.FirstError.ShouldBe(ImportErrors.NoFilesFound(_sourceRoot));
         Directory.Exists(WorkspacePathFor(id)).ShouldBeFalse();
-        File.Exists(ManifestPathFor(id)).ShouldBeFalse();
-        (await File.ReadAllTextAsync(Path.Combine(_sourceRoot, "game.rom"))).ShouldBe("unchanged source");
-        await _acceptance.DidNotReceiveWithAnyArgs().AddStagedAsync(default!, default);
+        (await File.ReadAllTextAsync(Path.Combine(_sourceRoot, "game.rom"))).ShouldBe("source stays");
     }
 
     private async Task<UploadJob> CapturePersistedJobAsync(
@@ -193,8 +152,10 @@ public sealed class PathImportAcceptanceTests : IDisposable
         await _acceptance.DidNotReceiveWithAnyArgs().AddStagedAsync(default!, default);
     }
 
-    [Fact]
-    public async Task Handle_PopulatesWorkspacePreservingRelativePaths()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Handle_AcceptsWithoutCopyingBytesOrWritingAManifest(bool move)
     {
         File.WriteAllText(Path.Combine(_sourceRoot, "top.rom"), "top");
         Directory.CreateDirectory(Path.Combine(_sourceRoot, "nested", "deep"));
@@ -203,107 +164,23 @@ public sealed class PathImportAcceptanceTests : IDisposable
 
         var job = await CapturePersistedJobAsync(async () =>
         {
-            var result = await creator.HandleAsync(new(_sourceRoot, Move: false));
+            var result = await creator.HandleAsync(new(_sourceRoot, Move: move));
             result.IsError.ShouldBeFalse();
         });
 
-        string workspace = WorkspacePathFor(job.Id);
-        File.ReadAllText(Path.Combine(workspace, "top.rom")).ShouldBe("top");
-        File.ReadAllText(Path.Combine(workspace, "nested", "deep", "leaf.rom")).ShouldBe("leaf");
+        // The worker copies during the Copying phase; acceptance only reserves the workspace.
+        Directory.EnumerateFileSystemEntries(WorkspacePathFor(job.Id)).ShouldBeEmpty();
+        File.Exists(ManifestPathFor(job.Id)).ShouldBeFalse();
         job.SourceFilename.ShouldBe("roms-folder/");
         job.ImportSourcePath.ShouldBe(_sourceRoot);
-        job.ImportMove.ShouldBeFalse();
-        File.Exists(Path.Combine(_sourceRoot, "top.rom")).ShouldBeTrue();
+        job.ImportMove.ShouldBe(move);
+        job.PhaseEnum.ShouldBe(UploadPhase.Pending);
+        job.Errors.ShouldBeEmpty();
+        File.ReadAllText(Path.Combine(_sourceRoot, "top.rom")).ShouldBe("top");
     }
 
     [Fact]
-    public async Task Handle_BadFileIsIsolated_GoodFileStillImported()
-    {
-        File.WriteAllText(Path.Combine(_sourceRoot, "good.rom"), "good");
-        string linkTarget = Path.Combine(_tempRoot, "outside.rom");
-        File.WriteAllText(linkTarget, "outside");
-        try
-        {
-            File.CreateSymbolicLink(Path.Combine(_sourceRoot, "bad.rom"), linkTarget);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
-        {
-            return; // Skip: symlink creation is not permitted on this platform.
-        }
-
-        var creator = CreateCreator();
-
-        var job = await CapturePersistedJobAsync(async () =>
-        {
-            var result = await creator.HandleAsync(new(_sourceRoot, Move: false));
-            result.IsError.ShouldBeFalse();
-        });
-
-        string workspace = WorkspacePathFor(job.Id);
-        File.Exists(Path.Combine(workspace, "good.rom")).ShouldBeTrue();
-        File.Exists(Path.Combine(workspace, "bad.rom")).ShouldBeFalse();
-        job.Errors.ShouldContain(error => error.Message.Contains("Import path contains a symbolic link"));
-    }
-
-    [Fact]
-    public async Task Handle_MoveTrue_WritesRootRelativeManifestWithFingerprintsOutsideWorkspace()
-    {
-        string sourceFile = Path.Combine(_sourceRoot, "game.rom");
-        File.WriteAllText(sourceFile, "content");
-        Directory.CreateDirectory(Path.Combine(_sourceRoot, "nested"));
-        string nestedFile = Path.Combine(_sourceRoot, "nested", "deep.rom");
-        File.WriteAllText(nestedFile, "nested-content");
-        var creator = CreateCreator();
-
-        var job = await CapturePersistedJobAsync(async () =>
-        {
-            var result = await creator.HandleAsync(new(_sourceRoot, Move: true));
-            result.IsError.ShouldBeFalse();
-        });
-
-        string workspace = WorkspacePathFor(job.Id);
-        string manifestPath = ManifestPathFor(job.Id);
-        File.Exists(manifestPath).ShouldBeTrue();
-        Path.GetDirectoryName(manifestPath).ShouldNotBe(workspace);
-        Directory.EnumerateFiles(workspace, "*.import.json", SearchOption.AllDirectories).ShouldBeEmpty();
-
-        var manifest = await ImportManifest.ReadAsync(manifestPath, CancellationToken.None);
-        manifest.ShouldNotBeNull();
-        manifest.Version.ShouldBe(ImportManifest.CurrentVersion);
-        manifest.Move.ShouldBeTrue();
-        manifest.AllowedRoot.ShouldBe(Path.Combine(_tempRoot, "allowed"));
-        manifest.SourceRoot.ShouldBe("roms-folder");
-        manifest.Entries.Count.ShouldBe(2);
-
-        var top = manifest.Entries.Single(entry => entry.WorkspaceRelativePath == "game.rom");
-        top.SourceRelativePath.ShouldBe("roms-folder/game.rom");
-        top.SizeBytes.ShouldBe(new FileInfo(sourceFile).Length);
-        top.LastWriteTimeUtc.ShouldBe(File.GetLastWriteTimeUtc(sourceFile));
-
-        var nested = manifest.Entries.Single(entry => entry.WorkspaceRelativePath == "nested/deep.rom");
-        nested.SourceRelativePath.ShouldBe("roms-folder/nested/deep.rom");
-        nested.SizeBytes.ShouldBe(new FileInfo(nestedFile).Length);
-        nested.LastWriteTimeUtc.ShouldBe(File.GetLastWriteTimeUtc(nestedFile));
-        job.ImportMove.ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task Handle_MoveFalse_WritesNoManifest()
-    {
-        File.WriteAllText(Path.Combine(_sourceRoot, "game.rom"), "content");
-        var creator = CreateCreator();
-
-        var job = await CapturePersistedJobAsync(async () =>
-        {
-            var result = await creator.HandleAsync(new(_sourceRoot, Move: false));
-            result.IsError.ShouldBeFalse();
-        });
-
-        File.Exists(ManifestPathFor(job.Id)).ShouldBeFalse();
-    }
-
-    [Fact]
-    public async Task Handle_StageFailsBeforeCommitAttempt_CleansWorkspaceAndManifestWithoutMutatingSource()
+    public async Task Handle_StageFailsBeforeCommitAttempt_CleansWorkspaceWithoutMutatingSource()
     {
         File.WriteAllText(Path.Combine(_sourceRoot, "game.rom"), "content");
         UploadJob? persisted = null;
@@ -320,27 +197,5 @@ public sealed class PathImportAcceptanceTests : IDisposable
         persisted.Phase.ShouldBe(nameof(UploadPhase.Pending));
         File.Exists(Path.Combine(_sourceRoot, "game.rom")).ShouldBeTrue();
         await _transaction.DidNotReceiveWithAnyArgs().CommitAsync(default);
-    }
-
-    [Fact]
-    public async Task WorkspaceDeletion_NeverTouchesSourceFiles()
-    {
-        // THE move-mode safety invariant: the workspace holds only copies and the manifest lives
-        // outside it, so recursively deleting the workspace can never destroy the only copy.
-        string sourceFile = Path.Combine(_sourceRoot, "game.rom");
-        File.WriteAllText(sourceFile, "content");
-        var creator = CreateCreator();
-
-        var job = await CapturePersistedJobAsync(async () =>
-        {
-            var result = await creator.HandleAsync(new(_sourceRoot, Move: true));
-            result.IsError.ShouldBeFalse();
-        });
-
-        string workspace = WorkspacePathFor(job.Id);
-        Directory.Delete(workspace, true);
-
-        File.Exists(sourceFile).ShouldBeTrue();
-        File.Exists(ManifestPathFor(job.Id)).ShouldBeTrue();
     }
 }

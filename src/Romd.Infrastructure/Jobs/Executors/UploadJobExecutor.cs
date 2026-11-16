@@ -1,6 +1,7 @@
 using Romd.Admin.Application.Titles.Commands.QueueBulkEnrichmentJob;
 using Romd.Application.Common.Cqrs;
 using System.Diagnostics;
+using ErrorOr;
 using System.Runtime.ExceptionServices;
 using Romd.Application.Common.Content;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +15,7 @@ using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Admin.Application.Titles;
 using Romd.Domain.Identity;
 using Romd.Domain.Jobs;
+using Romd.Infrastructure.Import;
 using Romd.Infrastructure.Jobs.Processors;
 using Romd.Persistence.Identity;
 
@@ -27,6 +29,7 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
     private readonly DatProcessor _datProcessor;
     private readonly ICommandHandler<QueueBulkEnrichmentJobCommand, Guid> _enrichmentAcceptance;
     private readonly ArchiveExtractionStep _extraction;
+    private readonly PathImportStaging _staging;
     private readonly ILogger<UploadJobExecutor> _logger;
     private readonly IEnumerable<IMetadataProvider> _metadataProviders;
     private readonly RomProcessor _romProcessor;
@@ -36,6 +39,7 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
 
     public UploadJobExecutor(
         ArchiveExtractionStep extraction,
+        PathImportStaging staging,
         IFileClassifier classifier,
         DatProcessor datProcessor,
         RomProcessor romProcessor,
@@ -47,6 +51,7 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
         TimeProvider? clock = null)
     {
         _extraction = extraction;
+        _staging = staging;
         _classifier = classifier;
         _datProcessor = datProcessor;
         _romProcessor = romProcessor;
@@ -71,8 +76,48 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
                 throw new InvalidOperationException("Track at least one title before importing tracked-title ROMs.");
         }
 
-        // Re-entry dispatches on the durable phase. Extraction has its own worker-owned
-        // checkpoint; ingestion never re-extracts files that completed imports reference.
+        // Re-entry dispatches on the durable phase. A path import is accepted with an empty
+        // workspace: the worker copies its source here, restarting the copy on redelivery.
+        if (job.PhaseEnum == UploadPhase.Copying)
+        {
+            _logger.LogInformation("Job {Id}: Copying the server-local import source", job.Id);
+            using var copyGate = new SemaphoreSlim(1);
+            ErrorOr<PathImportStaging.StagedSource> staged = default;
+            try
+            {
+                await WithHeartbeatAsync(async token =>
+                {
+                    staged = await _staging.StageAsync(job, workDirectory, async (path, updateToken) =>
+                    {
+                        await copyGate.WaitAsync(updateToken);
+                        try
+                        { job.SetCurrentItem(path); }
+                        finally { copyGate.Release(); }
+                    }, token);
+                }, async token =>
+                {
+                    await copyGate.WaitAsync(token);
+                    try
+                    { await context.CheckpointAsync(token); }
+                    finally { copyGate.Release(); }
+                }, ct);
+            }
+            catch (IOException ex) when (ex is not PathTooLongException)
+            {
+                // The workspace was emptied; the source is only read. Retry the whole copy later.
+                ct.ThrowIfCancellationRequested();
+                context.RequestDeferral(_clock.GetUtcNow().Add(JobContext.UploadRetryDelay(job.DeferralCount)), ex.Message);
+                _logger.LogWarning(ex, "Job {Id} deferred after copying its import source failed", job.Id);
+                return;
+            }
+            if (staged.IsError)
+                throw new JobPermanentFailureException(staged.FirstError.Description);
+            job.BeginExtraction(staged.Value.Issues);
+            await context.CheckpointAsync(ct);
+        }
+
+        // Extraction has its own worker-owned checkpoint; ingestion never re-extracts files
+        // that completed imports reference.
         if (job.PhaseEnum == UploadPhase.Extracting)
         {
             _logger.LogInformation("Job {Id}: Starting extraction", job.Id);

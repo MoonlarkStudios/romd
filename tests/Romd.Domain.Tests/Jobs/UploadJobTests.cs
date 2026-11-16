@@ -63,4 +63,39 @@ public sealed class UploadJobTests
 
         job.ArchiveOnly.ShouldBe(archiveOnly);
     }
+
+    [Fact]
+    public void Start_PathImport_CopiesBeforeExtractingAndRecordsCopyIssuesOnce()
+    {
+        var at = DateTimeOffset.Parse("2026-11-15T12:00:00Z");
+        var job = UploadJob.Create("roms/", createdAt: at);
+        job.SetImportSource("/library/roms", move: false);
+
+        job.Start("delivery", startedAt: at);
+
+        job.PhaseEnum.ShouldBe(UploadPhase.Copying);
+        job.IsTerminal.ShouldBeFalse();
+        job.ProgressPercent.ShouldBe(2);
+        Should.Throw<InvalidOperationException>(job.BeginClassification);
+        job.SetCurrentItem("disc.chd");
+
+        job.BeginExtraction([new JobError("/library/roms/link.rom", "symbolic link", at)]);
+
+        job.PhaseEnum.ShouldBe(UploadPhase.Extracting);
+        job.CurrentItem.ShouldBeNull();
+        job.Errors.ShouldHaveSingleItem().Item.ShouldBe("/library/roms/link.rom");
+        Should.Throw<InvalidOperationException>(() => job.BeginExtraction([]));
+        job.Errors.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public void Start_BrowserUpload_SkipsCopying()
+    {
+        var job = UploadJob.Create("upload.zip", createdAt: DateTimeOffset.UtcNow);
+
+        job.Start("delivery", startedAt: DateTimeOffset.UtcNow);
+
+        job.PhaseEnum.ShouldBe(UploadPhase.Extracting);
+        Should.Throw<InvalidOperationException>(() => job.BeginExtraction([]));
+    }
 }

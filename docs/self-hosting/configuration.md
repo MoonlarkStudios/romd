@@ -263,9 +263,12 @@ one allowed root is configured.
 | --- | --- | --- | --- |
 | `Romd:AllowedImportPaths` | `Romd__AllowedImportPaths__0`, `__1`, … | Empty (feature disabled) | Absolute directories that server-side imports may read from. Every imported path must be canonically contained under one of these roots; symbolic links anywhere on the path are rejected. |
 
-In a split-host deployment the admin host stages an import and the worker host
-executes it, including move-mode deletion of source originals. Both hosts must
-mount each allowed import root at an identical absolute path. If a source is
+In a split-host deployment the admin host validates an import and accepts the
+job; the worker host copies the source into the job workspace (the import's
+**Copying** phase) and executes it, including move-mode deletion of source
+originals. The request therefore returns before any bytes move, however large
+the folder. Both hosts must mount each allowed import root at an identical
+absolute path; `scripts/deployment/validate.sh` checks this for Compose. If a source is
 not visible from the executing host it is never counted as moved: the original
 is retained with a warning and the deletion is retried by the periodic sweep
 until its manifest ages out.
