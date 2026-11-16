@@ -40,6 +40,9 @@ for artifact in "${artifacts[@]}"; do
     || romd_backup_fail \
       "${artifact} does not match the manifest of backup set ${backup_set_id}: incomplete or mixed-generation set" 2
 done
+# Refuse an unusable authority before anything in the destination changes.
+[[ " ${artifacts[*]} " != *" ca.tar "* ]] || romd_backup_ca_archive_is_complete "${set_dir}/ca.tar" \
+  || romd_backup_fail "backup set ${backup_set_id} holds an incomplete certificate authority archive" 2
 [[ -f "${ROMD_BACKUP_ROLES_SCRIPT}" ]] || romd_backup_fail "roles artifact not found: ${ROMD_BACKUP_ROLES_SCRIPT}"
 [[ "$(romd_backup_sha256 "${set_dir}/roles.sh")" == "$(romd_backup_sha256 "${ROMD_BACKUP_ROLES_SCRIPT}")" ]] \
   || romd_backup_fail \

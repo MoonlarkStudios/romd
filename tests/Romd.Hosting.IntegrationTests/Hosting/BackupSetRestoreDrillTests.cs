@@ -73,6 +73,17 @@ public sealed class BackupSetRestoreDrillTests
             File.WriteAllText(Path.Combine(AuthorityDirectory(targetData), "ca.key"), "fresh destination key");
             File.WriteAllText(Path.Combine(AuthorityDirectory(targetData), "ca.crt"), "fresh destination certificate");
 
+            // An authority missing one of its files is not "no authority": the backup must fail
+            // and leave no manifest, because a restore from it could not keep device trust.
+            File.Move(Path.Combine(AuthorityDirectory(sourceData), "ca.crt"), Path.Combine(AuthorityDirectory(sourceData), "ca.crt.aside"));
+            string refusedRoot = backupRoot + "-refused";
+            ProcessResult partial = await RunBackupScriptAsync("backup.sh", refusedRoot, source.ContainerId, sourceData);
+            partial.ExitCode.ShouldNotBe(0, partial.Output);
+            partial.Output.ShouldContain("certificate authority is incomplete");
+            Directory.GetFiles(refusedRoot, "manifest.json", SearchOption.AllDirectories).ShouldBeEmpty();
+            Directory.Delete(refusedRoot, recursive: true);
+            File.Move(Path.Combine(AuthorityDirectory(sourceData), "ca.crt.aside"), Path.Combine(AuthorityDirectory(sourceData), "ca.crt"));
+
             ProcessResult backup = await RunBackupScriptAsync(
                 "backup.sh",
                 backupRoot,
