@@ -58,22 +58,18 @@ public sealed class DeploymentInitCommandTests : IDisposable
     }
 
     [Fact]
-    public void Run_NewDirectory_SharesSigningSecretsThroughHostConfiguration()
+    public void Run_NewDirectory_StoresSigningSecretsInTheDataDirectoryForHostConfiguration()
     {
         Run().ShouldBe(DeploymentInitCommand.Success);
 
-        string[] services = ["worker", "admin", "consumer"];
-        IConfiguration[] configurations = services
-            .Select(service => new ConfigurationBuilder().AddRomdSecretFiles(Path.Combine(_root, service, "config")).Build())
-            .ToArray<IConfiguration>();
-        foreach (string key in new[] { "Romd:JwtSecret", "Romd:ConsumerDelivery:SigningSecret" })
-        {
-            string?[] values = configurations.Select(configuration => configuration[key]).ToArray();
-            values[0].ShouldNotBeNull().Length.ShouldBe(64);
-            values.Distinct().Count().ShouldBe(1);
-        }
-
-        configurations[0]["Romd:JwtSecret"].ShouldNotBe(configurations[0]["Romd:ConsumerDelivery:SigningSecret"]);
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddRomdSecretFiles(Path.Combine(_root, "data", "secrets")).Build();
+        string jwt = configuration["Romd:JwtSecret"].ShouldNotBeNull();
+        string delivery = configuration["Romd:ConsumerDelivery:SigningSecret"].ShouldNotBeNull();
+        jwt.Length.ShouldBe(64);
+        delivery.Length.ShouldBe(64);
+        jwt.ShouldNotBe(delivery);
+        Directory.EnumerateFiles(_root, "Romd__*", SearchOption.AllDirectories).Count().ShouldBe(2);
     }
 
     [Fact]
@@ -81,15 +77,14 @@ public sealed class DeploymentInitCommandTests : IDisposable
     {
         Run().ShouldBe(DeploymentInitCommand.Success);
         string adminPassword = Read("postgres", "admin");
-        string jwt = Read("worker", "config", DeploymentSecrets.JwtSecretKey);
+        string jwt = Read("data", "secrets", DeploymentSecrets.JwtSecretKey);
         File.Delete(Path.Combine(_root, "admin", "pgpass"));
-        File.Delete(Path.Combine(_root, "consumer", "config", DeploymentSecrets.JwtSecretKey));
 
         Run().ShouldBe(DeploymentInitCommand.Success);
 
         Read("postgres", "admin").ShouldBe(adminPassword);
         Read("admin", "pgpass").ShouldBe($"*:*:*:romd_admin:{adminPassword}\n");
-        Read("consumer", "config", DeploymentSecrets.JwtSecretKey).ShouldBe(jwt);
+        Read("data", "secrets", DeploymentSecrets.JwtSecretKey).ShouldBe(jwt);
         _output.ToString().ShouldContain("Secrets: all present.");
     }
 

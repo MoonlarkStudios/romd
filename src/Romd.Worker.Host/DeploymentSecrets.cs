@@ -3,14 +3,16 @@ using System.Security.Cryptography;
 namespace Romd.Worker.Host;
 
 /// <summary>
-///     Generates an installation's database passwords and signing secrets once and lays them out so each
-///     service mounts only its own directory. <c>postgres/</c> and <c>worker/config/</c> hold the originals;
-///     every other file is rewritten from them on each run, which repairs a partially initialized layout.
+///     Generates an installation's database passwords and signing secrets once. Each service mounts only
+///     its own password directory; <c>postgres/</c> holds the originals and each <c>pgpass</c> is rewritten
+///     from them on every run, which repairs a partially initialized layout. The signing secrets every host
+///     shares live in <c>data/secrets/</c>, inside the data directory, so backups and restores carry them.
 /// </summary>
 internal static class DeploymentSecrets
 {
     internal const string JwtSecretKey = "Romd__JwtSecret";
     internal const string DeliverySigningSecretKey = "Romd__ConsumerDelivery__SigningSecret";
+    internal static readonly string SharedDirectory = Path.Combine("data", "secrets");
 
     private const UnixFileMode OwnerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite;
     // PostgreSQL runs as a different user and is the only other service mounting its directory.
@@ -33,18 +35,13 @@ internal static class DeploymentSecrets
             role => role,
             role => EnsureSecret(root, Path.Combine("postgres", role), SharedRead, created));
         string[] sharedKeys = [JwtSecretKey, DeliverySigningSecretKey];
-        Dictionary<string, string> shared = sharedKeys.ToDictionary(
-            key => key,
-            key => EnsureSecret(root, Path.Combine("worker", "config", key), OwnerOnly, created));
+        foreach (string key in sharedKeys)
+            EnsureSecret(root, Path.Combine(SharedDirectory, key), OwnerOnly, created);
 
         foreach ((string service, string[] roles) in ServiceRoles)
         {
             string passFile = string.Concat(roles.Select(role => $"*:*:*:romd_{role}:{passwords[role]}\n"));
             Write(root, Path.Combine(service, "pgpass"), passFile, OwnerOnly);
-            if (service == "worker")
-                continue;
-            foreach ((string key, string value) in shared)
-                Write(root, Path.Combine(service, "config", key), value, OwnerOnly);
         }
 
         return created;

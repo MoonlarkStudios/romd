@@ -434,11 +434,13 @@ each service one subdirectory to mount:
 | Path | Contents | Read by |
 | --- | --- | --- |
 | `postgres/<role>` | One password file per database role (`bootstrap`, `provisioner`, `worker`, `admin`, `consumer`) | PostgreSQL |
-| `worker/`, `admin/`, `consumer/` | `pgpass` with that host's database passwords, and `config/` with the JWT and delivery signing secrets | That host only |
+| `worker/`, `admin/`, `consumer/` | `pgpass` with that host's database passwords | That host only |
+| `data/secrets/` | The JWT and delivery signing secrets every host shares. Mount the data directory at `data/` so backups and restores carry them | Every host |
 | `ca/` | The private certificate authority and its key | Initialization only |
 | `tls/` | `fullchain.pem`, `privkey.pem` and `ca.crt` for devices to trust | Ingress |
 
-A host reads `config/` when `ROMD_SECRETS_DIRECTORY` names it: each file is one
+A host reads the shared secrets when `ROMD_SECRETS_DIRECTORY` names that
+directory inside its data directory: each file is one
 setting, named after its key with `__` separators (`Romd__JwtSecret`), and a
 configured directory that is missing stops startup. Point the host's connection
 strings at its password file with `Passfile=<directory>/pgpass` in place of
