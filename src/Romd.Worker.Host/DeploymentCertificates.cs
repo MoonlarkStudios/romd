@@ -9,7 +9,9 @@ namespace Romd.Worker.Host;
 /// <summary>
 ///     Issues the HTTPS certificate for an installation that brings none: a private certificate authority
 ///     limited to the installation's own names, and a server certificate signed by it. The authority's key
-///     stays in <c>ca/</c>, which only initialization mounts; the ingress reads <c>tls/</c>.
+///     stays in <c>ca/</c>, which only initialization and backup tooling mount; the ingress reads <c>tls/</c>.
+///     A restored <c>ca/</c> keeps the authority devices already trust: the server certificate is reissued
+///     under whichever authority is present.
 /// </summary>
 internal static class DeploymentCertificates
 {
@@ -24,6 +26,10 @@ internal static class DeploymentCertificates
     internal static readonly TimeSpan RenewalWindow = TimeSpan.FromDays(30);
     private static readonly TimeSpan AuthorityLifetime = TimeSpan.FromDays(3650);
     private static readonly TimeSpan ClockSkew = TimeSpan.FromDays(1);
+    private const string UnusableDnsName = "no-dns-names.romd.invalid";
+    private const string AuthoritySubject = "CN=ROMD local authority";
+    private const string NameConstraintsOid = "2.5.29.30";
+    private const string AuthoritySubjectPrefix = AuthoritySubject + " (";
 
     private const UnixFileMode OwnerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite;
     // The ingress runs as a different user and is the only other service mounting tls/.
@@ -39,38 +45,88 @@ internal static class DeploymentCertificates
 
     internal static Outcome Ensure(string root, IReadOnlyCollection<string> hosts, DateTimeOffset now)
     {
+        SortedSet<string> names = new(hosts.Select(Normalize), StringComparer.Ordinal);
         bool serverPresent = File.Exists(Path.Combine(root, ServerCertificate)) && File.Exists(Path.Combine(root, ServerKey));
-        bool authorityPresent = File.Exists(Path.Combine(root, AuthorityKey)) && File.Exists(Path.Combine(root, AuthorityCertificate));
-        if (serverPresent && !authorityPresent)
+        using X509Certificate2? server = serverPresent ? TryLoad(Path.Combine(root, ServerCertificate)) : null;
+        // Only a certificate this command issued is ever replaced; anything else belongs to the operator.
+        if (serverPresent && server?.Issuer.StartsWith(AuthoritySubjectPrefix, StringComparison.Ordinal) != true)
             return Outcome.OperatorSupplied;
 
-        SortedSet<string> names = new(hosts.Select(Normalize), StringComparer.Ordinal);
-        if (serverPresent && authorityPresent)
+        using X509Certificate2? authority = LoadAuthority(root, names, now);
+        if (authority is null)
         {
-            using X509Certificate2 server = X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(root, ServerCertificate)));
-            if (names.SetEquals(SubjectNames(server)))
-            {
-                if (server.NotAfter.ToUniversalTime() - now.UtcDateTime > RenewalWindow)
-                    return Outcome.Current;
-                using X509Certificate2 authority = X509Certificate2.CreateFromPemFile(
-                    Path.Combine(root, AuthorityCertificate), Path.Combine(root, AuthorityKey));
-                if (authority.NotAfter.ToUniversalTime() - now.UtcDateTime > ServerLifetime)
-                {
-                    WriteServer(root, authority, names, now);
-                    return Outcome.Renewed;
-                }
-            }
+            // The authority is limited to these names, so a different name set (or an authority too close
+            // to expiry to sign a full-lifetime certificate) needs a new one, which devices must trust again.
+            using X509Certificate2 created = CreateAuthority(names, now);
+            using ECDsa authorityKey = created.GetECDsaPrivateKey()!;
+            DeploymentSecrets.Write(root, AuthorityKey, authorityKey.ExportPkcs8PrivateKeyPem(), OwnerOnly);
+            DeploymentSecrets.Write(root, AuthorityCertificate, created.ExportCertificatePem(), OwnerOnly);
+            DeploymentSecrets.Write(root, PublishedAuthority, created.ExportCertificatePem(), SharedRead);
+            WriteServer(root, created, names, now);
+            return Outcome.Issued;
         }
 
-        // The authority is limited to these names, so a different name set (or an authority
-        // too close to expiry to sign a full-lifetime certificate) needs a new one, which devices must trust again.
-        using X509Certificate2 created = CreateAuthority(names, now);
-        using ECDsa authorityKey = created.GetECDsaPrivateKey()!;
-        DeploymentSecrets.Write(root, AuthorityKey, authorityKey.ExportPkcs8PrivateKeyPem(), OwnerOnly);
-        DeploymentSecrets.Write(root, AuthorityCertificate, created.ExportCertificatePem(), OwnerOnly);
-        DeploymentSecrets.Write(root, PublishedAuthority, created.ExportCertificatePem(), SharedRead);
-        WriteServer(root, created, names, now);
-        return Outcome.Issued;
+        // A restored backup brings its authority back; devices already trust that one.
+        string published = Path.Combine(root, PublishedAuthority);
+        if (!File.Exists(published) || File.ReadAllText(published) != authority.ExportCertificatePem())
+            DeploymentSecrets.Write(root, PublishedAuthority, authority.ExportCertificatePem(), SharedRead);
+        if (server is not null && IssuedBy(server, authority) && names.SetEquals(SubjectNames(server))
+            && server.NotAfter.ToUniversalTime() - now.UtcDateTime > RenewalWindow)
+            return Outcome.Current;
+        WriteServer(root, authority, names, now);
+        return Outcome.Renewed;
+    }
+
+    private static X509Certificate2? TryLoad(string path)
+    {
+        try
+        {
+            return X509Certificate2.CreateFromPem(File.ReadAllText(path));
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The existing authority when it still fits; null when a new one must be issued.</summary>
+    private static X509Certificate2? LoadAuthority(string root, SortedSet<string> names, DateTimeOffset now)
+    {
+        bool key = File.Exists(Path.Combine(root, AuthorityKey));
+        bool certificate = File.Exists(Path.Combine(root, AuthorityCertificate));
+        if (!key && !certificate)
+            return null;
+        X509Certificate2 authority;
+        try
+        {
+            if (!key || !certificate)
+                throw new CryptographicException("one of the two files is missing");
+            authority = X509Certificate2.CreateFromPemFile(
+                Path.Combine(root, AuthorityCertificate), Path.Combine(root, AuthorityKey));
+        }
+        catch (CryptographicException exception)
+        {
+            // Never guess here: replacing the authority silently would break every device that trusts it.
+            throw new InvalidDataException(
+                $"The certificate authority in {Path.GetDirectoryName(AuthorityKey)}/ cannot be used ({exception.Message}). "
+                + "Restore that directory from a backup, or remove it to issue a new authority that every device must trust again.");
+        }
+
+        // Limited to other names, issued under an earlier constraint policy, or too close to expiry
+        // to sign a full-lifetime certificate: only a new authority can serve these names safely.
+        byte[]? constraints = authority.Extensions.SingleOrDefault(extension => extension.Oid?.Value == NameConstraintsOid)?.RawData;
+        if (constraints is not null && constraints.AsSpan().SequenceEqual(NameConstraints(names))
+            && authority.NotAfter.ToUniversalTime() - now.UtcDateTime > ServerLifetime)
+            return authority;
+        authority.Dispose();
+        return null;
+    }
+
+    private static bool IssuedBy(X509Certificate2 server, X509Certificate2 authority)
+    {
+        ReadOnlyMemory<byte>? issuer = server.Extensions.OfType<X509AuthorityKeyIdentifierExtension>().SingleOrDefault()?.KeyIdentifier;
+        ReadOnlyMemory<byte> subject = authority.Extensions.OfType<X509SubjectKeyIdentifierExtension>().Single().SubjectKeyIdentifierBytes;
+        return issuer is { } identifier && identifier.Span.SequenceEqual(subject.Span);
     }
 
     private static string Normalize(string host) =>
@@ -87,11 +143,11 @@ internal static class DeploymentCertificates
     private static X509Certificate2 CreateAuthority(IReadOnlyCollection<string> names, DateTimeOffset now)
     {
         using ECDsa key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        CertificateRequest request = new($"CN=ROMD local authority ({names.First()})", key, HashAlgorithmName.SHA256);
+        CertificateRequest request = new($"{AuthoritySubject} ({names.First()})", key, HashAlgorithmName.SHA256);
         request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, true, 0, true));
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, true));
         request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
-        request.CertificateExtensions.Add(new X509Extension("2.5.29.30", NameConstraints(names), critical: true));
+        request.CertificateExtensions.Add(new X509Extension(NameConstraintsOid, NameConstraints(names), critical: true));
         return request.CreateSelfSigned(now - ClockSkew, now + AuthorityLifetime);
     }
 
@@ -119,27 +175,52 @@ internal static class DeploymentCertificates
         DeploymentSecrets.Write(root, ServerCertificate, server.ExportCertificatePem(), SharedRead);
     }
 
-    /// <summary>RFC 5280 NameConstraints permitting exactly the given DNS names (and their subdomains) and addresses.</summary>
+    /// <summary>
+    ///     RFC 5280 NameConstraints permitting exactly the given DNS names (and their subdomains) and
+    ///     addresses. A constraint only restricts names of its own kind, so a kind the installation does not
+    ///     use is excluded outright: an authority issued for an address must not be able to sign DNS names.
+    /// </summary>
     private static byte[] NameConstraints(IReadOnlyCollection<string> names)
     {
+        Asn1Tag dnsName = new(TagClass.ContextSpecific, 2);
+        Asn1Tag ipAddress = new(TagClass.ContextSpecific, 7);
+        IPAddress[] addresses = names.Select(name => IPAddress.TryParse(name, out IPAddress? address) ? address : null)
+            .OfType<IPAddress>().ToArray();
+        string[] dnsNames = names.Where(name => !IPAddress.TryParse(name, out _)).ToArray();
+        // With no DNS names, permit only a reserved name nothing can resolve. Excluding the empty
+        // name would say the same, but not every verifier treats it as matching all names.
+        if (dnsNames.Length == 0)
+            dnsNames = [UnusableDnsName];
+
         AsnWriter writer = new(AsnEncodingRules.DER);
         using (writer.PushSequence())
-        using (writer.PushSequence(new Asn1Tag(TagClass.ContextSpecific, 0)))
         {
-            foreach (string name in names)
+            using (writer.PushSequence(new Asn1Tag(TagClass.ContextSpecific, 0)))
             {
-                using (writer.PushSequence())
+                foreach (string name in dnsNames)
                 {
-                    if (IPAddress.TryParse(name, out IPAddress? address))
+                    using (writer.PushSequence())
+                        writer.WriteCharacterString(UniversalTagNumber.IA5String, name, dnsName);
+                }
+
+                foreach (IPAddress address in addresses)
+                {
+                    byte[] bytes = address.GetAddressBytes();
+                    // An address constraint is the address followed by an all-ones mask: this host only.
+                    using (writer.PushSequence())
+                        writer.WriteOctetString([.. bytes, .. Enumerable.Repeat((byte)0xFF, bytes.Length)], ipAddress);
+                }
+            }
+
+            if (addresses.Length == 0)
+            {
+                // A zero address with a zero mask matches every address: all of IPv4, then all of IPv6.
+                using (writer.PushSequence(new Asn1Tag(TagClass.ContextSpecific, 1)))
+                {
+                    foreach (int length in new[] { 4, 16 })
                     {
-                        byte[] bytes = address.GetAddressBytes();
-                        // An address constraint is the address followed by an all-ones mask: this host only.
-                        byte[] mask = Enumerable.Repeat((byte)0xFF, bytes.Length).ToArray();
-                        writer.WriteOctetString([.. bytes, .. mask], new Asn1Tag(TagClass.ContextSpecific, 7));
-                    }
-                    else
-                    {
-                        writer.WriteCharacterString(UniversalTagNumber.IA5String, name, new Asn1Tag(TagClass.ContextSpecific, 2));
+                        using (writer.PushSequence())
+                            writer.WriteOctetString(new byte[length * 2], ipAddress);
                     }
                 }
             }
