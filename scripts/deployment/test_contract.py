@@ -1310,6 +1310,11 @@ docker() {
         config = render()
         config['services']['ingress']['ports'].pop()
         self.assertTrue(validate(config))
+        # Without a host name the stack still renders on every Compose release; validation names the problem.
+        missing = {key: value for key, value in environment.items() if key != 'ROMD_HOST'}
+        self.assertIn('Ingress ADMIN origin must be ROMD_HOST on its published port', validate(render(environment=missing)))
+        self.assertNotIn(':?', ''.join(line for line in (ROOT / 'compose.yaml').read_text().splitlines()
+                                       if 'ROMD_HOST' in line and not line.lstrip().startswith('#')))
 
     def test_rejects_disconnected_database_regression(self):
         config = render()
@@ -1628,9 +1633,9 @@ docker() {
             self.assertEqual(42, stale.returncode, stale.stdout + stale.stderr)
             self.assertNotIn('is current', stale.stdout)
 
-    def test_missing_public_origin_fails_compose_interpolation(self):
+    def test_missing_image_reference_fails_compose_interpolation(self):
         env = test_environment()
-        env['ROMD_ADMIN_PUBLIC_URL'] = ''
+        env['ROMD_WORKER_IMAGE'] = ''
         result = subprocess.run(compose('--env-file', '/dev/null', '-f', str(ROOT / 'compose.yaml'), 'config', '--quiet'),
                                 env=env, capture_output=True)
         self.assertNotEqual(0, result.returncode)
