@@ -81,11 +81,16 @@ def validate(config):
             or any(key.endswith('PASSWORD') for key in pg_env)):
         errors.append('PostgreSQL must read its role passwords from the generated password files')
     init = services.get('romd-init', {})
-    init_targets = {volume.get('source'): volume.get('target') for volume in init.get('volumes', []) if isinstance(volume, dict)}
+    init_targets = {volume.get('target'): volume.get('source') for volume in init.get('volumes', []) if isinstance(volume, dict)}
+    # The signing secrets live in the data directory, so init must write the one the hosts mount.
+    data = init_targets.pop('/init/data', None)
     if (init.get('command') != ['--init-deployment', '/init'] or init.get('network_mode') != 'none'
-            or init_targets != {'romd-secrets-postgres': '/init/postgres', 'romd-secrets-worker': '/init/worker',
-                                'romd-secrets-admin': '/init/admin', 'romd-secrets-consumer': '/init/consumer',
-                                'romd-data': '/init/data'}
+            or init_targets != {'/init/postgres': 'romd-secrets-postgres', '/init/worker': 'romd-secrets-worker',
+                                '/init/admin': 'romd-secrets-admin', '/init/consumer': 'romd-secrets-consumer'}
+            or not data
+            or any(next((volume.get('source') for volume in services[name].get('volumes', [])
+                         if isinstance(volume, dict) and volume.get('target') == '/var/lib/romd'), None) != data
+                   for name in ('romd-worker', 'romd-admin', 'romd-consumer'))
             or services['postgres'].get('depends_on', {}).get('romd-init', {}).get('condition') != 'service_completed_successfully'):
         errors.append('romd-init: must generate every secret, offline, before PostgreSQL starts')
     worker_env = services['romd-worker']['environment']

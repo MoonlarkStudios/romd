@@ -1335,6 +1335,15 @@ docker() {
         config = copy.deepcopy(original)
         config['services']['romd-init']['network_mode'] = 'bridge'
         self.assertTrue(validate(config))
+        # A host directory for data must replace the volume on romd-init too, or the hosts start without secrets.
+        config = copy.deepcopy(original)
+        for name in ('romd-worker', 'romd-admin', 'romd-consumer'):
+            next(volume for volume in config['services'][name]['volumes']
+                 if volume['target'] == '/var/lib/romd').update(type='bind', source='/srv/romd')
+        self.assertTrue(validate(config))
+        next(volume for volume in config['services']['romd-init']['volumes']
+             if volume['target'] == '/init/data').update(type='bind', source='/srv/romd')
+        self.assertEqual([], validate(config))
         config = copy.deepcopy(original)
         config['services']['romd-worker']['environment']['Romd__Auth__ConsumerSpa__PostLogoutRedirectUris__0'] = 'http://console.example.test'
         self.assertTrue(validate(config))

@@ -93,7 +93,9 @@ for the values you choose. To fill it by hand instead, copy `.env.example` to
 [generates the database passwords and signing secrets](configuration.md#generated-secrets-and-certificates)
 once and never replaces them. The database passwords live in Docker volumes
 that only their own service mounts; the signing secrets live in the data
-volume, so backups carry them. The bootstrap admin password must satisfy the
+volume, so backups carry them. If an overlay replaces the `romd-data` volume
+with a host directory, replace it on `romd-init` (at `/init/data`) as well;
+validation rejects a mismatch. The bootstrap admin password must satisfy the
 application's password policy; the worker refuses to create the first account
 without one and ignores it once any account exists. Restrict `.env` permissions (`chmod 600`).
 `COMPOSE_FILE` and `COMPOSE_PROJECT_NAME` in `.env` select the overlays and

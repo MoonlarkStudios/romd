@@ -91,6 +91,7 @@ def checkpoint_description(name):
 ADMIN_HOST, CONSUMER_HOST = 'admin.example.test', 'console.example.test'
 CLIENT_IDS = {ADMIN_HOST: 'romd-admin-spa', CONSUMER_HOST: 'romd-consumer-spa'}
 DATA_TARGET = '/var/lib/romd'
+INIT_DATA_TARGET = '/init/data'
 LIBCHDR_KEY, LIBCHDR_DIRECTORY = 'Romd__Native__LibchdrDirectory', '/app/native/libchdr'
 CHDMAN_KEY, CHDMAN_DIRECTORY = 'Romd__Native__ChdmanDirectory', '/app/native/chdman'
 HOSTS = ('romd-admin', 'romd-consumer', 'romd-worker')
@@ -648,6 +649,8 @@ def build_overlay(*, data, tls, inputs, client_image, ingress_templates, fixture
         'romd-admin': host({LIBCHDR_KEY: LIBCHDR_DIRECTORY}),
         'romd-consumer': host({LIBCHDR_KEY: LIBCHDR_DIRECTORY}),
         'romd-worker': host({LIBCHDR_KEY: LIBCHDR_DIRECTORY, CHDMAN_KEY: CHDMAN_DIRECTORY}),
+        # romd-init writes the signing secrets into the data directory the hosts read.
+        'romd-init': {'volumes': [bind(data, INIT_DATA_TARGET)]},
         # A test client only: the admin image supplies curl. It never runs a ROMD host.
         'e2e-client': {
             'image': client_image, 'entrypoint': ['sleep', 'infinity'], 'init': True, 'restart': 'no',
