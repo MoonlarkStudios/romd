@@ -11,6 +11,13 @@ using Serilog;
 using Serilog.Events;
 using EnrichmentOptions = Romd.Admin.Application.Configuration.EnrichmentOptions;
 
+if (Romd.Worker.Host.DeploymentInitCommand.IsRequested(args))
+{
+    // Runs before any configuration exists: it creates the secrets the other commands read.
+    Environment.ExitCode = Romd.Worker.Host.DeploymentInitCommand.Run(args);
+    return;
+}
+
 if (Romd.Worker.Host.RedumpDiscImportCommand.IsRequested(args) ||
     Romd.Worker.Host.AdminRecoveryCommand.IsRequested(args))
 {
@@ -125,6 +132,8 @@ namespace Romd.Worker.Host
                     .ReadFrom.Services(services)
                     .Enrich.FromLogContext()
                     .WriteTo.Console())
+                .ConfigureAppConfiguration(configuration => configuration.AddRomdSecretFiles(
+                    Environment.GetEnvironmentVariable(RomdSecretFilesExtensions.DirectoryVariable)))
                 .ConfigureServices((context, services) =>
                 {
                     var romdOptions = services.AddRomdOptions(

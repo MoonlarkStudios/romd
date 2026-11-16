@@ -416,3 +416,38 @@ or production deployment.
 
 If a credential has ever appeared in a tracked file, removing the file from Git
 does not invalidate the credential. Rotate it at its issuer.
+
+### Generated secrets and certificates
+
+The worker image can generate an installation's secrets and HTTPS certificate
+without configuration or a database:
+
+```bash
+Romd.Worker.Host --init-deployment /absolute/directory [dns-name-or-ip ...]
+```
+
+It is safe to run on every start. Existing secrets are never replaced, and an
+empty secret file is an error, not a reason to generate a new value. Output
+names the files it created and never their contents. The directory layout gives
+each service one subdirectory to mount:
+
+| Path | Contents | Read by |
+| --- | --- | --- |
+| `postgres/<role>` | One password file per database role (`bootstrap`, `provisioner`, `worker`, `admin`, `consumer`) | PostgreSQL |
+| `worker/`, `admin/`, `consumer/` | `pgpass` with that host's database passwords, and `config/` with the JWT and delivery signing secrets | That host only |
+| `ca/` | The private certificate authority and its key | Initialization only |
+| `tls/` | `fullchain.pem`, `privkey.pem` and `ca.crt` for devices to trust | Ingress |
+
+A host reads `config/` when `ROMD_SECRETS_DIRECTORY` names it: each file is one
+setting, named after its key with `__` separators (`Romd__JwtSecret`), and a
+configured directory that is missing stops startup. Point the host's connection
+strings at its password file with `Passfile=<directory>/pgpass` in place of
+`Password=`.
+
+A certificate is issued only when host names are given. The authority is
+limited to exactly those names, so trusting it on a device cannot be used to
+impersonate other sites. The server certificate lasts 825 days and is renewed
+under the same authority within 30 days of expiry; restart the ingress to serve
+a renewed certificate. Changing the names issues a new authority that devices
+must trust again. When `tls/fullchain.pem` and `tls/privkey.pem` exist without
+a generated authority, they are treated as operator-supplied and left alone.
