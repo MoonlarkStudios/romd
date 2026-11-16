@@ -103,6 +103,15 @@ class RouteTests(unittest.TestCase):
             next(c for c in registry['checks'] if c['id'] == 'deployment.packaged-rehearsal')[field] = value
             self.assertTrue(any('deployment.packaged-rehearsal' in e for e in self.errors(registry)))
 
+    def test_packaged_rehearsal_accepts_only_its_exact_scope_condition(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        condition = "${{ needs.source-checks.outputs.packaged == 'true' }}"
+        self.assertEqual(1, workflow.count(condition))
+        self.assertFalse(any('deployment.packaged-rehearsal' in e for e in self.errors(workflow=workflow)))
+        for other in ('${{ false }}', "${{ needs.source-checks.outputs.chd == 'true' }}"):
+            errors = self.errors(workflow=workflow.replace(condition, other))
+            self.assertTrue(any('deployment.packaged-rehearsal: required CI' in e for e in errors))
+
     def test_inventory_short_circuit_and_skipped_workflows_do_not_count(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         route = 'python3 scripts/validation/run.py --ci --job backend'

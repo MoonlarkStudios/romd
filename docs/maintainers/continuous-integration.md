@@ -82,22 +82,28 @@ mise run ci:network-probes -- endpoints PATH_TO_RESULTS
 Create receipts with `dotnet test --logger 'trx;LogFileName=integration.trx'`
 and an explicit `--results-directory`; use a new results directory for each run.
 
-## CHD drill selection
+## Expensive drill selection
 
-`scripts/ci/change_scope.py` permits omission of the real image/recovery/CHD
-steps only on a pull request whose entire changed-path inventory is unrelated:
-root community documents, documentation, brand assets, console files, issue
-forms, or web package `src/` files. Web dependency/build configuration and schemas
-are excluded from that exception. Every backend, test, native, infrastructure,
-build, workflow or unknown path requires full verification. Rename detection is
-disabled so both old and new paths are classified; missing/invalid base history
-fails the early job. Empty inventories require full verification.
+`scripts/ci/change_scope.py` selects the two expensive Production Compose
+drills for a pull request from its changed-path inventory:
 
-Main pushes always run the complete drill. The release workflow does not
-repeat CI: it requires the successful `main` push run for the tagged commit.
-Deployment/ingress and CHD harness contract tests always run, including on an
-unrelated PR. The three expensive steps share one tested condition. New paths
-default to full coverage; extend the unrelated list only with regression tests.
+- The **packaged rehearsal** runs when the pull request changes deployment,
+  release, backup, security or container scripts, or `deploy/`.
+- The **CHD drill** runs when it changes `native/`, `scripts/e2e/`, a
+  `Romd.Media*` or `Moonlark.*` project, or any path containing `chd`.
+- `Dockerfile`, `.dockerignore`, `compose.yaml`, workflows, `scripts/ci/` and
+  `scripts/validation/` select both.
+
+Any other pull request runs neither. Rename detection is disabled so both old
+and new paths are classified; missing or invalid base history fails the early
+job. Empty inventories and invalid paths select both.
+
+Main pushes always run both drills, so a change that skipped one on its pull
+request is verified on `main`. The release workflow does not repeat CI: it
+requires the successful `main` push run for the tagged commit. The image build
+and source deployment drill, and the deployment, ingress and CHD harness
+contract tests, run on every pull request. Extend the path lists only with
+regression tests.
 
 ## Build web assets once
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Conservatively omit the expensive CHD drill only for unrelated pull requests."""
+"""Select the expensive packaged-rehearsal and CHD drills a pull request must run."""
 import argparse
 import json
 import os
@@ -9,23 +9,36 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[2]
 OID = re.compile(r'[0-9a-f]{40}')
-DOCUMENTS = {'README.md', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md',
-             'THIRD_PARTY_NOTICES.md', 'ROADMAP.md', 'AGENTS.md', '.github/pull_request_template.md'}
+# Image builds, the Compose model and the CI machinery itself feed both drills.
+SHARED = ('.github/workflows/', 'scripts/ci/', 'scripts/validation/')
+SHARED_FILES = {'Dockerfile', '.dockerignore', 'compose.yaml'}
+PACKAGED = ('deploy/', 'scripts/deployment/', 'scripts/release/', 'scripts/backup/', 'scripts/security/',
+            'scripts/containers/')
+CHD = ('native/', 'scripts/e2e/')
+CHD_PROJECTS = ('Romd.Media', 'Moonlark.')
 
 
-def unrelated(path):
+def drills(path):
+    """The drills one changed path requires on a pull request."""
     name = PurePosixPath(path)
     if name.is_absolute() or '..' in name.parts or not name.parts:
-        return False
-    return (path in DOCUMENTS or path.startswith(('docs/', 'brand/', 'clients/romd_console/',
-                                                 '.github/ISSUE_TEMPLATE/'))
-            or (len(name.parts) >= 5 and name.parts[:2] == ('web', 'packages')
-                and name.parts[3] == 'src'))
+        return {'chd', 'packaged'}
+    if path in SHARED_FILES or path.startswith(SHARED):
+        return {'chd', 'packaged'}
+    required = set()
+    if path.startswith(PACKAGED):
+        required.add('packaged')
+    if path.startswith(CHD) or 'chd' in path.lower() or any(part.startswith(CHD_PROJECTS) for part in name.parts):
+        required.add('chd')
+    return required
 
 
-def requires_chd(event, paths):
-    # Main and reusable release invocations remain full, even for documentation.
-    return event != 'pull_request' or not paths or any(not unrelated(path) for path in paths)
+def required_drills(event, paths):
+    # Main and reusable invocations always run both, so a pull request that skipped one is still
+    # verified before any release: publication requires the successful main run for its commit.
+    if event != 'pull_request' or not paths:
+        return {'chd', 'packaged'}
+    return set().union(*(drills(path) for path in paths))
 
 
 def changed_paths(root, base):
@@ -44,14 +57,12 @@ def main():
     parser.add_argument('--base', default=os.environ.get('ROMD_CI_BASE', ''))
     args = parser.parse_args()
     paths = changed_paths(ROOT, args.base) if args.event == 'pull_request' else []
-    required = requires_chd(args.event, paths)
+    required = required_drills(args.event, paths)
     if os.environ.get('GITHUB_OUTPUT'):
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-            output.write(f'chd={str(required).lower()}\n')
-    print(json.dumps({'chdRequired': required, 'event': args.event,
-                      'reason': 'full verification' if required else 'only unrelated PR paths',
-                      'changedPaths': paths}))
-
+            output.write(''.join(f'{drill}={str(drill in required).lower()}\n' for drill in ('chd', 'packaged')))
+    print(json.dumps({'chdRequired': 'chd' in required, 'packagedRequired': 'packaged' in required,
+                      'event': args.event, 'changedPaths': paths}))
 
 if __name__ == '__main__':
     main()

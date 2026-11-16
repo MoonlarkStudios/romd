@@ -17,7 +17,7 @@ The workflow uses a standard native Linux amd64 Docker runner with read-only
 repository permissions. It installs the selected source's locked browser,
 builds source/version-labelled images and runs the existing production source
 drill. It then uses the same
-[packaged rehearsal](packaged-release-qualification.md#before-publication) as PR
+[packaged rehearsal](packaged-release-qualification.md#before-publication) as `main`
 CI and publication: actual-image and merged-SBOM security policy, authenticated
 browser playback, restart, backup/restore, both real fault controls and complete
 container/registry cleanup. It reuses the publication receipt verifier before

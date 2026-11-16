@@ -26,7 +26,7 @@ than dated receipts or agent transcripts.
 
 ## Versions and promotion
 
-- Before cutting a tag, require green PR CI, including the native Docker
+- Before cutting a tag, require green `main` CI, including the native Docker
   [packaged runtime/security rehearsal](packaged-release-qualification.md#before-publication),
   and normal review/merge. The publisher rehearses its exact built images again
   before any public writes; downloaded-artifact qualification remains required.
@@ -138,7 +138,7 @@ or a synthetic policy test.
 | --- | --- | --- |
 | API compatibility boundary | Before the first console build distributed independently of a server release, or 1.0, whichever comes first, maintainers record a compatibility decision defining supported server/console version skew; updating repository call sites does not update installed console builds | [API compatibility policy](../decisions/api-contract-policy.md#first-party-audience-and-repo-atomic-compatibility) |
 | Immutable candidate | Intended clean `main` revision and strict version tag; independently retained publisher bundle hash and image digests; no replacement of existing assets | [Maintainer release candidates](../self-hosting/production-deployment.md#maintainer-release-candidates) |
-| Pre-publication packaged rehearsal | Required PR CI and exact publisher build pass image/SBOM/bundle security policy, the extracted package's browser/restart/backup/restore suite and both real fault controls, using disposable registry digests; publication validates the bound runtime/security receipt before public writes | [Packaged rehearsal](packaged-release-qualification.md#before-publication) |
+| Pre-publication packaged rehearsal | Required `main` CI and exact publisher build pass image/SBOM/bundle security policy, the extracted package's browser/restart/backup/restore suite and both real fault controls, using disposable registry digests; publication validates the bound runtime/security receipt before public writes | [Packaged rehearsal](packaged-release-qualification.md#before-publication) |
 | Packaged Linux amd64 installation | Exact published candidate bundle passes fresh install, authenticated portal/browser playback, worker-first restart, backup/restore with identity/content preservation, and both required injected-failure runs | [Packaged release qualification](packaged-release-qualification.md) |
 | Supported upgrade or approved reset baseline | Named starting release, schema, and content format upgrade to the candidate with worker-first migration/readiness, preserved identity/content, and demonstrated recovery using the matching pre-upgrade backup and previous release; unsupported starting formats have an explicit maintainer-approved fresh-install/reset baseline | [Upgrade](../self-hosting/production-deployment.md#upgrade) |
 | Final-artifact security and provenance | Actual final-digest SBOMs/scans satisfy policy; the bundle and every image verify with `gh attestation verify` without credentials; the published release is immutable and attests the verified assets | [Release metadata and vulnerability gate](release-metadata.md) |
