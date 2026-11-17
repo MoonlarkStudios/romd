@@ -17,7 +17,7 @@ def entry(**changes):
     return dict(advisory=ADVISORY, ecosystem='npm', scope='web/pnpm-lock.yaml', package='picomatch', version='4.0.7',
                 developmentRoots=['vite', 'vitest'], owner='maintainer',
                 rationale='Reached only through build and test tooling; patterns come from repository configuration.',
-                tracking='https://github.com/micromatch/picomatch/pull/194', expiresAt='2026-12-01T00:00:00Z') | changes
+                tracking='https://github.com/micromatch/picomatch/issues/234', expiresAt='2026-12-01T00:00:00Z') | changes
 
 
 def lock():
@@ -48,7 +48,7 @@ class AdvisoryExceptionTests(unittest.TestCase):
         self.assertEqual([(ADVISORY, 'picomatch', '4.0.7', '2026-12-01T00:00:00Z')],
                          [(item['advisory'], item['package'], item['version'], item['expiresAt']) for item in committed])
         self.assertEqual(['@vitejs/plugin-react', '@vitest/coverage-v8', 'vite', 'vitest'], committed[0]['developmentRoots'])
-        self.assertEqual('https://github.com/micromatch/picomatch/pull/194', committed[0]['tracking'])
+        self.assertEqual('https://github.com/micromatch/picomatch/issues/234', committed[0]['tracking'])
         self.assertTrue(committed[0]['owner'].strip())
 
     def test_development_only_package_is_excepted_and_stays_in_the_report(self):
