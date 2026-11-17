@@ -25,8 +25,11 @@ Make that status check required in the
 The check reports all returned advisory severities and blocks **HIGH, CRITICAL
 and UNKNOWN**, matching the existing release severity policy. Missing or changed
 scanner schemas, unsupported platforms, failed downloads, network failures and
-incomplete inventories fail closed. No source advisory exceptions or baseline
-are applied. NuGet restore auditing is also enabled for direct and transitive
+incomplete inventories fail closed. No baseline is applied. The only exceptions
+are the reviewed, expiring entries in
+[source advisory exceptions](release-metadata.md#source-advisory-exceptions):
+each names one advisory for one exact npm package version that the lockfile
+proves is development-only, and its finding stays in the report. NuGet restore auditing is also enabled for direct and transitive
 packages; restore warnings alone do not replace the dedicated gate.
 
 JavaScript coverage compares every tracked/current `package.json` and lockfile
@@ -40,7 +43,9 @@ advisories it marks `not_affected` / `vulnerable_code_not_present`. Suppressed
 advisories stay in the results with `blocked: false` and their VEX status. Any
 other govulncheck status blocks whatever its severity, as does an unsuppressed
 HIGH, CRITICAL or UNKNOWN finding. This is binary applicability evidence, not
-a risk exception: the source check applies no ignore file.
+a risk exception. No scanner is given an ignore file; a
+[source advisory exception](release-metadata.md#source-advisory-exceptions) is
+applied to the reported finding afterwards.
 
 Trivy is installed only from the existing release pin in
 `scripts/security/tools.json` into ignored `.artifacts/source-security/` and
