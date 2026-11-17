@@ -36,14 +36,20 @@ class WorkflowPolicyTests(unittest.TestCase):
                         text.replace('  source-checks:\n', '  source-checks:\n    if: false\n'),
                         text.replace('python3 scripts/ci/secret_scan.py --gitleaks', 'echo skipped --gitleaks'),
                         text.replace('run: python3 scripts/ci/change_scope.py', 'run: echo chd=false'),
-                        text.replace("${{ needs.source-checks.outputs.chd == 'true' }}", '${{ false }}'),
-                        text.replace("${{ needs.source-checks.outputs.packaged == 'true' }}", '${{ true }}'),
+                        text.replace("matrix.drill == 'chd' && ", ''),
+                        text.replace("matrix.drill == 'packaged' && ", ''),
+                        text.replace('      drill: [packaged, chd]', '      drill: [packaged]'),
+                        text.replace('needs: [source-checks, production-compose]', 'needs: [source-checks]'),
+                        text.replace('production-drill-images-${{ github.run_id }}', 'other-images', 1),
+                        text.replace('bash scripts/ci/drill_images.sh load', 'echo skipped'),
                         text.replace('python3 scripts/ci/nuget_locks.py', 'echo locks'),
                         text.replace('--job source-checks --evidence-parent', '--job backend --evidence-parent')):
             with self.subTest(changed=changed):
                 self.assertNotEqual(text, changed)
                 self.assertTrue(early_errors(changed, 'ci.yml'))
-        for label in ('Build images and exercise production deployment', 'Rehearse the extracted package before publication'):
+        for label in ('Build images and exercise production deployment', 'Export the verified source drill images',
+                      'Load and verify the production drill images', 'Rehearse the extracted package before publication',
+                      'Install the locked packaged rehearsal browser', 'Synthetic PS2 DVD CHD end to end'):
             for control in ('        if: false\n', '        continue-on-error: true\n'):
                 changed = text.replace(f'      - name: {label}\n', f'      - name: {label}\n' + control)
                 self.assertTrue(early_errors(changed, 'ci.yml'))
@@ -180,7 +186,7 @@ class WorkflowPolicyTests(unittest.TestCase):
         for changed in (text.replace('  ci-gate:\n', '  renamed-gate:\n'),
                         text.replace('    if: ${{ always() }}\n', "    if: ${{ !cancelled() }}\n"),
                         text.replace('    if: ${{ always() }}\n', '    if: ${{ always() }}\n    continue-on-error: true\n'),
-                        text.replace(', production-compose]', ']'),
+                        text.replace(', production-drills]', ']'),
                         text.replace('needs: [', 'needs: [missing-job, '),
                         text.replace('    name: CI gate', '    name: Other check'),
                         text.replace(GATE_CHECK, 'true'),

@@ -14,6 +14,16 @@ SHARED = ('.github/workflows/', 'scripts/ci/', 'scripts/validation/')
 SHARED_FILES = {'Dockerfile', '.dockerignore', 'compose.yaml'}
 PACKAGED = ('deploy/', 'scripts/deployment/', 'scripts/release/', 'scripts/backup/', 'scripts/security/',
             'scripts/containers/')
+# The independently required advisory gate covers these source-only inputs.
+# Shared policy and image/SBOM scanner inputs still select the packaged drill.
+SOURCE_ADVISORY_ONLY = {
+    'scripts/security/advisory_exceptions.py',
+    'scripts/security/source-advisory-exceptions.json',
+    'scripts/security/source_advisories.py',
+    'scripts/security/test_advisory_exceptions.py',
+    'scripts/security/test_javascript_advisories.py',
+    'scripts/security/test_source_advisories.py',
+}
 CHD = ('native/', 'scripts/e2e/')
 CHD_PROJECTS = ('Romd.Media', 'Moonlark.')
 
@@ -25,6 +35,8 @@ def drills(path):
         return {'chd', 'packaged'}
     if path in SHARED_FILES or path.startswith(SHARED):
         return {'chd', 'packaged'}
+    if path in SOURCE_ADVISORY_ONLY:
+        return set()
     required = set()
     if path.startswith(PACKAGED):
         required.add('packaged')
