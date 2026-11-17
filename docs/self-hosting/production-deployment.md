@@ -21,6 +21,17 @@ This path serves ROMD on your local network. You need a Linux amd64 server with
 Docker and Compose v2.24 or newer. Nothing else is installed on the host, and no
 domain or account with a third party is needed.
 
+Settle two things before you start, because sign-in depends on both:
+
+- **One name or address that every device can reach the server by.** A `.local`
+  name, a name your router's DNS serves, or a fixed IP address all work. Check
+  that it resolves from another device, for example with `ping nas.local`.
+  Every device must use exactly this name: ROMD refuses any other.
+- **Each device must trust ROMD's certificate once.** ROMD serves HTTPS with a
+  certificate it issues itself on first start, so until a device trusts ROMD's
+  certificate authority its browser shows a warning and sign-in fails. Step 4
+  installs it. A phone or console needs this as much as a laptop does.
+
 1. Download the bundle and its checksum from the
    [release page](https://github.com/MoonlarkStudios/romd/releases), check it, and
    extract it. Replace `vX.Y.Z` with the release you are installing:
@@ -55,8 +66,9 @@ domain or account with a third party is needed.
 
    On first start ROMD generates its database passwords, signing secrets and an
    HTTPS certificate for `ROMD_HOST`.
-4. Trust ROMD's certificate authority on each device that will use it. Copy it
-   out of the installation, then install it as a trusted root certificate:
+4. Trust ROMD's certificate authority on each device that will use it, before
+   opening ROMD there. Copy it out of the installation, then install it as a
+   trusted root certificate:
 
    ```bash
    docker compose cp ingress:/etc/romd/tls/ca.crt romd-ca.crt
@@ -891,8 +903,8 @@ scripts/deployment/bundle.sh images.env release-output/deployment.tar.gz FULL_SO
 A separate runner takes the exact bundle uploaded to the draft release from the
 publisher's same-run artifact and compares it with the publisher's
 independently retained bundle hash and image map before executing the
-installation. It verifies running image digests, worker-first
-provisioning, browser callbacks and authenticated views in both portals, real
+installation. It starts the installation with the quick start's one command,
+then verifies running image digests, browser callbacks and authenticated views in both portals, real
 isolated-player startup, restart and restore. Broken required portal assets and
 player startup failures must fail qualification and leave sanitized diagnostics.
 See [packaged release qualification](../maintainers/packaged-release-qualification.md).

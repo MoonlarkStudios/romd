@@ -28,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / 'deployment'))
 import compose_images
 from container_lifecycle import ContainerLifecycle
-from recovery import RecoverySequence
+from recovery import QUICK_START, RecoverySequence
 
 MAX_EXPANDED_BYTES = 32 * 1024 * 1024
 
@@ -219,6 +219,20 @@ def deployment_environment(work, bundle, nginx_image, existing_networks=()):
     return env
 
 
+def quick_start(runner, env):
+    """Start a new installation exactly as the quick start says: `.env` in the release directory,
+    then `docker compose` with nothing else. The settings reach Compose only through that file,
+    and the images only through the digests written into the bundle's compose.yaml."""
+    settings = {key: value for key, value in env.items()
+                if key == 'COMPOSE_PROJECT_NAME' or (key.startswith('ROMD_') and key != 'ROMD_ENV_FILE')}
+    if any("'" in value or '\n' in value for value in settings.values()):
+        raise ValueError('Installation setting cannot be written to .env')
+    path = runner.bundle / '.env'
+    path.write_text(''.join(f"{key}='{value}'\n" for key, value in sorted(settings.items())))
+    path.chmod(0o600)
+    runner.run(['docker', 'compose', *QUICK_START], 'quick-start', env=clean_environment())
+
+
 class Runner:
     def __init__(self, work, evidence, bundle, env):
         self.work, self.evidence, self.bundle, self.env = work, evidence, bundle, env
@@ -401,7 +415,8 @@ def qualify(args, evidence):
                     lambda current=selected, name=role: runner.compose('down', '--volumes', '--remove-orphans',
                         stage='cleanup-' + name + '-project', env=current)))
             with gate.monitor(cleanups):
-                recovery = RecoverySequence(runner.run, bundle / 'scripts/deployment/compose.sh', gate, env)
+                recovery = RecoverySequence(runner.run, bundle / 'scripts/deployment/compose.sh', gate, env,
+                                            first_start=lambda: quick_start(runner, env))
                 runner.run([bundle / 'scripts/deployment/validate.sh'], 'bundle-compose-validation')
                 runner.compose('pull', stage='pull-published-digests')
                 recovery.start()
