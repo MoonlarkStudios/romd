@@ -2299,6 +2299,10 @@ namespace Romd.Persistence.Migrations
 
                     b.HasIndex("PlatformId");
 
+                    b.HasIndex("ExecutionLeaseExpiresAtUtc", "Id")
+                        .HasDatabaseName("IX_Jobs_ExecutionLeaseRecovery")
+                        .HasFilter("\"CompletedAt\" IS NULL AND \"ExecutionFenceToken\" IS NOT NULL");
+
                     b.HasIndex("IsArchived", "CreatedAt");
 
                     b.HasIndex("JobType", "Phase", "HangfireJobId", "ExecutionLeaseExpiresAtUtc")
