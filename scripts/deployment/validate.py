@@ -80,6 +80,9 @@ def validate(config):
             or pg_env.get('ROMD_POSTGRES_SECRETS_DIRECTORY') != '/run/romd-postgres'
             or any(key.endswith('PASSWORD') for key in pg_env)):
         errors.append('PostgreSQL must read its role passwords from the generated password files')
+    # The image's first-start initialization serves only the local socket, then restarts.
+    if '-h 127.0.0.1' not in ' '.join(services['postgres']['healthcheck'].get('test', [])):
+        errors.append('postgres: healthcheck must probe 127.0.0.1 so first-start initialization is not reported healthy')
     init = services.get('romd-init', {})
     init_targets = {volume.get('target'): volume.get('source') for volume in init.get('volumes', []) if isinstance(volume, dict)}
     # The signing secrets live in the data directory, so init must write the one the hosts mount.

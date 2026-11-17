@@ -1375,6 +1375,10 @@ docker() {
         config = copy.deepcopy(original)
         config['services']['romd-init']['network_mode'] = 'bridge'
         self.assertTrue(validate(config))
+        # First-start initialization serves the local socket only: probing it reports ready before the hosts can connect.
+        config = copy.deepcopy(original)
+        config['services']['postgres']['healthcheck']['test'] = ['CMD-SHELL', 'pg_isready -U romd_bootstrap -d romd']
+        self.assertTrue(validate(config))
         # A host directory for data must replace the volume on romd-init too, or the hosts start without secrets.
         config = copy.deepcopy(original)
         for name in ('romd-worker', 'romd-admin', 'romd-consumer'):
