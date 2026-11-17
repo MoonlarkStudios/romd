@@ -74,6 +74,10 @@ public sealed class ReplaceDatJobEntity : JobEntity
             IsArchived = domain.IsArchived,
             ArchivedAt = domain.ArchivedAt,
             CreatedByUserId = domain.CreatedByUserId,
+            DeferralCount = domain.DeferralCount,
+            LastDeferralError = domain.LastDeferralError,
+            LastDeferralAt = domain.LastDeferralAt,
+            FirstDeferralAt = domain.FirstDeferralAt,
             UpdatedAt = updatedAt ?? domain.CreatedAt,
             JobType = "replace_dat"
         };

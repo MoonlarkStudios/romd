@@ -46,6 +46,8 @@ public sealed class MetadataRematerializationJobRepository(RomdDbContext db) : I
             .SetProperty(x => x.CurrentItem, job.CurrentItem).SetProperty(x => x.ErrorsJson, errors)
             .SetProperty(x => x.StartedAt, job.StartedAt).SetProperty(x => x.CompletedAt, job.CompletedAt)
             .SetProperty(x => x.IsArchived, job.IsArchived).SetProperty(x => x.ArchivedAt, job.ArchivedAt)
+            .SetProperty(x => x.DeferralCount, job.DeferralCount).SetProperty(x => x.LastDeferralError, job.LastDeferralError)
+            .SetProperty(x => x.LastDeferralAt, job.LastDeferralAt).SetProperty(x => x.FirstDeferralAt, job.FirstDeferralAt)
             .SetProperty(x => x.UpdatedAt, DateTimeOffset.UtcNow), ct);
         if (updated != 1)
             throw new InvalidOperationException("Metadata checkpoint requires an existing job.");

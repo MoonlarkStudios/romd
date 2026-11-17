@@ -460,13 +460,19 @@ restores the fence and lease, then commits. Its fresh scope releases tracked sta
 on success or failure. The unclaimed runner fallback also owns a short transaction
 and notifies observers after commit. Recovery and artifact-cleanup backstops
 recheck current state and apply conditional, purpose-specific writes.
-The DAT replacement sweep checks for a live execution lease again after
-locking the job row. A live lease protects a worker between checkpoints.
+The DAT replacement sweep checks for a live execution lease and a scheduled
+retry again after locking the job row. A live lease protects a worker between
+checkpoints. A scheduled retry remains eligible for dispatch after downtime.
 Claim, checkpoint and deferral protocols distinguish an acknowledged commit
 from lost acknowledgement. Provider cleanup preserves the original recovery
 signal or acknowledged result; cleanup cannot establish that an uncertain commit
 failed. Deferral still rearms the dispatch and releases the execution fence in
 one commit.
+After a resumable executor fails under a live claim, the runner records the
+attempt and uses that same transaction to schedule the next attempt. Backoff
+starts at 30 seconds and is capped at five minutes. DAT replacement allows
+two retries and a one-day retry age. Hangfire handles transport failures,
+and the execution lease also allows recovery after an interrupted handoff.
 Checkpoint persistence errors remain visible. Optional notification after an
 acknowledged checkpoint is best effort; requested checkpoint cancellation still
 propagates through its existing shutdown and redelivery policy.

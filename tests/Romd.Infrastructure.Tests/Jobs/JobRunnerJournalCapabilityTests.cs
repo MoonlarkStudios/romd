@@ -45,7 +45,6 @@ public sealed class JobRunnerJournalCapabilityTests
 
     [Theory]
     [InlineData("missing-journal")]
-    [InlineData("transient")]
     [InlineData("shutdown")]
     public async Task Run_WithoutCommittedOutcome_PreservesActiveClaimAndRedeliveryUsesJournal(string mode)
     {
@@ -78,6 +77,40 @@ public sealed class JobRunnerJournalCapabilityTests
         rig.Probe.Executions.ShouldBe(2);
         rig.Probe.Fences[1].ShouldNotBe(rig.Probe.Fences[0]);
         rig.Probe.Checkpoints.ShouldBe(mode == "shutdown" ? 0 : 1);
+        await rig.AssertCompletedAsync(MediaReconciliationOutcomeKind.Completed, "fixture-completed");
+    }
+
+    [Fact]
+    public async Task Run_TransientExecutorFailure_RearmsDispatchAndResumesThroughTheJournal()
+    {
+        await using var rig = await Rig.CreateAsync("transient");
+        var retryAt = rig.Clock.GetUtcNow().AddSeconds(30);
+
+        await rig.RunAsync();
+
+        await using var read = rig.Database.CreateContext();
+        var row = await read.Jobs.SingleAsync();
+        row.Phase.ShouldBe("Planning");
+        row.CompletedAt.ShouldBeNull();
+        row.ExecutionFenceToken.ShouldBeNull();
+        row.ExecutionLeaseExpiresAtUtc.ShouldBeNull();
+        row.NextAttemptAtUtc.ShouldBe(retryAt);
+        row.DeferralCount.ShouldBe(1);
+        var persisted = (await new MediaReconciliationJobRepository(read, rig.Clock).GetByIdAsync(row.Id)).ShouldNotBeNull();
+        persisted.Errors.ShouldHaveSingleItem().Message.ShouldBe(rig.Probe.Failure.ShouldNotBeNull().Message);
+        (await read.Set<MediaReconciliationOutcomeEntity>().CountAsync()).ShouldBe(0);
+        (await read.Set<MediaReconciliationPinEntity>().CountAsync()).ShouldBe(1);
+
+        var dispatch = new JobDispatchRepository(read, rig.Clock);
+        (await dispatch.GetAvailableAsync(25, default)).ShouldBeEmpty();
+        rig.Clock.SetUtcNow(retryAt);
+        (await dispatch.GetAvailableAsync(25, default)).ShouldBe([row.Id]);
+
+        await rig.RunAsync();
+
+        rig.Probe.Executions.ShouldBe(2);
+        rig.Probe.Fences[1].ShouldNotBe(rig.Probe.Fences[0]);
+        rig.Probe.Checkpoints.ShouldBe(0);
         await rig.AssertCompletedAsync(MediaReconciliationOutcomeKind.Completed, "fixture-completed");
     }
 
@@ -276,12 +309,6 @@ public sealed class JobRunnerJournalCapabilityTests
             {
                 if (mode == "missing-journal")
                     return;
-                if (mode == "transient")
-                {
-                    var failure = new IOException("An unfinished media operation failed.");
-                    probe.Failure = failure;
-                    throw failure;
-                }
                 if (mode == "shutdown")
                 {
                     probe.Shutdown.ShouldNotBeNull().Cancel();
@@ -294,19 +321,25 @@ public sealed class JobRunnerJournalCapabilityTests
                     await Task.Delay(Timeout.InfiniteTimeSpan, context.CancellationToken);
                     throw new InvalidOperationException("Cancellation did not interrupt media work.");
                 }
-                if (mode == "custody")
+                if (mode is "custody" or "transient")
                 {
                     var capture = new MediaReconciliationCapture(job.Id, 1,
                         new([new MediaReconciliationInput.Artifact(graph.Cd, null, null)], null, [], null),
                         MediaReconciliationOperation.Verify, null, MediaFactGraphFixture.Hash('a'), MediaFactGraphFixture.Hash('b'),
                         new RomDecoderIdentity.Native(new("linux-arm64", MediaFactGraphFixture.Short('e'), 3)), null, null, null);
                     (await execution.CaptureAsync(capture)).IsError.ShouldBeFalse();
-                    probe.Stopped = false;
+                    probe.Stopped = mode == "transient";
+                }
+                if (mode == "transient")
+                {
+                    var failure = new IOException("An unfinished media operation failed.");
+                    probe.Failure = failure;
+                    throw failure;
                 }
                 if (mode is "custody" or "permanent")
                     throw new JobPermanentFailureException("The operation cannot continue.");
             }
-            if (mode == "custody")
+            if (mode is "custody" or "transient")
                 (await execution.SupersedeAttemptAsync(job.Id, "stopped-redelivery", true)).IsError.ShouldBeFalse();
             var demand = (await execution.ReadDemandAsync(job.Id)).ShouldNotBeNull();
             (await execution.FinishAsync(job.Id, demand.Version, MediaReconciliationOutcomeKind.Completed,
