@@ -20,6 +20,7 @@ import tomllib
 from urllib.parse import urlsplit
 
 from source_tools import ensure_trivy
+import advisory_exceptions
 import go_vex
 from policy import BLOCKED_SEVERITIES
 
@@ -237,6 +238,13 @@ def scan_pnpm(root, work):
                  accepted=(0, 1), environment=npm_environment(work))
     findings = parse_pnpm(decode(result))
     require(result.returncode == int(bool(findings)), 'pnpm exit status contradicts advisory report')
+    # Every package is still audited. A reviewed exception changes only whether its one finding blocks.
+    import yaml
+    try:
+        advisory_exceptions.apply(findings, yaml.safe_load((root / 'web/pnpm-lock.yaml').read_text()),
+                                  advisory_exceptions.load())
+    except ValueError as error:
+        raise ScanError(str(error)) from error
     return findings, {'lockfile': 'web/pnpm-lock.yaml', 'developmentAndOptionalDependencies': True}
 
 
@@ -475,10 +483,13 @@ def audit(root, output, scanners=None):
                 findings, coverage = scanner(root, work)
                 unique = sorted({json.dumps(f, sort_keys=True) for f in findings})
                 findings = [json.loads(f) for f in unique]
-                blocked = sum(f['severity'] in blocked_severities and (f['blocked'] if name == 'go-reader' else True) for f in findings)
+                # Only the Go reader's VEX and a reviewed exception can stop a finding from blocking.
+                blocked = sum(f['severity'] in blocked_severities and f.get('blocked', True) for f in findings)
+                excepted = sum(f.get('exception', {}).get('status') == 'applied' for f in findings)
                 report['ecosystems'][name] = dict(status='failed' if blocked else 'passed',
                                                   coverage=coverage, findings=findings, blocked=blocked)
-                print(f'{name}: {len(findings)} advisories, {blocked} blocking', flush=True)
+                print(f'{name}: {len(findings)} advisories, {blocked} blocking'
+                      + (f', {excepted} under a reviewed exception' if excepted else ''), flush=True)
             except (ValueError, OSError, KeyError, TypeError, AttributeError) as error:
                 report['ecosystems'][name] = {'status': 'error', 'error': type(error).__name__}
                 if isinstance(error, ScanError):

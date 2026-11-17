@@ -256,6 +256,56 @@ current evidence, and remove resolved or stale entries. The default exception
 set is empty. Findings and proposed sensitive dispositions stay out of public
 Git history until their maintainer publication review.
 
+### Source advisory exceptions
+
+The source dependency advisory gate (`scripts/security/source_advisories.py`)
+runs on every pull request, on `main` and again in the release workflow. It
+audits every resolved package, including development dependencies and findings
+with no available fix. Its exceptions live in
+`scripts/security/source-advisory-exceptions.json`, and one decision applies to
+all three runs. Each entry needs exactly:
+
+```json
+{
+  "exceptions": [
+    {
+      "advisory": "https://github.com/advisories/GHSA-xxxx-xxxx-xxxx",
+      "ecosystem": "npm",
+      "scope": "web/pnpm-lock.yaml",
+      "package": "example",
+      "version": "1.2.3",
+      "developmentRoots": ["vite", "vitest"],
+      "owner": "accountable-maintainer",
+      "rationale": "Why the vulnerable code cannot be reached by anything ROMD ships.",
+      "tracking": "https://github.com/upstream/example/pull/1",
+      "expiresAt": "2027-01-31T00:00:00Z"
+    }
+  ]
+}
+```
+
+An exception changes only whether its one finding blocks. The finding stays in
+the retained report with the exception's owner, rationale, expiry and whether it
+was applied or refused, and the gate's summary line counts it. Other advisories,
+including others for the same package, block as before.
+
+`scripts/security/advisory_exceptions.py` supports only npm packages in
+`web/pnpm-lock.yaml`, and applies an entry only while the committed lockfile
+proves all of the following. Otherwise the finding blocks:
+
+- The exact package version is not in the production dependency closure of any
+  workspace package.
+- Every development dependency that reaches it is listed in `developmentRoots`.
+  A new route needs a fresh review.
+- The lockfile is a version the check understands and every dependency in it
+  resolves.
+- The expiry has not passed and is at most 90 days away.
+
+An entry that matches no finding fails the gate, so remove it as soon as the
+upgrade to a patched version lands. Development-only here means the dependency
+graph: confirm separately that application source does not import the package,
+because a bundler ships whatever source imports.
+
 ## Attestation and public verification
 
 The `publish-metadata` job attests provenance for each final ROMD image digest,

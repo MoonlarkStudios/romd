@@ -243,7 +243,9 @@ class SourceAdvisoryTests(unittest.TestCase):
             work.mkdir()
             data = self.pnpm()
             result = subprocess.CompletedProcess([], 1, json.dumps(data), '')
-            with patch.object(source, 'run', return_value=result) as run:
+            with patch.object(source, 'run', return_value=result) as run, \
+                    patch.object(source.advisory_exceptions, 'load', return_value=[]), \
+                    patch.dict('sys.modules', yaml=type('yaml', (), {'safe_load': staticmethod(str)})):
                 findings, coverage = source.scan_pnpm(root, work)
             command = run.call_args.args[0]
             self.assertNotIn('--prod', command)
