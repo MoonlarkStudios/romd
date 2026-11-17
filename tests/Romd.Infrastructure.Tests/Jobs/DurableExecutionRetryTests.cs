@@ -105,7 +105,7 @@ public sealed class DurableExecutionRetryTests
             clock.SetUtcNow(retryAt);
             if (succeedsOnThirdAttempt && attempt == 2)
             {
-                clock.Advance(TimeSpan.FromHours(1));
+                clock.Advance(TimeSpan.FromDays(2));
                 var repository = new ReplaceDatJobRepository(observer, clock);
                 var cutoff = clock.GetUtcNow().AddMinutes(-30);
                 (await repository.GetStaleStartedIdsAsync(cutoff)).ShouldBeEmpty();

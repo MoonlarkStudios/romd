@@ -240,10 +240,10 @@ public sealed class JobRunner<TJob> where TJob : Job
                 await CheckpointAsync(ct);
             }
 
-            if (retryBudget is not null && job.FirstDeferralAt is { } firstDeferral
-                && _timeProvider.GetUtcNow() - firstDeferral > retryBudget.MaximumAge)
+            if (retryBudget?.MaximumAge is { } maximumAge && job.FirstDeferralAt is { } firstDeferral
+                && _timeProvider.GetUtcNow() - firstDeferral > maximumAge)
                 throw new JobPermanentFailureException(
-                    $"{retryBudget.Label} retry age budget exhausted: {job.LastDeferralError ?? $"execution did not finish within {retryBudget.MaximumAge.TotalHours:0} hours"}");
+                    $"{retryBudget.Label} retry age budget exhausted: {job.LastDeferralError ?? $"execution did not finish within {maximumAge.TotalHours:0} hours"}");
             Exception? executionFailure = null;
             try
             {

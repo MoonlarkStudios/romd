@@ -9,12 +9,12 @@ namespace Romd.Admin.Application.Ingestion.Jobs;
 ///     budget into a permanent failure.
 /// </summary>
 /// <param name="Label">Family label used in the persisted exhaustion message.</param>
-/// <param name="MaximumAge">Elapsed time since the first deferral after which an attempt is not started.</param>
+/// <param name="MaximumAge">Elapsed time since the first deferral after which an attempt is not started, or null for a count-only budget.</param>
 /// <param name="MaximumDeferralsWithoutProgress">
 ///     Consecutive no-progress deferrals tolerated before a requested deferral becomes a permanent
 ///     failure; null when the family waits on work it does not own and must not be counted out.
 /// </param>
-public sealed record JobRetryBudget(string Label, TimeSpan MaximumAge, int? MaximumDeferralsWithoutProgress);
+public sealed record JobRetryBudget(string Label, TimeSpan? MaximumAge, int? MaximumDeferralsWithoutProgress);
 
 /// <summary>
 ///     Deferral-accounting phase of the job runner. Families without a budget leave deferral counters
