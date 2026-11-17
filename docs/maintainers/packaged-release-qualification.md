@@ -125,8 +125,11 @@ the three origins on that one host name (ports 7663, 7664 and 7665), and the
 built-in ingress serves them. The qualifier clears inherited ROMD/Compose
 settings, binds the ingress to a private loopback address, and puts the ingress
 network on a private subnet that no existing Docker network overlaps. It pulls
-the digest references, provisions PostgreSQL and worker first, and starts the
-APIs, player and HTTPS ingress. It inspects pulled image architecture and digest and
+the digest references, then starts the installation as the quick start does:
+it writes those settings to `.env` in the extracted bundle and runs
+`docker compose up -d --wait --wait-timeout 240` there, with no wrapper, image
+map or settings in the process environment. A contract test keeps that command
+equal to the one in the guide. It inspects pulled image architecture and digest and
 each running container's image ID and configured reference. It refuses an ARM
 Docker daemon, including amd64 emulation on that daemon.
 
@@ -178,8 +181,9 @@ arguments; it never supplies a handshake, ROM, runtime, or startup event. The
 fixture generator contains only ROMD's small original NROM program, zero CHR,
 and reset vectors. No commercial ROM, BIOS, artwork, or downloaded game is used.
 
-Source and packaged drills share `scripts/deployment/recovery.py` for worker-first
-startup, restart, backup-resume readiness and restore sequencing. Each keeps its
+Source and packaged drills share `scripts/deployment/recovery.py` for the
+single-command first start, and for worker-first restart, backup-resume
+readiness and restore sequencing. Each keeps its
 own verification against the actual installation.
 The qualifier repeats browser sign-in and startup after a worker-first restart.
 It then runs the bundle's own backup tool and waits for the resumed hosts to be

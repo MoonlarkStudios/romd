@@ -3,24 +3,38 @@ from pathlib import Path
 
 from container_lifecycle import HOSTS
 
+# The quick start's one start command, word for word after `docker compose`
+# (docs/self-hosting/production-deployment.md). A contract test keeps the two equal.
+QUICK_START = ('up', '-d', '--wait', '--wait-timeout', '240')
+
 
 class RecoverySequence:
-    def __init__(self, run, compose, gate, source_env, *, wait_timeout=300):
+    def __init__(self, run, compose, gate, source_env, *, wait_timeout=300, first_start=None):
         self.run, self.compose_path, self.gate = run, Path(compose), gate
         self.source = dict(source_env)
         self.wait_timeout = str(wait_timeout)
+        self.first_start = first_start
 
     def compose(self, *arguments, stage, env=None):
         return self.run([self.compose_path, *arguments], stage, env=env or self.source)
 
     def start(self, *, env=None, phase='initial'):
         selected = env or self.source
-        worker, hosts = {'initial': ('worker-first-provisioning', 'packaged-startup'),
-                         'restart': ('restart-worker-first', 'restart-start-hosts'),
-                         'restore': ('restore-worker-first', 'restore-hosts')}[phase]
-        self.compose('up', '-d', '--wait', '--wait-timeout', self.wait_timeout, 'postgres', 'romd-worker',
-                     stage=worker, env=selected)
-        self.compose('up', '-d', '--wait', '--wait-timeout', self.wait_timeout, stage=hosts, env=selected)
+        if phase == 'initial':
+            # A new installation is started the way the quick start says, in one command, so the drill
+            # meets the same startup ordering an operator does. Starting the database and worker
+            # separately first would hide a service that starts before its dependency is ready.
+            if self.first_start:
+                self.first_start()
+            else:
+                self.compose(*QUICK_START, stage='quick-start', env=selected)
+        else:
+            # The runbook's restart, upgrade and restore procedures start the worker before the APIs.
+            worker, hosts = {'restart': ('restart-worker-first', 'restart-start-hosts'),
+                             'restore': ('restore-worker-first', 'restore-hosts')}[phase]
+            self.compose('up', '-d', '--wait', '--wait-timeout', self.wait_timeout, 'postgres', 'romd-worker',
+                         stage=worker, env=selected)
+            self.compose('up', '-d', '--wait', '--wait-timeout', self.wait_timeout, stage=hosts, env=selected)
         self.gate.checkpoint(selected['COMPOSE_PROJECT_NAME'])
 
     def restart(self):

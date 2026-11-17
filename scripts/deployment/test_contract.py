@@ -292,6 +292,11 @@ class ContainerLifecycleTests(unittest.TestCase):
         gate.stopping.side_effect = lambda *args: contextlib.nullcontext()
         recovery = RecoverySequence(lambda argv, stage, env: commands.append((list(argv), dict(env))),
                                     Path('/fixture/compose.sh'), gate, source)
+        # A new installation starts in the quick start's one command, not database and worker first.
+        recovery.start()
+        self.assertEqual([['/fixture/compose.sh', 'up', '-d', '--wait', '--wait-timeout', '240']],
+                         [[str(part) for part in argv] for argv, _ in commands])
+        commands.clear()
         # Callers reuse their environment while switching to the restored project.
         source['COMPOSE_PROJECT_NAME'] = 'restored'
         recovery.restart()
@@ -302,6 +307,24 @@ class ContainerLifecycleTests(unittest.TestCase):
         self.assertTrue(all(env['COMPOSE_PROJECT_NAME'] == 'restored' for _, env in commands))
         self.assertEqual(['postgres', 'romd-worker'], commands[-2][0][-2:])
         gate.checkpoint.assert_has_calls([unittest.mock.call('source'), unittest.mock.call('restored')])
+
+    def test_rehearsed_first_start_is_the_documented_quick_start_command(self):
+        from recovery import QUICK_START, RecoverySequence
+        expected = 'docker compose ' + ' '.join(QUICK_START)
+        guide = (ROOT / 'docs/self-hosting/production-deployment.md').read_text()
+        quick_start = guide[guide.index('## Quick start\n'):guide.index('## Prerequisites and configuration\n')]
+        commands = [line.strip() for block in re.findall(r'```bash\n(.*?)```', quick_start, re.S) for line in block.splitlines()]
+        self.assertEqual([expected], [command for command in commands if ' up ' in f' {command} '])
+        self.assertIn(expected, (ROOT / 'deploy/README.md').read_text())
+        # A caller that installs as an operator does replaces only that first start.
+        calls, gate = [], Mock()
+        recovery = RecoverySequence(lambda argv, stage, env: calls.append(stage), Path('/fixture/compose.sh'), gate,
+                                    {'COMPOSE_PROJECT_NAME': 'source'}, first_start=lambda: calls.append('operator'))
+        recovery.start()
+        self.assertEqual(['operator'], calls)
+        gate.stopping.side_effect = lambda *args: contextlib.nullcontext()
+        recovery.restart()
+        self.assertEqual(['operator', 'restart-stop-hosts', 'restart-worker-first', 'restart-start-hosts'], calls)
 
     def setUp(self):
         from container_lifecycle import ContainerLifecycle
