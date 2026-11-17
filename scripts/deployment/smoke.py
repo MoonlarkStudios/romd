@@ -273,6 +273,35 @@ def main():
             for target in ('romd-admin', 'romd-consumer'):
                 assert attempt('postgres', 'bash', '-c', connect.format(target, 8080)).returncode != 0, \
                     f'the database network reaches the {target} listener'
+            # The same holds for the listeners' numeric addresses, so the boundary does not rest on what DNS reveals.
+            project = env['COMPOSE_PROJECT_NAME']
+
+            def address(service, network):
+                container = run([compose, 'ps', '-q', service], env, capture=True).strip()
+                found = run(['docker', 'inspect', '--format',
+                             f'{{{{(index .NetworkSettings.Networks "{project}_{network}").IPAddress}}}}', container],
+                            env, capture=True).strip()
+                assert ipaddress.ip_address(found), f'{service} has no address on {network}'
+                return found
+
+            listeners = {name: address(name, f'ingress-{name.removeprefix("romd-")}')
+                         for name in ('romd-admin', 'romd-consumer', 'romd-player')}
+            assert len(set(listeners.values())) == 3
+            path = {'romd-admin': '/health/ready', 'romd-consumer': '/health/ready', 'romd-player': '/player-config.json'}
+            for target, numeric in listeners.items():
+                # Control: the ingress, the one intended peer, reaches this exact address.
+                assert attempt('ingress', *wget[:2], '-T', '5', '-O', '/dev/null',
+                               f'http://{numeric}:8080{path[target]}').returncode == 0, f'ingress cannot reach {target} at {numeric}'
+                for source in ('romd-admin', 'romd-consumer'):
+                    if source != target:
+                        probe = attempt(source, 'curl', '-s', '-o', '/dev/null', '--noproxy', '*', '--connect-timeout', '5',
+                                        '--max-time', '8', f'http://{numeric}:8080{path[target]}')
+                        assert probe.returncode in (7, 28), f'{source} reached {target} at {numeric} (curl exit {probe.returncode})'
+                if target != 'romd-player':
+                    probe = attempt('romd-player', *wget[:2], '-T', '5', '-O', '/dev/null', f'http://{numeric}:8080{path[target]}')
+                    assert probe.returncode != 0, f'player reached {target} at {numeric}'
+                probe = attempt('postgres', 'timeout', '8', 'bash', '-c', connect.format(numeric, 8080))
+                assert probe.returncode != 0, f'the database reached {target} at {numeric}'
             # Through the front door the consumer is an ordinary client: the ingress replaces whatever identity it claims.
             forged = attempt('romd-consumer', 'curl', '-sk', '--noproxy', '*', '--max-time', '20',
                              '--connect-to', 'admin.example.test:443:ingress:443',
