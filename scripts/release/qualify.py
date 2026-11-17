@@ -7,7 +7,6 @@ The browser tooling stays on the qualification runner, outside the install bundl
 import argparse
 import base64
 import hashlib
-import ipaddress
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -176,9 +175,6 @@ def clean_environment():
 HOST = 'romd.example.test'
 # The default installation: one host name, a published port per surface.
 PORTS = {'consumer': 7663, 'admin': 7664, 'player': 7665}
-# Private /24 candidates for the disposable ingress network; the first one no existing
-# Docker network overlaps is used, so unrelated stacks on the runner cannot collide.
-EDGE_SUBNETS = tuple(f'10.253.{third}.0/24' for third in range(16, 48))
 
 
 def served_certificate(address, port, host, authority):
@@ -191,22 +187,11 @@ def served_certificate(address, port, host, authority):
             return secured.getpeercert(binary_form=True)
 
 
-def edge_network(existing):
-    for candidate in EDGE_SUBNETS:
-        subnet = ipaddress.ip_network(candidate)
-        if not any(subnet.overlaps(other) for other in existing if other.version == 4):
-            host = list(subnet.hosts())
-            return dict(ROMD_EDGE_SUBNET=str(subnet), ROMD_EDGE_DYNAMIC_RANGE=str(list(subnet.subnets(new_prefix=25))[1]),
-                        ROMD_TRUSTED_PROXY=str(host[1]), ROMD_ADMIN_EDGE_IP=str(host[2]),
-                        ROMD_CONSUMER_EDGE_IP=str(host[3]), ROMD_PLAYER_EDGE_IP=str(host[4]))
-    raise RuntimeError('No free private subnet for the disposable ingress network')
-
-
-def deployment_environment(work, bundle, nginx_image, existing_networks=()):
+def deployment_environment(work, bundle, nginx_image):
     """The installation the quick start produces: a host name, the first administrator, nothing else.
 
     ROMD generates its own secrets and certificate, and Compose derives the three origins.
-    Only the loopback bind address and the private subnet are chosen here, to stay isolated.
+    Only the loopback bind address is chosen here, to stay isolated; Docker assigns the private networks.
     """
     env = clean_environment()
     env.update(ROMD_HOST=HOST, ROMD_DEFAULT_ADMIN_EMAIL='browser-qualification@example.test',
@@ -214,7 +199,7 @@ def deployment_environment(work, bundle, nginx_image, existing_networks=()):
                ROMD_NGINX_IMAGE=nginx_image, ROMD_ENV_FILE=str(work / 'empty.env'),
                ROMD_BIND=f'127.{secrets.randbelow(200) + 20}.{secrets.randbelow(254) + 1}.{secrets.randbelow(254) + 1}',
                COMPOSE_PROJECT_NAME='romd-qualify-' + secrets.token_hex(6),
-               COMPOSE_FILE=f'{bundle}/compose.yaml', **edge_network(existing_networks))
+               COMPOSE_FILE=f'{bundle}/compose.yaml')
     (work / 'empty.env').touch(mode=0o600)
     return env
 
@@ -278,14 +263,6 @@ class Runner:
                 raise RuntimeError('Running container does not use the published image digest')
             running[service] = {'reference': reference, 'imageId': image['Id'], 'platform': 'linux/amd64'}
         return running
-
-    def existing_networks(self):
-        names = self.run(['docker', 'network', 'ls', '--quiet'], 'docker-networks').split()
-        if not names:
-            return []
-        subnets = self.run(['docker', 'network', 'inspect', '--format',
-                            '{{range .IPAM.Config}}{{.Subnet}} {{end}}', *names], 'docker-network-subnets').split()
-        return [ipaddress.ip_network(value, strict=False) for value in subnets]
 
     def ingress_file(self, name, stage, env=None):
         text = self.compose('exec', '-T', 'ingress', 'cat', f'/etc/romd/tls/{name}', stage=stage, env=env)
@@ -399,7 +376,7 @@ def qualify(args, evidence):
                 return report
             runner = Runner(work, evidence, bundle, clean_environment())
             report['commands'] = runner.commands
-            env = runner.env = deployment_environment(work, bundle, args.nginx_image, runner.existing_networks())
+            env = runner.env = deployment_environment(work, bundle, args.nginx_image)
             server = json.loads(runner.run(['docker', 'version', '--format', '{{json .Server}}'], 'docker-version'))
             if (server.get('Os'), server.get('Arch')) != ('linux', 'amd64'):
                 raise RuntimeError('Qualification requires a native Linux amd64 Docker daemon')

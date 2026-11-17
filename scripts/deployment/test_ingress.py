@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Exercise the shipped tunnel template through real nginx HTTP requests.
 
-Uses one pinned nginx container with no network or published ports. Loopback
-source addresses model the pinned connector and an untrusted edge peer; nginx
-echo upstreams expose the headers the application actually receives. This is
+Uses one pinned nginx container with no network or published ports. One loopback
+address models the ingress's address on the tunnel network, resolved by the shipped
+entrypoint script; any other address models a network the tunnel listener must not
+serve. nginx echo upstreams expose the headers the application actually receives. This is
 ingress behavior coverage, not Docker production-image/release qualification.
 """
 from contextlib import contextmanager
@@ -27,6 +28,9 @@ from containers.runtime import Runtime
 
 
 class CloudflareIngressTests(unittest.TestCase):
+    # The ingress's address on the tunnel network, as its alias resolves inside the fixture.
+    listener = '127.0.0.2'
+
     @classmethod
     def setUpClass(cls):
         cls.runtime = Runtime()
@@ -59,8 +63,10 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
                    '--env', 'ROMD_ADMIN_HOST=admin.example.test',
                    '--env', 'ROMD_CONSUMER_HOST=console.example.test',
                    '--env', 'ROMD_PLAYER_HOST=play.example.test',
-                   '--env', 'ROMD_CLOUDFLARED_EDGE_IP=127.0.0.2',
+                   '--env', 'ROMD_TUNNEL_ALIAS=ingress.tunnel', '--add-host', f'ingress.tunnel:{cls.listener}',
                    '--env', 'NGINX_ENVSUBST_FILTER=^ROMD_',
+                   '--volume', f'{ROOT / "deploy/examples/cloudflare/entrypoint/10-romd-tunnel-address.envsh"}'
+                               ':/docker-entrypoint.d/10-romd-tunnel-address.envsh:ro,Z',
                    '--volume', f'{work / "nginx.conf"}:/etc/nginx/nginx.conf:ro,Z',
                    '--volume', f'{work / "echo.conf"}:/etc/nginx/conf.d/echo.conf:ro,Z',
                    '--volume', f'{work / "default.conf.template"}:/etc/nginx/templates/default.conf.template:ro,Z',
@@ -89,7 +95,7 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
 
     @classmethod
     def request(cls, *, source='127.0.0.2', host='console.example.test', path='/',
-                headers=None, check=True, port=80):
+                headers=None, check=True, port=80, target=None):
         lines = [f'GET {path} HTTP/1.1', f'Host: {host}', 'Connection: close']
         values = headers.items() if isinstance(headers, dict) else headers or []
         lines += [f'{key}: {value}' for key, value in values]
@@ -97,7 +103,7 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
         # Content-Length-delimited response arrives, without a timing sleep.
         output = b''
         with subprocess.Popen(cls.runtime.engine_command('exec', '-i', cls.container,
-                              'nc', '-s', source, '-w', '5', '127.0.0.1', str(port)),
+                              'nc', '-s', source, '-w', '5', target or cls.listener, str(port)),
                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               env=cls.environment) as process:
             try:
@@ -143,13 +149,28 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
                 self.assertEqual(200, status)
                 self.assertEqual(f'consumer|{address}|console.example.test|https|||/||close', body)
 
-    def test_untrusted_direct_peer_cannot_claim_connector_or_visitor_identity(self):
-        for headers in ({}, {'CF-Connecting-IP': '198.51.100.10',
-                            'X-Forwarded-For': '127.0.0.2', 'X-Real-IP': '127.0.0.2'},
-                        {'CF-Connecting-IP': '127.0.0.2'}):
-            with self.subTest(headers=headers):
-                status, _ = self.request(source='127.0.0.3', headers=headers)
-                self.assertEqual(403, status)
+    def test_tunnel_listener_serves_only_the_tunnel_network_address(self):
+        # A container on an application network reaches the ingress at another address: nothing listens there.
+        for target in ('127.0.0.1', '127.0.0.3'):
+            with self.subTest(target=target):
+                self.assertIsNone(self.request(target=target, headers={'CF-Connecting-IP': '198.51.100.10'}, check=False))
+                self.assertIn('exit=1', self.last_client_error)
+        self.assertEqual(200, self.request(headers={'CF-Connecting-IP': '198.51.100.10'})[0])
+
+    def test_unresolvable_or_ambiguous_tunnel_alias_refuses_to_start(self):
+        script = ROOT / 'deploy/examples/cloudflare/entrypoint/10-romd-tunnel-address.envsh'
+        image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
+        for hosts, expected in (([], 1), (['ingress.tunnel:127.0.0.2', 'ingress.tunnel:127.0.0.3'], 1),
+                                (['ingress.tunnel:127.0.0.2'], 0)):
+            with self.subTest(hosts=hosts):
+                arguments = [argument for host in hosts for argument in ('--add-host', host)]
+                result = subprocess.run(self.runtime.engine_command(
+                    'run', '--rm', '--network', 'none', '--env', 'ROMD_TUNNEL_ALIAS=ingress.tunnel', *arguments,
+                    '--volume', f'{script}:/romd/tunnel.envsh:ro,Z', '--entrypoint', 'sh', image,
+                    '-c', '. /romd/tunnel.envsh && printf %s "$ROMD_TUNNEL_ADDRESS"'),
+                    env=self.environment, capture_output=True, text=True, timeout=60)
+                self.assertEqual(expected, result.returncode, result.stderr)
+                self.assertEqual('' if expected else '127.0.0.2', result.stdout)
 
     def test_missing_malformed_chained_and_port_qualified_identity_fail_closed(self):
         for address in (None, '', 'not-an-ip', '999.1.2.3', '2001:db8:::1',
@@ -180,10 +201,21 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
         self.assertTrue(body.endswith('/hubs/admin|websocket|upgrade'), body)
 
 
+def without_tls(template):
+    """The built-in template with TLS removed, so the pinned image's own client can reach the listeners."""
+    lines = [line.replace(' ssl default_server;', ' default_server;').replace(' ssl;', ';')
+             for line in template.splitlines() if not line.strip().startswith(('ssl_', 'error_page 497'))]
+    assert len(lines) == len(template.splitlines()) - 4 and sum(' default_server;' in line for line in lines) == 3
+    assert not any(' ssl' in line for line in lines if line.strip().startswith('listen'))
+    return '\n'.join(lines) + '\n'
+
+
 class BuiltInIngressTests(CloudflareIngressTests):
     """The default ingress: one host name, a listener per surface. TLS is removed from the
     fixture so the pinned image's own client can reach the listeners; routing and headers
     are what this covers."""
+
+    listener = '127.0.0.1'
 
     @classmethod
     def setUpClass(cls):
@@ -195,11 +227,7 @@ class BuiltInIngressTests(CloudflareIngressTests):
         template = (ROOT / 'deploy/ingress/templates/default.conf.template').read_text()
         for index, surface in enumerate(('admin', 'consumer', 'player'), 1):
             template = template.replace(f'http://romd-{surface}:8080', f'http://127.0.0.1:{8080 + index}')
-        lines = [line.replace(' ssl default_server;', ' default_server;').replace(' ssl;', ';')
-                 for line in template.splitlines() if not line.strip().startswith(('ssl_', 'error_page 497'))]
-        assert len(lines) == len(template.splitlines()) - 4 and sum(' default_server;' in line for line in lines) == 3
-        assert not any(' ssl' in line for line in lines if line.strip().startswith('listen'))
-        (work / 'default.conf.template').write_text('\n'.join(lines) + '\n')
+        (work / 'default.conf.template').write_text(without_tls(template))
         (work / 'nginx.conf').write_text('''worker_processes 1;
 error_log /dev/stderr warn;
 events { worker_connections 64; }
@@ -264,6 +292,188 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
 # The inherited tunnel cases belong to CloudflareIngressTests alone.
 for _name in [name for name in vars(CloudflareIngressTests) if name.startswith('test_')]:
     setattr(BuiltInIngressTests, _name, None)
+
+
+class IngressAddressChangeTests(BuiltInIngressTests):
+    """The shipped template on real per-surface networks, resolving the applications through the engine's DNS.
+
+    An application's address changes when its container is recreated. The ingress must follow it,
+    and a stale answer must fail: it can never be served by another surface.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.runtime = Runtime()
+        if cls.runtime.engine != 'docker':
+            raise unittest.SkipTest('the shipped templates use Docker\'s embedded DNS resolver (127.0.0.11)')
+        cls.environment = cls.runtime.child_environment()
+        temporary = tempfile.TemporaryDirectory(prefix='romd-ingress-readdress-')
+        cls.addClassCleanup(temporary.cleanup)
+        cls.work = Path(temporary.name)
+        cls.prefix = 'romd-ingress-readdress-' + uuid.uuid4().hex[:12]
+        cls.image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
+        (cls.work / 'default.conf.template').write_text(
+            without_tls((ROOT / 'deploy/ingress/templates/default.conf.template').read_text()))
+        for surface in ('admin', 'consumer'):
+            (cls.work / f'{surface}.conf').write_text(
+                f"server {{ listen 8080; access_log off; location / {{ return 200 '{surface}'; }} }}\n")
+            cls.run_engine('network', 'create', cls.network(surface))
+            cls.addClassCleanup(cls.remove, 'network', cls.network(surface))
+            cls.start_application(surface)
+        cls.container = cls.prefix + '-ingress'
+        cls.addClassCleanup(cls.remove, 'container', cls.container)
+        cls.run_engine('create', '--name', cls.container, '--network', cls.network('admin'), '--memory', '96m',
+                       '--env', 'ROMD_HOST=nas.example.test', '--env', 'ROMD_CONSUMER_PORT=7663',
+                       '--env', 'ROMD_ADMIN_PORT=7664', '--env', 'ROMD_PLAYER_PORT=7665',
+                       '--env', 'NGINX_ENVSUBST_FILTER=^ROMD_',
+                       '--volume', f'{cls.work / "default.conf.template"}:/etc/nginx/templates/default.conf.template:ro,Z',
+                       cls.image)
+        cls.run_engine('network', 'connect', cls.network('consumer'), cls.container)
+        cls.run_engine('start', cls.container)
+        cls.wait_for({7664: 'admin', 7663: 'consumer'})
+
+    @classmethod
+    def network(cls, surface):
+        return f'{cls.prefix}-{surface}'
+
+    @classmethod
+    def remove(cls, kind, name):
+        subprocess.run(cls.runtime.engine_command(kind, 'rm', '--force', name),
+                       env=cls.environment, capture_output=True, timeout=60)
+
+    @classmethod
+    def start_application(cls, surface, suffix=''):
+        name = f'{cls.prefix}-{surface}{suffix}'
+        cls.addClassCleanup(cls.remove, 'container', name)
+        cls.run_engine('run', '--detach', '--name', name, '--network', cls.network(surface),
+                       '--network-alias', f'romd-{surface}', '--memory', '96m',
+                       '--volume', f'{cls.work / f"{surface}.conf"}:/etc/nginx/conf.d/default.conf:ro,Z', cls.image)
+        return name
+
+    @classmethod
+    def address(cls, name, surface):
+        return cls.run_engine('inspect', '--format',
+                              f'{{{{(index .NetworkSettings.Networks "{cls.network(surface)}").IPAddress}}}}', name).stdout.strip()
+
+    @classmethod
+    def served(cls, port):
+        response = cls.request(host='nas.example.test', port=port, check=False)
+        return response and (response[1] if response[0] == 200 else response[0])
+
+    @classmethod
+    def wait_for(cls, expected, seconds=30):
+        deadline, seen = time.monotonic() + seconds, {port: [] for port in expected}
+        while time.monotonic() < deadline:
+            for port in expected:
+                seen[port].append(cls.served(port))
+            if all(seen[port][-1] == body for port, body in expected.items()):
+                return seen
+            time.sleep(0.25)
+        raise AssertionError(f'ingress did not serve {expected}: {seen}')
+
+    def test_recreated_application_is_followed_and_never_answered_by_another_surface(self):
+        first = f'{self.prefix}-admin'
+        before = self.address(first, 'admin')
+        self.remove('container', first)
+        # Hold the freed address so the replacement is given a different one.
+        placeholder = f'{self.prefix}-placeholder'
+        self.addCleanup(self.remove, 'container', placeholder)
+        self.run_engine('run', '--detach', '--name', placeholder, '--network', self.network('admin'),
+                        '--entrypoint', 'sleep', self.image, '300')
+        second = self.start_application('admin', '-recreated')
+        after = self.address(second, 'admin')
+        self.assertNotEqual(before, after, 'the fixture did not change the application address')
+        seen = self.wait_for({7664: 'admin', 7663: 'consumer'}, seconds=15)
+        # While the old answer is cached the admin listener fails; it never reaches the consumer.
+        self.assertTrue(set(seen[7664]) <= {'admin', 502, None}, seen[7664])
+        self.assertEqual({'consumer'}, set(seen[7663]))
+
+
+# Only the address-change case applies to this fixture.
+for _name in [name for name in vars(BuiltInIngressTests) if name.startswith('test_')]:
+    setattr(IngressAddressChangeTests, _name, None)
+
+
+class TunnelListenerReachabilityTests(IngressAddressChangeTests):
+    """The shipped tunnel template and entrypoint script on real networks: one shared with the
+    connector, one with an application. Only a peer on the tunnel network reaches the listener,
+    whether the others try its name or its numeric addresses."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.runtime = Runtime()
+        if cls.runtime.engine != 'docker':
+            raise unittest.SkipTest('the shipped templates use Docker\'s embedded DNS resolver (127.0.0.11)')
+        cls.environment = cls.runtime.child_environment()
+        temporary = tempfile.TemporaryDirectory(prefix='romd-tunnel-reachability-')
+        cls.addClassCleanup(temporary.cleanup)
+        cls.work = Path(temporary.name)
+        cls.prefix = 'romd-tunnel-reachability-' + uuid.uuid4().hex[:12]
+        cls.image = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
+        (cls.work / 'consumer.conf').write_text(
+            "server { listen 8080; access_log off; location / { return 200 'consumer|$http_x_forwarded_for'; } }\n")
+        for network in ('tunnel', 'consumer'):
+            cls.run_engine('network', 'create', cls.network(network))
+            cls.addClassCleanup(cls.remove, 'network', cls.network(network))
+        cls.application = cls.start_application('consumer')
+        cls.container = cls.prefix + '-ingress'
+        cls.addClassCleanup(cls.remove, 'container', cls.container)
+        cls.run_engine('create', '--name', cls.container, '--network', cls.network('tunnel'),
+                       '--network-alias', 'ingress.tunnel', '--network-alias', 'ingress', '--memory', '96m',
+                       '--env', 'ROMD_ADMIN_HOST=admin.example.test', '--env', 'ROMD_CONSUMER_HOST=console.example.test',
+                       '--env', 'ROMD_PLAYER_HOST=play.example.test', '--env', 'ROMD_TUNNEL_ALIAS=ingress.tunnel',
+                       '--env', 'NGINX_ENVSUBST_FILTER=^ROMD_',
+                       '--volume', f'{ROOT / "deploy/examples/cloudflare/entrypoint/10-romd-tunnel-address.envsh"}'
+                                   ':/docker-entrypoint.d/10-romd-tunnel-address.envsh:ro,Z',
+                       '--volume', f'{ROOT / "deploy/examples/cloudflare/templates"}:/etc/nginx/templates:ro,Z', cls.image)
+        cls.run_engine('network', 'connect', '--alias', 'ingress', cls.network('consumer'), cls.container)
+        cls.run_engine('start', cls.container)
+        cls.connector = cls.prefix + '-connector'
+        cls.addClassCleanup(cls.remove, 'container', cls.connector)
+        cls.run_engine('run', '--detach', '--name', cls.connector, '--network', cls.network('tunnel'),
+                       '--entrypoint', 'sleep', cls.image, '600')
+        for _ in range(60):
+            if cls.fetch(cls.connector, 'ingress')[0] == 0:
+                return
+            time.sleep(0.25)
+        raise AssertionError('the tunnel listener did not become ready: '
+                             + cls.run_engine('logs', cls.container).stderr[-2000:])
+
+    @classmethod
+    def fetch(cls, container, target):
+        result = subprocess.run(cls.runtime.engine_command(
+            'exec', container, 'wget', '-q', '-T', '5', '-O', '-', '--header', 'Host: console.example.test',
+            '--header', 'CF-Connecting-IP: 198.51.100.10', f'http://{target}:80/'),
+            env=cls.environment, capture_output=True, text=True, timeout=60)
+        return result.returncode, result.stdout, result.stderr
+
+    def test_only_a_tunnel_network_peer_reaches_the_listener_by_name_or_numeric_address(self):
+        tunnel = self.address(self.container, 'tunnel')
+        shared = self.address(self.container, 'consumer')
+        self.assertNotEqual(tunnel, shared)
+        # The connector, by name and by the listener's numeric address: the visitor identity reaches the application.
+        for target in ('ingress', tunnel):
+            with self.subTest(peer='connector', target=target):
+                self.assertEqual((0, 'consumer|198.51.100.10'), self.fetch(self.connector, target)[:2])
+        # An application shares another network with the ingress. Nothing listens for the tunnel there,
+        # the tunnel network's address is unreachable from it, and the tunnel alias does not resolve.
+        for target, reason in ((shared, 'Connection refused'), ('ingress', 'Connection refused'),
+                               (tunnel, None), ('ingress.tunnel', 'bad address')):
+            with self.subTest(peer='application', target=target):
+                status, body, error = self.fetch(self.application, target)
+                self.assertNotEqual(0, status)
+                self.assertEqual('', body)
+                if reason:
+                    self.assertIn(reason, error)
+        # The connector cannot reach the application behind the ingress directly either.
+        direct = subprocess.run(self.runtime.engine_command(
+            'exec', self.connector, 'wget', '-q', '-T', '5', '-O', '-', f'http://{self.address(self.application, "consumer")}:8080/'),
+            env=self.environment, capture_output=True, text=True, timeout=60)
+        self.assertNotEqual(0, direct.returncode)
+
+
+for _name in [name for name in vars(IngressAddressChangeTests) if name.startswith('test_')]:
+    setattr(TunnelListenerReachabilityTests, _name, None)
 
 
 class BuiltInIngressTlsTests(unittest.TestCase):
@@ -426,7 +636,7 @@ http { access_log /dev/stdout combined; include /etc/nginx/conf.d/*.conf; }
                    '--env', 'ROMD_ADMIN_HOST=admin.example.test',
                    '--env', 'ROMD_CONSUMER_HOST=console.example.test',
                    '--env', 'ROMD_PLAYER_HOST=play.example.test',
-                   '--env', 'ROMD_CLOUDFLARED_EDGE_IP=127.0.0.1',
+                   '--env', 'ROMD_TUNNEL_ADDRESS=127.0.0.1',
                    '--env', 'NGINX_ENVSUBST_FILTER=^ROMD_',
                    '--volume', f'{work}:/romd-test:ro,Z',
                    '--volume', f'{work / "nginx.conf"}:/etc/nginx/nginx.conf:ro,Z',

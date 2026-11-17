@@ -59,10 +59,9 @@ internal sealed class NginxTlsProxy : IAsyncDisposable
                 .Replace("${ROMD_ADMIN_HOST}", "admin.invalid", StringComparison.Ordinal)
                 .Replace("${ROMD_CONSUMER_HOST}", "localhost", StringComparison.Ordinal)
                 .Replace("${ROMD_PLAYER_HOST}", "player.invalid", StringComparison.Ordinal)
-                .Replace("${ROMD_CLOUDFLARED_EDGE_IP}", "127.0.0.1", StringComparison.Ordinal)
                 .Replace("http://romd-consumer:8080", upstream.GetLeftPart(UriPartial.Authority), StringComparison.Ordinal)
                 .Replace("listen 443 ssl default_server;", $"listen 127.0.0.1:{port} ssl default_server;", StringComparison.Ordinal)
-                .Replace("listen 80 default_server;", $"listen 127.0.0.1:{port} default_server;", StringComparison.Ordinal)
+                .Replace("listen ${ROMD_TUNNEL_ADDRESS}:80 default_server;", $"listen 127.0.0.1:{port} default_server;", StringComparison.Ordinal)
                 .Replace("/etc/romd/tls/fullchain.pem", Quote(Path.Combine(directory, "fullchain.pem")), StringComparison.Ordinal)
                 .Replace("/etc/romd/tls/privkey.pem", Quote(Path.Combine(directory, "privkey.pem")), StringComparison.Ordinal);
             // Synthetic streaming tests need warn-level disk-spooling telemetry. The

@@ -246,21 +246,11 @@ class BundleQualificationTests(unittest.TestCase):
                           or key in ('ROMD_TLS_DIRECTORY', 'ROMD_ADMIN_HOST')])
         self.assertEqual(['ROMD_DEFAULT_ADMIN_PASSWORD'], [key for key in environment if key.endswith('_PASSWORD')])
 
-    def test_disposable_ingress_network_avoids_every_existing_docker_network(self):
-        import ipaddress
-        taken = [ipaddress.ip_network(value) for value in ('10.253.16.0/24', '10.253.0.0/19', '172.28.0.0/24', 'fd00::/64')]
-        environment = deployment_environment(self.work, self.work / 'bundle', 'nginx@sha256:' + 'f' * 64, taken)
-        subnet = ipaddress.ip_network(environment['ROMD_EDGE_SUBNET'])
-        self.assertEqual('10.253.32.0/24', str(subnet))
-        self.assertFalse(any(subnet.overlaps(other) for other in taken if other.version == 4))
-        addresses = [ipaddress.ip_address(environment[key]) for key in
-                     ('ROMD_TRUSTED_PROXY', 'ROMD_ADMIN_EDGE_IP', 'ROMD_CONSUMER_EDGE_IP', 'ROMD_PLAYER_EDGE_IP')]
-        dynamic = ipaddress.ip_network(environment['ROMD_EDGE_DYNAMIC_RANGE'])
-        self.assertEqual(4, len(set(addresses)))
-        self.assertTrue(all(address in subnet and address not in dynamic for address in addresses))
-        with self.assertRaisesRegex(RuntimeError, 'No free private subnet'):
-            deployment_environment(self.work, self.work / 'bundle', 'nginx@sha256:' + 'f' * 64,
-                                   [ipaddress.ip_network('10.0.0.0/8')])
+    def test_no_address_or_network_setting_is_chosen_for_the_installation(self):
+        environment = deployment_environment(self.work, self.work / 'bundle', 'nginx@sha256:' + 'f' * 64)
+        retired = {'ROMD_EDGE_SUBNET', 'ROMD_EDGE_DYNAMIC_RANGE', 'ROMD_TRUSTED_PROXY', 'ROMD_ADMIN_EDGE_IP',
+                   'ROMD_CONSUMER_EDGE_IP', 'ROMD_PLAYER_EDGE_IP', 'ROMD_CLOUDFLARED_EDGE_IP'}
+        self.assertEqual(set(), retired & set(environment))
 
     def test_cli_writes_new_local_evidence_and_refuses_directory_reuse(self):
         self.bundle()

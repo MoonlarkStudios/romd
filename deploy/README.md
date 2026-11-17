@@ -38,11 +38,12 @@ public origins, tunnel routing, host paths, image selection, monitoring and back
 schedules. Keep plaintext credentials out of Git. The examples are optional;
 ROMD does not require a particular DNS, proxy, tunnel or hosting provider.
 
-The Cloudflare example pins its connector to `ROMD_CLOUDFLARED_EDGE_IP` and
-accepts visitor identity only from that address. When upgrading an existing
-example, reserve this address outside the edge network's dynamic range and
-recreate both ingress and cloudflared together; follow the runbook's
-[Cloudflare setup](../docs/self-hosting/production-deployment.md#cloudflare-tunnel-example) in that runbook.
+Docker assigns every address. Each application shares a network only with the
+ingress, and the Cloudflare example gives the connector and the ingress a network
+of their own, where alone the tunnel listener accepts a visitor's identity. See
+[network boundaries](../docs/self-hosting/production-deployment.md#network-boundaries),
+and [upgrading from the `edge` network](../docs/self-hosting/production-deployment.md#upgrading-from-a-release-with-the-edge-network)
+for an installation that set addresses.
 
 ## Credits
 
