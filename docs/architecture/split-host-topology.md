@@ -79,9 +79,10 @@ The root `Dockerfile` defines four production targets:
 - `romd-worker`: publishes `Romd.Worker.Host` with no HTTP listener.
 - `romd-player`: serves `web/packages/romd-player-app/dist` from nginx on a dedicated origin and renders its runtime configuration and security policy at startup.
 
-The root `compose.yaml` is the image-only production topology. PostgreSQL and
-worker share `backend`; API hosts join `backend` and `edge`; player joins only
-`edge`. No ports or container names are fixed. Production configuration, optional
+The root `compose.yaml` is the image-only production topology. PostgreSQL,
+worker and both API hosts share `backend`; each API host and the player also has
+an ingress network of its own with the ingress, and the API hosts listen for
+HTTP only there. No ports, addresses or container names are fixed. Production configuration, optional
 ingress examples, release bundles and backup/restore procedures are documented in
 [production-deployment.md](../self-hosting/production-deployment.md).
 
@@ -221,7 +222,9 @@ forwarded-header processing with `Romd:ForwardedHeaders` and set each surface's 
 `Romd:AdminHost:PublicUrl` / `Romd:ConsumerHost:PublicUrl`. Do **not** set
 `ASPNETCORE_FORWARDEDHEADERS_ENABLED` — the hosts call `UseForwardedHeaders` themselves, and the built-in
 env-var path trusts only loopback, which a container proxy is not. `Romd:ForwardedHeaders:Enabled=true`
-must be paired with a trusted-proxy allowlist (`KnownProxies`/`KnownNetworks`) or the host refuses to start.
+must be paired with a trusted-proxy allowlist (`KnownProxies`/`KnownNetworks`) or with
+`Romd:IngressListener:NetworkAlias`, which binds the listener to the ingress network and trusts that network;
+otherwise the host refuses to start.
 The portable deployment and optional HTTPS/Cloudflare ingress examples are in [`production-deployment.md`](../self-hosting/production-deployment.md).
 
 The default development JWT secret and default admin password are not production-safe.

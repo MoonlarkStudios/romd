@@ -123,9 +123,9 @@ the quick start does: it sets a host name and the first administrator, and
 nothing else. ROMD generates its own secrets and certificate, Compose derives
 the three origins on that one host name (ports 7663, 7664 and 7665), and the
 built-in ingress serves them. The qualifier clears inherited ROMD/Compose
-settings, binds the ingress to a private loopback address, and puts the ingress
-network on a private subnet that no existing Docker network overlaps. It pulls
-the digest references, then starts the installation as the quick start does:
+settings and binds the ingress to a private loopback address. It chooses no
+network or address: Docker assigns the installation's networks, as it does for
+an operator. It pulls the digest references, then starts the installation as the quick start does:
 it writes those settings to `.env` in the extracted bundle and runs
 `docker compose up -d --wait --wait-timeout 240` there, with no wrapper, image
 map or settings in the process environment. A contract test keeps that command

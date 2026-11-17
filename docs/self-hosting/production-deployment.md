@@ -18,7 +18,7 @@ after it explain each step and the alternatives. Existing operators can jump to
 ## Quick start
 
 This path serves ROMD on your local network. You need a Linux amd64 server with
-Docker and Compose v2.24 or newer. Nothing else is installed on the host, and no
+Docker and Compose v2.25 or newer. Nothing else is installed on the host, and no
 domain or account with a third party is needed.
 
 Settle two things before you start, because sign-in depends on both:
@@ -92,7 +92,7 @@ the browser, add the [library overlay](configuration.md#path-import) and choose
 
 ## Prerequisites and configuration
 
-Install Docker with Compose v2.24 or newer, Bash, Python 3, OpenSSL and `shasum`.
+Install Docker with Compose v2.25 or newer, Bash, Python 3, OpenSSL and `shasum`.
 Store PostgreSQL and ROMD data on local ext4/btrfs storage, not SMB/NFS mounts.
 The host needs outbound access for catalog subscriptions and metadata providers.
 Select HTTPS admin, consumer and player origins. Consumer and player must be
@@ -120,10 +120,11 @@ The default deployment uses one canonical origin per portal. Additional origins
 require an operator overlay that configures matching auth redirects, CORS and
 consumer-to-player mappings; do not casually disable issuer or proxy validation.
 
-`ROMD_TRUSTED_PROXY` is the source IP of the final proxy as the APIs see it.
-ROMD trusts exactly that peer for one forwarded hop. The proxy must reject
-unknown hosts and replace incoming forwarded headers with authoritative values.
-Never publish a plaintext listener that lets arbitrary clients claim HTTPS.
+The APIs accept the scheme, host and client address from their proxy for one
+forwarded hop; [network boundaries](#network-boundaries) explains which peer that
+can be. The proxy must reject unknown hosts and replace incoming forwarded
+headers with authoritative values. Never publish a plaintext listener that lets
+arbitrary clients claim HTTPS.
 
 Optional IGDB credentials can be supplied to admin and worker; leave both empty
 to manage them through **Integrations**. For path imports, mount the source at the
@@ -204,11 +205,47 @@ except within the bounded [CHD decoder upgrade](#chd-decoder-upgrades) window.
 
 ## Choose ingress
 
-The base stack has two project-scoped networks. PostgreSQL and worker use
-`backend`; both APIs use `backend` and `edge`; player uses only `edge`. Your
-ingress attaches only to `edge`. No fixed container names prevent multiple isolated
-installations. Keep `COMPOSE_PROJECT_NAME` stable across release directories to
-reuse the intended database/data volumes.
+No fixed container names or addresses prevent multiple isolated installations.
+Keep `COMPOSE_PROJECT_NAME` stable across release directories to reuse the
+intended database/data volumes.
+
+### Network boundaries
+
+Compose creates four project-scoped networks and Docker assigns every address;
+there is nothing to configure.
+
+| Network | Members | Carries |
+| --- | --- | --- |
+| `backend` | PostgreSQL, worker, admin, consumer | Database connections and outbound provider requests |
+| `ingress-admin` | ingress, admin | The admin portal and API |
+| `ingress-consumer` | ingress, consumer | The consumer portal and API |
+| `ingress-player` | ingress, player | The player |
+
+Each API listens for HTTP only on its address on its own ingress network, and
+on loopback for its health check. It finds that address at startup from a DNS
+alias Compose declares for it on that network alone, and refuses to start if
+the alias does not resolve to exactly one of its own addresses. The result:
+
+- The admin, consumer and player applications cannot open a connection to one
+  another's listeners. Admin and consumer share `backend`, but neither listens
+  there; the player shares no network with either.
+- An API accepts forwarded headers only from its ingress network, whose one
+  other member is the ingress. A request to its loopback listener cannot claim
+  HTTPS or another client's address.
+- The ingress resolves each application by name on a network that holds nothing
+  else. When a container is recreated with a new address, the ingress follows it
+  within two seconds; until then a stale answer fails with 502 and cannot reach
+  another surface.
+- Any container can still reach another surface the way a device does, through
+  the ingress's published listener. The ingress then reports that container's
+  own address and replaces any forwarded headers it sent.
+
+This is a network boundary, not complete containment. Admin, consumer and worker
+still share the data volume, including the token and delivery signing secrets in
+it, so a compromised consumer host could mint tokens the admin host accepts and
+read or alter stored content without connecting to the admin listener. Each
+also holds its own PostgreSQL role. Separating the signing keys and storage
+access is tracked as its own change.
 
 Keep the worker's explicit `init: false`, private PID namespace and image
 entrypoint when adding deployment overlays. The worker must be namespace PID 1:
@@ -265,13 +302,6 @@ On every start the `romd-init` service makes sure a certificate exists:
   that name resolving to this server on your network, devices need no setup,
   and the same origins keep working if you later route the name from outside.
 
-The ingress and the applications share a private network, `172.28.0.0/24` by
-default. If Docker reports `Pool overlaps with other one on this address space`,
-another network on this host already uses that range (a second ROMD
-installation, for example): set `ROMD_EDGE_SUBNET`, `ROMD_EDGE_DYNAMIC_RANGE`,
-`ROMD_TRUSTED_PROXY` and the three `ROMD_*_EDGE_IP` addresses to a free range, as
-`.env.example` shows.
-
 The three overlays under `deploy/examples/` replace the built-in listeners. Each
 needs the three `ROMD_*_PUBLIC_URL` origins set explicitly; add the overlay to
 `COMPOSE_FILE` in `.env`.
@@ -285,12 +315,57 @@ needs the three `ROMD_*_PUBLIC_URL` origins set explicitly; add the overlay to
 ### Existing reverse proxy
 
 Add `deploy/examples/proxy/compose.yaml`, which removes the built-in ingress.
-Then create an operator overlay attaching your proxy to `edge`, or publish the three
-HTTP container ports only to the interface needed by an external proxy. Both API
-containers and player listen on port 8080. Set `ROMD_TRUSTED_PROXY` to the actual trusted peer IP;
-Docker host-port forwarding can change the source address seen by a container.
-Use host firewall rules where LAN bindings are necessary. PostgreSQL and worker
+Both API containers and the player listen on port 8080. PostgreSQL and worker
 must remain unpublished.
+
+**A proxy that runs as a container on this host** joins the three ingress
+networks in place of the built-in ingress and proxies to `romd-admin:8080`,
+`romd-consumer:8080` and `romd-player:8080`. In its own Compose project, declare
+them as external networks, where `romd` is your `COMPOSE_PROJECT_NAME`:
+
+```yaml
+services:
+  proxy:
+    networks: [ingress-admin, ingress-consumer, ingress-player]
+networks:
+  ingress-admin: {external: true, name: romd_ingress-admin}
+  ingress-consumer: {external: true, name: romd_ingress-consumer}
+  ingress-player: {external: true, name: romd_ingress-player}
+```
+
+Start ROMD first so the networks exist. Attach nothing else to these networks:
+each application accepts forwarded headers from every container on its ingress
+network. Resolve the application names at request time, not only at startup,
+because their addresses change when their containers are recreated.
+
+**A proxy that cannot join those networks**, on the host itself or another
+machine, needs the applications' ports published, which the network-bound
+listener does not serve. Add an overlay of your own that returns each API to
+listening on all its networks and names the one address it trusts:
+
+```yaml
+services:
+  romd-admin:
+    ports: ["127.0.0.1:8081:8080"]
+    environment:
+      Romd__IngressListener__NetworkAlias: ""
+      ASPNETCORE_URLS: http://+:8080
+      Romd__ForwardedHeaders__KnownProxies__0: 172.20.0.1
+  romd-consumer:
+    ports: ["127.0.0.1:8082:8080"]
+    environment:
+      Romd__IngressListener__NetworkAlias: ""
+      ASPNETCORE_URLS: http://+:8080
+      Romd__ForwardedHeaders__KnownProxies__0: 172.20.0.1
+  romd-player:
+    ports: ["127.0.0.1:8083:8080"]
+```
+
+Set the trusted address to the source address the container actually sees;
+Docker host-port forwarding usually presents the network's gateway. In this
+arrangement admin and consumer can reach each other's listeners over `backend`,
+though neither is trusted to supply forwarded headers. Use host firewall rules
+where LAN bindings are necessary.
 
 Your proxy should support WebSocket upgrades on admin `/hubs/*`, stream uploads,
 and set suitable request size and time limits. The ROM upload routes accept files
@@ -339,14 +414,8 @@ reverse proxy and any Cloudflare edge or tunnel log collection.
 Provide a trusted certificate covering all three hosts as `fullchain.pem` and
 `privkey.pem` in `ROMD_TLS_DIRECTORY`. The example runs the same nginx pin the
 release qualifies; to override it, set `ROMD_NGINX_IMAGE` to an image pinned by
-digest. Set the three `ROMD_*_HOST` values to match your public origins,
-and select a non-conflicting `ROMD_EDGE_SUBNET` and `ROMD_EDGE_DYNAMIC_RANGE`.
-Set `ROMD_TRUSTED_PROXY` to a free address inside the subnet and outside the dynamic
-allocation range (the example uses `172.28.0.2` with `172.28.0.128/25`).
-The examples also reserve `.3`, `.4` and `.5` for admin, consumer and player.
-If changing subnets, update `ROMD_ADMIN_EDGE_IP`, `ROMD_CONSUMER_EDGE_IP` and
-`ROMD_PLAYER_EDGE_IP` too. Stable service addresses prevent cached proxy DNS
-from sending traffic to a different surface after container restarts.
+digest. Set the three `ROMD_*_HOST` values to match your public origins. The
+example uses the same [networks](#network-boundaries) as the built-in ingress.
 
 ```bash
 export COMPOSE_PROJECT_NAME=romd
@@ -362,12 +431,10 @@ verification URLs can omit the port even when the issuer is configured explicitl
 
 ### Cloudflare Tunnel example
 
-Set the hosts and network settings as above, plus a tunnel token. The example
-ships reviewed nginx and cloudflared pins; overrides (`ROMD_NGINX_IMAGE`,
-`ROMD_CLOUDFLARED_IMAGE`) must be pinned by digest. Reserve `ROMD_CLOUDFLARED_EDGE_IP`
-(default `172.28.0.6`) inside the edge subnet, outside its dynamic range, distinct
-from ingress, the gateway and the API/player addresses. The overlay pins the
-connector to this address and publishes no ports:
+Set the hosts as above, plus a tunnel token. The example ships reviewed nginx
+and cloudflared pins; overrides (`ROMD_NGINX_IMAGE`, `ROMD_CLOUDFLARED_IMAGE`)
+must be pinned by digest. The overlay adds a `tunnel` network that holds only the
+connector and the ingress, and publishes no ports:
 
 ```bash
 export COMPOSE_PROJECT_NAME=romd
@@ -376,10 +443,13 @@ export COMPOSE_FILE=compose.yaml:deploy/examples/cloudflare/compose.yaml
 
 Route the admin, consumer and player public hostnames directly to
 `http://ingress:80` in your tunnel configuration. Require HTTPS at the public
-edge. The private listener accepts only the pinned connector's original socket
-address. nginx parses `CF-Connecting-IP` from that peer and replaces
-`X-Forwarded-For` with the single visitor IP; ROMD still trusts only ingress for
-one hop. Direct edge-network peers receive 403, and missing, invalid, chained or
+edge. The ingress listens for the tunnel only on its address on the `tunnel`
+network, which it finds at startup from an alias declared there alone; it refuses
+to start if that alias does not resolve to one address. The applications reach
+the ingress on other networks, where nothing listens on that port, so only the
+connector can connect and present a visitor's address. nginx parses
+`CF-Connecting-IP` from that peer and replaces `X-Forwarded-For` with the single
+visitor IP; ROMD still accepts one hop, from the ingress. Missing, invalid, chained or
 port-qualified visitor addresses receive 400. nginx discards Cloudflare identity
 headers before forwarding to ROMD. This preserves per-client login throttling
 without trusting caller-provided forwarding chains. The address parser/trust
@@ -393,14 +463,13 @@ Pseudo IPv4 overwrite replaces true IPv6 identity with a synthetic IPv4 address.
 See [Cloudflare's request-header reference](https://developers.cloudflare.com/fundamentals/reference/http-request-headers/).
 Control the tunnel token, zone configuration and connector as trusted ingress
 credentials. Never publish this plaintext listener to the LAN; use a separate
-TLS listener for direct LAN access. When upgrading the example, validate the
-reserved address and recreate ingress and cloudflared together.
+TLS listener for direct LAN access.
 
 The validator rejects publishing tunnel port 80 and any connector port. Custom
 ingress listeners on other ports are allowed, but their TLS termination, source
 restrictions and trusted client-address handling are operator-owned. Apply the
-tunnel trust rules only to its listener; separately verify the original socket
-peer and forwarded identity for each additional proxy path. A Compose validation
+tunnel trust rules only to its listener; separately verify which peers can
+reach each additional listener and the forwarded identity it accepts. A Compose validation
 pass does not qualify a custom listener's security policy.
 
 Keep OAuth/device-flow and API requests free of interactive proxy challenges.
@@ -523,6 +592,45 @@ restore; perform a fresh installation with new volumes instead.
 
 A release that changes the CHD decoder tuple also needs the
 [CHD decoder upgrade](#chd-decoder-upgrades) procedure.
+
+### Upgrading from a release with the `edge` network
+
+Releases up to `v0.1.0-rc.8` put the ingress and all three applications on one
+`edge` network with fixed addresses. The steps above move an installation to the
+[per-surface networks](#network-boundaries) without further action: Compose
+creates the new networks and recreates the containers on them. Volumes, secrets,
+the certificate authority and `.env` are untouched.
+
+- **Address settings in `.env`.** `ROMD_EDGE_SUBNET`, `ROMD_EDGE_DYNAMIC_RANGE`,
+  `ROMD_TRUSTED_PROXY`, `ROMD_ADMIN_EDGE_IP`, `ROMD_CONSUMER_EDGE_IP`,
+  `ROMD_PLAYER_EDGE_IP` and `ROMD_CLOUDFLARED_EDGE_IP` no longer have any effect.
+  The installation starts with them still set, and `romd-init` names the ones it
+  finds on every start until you delete them:
+
+  ```bash
+  scripts/deployment/compose.sh logs romd-init
+  ```
+
+- **The old network.** Compose leaves the unused `edge` network behind, still
+  holding its address range. Remove it once the upgraded installation verifies,
+  where `romd` is your `COMPOSE_PROJECT_NAME`:
+
+  ```bash
+  docker network rm romd_edge
+  ```
+
+- **Your own overlays.** An overlay that attaches a service to `edge`, or gives
+  one a fixed address there, stops the upgrade before anything changes, with
+  `service "…" refers to undefined network edge`. Attach a reverse proxy to the
+  three ingress networks as [existing reverse proxy](#existing-reverse-proxy)
+  describes, and drop fixed addresses. An overlay that set
+  `Romd__ForwardedHeaders__KnownProxies__0` itself keeps exact-address trust and
+  must also keep the settings shown there.
+- **Cloudflare Tunnel.** Routes to `http://ingress:80` keep working: the
+  connector resolves that name on the new `tunnel` network. Recreate the ingress
+  and the connector together, which `up -d` does.
+
+This procedure was exercised with Compose v2.25.0, v5.5.1 and v5.7.0.
 
 Do not rely on `depends_on` to stop old running APIs during migration. Do not use
 `restart` as an image upgrade command. PostgreSQL major upgrades need a separate
