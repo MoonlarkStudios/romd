@@ -126,8 +126,10 @@ public sealed class JobBackstopOwnershipTests
         await transaction.CommitAsync();
     }
 
-    [Fact]
-    public async Task StaleFailure_HeartbeatLockWait_CapturesFailureAfterWaitAndPreservesCurrentHistory()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StaleFailure_HeartbeatLockWait_RechecksLeaseAtSettlement(bool leaseExpiresWhileWaiting)
     {
         using var database = PostgreSqlTestDatabase.Create();
         var token = Guid.NewGuid();
@@ -135,21 +137,22 @@ public sealed class JobBackstopOwnershipTests
         var clock = new ManualTimeProvider(Now);
         await using var blocker = database.CreateContext();
         await using var blockerTransaction = await blocker.Database.BeginTransactionAsync();
+        var claimOptions = new JobExecutionClaimOptions();
         var claims = new ClaimedJobRepository<ReplaceDatJob, ReplaceDatJobRepository>(
-            new ReplaceDatJobRepository(blocker, clock), blocker, clock, new());
+            new ReplaceDatJobRepository(blocker, clock), blocker, clock, claimOptions);
         (await claims.RenewExecutionLeaseAsync(id, token)).ShouldBeTrue();
         var oldCheckpoint = (await new ReplaceDatJobRepository(blocker, clock).GetByIdAsync(id))!;
         oldCheckpoint.SetCurrentItem("late checkpoint");
         await using var context = database.CreateContext();
         var repository = new ReplaceDatJobRepository(context, clock);
         var cutoff = Now.AddMinutes(-30);
-        (await repository.GetStaleStartedIdsAsync(cutoff)).ShouldBe([id]);
+        (await repository.GetStaleStartedIdsAsync(cutoff)).ShouldBeEmpty();
         await Should.ThrowAsync<InvalidOperationException>(() => repository.TryFailStaleStartedStagedAsync(id, cutoff, TimeoutReason));
         await using var transaction = await new EfUnitOfWork(context).BeginTransactionAsync();
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         Task<bool>? pending = null;
         Exception? failure = null;
-        var afterWait = Now.AddSeconds(2);
+        var afterWait = leaseExpiresWhileWaiting ? Now + claimOptions.LeaseDuration : Now.AddSeconds(2);
         try
         {
             bool waited;
@@ -158,7 +161,7 @@ public sealed class JobBackstopOwnershipTests
             waited.ShouldBeTrue();
             clock.SetUtcNow(afterWait);
             await blockerTransaction.CommitAsync(timeout.Token);
-            (await pending).ShouldBeTrue();
+            (await pending).ShouldBe(leaseExpiresWhileWaiting);
             await transaction.CommitAsync(timeout.Token);
         }
         catch (Exception error)
@@ -173,20 +176,22 @@ public sealed class JobBackstopOwnershipTests
 
         await using var observer = database.CreateContext();
         var row = await observer.Set<ReplaceDatJobEntity>().SingleAsync();
-        row.Phase.ShouldBe("Failed");
-        row.CompletedAt.ShouldBe(afterWait);
-        row.UpdatedAt.ShouldBe(afterWait);
-        row.ExecutionFenceToken.ShouldBeNull();
-        row.ExecutionLeaseExpiresAtUtc.ShouldBeNull();
+        row.Phase.ShouldBe(leaseExpiresWhileWaiting ? "Failed" : "Replacing");
+        row.CompletedAt.ShouldBe(leaseExpiresWhileWaiting ? afterWait : null);
+        row.UpdatedAt.ShouldBe(leaseExpiresWhileWaiting ? afterWait : Now.AddMinutes(-31));
+        row.ExecutionFenceToken.ShouldBe(leaseExpiresWhileWaiting ? null : token);
+        row.ExecutionLeaseExpiresAtUtc.ShouldBe(leaseExpiresWhileWaiting ? null : Now + claimOptions.LeaseDuration);
         row.CurrentItem.ShouldBe("resume cursor");
         row.NewDatId.ShouldBe(42);
         row.HangfireJobId.ShouldBe("delivery");
         row.DeferralCount.ShouldBe(2);
         row.LastDeferralError.ShouldBe("old pressure");
         var errors = row.GetErrors();
-        errors.Select(error => error.Message).ShouldBe(["retained error", TimeoutReason]);
-        errors[^1].OccurredAt.ShouldBe(afterWait);
-        (await claims.TryUpdateClaimedAsync(oldCheckpoint, token)).ShouldBeFalse();
+        errors.Select(error => error.Message).ShouldBe(
+            leaseExpiresWhileWaiting ? ["retained error", TimeoutReason] : ["retained error"]);
+        if (leaseExpiresWhileWaiting)
+            errors[^1].OccurredAt.ShouldBe(afterWait);
+        (await claims.TryUpdateClaimedAsync(oldCheckpoint, token)).ShouldBe(!leaseExpiresWhileWaiting);
     }
 
     [Theory]
@@ -204,7 +209,7 @@ public sealed class JobBackstopOwnershipTests
         var cutoff = Now.AddMinutes(-30);
         await using var context = database.CreateContext();
         var repository = new ReplaceDatJobRepository(context, clock);
-        (await repository.GetStaleStartedIdsAsync(cutoff)).ShouldBe([id]);
+        (await repository.GetStaleStartedIdsAsync(cutoff)).ShouldBe(winner == "claim" ? [id] : []);
         var gate = new PauseAfterCheckpointFlush();
         await using var writer = new RomdDbContext(database.CreateOptions(builder => builder.AddInterceptors(gate)));
         var writes = new ReplaceDatJobRepository(writer, clock);
