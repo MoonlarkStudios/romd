@@ -54,6 +54,12 @@ services:
     image: ${ROMD_WORKER_IMAGE:?set ROMD_WORKER_IMAGE from the release bundle}
     # Also issues an HTTPS certificate for these names unless one is supplied in ROMD_TLS_DIRECTORY.
     command: --init-deployment /init ${ROMD_CERTIFICATE_NAMES:-${ROMD_HOST:-}}
+    environment:
+      # Checked before anything starts, so a missing ROMD_HOST is reported by name.
+      ROMD_PUBLIC_ORIGINS: >-
+        ${ROMD_ADMIN_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_ADMIN_PORT:-7664}}
+        ${ROMD_CONSUMER_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_CONSUMER_PORT:-7663}}
+        ${ROMD_PLAYER_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_PLAYER_PORT:-7665}}
     network_mode: none
     restart: "no"
     logging: *logging
