@@ -1293,6 +1293,9 @@ docker() {
                          {port['published']: port['target'] for port in config['services']['ingress']['ports']})
         self.assertEqual({'0.0.0.0'}, {port['host_ip'] for port in config['services']['ingress']['ports']})
         self.assertEqual(['--init-deployment', '/init', 'romd.example.test'], config['services']['romd-init']['command'])
+        # romd-init refuses to start the stack when these are not HTTPS origins, which names a missing ROMD_HOST.
+        self.assertEqual('https://romd.example.test:7664 https://romd.example.test:7663 https://romd.example.test:7665',
+                         config['services']['romd-init']['environment']['ROMD_PUBLIC_ORIGINS'])
         self.assertEqual(('https://romd.example.test:7664', 'https://romd.example.test:7663', 'https://romd.example.test:7665'),
                          (config['services']['romd-admin']['environment']['Romd__AdminHost__PublicUrl'],
                           config['services']['romd-consumer']['environment']['Romd__ConsumerHost__PublicUrl'],

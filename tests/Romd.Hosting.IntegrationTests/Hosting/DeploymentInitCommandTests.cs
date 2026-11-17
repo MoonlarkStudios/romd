@@ -51,6 +51,36 @@ public sealed class DeploymentInitCommandTests : IDisposable
     }
 
     [Fact]
+    public void Run_PublicOriginWithoutAHost_SaysToSetTheHostNameAndWritesNothing()
+    {
+        // What Compose renders when ROMD_HOST is missing from .env.
+        RunWithOrigins("https://:7664 https://:7663 https://:7665").ShouldBe(DeploymentInitCommand.InvalidArguments);
+
+        _errors.ToString().ShouldContain("ROMD_HOST is not set");
+        _errors.ToString().ShouldContain("ROMD_HOST=nas.local");
+        Directory.EnumerateFileSystemEntries(_root).ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("http://nas.local:7664")]
+    [InlineData("https://nas.local:7664/path")]
+    [InlineData("nas.local")]
+    public void Run_PublicOriginThatIsNotAnHttpsOrigin_IsNamedAndWritesNothing(string origin)
+    {
+        RunWithOrigins($"https://nas.local:7663 {origin}").ShouldBe(DeploymentInitCommand.InvalidArguments);
+
+        _errors.ToString().ShouldContain($"'{origin}'");
+        Directory.EnumerateFileSystemEntries(_root).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Run_HttpsPublicOrigins_AreAccepted()
+    {
+        RunWithOrigins("https://nas.local:7664 https://admin.example.test  https://192.168.1.50:7665/")
+            .ShouldBe(DeploymentInitCommand.Success);
+    }
+
+    [Fact]
     public void Run_NewDirectory_GivesEachServiceOnlyItsOwnDatabasePasswords()
     {
         Run().ShouldBe(DeploymentInitCommand.Success);
@@ -446,6 +476,9 @@ public sealed class DeploymentInitCommandTests : IDisposable
 
     private int Run(params string[] hosts) =>
         DeploymentInitCommand.Run(["--init-deployment", _root, .. hosts], _time, _output, _errors);
+
+    private int RunWithOrigins(string origins) =>
+        DeploymentInitCommand.Run(["--init-deployment", _root], _time, _output, _errors, origins);
 
     private int RunRaw(string[] args) => DeploymentInitCommand.Run(args, _time, _output, _errors);
 
