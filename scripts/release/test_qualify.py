@@ -13,11 +13,11 @@ import tarfile
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import qualify as qualification
 import compose_images
-from qualify import IMAGE_KEYS, Runner, deployment_environment, image_map, verify_bundle
+from qualify import IMAGE_KEYS, Runner, deployment_environment, image_map, quick_start, verify_bundle
 from assert_failure import assert_injected_failure
 
 
@@ -207,6 +207,28 @@ class BundleQualificationTests(unittest.TestCase):
                 self.images.write_text(original + added)
                 with self.assertRaises(ValueError):
                     image_map(self.images)
+
+    def test_first_start_is_the_quick_start_with_settings_only_in_the_env_file(self):
+        bundle = self.work / 'bundle'
+        bundle.mkdir(exist_ok=True)
+        environment = deployment_environment(self.work, bundle, 'nginx@sha256:' + 'f' * 64)
+        runner = Mock(bundle=bundle)
+        with patch.dict('os.environ', {'ROMD_HOST': 'operator.example', 'COMPOSE_FILE': '/operator/compose.yaml'}):
+            quick_start(runner, environment)
+        (command, stage), options = runner.run.call_args.args, runner.run.call_args.kwargs
+        self.assertEqual((['docker', 'compose', 'up', '-d', '--wait', '--wait-timeout', '240'], 'quick-start'), (command, stage))
+        # Nothing reaches Compose through the process environment: no wrapper, image map or settings.
+        self.assertFalse([key for key in options['env'] if key.startswith(('ROMD_', 'COMPOSE_'))])
+        written = dict(line.split('=', 1) for line in (bundle / '.env').read_text().splitlines())
+        self.assertEqual(0o600, (bundle / '.env').stat().st_mode & 0o777)
+        # The three values the quick start asks for, plus what keeps this disposable copy isolated.
+        self.assertLessEqual({'ROMD_HOST', 'ROMD_DEFAULT_ADMIN_EMAIL', 'ROMD_DEFAULT_ADMIN_PASSWORD',
+                              'ROMD_BIND', 'COMPOSE_PROJECT_NAME'}, set(written))
+        self.assertFalse({'ROMD_ENV_FILE', 'COMPOSE_FILE'} & set(written))
+        self.assertFalse([key for key in written if key.endswith('_IMAGE') and key != 'ROMD_NGINX_IMAGE'])
+        self.assertEqual(f"'{environment['ROMD_DEFAULT_ADMIN_PASSWORD']}'", written['ROMD_DEFAULT_ADMIN_PASSWORD'])
+        with self.assertRaises(ValueError):
+            quick_start(runner, dict(environment, ROMD_HOST="nas'.local"))
 
     def test_disposable_environment_does_not_inherit_operator_state(self):
         with patch.dict('os.environ', {'ROMD_ADMIN_IMAGE': 'evil:mutable', 'COMPOSE_PROFILES': 'operator',
