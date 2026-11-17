@@ -341,8 +341,11 @@ gh attestation verify oci://ghcr.io/moonlarkstudios/romd-admin@sha256:DIGEST \
 ```
 
 Add `--predicate-type https://cyclonedx.org/bom` to check a subject's SBOM
-attestation. The verified bundle's `images.env` pins every image by digest, so
-the bundle's provenance also authenticates the images it installs. With a
+attestation. Five images have their own attestations: the four ROMD images and
+PostgreSQL, each pinned by digest in the verified bundle's `images.env`. The
+nginx ingress has none: it is the upstream image pinned by digest in the
+bundle's `compose.yaml`, so the bundle's provenance authenticates which image
+is installed but not how it was built. With a
 GitHub login, `gh release verify-asset v1.2.3 romd-v1.2.3-deployment.tar.gz`
 additionally checks the file against GitHub's immutable release attestation.
 
