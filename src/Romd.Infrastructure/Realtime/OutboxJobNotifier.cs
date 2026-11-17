@@ -35,8 +35,11 @@ public sealed class OutboxJobNotifier(
             }
             catch (Exception ex)
             {
-                DetachNewlyAddedEvents(previouslyTrackedEvents);
                 logger.LogWarning(ex, "Failed to enqueue admin realtime job update for job {JobId}", job.Id);
+            }
+            finally
+            {
+                DetachNewlyAddedEvents(previouslyTrackedEvents);
             }
         }, ct);
 
@@ -63,8 +66,11 @@ public sealed class OutboxJobNotifier(
             }
             catch (Exception ex)
             {
-                DetachNewlyAddedEvents(previouslyTrackedEvents);
                 logger.LogWarning(ex, "Failed to enqueue admin realtime title enrichment for title {TitleId}", titleId);
+            }
+            finally
+            {
+                DetachNewlyAddedEvents(previouslyTrackedEvents);
             }
         }, ct);
 
@@ -79,6 +85,7 @@ public sealed class OutboxJobNotifier(
 
     private void DetachNewlyAddedEvents(IReadOnlySet<AdminRealtimeOutboxEventEntity> previouslyTrackedEvents)
     {
+        // A worker can publish many events from one scope. Release only the rows this publish owned.
         foreach (var entry in context.ChangeTracker.Entries<AdminRealtimeOutboxEventEntity>()
                      .Where(entry => !previouslyTrackedEvents.Contains(entry.Entity)))
         {
