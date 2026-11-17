@@ -54,7 +54,11 @@ process kills, `db:down`, resets or pruning as cleanup.
 
 ## Output
 
-Return a compact plan with:
+For a planning request, return a compact plan. For an implementation request,
+use the plan as a checklist and carry the authorized changes through verification.
+Report the outcome, validation evidence, and any remaining limits.
+
+Include the following in the plan when relevant:
 
 - acceptance criteria,
 - touched surfaces,
