@@ -85,7 +85,7 @@ def test_environment():
         env[f'ROMD_{name}_IMAGE'] = f'romd-{name.lower()}:test'
     env.update(ROMD_POSTGRES_IMAGE=base_images['postgres'], ROMD_DEFAULT_ADMIN_PASSWORD='TestAdmin123!',
                ROMD_ADMIN_PUBLIC_URL='https://admin.example.test', ROMD_CONSUMER_PUBLIC_URL='https://console.example.test',
-               ROMD_PLAYER_PUBLIC_URL='https://play.example.test', ROMD_TRUSTED_PROXY='172.28.0.2',
+               ROMD_PLAYER_PUBLIC_URL='https://play.example.test',
                ROMD_ADMIN_HOST='admin.example.test', ROMD_CONSUMER_HOST='console.example.test', ROMD_PLAYER_HOST='play.example.test',
                ROMD_NGINX_IMAGE=base_images['ingress'],
                CLOUDFLARE_TUNNEL_TOKEN='test-only', ROMD_TLS_DIRECTORY='/tmp/romd-test-certs')
@@ -1346,25 +1346,109 @@ docker() {
 
     def test_rejects_disconnected_database_regression(self):
         config = render()
-        config['services']['romd-consumer']['networks'] = {'edge': None}
+        config['services']['romd-consumer']['networks'].pop('backend')
         self.assertIn('romd-consumer: no shared network with PostgreSQL', validate(config))
 
-    def test_ingress_examples_preserve_backend_connectivity_and_isolation(self):
+    def test_every_address_is_assigned_by_docker_and_each_surface_has_its_own_ingress_network(self):
+        surfaces = {'romd-admin': 'ingress-admin', 'romd-consumer': 'ingress-consumer', 'romd-player': 'ingress-player'}
+        for overlays in ((), ('deploy/examples/https/compose.yaml',), ('deploy/examples/cloudflare/compose.yaml',),
+                         ('deploy/examples/proxy/compose.yaml',)):
+            with self.subTest(overlays=overlays):
+                # No address setting, old or new, is needed or read.
+                config = render(*overlays)
+                self.assertEqual([], validate(config))
+                self.assertFalse(any(((network or {}).get('ipam') or {}).get('config') for network in config['networks'].values()))
+                self.assertFalse(any('ipv4_address' in (settings or {}) for service in config['services'].values()
+                                     for settings in (service.get('networks') or {}).values()))
+                members = {network: {name for name, service in config['services'].items()
+                                     if network in (service.get('networks') or {})} for network in config['networks']}
+                proxy = {'ingress'} & set(config['services'])
+                for surface, network in surfaces.items():
+                    self.assertEqual({surface} | proxy, members[network])
+                # The APIs share the database network, so neither may listen there.
+                self.assertEqual({'postgres', 'romd-worker', 'romd-admin', 'romd-consumer'}, members['backend'])
+                for name in ('romd-admin', 'romd-consumer'):
+                    service = config['services'][name]
+                    alias = service['environment']['Romd__IngressListener__NetworkAlias']
+                    self.assertEqual([alias], service['networks'][surfaces[name]]['aliases'])
+                    self.assertNotIn('ASPNETCORE_URLS', service['environment'])
+                    self.assertFalse(any(key.startswith('Romd__ForwardedHeaders__Known') for key in service['environment']))
+                if 'cloudflared' in config['services']:
+                    self.assertEqual({'ingress', 'cloudflared'}, members['tunnel'])
+                    self.assertFalse(any(service.get('ports') for service in config['services'].values()))
+                    ingress = config['services']['ingress']
+                    self.assertEqual([ingress['environment']['ROMD_TUNNEL_ALIAS']], ingress['networks']['tunnel']['aliases'])
         for example in ('https', 'cloudflare'):
-            config = render(f'deploy/examples/{example}/compose.yaml')
-            self.assertEqual([], validate(config))
-            self.assertEqual({'edge'}, set(config['services']['ingress']['networks']))
-            addresses = [config['services'][name]['networks']['edge']['ipv4_address']
-                         for name in ('ingress', 'romd-admin', 'romd-consumer', 'romd-player')]
-            self.assertEqual(4, len(set(addresses)))
-            if example == 'cloudflare':
-                self.assertFalse(any(s.get('ports') for s in config['services'].values()))
-                address = config['services']['cloudflared']['networks']['edge']['ipv4_address']
-                self.assertNotIn(address, addresses)
-                self.assertEqual(address, config['services']['ingress']['environment']['ROMD_CLOUDFLARED_EDGE_IP'])
             template = (ROOT / f'deploy/examples/{example}/templates/default.conf.template').read_text()
             self.assertIn('return 421', template)
             self.assertNotIn('$http_x_forwarded_proto', template)
+        tunnel = (ROOT / 'deploy/examples/cloudflare/templates/default.conf.template').read_text()
+        self.assertEqual(['listen ${ROMD_TUNNEL_ADDRESS}:80 default_server;'], re.findall(r'listen [^\n]+', tunnel))
+
+    def test_retired_address_settings_are_reported_to_init_and_change_nothing(self):
+        retired = dict(ROMD_EDGE_SUBNET='172.30.0.0/24', ROMD_EDGE_DYNAMIC_RANGE='172.30.0.128/25',
+                       ROMD_TRUSTED_PROXY='172.30.0.2', ROMD_ADMIN_EDGE_IP='172.30.0.3', ROMD_CONSUMER_EDGE_IP='172.30.0.4',
+                       ROMD_PLAYER_EDGE_IP='172.30.0.5', ROMD_CLOUDFLARED_EDGE_IP='172.30.0.6')
+        clean = {key: value for key, value in test_environment().items() if key not in retired}
+        for overlays in ((), ('deploy/examples/cloudflare/compose.yaml',)):
+            with self.subTest(overlays=overlays):
+                before, after = render(*overlays, environment=clean), render(*overlays, environment=dict(clean, **retired))
+                self.assertEqual('', before['services']['romd-init']['environment']['ROMD_RETIRED_SETTINGS'].strip())
+                self.assertEqual(sorted(retired), sorted(after['services']['romd-init']['environment']['ROMD_RETIRED_SETTINGS'].split()))
+                for config in (before, after):
+                    del config['services']['romd-init']['environment']['ROMD_RETIRED_SETTINGS']
+                self.assertEqual(before, after)
+
+    def test_listener_and_ingress_network_boundaries_are_validated(self):
+        original = render('deploy/examples/cloudflare/compose.yaml')
+        mutations = {
+            'consumer joins the admin ingress network':
+                lambda c: c['services']['romd-consumer']['networks'].update({'ingress-admin': None}),
+            'worker joins the admin ingress network':
+                lambda c: c['services']['romd-worker']['networks'].update({'ingress-admin': None}),
+            'player joins the database network':
+                lambda c: c['services']['romd-player']['networks'].update({'backend': None}),
+            'player joins another surface network':
+                lambda c: c['services']['romd-player']['networks'].update({'ingress-consumer': None}),
+            'ingress joins the database network':
+                lambda c: c['services']['ingress']['networks'].update({'backend': None}),
+            'ingress leaves a surface network':
+                lambda c: c['services']['ingress']['networks'].pop('ingress-player'),
+            'admin listens everywhere as well':
+                lambda c: c['services']['romd-admin']['environment'].update(ASPNETCORE_URLS='http://+:8080'),
+            'admin publishes its listener':
+                lambda c: c['services']['romd-admin'].update(ports=[{'target': 8080, 'published': '8080'}]),
+            'alias also declared on the database network':
+                lambda c: c['services']['romd-admin']['networks'].update({'backend': {'aliases': ['romd-admin.ingress']}}),
+            'alias declared by another service':
+                lambda c: c['services']['romd-consumer']['networks'].update({'backend': {'aliases': ['romd-admin.ingress']}}),
+            'alias not declared':
+                lambda c: c['services']['romd-admin']['networks'].update({'ingress-admin': None}),
+            'no listener network and no trusted proxy':
+                lambda c: c['services']['romd-consumer']['environment'].pop('Romd__IngressListener__NetworkAlias'),
+            'connector joins an application network':
+                lambda c: c['services']['cloudflared']['networks'].update({'ingress-admin': None}),
+            'an application joins the tunnel network':
+                lambda c: c['services']['romd-consumer']['networks'].update({'tunnel': None}),
+            'tunnel alias missing':
+                lambda c: c['services']['ingress']['environment'].pop('ROMD_TUNNEL_ALIAS'),
+            'tunnel alias also on an application network':
+                lambda c: c['services']['ingress']['networks'].update({'ingress-admin': {'aliases': ['ingress.tunnel']}}),
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label):
+                config = copy.deepcopy(original)
+                mutate(config)
+                self.assertTrue(validate(config), label)
+        # A proxy that cannot join the ingress networks: the listener is open and trust is one named address.
+        config = copy.deepcopy(original)
+        for name in ('romd-admin', 'romd-consumer'):
+            environment = config['services'][name]['environment']
+            del environment['Romd__IngressListener__NetworkAlias']
+            environment.update(ASPNETCORE_URLS='http://+:8080', Romd__ForwardedHeaders__KnownProxies__0='192.0.2.10')
+        self.assertEqual([], validate(config))
+        config['services']['romd-admin']['environment']['Romd__ForwardedHeaders__KnownProxies__0'] = '192.0.2.0/24'
+        self.assertTrue(validate(config))
 
     def test_vfs_ingress_streams_responses_without_changing_other_routes(self):
         for example in ('https', 'cloudflare'):
@@ -1433,29 +1517,6 @@ docker() {
         config = render('deploy/examples/https/compose.yaml')
         config['services']['ingress']['environment']['ROMD_ADMIN_HOST'] = 'wrong.example.test'
         self.assertTrue(validate(config))
-        config = render('deploy/examples/https/compose.yaml')
-        config['services']['ingress']['networks']['edge']['ipv4_address'] = '172.28.0.3'
-        self.assertTrue(validate(config))
-
-    def test_cloudflare_connector_requires_a_pinned_usable_nonoverlapping_ipv4_address(self):
-        original = render('deploy/examples/cloudflare/compose.yaml')
-        for address in ('not-an-ip', '172.28.0.6/32', '2001:db8::6', '172.29.0.6',
-                        '172.28.0.0', '172.28.0.1', '172.28.0.255', '172.28.0.128',
-                        '172.28.0.2', '172.28.0.3', '172.28.0.4', '172.28.0.5'):
-            with self.subTest(address=address):
-                config = copy.deepcopy(original)
-                config['services']['ingress']['environment']['ROMD_CLOUDFLARED_EDGE_IP'] = address
-                config['services']['cloudflared']['networks']['edge']['ipv4_address'] = address
-                self.assertTrue(validate(config), address)
-        config = copy.deepcopy(original)
-        config['services']['ingress']['environment']['ROMD_CLOUDFLARED_EDGE_IP'] = '172.28.0.7'
-        self.assertIn('Cloudflared static IP must match the ingress trusted connector', validate(config))
-        config = copy.deepcopy(original)
-        del config['services']['ingress']['environment']['ROMD_CLOUDFLARED_EDGE_IP']
-        self.assertTrue(validate(config))
-        config = copy.deepcopy(original)
-        config['networks']['edge']['ipam']['config'][0]['gateway'] = '172.28.0.6'
-        self.assertIn('Cloudflared needs a usable static IP inside the edge subnet', validate(config))
 
     def test_cloudflare_rejects_published_ports_and_connector_backend_access(self):
         original = render('deploy/examples/cloudflare/compose.yaml')
@@ -1471,10 +1532,8 @@ docker() {
                 self.assertIn('Cloudflared must not publish ports', validate(config))
         config = copy.deepcopy(original)
         config['services']['cloudflared']['networks']['backend'] = None
-        self.assertIn('Cloudflared must join only the edge network', validate(config))
-        config = copy.deepcopy(original)
-        config['services']['romd-consumer']['environment']['Romd__ForwardedHeaders__KnownProxies__0'] = '172.28.0.6'
-        self.assertIn('Ingress static IP must match the API trusted proxy', validate(config))
+        self.assertIn("Cloudflared and the ingress must be the only members of the tunnel network, the connector's only network",
+                      validate(config))
 
     def test_ingress_examples_default_to_the_reviewed_pins_and_refuse_mutable_overrides(self):
         pinned = json.loads((ROOT / 'scripts/deployment/base-images.json').read_text())['ingress']
@@ -1564,7 +1623,7 @@ docker() {
                                  'reference-data/assets/presentation/platforms/ATTRIBUTION.md',
                                  'reference-data/assets/presentation/ratings/ATTRIBUTION.md'):
                     self.assertIn(required, names)
-                self.assertIn('ROMD_CLOUDFLARED_EDGE_IP=172.28.0.6',
+                self.assertNotIn('EDGE',
                               bundle.extractfile(f'{root}/.env.example').read().decode())
                 self.assertIn('manifest.json', names)
                 self.assertIn('notices/Moonlark.Libchdr/LICENSE', names)

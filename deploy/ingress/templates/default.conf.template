@@ -56,7 +56,8 @@ server {
     error_log /dev/null;
     # A plain-HTTP request to an HTTPS listener: send the browser to the same place over HTTPS.
     error_page 497 =308 https://${ROMD_HOST}:$romd_public_port$request_uri;
-    resolver 127.0.0.11 valid=10s ipv6=off;
+    # Re-resolve often: an application's address changes when its container is recreated.
+    resolver 127.0.0.11 valid=2s ipv6=off;
     client_max_body_size 0;
     proxy_request_buffering off;
     proxy_read_timeout 1800s;

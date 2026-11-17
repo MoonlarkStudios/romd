@@ -49,7 +49,7 @@ class IngressBindingTests(unittest.TestCase):
                                     'r', 'nginx', 0, 60, 60, https_bind='127.0.0.2')
             run = chd.Qualification(settings, chd.synthetic_subject())
             with patch.object(chd, 'ingress_certificate'), patch.object(chd, 'network_subnets', return_value=[]), \
-                    patch.object(chd, 'free_subnets', return_value=('10.213.1.0/24', '10.213.2.0/24')), \
+                    patch.object(chd, 'free_subnets', return_value=('10.213.2.0/24',)), \
                     patch.object(chd, 'Stack') as stack, patch.object(chd, 'Api'), patch.object(chd, 'DiskSampler'):
                 run.prepare()
             self.assertEqual('127.0.0.2', stack.call_args.args[1]['ROMD_HTTPS_BIND'])
@@ -1006,9 +1006,11 @@ class OverlayTests(TemporaryTree):
         client = services['e2e-client']
         self.assertTrue(all(volume['read_only'] for volume in client['volumes']))
         self.assertEqual({'/e2e/tls', '/e2e/inputs', '/e2e/fixtures'}, {volume['target'] for volume in client['volumes']})
-        self.assertEqual(['edge'], client['networks'])
+        # The client shares a network with the ingress only: it cannot reach an application directly.
+        self.assertEqual(['e2e-client'], client['networks'])
+        self.assertEqual({'e2e-client': {}}, services['ingress']['networks'])
         self.assertIn('proxy_buffering off', chd.INGRESS_DEVIATION)
-        self.assertNotIn('networks', self.overlay())
+        self.assertEqual({'e2e-client': {}}, self.overlay()['networks'])
 
     def test_synthetic_reference_resolves_only_through_the_worker_mock(self):
         mock = chd.MockRedump('nginx:test', '10.213.7.0/24', '10.213.7.10', self.base / 'c', self.base / 't',
@@ -1023,6 +1025,7 @@ class OverlayTests(TemporaryTree):
             self.assertNotIn('SSL_CERT_FILE', overlay['services'][name]['environment'])
         self.assertEqual('10.213.7.10', overlay['services']['e2e-redump']['networks']['e2e-redump']['ipv4_address'])
         self.assertEqual({'internal': True, 'ipam': {'config': [{'subnet': '10.213.7.0/24'}]}}, overlay['networks']['e2e-redump'])
+        self.assertEqual({}, overlay['networks']['e2e-client'])
         json.dumps(overlay)  # Compose reads the overlay as JSON-compatible YAML
 
     def test_subnets_avoid_existing_networks(self):
@@ -1032,10 +1035,6 @@ class OverlayTests(TemporaryTree):
             chd.free_subnets(['10.0.0.0/8'], 1)
         self.assertTrue(all(not chd.SUBNET_POOL.overlaps(ipaddress.ip_network(pool)) for pool in
                             ('172.16.0.0/12', '192.168.0.0/16', '10.42.0.0/16', '10.43.0.0/16')))
-        environment = chd.edge_environment('10.213.9.0/24')
-        self.assertEqual(('10.213.9.2', '10.213.9.3', '10.213.9.4', '10.213.9.5', '10.213.9.128/25'),
-                         tuple(environment[key] for key in ('ROMD_TRUSTED_PROXY', 'ROMD_ADMIN_EDGE_IP', 'ROMD_CONSUMER_EDGE_IP',
-                                                            'ROMD_PLAYER_EDGE_IP', 'ROMD_EDGE_DYNAMIC_RANGE')))
 
 
 class PlumbingTests(unittest.TestCase):

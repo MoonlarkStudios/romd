@@ -16,6 +16,7 @@ try
     Log.Information("Starting ROMD admin host");
 
     var builder = WebApplication.CreateBuilder(args);
+    builder.UseRomdIngressListener();
     builder.Configuration.AddRomdSecretFiles(
         Environment.GetEnvironmentVariable(RomdSecretFilesExtensions.DirectoryVariable));
 

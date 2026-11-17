@@ -1,6 +1,7 @@
 # Cloudflare Tunnel in place of published ports. Add to the root compose.yaml and set
-# each ROMD_*_PUBLIC_URL to its https:// origin. The connector reaches the ingress on
-# the private edge network; nothing is published on the host.
+# each ROMD_*_PUBLIC_URL to its https:// origin. The connector and the ingress share a
+# network of their own, and the ingress listens for the tunnel only there, so no other
+# container can reach that listener. Nothing is published on the host.
 services:
   ingress:
     labels:
@@ -9,10 +10,14 @@ services:
       ROMD_ADMIN_HOST: ${ROMD_ADMIN_HOST:?set ROMD_ADMIN_HOST}
       ROMD_CONSUMER_HOST: ${ROMD_CONSUMER_HOST:?set ROMD_CONSUMER_HOST}
       ROMD_PLAYER_HOST: ${ROMD_PLAYER_HOST:?set ROMD_PLAYER_HOST}
-      ROMD_CLOUDFLARED_EDGE_IP: ${ROMD_CLOUDFLARED_EDGE_IP:-172.28.0.6}
+      ROMD_TUNNEL_ALIAS: ingress.tunnel
     volumes:
       - ./deploy/examples/cloudflare/templates:/etc/nginx/templates:ro
+      - ./deploy/examples/cloudflare/entrypoint/10-romd-tunnel-address.envsh:/docker-entrypoint.d/10-romd-tunnel-address.envsh:ro
     ports: !reset []
+    networks:
+      tunnel:
+        aliases: [ingress.tunnel]
 
   cloudflared:
     # Reviewed connector pin, adopted at least 14 days after its upstream release.
@@ -22,8 +27,10 @@ services:
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN}
     networks:
-      edge:
-        ipv4_address: ${ROMD_CLOUDFLARED_EDGE_IP:-172.28.0.6}
+      tunnel: {}
     logging:
       driver: json-file
       options: {max-size: "10m", max-file: "3"}
+
+networks:
+  tunnel:

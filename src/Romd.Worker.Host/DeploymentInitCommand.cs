@@ -14,6 +14,9 @@ internal static class DeploymentInitCommand
     /// <summary>The public origins Compose derived for the three surfaces, space separated.</summary>
     internal const string PublicOriginsVariable = "ROMD_PUBLIC_ORIGINS";
 
+    /// <summary>Names of settings from earlier releases that are still set but no longer have any effect.</summary>
+    internal const string RetiredSettingsVariable = "ROMD_RETIRED_SETTINGS";
+
     internal static bool IsRequested(string[] args) =>
         args.Any(argument => argument.StartsWith(Flag, StringComparison.OrdinalIgnoreCase));
 
@@ -40,10 +43,13 @@ internal static class DeploymentInitCommand
         && uri.Fragment.Length == 0;
 
     internal static int Run(string[] args) => Run(
-        args, TimeProvider.System, Console.Out, Console.Error, Environment.GetEnvironmentVariable(PublicOriginsVariable));
+        args, TimeProvider.System, Console.Out, Console.Error,
+        Environment.GetEnvironmentVariable(PublicOriginsVariable),
+        Environment.GetEnvironmentVariable(RetiredSettingsVariable));
 
     internal static int Run(
-        string[] args, TimeProvider time, TextWriter output, TextWriter errors, string? publicOrigins = null)
+        string[] args, TimeProvider time, TextWriter output, TextWriter errors,
+        string? publicOrigins = null, string? retiredSettings = null)
     {
         if (!TryParse(args, out string directory, out string[] hosts))
         {
@@ -69,6 +75,16 @@ internal static class DeploymentInitCommand
                   + "to reach this server, for example ROMD_HOST=nas.local."
                 : $"Public origin '{invalid}' must be an https:// origin without a path, such as https://nas.local:7664.");
             return InvalidArguments;
+        }
+
+        // An upgraded installation keeps working with these set; say so once per start instead of
+        // leaving addresses in .env that look as though they still matter.
+        string[] retired = (retiredSettings ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (retired.Length > 0)
+        {
+            output.WriteLine($"Notice: {string.Join(", ", retired)} no longer {(retired.Length == 1 ? "has" : "have")} "
+                             + "any effect. Docker assigns the private network addresses; remove "
+                             + $"{(retired.Length == 1 ? "it" : "them")} from .env.");
         }
 
         try

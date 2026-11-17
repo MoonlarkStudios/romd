@@ -402,6 +402,8 @@ so proxied deployments must configure an allowlist.
 | `Romd:ForwardedHeaders:KnownNetworks` | Empty | Trusted proxy networks in CIDR notation. |
 | `Romd:ForwardedHeaders:ForwardLimit` | `1` | Maximum trusted proxy hops. |
 | `Romd:ForwardedHeaders:TrustAllProxies` | `false` | Trust any immediate peer. Use only when the hosts cannot be reached except through the proxy. |
+| `Romd:IngressListener:NetworkAlias` | Empty | A DNS alias declared for this container on its ingress network only. When set, the host listens on that network's address and loopback alone, and trusts forwarded headers from that network unless an allowlist above is configured. It refuses to start unless the alias resolves to exactly one of its own addresses. Do not also set `ASPNETCORE_URLS`. |
+| `Romd:IngressListener:Port` | `8080` | The port of that listener. |
 
 See [`production-deployment.md`](production-deployment.md) for the supported
 nginx and Cloudflare deployment topology.
