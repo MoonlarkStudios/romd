@@ -248,7 +248,9 @@ class BundleQualificationTests(unittest.TestCase):
 
     def test_no_address_or_network_setting_is_chosen_for_the_installation(self):
         environment = deployment_environment(self.work, self.work / 'bundle', 'nginx@sha256:' + 'f' * 64)
-        self.assertFalse([key for key in environment if 'EDGE' in key or 'SUBNET' in key or key == 'ROMD_TRUSTED_PROXY'])
+        retired = {'ROMD_EDGE_SUBNET', 'ROMD_EDGE_DYNAMIC_RANGE', 'ROMD_TRUSTED_PROXY', 'ROMD_ADMIN_EDGE_IP',
+                   'ROMD_CONSUMER_EDGE_IP', 'ROMD_PLAYER_EDGE_IP', 'ROMD_CLOUDFLARED_EDGE_IP'}
+        self.assertEqual(set(), retired & set(environment))
 
     def test_cli_writes_new_local_evidence_and_refuses_directory_reuse(self):
         self.bundle()

@@ -454,7 +454,7 @@ class AdminDownloadTicketTests(unittest.TestCase):
         for host, path, label in ((chd.ADMIN_HOST, f'/api/download-tickets/{token}', '/api/download-tickets/<ticket>'),
                                   (chd.CONSUMER_HOST, f'/delivery/content/{token}', '/delivery/content/<grant>')):
             with self.subTest(host=host):
-                api = chd.Api(Mock(), '127.0.0.1', 'email', 'password')
+                api = chd.Api(Mock(), 'email', 'password')
                 process = MagicMock()
                 process.__enter__.return_value = process
                 process.stdout = io.BytesIO(b'partial')
@@ -466,7 +466,7 @@ class AdminDownloadTicketTests(unittest.TestCase):
                 self.assertNotIn('Authorization', str(popen.call_args))
 
     def test_ordinary_api_failures_keep_their_response_diagnostics(self):
-        api = chd.Api(Mock(), '127.0.0.1', 'email', 'password')
+        api = chd.Api(Mock(), 'email', 'password')
         api.token = Mock(return_value='bearer')
         api.raw = Mock(return_value=(409, {}, b'{"code":"Jobs.NotTerminal"}'))
         with self.assertRaisesRegex(chd.HarnessError, 'Jobs.NotTerminal'):
@@ -474,7 +474,7 @@ class AdminDownloadTicketTests(unittest.TestCase):
 
     def test_unexpected_ticket_status_does_not_echo_a_capability_response(self):
         token = 'a' * 64
-        api = chd.Api(Mock(), '127.0.0.1', 'email', 'password')
+        api = chd.Api(Mock(), 'email', 'password')
         api.token = Mock(return_value='bearer')
         api.raw = Mock(return_value=(200, {}, json.dumps({'downloadUrl': f'/api/download-tickets/{token}'}).encode()))
         with self.assertRaises(chd.HarnessError) as raised:
