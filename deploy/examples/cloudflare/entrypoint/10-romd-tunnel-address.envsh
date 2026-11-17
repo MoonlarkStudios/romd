@@ -1,0 +1,13 @@
+#!/bin/sh
+# Sourced by the nginx image's entrypoint before it renders the templates.
+# The tunnel listener binds only to this container's address on the network it
+# shares with the connector, so no other container can reach it and claim a
+# visitor's identity. Docker assigns that address; the alias exists on that
+# network alone. nginx refuses to start if the address is not its own.
+romd_tunnel_addresses="$(getent ahostsv4 "${ROMD_TUNNEL_ALIAS:?set ROMD_TUNNEL_ALIAS}" | cut -d' ' -f1 | sort -u)"
+if [ "$(printf '%s\n' "$romd_tunnel_addresses" | grep -c .)" != 1 ]; then
+  echo "ROMD ingress: $ROMD_TUNNEL_ALIAS must resolve to exactly one address on the tunnel network; refusing to start." >&2
+  exit 1
+fi
+export ROMD_TUNNEL_ADDRESS="$romd_tunnel_addresses"
+unset romd_tunnel_addresses

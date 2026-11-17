@@ -117,7 +117,6 @@ def main():
             env['COMPOSE_FILE'] = f'{ROOT}/compose.yaml:{ROOT}/compose.build.yaml'
             run([compose, 'build'], env)
         env['COMPOSE_FILE'] = f'{ROOT}/compose.yaml:{ROOT}/deploy/examples/https/compose.yaml'
-        env.update(ROMD_EDGE_SUBNET='172.30.0.0/24', ROMD_EDGE_DYNAMIC_RANGE='172.30.0.128/25', ROMD_TRUSTED_PROXY='172.30.0.2', ROMD_ADMIN_EDGE_IP='172.30.0.3', ROMD_CONSUMER_EDGE_IP='172.30.0.4', ROMD_PLAYER_EDGE_IP='172.30.0.5')
 
         fixture_file = args.vfs_file.resolve() if args.vfs_file else work / 'vfs-smoke.iso'
         fixture_size, fixture_crc = 0, 0
@@ -145,7 +144,7 @@ def main():
             # Trust only the fixture certificate, without changing the container or host trust store.
             command = [compose, 'exec', '-T', 'romd-admin', 'curl', '-sS', '--cacert', '/tmp/smoke-ca.pem',
                        '--max-time', '300' if upload or hash_content else '20', '--noproxy', '*',
-                       '--resolve', f'{host}:443:{env["ROMD_TRUSTED_PROXY"]}', '-b', '/tmp/smoke-cookies', '-c', '/tmp/smoke-cookies']
+                       '--connect-to', f'{host}:443:ingress:443', '-b', '/tmp/smoke-cookies', '-c', '/tmp/smoke-cookies']
             command += ['--dump-header', '/tmp/smoke-download-headers'] if hash_content else ['-i']
             if form is not None:
                 command += ['--data', urlencode(form)]
@@ -219,7 +218,7 @@ def main():
             copy_readable_fixture(compose, env, work / 'fullchain.pem', '/tmp/smoke-ca.pem')
             for host, trust in [('console.example.test', False), ('wrong.example.test', True)]:
                 command = [str(compose), 'exec', '-T', 'romd-admin', 'curl', '-s', '--max-time', '20',
-                           '--noproxy', '*', '--resolve', f'{host}:443:{env["ROMD_TRUSTED_PROXY"]}']
+                           '--noproxy', '*', '--connect-to', f'{host}:443:ingress:443']
                 if trust:
                     command += ['--cacert', '/tmp/smoke-ca.pem']
                 result = subprocess.run(command + ['https://' + host + '/'], env=env, capture_output=True)
@@ -229,6 +228,7 @@ def main():
                 '-w', '%{http_code}', '-H', 'X-Forwarded-Proto: https', '-H', 'Host: admin.example.test',
                 'http://localhost:8080/.well-known/openid-configuration'], env, capture=True)
             assert direct_status != '200', 'untrusted peer can spoof HTTPS'
+            verify_network_boundaries()
 
             for host in ('admin.example.test', 'console.example.test'):
                 status, _, body = request(host, '/.well-known/openid-configuration')
@@ -248,6 +248,38 @@ def main():
             status, _, identity = request('console.example.test', '/api/server/identity')
             assert status == 200
             return json.loads(identity)
+
+        def verify_network_boundaries():
+            """Each application is reachable only through the ingress, which alone supplies forwarded identity."""
+            def attempt(service, *command):
+                return subprocess.run([str(compose), 'exec', '-T', service, *command], env=env, capture_output=True, text=True)
+
+            curl = ('curl', '-s', '-o', '/dev/null', '--noproxy', '*', '--max-time', '10')
+            for source, target in (('romd-consumer', 'romd-admin'), ('romd-admin', 'romd-consumer')):
+                # Controls: the tool works, and the target is running. Then the shared database network
+                # resolves the target, but nothing listens for it there.
+                assert attempt(source, *curl, 'http://localhost:8080/health/ready').returncode == 0, f'{source} control failed'
+                refused = attempt(source, *curl, f'http://{target}:8080/health/ready')
+                assert refused.returncode == 7, f'{source} reached {target} directly (curl exit {refused.returncode})'
+                unknown = attempt(source, *curl, f'http://{target}.ingress:8080/health/ready')
+                assert unknown.returncode == 6, f'{source} resolved the ingress address of {target} (curl exit {unknown.returncode})'
+            wget = ('wget', '-q', '-T', '10', '-O', '/dev/null')
+            assert attempt('romd-player', *wget, 'http://127.0.0.1:8080/player-config.json').returncode == 0, 'player control failed'
+            for target in ('romd-admin', 'romd-consumer', 'postgres', 'romd-admin.ingress', 'romd-consumer.ingress'):
+                blocked = attempt('romd-player', *wget, f'http://{target}:8080/health/ready')
+                assert blocked.returncode != 0 and 'bad address' in blocked.stderr, f'player can resolve {target}'
+            connect = 'exec 3<>/dev/tcp/{}/{}'
+            assert attempt('postgres', 'bash', '-c', connect.format('127.0.0.1', 5432)).returncode == 0, 'database control failed'
+            for target in ('romd-admin', 'romd-consumer'):
+                assert attempt('postgres', 'bash', '-c', connect.format(target, 8080)).returncode != 0, \
+                    f'the database network reaches the {target} listener'
+            # Through the front door the consumer is an ordinary client: the ingress replaces whatever identity it claims.
+            forged = attempt('romd-consumer', 'curl', '-sk', '--noproxy', '*', '--max-time', '20',
+                             '--connect-to', 'admin.example.test:443:ingress:443',
+                             '-H', 'X-Forwarded-Host: attacker.example.test', '-H', 'X-Forwarded-Proto: http',
+                             '-H', 'X-Forwarded-For: 203.0.113.66', 'https://admin.example.test/.well-known/openid-configuration')
+            assert forged.returncode == 0 and json.loads(forged.stdout)['issuer'] == 'https://admin.example.test/', \
+                'forged forwarded headers changed the issuer'
 
         def verify_vfs(admin_token, user_id):
             nonlocal fixture_imported
@@ -392,7 +424,6 @@ def main():
             backup_root = work / 'backups'
             backup = backup_and_stop_source(compose, env, gate, backup_root)
             env['COMPOSE_PROJECT_NAME'] = target_project
-            env.update(ROMD_EDGE_SUBNET='172.31.0.0/24', ROMD_EDGE_DYNAMIC_RANGE='172.31.0.128/25', ROMD_TRUSTED_PROXY='172.31.0.2', ROMD_ADMIN_EDGE_IP='172.31.0.3', ROMD_CONSUMER_EDGE_IP='172.31.0.4', ROMD_PLAYER_EDGE_IP='172.31.0.5')
             recovery.restore(ROOT / 'scripts/backup/restore.sh', backup, env)
             assert identity == verify(), 'restored identity differs'
             proof = run([compose, 'exec', '-T', 'romd-worker', 'cat', '/var/lib/romd/content/smoke/proof'], env, capture=True)

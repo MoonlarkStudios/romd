@@ -629,13 +629,6 @@ def free_subnets(existing, count, pool=SUBNET_POOL):
     raise HarnessError(f'no {count} free /24 networks remain in {pool}')
 
 
-def edge_environment(subnet):
-    base = ipaddress.ip_network(subnet).network_address
-    return {'ROMD_EDGE_SUBNET': subnet, 'ROMD_EDGE_DYNAMIC_RANGE': f'{base + 128}/25',
-            'ROMD_TRUSTED_PROXY': str(base + 2), 'ROMD_ADMIN_EDGE_IP': str(base + 3),
-            'ROMD_CONSUMER_EDGE_IP': str(base + 4), 'ROMD_PLAYER_EDGE_IP': str(base + 5)}
-
-
 def bind(source, target, read_only=False):
     return {'type': 'bind', 'source': str(source), 'target': target, 'read_only': read_only}
 
@@ -651,17 +644,18 @@ def build_overlay(*, data, tls, inputs, client_image, ingress_templates, fixture
         'romd-worker': host({LIBCHDR_KEY: LIBCHDR_DIRECTORY, CHDMAN_KEY: CHDMAN_DIRECTORY}),
         # romd-init writes the signing secrets into the data directory the hosts read.
         'romd-init': {'volumes': [bind(data, INIT_DATA_TARGET)]},
-        # A test client only: the admin image supplies curl. It never runs a ROMD host.
+        # A test client only: the admin image supplies curl. It never runs a ROMD host, and it
+        # reaches the ingress on a network of its own, as a device reaches the published port.
         'e2e-client': {
             'image': client_image, 'entrypoint': ['sleep', 'infinity'], 'init': True, 'restart': 'no',
-            'networks': ['edge'],
+            'networks': ['e2e-client'],
             'volumes': [bind(tls, '/e2e/tls', True), bind(inputs, '/e2e/inputs', True)]
                        + ([bind(fixtures, '/e2e/fixtures', True)] if fixtures else []),
             'logging': {'driver': 'json-file', 'options': {'max-size': '1m', 'max-file': '1'}}},
         # Same target as the example's template mount: the generated copy disables response buffering.
-        'ingress': {'volumes': [bind(ingress_templates, '/etc/nginx/templates', True)]},
+        'ingress': {'volumes': [bind(ingress_templates, '/etc/nginx/templates', True)], 'networks': {'e2e-client': {}}},
     }
-    overlay = {'services': services}
+    overlay = {'services': services, 'networks': {'e2e-client': {}}}
     if mock is not None:
         worker = services['romd-worker']
         worker['environment']['SSL_CERT_FILE'] = '/etc/romd-e2e/redump-ca.pem'
@@ -673,7 +667,7 @@ def build_overlay(*, data, tls, inputs, client_image, ingress_templates, fixture
             'volumes': [bind(mock.conf, '/etc/nginx/conf.d/default.conf', True), bind(mock.tls, '/etc/e2e-redump/tls', True),
                         bind(mock.pages, '/srv/redump', True)],
             'logging': {'driver': 'json-file', 'options': {'max-size': '1m', 'max-file': '1'}}}
-        overlay['networks'] = {'e2e-redump': {'internal': True, 'ipam': {'config': [{'subnet': mock.subnet}]}}}
+        overlay['networks']['e2e-redump'] = {'internal': True, 'ipam': {'config': [{'subnet': mock.subnet}]}}
     return overlay
 
 
@@ -1045,13 +1039,13 @@ def safe_path(path):
 class Api:
     """HTTPS through the real ingress from the disposable client container, trusting only the run's certificate."""
 
-    def __init__(self, stack, proxy, email, password):
-        self.stack, self.proxy, self.email, self.password = stack, proxy, email, password
+    def __init__(self, stack, email, password):
+        self.stack, self.email, self.password = stack, email, password
         self._tokens, self._lock, self._sequence = {}, threading.Lock(), itertools.count()
 
     def _curl(self, host, path, max_time, *arguments):
         return ['curl', '-sS', '--noproxy', '*', '--cacert', '/e2e/tls/fullchain.pem', '--max-time', str(max_time),
-                '--resolve', f'{host}:443:{self.proxy}', *arguments, f'https://{host}{path}']
+                '--connect-to', f'{host}:443:ingress:443', *arguments, f'https://{host}{path}']
 
     def raw(self, host, path, *, method=None, form=None, payload=None, upload=None, headers=(), max_time=60, cookies=False):
         arguments = ['-i']
@@ -1413,7 +1407,7 @@ class Qualification:
         inputs.mkdir()
         write_malformed_archive(inputs / MALFORMED_ARCHIVE, SYNTHETIC_SEED)
         mock = None
-        edge, redump = free_subnets(network_subnets(), 2)
+        redump, = free_subnets(network_subnets(), 1)
         if settings.synthetic:
             self.step(f'generating a {settings.synthetic_bytes} byte synthetic PS2 DVD ISO')
             identity = write_synthetic_iso(inputs / SYNTHETIC_ISO, settings.synthetic_bytes, SYNTHETIC_SEED)
@@ -1442,14 +1436,14 @@ class Qualification:
         overlay.write_text(json.dumps(build_overlay(data=self.data, tls=tls, inputs=inputs, client_image=settings.refs['admin'],
                                                     ingress_templates=templates, fixtures=settings.fixtures, mock=mock,
                                                     image_defaults=settings.image_defaults), indent=2))
-        env = test_environment() | image_environment(settings.refs) | edge_environment(edge)
+        env = test_environment() | image_environment(settings.refs)
         empty = self.folder / 'empty.env'
         empty.touch()
         env.update(ROMD_DEFAULT_ADMIN_EMAIL='admin@example.test', ROMD_TLS_DIRECTORY=str(tls), ROMD_HTTPS_PORT='0', ROMD_HTTPS_BIND=settings.https_bind,
                    ROMD_ENV_FILE=str(empty), ROMD_NGINX_IMAGE=settings.nginx_image)
         self.stack = Stack(self.run_id, env, [ROOT / 'compose.yaml', ROOT / 'deploy/examples/https/compose.yaml', overlay])
-        self.api = Api(self.stack, env['ROMD_TRUSTED_PROXY'], env['ROMD_DEFAULT_ADMIN_EMAIL'], env['ROMD_DEFAULT_ADMIN_PASSWORD'])
-        self.record['networks'] = {'edge': edge, **({'mockRedump': redump} if mock else {})}
+        self.api = Api(self.stack, env['ROMD_DEFAULT_ADMIN_EMAIL'], env['ROMD_DEFAULT_ADMIN_PASSWORD'])
+        self.record['networks'] = {'mockRedump': redump} if mock else {}
         self.record['ingress'] = INGRESS_DEVIATION
         self.sampler = DiskSampler(settings.root, self.folder)
         self.sampler.start()

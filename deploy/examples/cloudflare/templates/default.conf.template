@@ -22,13 +22,17 @@ map $host $romd_upstream {
     ${ROMD_CONSUMER_HOST} http://romd-consumer:8080;
     ${ROMD_PLAYER_HOST} http://romd-player:8080;
 }
-# Trust only the pinned tunnel connector, never the entire edge network.
-set_real_ip_from ${ROMD_CLOUDFLARED_EDGE_IP};
+# The listener below is bound to the tunnel network, whose only other member is
+# the connector, so every peer it can have is the connector.
+set_real_ip_from 0.0.0.0/0;
+set_real_ip_from ::/0;
 real_ip_header CF-Connecting-IP;
 real_ip_recursive off;
-map $realip_remote_addr $romd_tunnel_peer {
+# realip leaves the connector's own address in place when the header is missing
+# or unparseable.
+map "$remote_addr|$realip_remote_addr" $romd_visitor_unparsed {
     default 0;
-    ${ROMD_CLOUDFLARED_EDGE_IP} 1;
+    "~^([^|]+)\|\1$" 1;
 }
 # realip parses the address. Reject chains and address:port syntax as well;
 # Cloudflare supplies exactly one bare visitor IP on direct tunnel requests.
@@ -44,15 +48,15 @@ server {
     # Safe access events retain 4xx/5xx and timing diagnostics; startup errors
     # still use the image's global stderr logger before a request exists.
     error_log /dev/null;
-    listen 80 default_server;
-    # No published port: this listener is only for the HTTPS tunnel.
+    # No published port, and no listener on the application networks: this
+    # address is the ingress's own on the tunnel network.
+    listen ${ROMD_TUNNEL_ADDRESS}:80 default_server;
     server_name ${ROMD_ADMIN_HOST} ${ROMD_CONSUMER_HOST} ${ROMD_PLAYER_HOST};
-    if ($romd_tunnel_peer = 0) { return 403; }
     if ($romd_single_client_ip = 0) { return 400; }
-    # Missing/unparseable addresses leave remote_addr at the connector IP.
-    if ($remote_addr = ${ROMD_CLOUDFLARED_EDGE_IP}) { return 400; }
+    if ($romd_visitor_unparsed) { return 400; }
     if ($romd_upstream = "") { return 421; }
-    resolver 127.0.0.11 valid=10s ipv6=off;
+    # Re-resolve often: an application's address changes when its container is recreated.
+    resolver 127.0.0.11 valid=2s ipv6=off;
     client_max_body_size 0;
     proxy_request_buffering off;
     proxy_read_timeout 1800s;
@@ -61,7 +65,7 @@ server {
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Host $host;
     # Replace caller-supplied chains with the parsed visitor IP. The application
-    # trusts only ingress, for one hop; it never interprets Cloudflare headers.
+    # accepts one hop from the ingress; it never interprets Cloudflare headers.
     proxy_set_header X-Forwarded-For $remote_addr;
     proxy_set_header CF-Connecting-IP "";
     proxy_set_header CF-Connecting-IPv6 "";

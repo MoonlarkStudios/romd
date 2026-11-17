@@ -15,6 +15,63 @@ def import_mount(service, root):
     return max(held, key=lambda mount: len(mount[1]), default=None)
 
 
+INGRESS_NETWORKS = {'romd-admin': 'ingress-admin', 'romd-consumer': 'ingress-consumer', 'romd-player': 'ingress-player'}
+ROMD_SERVICES = {'postgres', 'romd-init', 'romd-worker', 'romd-admin', 'romd-consumer', 'romd-player', 'cloudflared'}
+
+
+def members(services, network):
+    return {name for name, service in services.items() if network in (service.get('networks') or {})}
+
+
+def alias_networks(service, alias):
+    return {network for network, settings in (service.get('networks') or {}).items()
+            if alias in ((settings or {}).get('aliases') or [])}
+
+
+def listener_errors(name, services):
+    """An API either listens only on its ingress network, or names the one proxy address it trusts."""
+    service = services[name]
+    env = service['environment']
+    alias = env.get('Romd__IngressListener__NetworkAlias', '').strip()
+    if not alias:
+        try:
+            ipaddress.ip_address(env.get('Romd__ForwardedHeaders__KnownProxies__0', ''))
+            return []
+        except ValueError:
+            return [f'{name}: listen only on its ingress network, or configure an explicit trusted proxy IP']
+    errors = []
+    # The alias selects the listener's network: it must name this service there and nowhere else.
+    if (alias_networks(service, alias) != {INGRESS_NETWORKS[name]}
+            or any(alias_networks(other, alias) for label, other in services.items() if label != name)):
+        errors.append(f'{name}: the ingress listener alias must be declared for it on {INGRESS_NETWORKS[name]} only')
+    if env.get('ASPNETCORE_URLS') or service.get('ports'):
+        errors.append(f'{name}: an ingress-network listener must not also listen elsewhere or publish ports')
+    return errors
+
+
+def tunnel_errors(services, ingress, ingress_env):
+    """The tunnel listener is bound to a network whose only other member is the connector."""
+    errors = []
+    connector = services['cloudflared']
+    if set(connector.get('networks') or {}) != {'tunnel'} or members(services, 'tunnel') != {'ingress', 'cloudflared'}:
+        errors.append('Cloudflared and the ingress must be the only members of the tunnel network, the connector\'s only network')
+    alias = ingress_env.get('ROMD_TUNNEL_ALIAS', '')
+    if not alias or alias_networks(ingress, alias) != {'tunnel'} or any(
+            alias_networks(other, alias) for label, other in services.items() if label != 'ingress'):
+        errors.append('Ingress tunnel alias must be declared for it on the tunnel network only')
+    connector_ports = connector.get('ports', [])
+    if not isinstance(connector_ports, list) or connector_ports:
+        errors.append('Cloudflared must not publish ports')
+    ingress_ports = ingress.get('ports', [])
+    if not isinstance(ingress_ports, list) or any(
+            not isinstance(port, dict) or type(port.get('target')) is not int
+            or not 1 <= port['target'] <= 65535 for port in ingress_ports):
+        errors.append('Ingress published ports need normalized valid target mappings')
+    elif any(port['target'] == 80 for port in ingress_ports):
+        errors.append('Cloudflare tunnel listener must not publish port 80')
+    return errors
+
+
 def validate(config):
     errors = []
     services = config['services']
@@ -60,10 +117,7 @@ def validate(config):
             env = service['environment']
             if any('Provisioning' in key for key in env):
                 errors.append(f'{name}: provisioning credentials are worker-only')
-            try:
-                ipaddress.ip_address(env.get('Romd__ForwardedHeaders__KnownProxies__0', ''))
-            except ValueError:
-                errors.append(f'{name}: configure an explicit trusted proxy IP')
+            errors.extend(listener_errors(name, services))
     if not services['romd-admin']['environment'].get('ASPNETCORE_TEMP', '').startswith('/var/lib/romd/temp/'):
         errors.append('romd-admin: ASPNETCORE_TEMP must buffer uploads under /var/lib/romd/temp/')
     pg_env = services['postgres']['environment']
@@ -139,59 +193,16 @@ def validate(config):
                     errors.append(f'Ingress {surface} origin must be ROMD_HOST on its published port')
             if set(published) != {7663, 7664, 7665}:
                 errors.append('Built-in ingress publishes exactly its three surface listeners')
-        try:
-            proxy = ipaddress.ip_address(services['romd-admin']['environment']['Romd__ForwardedHeaders__KnownProxies__0'])
-            assigned = (ingress.get('networks', {}).get('edge') or {}).get('ipv4_address')
-            if str(proxy) != assigned or any(
-                    services[name]['environment']['Romd__ForwardedHeaders__KnownProxies__0'] != assigned
-                    for name in ('romd-admin', 'romd-consumer')):
-                errors.append('Ingress static IP must match the API trusted proxy')
-            for network in config.get('networks', {}).get('edge', {}).get('ipam', {}).get('config', []):
-                if proxy not in ipaddress.ip_network(network['subnet']):
-                    errors.append('Ingress IP is outside the edge subnet')
-                if 'ip_range' in network and proxy in ipaddress.ip_network(network['ip_range']):
-                    errors.append('Ingress IP must be outside the dynamic allocation range')
-            addresses = [str(proxy)]
-            for name in ('romd-admin', 'romd-consumer', 'romd-player'):
-                address = ipaddress.ip_address(services[name]['networks']['edge']['ipv4_address'])
-                addresses.append(str(address))
-                for network in config['networks']['edge']['ipam']['config']:
-                    if address not in ipaddress.ip_network(network['subnet']) or (
-                            'ip_range' in network and address in ipaddress.ip_network(network['ip_range'])):
-                        errors.append(f'{name}: reserve a static edge address outside the dynamic range')
-            if len(set(addresses)) != len(addresses):
-                errors.append('Ingress and API/player static addresses must be distinct')
-            if 'cloudflared' in services:
-                connector = services['cloudflared']
-                address = ipaddress.IPv4Address(ingress_env.get('ROMD_CLOUDFLARED_EDGE_IP', ''))
-                if (connector.get('networks', {}).get('edge') or {}).get('ipv4_address') != str(address):
-                    errors.append('Cloudflared static IP must match the ingress trusted connector')
-                if str(address) in addresses:
-                    errors.append('Cloudflared static IP must differ from ingress and API/player addresses')
-                networks = config['networks']['edge']['ipam']['config']
-                if len(networks) != 1:
-                    errors.append('Cloudflared needs one explicit IPv4 edge subnet')
-                for network in networks:
-                    subnet = ipaddress.IPv4Network(network['subnet'])
-                    gateway = ipaddress.IPv4Address(network.get('gateway', str(subnet.network_address + 1)))
-                    if address not in subnet or address in (subnet.network_address, subnet.broadcast_address, gateway):
-                        errors.append('Cloudflared needs a usable static IP inside the edge subnet')
-                    if 'ip_range' in network and address in ipaddress.ip_network(network['ip_range']):
-                        errors.append('Cloudflared static IP must be outside the dynamic allocation range')
-                if set(connector.get('networks', {})) != {'edge'}:
-                    errors.append('Cloudflared must join only the edge network')
-                connector_ports = connector.get('ports', [])
-                if not isinstance(connector_ports, list) or connector_ports:
-                    errors.append('Cloudflared must not publish ports')
-                ingress_ports = ingress.get('ports', [])
-                if not isinstance(ingress_ports, list) or any(
-                        not isinstance(port, dict) or type(port.get('target')) is not int
-                        or not 1 <= port['target'] <= 65535 for port in ingress_ports):
-                    errors.append('Ingress published ports need normalized valid target mappings')
-                elif any(port['target'] == 80 for port in ingress_ports):
-                    errors.append('Cloudflare tunnel listener must not publish port 80')
-        except (ValueError, KeyError, TypeError):
-            errors.append('Ingress and connector need valid static IPs and network configuration')
+        if not set(INGRESS_NETWORKS.values()) <= set(ingress.get('networks') or {}):
+            errors.append('Ingress must join each surface\'s ingress network')
+        if postgres_networks.intersection(ingress.get('networks') or {}):
+            errors.append('Ingress must not share a network with PostgreSQL')
+        if 'cloudflared' in services:
+            errors.extend(tunnel_errors(services, ingress, ingress_env))
+    for surface, network in INGRESS_NETWORKS.items():
+        # Each application accepts forwarded headers from every peer on this network.
+        if (members(services, network) - {surface, 'ingress'}) & ROMD_SERVICES:
+            errors.append(f'{network}: only {surface} and its proxy may join')
     roots = {}
     for name in ('romd-admin', 'romd-worker'):
         environment = services[name].get('environment', {})
@@ -210,8 +221,9 @@ def validate(config):
         if name in services and not re.fullmatch(r'[^\s@]+@sha256:[0-9a-f]{64}', str(services[name].get('image', ''))):
             errors.append(f'{name}: image must be pinned by digest')
     player = services['romd-player']
-    if player.get('volumes') or postgres_networks.intersection(player.get('networks', {})):
-        errors.append('Player must be isolated from database and persistent volumes')
+    # The player listens on every network it joins, so it joins only the one its proxy shares.
+    if player.get('volumes') or set(player.get('networks') or {}) != {INGRESS_NETWORKS['romd-player']}:
+        errors.append('Player must join only its ingress network and mount no persistent volumes')
     if any(key.startswith(('ConnectionStrings__', 'Romd__')) for key in player.get('environment', {})):
         errors.append('Player must not receive ROMD credentials')
     return errors

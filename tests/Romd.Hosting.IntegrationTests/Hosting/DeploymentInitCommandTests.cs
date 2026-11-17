@@ -81,6 +81,27 @@ public sealed class DeploymentInitCommandTests : IDisposable
     }
 
     [Fact]
+    public void Run_RetiredAddressSettings_AreNamedAndTheInstallationStillStarts()
+    {
+        DeploymentInitCommand.Run(
+                ["--init-deployment", _root], _time, _output, _errors,
+                retiredSettings: "  ROMD_EDGE_SUBNET   ROMD_TRUSTED_PROXY ")
+            .ShouldBe(DeploymentInitCommand.Success);
+
+        _output.ToString().ShouldContain("Notice: ROMD_EDGE_SUBNET, ROMD_TRUSTED_PROXY no longer have any effect.");
+        _errors.ToString().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Run_NoRetiredSettings_PrintsNoNotice()
+    {
+        DeploymentInitCommand.Run(["--init-deployment", _root], _time, _output, _errors, retiredSettings: "   ")
+            .ShouldBe(DeploymentInitCommand.Success);
+
+        _output.ToString().ShouldNotContain("Notice");
+    }
+
+    [Fact]
     public void Run_NewDirectory_GivesEachServiceOnlyItsOwnDatabasePasswords()
     {
         Run().ShouldBe(DeploymentInitCommand.Success);

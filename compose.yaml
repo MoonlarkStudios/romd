@@ -20,9 +20,10 @@ x-api-health: &api-health
   retries: 6
   start_period: 60s
 
+# Each API listens only on its own ingress network (Romd__IngressListener__NetworkAlias), whose
+# other member is the ingress, so the forwarded headers it accepts can only come from there.
 x-forwarded: &forwarded
   Romd__ForwardedHeaders__Enabled: "true"
-  Romd__ForwardedHeaders__KnownProxies__0: ${ROMD_TRUSTED_PROXY:-172.28.0.2}
   Romd__ForwardedHeaders__ForwardLimit: "1"
 
 
@@ -60,6 +61,12 @@ services:
         ${ROMD_ADMIN_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_ADMIN_PORT:-7664}}
         ${ROMD_CONSUMER_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_CONSUMER_PORT:-7663}}
         ${ROMD_PLAYER_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_PLAYER_PORT:-7665}}
+      # Address settings from earlier releases that Docker now assigns; reported so they can be removed.
+      ROMD_RETIRED_SETTINGS: >-
+        ${ROMD_EDGE_SUBNET:+ROMD_EDGE_SUBNET} ${ROMD_EDGE_DYNAMIC_RANGE:+ROMD_EDGE_DYNAMIC_RANGE}
+        ${ROMD_TRUSTED_PROXY:+ROMD_TRUSTED_PROXY} ${ROMD_ADMIN_EDGE_IP:+ROMD_ADMIN_EDGE_IP}
+        ${ROMD_CONSUMER_EDGE_IP:+ROMD_CONSUMER_EDGE_IP} ${ROMD_PLAYER_EDGE_IP:+ROMD_PLAYER_EDGE_IP}
+        ${ROMD_CLOUDFLARED_EDGE_IP:+ROMD_CLOUDFLARED_EDGE_IP}
     network_mode: none
     restart: "no"
     logging: *logging
@@ -132,11 +139,11 @@ services:
       - romd-secrets-worker:/etc/romd/database:ro
 
   romd-admin:
-    # Stable addresses prevent cached DNS from routing to another surface after restart.
+    # backend reaches PostgreSQL and the internet; the HTTP listener is bound to ingress-admin alone.
     networks:
       backend: {}
-      edge:
-        ipv4_address: ${ROMD_ADMIN_EDGE_IP:-172.28.0.3}
+      ingress-admin:
+        aliases: [romd-admin.ingress]
     tmpfs: ["/run/romd:mode=1777"]
     healthcheck: *api-health
     image: ${ROMD_ADMIN_IMAGE:?set ROMD_ADMIN_IMAGE from the release bundle}
@@ -146,7 +153,7 @@ services:
         condition: service_healthy
     environment:
       <<: [*romd-common-environment, *forwarded]
-      ASPNETCORE_URLS: http://+:8080
+      Romd__IngressListener__NetworkAlias: romd-admin.ingress
       # Buffer multipart uploads on the data volume, outside the container layer and backups.
       ASPNETCORE_TEMP: /var/lib/romd/temp/requests
       Romd__AdminHost__PublicUrl: ${ROMD_ADMIN_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_ADMIN_PORT:-7664}}
@@ -162,8 +169,8 @@ services:
   romd-consumer:
     networks:
       backend: {}
-      edge:
-        ipv4_address: ${ROMD_CONSUMER_EDGE_IP:-172.28.0.4}
+      ingress-consumer:
+        aliases: [romd-consumer.ingress]
     tmpfs: ["/run/romd:mode=1777"]
     healthcheck: *api-health
     image: ${ROMD_CONSUMER_IMAGE:?set ROMD_CONSUMER_IMAGE from the release bundle}
@@ -173,7 +180,7 @@ services:
         condition: service_healthy
     environment:
       <<: [*romd-common-environment, *forwarded]
-      ASPNETCORE_URLS: http://+:8080
+      Romd__IngressListener__NetworkAlias: romd-consumer.ingress
       Romd__ConsumerHost__PublicUrl: ${ROMD_CONSUMER_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_CONSUMER_PORT:-7663}}
       Romd__Vfs__Enabled: ${ROMD_VFS_ENABLED:-false}
       Romd__Vfs__MaximumConcurrentRequests: ${ROMD_VFS_MAX_REQUESTS:-8}
@@ -190,8 +197,7 @@ services:
 
   romd-player:
     networks:
-      edge:
-        ipv4_address: ${ROMD_PLAYER_EDGE_IP:-172.28.0.5}
+      ingress-player: {}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/player-config.json"]
       interval: 15s
@@ -205,8 +211,8 @@ services:
       ROMD_PLAYER_CORES: ${ROMD_PLAYER_CORES:-}
       ROMD_PLAYER_ALLOWED_PARENTS: ${ROMD_CONSUMER_PUBLIC_URL:-https://${ROMD_HOST:-}:${ROMD_CONSUMER_PORT:-7663}}
 
-  # HTTPS for all three surfaces on one host name, a port each. The applications trust
-  # forwarded headers from this address only.
+  # HTTPS for all three surfaces on one host name, a port each. The ingress is the only
+  # other member of each application's ingress network.
   ingress:
     # The release-qualified nginx pin (scripts/deployment/base-images.json); override only deliberately.
     image: ${ROMD_NGINX_IMAGE:-nginx:1.30.6-alpine-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893}
@@ -215,8 +221,9 @@ services:
       romd-init:
         condition: service_completed_successfully
     networks:
-      edge:
-        ipv4_address: ${ROMD_TRUSTED_PROXY:-172.28.0.2}
+      ingress-admin: {}
+      ingress-consumer: {}
+      ingress-player: {}
     environment:
       ROMD_HOST: ${ROMD_HOST:-}
       ROMD_CONSUMER_PORT: ${ROMD_CONSUMER_PORT:-7663}
@@ -243,13 +250,13 @@ volumes:
   romd-ca:
   romd-tls:
 
-# Only the ingress publishes host ports. backend allows outbound access for the
-# worker's metadata/catalog providers.
+# Docker assigns every address. Only the ingress publishes host ports. backend carries
+# PostgreSQL and outbound access to metadata/catalog providers; no HTTP listener is bound
+# to it. Each surface has a network of its own with the ingress, so the applications cannot
+# reach one another's listeners, and a stale proxy DNS answer can only miss, never reach
+# another surface.
 networks:
   backend:
-  edge:
-    ipam:
-      config:
-        - subnet: ${ROMD_EDGE_SUBNET:-172.28.0.0/24}
-          # Reserve low addresses for static peers, avoiding an IP allocation race.
-          ip_range: ${ROMD_EDGE_DYNAMIC_RANGE:-172.28.0.128/25}
+  ingress-admin:
+  ingress-consumer:
+  ingress-player:
