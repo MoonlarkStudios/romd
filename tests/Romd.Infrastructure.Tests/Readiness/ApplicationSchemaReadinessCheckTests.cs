@@ -15,7 +15,8 @@ public sealed class ApplicationSchemaReadinessCheckTests
     [InlineData(71)]
     [InlineData(72)]
     [InlineData(73)]
-    [InlineData(75)]
+    [InlineData(74)]
+    [InlineData(76)]
     public async Task EvaluateAsync_UnpublishedPreviousOrNewerSchema_FailsClosed(int? published)
     {
         var check = new ApplicationSchemaReadinessCheck(Probe(published));
@@ -27,8 +28,8 @@ public sealed class ApplicationSchemaReadinessCheckTests
     [Fact]
     public async Task EvaluateAsync_WorkerPublishedFreshMediaBaseline_ReturnsHealthy()
     {
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(74);
-        var check = new ApplicationSchemaReadinessCheck(Probe(74));
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(75);
+        var check = new ApplicationSchemaReadinessCheck(Probe(75));
 
         (await check.EvaluateAsync(CancellationToken.None)).ShouldBe(ReadinessCheckStatus.Healthy);
     }

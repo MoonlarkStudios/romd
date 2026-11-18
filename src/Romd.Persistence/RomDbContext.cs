@@ -299,6 +299,9 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
                 j.ExecutionLeaseExpiresAtUtc
             }).HasDatabaseName("IX_Jobs_ExecutionClaim");
 
+            entity.HasIndex(j => new { j.ExecutionLeaseExpiresAtUtc, j.Id })
+                .HasDatabaseName("IX_Jobs_ExecutionLeaseRecovery")
+                .HasFilter("\"CompletedAt\" IS NULL AND \"ExecutionFenceToken\" IS NOT NULL");
             entity.HasIndex(j => j.Phase);
             entity.HasIndex(j => j.IsArchived);
             entity.HasIndex(j => j.CreatedAt);
