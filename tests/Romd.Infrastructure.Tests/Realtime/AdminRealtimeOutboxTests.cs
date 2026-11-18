@@ -466,6 +466,38 @@ public sealed class AdminRealtimeOutboxTests : IDisposable
     }
 
     [Fact]
+    public async Task ScopedOutboxNotifiers_RepeatedSuccessfulPublications_ReleaseOnlyTheirTrackedRows()
+    {
+        await using var db = CreateDb();
+        var outbox = new AdminRealtimeOutbox(db, _timeProvider);
+        var commitGate = new AdminRealtimeOutboxNotifierCommitGate();
+        var jobNotifier = new OutboxJobNotifier(outbox, db, commitGate, NullLogger<OutboxJobNotifier>.Instance);
+        var statsNotifier = new OutboxStatsNotifier(outbox, db, commitGate, NullLogger<OutboxStatsNotifier>.Instance);
+        var existing = CreateTrackedEvent(AdminRealtimeEventTypes.CoverageStatsChanged);
+        db.AdminRealtimeOutboxEvents.Add(existing);
+        await db.SaveChangesAsync();
+        var job = UploadJob.Create("library.zip", createdAt: _timeProvider.GetUtcNow());
+
+        for (int i = 0; i < 20; i++)
+        {
+            await jobNotifier.NotifyJobUpdatedAsync(job);
+            await jobNotifier.NotifyTitleEnrichedAsync(10, 20, 30);
+            await statsNotifier.NotifyStorageChangedAsync();
+            db.ChangeTracker.Entries<AdminRealtimeOutboxEventEntity>()
+                .ShouldHaveSingleItem().Entity.ShouldBeSameAs(existing);
+        }
+
+        await using var reader = CreateDb();
+        var counts = await reader.AdminRealtimeOutboxEvents.GroupBy(row => row.EventType)
+            .ToDictionaryAsync(group => group.Key, group => group.Count());
+        counts.Count.ShouldBe(4);
+        counts[AdminRealtimeEventTypes.JobUpdated].ShouldBe(20);
+        counts[AdminRealtimeEventTypes.TitleEnriched].ShouldBe(20);
+        counts[AdminRealtimeEventTypes.StorageStatsChanged].ShouldBe(20);
+        counts[AdminRealtimeEventTypes.CoverageStatsChanged].ShouldBe(1);
+    }
+
+    [Fact]
     public async Task OutboxStatsNotifier_SaveFails_DetachesOnlyItsUncommittedEvent()
     {
         var interceptor = new FailNextSaveChangesInterceptor();

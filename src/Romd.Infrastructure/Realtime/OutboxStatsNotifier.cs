@@ -41,13 +41,15 @@ public sealed class OutboxStatsNotifier(
             }
             catch (Exception ex)
             {
+                logger.LogWarning(ex, "Failed to enqueue admin realtime {EventType} stats change", eventType);
+            }
+            finally
+            {
                 foreach (var entry in context.ChangeTracker.Entries<AdminRealtimeOutboxEventEntity>()
                              .Where(entry => !previouslyTrackedEvents.Contains(entry.Entity)))
                 {
                     entry.State = Microsoft.EntityFrameworkCore.EntityState.Detached;
                 }
-
-                logger.LogWarning(ex, "Failed to enqueue admin realtime {EventType} stats change", eventType);
             }
         }, ct);
 }
