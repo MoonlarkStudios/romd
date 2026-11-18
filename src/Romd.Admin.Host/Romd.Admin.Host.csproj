@@ -7,6 +7,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RomdReleaseTag Condition="'$(RomdReleaseTag)' == ''">development</RomdReleaseTag>
 
     <FrontendRoot>../../web</FrontendRoot>
     <FrontendDist>$(FrontendRoot)/packages/romd-admin-app/dist</FrontendDist>
@@ -17,6 +18,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AssemblyMetadata Include="RomdReleaseTag" Value="$(RomdReleaseTag)" />
     <ProjectReference Include="..\Romd.Hosting\Romd.Hosting.csproj" />
   </ItemGroup>
 

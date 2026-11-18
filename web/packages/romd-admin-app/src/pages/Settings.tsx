@@ -1,9 +1,26 @@
 import { Anchor, Stack, Text, Title } from '@mantine/core';
+import { getServerInfo } from '@romd/admin-api-client';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import classes from '../components/Workspace/Workspace.module.css';
 import { ArtworkEnrichmentSettings } from './Settings/ArtworkEnrichmentSettings';
 
 export function Settings() {
+  const serverInfo = useQuery({
+    queryKey: [
+      'server',
+      'info',
+    ],
+    queryFn: async ({ signal }) => {
+      const { data } = await getServerInfo({
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    staleTime: 0,
+  });
+
   return (
     <Stack
       className={classes.page}
@@ -17,6 +34,21 @@ export function Settings() {
           Settings
         </Title>
       </div>
+      <section className={classes.panel}>
+        <Title
+          order={2}
+          className={classes.sectionHeading}
+        >
+          Server
+        </Title>
+        <Text
+          size="sm"
+          mt="xs"
+          role="status"
+        >
+          Version {serverInfo.isError ? 'unavailable' : (serverInfo.data?.version ?? 'loading…')}
+        </Text>
+      </section>
       <section className={classes.panel}>
         <Title
           order={2}

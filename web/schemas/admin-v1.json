@@ -2070,6 +2070,37 @@
         }
       }
     },
+    "/api/server/info": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "description": "Returns the release version embedded in the running admin host.",
+        "operationId": "GetServerInfo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/catalog-snapshot": {
       "get": {
         "tags": [
@@ -25779,6 +25810,17 @@
           },
           "artwork": {
             "$ref": "#/components/schemas/ResolvedArtwork"
+          }
+        }
+      },
+      "ServerInfo": {
+        "required": [
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string"
           }
         }
       },
