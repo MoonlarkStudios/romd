@@ -921,9 +921,10 @@ with patch.object(manage, 'check_tools'), patch.object(manage, 'check_containers
             self.assertEqual(exited['pids'], {'web-admin': web, 'web-dependencies': dependencies})
             for name in ('worker', 'consumer'):
                 self.assertFalse(manage.group_exists(ready['pids'][name]))
-            output = (root / 'runner.log').read_text()
-            self.assertIn('Backend host stopped: admin exited -9', output)
-            self.assertIn('  host log line', output)
+            runner_log = root / 'runner.log'
+            # The controller reports the state before printing the diagnostic and its log tail.
+            self.wait_text(runner_log, '  host log line')
+            self.assertIn('Backend host stopped: admin exited -9', runner_log.read_text())
             with patch('sys.stdout', new=io.StringIO()) as requested:
                 manage.request_restart(root)  # Content-identical recovery without editing source.
             self.assertIn('current state: backend-exited', requested.getvalue())

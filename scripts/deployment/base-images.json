@@ -1,5 +1,5 @@
 {
   "schemaVersion": 1,
   "postgres": "postgres:18.7-bookworm@sha256:ece55f7868da684e400f82f1030a050718adbdd65c23aa500c486f6e2950dc0f",
-  "ingress": "nginx:1.30.6-alpine-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893"
+  "ingress": "nginx:1.30.7-alpine-slim@sha256:b6c9aa217a1a855d53b0fb502a9a19f356404584e0bd1fc3d62a989e8dfcb6ca"
 }
