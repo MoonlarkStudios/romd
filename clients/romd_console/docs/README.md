@@ -43,9 +43,8 @@ These records follow the
 
 ## Roadmaps
 
-- [Controller identity](roadmaps/controller-identity.md): active controller
-  work.
-- [Dolphin runtime](roadmaps/dolphin-runtime.md): GameCube support via Dolphin.
+- [Controller identity](roadmaps/controller-identity.md): open controller work.
+- [Dolphin runtime](roadmaps/dolphin-runtime.md): deferred platforms and input work.
 
 ## Research
 

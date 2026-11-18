@@ -76,11 +76,9 @@ data, and generated config are durable ROMD-owned data:
   `<base>/config/servers/{serverInstanceId}/{platform}/{title}`
 - standalone native settings: `<base>/runtimes/{runtime}/user`
 
-Gate 2 shipped these instance-scoped path constructors and the instance-scoped
-install identity. Releases of one title within the same server instance share
-save/state/config roots; another ROMD instance cannot collide through reused
-encoded ids. Gate 3 central launch authorization and Gate 4 profile play history
-remain separate from the path layout; both are now accepted.
+Releases of one title within the same server instance share save, state, and
+config roots. Server-instance scoping keeps another ROMD installation from
+colliding through reused encoded ids.
 
 Every gameplay writer must point its runtime at `saveRoot` and `stateRoot`.
 RetroArch stores ROMD's generated per-title session config under `configRoot`.
@@ -96,9 +94,38 @@ no legacy save migration or initialization-marker path. It resolves the active
 profile roots directly. A future save importer must be an explicit feature and
 must never move, delete, or silently adopt external data on launch.
 
+## Dolphin GameCube
+
+The `dolphin:gc:standalone` profile targets GameCube. The
+[runtime catalog](../lib/src/play/emulator/data/registry/runtime_catalog.dart)
+owns the managed macOS artifact and its archive and executable digests. ROMD
+replaces a managed install whose executable no longer matches the pin and
+suppresses in-place updates.
+
+Gameplay and **Settings → Emulators → Open Dolphin settings** both use
+`-u` with the shared ROMD-owned Dolphin user directory. Settings is a
+supervised desktop session with no game, and cannot overlap an active
+gameplay session. It preserves native preferences and leaves game saves,
+states, and controller settings alone.
+
+At gameplay launch, ROMD links `GC` and `StateSaves` to `saveRoot` and
+`stateRoot`. It can adopt only empty directory trees and fails closed on
+unowned files or links. GameCube Slot A uses Dolphin's regional folder
+memory card (`GC/<region>/Card A`), and Slot B is disabled. Ordinary
+graphics and audio preferences stay in the shared user directory.
+
+ROMD emits GameCube player-one mapping and hotkeys only under the pinned
+managed macOS SDL3 policy with one inventory-reviewed controller, exact
+identity, and a saved matching hardware map. The mapping uses canonical
+physical positions and the process-scoped SDL configuration. The Menu
+chord requests Dolphin's Stop action for a clean return to ROMD, with
+an explicit Quit chord taking precedence. Dolphin batch mode provides
+no in-game menu. See the [qualification matrix](../../../docs/architecture/media-status.md#console-runtime-and-controller-scope)
+for recorded hardware scope.
+
 ## Ended-Session History
 
-Gate 4 records profile history only when a coordinator session returned
+The coordinator records profile history only when a session returned
 `LaunchStarted` and that same started session later reports `LaunchExited`.
 Both zero and nonzero exit codes count. Denied, cancelled, failed, and
 `LaunchNotStarted` outcomes do not, including a fabricated

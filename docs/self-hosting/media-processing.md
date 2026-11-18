@@ -1,9 +1,216 @@
-# Media processing children
+# Media processing operations
 
-> [!TIP]
-> New to how ROMD compresses discs? Start with the
-> [disc compression guide](../features/disc-compression.md). This page covers
-> how the worker isolates, limits and recovers that work.
+For day-to-day conversion and supported disc formats, start with the
+[disc compression guide](../features/disc-compression.md). This runbook covers
+operating and recovering the supervised media worker.
+
+| Task | Start here |
+| --- | --- |
+| Diagnose a worker startup failure | [Installation and startup](#installation-and-startup) |
+| Investigate deferred or failed jobs | [Capacity and failures](#capacity-and-failures) |
+| Recover interrupted work | [Recovery](#recovery) |
+| Prepare for a decoder upgrade | [CHD decoder re-verification](#chd-decoder-re-verification) |
+| Check current support | [Known limitations](#known-limitations) and the [qualification matrix](../architecture/media-status.md) |
+| Trace behavior in the source | [Worker process and verification](#worker-process-and-verification) and [durable convergence](#durable-convergence) |
+
+## Installation and startup
+
+Build and publish `src/Romd.Worker.Host` normally. Its project copies the child
+DLL, runtime configuration, dependency manifest and dependencies into
+`media-worker/` beside `romd-worker.dll`. Deploy that directory with the worker.
+The production worker image includes it; the API images exclude it. The release
+bundle includes this guide alongside the production deployment runbook.
+
+The worker checks the child before starting dispatch, Hangfire processing and
+its readiness marker. A missing executable, invalid protocol or incompatible
+build stops startup. Restore the complete worker release and inspect startup
+logs before restarting. Copying only the child DLL is insufficient.
+
+The worker uses absolute paths for the .NET host and child executable. Linux
+also requires `/usr/bin/prlimit`, already present in the production runtime
+image. The Docker build checks that executable instead of installing a tool.
+chdman operations also need executable memfds: `/proc` mounted, and the
+`vm.memfd_noexec` sysctl at 0 or 1 (the kernel default is 0). At 2, every CHD
+encode and extract fails closed with `ToolLaunch/LaunchFailure` before chdman
+starts.
+See [configuration](configuration.md#media-processing) for override names,
+defaults and ranges.
+
+## Capacity and failures
+
+ROMD reserves an inspection slot before copying recognized media into shared
+temporary staging. Inspection and encoding share one host-local capacity limit
+across worker processes using the same data directory. Stable admission leases
+and bounded run records live in `temp/media-runs-v1`; keep that directory on the
+same durable volume as staging. Conflicting concurrency settings fail closed
+while a live or unresolved run exists. An admission shortage defers the file
+through the durable upload job.
+Once admitted, malformed media, child crashes, invalid output, memory exhaustion
+and inspection deadlines fail that file. Sibling files and later jobs remain
+eligible to run. Caller cancellation retains its cancellation semantics.
+
+Every child receives a GC heap hard limit. Linux additionally receives DATA,
+address-space and CPU limits. The GC budget limits managed heap commitment;
+the Linux DATA budget also covers writable native allocations. Address space
+includes CLR reservations and is a separate guard. These settings do not claim
+an exact resident-memory cap. macOS does not gain the Linux address-space
+protection merely because a resource-limit API is present. Budget room for the worker, two default concurrent
+children, read delivery, staging and the operating system.
+
+On cancellation, deadline or failure, the supervisor kills owned descendants
+and joins the output readers before releasing inspection capacity. It bounds
+diagnostics and rejects excess output. Staging ownership follows the existing
+[temporary staging policy](../architecture/temporary-staging.md). Redelivery uses durable
+per-file outcomes rather than repeating completed files.
+The cleanup boundary begins immediately after a successful launch, including
+partial console/wait/monitor setup. Cancellation releases admission only with
+affirmative unstarted or complete-stop proof. An unexpected supervision throw
+without that proof quarantines the source and output and retains its media slot.
+
+The staged source receives a durable hold before a child may open it. A failed
+hold prevents launch and is a permanent source-custody file failure. A failure
+to remove a hold retains the source reservation for operator repair. If the
+supervisor cannot prove that the process tree stopped, it also retains the
+affected media slot, records unavailable status and reports a permanent
+containment failure. Marked staging slots survive owner exit. Recognized run
+records permit guarded recovery; unknown custody remains charged. See
+[recovery](#recovery) before repairing retained capacity.
+
+Encoding reserves its complete per-input output cap in the same staging pool as
+the source before launch. GameCube's bound includes worst-case payload,
+alignment and compressed tables. Wii's bound also covers sector hash exceptions,
+partition/raw-area splits and partition tables. Both paths have durable child
+holds. Only after
+confirmed process-tree cleanup and complete output measurement can the output
+be sealed, its reservation reduced to actual length and the same lease transferred
+to a readable artifact. Cancellation and failures discard partial output after
+cleanup; uncertain containment quarantines both paths and retains capacity.
+
+## Recovery
+
+A run records its parent, child, job, packaged build, admission lease and staging
+bindings. The supervisor flushes `launching` before native spawn and requires the
+child's matching identity and launch permission before payload access. A
+`prepared` record proves that launch has not begun; an unidentified `launching`
+record does not prove that a child is absent and stays pinned.
+
+Recovery waits for the shared accounting lock for up to
+`Romd:Media:AdmissionTimeoutSeconds`, honoring caller cancellation. A busy lock
+at the deadline still blocks recovery. Once the lock is acquired, the same
+process-stop and custody checks apply before any capacity is released.
+
+Normal recovery checks process birth and, on Linux, boot and PID namespace before
+terminating an owned orphan group. Capacity returns only after recognized
+descendants are joined and reaped and the original admission lease is independently
+acquired. Recovery removes only matching versioned staging holds. A stopped
+certificate also requires that independent lease acquisition. Child PID reuse,
+unreadable records and legacy holds do not release capacity.
+
+Local Linux recovery can also join a known zombie leader that is a waitable
+child of the recovering process. A single process-stat snapshot must match the
+recorded PID, birth and process group, report zombie state, and identify the
+recovering process as its parent; the recorded boot and PID namespace must also
+match. This path still requires independent acquisition of the exact original
+admission inode, the local chronology checks below, and the existing group join,
+reap and extinction checks. Zombie state alone does not release capacity.
+Unknown, live, foreign or mismatched identities keep custody pinned.
+
+Before querying a retained Linux parent or child PID, local recovery reads the
+current namespace init and binds it to the current boot and PID namespace.
+When the init's namespace link is unreadable, as with a host init owned by
+another user, the init is bound to this process's own PID namespace only when
+this process's procfs `NSpid` entry is single and equals its PID: procfs then
+belongs to this namespace, so its PID 1 is this namespace's init. Any other shape
+keeps custody pinned. This applies to a worker run outside a container on a Linux
+host. The shipped Compose worker uses `init: false` and runs the image's worker
+entrypoint as PID 1 in a private namespace, as the
+[deployment runbook](production-deployment.md#choose-ingress) requires.
+Retained non-init parent and child start ticks must both be strictly later than
+that init's start ticks. Unknown, malformed, older or equal ticks keep custody
+pinned; an observed init start of zero can be a valid baseline. Equal ticks are
+ambiguous at the kernel's clock-tick resolution, so this can conservatively pin
+a legitimate launch. This is a denial check before the existing identity,
+process-group and reap checks, not an additional extinction exception. The
+qualified managed hosts do not change their time namespace during a run.
+
+After a Linux container recreation, the approved exception permits recovery
+when payload extinction is proven even if kernel reaping is still finishing.
+The recorded parent must have been PID 1 of the old namespace incarnation;
+parent and child must share its recorded boot and PID namespace, and the current
+kernel boot must match. Different namespace inode labels establish different
+incarnations. Labels can be reused: when they match, the recorded parent and
+current process must both be PID 1 with valid, positive, unequal start times on
+that same boot. Equal or unknown start times do not establish a new incarnation.
+Recovery must acquire a new, independent open-file description of the
+exact original lease, with the same device and inode. The parent retains that
+lock through every unconfirmed child use, and the child retains its inherited
+descriptor throughout payload execution. Lease files are never replaced.
+Foreign numeric PIDs and groups are never queried or signalled. Missing, legacy
+or mismatched facts stay pinned. This exception proves extinction, not an
+observed reap; recovery within the same incarnation keeps the normal termination
+and reap rule.
+
+The synthetic [CHD end-to-end harness](../../scripts/e2e/README.md) exercises this
+exception through the shipped Compose topology: it observes a permitted child,
+the actual live chdman and growing output, kills the worker and force-recreates
+its container, then requires a new encode, completed publication and released
+media/staging holds. The harness also checks that an invalid native build makes
+the PID-1 worker exit with status 1 within 30 seconds.
+
+For unresolved custody, stop all hosts sharing the data directory and establish
+that the affected children cannot use it before operator repair. Never delete
+lease files or reset media/staging accounting to force admission. The
+[staging guide](../architecture/temporary-staging.md#ownership-and-recovery) owns payload and
+quarantine-marker repair guidance.
+
+## CHD decoder re-verification
+
+Use **Storage → Media reconciliation** with the retained-representation filter
+and conversion disabled, or `POST /api/media/reconciliation/selections` with
+`requestId`, `filter: "RetainedRepresentations"`, a positive finite `limit` and
+`conversionRequested: false`. A shared CD is one representation regardless of
+BIN count. A layout-owned archive remains selectable after every logical ROM
+disappears. The worker resolves its verified resident decoder; the API does not
+capture a decoder tuple on acceptance. Keep worker and reading-host decoder
+configuration consistent. A current complete proof settles without decoding.
+
+Each selected representation becomes current subject work. The attempt pins the
+exact graph, artifact, outputs and stored descriptors before verification. DVD
+verification uses source-only staging and the normal `inspect-chd` child; it
+never invokes chdman or reserves an encoded output. Production CD verification
+uses `reverify-chd-cd` and one atomic source-only reservation for the CHD, exact
+stored CUE/sidecars and bounded request. It reconstructs every complete original
+BIN, including stored pregaps and audio byte order, and compares size, SHA-256,
+SHA-1, MD5 and CRC32. Raw/overall CHD integrity, exact track geometry/selectors
+and a fresh root PS-X EXE observation are checked independently. It never stages
+original BINs or synthesizes CUE text. Unowned graphs are outside the selection.
+
+One complete `Verifications` row and all its `VerificationOutputs` append for
+the captured decoder. Separate raw logical/boot observations are retained;
+verification creates no encoding provenance. The measurement, attempt result
+and stopped source release commit atomically under the execution fence and
+ordered locks. Deferred guards reject partial, wrong-layout and wrong-decoder
+proofs. Every earlier build's proof, preference, creation history and retained
+file remains intact. Layout ownership suffices without a live logical ROM.
+Facts requiring logical-owner reconciliation stage demand through the same
+family; PS2 reference eligibility controls encoding authority independently of
+byte delivery and runtime claims.
+
+`GET /api/jobs/{jobId}` exposes the finite selection's progress, outcome and
+bounded outcome code. Owned child jobs identify their origin selection and
+exact public subject. Recovery resumes the captured attempt or replays its
+committed journal without repeating a complete measurement. A failed child is
+counted while the finite selection continues. Cancellation and retry exhaustion
+retain dependencies until native custody is affirmatively stopped. Historical
+attempt and selection journals do not pin Files or representations.
+
+The single fresh baseline installs these guards. Unsupported existing databases
+are refused before writes; no legacy campaign history is migrated or invented.
+See [decoder upgrades](production-deployment.md#chd-decoder-upgrades) for
+worker/admin/consumer ordering within a compatible baseline and the retained
+previous-reader window.
+
+## Worker process and verification
 
 The worker inspects RVZ containers and recognized GameCube/Wii, PS2 and PSP ISOs in a dedicated
 `Romd.Media.Worker` process. Managed GameCube and Wii encoding also use a fresh
@@ -255,8 +462,8 @@ remain separate work. Automatic scheduling retains these same per-build checks.
 
 Recorded retained-upgrade/recovery results and their native-platform limits are
 in [media status](../architecture/media-status.md#qualification-status). Re-run
-the gate for changed decoder builds; the procedure above does not transfer an
-old qualification to new inputs.
+the gate for changed decoder builds. Qualification is scoped to the recorded
+inputs and decoder.
 
 ## Saturn original-disc compression
 
@@ -556,156 +763,6 @@ from recorded runs. `mise run e2e:chd:synthetic` is its generated-input CI
 step; a synthetic pass shows composition only. See the
 [harness runbook](../../scripts/e2e/README.md).
 
-## Installation and startup
-
-Build and publish `src/Romd.Worker.Host` normally. Its project copies the child
-DLL, runtime configuration, dependency manifest and dependencies into
-`media-worker/` beside `romd-worker.dll`. Deploy that directory with the worker.
-The production worker image includes it; the API images exclude it. The release
-bundle includes this guide alongside the production deployment runbook.
-
-The worker checks the child before starting dispatch, Hangfire processing and
-its readiness marker. A missing executable, invalid protocol or incompatible
-build stops startup. Restore the complete worker release and inspect startup
-logs before restarting. Copying only the child DLL is insufficient.
-
-The worker uses absolute paths for the .NET host and child executable. Linux
-also requires `/usr/bin/prlimit`, already present in the production runtime
-image. The Docker build checks that executable instead of installing a tool.
-chdman operations also need executable memfds: `/proc` mounted, and the
-`vm.memfd_noexec` sysctl at 0 or 1 (the kernel default is 0). At 2, every CHD
-encode and extract fails closed with `ToolLaunch/LaunchFailure` before chdman
-starts.
-See [configuration](configuration.md#media-processing) for override names,
-defaults and ranges.
-
-## Capacity and failures
-
-ROMD reserves an inspection slot before copying recognized media into shared
-temporary staging. Inspection and encoding share one host-local capacity limit
-across worker processes using the same data directory. Stable admission leases
-and bounded run records live in `temp/media-runs-v1`; keep that directory on the
-same durable volume as staging. Conflicting concurrency settings fail closed
-while a live or unresolved run exists. An admission shortage defers the file
-through the durable upload job.
-Once admitted, malformed media, child crashes, invalid output, memory exhaustion
-and inspection deadlines fail that file. Sibling files and later jobs remain
-eligible to run. Caller cancellation retains its cancellation semantics.
-
-Every child receives a GC heap hard limit. Linux additionally receives DATA,
-address-space and CPU limits. The GC budget limits managed heap commitment;
-the Linux DATA budget also covers writable native allocations. Address space
-includes CLR reservations and is a separate guard. These settings do not claim
-an exact resident-memory cap. macOS does not gain the Linux address-space
-protection merely because a resource-limit API is present. Budget room for the worker, two default concurrent
-children, read delivery, staging and the operating system.
-
-On cancellation, deadline or failure, the supervisor kills owned descendants
-and joins the output readers before releasing inspection capacity. It bounds
-diagnostics and rejects excess output. Staging ownership follows the existing
-[temporary staging policy](../architecture/temporary-staging.md). Redelivery uses durable
-per-file outcomes rather than repeating completed files.
-The cleanup boundary begins immediately after a successful launch, including
-partial console/wait/monitor setup. Cancellation releases admission only with
-affirmative unstarted or complete-stop proof. An unexpected supervision throw
-without that proof quarantines the source and output and retains its media slot.
-
-The staged source receives a durable hold before a child may open it. A failed
-hold prevents launch and is a permanent source-custody file failure. A failure
-to remove a hold retains the source reservation for operator repair. If the
-supervisor cannot prove that the process tree stopped, it also retains the
-affected media slot, records unavailable status and reports a permanent
-containment failure. Marked staging slots survive owner exit. Recognized run
-records permit guarded recovery; unknown custody remains charged. See
-[recovery](#recovery) before repairing retained capacity.
-
-Encoding reserves its complete per-input output cap in the same staging pool as
-the source before launch. GameCube's bound includes worst-case payload,
-alignment and compressed tables. Wii's bound also covers sector hash exceptions,
-partition/raw-area splits and partition tables. Both paths have durable child
-holds. Only after
-confirmed process-tree cleanup and complete output measurement can the output
-be sealed, its reservation reduced to actual length and the same lease transferred
-to a readable artifact. Cancellation and failures discard partial output after
-cleanup; uncertain containment quarantines both paths and retains capacity.
-
-## Recovery
-
-A run records its parent, child, job, packaged build, admission lease and staging
-bindings. The supervisor flushes `launching` before native spawn and requires the
-child's matching identity and launch permission before payload access. A
-`prepared` record proves that launch has not begun; an unidentified `launching`
-record does not prove that a child is absent and stays pinned.
-
-Recovery waits for the shared accounting lock for up to
-`Romd:Media:AdmissionTimeoutSeconds`, honoring caller cancellation. A busy lock
-at the deadline still blocks recovery. Once the lock is acquired, the same
-process-stop and custody checks apply before any capacity is released.
-
-Normal recovery checks process birth and, on Linux, boot and PID namespace before
-terminating an owned orphan group. Capacity returns only after recognized
-descendants are joined and reaped and the original admission lease is independently
-acquired. Recovery removes only matching versioned staging holds. A stopped
-certificate also requires that independent lease acquisition. Child PID reuse,
-unreadable records and legacy holds do not release capacity.
-
-Local Linux recovery can also join a known zombie leader that is a waitable
-child of the recovering process. A single process-stat snapshot must match the
-recorded PID, birth and process group, report zombie state, and identify the
-recovering process as its parent; the recorded boot and PID namespace must also
-match. This path still requires independent acquisition of the exact original
-admission inode, the local chronology checks below, and the existing group join,
-reap and extinction checks. Zombie state alone does not release capacity.
-Unknown, live, foreign or mismatched identities keep custody pinned.
-
-Before querying a retained Linux parent or child PID, local recovery reads the
-current namespace init and binds it to the current boot and PID namespace.
-When the init's namespace link is unreadable, as with a host init owned by
-another user, the init is bound to this process's own PID namespace only when
-this process's procfs `NSpid` entry is single and equals its PID: procfs then
-belongs to this namespace, so its PID 1 is this namespace's init. Any other shape
-keeps custody pinned. This applies to a worker run outside a container on a Linux
-host. The shipped Compose worker uses `init: false` and runs the image's worker
-entrypoint as PID 1 in a private namespace, as the
-[deployment runbook](production-deployment.md#choose-ingress) requires.
-Retained non-init parent and child start ticks must both be strictly later than
-that init's start ticks. Unknown, malformed, older or equal ticks keep custody
-pinned; an observed init start of zero can be a valid baseline. Equal ticks are
-ambiguous at the kernel's clock-tick resolution, so this can conservatively pin
-a legitimate launch. This is a denial check before the existing identity,
-process-group and reap checks, not an additional extinction exception. The
-qualified managed hosts do not change their time namespace during a run.
-
-After a Linux container recreation, the approved exception permits recovery
-when payload extinction is proven even if kernel reaping is still finishing.
-The recorded parent must have been PID 1 of the old namespace incarnation;
-parent and child must share its recorded boot and PID namespace, and the current
-kernel boot must match. Different namespace inode labels establish different
-incarnations. Labels can be reused: when they match, the recorded parent and
-current process must both be PID 1 with valid, positive, unequal start times on
-that same boot. Equal or unknown start times do not establish a new incarnation.
-Recovery must acquire a new, independent open-file description of the
-exact original lease, with the same device and inode. The parent retains that
-lock through every unconfirmed child use, and the child retains its inherited
-descriptor throughout payload execution. Lease files are never replaced.
-Foreign numeric PIDs and groups are never queried or signalled. Missing, legacy
-or mismatched facts stay pinned. This exception proves extinction, not an
-observed reap; recovery within the same incarnation keeps the normal termination
-and reap rule.
-
-The synthetic [CHD end-to-end harness](../../scripts/e2e/README.md) exercises this
-exception through the shipped Compose topology: it observes a permitted child,
-the actual live chdman and growing output, kills the worker and force-recreates
-its container, then requires a new encode, completed publication and released
-media/staging holds. The harness also checks that an invalid native build makes
-the PID-1 worker exit with status 1 within 30 seconds.
-
-For unresolved custody, stop all hosts sharing the data directory and establish
-that the affected children cannot use it before operator repair. Never delete
-lease files or reset media/staging accounting to force admission. The
-[staging guide](../architecture/temporary-staging.md#ownership-and-recovery) owns payload and
-quarantine-marker repair guidance.
-
 ## Durable convergence
 
 One `media-reconciliation` job family handles an exact logical ROM, original
@@ -800,53 +857,6 @@ and wall deadline failures are transient and do not poison that cache.
 See [media status](../architecture/media-status.md#qualification-status) for
 GameCube/Wii platform and workload qualification. Admission and cache limits
 alone establish neither a whole-host memory cap nor external-network latency.
-
-## CHD decoder re-verification
-
-Use **Storage → Media reconciliation** with the retained-representation filter
-and conversion disabled, or `POST /api/media/reconciliation/selections` with
-`requestId`, `filter: "RetainedRepresentations"`, a positive finite `limit` and
-`conversionRequested: false`. A shared CD is one representation regardless of
-BIN count. A layout-owned archive remains selectable after every logical ROM
-disappears. The worker resolves its verified resident decoder; the API does not
-capture a decoder tuple on acceptance. Keep worker and reading-host decoder
-configuration consistent. A current complete proof settles without decoding.
-
-Each selected representation becomes current subject work. The attempt pins the
-exact graph, artifact, outputs and stored descriptors before verification. DVD
-verification uses source-only staging and the normal `inspect-chd` child; it
-never invokes chdman or reserves an encoded output. Production CD verification
-uses `reverify-chd-cd` and one atomic source-only reservation for the CHD, exact
-stored CUE/sidecars and bounded request. It reconstructs every complete original
-BIN, including stored pregaps and audio byte order, and compares size, SHA-256,
-SHA-1, MD5 and CRC32. Raw/overall CHD integrity, exact track geometry/selectors
-and a fresh root PS-X EXE observation are checked independently. It never stages
-original BINs or synthesizes CUE text. Unowned graphs are outside the selection.
-
-One complete `Verifications` row and all its `VerificationOutputs` append for
-the captured decoder. Separate raw logical/boot observations are retained;
-verification creates no encoding provenance. The measurement, attempt result
-and stopped source release commit atomically under the execution fence and
-ordered locks. Deferred guards reject partial, wrong-layout and wrong-decoder
-proofs. Every earlier build's proof, preference, creation history and retained
-file remains intact. Layout ownership suffices without a live logical ROM.
-Facts requiring logical-owner reconciliation stage demand through the same
-family; PS2 reference eligibility controls encoding authority independently of
-byte delivery and runtime claims.
-
-`GET /api/jobs/{jobId}` exposes the finite selection's progress, outcome and
-bounded outcome code. Owned child jobs identify their origin selection and
-exact public subject. Recovery resumes the captured attempt or replays its
-committed journal without repeating a complete measurement. A failed child is
-counted while the finite selection continues. Cancellation and retry exhaustion
-retain dependencies until native custody is affirmatively stopped. Historical
-attempt and selection journals do not pin Files or representations.
-
-The single fresh baseline installs these guards. Unsupported existing databases
-are refused before writes; no legacy campaign history is migrated or invented.
-See [decoder upgrades](production-deployment.md#chd-decoder-upgrades) for
-worker/admin/consumer ordering within a compatible baseline and the retained
-previous-reader window.
 
 ## Known limitations
 
