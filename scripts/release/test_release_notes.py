@@ -13,6 +13,10 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertNotIn('verification.tar.gz', page)
         self.assertIn('gh attestation verify romd-v1.2.3-rc.1-deployment.tar.gz '
                       '--bundle romd-v1.2.3-rc.1-attestations.jsonl --repo owner/repo', page)
+        # Provenance is claimed only for what is attested: the ingress is a pinned upstream image.
+        self.assertIn('five of the six images it runs: the four ROMD images (admin, consumer, worker and player) and PostgreSQL', page)
+        self.assertIn('ROMD publishes no separate attestation for the image', page)
+        self.assertNotIn('every image', page)
         self.assertIn('Qualified prerelease', page)
         self.assertIn('fresh-installation baseline', page)
         self.assertIn('source-only and experimental', page)

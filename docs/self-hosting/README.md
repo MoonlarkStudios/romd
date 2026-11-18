@@ -9,19 +9,30 @@ their account and a browser; Ottercade is an optional, experimental console app.
 
 | What you are doing | Read this |
 | --- | --- |
-| Evaluating ROMD before a qualified release is available | [Run from source](../development/getting-started.md) with Docker or rootless Podman |
 | Installing a released server | [Quick start](production-deployment.md#quick-start) |
+| Trying ROMD without a release | [Run from source](../development/getting-started.md) with Docker or rootless Podman |
 | Understanding settings and defaults | [Configuration reference](configuration.md) |
 | Adding your first games and people | [Your first library](../features/first-library.md) |
 | Upgrading an installation | [Upgrade procedure](production-deployment.md#upgrade) and that release's notes |
 | Protecting or recovering your server | [Backup and restore](production-deployment.md#backup-and-restore) |
 | Managing disc conversion or native-media recovery | [Media processing](media-processing.md) |
 
-The initial supported-release qualification target is **Linux amd64**. Source
-builds and passing development checks do not qualify a downloaded release.
-Native console builds remain experimental. Check the
-[release notes](https://github.com/MoonlarkStudios/romd/releases) for the support
-and upgrade scope of the version you plan to install.
+## Which release to install
+
+There is no stable release yet. The [releases page](https://github.com/MoonlarkStudios/romd/releases)
+lists qualified release candidates (`v0.1.0-rc.N`), marked as prereleases;
+install the newest one. Each is a complete, immutable release that passed
+packaged installation, browser playback, restart and backup/restore on
+**Linux amd64**, the only qualified platform. Its notes state what it supports
+and whether you can upgrade to it from an earlier candidate; until they say so,
+plan a fresh installation.
+
+`v0.1.0-rc.8` can fail its first start on slow storage, reporting that
+`romd-worker` is unhealthy. Run the same start command again and it completes.
+Later candidates fix this.
+
+Source builds and passing development checks do not qualify a downloaded
+release. Native console builds remain experimental.
 
 ## Installation path
 
