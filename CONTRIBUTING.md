@@ -80,7 +80,8 @@ Run the checks for every surface you touch, from the listed directory:
 
 | Change | Directory | Checks |
 | --- | --- | --- |
-| Documentation links/anchors/assets, instructions, validation config | Repository root | `mise run agents:check` |
+| Documentation, skill text, and agent configuration | Repository root | `mise run agents:lint` |
+| Agent checker, validation routing, or development tooling | Repository root | `mise run agents:check` |
 | Backend | Repository root | `mise run dotnet:style -- --base origin/main`, then `mise run test` |
 | Host composition, integration fixtures, worker registration, deployment topology | Repository root | Backend checks plus `mise run test:integration` |
 | Web | `web/` | `pnpm lint`, `pnpm test`, `pnpm build` |

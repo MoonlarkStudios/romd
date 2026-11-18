@@ -76,14 +76,19 @@ a prior report or a successful retry alone. Local `test:all` covers backend
 suites only; native packaged-client builds and actual emulator playback require
 separate qualification.
 
-Use `mise run agents:check` (Python 3.11+; prepares an isolated, hash-locked
-YAML parser) after documentation or agent-infrastructure changes. It checks local
-Markdown links, anchors and HTML assets, TOML syntax, required agent fields and unsupported session-level settings
-in custom-agent files, backend test-project routing
-through the validation registry, CI-to-registry parity, and the development
-contract tests. It also checks decision-record structure and that code
-citations name existing records and headings. It does not validate all Codex
-config keys, skill semantics, external link availability, or product behavior.
+Run `mise run agents:lint` for documentation, skill text, or agent
+configuration changes. It checks local links, anchors, and HTML assets, the
+Claude bridge, skill discovery metadata, the project's Codex concurrency
+setting, custom agent TOMLs, decision citations, and validation routing. It
+also runs checker regressions. The check covers repository structure and
+metadata. Skill behavior and external links require separate verification.
+
+Run `mise run agents:check` for changes to the checker, validation routing, or
+development tooling. It adds the validation-runner tests and registered
+development contract suites. Both tasks select Python 3.13 through mise,
+matching CI's Python series. First use prepares a checkout-local virtual
+environment with the hash-locked YAML parser. The development contract suite
+exercises loopback sockets.
 Keep `TMPDIR` outside every Git worktree. The publication report-contract tests write evidence under it and otherwise fail
 with `Evidence must be outside the source checkout` or `Evidence parent must be
 outside every Git worktree`; both refusals are intended.

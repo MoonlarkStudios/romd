@@ -126,12 +126,20 @@ run = "python3 scripts/quality/dotnet_style.py"
 description = "Exercise the pinned SDK whitespace formatter on disposable good and bad C# fixtures"
 run = "python3 scripts/quality/dotnet_style.py --smoke-test"
 
-[tasks."agents:check"]
-description = "Check Markdown links/anchors, agent TOMLs, backend test routing, and checker regressions (Python 3.11+)"
+[tasks."agents:lint"]
+description = "Check documentation links, agent discovery and validation routing, and test the checker"
+tools.python = "3.13.16"
 run = [
   "python3 scripts/ci/prepare.py",
   ".artifacts/ci-python/bin/python scripts/agents/check.py",
   ".artifacts/ci-python/bin/python -B -m unittest discover -s scripts/agents -p 'test_*.py'",
+]
+
+[tasks."agents:check"]
+description = "Check agent infrastructure, the validation runner, and development contracts"
+depends = ["agents:lint"]
+tools.python = "3.13.16"
+run = [
   ".artifacts/ci-python/bin/python -B -m unittest discover -s scripts/validation -p 'test_*.py'",
   "python3 scripts/validation/run.py --group agents",
 ]
@@ -215,6 +223,7 @@ description = "Generated-input PS2 DVD CHD end-to-end harness on locally built i
 run = "python3 scripts/e2e/chd.py --synthetic --checkpoint encoding"
 
 [tasks."workflows:lint"]
+tools.python = "3.13.16"
 description = "Lint workflows with pinned actionlint and enforce immutable action references"
 run = ["python3 scripts/ci/prepare.py", ".artifacts/ci-python/bin/python scripts/ci/lint_workflows.py", ".artifacts/ci-python/bin/python -B -W error -m unittest discover -s scripts/ci -p 'test_*.py'", "actionlint"]
 
@@ -239,6 +248,7 @@ description = "Run release scanner, inventory, policy and verification contract 
 run = "python3 scripts/validation/run.py --group security"
 
 [tasks."dependencies:check"]
+tools.python = "3.13.16"
 description = "Audit NuGet, pnpm, Pub and shipped Go reader (network; Linux x64; Docker BuildKit)"
 run = [
   "python3 scripts/ci/prepare.py",
