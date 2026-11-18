@@ -4,9 +4,20 @@ A system is a local collection choice. A catalog source contributes definitions 
 that system; its DAT is an installed document version. A subscription is one way
 to update a source. Multiple manual and subscribed sources can coexist.
 
-**Add system** searches supported identities and aliases on the server, then
-immediately adds or restores the system and opens its home. Adding a source is optional. Shared
-reference updates add picker choices without enabling them.
+**Systems** shows the installed catalog and source update status separately.
+Use **Needs attention** to find systems that need a first DAT, catalog work, or
+an update review or retry. On wide layouts, select a system to see its catalog
+and next action beside the list. On narrower layouts, open the system directly.
+Returning to Systems restores the list filters and selection.
+
+**Add system** searches names and aliases on the server. Choose a system and its
+first DAT in the same flow. ROMD offers verified subscriptions from the signed
+directory, with a choice when formats differ. You can also **Upload a DAT** or
+choose **Add without a DAT** and return to **Catalog sources** later. A candidate
+waits for review before import. If you close setup after a subscription is
+created, continue from its row under **Catalog sources**. Restoring a system
+keeps its sources and subscriptions. Shared reference updates add picker choices
+without enabling them.
 
 **Catalog sources** lists each installed source's version, lifecycle, entry/file
 counts, update method, and actions. Counts describe that source and may overlap;
@@ -14,7 +25,7 @@ they are not added together as a unique game total. Pending subscriptions appear
 before their first document is installed. Subscription matching uses the active
 DAT identity, never the first subscription on a system.
 
-**Add source** opens a side panel (full width on narrow screens) offering verified
+**Add source** opens a panel offering verified
 subscriptions and manual DAT upload. Existing subscriptions are marked connected.
 A compatible manual source is connected from its own management panel so that
 source selection is explicit. Manual upload also works from Your systems: inspect

@@ -1,0 +1,37 @@
+.logo {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 3.5rem;
+  block-size: 2.25rem;
+  padding: 0.25rem;
+  border-radius: var(--mantine-radius-sm);
+  background: var(--romd-portal-overlay);
+  color: var(--romd-portal-muted);
+}
+
+.logo[data-size="sm"] {
+  inline-size: 2.75rem;
+  block-size: 1.75rem;
+}
+
+.logo[data-size="lg"] {
+  inline-size: 4.5rem;
+  block-size: 2.75rem;
+}
+
+.logo img {
+  inline-size: 100%;
+  block-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 0;
+  object-fit: contain;
+}
+
+.monochrome {
+  filter: brightness(0) invert(1);
+}
+
+:global([data-mantine-color-scheme="light"]) .monochrome {
+  filter: brightness(0);
+}

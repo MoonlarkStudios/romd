@@ -31,8 +31,9 @@ export function SystemHelp() {
             list.
           </Text>
           <Text size="sm">
-            Catalog sources describe its releases and expected files. A DAT is a source document; a
-            subscription checks for new versions to review.
+            A catalog source, such as Redump, describes releases and expected files for a system. A
+            DAT is the document installed for that source. A subscription checks for new DAT
+            versions for you to review.
           </Text>
           <Text
             size="sm"

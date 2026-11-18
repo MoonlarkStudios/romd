@@ -68,7 +68,7 @@ export function useDatCatalogs() {
   });
 }
 /** Local subscription state only; it never contacts the publisher. */
-export function useDatSubscriptions() {
+export function useDatSubscriptions({ pollApplying = false }: { pollApplying?: boolean } = {}) {
   return useQuery({
     queryKey: managedSystemKeys.subscriptions,
     queryFn: async ({ signal }) => {
@@ -81,6 +81,10 @@ export function useDatSubscriptions() {
         );
       return response.data;
     },
+    refetchInterval: (query) =>
+      pollApplying && query.state.data?.some((subscription) => subscription.state === 'Applying')
+        ? 3000
+        : false,
   });
 }
 export function useSetSystemEnabled() {

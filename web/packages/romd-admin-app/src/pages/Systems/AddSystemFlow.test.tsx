@@ -1,6 +1,13 @@
-import type { ManagedSystem } from '@romd/admin-api-client';
+import type {
+  DatCatalogSubscription,
+  ManagedSystem,
+  PublishedDatCatalog,
+} from '@romd/admin-api-client';
 import {
+  applyDatSubscription,
+  checkDatSubscription,
   createDatSubscription,
+  getDatSubscriptionPreview,
   getJob,
   importSystemDat,
   listDatCatalogs,
@@ -28,7 +35,10 @@ vi.mock('@romd/admin-api-client', async () => ({
   previewSystemDat: vi.fn(),
   importSystemDat: vi.fn(),
   getJob: vi.fn(),
+  applyDatSubscription: vi.fn(),
+  checkDatSubscription: vi.fn(),
   createDatSubscription: vi.fn(),
+  getDatSubscriptionPreview: vi.fn(),
 }));
 const psx: ManagedSystem = {
   key: 'psx',
@@ -76,6 +86,11 @@ it('lets assistive technology dismiss system setup without adding a system', asy
   render(<AddSystemFlow onClose={close} />);
 
   await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  await user.click(
     screen.getByRole('button', {
       name: 'Close',
       exact: true,
@@ -86,7 +101,7 @@ it('lets assistive technology dismiss system setup without adding a system', asy
   expect(setSystemEnabled).not.toHaveBeenCalled();
   expect(createDatSubscription).not.toHaveBeenCalled();
 });
-it('adds a system independently of any source or subscription', async () => {
+it('adds a system independently only after choosing Add without a DAT', async () => {
   const user = userEvent.setup();
   const close = vi.fn();
   render(<AddSystemFlow onClose={close} />);
@@ -94,7 +109,18 @@ it('adds a system independently of any source or subscription', async () => {
   expect(setSystemEnabled).not.toHaveBeenCalled();
   await user.click(
     await screen.findByRole('button', {
-      name: 'Add PlayStation',
+      name: 'Choose PlayStation',
+    }),
+  );
+  expect(
+    await screen.findByRole('heading', {
+      name: 'Choose the first DAT',
+    }),
+  ).toBeVisible();
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Add without a DAT',
     }),
   );
   await waitFor(() =>
@@ -141,11 +167,12 @@ it.each([
   );
   expect(
     await screen.findByRole('button', {
-      name: 'Subscribe to Redump',
+      name: 'Subscribe and check',
     }),
   ).toBeInTheDocument();
-  expect(screen.getByText(/10,974 entries/)).toBeInTheDocument();
-  if (health === 'failed') expect(screen.getByText('Latest refresh delayed')).toBeInTheDocument();
+  expect(screen.getByText(/10,974 DAT entries/)).toBeInTheDocument();
+  if (health === 'failed')
+    expect(await screen.findByText('Latest refresh delayed')).toBeInTheDocument();
   expect(createDatSubscription).not.toHaveBeenCalled();
 });
 it('offers No-Intro only for SNES and describes cartridges as entries and files', async () => {
@@ -189,24 +216,20 @@ it('offers No-Intro only for SNES and describes cartridges as entries and files'
   );
   expect(
     await screen.findByRole('button', {
-      name: 'Subscribe to No-Intro',
+      name: 'Subscribe and check',
     }),
   ).toBeInTheDocument();
-  expect(screen.getByText(/4,358 entries · 4,358 files/)).toBeInTheDocument();
-  expect(
-    screen.queryByRole('button', {
-      name: 'Subscribe to Redump',
-    }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByText(/4,358 DAT entries · 4,358 expected files/)).toBeInTheDocument();
+  expect(screen.queryByText('Sony - PlayStation')).not.toBeInTheDocument();
   expect(createDatSubscription).not.toHaveBeenCalled();
 });
 it('keeps manual upload and setup later usable when the publisher fails', async () => {
   vi.mocked(listDatCatalogs).mockRejectedValue(new Error('offline'));
-  render(
-    <AddSourceFlow
-      system={psx}
-      onClose={vi.fn()}
-    />,
+  render(<AddSystemFlow onClose={vi.fn()} />);
+  await userEvent.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
   );
   expect(
     await screen.findByRole('button', {
@@ -215,10 +238,13 @@ it('keeps manual upload and setup later usable when the publisher fails', async 
   ).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Done',
+      name: 'Add without a DAT',
     }),
   ).toBeEnabled();
   expect(screen.getByTestId('dat-upload-zone')).toBeInTheDocument();
+  expect(
+    screen.queryByText('There is no verified subscription available for this system.'),
+  ).not.toBeInTheDocument();
 });
 it('unknown DAT asks for a system and reviews coverage before any import', async () => {
   const preview = {
@@ -245,10 +271,7 @@ it('unknown DAT asks for a system and reviews coverage before any import', async
       onClose={vi.fn()}
     />,
   );
-  await screen.findByRole('button', {
-    name: 'Choose PlayStation',
-  });
-  const input = screen.getByTestId('dat-upload-zone').querySelector('input[type="file"]');
+  const input = (await screen.findByTestId('dat-upload-zone')).querySelector('input[type="file"]');
   expect(input).not.toBeNull();
   if (!input) throw new Error('Missing file input');
   fireEvent.change(input, {
@@ -269,7 +292,7 @@ it('unknown DAT asks for a system and reviews coverage before any import', async
   expect(await screen.findByText(/could not identify one clear match/)).toBeInTheDocument();
   expect(importSystemDat).not.toHaveBeenCalled();
   await user.click(
-    screen.getByRole('button', {
+    await screen.findByRole('button', {
       name: 'Choose PlayStation',
     }),
   );
@@ -278,9 +301,7 @@ it('unknown DAT asks for a system and reviews coverage before any import', async
       name: 'Continue with PlayStation',
     }),
   );
-  expect(
-    await screen.findByText(/does not establish that the catalog covers every release/),
-  ).toBeInTheDocument();
+  expect(await screen.findByText(/A DAT may cover only part/)).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
       name: 'Add reviewed source',
@@ -419,11 +440,11 @@ it('subscribes by enrolling the catalog, then finishes when it is already up to 
       onClose={close}
     />,
   );
-  await userEvent.click(
-    await screen.findByRole('button', {
-      name: 'Subscribe to Redump',
-    }),
-  );
+  const subscribe = await screen.findByRole('button', {
+    name: 'Subscribe and check',
+  });
+  await waitFor(() => expect(subscribe).toBeEnabled());
+  await userEvent.click(subscribe);
   await waitFor(() => expect(close).toHaveBeenCalled());
   expect(createDatSubscription).toHaveBeenCalledWith({
     body: {
@@ -461,7 +482,7 @@ it('waits for local subscription status before offering to subscribe', async () 
   );
   expect(
     await screen.findByRole('button', {
-      name: 'Subscribe to Redump',
+      name: 'Subscribe and check',
     }),
   ).toBeDisabled();
   expect(createDatSubscription).not.toHaveBeenCalled();
@@ -487,7 +508,7 @@ it.each([
   await userEvent.type(screen.getByLabelText('Find a system'), search);
   expect(
     await screen.findByRole('button', {
-      name: 'Add PlayStation',
+      name: 'Choose PlayStation',
     }),
   ).toBeInTheDocument();
   expect(listManagedSystems).toHaveBeenCalledWith(
@@ -500,4 +521,364 @@ it.each([
       },
     }),
   );
+});
+
+const playStationOffer: PublishedDatCatalog = {
+  catalogId: 'redump/psx/discs',
+  systemId: psx.key,
+  name: 'Sony - PlayStation',
+  provider: 'redump',
+  health: 'healthy',
+  documentHash: 'a'.repeat(64),
+  entryCount: 10974,
+  fileCount: 60444,
+};
+const pendingSubscription: DatCatalogSubscription = {
+  id: 'sub',
+  catalogId: playStationOffer.catalogId,
+  systemId: psx.key,
+  name: playStationOffer.name,
+  systemKey: psx.key,
+  activeDatId: null,
+  state: 'ReadyToImport',
+  lastCheckedAt: null,
+  message: null,
+  candidateSha256: 'b'.repeat(64),
+  jobId: null,
+};
+
+function offer(...catalogs: PublishedDatCatalog[]) {
+  vi.mocked(listDatCatalogs).mockResolvedValue(
+    result({
+      enabled: true,
+      message: null,
+      catalogs,
+    }),
+  );
+}
+
+it('preselects the sole verified DAT, then imports only after the explicit review', async () => {
+  offer(playStationOffer);
+  vi.mocked(createDatSubscription).mockResolvedValue(result(pendingSubscription));
+  vi.mocked(getDatSubscriptionPreview).mockResolvedValue(
+    result({
+      activeSha256: 'none',
+      candidateSha256: pendingSubscription.candidateSha256,
+      activeEntries: 0,
+      candidateEntries: playStationOffer.entryCount,
+      entriesAdded: playStationOffer.entryCount,
+      entriesRemoved: 0,
+      entriesChanged: 0,
+      filesAdded: playStationOffer.fileCount,
+      filesRemoved: 0,
+      filesChanged: 0,
+      hashesChanged: 0,
+      activeBiosEntries: 0,
+      candidateBiosEntries: 0,
+      changes: [],
+      truncated: false,
+    }),
+  );
+  vi.mocked(applyDatSubscription).mockResolvedValue(
+    result({
+      jobId: 'job-1',
+    }),
+  );
+  vi.mocked(getJob).mockResolvedValue(
+    result({
+      id: 'job-1',
+      isTerminal: true,
+      hasErrors: false,
+      phase: 'Completed',
+      progressPercent: '100',
+    }),
+  );
+  const open = vi.fn();
+  const user = userEvent.setup();
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  const subscribe = await screen.findByRole('button', {
+    name: 'Add system and check',
+  });
+  await waitFor(() => expect(subscribe).toBeEnabled());
+  expect(
+    screen.getByRole('radio', {
+      name: playStationOffer.name,
+    }),
+  ).toBeChecked();
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+
+  await user.click(subscribe);
+  const apply = await screen.findByRole('button', {
+    name: 'Import reviewed catalog',
+  });
+  expect(createDatSubscription).toHaveBeenCalledWith({
+    body: {
+      catalogId: playStationOffer.catalogId,
+    },
+  });
+  expect(applyDatSubscription).not.toHaveBeenCalled();
+  vi.mocked(listManagedSystems).mockResolvedValue(
+    result(
+      completePage([
+        {
+          ...psx,
+          enabled: true,
+          state: 'Ready',
+          catalogCount: 1,
+        },
+      ]),
+    ),
+  );
+  await user.click(apply);
+  expect(applyDatSubscription).toHaveBeenCalledWith({
+    path: {
+      subscriptionId: pendingSubscription.id,
+    },
+    body: {
+      activeSha256: 'none',
+      candidateSha256: pendingSubscription.candidateSha256,
+    },
+  });
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Open catalog sources',
+    }),
+  );
+  expect(open).toHaveBeenCalledWith(psx.key, 'sources');
+});
+
+it('requires a choice when the signed directory offers multiple formats', async () => {
+  const second = {
+    ...playStationOffer,
+    catalogId: 'no-intro/psx/digital',
+    provider: 'no-intro',
+    name: 'Sony - PlayStation (Digital)',
+  };
+  offer(playStationOffer, second);
+  vi.mocked(createDatSubscription).mockResolvedValue(
+    result({
+      ...pendingSubscription,
+      catalogId: second.catalogId,
+      state: 'UpToDate',
+    }),
+  );
+  const user = userEvent.setup();
+  render(<AddSystemFlow onClose={vi.fn()} />);
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+
+  const choice = await screen.findByRole('radio', {
+    name: second.name,
+  });
+  const subscribe = screen.getByRole('button', {
+    name: 'Add system and check',
+  });
+  expect(choice).not.toBeChecked();
+  expect(
+    screen.getByRole('radio', {
+      name: playStationOffer.name,
+    }),
+  ).not.toBeChecked();
+  expect(subscribe).toBeDisabled();
+  expect(createDatSubscription).not.toHaveBeenCalled();
+
+  await waitFor(() => expect(choice).toBeEnabled());
+  await user.click(choice);
+  await user.click(subscribe);
+  await waitFor(() =>
+    expect(createDatSubscription).toHaveBeenCalledWith({
+      body: {
+        catalogId: second.catalogId,
+      },
+    }),
+  );
+});
+
+it('retries the existing subscription after its first check fails', async () => {
+  offer(playStationOffer);
+  vi.mocked(createDatSubscription).mockResolvedValue(
+    result({
+      ...pendingSubscription,
+      state: 'CheckFailed',
+      message: 'Catalog verification failed.',
+    }),
+  );
+  vi.mocked(checkDatSubscription).mockResolvedValue(
+    result({
+      ...pendingSubscription,
+      state: 'UpToDate',
+    }),
+  );
+  const open = vi.fn();
+  const user = userEvent.setup();
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+
+  const subscribe = await screen.findByRole('button', {
+    name: 'Add system and check',
+  });
+  await waitFor(() => expect(subscribe).toBeEnabled());
+  await user.click(subscribe);
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Retry check',
+    }),
+  );
+
+  await waitFor(() => expect(open).toHaveBeenCalledWith(psx.key, 'sources'));
+  expect(checkDatSubscription).toHaveBeenCalledWith({
+    path: {
+      subscriptionId: pendingSubscription.id,
+    },
+  });
+  expect(createDatSubscription).toHaveBeenCalledOnce();
+  expect(setSystemEnabled).toHaveBeenCalledOnce();
+  expect(applyDatSubscription).not.toHaveBeenCalled();
+});
+
+it('restores a removed system with its saved setup only after confirmation', async () => {
+  vi.mocked(listManagedSystems).mockResolvedValue(
+    result(
+      completePage([
+        {
+          ...psx,
+          state: 'Ready',
+          catalogCount: 1,
+        },
+      ]),
+    ),
+  );
+  const open = vi.fn();
+  const user = userEvent.setup();
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Restore system',
+    }),
+  );
+
+  await waitFor(() => expect(open).toHaveBeenCalledWith(psx.key, 'sources'));
+  expect(setSystemEnabled).toHaveBeenCalledOnce();
+  expect(createDatSubscription).not.toHaveBeenCalled();
+});
+
+it('previews an uploaded first DAT without adding the system and imports the reviewed bytes', async () => {
+  offer(playStationOffer);
+  const file = new File(
+    [
+      'data',
+    ],
+    'catalog.dat',
+    {
+      type: 'text/xml',
+    },
+  );
+  const reviewedHash = 'c'.repeat(64);
+  vi.mocked(previewSystemDat).mockResolvedValue(
+    result({
+      name: playStationOffer.name,
+      bytes: file.size,
+      suggestedSystemKey: psx.key,
+      existingDatIds: [],
+      preview: {
+        candidateEntries: 1,
+        candidateFiles: 1,
+        candidateBiosEntries: 0,
+        candidateVersion: '1',
+        candidateSha256: reviewedHash,
+        filesAdded: 1,
+      },
+    }),
+  );
+  vi.mocked(importSystemDat).mockResolvedValue(
+    result({
+      jobId: 'job-1',
+    }),
+  );
+  vi.mocked(getJob).mockResolvedValue(
+    result({
+      id: 'job-1',
+      isTerminal: false,
+      phase: 'Validating',
+      progressPercent: '12',
+    }),
+  );
+  const user = userEvent.setup();
+  render(<AddSystemFlow onClose={vi.fn()} />);
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  const upload = await screen.findByRole('button', {
+    name: 'Upload a DAT',
+  });
+  await user.click(upload);
+  const input = screen.getByTestId('dat-upload-zone').querySelector('input[type="file"]');
+  if (!input) throw new Error('Missing file input');
+  fireEvent.change(input, {
+    target: {
+      files: [
+        file,
+      ],
+    },
+  });
+  const importButton = await screen.findByRole('button', {
+    name: 'Add reviewed source',
+  });
+
+  expect(previewSystemDat).toHaveBeenCalledWith({
+    body: {
+      file,
+    },
+  });
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+  expect(importSystemDat).not.toHaveBeenCalled();
+  await user.click(importButton);
+  expect(importSystemDat).toHaveBeenCalledWith({
+    path: {
+      systemKey: psx.key,
+    },
+    body: {
+      file,
+    },
+    query: {
+      sha256: reviewedHash,
+    },
+  });
+  expect(await screen.findByText('Processing your source')).toBeInTheDocument();
 });

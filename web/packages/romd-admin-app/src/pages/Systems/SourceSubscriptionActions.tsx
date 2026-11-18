@@ -8,6 +8,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { managedSystemKeys } from '../../hooks/api/useManagedSystems';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 
@@ -18,11 +19,13 @@ export function SourceSubscriptionActions({
   manage = false,
   compact = false,
   settingsOnly = false,
+  primaryOnly = false,
 }: {
   subscription: DatCatalogSubscription;
   manage?: boolean;
   compact?: boolean;
   settingsOnly?: boolean;
+  primaryOnly?: boolean;
   onAccepted: (result: JobReference) => void;
 }) {
   const client = useQueryClient();
@@ -106,31 +109,35 @@ export function SourceSubscriptionActions({
       ? 'Processing update'
       : current.state === 'CheckFailed'
         ? 'Check needs attention'
-        : 'Up to date';
+        : current.state === 'NotChecked'
+          ? 'Not checked'
+          : 'Up to date';
   return (
     <Stack gap="sm">
-      <Group>
-        <Badge
-          color={
-            ready || current.state === 'CheckFailed'
-              ? 'orange'
-              : current.state === 'Applying'
-                ? 'blue'
-                : 'gray'
-          }
-        >
-          {label}
-        </Badge>
-        {!compact && current.lastCheckedAt && (
-          <Text
-            size="xs"
-            c="dimmed"
+      {!primaryOnly && (
+        <Group>
+          <Badge
+            color={
+              ready || current.state === 'CheckFailed'
+                ? 'orange'
+                : current.state === 'Applying'
+                  ? 'blue'
+                  : 'gray'
+            }
           >
-            Checked {new Date(current.lastCheckedAt).toLocaleString()}
-          </Text>
-        )}
-      </Group>
-      {!compact && (
+            {label}
+          </Badge>
+          {!compact && current.lastCheckedAt && (
+            <Text
+              size="xs"
+              c="dimmed"
+            >
+              Checked {new Date(current.lastCheckedAt).toLocaleString()}
+            </Text>
+          )}
+        </Group>
+      )}
+      {!compact && !primaryOnly && (
         <Text
           size="xs"
           c="dimmed"
@@ -164,24 +171,42 @@ export function SourceSubscriptionActions({
         <Group>
           {ready && (
             <Button
-              variant="light"
+              {...(primaryOnly
+                ? workspaceActionProps
+                : {
+                    variant: 'light',
+                  })}
               onClick={() => setReview(true)}
               disabled={checking}
             >
-              {current.activeDatId ? 'Review update' : 'Review source'}
+              {current.activeDatId
+                ? 'Review update'
+                : primaryOnly
+                  ? 'Review first DAT'
+                  : 'Review source'}
             </Button>
           )}
-          {!compact && (
+          {((!compact && !primaryOnly) ||
+            (primaryOnly &&
+              (current.state === 'CheckFailed' || current.state === 'NotChecked'))) && (
             <Button
-              variant="subtle"
+              {...(primaryOnly
+                ? workspaceActionProps
+                : {
+                    variant: 'subtle',
+                  })}
               loading={checking}
               disabled={current.state === 'Applying'}
               onClick={() => void check()}
             >
-              {current.state === 'CheckFailed' ? 'Retry check' : 'Check for updates'}
+              {current.state === 'CheckFailed'
+                ? 'Retry check'
+                : primaryOnly && !current.activeDatId
+                  ? 'Check for first DAT'
+                  : 'Check for updates'}
             </Button>
           )}
-          {current.jobId && (
+          {current.jobId && (!primaryOnly || current.state === 'Applying') && (
             <Button
               component={Link}
               to={`/jobs/${current.jobId}`}

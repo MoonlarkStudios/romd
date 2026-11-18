@@ -1,0 +1,305 @@
+import { Alert, Badge, Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
+import type { DatCatalogSubscription, ManagedSystem, SystemResource } from '@romd/admin-api-client';
+import type { MouseEventHandler } from 'react';
+import { Link } from 'react-router';
+import workspace from '../../components/Workspace/Workspace.module.css';
+import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { useDatsByPlatform } from '../../hooks/api/useDats';
+import { SourceStatusBadge } from './SourceStatusBadge';
+import { SourceSubscriptionActions } from './SourceSubscriptionActions';
+import { SystemLogo } from './SystemLogo';
+import classes from './Systems.module.css';
+import { systemStateColors } from './systemState';
+import { catalogLabel, type systemSubscriptionStatus } from './systemsListStatus';
+
+export const systemInspectorId = 'systems-inspector';
+
+const shownSources = 3;
+
+function subscriptionActionStatus(subscription: DatCatalogSubscription): string {
+  switch (subscription.state) {
+    case 'CheckFailed':
+      return 'Check failed';
+    case 'NotChecked':
+      return 'Not checked';
+    case 'Applying':
+      return subscription.activeDatId ? 'Applying update' : 'Importing DAT';
+    default:
+      return subscription.activeDatId ? 'Update to review' : 'First DAT to review';
+  }
+}
+
+function InstalledSources({
+  system,
+  subscriptions,
+  subscriptionState,
+}: {
+  system: ManagedSystem;
+  subscriptions: DatCatalogSubscription[];
+  subscriptionState: 'available' | 'pending' | 'unavailable';
+}) {
+  const dats = useDatsByPlatform(system.catalogCount > 0 ? system.key : undefined);
+  if (system.catalogCount === 0)
+    return (
+      <Text
+        size="sm"
+        c="dimmed"
+      >
+        No DAT installed
+      </Text>
+    );
+  if (dats.isPending) return <Skeleton height={52} />;
+  if (dats.isError)
+    return (
+      <Alert
+        color="yellow"
+        title="Installed sources could not be loaded"
+      >
+        <Button
+          variant="subtle"
+          size="compact-sm"
+          onClick={() => void dats.refetch()}
+        >
+          Retry sources
+        </Button>
+      </Alert>
+    );
+
+  const installed = dats.data ?? [];
+  if (installed.length === 0)
+    return (
+      <Text
+        size="sm"
+        c="dimmed"
+      >
+        No DAT installed
+      </Text>
+    );
+  return (
+    <>
+      <ul className={classes.sources}>
+        {installed.slice(0, shownSources).map((dat) => {
+          const subscribed = subscriptions.some(
+            (subscription) => subscription.activeDatId === dat.id,
+          );
+          const metadata = [
+            dat.version,
+            subscribed
+              ? 'Subscription'
+              : subscriptionState === 'available'
+                ? 'Manual updates'
+                : null,
+          ]
+            .filter(Boolean)
+            .join(' · ');
+          return (
+            <li key={dat.id}>
+              <Text
+                size="sm"
+                className="romd-card-title"
+              >
+                {dat.name}
+              </Text>
+              {metadata && (
+                <Text
+                  size="xs"
+                  c="dimmed"
+                >
+                  {metadata}
+                </Text>
+              )}
+              {dat.sourceStatus && dat.sourceStatus !== 'Active' && (
+                <SourceStatusBadge status={dat.sourceStatus} />
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {installed.length > shownSources && (
+        <Text
+          size="xs"
+          c="dimmed"
+        >
+          {installed.length - shownSources} more in Catalog sources
+        </Text>
+      )}
+    </>
+  );
+}
+
+export function SystemInspector({
+  system,
+  icon,
+  subscriptions,
+  subscriptionState,
+  status,
+  canSetUp,
+  returnPath,
+  onOpen,
+}: {
+  system: ManagedSystem;
+  icon?: SystemResource['icon'];
+  subscriptions: DatCatalogSubscription[];
+  subscriptionState: 'available' | 'pending' | 'unavailable';
+  status: ReturnType<typeof systemSubscriptionStatus>;
+  canSetUp: boolean;
+  returnPath: string;
+  onOpen: MouseEventHandler<HTMLAnchorElement>;
+}) {
+  const systemPath = `/systems/${system.key}`;
+  const sourcesPath = `${systemPath}?tab=sources`;
+  const state = {
+    systemsReturn: returnPath,
+  };
+  const next = canSetUp
+    ? ([
+        status.firstDats,
+        status.updates,
+        status.failed,
+        status.unchecked,
+        status.applying.filter((item) => item.jobId),
+      ].find((group) => group.length > 0) ?? [])
+    : [];
+  const attention = system.state === 'NeedsAttention' && system.catalogCount === 0;
+  const needsCatalog =
+    canSetUp &&
+    system.state === 'NeedsCatalog' &&
+    subscriptionState === 'available' &&
+    !subscriptions.length;
+  const hasAction = next.length === 1 || needsCatalog || attention;
+
+  return (
+    <aside
+      className={`${workspace.panel} ${classes.inspector}`}
+      id={systemInspectorId}
+      aria-labelledby="systems-inspector-name"
+    >
+      <Stack gap="md">
+        <Group
+          gap="sm"
+          wrap="nowrap"
+          align="flex-start"
+        >
+          <SystemLogo
+            icon={icon}
+            size="lg"
+          />
+          <Stack
+            gap={3}
+            className={classes.inspectorIdentity}
+          >
+            <Title
+              id="systems-inspector-name"
+              order={2}
+              className={workspace.sectionHeading}
+            >
+              {system.name}
+            </Title>
+            <Text
+              size="xs"
+              c="dimmed"
+            >
+              {[
+                system.manufacturer,
+                system.shortName,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+          </Stack>
+        </Group>
+        <Stack gap="xs">
+          <Group
+            wrap="wrap"
+            justify="space-between"
+          >
+            <Title
+              order={3}
+              size="h6"
+            >
+              Catalog sources
+            </Title>
+            <Badge
+              variant="light"
+              color={systemStateColors[system.state] ?? 'gray'}
+            >
+              {catalogLabel(system.state)}
+            </Badge>
+          </Group>
+          <InstalledSources
+            system={system}
+            subscriptions={subscriptions}
+            subscriptionState={subscriptionState}
+          />
+          {system.message && (
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              {system.message}
+            </Text>
+          )}
+        </Stack>
+        <Text
+          size="xs"
+          c="dimmed"
+        >
+          {(system.trackedTitles ?? 0).toLocaleString()} tracked titles ·{' '}
+          {system.ownedTitles.toLocaleString()} with files
+        </Text>
+        {next.length === 1 && (
+          <Text
+            size="xs"
+            c="dimmed"
+          >
+            {next[0].name} · {subscriptionActionStatus(next[0])}
+          </Text>
+        )}
+        <Group
+          gap="xs"
+          align="flex-start"
+        >
+          {next.length === 1 && (
+            <SourceSubscriptionActions
+              key={next[0].id}
+              primaryOnly
+              subscription={next[0]}
+              onAccepted={() => {}}
+            />
+          )}
+          {!next.length && needsCatalog && (
+            <Button
+              {...workspaceActionProps}
+              component={Link}
+              to={`${sourcesPath}&setup=1`}
+              state={state}
+              onClick={onOpen}
+            >
+              Set up catalog
+            </Button>
+          )}
+          {!next.length && attention && (
+            <Button
+              component={Link}
+              to="/jobs"
+              variant="light"
+              onClick={onOpen}
+            >
+              View jobs
+            </Button>
+          )}
+          <Button
+            {...workspaceActionProps}
+            component={Link}
+            to={sourcesPath}
+            state={state}
+            onClick={onOpen}
+            variant={hasAction ? 'light' : 'filled'}
+          >
+            Open system
+          </Button>
+        </Group>
+      </Stack>
+    </aside>
+  );
+}

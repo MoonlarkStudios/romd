@@ -17,7 +17,7 @@ import {
 } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route, Routes } from 'react-router';
+import { parsePath, Route, Routes } from 'react-router';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { completePage } from '../../test/fixtures/referencePages';
 import { render } from '../../test/utils/render';
@@ -51,6 +51,7 @@ const access = vi.hoisted(() => ({
   canManageSources: true,
   canManageTitles: false,
   canTriggerEnrichment: false,
+  role: 'Admin',
 }));
 vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: () => access,
@@ -91,7 +92,7 @@ const sub = {
   name: 'Redump',
   state: 'UpdateAvailable',
 };
-function hub(url = '/systems/psx?tab=sources') {
+function hub(url = '/systems/psx?tab=sources', systemsReturn?: string) {
   render(
     <Routes>
       <Route
@@ -106,7 +107,14 @@ function hub(url = '/systems/psx?tab=sources') {
     {
       routerOptions: {
         initialEntries: [
-          url,
+          systemsReturn
+            ? {
+                ...parsePath(url),
+                state: {
+                  systemsReturn,
+                },
+              }
+            : url,
         ],
       },
     },
@@ -202,6 +210,21 @@ it('lists mixed sources and does not eagerly request any entry pages', async () 
   ).toBeInTheDocument();
   expect(screen.getByText('Catalog ready')).toBeInTheDocument();
   expect(listSourceEntries).not.toHaveBeenCalled();
+  expect(listDatCatalogs).not.toHaveBeenCalled();
+});
+it('keeps the filtered Systems return destination when switching detail tabs', async () => {
+  const systemsReturn = '/systems?q=psx&attention=1&system=psx';
+  hub('/systems/psx?tab=sources', systemsReturn);
+  await userEvent.click(
+    await screen.findByRole('tab', {
+      name: 'Titles',
+    }),
+  );
+  expect(
+    screen.getByRole('link', {
+      name: 'All systems',
+    }),
+  ).toHaveAttribute('href', systemsReturn);
 });
 it('defaults to tracked titles and keeps the all-title escape scoped to this system', async () => {
   hub('/systems/psx');
@@ -395,12 +418,19 @@ it('shows first-source guidance independently of adding the system', async () =>
   vi.mocked(listSystemDats).mockResolvedValue(result(page([])));
   vi.mocked(listDatSubscriptions).mockResolvedValue(result([]));
   hub();
-  expect(await screen.findByText('No sources yet')).toBeInTheDocument();
+  expect(await screen.findByText('No DAT installed')).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Choose a source',
+      name: 'Set up catalog',
     }),
   ).toBeEnabled();
+});
+it('opens catalog setup from its direct link', async () => {
+  vi.mocked(listSystemDats).mockResolvedValue(result(page([])));
+  vi.mocked(listDatSubscriptions).mockResolvedValue(result([]));
+  hub('/systems/psx?tab=sources&setup=1');
+  expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  expect(listDatCatalogs).toHaveBeenCalled();
 });
 it('keeps a pending subscription visible before its first DAT exists', async () => {
   vi.mocked(listDatSubscriptions).mockResolvedValue(
@@ -420,7 +450,7 @@ it('keeps a pending subscription visible before its first DAT exists', async () 
     }),
   );
   hub();
-  expect(await screen.findByText('No installed DAT')).toBeInTheDocument();
+  expect(await screen.findByText('No DAT installed')).toBeInTheDocument();
   expect(
     await screen.findByRole('button', {
       name: 'Review source',

@@ -1,18 +1,22 @@
 import { Alert, Badge, Button, Group, Stack, Text } from '@mantine/core';
-import { Link } from 'react-router';
-import {
-  useDatCatalogs,
-  useDatSubscriptions,
-  useManagedSystems,
-} from '../../hooks/api/useManagedSystems';
-import { systemAttention } from './systemAttention';
+import { Link, useLocation } from 'react-router';
+import { useDatSubscriptions, useManagedSystems } from '../../hooks/api/useManagedSystems';
+import { usePermissions } from '../../hooks/usePermissions';
 import { systemStateColors, systemStateLabels } from './systemState';
+import { systemSubscriptionStatus } from './systemsListStatus';
 
 /** Availability is independent of individual source checks or candidate versions. */
-export function SystemSetupSummary({ systemKey }: { systemKey: string }) {
+export function SystemSetupSummary({
+  systemKey,
+  viewingSources = false,
+}: {
+  systemKey: string;
+  viewingSources?: boolean;
+}) {
   const systems = useManagedSystems();
-  const catalogs = useDatCatalogs();
   const subscriptions = useDatSubscriptions();
+  const { role } = usePermissions();
+  const { state } = useLocation();
   const system = systems.data?.find((s) => s.key === systemKey);
   if (!system)
     return systems.isError ? (
@@ -21,7 +25,14 @@ export function SystemSetupSummary({ systemKey }: { systemKey: string }) {
         <Button onClick={() => void systems.refetch()}>Retry</Button>
       </Alert>
     ) : null;
-  const { updates, failed: attention } = systemAttention(systemKey, subscriptions.data ?? []);
+  const sourcesPath = `/systems/${systemKey}?tab=sources`;
+  const related = (subscriptions.data ?? []).filter(
+    (subscription) => subscription.systemKey === systemKey,
+  );
+  const status = systemSubscriptionStatus(related);
+  const firstDats = status.firstDats.length;
+  const updates = status.updates.length;
+  const attention = status.failed.length;
   return (
     <Stack gap="xs">
       <Group>
@@ -33,31 +44,50 @@ export function SystemSetupSummary({ systemKey }: { systemKey: string }) {
           {(system.trackedTitles ?? 0).toLocaleString()} tracked titles ·{' '}
           {system.ownedTitles.toLocaleString()} titles with files
         </Text>
-        {system.state === 'NeedsCatalog' && (
-          <Button
-            component={Link}
-            to={`/systems/${systemKey}?tab=sources`}
-            variant="subtle"
-            color="teal"
-            size="compact-sm"
-          >
-            Add a source
-          </Button>
-        )}
-        {updates > 0 && (
+        {!viewingSources &&
+          role === 'Admin' &&
+          system.enabled &&
+          system.state === 'NeedsCatalog' &&
+          !related.length &&
+          subscriptions.isSuccess && (
+            <Button
+              component={Link}
+              to={`${sourcesPath}&setup=1`}
+              state={state}
+              variant="subtle"
+              color="teal"
+              size="compact-sm"
+            >
+              Set up catalog
+            </Button>
+          )}
+        {!viewingSources && firstDats > 0 && (
           <Text
             component={Link}
-            to={`/systems/${systemKey}?tab=sources`}
+            to={sourcesPath}
+            state={state}
+            size="sm"
+            c="orange"
+          >
+            {firstDats === 1 ? 'First DAT ready for review' : `${firstDats} new DATs to review`}
+          </Text>
+        )}
+        {!viewingSources && updates > 0 && (
+          <Text
+            component={Link}
+            to={sourcesPath}
+            state={state}
             size="sm"
             c="orange"
           >
             {updates} {updates === 1 ? 'update' : 'updates'} to review
           </Text>
         )}
-        {attention > 0 && (
+        {!viewingSources && attention > 0 && (
           <Text
             component={Link}
-            to={`/systems/${systemKey}?tab=sources`}
+            to={sourcesPath}
+            state={state}
             size="sm"
             c="orange"
           >
@@ -84,7 +114,7 @@ export function SystemSetupSummary({ systemKey }: { systemKey: string }) {
           View processing details
         </Button>
       )}
-      {(catalogs.isError || catalogs.data?.message || subscriptions.isError) && (
+      {!viewingSources && subscriptions.isError && (
         <Text
           size="xs"
           c="dimmed"

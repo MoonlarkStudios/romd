@@ -3,7 +3,7 @@ import { notifications } from '@mantine/notifications';
 import type { Dat, SourceLifecycleStatus } from '@romd/admin-api-client';
 import { IconDots, IconDownload, IconSettings, IconUpload } from '@tabler/icons-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { downloadDatSource } from '../../hooks/api/useDats';
 import { usePermissions } from '../../hooks/usePermissions';
 import { ConfirmSourceStatusModal } from './ConfirmSourceStatusModal';
@@ -24,6 +24,7 @@ export function SourceActions({
   lifecycle?: boolean;
 }) {
   const { canManageSources } = usePermissions();
+  const { state: returnState } = useLocation();
   const [status, setStatus] = useState<SourceLifecycleStatus | 'Delete' | null>(null);
   return (
     <>
@@ -42,6 +43,7 @@ export function SourceActions({
           <Menu.Item
             component={Link}
             to={`${path}?tab=updates`}
+            state={returnState}
           >
             Updates
           </Menu.Item>
@@ -62,6 +64,7 @@ export function SourceActions({
             <Menu.Item
               component={Link}
               to={`${path}?tab=updates`}
+              state={returnState}
               leftSection={<IconUpload size={16} />}
             >
               Upload new version
@@ -71,6 +74,7 @@ export function SourceActions({
             <Menu.Item
               component={Link}
               to={`${path}?tab=settings`}
+              state={returnState}
               leftSection={<IconSettings size={16} />}
             >
               Source settings

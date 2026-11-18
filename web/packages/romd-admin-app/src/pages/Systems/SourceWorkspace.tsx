@@ -3,7 +3,7 @@ import type { JobReference } from '@romd/admin-api-client';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { useDatsByPlatform } from '../../hooks/api/useDats';
 import { useJob } from '../../hooks/api/useJobs';
@@ -30,6 +30,7 @@ export function SourceWorkspace() {
   const catalogs = useDatCatalogs();
   const subscriptions = useDatSubscriptions();
   const client = useQueryClient();
+  const { state } = useLocation();
   const [params, setParams] = useSearchParams();
   const [file, setFile] = useState<File>();
   const [jobId, setJobId] = useState<string>();
@@ -93,6 +94,7 @@ export function SourceWorkspace() {
         <Button
           component={Link}
           to={`/systems/${systemKey}?tab=sources`}
+          state={state}
           variant="subtle"
           color="gray"
           p={0}
@@ -155,7 +157,7 @@ export function SourceWorkspace() {
                     size="sm"
                     c="dimmed"
                   >
-                    {Number(dat.gameCount ?? 0).toLocaleString()} entries
+                    {Number(dat.gameCount ?? 0).toLocaleString()} DAT entries
                   </Text>
                 </Group>
                 <Text size="sm">Installed DAT: {dat.version ?? 'Version not specified'}</Text>
@@ -194,7 +196,9 @@ export function SourceWorkspace() {
                 if (!value) return;
                 const next = new URLSearchParams(params);
                 next.set('tab', value);
-                setParams(next);
+                setParams(next, {
+                  state,
+                });
               }}
               keepMounted={false}
               color="teal"

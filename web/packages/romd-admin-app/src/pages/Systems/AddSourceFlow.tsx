@@ -2,27 +2,35 @@ import {
   Alert,
   Badge,
   Button,
-  Drawer,
   Group,
   Loader,
-  Paper,
+  Modal,
   Progress,
   Stack,
   Text,
-  TextInput,
+  Title,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import type {
   Dat,
   DatCatalogSubscription,
   JobReference,
   ManagedSystem,
+  PublishedDatCatalog,
   SystemDatPreview,
 } from '@romd/admin-api-client';
-import { createDatSubscription, importSystemDat, previewSystemDat } from '@romd/admin-api-client';
+import {
+  checkDatSubscription,
+  createDatSubscription,
+  importSystemDat,
+  previewSystemDat,
+} from '@romd/admin-api-client';
+import { IconArrowLeft } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { useDatsByPlatform } from '../../hooks/api/useDats';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { datKeys, useDatsByPlatform } from '../../hooks/api/useDats';
 import { useJob } from '../../hooks/api/useJobs';
 import {
   managedSystemKeys,
@@ -32,54 +40,86 @@ import {
   useSetSystemEnabled,
 } from '../../hooks/api/useManagedSystems';
 import { formatBytes } from '../../utils/format';
-import { CatalogRefreshNotice } from './CatalogRefreshNotice';
 import { catalogProviderName } from './catalogProviderName';
 import { DatUploadZone } from './components/DatUploadZone';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
+import { SystemDatOptions, verifiedOffers } from './SystemDatOptions';
+import { SystemLogo, useSystemIcons } from './SystemLogo';
+import { SystemSetupPicker } from './SystemSetupPicker';
 
-export function setupFailure(error: unknown): string {
+export type OpenSetupSystem = (systemKey: string, tab?: 'sources') => void;
+type SetupStep = 'system' | 'file' | 'source' | 'manual-review' | 'job';
+
+function setupFailure(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (error && typeof error === 'object' && 'detail' in error && typeof error.detail === 'string')
     return error.detail;
   return 'This step could not be completed. Your active catalog is unchanged. Try again.';
 }
+
+function hasRetainedSetup(system: ManagedSystem, subscriptions: DatCatalogSubscription[]) {
+  return (
+    system.state !== 'NeedsCatalog' ||
+    system.catalogCount > 0 ||
+    system.ownedTitles > 0 ||
+    (system.trackedTitles ?? 0) > 0 ||
+    subscriptions.some((subscription) => subscription.systemKey === system.key)
+  );
+}
+
 export function AddSourceFlow({
   system,
   startWithUpload = false,
   onClose,
+  onSystemOpen,
 }: {
   system?: ManagedSystem;
   startWithUpload?: boolean;
   onClose: () => void;
+  onSystemOpen?: OpenSetupSystem;
 }) {
-  const systems = useManagedSystems();
-  const catalogs = useDatCatalogs();
-  const subscriptions = useDatSubscriptions();
-  const enable = useSetSystemEnabled();
-  const client = useQueryClient();
-  const navigate = useNavigate();
+  const addingSystem = !system && !startWithUpload;
+  const mobile = useMediaQuery('(max-width: 48em)');
   const [selected, setSelected] = useState(system);
-  const [step, setStep] = useState(system ? 1 : 0);
+  const [step, setStep] = useState<SetupStep>(
+    system ? 'source' : startWithUpload ? 'file' : 'system',
+  );
   const [search, setSearch] = useState('');
-  const choices = useManagedSystems(search, step === 0);
   const [file, setFile] = useState<File>();
   const [inspection, setInspection] = useState<SystemDatPreview>();
   const [review, setReview] = useState<DatCatalogSubscription>();
   const [replacement, setReplacement] = useState<Dat>();
+  const [pendingSubscription, setPendingSubscription] = useState<DatCatalogSubscription>();
   const [addSeparately, setAddSeparately] = useState(false);
   const [jobId, setJobId] = useState<string>();
-  const job = useJob(jobId);
-  const dats = useDatsByPlatform(selected?.key);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  const available =
-    catalogs.data?.catalogs.filter((c) => c.systemId === selected?.key && c.documentHash) ?? [];
-  const replacements = dats.data?.filter((d) => inspection?.existingDatIds.includes(d.id)) ?? [];
+  const [enabledKey, setEnabledKey] = useState<string>();
+  const [restoreAfterReplacement, setRestoreAfterReplacement] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const systems = useManagedSystems('', !!selected || startWithUpload);
+  const catalogs = useDatCatalogs();
+  const subscriptions = useDatSubscriptions();
+  const enable = useSetSystemEnabled();
+  const job = useJob(jobId);
+  const dats = useDatsByPlatform(selected?.key);
+  const icons = useSystemIcons();
+  const client = useQueryClient();
+  const navigate = useNavigate();
+  const replacements =
+    dats.data?.filter((dat) => inspection?.existingDatIds.includes(dat.id)) ?? [];
   const jobSucceeded =
     job.data?.isTerminal && !job.data.hasErrors && job.data.phase === 'Completed';
-  const systemState = systems.data?.find((s) => s.key === selected?.key)?.state;
-  const successful = jobSucceeded && systemState === 'Ready';
-  const failed = job.data?.isTerminal && (!jobSucceeded || systemState === 'NeedsAttention');
+  const savedSystem = systems.data?.find((item) => item.key === selected?.key);
+  const pickerSelection =
+    selected ?? systems.data?.find((item) => item.key === inspection?.suggestedSystemKey);
+  const enabled =
+    !!selected && (selected.enabled || selected.key === enabledKey || savedSystem?.enabled);
+  const successful = jobSucceeded && savedSystem?.state === 'Ready';
+  const failed = job.data?.isTerminal && (!jobSucceeded || savedSystem?.state === 'NeedsAttention');
+  const restoring =
+    addingSystem && selected && !enabled && hasRetainedSetup(selected, subscriptions.data ?? []);
+
   useEffect(() => {
     if (!job.data?.isTerminal) return;
     void client.invalidateQueries({
@@ -89,39 +129,144 @@ export function AddSourceFlow({
       queryKey: managedSystemKeys.subscriptions,
     });
     void client.invalidateQueries({
-      queryKey: [
-        'dats',
-      ],
+      queryKey: datKeys.all,
     });
   }, [
     job.data?.isTerminal,
     client,
   ]);
+
+  useEffect(() => {
+    if (!review && !replacement && step !== 'system' && step !== 'file') heading.current?.focus();
+  }, [
+    step,
+    review,
+    replacement,
+  ]);
+
   async function run(action: () => Promise<void>) {
+    if (busy) return;
     setBusy(true);
     setError(undefined);
     try {
       await action();
-    } catch (e) {
-      setError(setupFailure(e));
+    } catch (error) {
+      setError(setupFailure(error));
     } finally {
       setBusy(false);
     }
   }
-  const accepted = (result: JobReference) => {
+
+  function openSystem(key: string, tab?: 'sources') {
+    onClose();
+    if (onSystemOpen) onSystemOpen(key, tab);
+    else if (key !== system?.key)
+      navigate(`/systems/${encodeURIComponent(key)}${tab ? `?tab=${tab}` : ''}`);
+  }
+
+  function finish() {
+    if (selected) openSystem(selected.key, 'sources');
+  }
+
+  async function enableSystem() {
+    if (!selected || enabled) return;
+    await enable.mutateAsync({
+      systemKey: selected.key,
+      enabled: true,
+    });
+    setEnabledKey(selected.key);
+  }
+
+  function trackImport(result: Pick<JobReference, 'jobId'>) {
     setReview(undefined);
     setReplacement(undefined);
     setJobId(result.jobId);
-    setStep(3);
+    setStep('job');
     void client.invalidateQueries({
       queryKey: managedSystemKeys.all,
     });
-  };
-  const finish = () => {
-    onClose();
-    if (selected) navigate(`/systems/${selected.key}`);
-  };
-  const inspect = (files: File[]) =>
+  }
+
+  function handleSubscription(subscription: DatCatalogSubscription) {
+    setPendingSubscription(subscription);
+    void client.invalidateQueries({
+      queryKey: managedSystemKeys.subscriptions,
+    });
+    if (subscription.state === 'ReadyToImport' || subscription.state === 'UpdateAvailable') {
+      setReview(subscription);
+    } else if (subscription.state === 'Applying' && subscription.jobId) {
+      trackImport({
+        jobId: subscription.jobId,
+      });
+    } else if (subscription.state === 'UpToDate') {
+      finish();
+    }
+  }
+
+  function subscribe(catalog: PublishedDatCatalog) {
+    void run(async () => {
+      await enableSystem();
+      try {
+        const response = await createDatSubscription({
+          body: {
+            catalogId: catalog.catalogId,
+          },
+        });
+        if (!response.data || response.error) throw response.error;
+        handleSubscription(response.data);
+      } finally {
+        // Enrollment can commit even if its response is interrupted. Read local state before offering another action.
+        void client.invalidateQueries({
+          queryKey: managedSystemKeys.subscriptions,
+        });
+      }
+    });
+  }
+
+  function resumeSubscription(subscription: DatCatalogSubscription) {
+    if (
+      subscription.state === 'ReadyToImport' ||
+      subscription.state === 'UpdateAvailable' ||
+      (subscription.state === 'Applying' && subscription.jobId)
+    ) {
+      handleSubscription(subscription);
+      return;
+    }
+    void run(async () => {
+      const response = await checkDatSubscription({
+        path: {
+          subscriptionId: subscription.id,
+        },
+      });
+      if (!response.data || response.error) throw response.error;
+      handleSubscription(response.data);
+    });
+  }
+
+  function chooseSystem(candidate: ManagedSystem) {
+    if (addingSystem && candidate.enabled) {
+      openSystem(candidate.key, candidate.state === 'NeedsCatalog' ? 'sources' : undefined);
+      return;
+    }
+    setError(undefined);
+    setSelected(candidate);
+    setPendingSubscription(undefined);
+    if (addingSystem) setStep('source');
+  }
+
+  function systemHint(candidate: ManagedSystem) {
+    if (!addingSystem) return undefined;
+    if (candidate.enabled) return 'In your systems';
+    if (hasRetainedSetup(candidate, subscriptions.data ?? [])) return 'Saved setup';
+    const offers = verifiedOffers(catalogs, candidate.key);
+    if (offers.length === 1) return `${catalogProviderName(offers[0].provider)} available`;
+    if (offers.length > 1) return `${offers.length} subscription options`;
+    if (catalogs.isSuccess && catalogs.data.enabled && !catalogs.data.message)
+      return 'Upload a DAT';
+    return undefined;
+  }
+
+  function inspect(files: File[]) {
     void run(async () => {
       const next = files[0];
       if (!next) return;
@@ -129,55 +274,104 @@ export function AddSourceFlow({
         throw new Error('Catalog review supports DATs up to 32 MiB. Choose a smaller catalog.');
       setInspection(undefined);
       setAddSeparately(false);
-      setFile(next);
       const response = await previewSystemDat({
         body: {
           file: next,
         },
       });
       if (!response.data || response.error) throw response.error;
+      setFile(next);
       setInspection(response.data);
-      if (!selected) {
-        setSelected(systems.data?.find((s) => s.key === response.data.suggestedSystemKey));
-        setStep(0);
-      } else setStep(2);
+      if (step === 'file') {
+        setSelected(undefined);
+        setStep('system');
+      } else {
+        setStep('manual-review');
+      }
     });
+  }
+
+  function skipDat() {
+    void run(async () => {
+      await enableSystem();
+      finish();
+    });
+  }
+
+  if (review) {
+    return (
+      <DatReplacementReviewModal
+        subscription={review}
+        onClose={() => setReview(undefined)}
+        onAccepted={trackImport}
+      />
+    );
+  }
+  if (replacement && file) {
+    return (
+      <DatReplacementReviewModal
+        dat={replacement}
+        file={file}
+        onClose={() => setReplacement(undefined)}
+        onAccepted={(result) => {
+          trackImport(result);
+          if (!enabled) {
+            setRestoreAfterReplacement(true);
+            void run(async () => {
+              await enableSystem();
+              setRestoreAfterReplacement(false);
+            });
+          }
+        }}
+      />
+    );
+  }
+
+  const title = addingSystem
+    ? 'Add system'
+    : !system
+      ? 'Upload a DAT'
+      : system.catalogCount > 0
+        ? 'Add catalog source'
+        : 'Set up catalog';
   return (
-    <Drawer
+    <Modal
       opened
       onClose={onClose}
-      title={system ? `Add source · ${system.name}` : 'Add source from a DAT'}
-      size="min(640px, 100%)"
-      position="right"
+      title={title}
+      size="lg"
+      fullScreen={mobile}
+      centered
+      closeButtonProps={{
+        'aria-label': 'Close',
+      }}
       closeOnClickOutside={!busy}
+      closeOnEscape={!busy}
+      withCloseButton={!busy}
     >
-      <Stack gap="lg">
-        <Text
-          size="sm"
-          c="dimmed"
-        >
-          {step === 0
-            ? 'Confirm system'
-            : step === 1
-              ? 'Choose a source'
-              : step === 2
-                ? 'Review source'
-                : 'Processing source'}
-        </Text>
+      <Stack gap="md">
         {error && (
           <Alert
             color="red"
             title="Could not finish this step"
+            role="alert"
           >
             {error}
           </Alert>
         )}
-        {step === 0 && (
+        {step === 'file' && (
           <>
-            <Text>
-              Choose the system this DAT describes. Adding its source also adds the system to Your
-              systems.
+            <Text size="sm">
+              Choose a DAT. Review its contents and confirm the matching system before importing.
             </Text>
+            <DatUploadZone
+              onDrop={inspect}
+              loading={busy}
+            />
+          </>
+        )}
+        {step === 'system' && (
+          <>
             {inspection && (
               <Alert title="Confirm the system">
                 DAT: {inspection.name}.{' '}
@@ -186,247 +380,138 @@ export function AddSourceFlow({
                   : 'We could not identify one clear match. Choose the correct system below.'}
               </Alert>
             )}
-            {startWithUpload && !inspection && (
-              <DatUploadZone
-                onDrop={inspect}
-                loading={busy}
-              />
-            )}
-            <TextInput
-              label="Find a system"
-              placeholder="Try PS1, PSX, or PlayStation"
-              value={search}
-              onChange={(e) => setSearch(e.currentTarget.value)}
+            <SystemSetupPicker
+              search={search}
+              onSearch={setSearch}
+              selectedKey={inspection ? (pickerSelection?.key ?? '') : undefined}
+              getHint={systemHint}
+              onChoose={chooseSystem}
+              disabled={busy}
             />
-            {choices.isPending ? (
-              <Loader />
-            ) : choices.isError ? (
-              <Alert color="red">
-                {choices.error.message}
-                <Button onClick={() => void choices.refetch()}>Retry</Button>
-              </Alert>
-            ) : (
-              <Stack
-                gap="xs"
-                mah={280}
-                style={{
-                  overflowY: 'auto',
-                }}
-                role="group"
-                aria-label="Supported systems"
-              >
-                {choices.data?.map((s) => {
-                  const sources =
-                    catalogs.data?.catalogs.filter((c) => c.systemId === s.key && c.documentHash) ??
-                    [];
-                  return (
-                    <Paper
-                      key={s.key}
-                      withBorder
-                      p="sm"
-                      style={{
-                        borderColor:
-                          selected?.key === s.key
-                            ? 'var(--mantine-primary-color-filled)'
-                            : undefined,
-                      }}
-                    >
-                      <Group
-                        justify="space-between"
-                        wrap="nowrap"
-                      >
-                        <Stack gap={2}>
-                          <Text fw={600}>{s.name}</Text>
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {s.shortName}
-                          </Text>
-                          <Text size="sm">
-                            {sources.length
-                              ? sources
-                                  .map(
-                                    (c) =>
-                                      `${catalogProviderName(c.provider)}: complete catalog · ${c.entryCount.toLocaleString()} entries`,
-                                  )
-                                  .join(' / ')
-                              : catalogs.isPending
-                                ? 'Checking catalog availability…'
-                                : 'Upload a DAT or set up later'}
-                          </Text>
-                        </Stack>
-                        <Button
-                          variant={selected?.key === s.key ? 'filled' : 'light'}
-                          aria-label={`Choose ${s.name}`}
-                          onClick={() => setSelected(s)}
-                        >
-                          {s.enabled ? 'Manage' : 'Choose'}
-                        </Button>
-                      </Group>
-                    </Paper>
-                  );
-                })}
-                {choices.data && !choices.data.length && (
-                  <Text>No matching systems. Try another name or alias.</Text>
-                )}
-              </Stack>
+            {inspection && (
+              <Group justify="space-between">
+                <Button
+                  variant="subtle"
+                  disabled={busy}
+                  onClick={() => {
+                    setSelected(undefined);
+                    setInspection(undefined);
+                    setError(undefined);
+                    setStep('file');
+                  }}
+                >
+                  Choose another file
+                </Button>
+                <Button
+                  {...workspaceActionProps}
+                  disabled={!pickerSelection || busy}
+                  onClick={() => {
+                    setSelected(pickerSelection);
+                    setStep('manual-review');
+                  }}
+                >
+                  {pickerSelection ? `Continue with ${pickerSelection.name}` : 'Continue'}
+                </Button>
+              </Group>
             )}
-            <Button
-              disabled={!selected || busy}
-              onClick={() => setStep(inspection ? 2 : 1)}
-            >
-              Continue with {selected?.name ?? 'selected system'}
-            </Button>
-            {!inspection && !startWithUpload && (
-              <>
+          </>
+        )}
+        {step === 'source' && selected && (
+          <>
+            {addingSystem && (
+              <Button
+                variant="subtle"
+                color="gray"
+                p={0}
+                w="fit-content"
+                leftSection={<IconArrowLeft size={15} />}
+                disabled={busy}
+                onClick={() => {
+                  setSelected(undefined);
+                  setPendingSubscription(undefined);
+                  setError(undefined);
+                  setStep('system');
+                }}
+              >
+                Choose another system
+              </Button>
+            )}
+            <Group gap="sm">
+              <SystemLogo icon={icons.get(selected.key)} />
+              <div>
+                <Title
+                  order={2}
+                  size="h4"
+                  ref={heading}
+                  tabIndex={-1}
+                >
+                  {selected.name}
+                </Title>
                 <Text
-                  size="sm"
+                  size="xs"
                   c="dimmed"
                 >
-                  Already have a catalog? Drop a DAT to identify its system and review it first.
+                  {selected.shortName}
                 </Text>
-                <DatUploadZone
-                  onDrop={inspect}
+              </div>
+            </Group>
+            {restoring ? (
+              <>
+                <Text size="sm">Restore this system with its saved catalog setup.</Text>
+                <Button
+                  {...workspaceActionProps}
+                  w="fit-content"
                   loading={busy}
+                  onClick={skipDat}
+                >
+                  Restore system
+                </Button>
+              </>
+            ) : (
+              <>
+                <Title
+                  order={3}
+                  size="h5"
+                >
+                  {selected.catalogCount === 0 ? 'Choose the first DAT' : 'Add a catalog source'}
+                </Title>
+                <SystemDatOptions
+                  key={selected.key}
+                  system={selected}
+                  newSystem={addingSystem && !enabled}
+                  pendingSubscription={pendingSubscription}
+                  directory={catalogs}
+                  subscriptions={subscriptions}
+                  dats={dats}
+                  busy={busy}
+                  onSubscribe={subscribe}
+                  onResume={resumeSubscription}
+                  onUpload={inspect}
+                  onSkip={skipDat}
+                  onClose={enabled && addingSystem ? finish : onClose}
                 />
               </>
             )}
           </>
         )}
-        {step === 1 && selected && (
+        {step === 'manual-review' && inspection && selected && (
           <>
-            <Text fw={600}>{selected.name}</Text>
-            <Text>Add another catalog source. Your existing sources stay in place.</Text>
-            {(catalogs.isError || catalogs.data?.message) && (
-              <Alert color="yellow">
-                {catalogs.error?.message ?? catalogs.data?.message}
-                <Button
-                  variant="subtle"
-                  onClick={() => void catalogs.refetch()}
-                >
-                  Retry catalog availability
-                </Button>
-              </Alert>
-            )}
-            {catalogs.isPending && <Text c="dimmed">Checking verified catalog availability…</Text>}
-            {available.map((c) => {
-              const connected = subscriptions.data?.some((s) => s.catalogId === c.catalogId);
-              const matching = dats.data?.filter((d) => d.name === c.name) ?? [];
-              return (
-                <Paper
-                  key={c.catalogId}
-                  withBorder
-                  p="md"
-                >
-                  <Stack gap="xs">
-                    <Text fw={600}>{`${catalogProviderName(c.provider)} subscription`}</Text>
-                    <CatalogRefreshNotice catalog={c} />
-                    <Text size="sm">
-                      Complete catalog · {c.entryCount.toLocaleString()} entries ·{' '}
-                      {c.fileCount.toLocaleString()} files
-                    </Text>
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                    >
-                      Downloads come from the ROMD mirror. You review each update before activation.
-                      ROMD checks daily. Every update waits for your review.
-                    </Text>
-                    <Button
-                      disabled={
-                        connected ||
-                        matching.length > 0 ||
-                        dats.isPending ||
-                        dats.isError ||
-                        !subscriptions.isSuccess
-                      }
-                      loading={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          await enable.mutateAsync({
-                            systemKey: selected.key,
-                            enabled: true,
-                          });
-                          const response = await createDatSubscription({
-                            body: {
-                              catalogId: c.catalogId,
-                            },
-                          });
-                          if (!response.data || response.error) throw response.error;
-                          void client.invalidateQueries({
-                            queryKey: managedSystemKeys.subscriptions,
-                          });
-                          if (
-                            [
-                              'ReadyToImport',
-                              'UpdateAvailable',
-                            ].includes(response.data.state)
-                          ) {
-                            setReview(response.data);
-                            setStep(2);
-                          } else if (response.data.state === 'UpToDate') finish();
-                          else
-                            throw new Error(
-                              response.data.message ??
-                                'Could not prepare a verified catalog. Retry when the publisher is available.',
-                            );
-                        })
-                      }
-                    >
-                      {connected
-                        ? 'Already connected'
-                        : matching.length
-                          ? 'Manage updates from the existing source'
-                          : `Subscribe to ${catalogProviderName(c.provider)}`}
-                    </Button>
-                  </Stack>
-                </Paper>
-              );
-            })}
-            {!catalogs.isPending &&
-              !catalogs.isError &&
-              !catalogs.data?.message &&
-              !available.length && (
-                <Text
-                  size="sm"
-                  c="dimmed"
-                >
-                  No verified catalog has been published for this system yet. You can upload a DAT
-                  below.
-                </Text>
-              )}
-            <Text fw={600}>Upload a DAT</Text>
-            <DatUploadZone
-              onDrop={inspect}
-              loading={busy}
-            />
-            <Text
-              size="sm"
-              c="dimmed"
+            <Title
+              order={2}
+              size="h4"
+              ref={heading}
+              tabIndex={-1}
             >
-              Add a separate source you update manually. To update an existing source, choose Upload
-              new version on that source.
-            </Text>
-            <Button
-              variant="default"
-              onClick={onClose}
-            >
-              Done
-            </Button>
-          </>
-        )}
-        {step === 2 && inspection && selected && !review && !replacement && (
-          <>
-            <Text fw={600}>Review source for {selected.name}</Text>
+              Review DAT for {selected.name}
+            </Title>
             <Text>{inspection.name}</Text>
             <Group>
-              <Badge>{inspection.preview.candidateEntries.toLocaleString()} entries</Badge>
+              <Badge>{inspection.preview.candidateEntries.toLocaleString()} DAT entries</Badge>
               <Badge>
                 {(
                   inspection.preview.candidateFiles ?? inspection.preview.filesAdded
                 ).toLocaleString()}{' '}
-                files
+                expected files
               </Badge>
               <Badge>{formatBytes(inspection.bytes)}</Badge>
             </Group>
@@ -435,8 +520,7 @@ export function AddSourceFlow({
               {inspection.preview.candidateBiosEntries.toLocaleString()} BIOS entries
             </Text>
             <Alert>
-              These counts describe this DAT. A manual upload does not establish that the catalog
-              covers every release for the system. ROM files are imported separately.
+              A DAT may cover only part of the system’s catalog. Import ROM files separately.
             </Alert>
             {inspection.suggestedSystemKey !== selected.key && (
               <Alert color="yellow">
@@ -453,28 +537,37 @@ export function AddSourceFlow({
               </Alert>
             ) : replacements.length && !addSeparately ? (
               <>
-                <Text>
-                  This name matches an existing source. Choose whether to update that source or add
-                  a separate source. A name match alone does not decide.
+                <Text size="sm">
+                  This DAT has the same name as an installed source. Choose whether to update that
+                  source or add a separate source.
                 </Text>
-                {replacements
-                  .filter((d) => !subscriptions.data?.some((sub) => sub.activeDatId === d.id))
-                  .map((d) => (
+                {subscriptions.isError && (
+                  <Alert color="yellow">
+                    Source subscriptions could not be checked.
                     <Button
-                      key={d.id}
-                      onClick={() =>
-                        void run(async () => {
-                          await enable.mutateAsync({
-                            systemKey: selected.key,
-                            enabled: true,
-                          });
-                          setReplacement(d);
-                        })
-                      }
+                      variant="subtle"
+                      onClick={() => void subscriptions.refetch()}
                     >
-                      Update this source: {d.name} ({d.version ?? 'no version'})
+                      Retry subscriptions
                     </Button>
-                  ))}
+                  </Alert>
+                )}
+                {subscriptions.isSuccess &&
+                  replacements
+                    .filter(
+                      (dat) =>
+                        !subscriptions.data.some(
+                          (subscription) => subscription.activeDatId === dat.id,
+                        ),
+                    )
+                    .map((dat) => (
+                      <Button
+                        key={dat.id}
+                        onClick={() => setReplacement(dat)}
+                      >
+                        Update this source: {dat.name} ({dat.version ?? 'no version'})
+                      </Button>
+                    ))}
                 <Button
                   variant="default"
                   onClick={() => setAddSeparately(true)}
@@ -484,6 +577,7 @@ export function AddSourceFlow({
               </>
             ) : (
               <Button
+                {...workspaceActionProps}
                 loading={busy}
                 onClick={() =>
                   void run(async () => {
@@ -500,7 +594,7 @@ export function AddSourceFlow({
                       },
                     });
                     if (!response.data || response.error) throw response.error;
-                    accepted(response.data);
+                    trackImport(response.data);
                   })
                 }
               >
@@ -509,33 +603,37 @@ export function AddSourceFlow({
             )}
             <Button
               variant="subtle"
-              onClick={() => setStep(0)}
+              color="gray"
+              w="fit-content"
+              disabled={busy}
+              onClick={() => {
+                setError(undefined);
+                setStep(startWithUpload ? 'system' : 'source');
+              }}
             >
-              Change system
+              {startWithUpload ? 'Change system' : 'Back to DAT options'}
             </Button>
           </>
         )}
-        {step === 2 && !inspection && !review && (
-          <Button
-            variant="default"
-            onClick={() => setStep(system || selected ? 1 : 0)}
-          >
-            Back to source options
-          </Button>
-        )}
-        {step === 3 && (
+        {step === 'job' && (
           <>
-            <Text fw={600}>
+            <Title
+              order={2}
+              size="h4"
+              ref={heading}
+              tabIndex={-1}
+            >
               {successful
                 ? 'Your source is ready'
                 : failed
                   ? 'Setup needs attention'
                   : 'Processing your source'}
-            </Text>
+            </Title>
             {!successful && !failed && (
               <>
                 <Progress
-                  animated
+                  aria-label="DAT import progress"
+                  animated={!job.data?.isTerminal}
                   value={Number(job.data?.progressPercent ?? 0)}
                 />
                 <Text size="sm">
@@ -547,13 +645,37 @@ export function AddSourceFlow({
             {job.isError && (
               <Alert color="yellow">
                 Progress could not be loaded. Processing may still be running.
-                <Button onClick={() => void job.refetch()}>Retry status</Button>
+                <Button
+                  variant="subtle"
+                  onClick={() => void job.refetch()}
+                >
+                  Retry status
+                </Button>
               </Alert>
             )}
-            {successful ? (
-              <>
-                <Text>Next, import your ROMs to see which games you own.</Text>
+            {restoreAfterReplacement && !busy && (
+              <Button
+                variant="light"
+                onClick={() =>
+                  void run(async () => {
+                    await enableSystem();
+                    setRestoreAfterReplacement(false);
+                  })
+                }
+              >
+                Restore system
+              </Button>
+            )}
+            {successful && (
+              <Group>
                 <Button
+                  {...workspaceActionProps}
+                  onClick={finish}
+                >
+                  Open catalog sources
+                </Button>
+                <Button
+                  variant="default"
                   onClick={() => {
                     onClose();
                     navigate('/import');
@@ -561,68 +683,49 @@ export function AddSourceFlow({
                 >
                   Import your ROMs
                 </Button>
-                <Button
-                  variant="default"
-                  onClick={finish}
-                >
-                  Open system
-                </Button>
-              </>
-            ) : failed ? (
+              </Group>
+            )}
+            {failed && (
               <>
                 <Alert color="red">
                   {jobSucceeded
-                    ? `Your document is saved. ${systems.data?.find((s) => s.key === selected?.key)?.message ?? 'The system is not ready yet. Open it for details.'}`
-                    : 'The catalog did not finish cleanly. Any previously active catalog is preserved. Review the job, then retry setup.'}
+                    ? `Your document is saved. ${savedSystem?.message ?? 'The system is not ready yet. Open it for details.'}`
+                    : 'The DAT did not finish processing. Any previously active catalog is preserved.'}
                 </Alert>
-                <Button
-                  component="a"
-                  href={`/jobs/${jobId}`}
-                >
-                  View job
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (jobSucceeded) void systems.refetch();
-                    else {
-                      setJobId(undefined);
-                      setStep(1);
-                    }
-                  }}
-                >
-                  {jobSucceeded ? 'Refresh status' : 'Retry source setup'}
-                </Button>
-                {jobSucceeded && (
+                <Group>
+                  {jobId && (
+                    <Button
+                      component={Link}
+                      to={`/jobs/${jobId}`}
+                    >
+                      View job
+                    </Button>
+                  )}
                   <Button
                     variant="default"
+                    onClick={() => {
+                      if (jobSucceeded) void systems.refetch();
+                      else {
+                        setJobId(undefined);
+                        setPendingSubscription(undefined);
+                        setStep(inspection ? 'manual-review' : 'source');
+                      }
+                    }}
+                  >
+                    {jobSucceeded ? 'Refresh status' : 'Retry source setup'}
+                  </Button>
+                  <Button
+                    variant="subtle"
                     onClick={finish}
                   >
-                    Open system
+                    Open catalog sources
                   </Button>
-                )}
+                </Group>
               </>
-            ) : null}
+            )}
           </>
         )}
-        {review && (
-          <DatReplacementReviewModal
-            subscription={review}
-            onClose={() => {
-              setReview(undefined);
-              setStep(1);
-            }}
-            onAccepted={accepted}
-          />
-        )}
-        {replacement && file && (
-          <DatReplacementReviewModal
-            dat={replacement}
-            file={file}
-            onClose={() => setReplacement(undefined)}
-            onAccepted={accepted}
-          />
-        )}
       </Stack>
-    </Drawer>
+    </Modal>
   );
 }

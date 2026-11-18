@@ -11,15 +11,12 @@ import {
 } from '@mantine/core';
 import { IconPlus, IconSearch } from '@tabler/icons-react';
 import { useState } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router';
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useDatsByPlatform } from '../../hooks/api/useDats';
-import {
-  useDatCatalogs,
-  useDatSubscriptions,
-  useManagedSystems,
-} from '../../hooks/api/useManagedSystems';
+import { useDatSubscriptions, useManagedSystems } from '../../hooks/api/useManagedSystems';
+import { usePermissions } from '../../hooks/usePermissions';
 import { AddSourceFlow } from './AddSourceFlow';
 import { SourceActions, sourcePath } from './SourceActions';
 import { SourceHelp } from './SourceHelp';
@@ -30,8 +27,9 @@ import classes from './Sources.module.css';
 export function SourcesTab({ systemKey }: { systemKey: string }) {
   const dats = useDatsByPlatform(systemKey);
   const systems = useManagedSystems();
-  const catalogs = useDatCatalogs();
   const tracked = useDatSubscriptions();
+  const { role } = usePermissions();
+  const { state } = useLocation();
   const system = systems.data?.find((s) => s.key === systemKey);
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(false);
@@ -41,8 +39,18 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
   const pending = subscriptions.filter(
     (s) => !s.activeDatId || !dats.data?.some((d) => d.id === s.activeDatId),
   );
-  const available =
-    !catalogs.isPending && !catalogs.isError && !catalogs.data?.message && tracked.isSuccess;
+  const setupRequested = params.get('setup') === '1';
+  const empty = dats.isSuccess && tracked.isSuccess && !dats.data.length && !pending.length;
+  const closeSetup = () => {
+    setAdding(false);
+    if (!setupRequested) return;
+    const next = new URLSearchParams(params);
+    next.delete('setup');
+    setParams(next, {
+      replace: true,
+      state,
+    });
+  };
   if (selected) {
     const next = new URLSearchParams();
     const sourceTitle = params.get('sourceTitle');
@@ -50,6 +58,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
     return (
       <Navigate
         replace
+        state={state}
         to={`${sourcePath(systemKey, selected)}${next.size ? `?${next}` : ''}`}
       />
     );
@@ -64,30 +73,29 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
             order={2}
             className={workspace.sectionHeading}
           >
-            Sources
+            Catalog sources
           </Title>
           <SourceHelp />
         </Group>
-        <Button
-          {...workspaceActionProps}
-          leftSection={<IconPlus size={16} />}
-          onClick={() => setAdding(true)}
-          disabled={!system}
-        >
-          Add source
-        </Button>
+        {role === 'Admin' && !empty && (
+          <Button
+            {...workspaceActionProps}
+            leftSection={<IconPlus size={16} />}
+            onClick={() => setAdding(true)}
+            disabled={!system}
+          >
+            Add source
+          </Button>
+        )}
       </Group>
-      {(catalogs.isError || catalogs.data?.message || tracked.isError) && (
+      {tracked.isError && (
         <Alert color="yellow">
-          Subscription availability could not be verified. Installed sources are unchanged.
+          Subscription status could not be loaded.
           <Button
             variant="subtle"
-            onClick={() => {
-              void catalogs.refetch();
-              void tracked.refetch();
-            }}
+            onClick={() => void tracked.refetch()}
           >
-            Retry availability
+            Retry status
           </Button>
         </Alert>
       )}
@@ -116,6 +124,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                   next.delete('sourceTitle');
                   setParams(next, {
                     replace: true,
+                    state,
                   });
                 }}
               >
@@ -123,7 +132,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
               </Button>
             </Alert>
           )}
-          {!dats.data?.length && !pending.length && (
+          {empty && (
             <Stack
               align="flex-start"
               py="xl"
@@ -132,15 +141,23 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                 order={3}
                 className={workspace.sectionHeading}
               >
-                No sources yet
+                No DAT installed
               </Title>
-              <Button
-                {...workspaceActionProps}
-                onClick={() => setAdding(true)}
-                disabled={!system}
+              <Text
+                size="sm"
+                c="dimmed"
               >
-                Choose a source
-              </Button>
+                Add a DAT to identify releases and match ROM files.
+              </Text>
+              {role === 'Admin' && (
+                <Button
+                  {...workspaceActionProps}
+                  onClick={() => setAdding(true)}
+                  disabled={!system}
+                >
+                  Set up catalog
+                </Button>
+              )}
             </Stack>
           )}
           {(dats.data?.length ?? 0) > 5 && (
@@ -166,6 +183,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                     <Link
                       className={classes.name}
                       to={path}
+                      state={state}
                     >
                       {dat.name}
                     </Link>
@@ -185,7 +203,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                       size="xs"
                       c="dimmed"
                     >
-                      {Number(dat.gameCount ?? 0).toLocaleString()} entries
+                      {Number(dat.gameCount ?? 0).toLocaleString()} DAT entries
                     </Text>
                   </Stack>
                   <Group
@@ -205,9 +223,9 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                       >
                         {subscription
                           ? 'Subscription'
-                          : available
+                          : tracked.isSuccess
                             ? 'Manual updates'
-                            : 'Updates unverified'}
+                            : 'Update method unavailable'}
                       </Text>
                       {subscription && (
                         <SourceSubscriptionActions
@@ -220,7 +238,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                     <SourceActions
                       dat={dat}
                       path={path}
-                      manual={!subscription && available}
+                      manual={!subscription && tracked.isSuccess}
                     />
                   </Group>
                 </article>
@@ -252,7 +270,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                     size="sm"
                     c="dimmed"
                   >
-                    No installed DAT
+                    No DAT installed
                   </Text>
                   <SourceSubscriptionActions
                     subscription={s}
@@ -274,10 +292,10 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
             )}
         </>
       )}
-      {adding && system && (
+      {role === 'Admin' && (adding || setupRequested) && system && (
         <AddSourceFlow
           system={system}
-          onClose={() => setAdding(false)}
+          onClose={closeSetup}
         />
       )}
     </Stack>
