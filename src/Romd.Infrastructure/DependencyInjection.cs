@@ -781,6 +781,8 @@ public static class DependencyInjection
         services.TryAddSingleton(typeof(IJobCompletionCleanup<>), typeof(DefaultJobLifecyclePolicy<>));
 
         var retryAge = TimeSpan.FromDays(1);
+        services.TryAddSingleton<IJobRetryBudgetPolicy<ReplaceDatJob>>(new JobRetryBudgetPolicy<ReplaceDatJob>(
+            new("DAT replacement", MaximumAge: null, MaximumDeferralsWithoutProgress: 2)));
         services.TryAddSingleton<IJobRetryBudgetPolicy<UploadJob>>(new JobRetryBudgetPolicy<UploadJob>(
             new("Upload", retryAge, JobContext.MaxUploadDeferrals)));
         services.TryAddScoped<IJobCompletionCleanup<UploadJob>, MoveImportCompletionCleanup>();

@@ -119,8 +119,7 @@ public sealed class JobRunner<TJob> where TJob : Job
         var workspace = hasWorkspace ? new JobWorkspace(workspacePath) : null;
 
         // Opt-in resume seam: executors that dispatch on the job's persisted phase are
-        // started only from Pending, keep their workspace across failed attempts, and have
-        // failures rethrown so the scheduler redelivers into the durable phase machine.
+        // started only from Pending and keep their workspace across failed attempts.
         bool resumable = _executor is IResumableJobExecutor<TJob>;
 
         async Task CheckpointAsync(CancellationToken checkpointCt)
@@ -241,17 +240,40 @@ public sealed class JobRunner<TJob> where TJob : Job
                 await CheckpointAsync(ct);
             }
 
-            if (retryBudget is not null && job.FirstDeferralAt is { } firstDeferral
-                && _timeProvider.GetUtcNow() - firstDeferral > retryBudget.MaximumAge)
+            if (retryBudget?.MaximumAge is { } maximumAge && job.FirstDeferralAt is { } firstDeferral
+                && _timeProvider.GetUtcNow() - firstDeferral > maximumAge)
                 throw new JobPermanentFailureException(
-                    $"{retryBudget.Label} retry age budget exhausted: {job.LastDeferralError ?? $"execution did not finish within {retryBudget.MaximumAge.TotalHours:0} hours"}");
-            await _executor.ExecuteAsync(job, context);
+                    $"{retryBudget.Label} retry age budget exhausted: {job.LastDeferralError ?? $"execution did not finish within {maximumAge.TotalHours:0} hours"}");
+            Exception? executionFailure = null;
+            try
+            {
+                await _executor.ExecuteAsync(job, context);
+            }
+            catch (Exception error) when (resumable && wasAtomicallyClaimed && !job.IsTerminal
+                && context.DeferredUntil is null
+                && error is not (OperationCanceledException or JobExecutionOwnershipLostException or JobPermanentFailureException))
+            {
+                executionCts.Token.ThrowIfCancellationRequested();
+                executionFailure = error;
+            }
 
             // Recovery phase: a family journal that already committed a terminal outcome wins.
             await StopHeartbeatAsync();
             if (await RecoverCommittedOutcomeAsync())
                 return;
             await context.EnsureExecutionOwnershipAsync(CancellationToken.None);
+
+            if (executionFailure is not null)
+            {
+                ct.ThrowIfCancellationRequested();
+                var now = _timeProvider.GetUtcNow();
+                int delaySeconds = Math.Min(300, 30 << Math.Clamp(job.DeferralCount, 0, 4));
+                job.RecordError("attempt", executionFailure.Message, occurredAt: now);
+                if (retryBudget is null)
+                    job.RecordDeferral(executionFailure.Message, now);
+                context.RequestDeferral(now.AddSeconds(delaySeconds), executionFailure.Message);
+                _logger.LogWarning(executionFailure, "Resumable job {Id} failed in phase {Phase}", job.Id, job.Phase);
+            }
 
             if (context.DeferredUntil is { } until)
             {
@@ -335,10 +357,8 @@ public sealed class JobRunner<TJob> where TJob : Job
         }
         catch (Exception ex) when (resumable)
         {
-            // Resumable jobs keep their persisted phase: rethrow so the scheduler redelivers
-            // and the executor resumes from durable state instead of terminally failing. The
-            // attempt's error is recorded first so an operator can see the cause while the
-            // job is non-terminal (and after retries exhaust).
+            // Failures outside the executor or without a durable execution claim use
+            // transport recovery. Preserve the phase and record the failure for operators.
             _logger.LogError(ex, "Resumable job {Id} failed in phase {Phase}; rethrowing for redelivery", job.Id, job.Phase);
             job.RecordError("attempt", ex.Message, occurredAt: _timeProvider.GetUtcNow());
             await CheckpointAsync(CancellationToken.None);

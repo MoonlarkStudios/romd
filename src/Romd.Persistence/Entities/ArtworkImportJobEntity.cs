@@ -80,6 +80,10 @@ public sealed class ArtworkImportJobEntity : JobEntity
         IsArchived = job.IsArchived,
         ArchivedAt = job.ArchivedAt,
         CreatedByUserId = job.CreatedByUserId,
+        DeferralCount = job.DeferralCount,
+        LastDeferralError = job.LastDeferralError,
+        LastDeferralAt = job.LastDeferralAt,
+        FirstDeferralAt = job.FirstDeferralAt,
         UpdatedAt = updatedAt ?? job.CreatedAt,
         JobType = "artwork-import"
     };
