@@ -590,6 +590,11 @@ restore; perform a fresh installation with new volumes instead.
    ```
 
 6. Verify login, discovery and application operations through ingress.
+   In the admin portal, open **Settings → Server** to see the running admin
+   host's build version. Authenticated callers can also read it from
+   `GET /api/server/info`. Stable promotions reuse the candidate image, so the
+   displayed version retains its `-rc.N` suffix. Untagged builds show
+   `development`.
 
 A release that changes the CHD decoder tuple also needs the
 [CHD decoder upgrade](#chd-decoder-upgrades) procedure.

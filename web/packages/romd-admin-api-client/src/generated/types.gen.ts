@@ -2130,6 +2130,10 @@ export type SavedArtwork = {
     artwork: ResolvedArtwork;
 };
 
+export type ServerInfo = {
+    version: string;
+};
+
 export type SetAccountSuspensionRequest = {
     suspended: boolean;
 };
@@ -3786,6 +3790,31 @@ export type GetDashboardStatusBarResponses = {
 };
 
 export type GetDashboardStatusBarResponse = GetDashboardStatusBarResponses[keyof GetDashboardStatusBarResponses];
+
+export type GetServerInfoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/server/info';
+};
+
+export type GetServerInfoErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type GetServerInfoError = GetServerInfoErrors[keyof GetServerInfoErrors];
+
+export type GetServerInfoResponses = {
+    /**
+     * OK
+     */
+    200: ServerInfo;
+};
+
+export type GetServerInfoResponse = GetServerInfoResponses[keyof GetServerInfoResponses];
 
 export type GetAdminCatalogSnapshotData = {
     body?: never;

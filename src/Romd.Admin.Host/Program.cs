@@ -1,3 +1,4 @@
+using System.Reflection;
 using Romd.Host.Configuration;
 using Romd.Host.Endpoints;
 using Romd.Hosting;
@@ -83,7 +84,10 @@ try
     app.MapRomdHealthCheck();
     app.MapRomdReadinessCheck();
     app.MapRomdOpenIddictEndpoints();
-    app.MapGroup("/api").MapRomdAdminHttp();
+    string releaseTag = typeof(Romd.Admin.Host.Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+        .SingleOrDefault(attribute => attribute.Key == "RomdReleaseTag")?.Value
+        ?? throw new InvalidOperationException("The admin host assembly is missing its ROMD release tag.");
+    app.MapGroup("/api").MapRomdAdminHttp(releaseTag);
     app.MapArtworkDeliveryEndpoints();
     app.MapStorageEndpoints();
 

@@ -243,6 +243,11 @@ def main():
             token = sign_in(host, 'romd-admin-spa')
             status, _, me = request(host, '/api/me', token=token)
             assert status == 200, 'authenticated API failed'
+            if args.build or args.release_tag:
+                expected_version = args.release_tag or 'development'
+                status, _, body = request(host, '/api/server/info', token=token)
+                assert status == 200, 'authenticated server info failed'
+                assert json.loads(body) == {'version': expected_version}, 'server build version mismatch'
             if args.vfs:
                 verify_vfs(token, json.loads(me)['id'])
             status, _, identity = request('console.example.test', '/api/server/identity')
