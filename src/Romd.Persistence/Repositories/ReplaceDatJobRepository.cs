@@ -53,13 +53,14 @@ public sealed class ReplaceDatJobRepository : IReplaceDatJobRepository, IReplace
         DateTimeOffset progressBefore,
         CancellationToken ct = default)
     {
-        // Same progress semantics as the upload stale-job policy: a checkpoint persists
-        // the job row and refreshes UpdatedAt, so "no progress" means no row update.
+        var now = _timeProvider.GetUtcNow();
         return await _context.Jobs
             .OfType<ReplaceDatJobEntity>()
             .Where(j => !TerminalPhases.Contains(j.Phase))
             .Where(j => j.StartedAt != null)
             .Where(j => j.UpdatedAt < progressBefore)
+            .Where(j => j.ExecutionFenceToken == null || j.ExecutionLeaseExpiresAtUtc == null
+                || j.ExecutionLeaseExpiresAtUtc <= now)
             .OrderBy(j => j.CreatedAt)
             .Select(job => job.Id)
             .ToListAsync(ct);
@@ -83,9 +84,12 @@ public sealed class ReplaceDatJobRepository : IReplaceDatJobRepository, IReplace
             || current.UpdatedAt >= progressBefore)
             return false;
 
-        // Materialization may wait on a competing writer. Failure happens after that awaited read.
-        var job = current.ToDomain();
+        // A heartbeat can renew the lease while the sweep waits for the row lock.
         var failedAt = _timeProvider.GetUtcNow();
+        if (current.ExecutionFenceToken is not null && current.ExecutionLeaseExpiresAtUtc > failedAt)
+            return false;
+
+        var job = current.ToDomain();
         job.Fail(reason, failedAt);
         var errors = JsonSerializer.Serialize(job.Errors);
         return await _context.Jobs.OfType<ReplaceDatJobEntity>()
