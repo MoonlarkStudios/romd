@@ -353,7 +353,7 @@ RUN install -d -o "${APP_UID}" -g 0 /init /init/postgres /init/worker /init/admi
 USER $APP_UID
 ENTRYPOINT ["dotnet", "romd-worker.dll"]
 
-FROM nginx:1.30.6-alpine-slim@sha256:e2355aa95529a7999dad94ddcb45a8768abf6fb0b204c93b1a3ffce477d7b893 AS romd-player
+FROM nginx:1.30.7-alpine-slim@sha256:b6c9aa217a1a855d53b0fb502a9a19f356404584e0bd1fc3d62a989e8dfcb6ca AS romd-player
 ARG ROMD_SOURCE_REVISION=development
 ARG ROMD_RELEASE_TAG=development
 LABEL org.opencontainers.image.revision=$ROMD_SOURCE_REVISION org.opencontainers.image.version=$ROMD_RELEASE_TAG \
