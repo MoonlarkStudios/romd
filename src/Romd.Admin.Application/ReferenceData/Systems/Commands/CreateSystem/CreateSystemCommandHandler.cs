@@ -39,7 +39,7 @@ public sealed class CreateSystemCommandHandler : ICommandHandler<CreateSystemCom
                 return ReferenceEditErrors.Invalid("Every manufacturer must reference a registered company key (maximum 16).");
             if (definition.AssetHash is { } hash && !await repository.AssetExistsAsync(hash, token))
                 return ReferenceEditErrors.Invalid("Upload the icon first.");
-            await repository.StageAsync(new SystemReference(0, command.Key, new(ReferenceOwnership.Installation), definition, new(), keys), token);
+            await repository.StageAsync(new SystemReference(0, command.Key, new(ReferenceOwnership.Installation), definition, new(), keys), token, command.EnableForSetup);
             await session.FlushAsync(token);
             return (await reader.GetAsync(command.Key, token))!;
         }, ct);

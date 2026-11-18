@@ -59,3 +59,9 @@
   outline: 2px solid var(--romd-portal-accent);
   outline-offset: 2px;
 }
+
+.presentation {
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-md);
+}

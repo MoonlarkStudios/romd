@@ -30,6 +30,11 @@ vi.mock('@mantine/hooks', async () => ({
 vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   getDatSubscription: vi.fn(),
+  getAdminSystem: vi.fn(async () => ({
+    data: {
+      description: 'A Sony home console.',
+    },
+  })),
   listManagedSystems: vi.fn(),
   listDatCatalogs: vi.fn(),
   listDatSubscriptions: vi.fn(),
@@ -69,6 +74,8 @@ const systems: ManagedSystem[] = [
     catalogCount: 1,
     ownedTitles: 4,
     trackedTitles: 2,
+    knownTitles: 8435,
+    lastDatImportedAt: '2026-11-03T12:00:00Z',
   },
   {
     key: 'gba',
@@ -192,6 +199,71 @@ it('uses links and local summaries without fetching source details in a narrow w
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   expect(listSystemDats).not.toHaveBeenCalled();
   expect(listDatCatalogs).not.toHaveBeenCalled();
+});
+
+it('shows dedicated title, DAT and import date cells on wide screens', async () => {
+  workspace.width = 1220;
+  render(<Systems />, {
+    auth: admin,
+  });
+  const table = await screen.findByRole('table', {
+    name: 'Systems',
+  });
+  expect(
+    within(table).getByRole('columnheader', {
+      name: 'Known titles',
+    }),
+  ).toBeVisible();
+  expect(
+    within(table).getByRole('columnheader', {
+      name: 'DATs',
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(
+    within(table).getByRole('columnheader', {
+      name: 'Last DAT import',
+    }),
+  ).toBeVisible();
+  const row = within(table).getByRole('row', {
+    name: /PlayStation/,
+  });
+  expect(
+    within(row).getByRole('cell', {
+      name: '8,435',
+    }),
+  ).toBeVisible();
+  expect(
+    within(row).getByRole('cell', {
+      name: '1',
+    }),
+  ).toBeVisible();
+  expect(row.querySelector('time')).toHaveAttribute('datetime', '2026-11-03T12:00:00Z');
+  const inspector = screen.getByRole('complementary');
+  expect(
+    within(inspector).getByRole('link', {
+      name: '8,435 known titles',
+    }),
+  ).toHaveAttribute('href', '/systems/psx?tab=titles&view=all');
+});
+
+it('keeps known title and DAT counts visible in compact rows', async () => {
+  workspace.width = 390;
+  render(<Systems />, {
+    auth: admin,
+  });
+  const table = await screen.findByRole('table', {
+    name: 'Systems',
+  });
+  expect(
+    within(table).queryByRole('columnheader', {
+      name: 'Last DAT import',
+    }),
+  ).not.toBeInTheDocument();
+  const row = within(table).getByRole('row', {
+    name: /PlayStation/,
+  });
+  expect(within(row).getByText('8,435 known titles · 1 DAT')).toBeVisible();
 });
 
 it('keeps catalog readiness separate from subscription warnings and filters them without the publisher', async () => {
@@ -348,7 +420,12 @@ it('loads only the selected wide-workspace catalog and keeps a focused action be
   });
   expect(await within(inspector).findByText('Redump PlayStation')).toBeInTheDocument();
   expect(within(inspector).getByText('2026-11-03 · Subscription')).toBeInTheDocument();
-  expect(within(inspector).getByText('2 tracked titles · 4 with files')).toBeInTheDocument();
+  expect(
+    within(inspector).getByRole('link', {
+      name: '8,435 known titles',
+    }),
+  ).toBeInTheDocument();
+  expect(within(inspector).getByText('4 with files')).toBeInTheDocument();
   expect(
     within(inspector).getByRole('button', {
       name: 'Review update',

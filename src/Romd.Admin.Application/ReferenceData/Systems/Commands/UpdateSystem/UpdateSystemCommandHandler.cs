@@ -53,7 +53,7 @@ public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCom
             resource = resource.Metadata.Ownership == ReferenceOwnership.Romd
                 ? resource with { Overrides = resource.Overrides.Merge(patch) }
                 : resource with { Definition = patch.Apply(resource.Definition) };
-            await repository.StageAsync(resource, token);
+            await repository.StageAsync(resource, token, command.EnableForSetup);
             await session.FlushAsync(token);
             return (await reader.GetAsync(command.Key, token))!;
         }, ct);

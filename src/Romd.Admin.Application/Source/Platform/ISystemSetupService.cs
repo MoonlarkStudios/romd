@@ -13,5 +13,6 @@ public interface ISystemSetupService
 }
 
 public sealed record ManagedSystem(int Id, string? SystemId, string Name, string ShortName, string? Manufacturer,
-    bool Enabled, string State, string? Message, int CatalogCount, int OwnedTitles, int TrackedTitles = 0);
+    bool Enabled, string State, string? Message, int CatalogCount, int OwnedTitles, int TrackedTitles = 0,
+    int KnownTitles = 0, DateTimeOffset? LastDatImportedAt = null);
 public sealed record SystemDatPreview(DatDocumentInspection Document, int? SuggestedPlatformId, IReadOnlyList<int> ExistingDatIds);

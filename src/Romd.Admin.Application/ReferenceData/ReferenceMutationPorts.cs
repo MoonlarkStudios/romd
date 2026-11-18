@@ -13,7 +13,7 @@ public interface ISystemReferenceRepository
 {
     Task<SystemReference?> GetAsync(string key, CancellationToken ct);
     Task<bool> KeyExistsAsync(string key, CancellationToken ct);
-    Task StageAsync(SystemReference system, CancellationToken ct);
+    Task StageAsync(SystemReference system, CancellationToken ct, bool enableForSetup = false);
     Task<bool> HasDependentsAsync(int id, CancellationToken ct);
     Task DeleteAsync(int id, CancellationToken ct);
     Task<bool> AssetExistsAsync(string hash, CancellationToken ct);

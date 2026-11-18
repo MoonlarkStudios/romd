@@ -5,6 +5,7 @@ import { IconFileImport, IconUpload, IconX } from '@tabler/icons-react';
 interface DatUploadZoneProps {
   onDrop: (files: File[]) => void;
   loading?: boolean;
+  disabled?: boolean;
 }
 
 interface DropzoneFileError {
@@ -29,13 +30,14 @@ function validateDatCatalog(file: File): DropzoneFileError | null {
   };
 }
 
-export function DatUploadZone({ onDrop, loading }: DatUploadZoneProps) {
+export function DatUploadZone({ onDrop, loading, disabled }: DatUploadZoneProps) {
   return (
     <Dropzone
       data-testid="dat-upload-zone"
       onDrop={onDrop}
       validator={validateDatCatalog}
       loading={loading}
+      disabled={disabled}
       maxFiles={1}
     >
       <Group

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router';
 import { useAssignDatPlatform } from '../../hooks/api/useDats';
 import { useAddPlatformAlias, useCreatePlatform } from '../../hooks/api/usePlatformManagement';
 import { collectPages } from '../../utils/collectPages';
+import { suggestSystemKey } from '../../utils/systemKey';
 
 export interface NewSystemModalProps {
   /** The unrouted DAT that prompted system creation; null = closed */
@@ -14,16 +15,6 @@ export interface NewSystemModalProps {
   /** Whether to save the DAT header name as an alias after assignment */
   rememberAlias: boolean;
   onClose: () => void;
-}
-
-/** Derives a URL-safe short name from a display name. */
-export function deriveShortName(name: string): string {
-  return `local-${name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 44)
-    .replace(/-+$/g, '')}`;
 }
 
 /**
@@ -68,7 +59,7 @@ export function NewSystemModal({ target, rememberAlias, onClose }: NewSystemModa
   useEffect(() => {
     if (target) {
       setName(target.name);
-      setShortName(deriveShortName(target.name));
+      setShortName(suggestSystemKey(target.name));
       setShortNameEdited(false);
       setManufacturer(null);
     }
@@ -79,7 +70,7 @@ export function NewSystemModal({ target, rememberAlias, onClose }: NewSystemModa
   const handleNameChange = (value: string) => {
     setName(value);
     if (!shortNameEdited) {
-      setShortName(deriveShortName(value));
+      setShortName(suggestSystemKey(value));
     }
   };
 

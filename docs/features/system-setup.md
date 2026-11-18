@@ -5,13 +5,20 @@ that system; its DAT is an installed document version. A subscription is one way
 to update a source. Multiple manual and subscribed sources can coexist.
 
 **Systems** shows the installed catalog and source update status separately.
+**Known titles** matches the system's **All titles** view. **DATs** counts installed
+documents, one current version per source, including disabled sources. **Last DAT
+import** is the newest import date among those versions.
 Use **Needs attention** to find systems that need a first DAT, catalog work, or
 an update review or retry. On wide layouts, select a system to see its catalog
 and next action beside the list. On narrower layouts, open the system directly.
 Returning to Systems restores the list filters and selection.
 
 **Add system** searches names and aliases on the server. Choose a system and its
-first DAT in the same flow. ROMD offers verified subscriptions from the signed
+first DAT in the same flow. For a known system, you can edit its display name and
+short description before confirming. ROMD uses the fixed system key to match
+verified subscriptions. Use **Create custom system** for a system outside the
+reference catalog. Custom systems get a suggested key that you can edit before
+creation and use manual DATs. ROMD offers verified subscriptions from the signed
 directory, with a choice when formats differ. You can also **Upload a DAT** or
 choose **Add without a DAT** and return to **Catalog sources** later. A candidate
 waits for review before import. If you close setup after a subscription is

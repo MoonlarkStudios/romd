@@ -1299,6 +1299,8 @@ export type ManagedSystem = {
     catalogCount: number;
     ownedTitles: number;
     trackedTitles?: number;
+    knownTitles?: number;
+    lastDatImportedAt?: null | string;
 };
 
 export type MediaReconciliationPolicy = {
@@ -1983,6 +1985,11 @@ export type ReferenceNamed = {
     name: string;
     description: null | string;
     retired?: boolean;
+};
+
+export type ReferencePatch = {
+    name?: string;
+    description?: null | string;
 };
 
 export type ReferenceRating = {
@@ -6240,6 +6247,84 @@ export type ListManagedSystemsResponses = {
 };
 
 export type ListManagedSystemsResponse = ListManagedSystemsResponses[keyof ListManagedSystemsResponses];
+
+export type CreateManagedSystemData = {
+    body: CreateSystem;
+    path?: never;
+    query?: never;
+    url: '/api/system-setup';
+};
+
+export type CreateManagedSystemErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type CreateManagedSystemError = CreateManagedSystemErrors[keyof CreateManagedSystemErrors];
+
+export type CreateManagedSystemResponses = {
+    /**
+     * Created
+     */
+    201: SystemResource;
+};
+
+export type CreateManagedSystemResponse = CreateManagedSystemResponses[keyof CreateManagedSystemResponses];
+
+export type UpdateManagedSystemPresentationData = {
+    body: ReferencePatch;
+    headers: {
+        /**
+         * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.
+         */
+        'If-Match': string;
+    };
+    path: {
+        systemKey: string;
+    };
+    query?: never;
+    url: '/api/system-setup/{systemKey}';
+};
+
+export type UpdateManagedSystemPresentationErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Precondition Failed
+     */
+    412: ProblemDetails;
+    /**
+     * Precondition Required
+     */
+    428: ProblemDetails;
+};
+
+export type UpdateManagedSystemPresentationError = UpdateManagedSystemPresentationErrors[keyof UpdateManagedSystemPresentationErrors];
+
+export type UpdateManagedSystemPresentationResponses = {
+    /**
+     * OK
+     */
+    200: SystemResource;
+};
+
+export type UpdateManagedSystemPresentationResponse = UpdateManagedSystemPresentationResponses[keyof UpdateManagedSystemPresentationResponses];
 
 export type SetSystemEnabledData = {
     body: SetSystemEnabled;

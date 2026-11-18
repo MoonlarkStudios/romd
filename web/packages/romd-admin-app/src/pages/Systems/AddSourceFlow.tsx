@@ -6,6 +6,7 @@ import {
   Loader,
   Modal,
   Progress,
+  Skeleton,
   Stack,
   Text,
   Title,
@@ -17,13 +18,17 @@ import type {
   JobReference,
   ManagedSystem,
   PublishedDatCatalog,
+  ReferencePatch,
   SystemDatPreview,
+  SystemResource,
 } from '@romd/admin-api-client';
 import {
   checkDatSubscription,
   createDatSubscription,
+  createManagedSystem,
   importSystemDat,
   previewSystemDat,
+  updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -39,16 +44,39 @@ import {
   useManagedSystems,
   useSetSystemEnabled,
 } from '../../hooks/api/useManagedSystems';
+import { platformKeys, usePlatform } from '../../hooks/api/usePlatforms';
 import { formatBytes } from '../../utils/format';
+import { suggestSystemKey } from '../../utils/systemKey';
 import { catalogProviderName } from './catalogProviderName';
 import { DatUploadZone } from './components/DatUploadZone';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 import { SystemDatOptions, verifiedOffers } from './SystemDatOptions';
 import { SystemLogo, useSystemIcons } from './SystemLogo';
+import { type SystemPresentation, SystemPresentationFields } from './SystemPresentationFields';
 import { SystemSetupPicker } from './SystemSetupPicker';
 
 export type OpenSetupSystem = (systemKey: string, tab?: 'sources') => void;
-type SetupStep = 'system' | 'file' | 'source' | 'manual-review' | 'job';
+type SetupStep = 'system' | 'custom' | 'file' | 'source' | 'manual-review' | 'job';
+type KnownDraft = SystemPresentation & {
+  original: SystemResource;
+};
+type CustomDraft = SystemPresentation & {
+  keyOverride?: string;
+  registered?: boolean;
+};
+
+function knownPresentationPatch(draft: KnownDraft): ReferencePatch {
+  const name = draft.name.trim();
+  const description = draft.description.trim() || null;
+  return {
+    ...(name !== draft.original.name && {
+      name,
+    }),
+    ...(description !== draft.original.description && {
+      description,
+    }),
+  };
+}
 
 function setupFailure(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -81,6 +109,14 @@ export function AddSourceFlow({
   const addingSystem = !system && !startWithUpload;
   const mobile = useMediaQuery('(max-width: 48em)');
   const [selected, setSelected] = useState(system);
+  const [knownDraft, setKnownDraft] = useState<KnownDraft>();
+  const [customDraft, setCustomDraft] = useState<CustomDraft>();
+  const customKey = customDraft?.keyOverride ?? suggestSystemKey(customDraft?.name ?? '');
+  const canRegisterCustom =
+    !!customDraft?.name.trim() &&
+    customKey.length <= 50 &&
+    /^local-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(customKey);
+  const unregisteredCustom = !!customDraft && !customDraft.registered;
   const [step, setStep] = useState<SetupStep>(
     system ? 'source' : startWithUpload ? 'file' : 'system',
   );
@@ -102,12 +138,16 @@ export function AddSourceFlow({
   const subscriptions = useDatSubscriptions();
   const enable = useSetSystemEnabled();
   const job = useJob(jobId);
-  const dats = useDatsByPlatform(selected?.key);
+  const dats = useDatsByPlatform(unregisteredCustom ? undefined : selected?.key);
+  const presentation = usePlatform(addingSystem && !customDraft ? selected?.key : undefined);
+  const details = presentation.data;
+  const canConfirmKnown = !knownDraft || !!knownDraft.name.trim();
   const icons = useSystemIcons();
   const client = useQueryClient();
   const navigate = useNavigate();
-  const replacements =
-    dats.data?.filter((dat) => inspection?.existingDatIds.includes(dat.id)) ?? [];
+  const replacements = unregisteredCustom
+    ? []
+    : (dats.data?.filter((dat) => inspection?.existingDatIds.includes(dat.id)) ?? []);
   const jobSucceeded =
     job.data?.isTerminal && !job.data.hasErrors && job.data.phase === 'Completed';
   const savedSystem = systems.data?.find((item) => item.key === selected?.key);
@@ -118,7 +158,11 @@ export function AddSourceFlow({
   const successful = jobSucceeded && savedSystem?.state === 'Ready';
   const failed = job.data?.isTerminal && (!jobSucceeded || savedSystem?.state === 'NeedsAttention');
   const restoring =
-    addingSystem && selected && !enabled && hasRetainedSetup(selected, subscriptions.data ?? []);
+    addingSystem &&
+    selected &&
+    !customDraft &&
+    !enabled &&
+    hasRetainedSetup(selected, subscriptions.data ?? []);
 
   useEffect(() => {
     if (!job.data?.isTerminal) return;
@@ -168,8 +212,85 @@ export function AddSourceFlow({
     if (selected) openSystem(selected.key, 'sources');
   }
 
+  async function refreshSystemDetails(resource: SystemResource) {
+    await client.cancelQueries({
+      queryKey: platformKeys.detail(resource.key),
+    });
+    client.setQueryData(platformKeys.detail(resource.key), resource);
+    void client.invalidateQueries({
+      queryKey: platformKeys.lists(),
+    });
+    void client.invalidateQueries({
+      queryKey: [
+        'reference-catalog',
+      ],
+    });
+    void client.invalidateQueries({
+      queryKey: managedSystemKeys.all,
+    });
+  }
+
+  async function saveKnownDetails() {
+    if (!knownDraft || !selected) return false;
+    const patch = knownPresentationPatch(knownDraft);
+    if (!Object.keys(patch).length) return false;
+    const response = await updateManagedSystemPresentation({
+      path: {
+        systemKey: selected.key,
+      },
+      headers: {
+        'If-Match': `"${knownDraft.original.revision}"`,
+      },
+      body: patch,
+    });
+    if (response.response?.status === 412) {
+      throw new Error(
+        'System details changed while you were editing. Choose the system again to load the latest details.',
+      );
+    }
+    if (!response.data || response.error) throw response.error;
+    await refreshSystemDetails(response.data);
+    setEnabledKey(selected.key);
+    setSelected({
+      ...selected,
+      name: response.data.name,
+    });
+    setKnownDraft(undefined);
+    return true;
+  }
+
+  async function registerCustom() {
+    if (!customDraft || !canRegisterCustom)
+      throw new Error('Enter a display name and a valid system key.');
+    if (customDraft.registered) return customKey;
+    const name = customDraft.name.trim();
+    const response = await createManagedSystem({
+      body: {
+        key: customKey,
+        name,
+        compactLabel: name.slice(0, 40).trimEnd(),
+        description: customDraft.description.trim() || null,
+      },
+    });
+    if (response.response?.status === 409) {
+      throw new Error(
+        'That system key is already in use. Return to system details and choose a different key.',
+      );
+    }
+    if (!response.data || response.error) throw response.error;
+    await refreshSystemDetails(response.data);
+    setCustomDraft({
+      ...customDraft,
+      keyOverride: response.data.key,
+      registered: true,
+    });
+    setEnabledKey(response.data.key);
+    return response.data.key;
+  }
+
   async function enableSystem() {
-    if (!selected || enabled) return;
+    if (!selected) return;
+    if ((await saveKnownDetails()) || enabled) return;
     await enable.mutateAsync({
       systemKey: selected.key,
       enabled: true,
@@ -250,6 +371,7 @@ export function AddSourceFlow({
     }
     setError(undefined);
     setSelected(candidate);
+    setKnownDraft(undefined);
     setPendingSubscription(undefined);
     if (addingSystem) setStep('source');
   }
@@ -282,6 +404,20 @@ export function AddSourceFlow({
       if (!response.data || response.error) throw response.error;
       setFile(next);
       setInspection(response.data);
+      if (step === 'custom' && customDraft) {
+        setSelected({
+          key: customKey,
+          name: customDraft.name.trim(),
+          shortName: customKey,
+          manufacturer: null,
+          enabled: !!customDraft.registered,
+          state: 'NeedsCatalog',
+          message: null,
+          catalogCount: 0,
+          ownedTitles: 0,
+          knownTitles: 0,
+        });
+      }
       if (step === 'file') {
         setSelected(undefined);
         setStep('system');
@@ -388,6 +524,31 @@ export function AddSourceFlow({
               onChoose={chooseSystem}
               disabled={busy}
             />
+            {addingSystem && (
+              <Group justify="space-between">
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  disabled={busy}
+                  onClick={onClose}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  disabled={busy}
+                  onClick={() => {
+                    setCustomDraft({
+                      name: '',
+                      description: '',
+                    });
+                    setStep('custom');
+                  }}
+                >
+                  Create custom system
+                </Button>
+              </Group>
+            )}
             {inspection && (
               <Group justify="space-between">
                 <Button
@@ -416,6 +577,73 @@ export function AddSourceFlow({
             )}
           </>
         )}
+        {step === 'custom' && customDraft && (
+          <>
+            <Title
+              order={2}
+              size="h4"
+              ref={heading}
+              tabIndex={-1}
+            >
+              Custom system
+            </Title>
+            <SystemPresentationFields
+              value={customDraft}
+              onChange={(value) =>
+                setCustomDraft({
+                  ...customDraft,
+                  ...value,
+                })
+              }
+              systemKey={customKey}
+              onKeyChange={
+                customDraft.registered
+                  ? undefined
+                  : (keyOverride) =>
+                      setCustomDraft({
+                        ...customDraft,
+                        keyOverride,
+                      })
+              }
+              disabled={busy || !!customDraft.registered}
+            />
+            <Title
+              order={3}
+              size="h5"
+            >
+              Choose the first DAT
+            </Title>
+            <DatUploadZone
+              onDrop={inspect}
+              loading={busy}
+              disabled={!canRegisterCustom}
+            />
+            <Group justify="space-between">
+              <Button
+                variant="subtle"
+                color="gray"
+                disabled={busy || customDraft.registered}
+                onClick={() => {
+                  setCustomDraft(undefined);
+                  setSelected(undefined);
+                  setInspection(undefined);
+                  setError(undefined);
+                  setStep('system');
+                }}
+              >
+                Choose a known system
+              </Button>
+              <Button
+                variant="default"
+                loading={busy}
+                disabled={!canRegisterCustom}
+                onClick={() => void run(async () => openSystem(await registerCustom(), 'sources'))}
+              >
+                {customDraft.registered ? 'Open system' : 'Add without a DAT'}
+              </Button>
+            </Group>
+          </>
+        )}
         {step === 'source' && selected && (
           <>
             {addingSystem && (
@@ -427,7 +655,9 @@ export function AddSourceFlow({
                 leftSection={<IconArrowLeft size={15} />}
                 disabled={busy}
                 onClick={() => {
+                  if (knownDraft) void presentation.refetch();
                   setSelected(undefined);
+                  setKnownDraft(undefined);
                   setPendingSubscription(undefined);
                   setError(undefined);
                   setStep('system');
@@ -455,6 +685,41 @@ export function AddSourceFlow({
                 </Text>
               </div>
             </Group>
+            {addingSystem &&
+              !restoring &&
+              (details ? (
+                <SystemPresentationFields
+                  value={
+                    knownDraft ?? {
+                      name: details.name,
+                      description: details.description ?? '',
+                    }
+                  }
+                  onChange={(value) =>
+                    setKnownDraft({
+                      ...value,
+                      original: knownDraft?.original ?? details,
+                    })
+                  }
+                  systemKey={selected.key}
+                  manufacturer={selected.manufacturer}
+                  disabled={busy}
+                />
+              ) : presentation.isError ? (
+                <Alert
+                  color="yellow"
+                  title="System details could not be loaded"
+                >
+                  <Button
+                    variant="subtle"
+                    onClick={() => void presentation.refetch()}
+                  >
+                    Retry details
+                  </Button>
+                </Alert>
+              ) : (
+                <Skeleton height={110} />
+              ))}
             {restoring ? (
               <>
                 <Text size="sm">Restore this system with its saved catalog setup.</Text>
@@ -484,6 +749,7 @@ export function AddSourceFlow({
                   subscriptions={subscriptions}
                   dats={dats}
                   busy={busy}
+                  canConfirm={canConfirmKnown}
                   onSubscribe={subscribe}
                   onResume={resumeSubscription}
                   onUpload={inspect}
@@ -502,7 +768,7 @@ export function AddSourceFlow({
               ref={heading}
               tabIndex={-1}
             >
-              Review DAT for {selected.name}
+              Review DAT for {knownDraft?.name.trim() || selected.name}
             </Title>
             <Text>{inspection.name}</Text>
             <Group>
@@ -528,7 +794,7 @@ export function AddSourceFlow({
                 {selected.name}; confirm that it is correct before continuing.
               </Alert>
             )}
-            {dats.isPending ? (
+            {dats.isPending && !unregisteredCustom ? (
               <Loader />
             ) : dats.isError ? (
               <Alert color="red">
@@ -579,12 +845,15 @@ export function AddSourceFlow({
               <Button
                 {...workspaceActionProps}
                 loading={busy}
+                disabled={!canConfirmKnown}
                 onClick={() =>
                   void run(async () => {
                     if (!file) return;
+                    const key = customDraft ? await registerCustom() : selected.key;
+                    if (!customDraft) await saveKnownDetails();
                     const response = await importSystemDat({
                       path: {
-                        systemKey: selected.key,
+                        systemKey: key,
                       },
                       body: {
                         file,
@@ -598,7 +867,7 @@ export function AddSourceFlow({
                   })
                 }
               >
-                Add reviewed source
+                {unregisteredCustom ? 'Add system and import DAT' : 'Add reviewed source'}
               </Button>
             )}
             <Button
@@ -608,7 +877,7 @@ export function AddSourceFlow({
               disabled={busy}
               onClick={() => {
                 setError(undefined);
-                setStep(startWithUpload ? 'system' : 'source');
+                setStep(customDraft ? 'custom' : startWithUpload ? 'system' : 'source');
               }}
             >
               {startWithUpload ? 'Change system' : 'Back to DAT options'}

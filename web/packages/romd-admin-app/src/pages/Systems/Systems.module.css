@@ -27,9 +27,19 @@
 .table tbody tr:hover { background: var(--romd-portal-overlay); }
 .table tbody tr[data-selected='true'] { background: var(--mantine-primary-color-light); }
 .table tr[data-selected='true'] td:first-child { box-shadow: inset 2px 0 var(--romd-portal-accent); }
-.nameColumn { width: 49%; }
-.catalogColumn { width: 25%; }
-.updatesColumn { width: 26%; }
+.nameColumn { width: 36%; }
+.titleCountColumn { width: 14%; }
+.datCountColumn { width: 9%; }
+.catalogColumn { width: 17%; }
+.updatesColumn { width: 24%; }
+.table[data-import-date='true'] .nameColumn { width: 29%; }
+.table[data-import-date='true'] .titleCountColumn { width: 12%; }
+.table[data-import-date='true'] .datCountColumn { width: 7%; }
+.table[data-import-date='true'] .catalogColumn { width: 15%; }
+.table[data-import-date='true'] .updatesColumn { width: 21%; }
+.importDateColumn { width: 16%; }
+.table .titleCountColumn, .table .datCountColumn, .numberCell { text-align: end; }
+.numberCell, .importDateCell { font-size: var(--mantine-font-size-sm); font-variant-numeric: tabular-nums; }
 .table[data-catalog='inline'] .nameColumn { width: 61%; }
 .table[data-catalog='inline'] .updatesColumn { width: 39%; }
 .systemIdentity {

@@ -29,6 +29,7 @@ import { SystemHelp } from './SystemHelp';
 import { SystemInspector, systemInspectorId } from './SystemInspector';
 import { SystemLogo, useSystemIcons } from './SystemLogo';
 import classes from './Systems.module.css';
+import { DatImportDate, datCountLabel } from './systemMetrics';
 import { systemStateColors } from './systemState';
 import { rememberSystemsListScroll, restoreSystemsListScroll } from './systemsListNavigation';
 import {
@@ -86,6 +87,7 @@ export function Systems() {
       : 'available';
   const showInspector = width >= inspectorMinWidth;
   const inlineCatalog = width > 0 && width < 520;
+  const showImportDate = width >= 1100;
   const selected = showInspector
     ? (rows.find(({ system }) => system.key === selectedKey) ?? rows[0])
     : undefined;
@@ -317,6 +319,7 @@ export function Systems() {
                   <table
                     className={classes.table}
                     data-catalog={inlineCatalog ? 'inline' : 'column'}
+                    data-import-date={showImportDate || undefined}
                     aria-label="Systems"
                   >
                     <thead>
@@ -327,6 +330,30 @@ export function Systems() {
                         >
                           System
                         </th>
+                        {!inlineCatalog && (
+                          <>
+                            <th
+                              scope="col"
+                              className={classes.titleCountColumn}
+                            >
+                              Known titles
+                            </th>
+                            <th
+                              scope="col"
+                              className={classes.datCountColumn}
+                            >
+                              DATs
+                            </th>
+                          </>
+                        )}
+                        {showImportDate && (
+                          <th
+                            scope="col"
+                            className={classes.importDateColumn}
+                          >
+                            Last DAT import
+                          </th>
+                        )}
                         {!inlineCatalog && (
                           <th
                             scope="col"
@@ -375,12 +402,9 @@ export function Systems() {
                                 size="xs"
                                 c="dimmed"
                               >
-                                {[
-                                  system.manufacturer,
-                                  system.shortName,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' · ')}
+                                {inlineCatalog
+                                  ? `${(system.knownTitles ?? 0).toLocaleString()} known titles · ${datCountLabel(system.catalogCount)}`
+                                  : system.shortName !== system.name && system.shortName}
                               </Text>
                             </span>
                           </>
@@ -417,19 +441,21 @@ export function Systems() {
                               )}
                             </td>
                             {!inlineCatalog && (
-                              <td>
-                                {availability}
-                                {system.catalogCount > 0 && (
-                                  <Text
-                                    size="xs"
-                                    c="dimmed"
-                                  >
-                                    {system.catalogCount.toLocaleString()}{' '}
-                                    {system.catalogCount === 1 ? 'source' : 'sources'}
-                                  </Text>
-                                )}
+                              <>
+                                <td className={classes.numberCell}>
+                                  {(system.knownTitles ?? 0).toLocaleString()}
+                                </td>
+                                <td className={classes.numberCell}>
+                                  {system.catalogCount.toLocaleString()}
+                                </td>
+                              </>
+                            )}
+                            {showImportDate && (
+                              <td className={classes.importDateCell}>
+                                <DatImportDate value={system.lastDatImportedAt} />
                               </td>
                             )}
+                            {!inlineCatalog && <td>{availability}</td>}
                             <td>
                               {systemUpdateLabels(system, status, subscriptionState).map(
                                 ({ label, color }) => (

@@ -2,15 +2,18 @@ using Romd.Application.Common.ReferenceCatalog;
 using System.ComponentModel.DataAnnotations;
 using Romd.Contracts.Common.Models;
 using Microsoft.AspNetCore.Mvc;
+using Romd.Admin.Application.ReferenceData.Systems.Commands;
 using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Source.Platform.Commands.ImportSystemDat;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
+using Romd.Contracts.Common.ReferenceCatalog;
 using Romd.Contracts.Management.Models;
 using Romd.Host.Authorization;
 
 using ContractManagedSystem = Romd.Contracts.Management.Models.ManagedSystem;
 using ContractSystemDatPreview = Romd.Contracts.Management.Models.SystemDatPreview;
+using ContractSystemOverrides = Romd.Contracts.Common.ReferenceCatalog.SystemOverrides;
 
 namespace Romd.Host.Endpoints;
 
@@ -30,12 +33,18 @@ public static class SystemSetupEndpoints
             return Results.Ok(new Page<ContractManagedSystem>
             {
                 Items = page.Items.Select(x => new ContractManagedSystem(x.SystemId!, x.Name, x.ShortName, x.Manufacturer,
-                x.Enabled, x.State, x.Message, x.CatalogCount, x.OwnedTitles, x.TrackedTitles)).ToArray(),
+                x.Enabled, x.State, x.Message, x.CatalogCount, x.OwnedTitles, x.TrackedTitles, x.KnownTitles, x.LastDatImportedAt)).ToArray(),
                 NextCursor = page.NextCursor,
                 HasNextPage = page.HasNextPage
             });
         }).WithName("ListManagedSystems").Produces<Page<ContractManagedSystem>>()
             .WithDescription("Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order, page selected before status/count assembly in one repeatable-read observation. Query includes normalized names, short names, manufacturers and name aliases; aliases are a separate paged relationship. Default/max limit 100; sortBy supports key:asc.");
+        group.MapPost("", CreateAndEnable).WithName("CreateManagedSystem")
+            .WithDescription("Create an installation-owned system and add it to the installation's Systems list in the same transaction.")
+            .ProducesCreated<SystemResource>().ProducesProblems(400, 409).ConditionalCreate();
+        group.MapPatch("/{systemKey}", UpdateAndEnable).WithName("UpdateManagedSystemPresentation")
+            .WithDescription("Update a system's name or description and add it to the Systems list atomically. Use the system reference resource's current ETag.")
+            .Produces<SystemResource>().ProducesProblems(400, 409).ConditionalWrite();
         group.MapPut("/{systemKey}/enabled", async (SystemKeyParameter systemKey, SetSystemEnabled request, ISystemSetupService service, CancellationToken ct) =>
         {
             var result = await service.SetEnabledAsync(systemKey.SystemId, request.Enabled, ct);
@@ -67,5 +76,27 @@ public static class SystemSetupEndpoints
             .ProducesAcceptedJob().ProducesProblem(400).ProducesProblem(409)
             .WithMetadata(new RequestSizeLimitAttribute(34 * 1024 * 1024)).DisableAntiforgery();
         return app;
+    }
+
+    private static async Task<IResult> CreateAndEnable(CreateSystem request,
+        ICommandHandler<CreateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, HttpContext context, CancellationToken ct)
+    {
+        var result = await handler.HandleAsync(new(request.Key,
+            new(request.Name, request.CompactLabel, request.Description, request.Icon, request.Monochrome), request.ManufacturerKeys, EnableForSetup: true), ct);
+        return result.Match(
+            created => Results.Created("/api/systems/" + Uri.EscapeDataString(created.Resource.Key), created.Resource).WithETag(context, created.Revision),
+            errors => errors.ToProblem());
+    }
+
+    private static async Task<IResult> UpdateAndEnable(SystemKeyParameter systemKey, ReferencePatch patch, HttpContext context,
+        ICommandHandler<UpdateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, CancellationToken ct)
+    {
+        var ifMatch = Preconditions.IfMatch(context, ReferenceCatalogEndpoints.PreconditionArea);
+        if (ifMatch.IsError)
+            return ifMatch.Errors.ToProblem();
+        var result = await handler.HandleAsync(new(systemKey.Key,
+            new(Name: patch.Name, Description: patch.Description, HasDescription: patch.Changes.ContainsKey("description")),
+            ifMatch.Value, EnableForSetup: true), ct);
+        return result.Match(updated => Results.Ok(updated.Resource).WithETag(context, updated.Revision), errors => errors.ToProblem());
     }
 }

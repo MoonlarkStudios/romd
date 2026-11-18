@@ -2,6 +2,7 @@ import { Alert, Badge, Button, Group, Stack, Text } from '@mantine/core';
 import { Link, useLocation } from 'react-router';
 import { useDatSubscriptions, useManagedSystems } from '../../hooks/api/useManagedSystems';
 import { usePermissions } from '../../hooks/usePermissions';
+import { DatImportDate, datCountLabel } from './systemMetrics';
 import { systemStateColors, systemStateLabels } from './systemState';
 import { systemSubscriptionStatus } from './systemsListStatus';
 
@@ -40,9 +41,14 @@ export function SystemSetupSummary({
           {systemStateLabels[system.state] ?? system.state}
         </Badge>
         <Text size="sm">
-          {system.catalogCount} installed {system.catalogCount === 1 ? 'source' : 'sources'} ·{' '}
-          {(system.trackedTitles ?? 0).toLocaleString()} tracked titles ·{' '}
-          {system.ownedTitles.toLocaleString()} titles with files
+          {datCountLabel(system.catalogCount)} · {(system.knownTitles ?? 0).toLocaleString()} known
+          titles · {system.ownedTitles.toLocaleString()} titles with files
+          {system.lastDatImportedAt && (
+            <>
+              {' '}
+              · Last DAT import <DatImportDate value={system.lastDatImportedAt} />
+            </>
+          )}
         </Text>
         {!viewingSources &&
           role === 'Admin' &&

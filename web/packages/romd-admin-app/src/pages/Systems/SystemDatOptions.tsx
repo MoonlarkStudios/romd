@@ -31,6 +31,7 @@ export function SystemDatOptions({
   subscriptions,
   dats,
   busy,
+  canConfirm,
   onSubscribe,
   onResume,
   onUpload,
@@ -44,6 +45,7 @@ export function SystemDatOptions({
   subscriptions: ReturnType<typeof useDatSubscriptions>;
   dats: ReturnType<typeof useDatsByPlatform>;
   busy: boolean;
+  canConfirm: boolean;
   onSubscribe: (catalog: PublishedDatCatalog) => void;
   onResume: (subscription: DatCatalogSubscription) => void;
   onUpload: (files: File[]) => void;
@@ -238,7 +240,7 @@ export function SystemDatOptions({
           {available.length > 0 && (
             <Button
               {...workspaceActionProps}
-              disabled={!selected || !eligibilityKnown}
+              disabled={!selected || !eligibilityKnown || !canConfirm}
               loading={busy}
               onClick={() => selected && onSubscribe(selected)}
             >
@@ -274,7 +276,7 @@ export function SystemDatOptions({
         <Button
           variant="subtle"
           w="fit-content"
-          disabled={busy}
+          disabled={busy || !canConfirm}
           onClick={onSkip}
         >
           Add without a DAT

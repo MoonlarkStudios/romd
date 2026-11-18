@@ -33,7 +33,7 @@ namespace Romd.Infrastructure.Tests.Systems;
 public sealed partial class SystemSetupTests
 {
     [Fact]
-    public async Task List_CountsTrackedTitlesIndependentlyOfLocalFilesAndOtherSystems()
+    public async Task List_CountsKnownTrackedAndOwnedTitlesIndependently()
     {
         using var database = PostgreSqlTestDatabase.Create();
         await using var db = database.CreateContext();
@@ -47,8 +47,10 @@ public sealed partial class SystemSetupTests
         db.TrackedTitles.AddRange(new TrackedTitleEntity { TitleId = tracked.Id }, new TrackedTitleEntity { TitleId = other.Id });
         await db.SaveChangesAsync();
         var rows = await List(Service(db));
+        rows.Single(r => r.Id == platforms[0].Id).KnownTitles.ShouldBe(2);
         rows.Single(r => r.Id == platforms[0].Id).TrackedTitles.ShouldBe(1);
         rows.Single(r => r.Id == platforms[0].Id).OwnedTitles.ShouldBe(1);
+        rows.Single(r => r.Id == platforms[1].Id).KnownTitles.ShouldBe(1);
         rows.Single(r => r.Id == platforms[1].Id).TrackedTitles.ShouldBe(1);
         rows.Single(r => r.Id == platforms[1].Id).OwnedTitles.ShouldBe(0);
     }
@@ -132,6 +134,38 @@ public sealed partial class SystemSetupTests
         (await db.DatSubscriptions.CountAsync()).ShouldBe(1);
         (await service.SetEnabledAsync(psx.Id, true, default)).IsError.ShouldBeFalse();
         (await List(service)).Single(x => x.Id == psx.Id).Enabled.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task List_UsesTheLatestInstalledDatAndExcludesPendingVersions()
+    {
+        using var database = PostgreSqlTestDatabase.Create();
+        await using var db = database.CreateContext();
+        await SharedReferenceDataSeeder.InitializeAsync(db, TestReferenceBlobs.For(db), clock: TimeProvider.System);
+        var platformId = await db.Platforms.Where(x => x.ShortName == "psx").Select(x => x.Id).SingleAsync();
+        var file = new FileEntityPersistence { Sha256 = Romd.Domain.Hashing.Sha256.FromSpan(new byte[32]), Size = 1, SizeOnDisk = 1 };
+        db.Files.Add(file);
+        await db.SaveChangesAsync();
+        var repository = new DatRepository(db, TimeProvider.System);
+        var firstImport = DateTimeOffset.UnixEpoch;
+        var lastImport = firstImport.AddDays(1);
+        var first = Romd.Domain.Source.Dat.DatFile.CreateNew("First", "Catalog", Romd.Domain.Source.Dat.DatType.Redump, "first.dat", file.Id, firstImport, platformId);
+        var second = Romd.Domain.Source.Dat.DatFile.CreateNew("Second", "Catalog", Romd.Domain.Source.Dat.DatType.Redump, "second.dat", file.Id, lastImport, platformId);
+        await repository.AddStagedAsync(first, Romd.Domain.Source.Dat.DatSource.CreateNew(now: firstImport));
+        await repository.AddStagedAsync(second, Romd.Domain.Source.Dat.DatSource.CreateNew(now: lastImport));
+        await db.SaveChangesAsync();
+        var sourceId = await db.DatFiles.Where(x => x.Name == "First").Select(x => x.DatSourceId).SingleAsync();
+        var pending = Romd.Domain.Source.Dat.DatFile.CreatePendingVersion("First", "Catalog",
+            Romd.Domain.Source.Dat.DatType.Redump, "first-v2.dat", file.Id, sourceId, lastImport.AddDays(1), platformId);
+        await repository.AddVersionStagedAsync(pending);
+        await db.SaveChangesAsync();
+
+        var rows = await List(Service(db));
+
+        var installed = rows.Single(x => x.Id == platformId);
+        installed.CatalogCount.ShouldBe(2);
+        installed.LastDatImportedAt.ShouldBe(lastImport);
+        rows.Single(x => x.SystemId == "snes").LastDatImportedAt.ShouldBeNull();
     }
 
     [Fact]

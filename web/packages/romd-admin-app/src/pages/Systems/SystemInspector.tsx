@@ -5,10 +5,12 @@ import { Link } from 'react-router';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useDatsByPlatform } from '../../hooks/api/useDats';
+import { usePlatform } from '../../hooks/api/usePlatforms';
 import { SourceStatusBadge } from './SourceStatusBadge';
 import { SourceSubscriptionActions } from './SourceSubscriptionActions';
 import { SystemLogo } from './SystemLogo';
 import classes from './Systems.module.css';
+import { DatImportDate, datCountLabel } from './systemMetrics';
 import { systemStateColors } from './systemState';
 import { catalogLabel, type systemSubscriptionStatus } from './systemsListStatus';
 
@@ -147,6 +149,7 @@ export function SystemInspector({
   onOpen: MouseEventHandler<HTMLAnchorElement>;
 }) {
   const systemPath = `/systems/${system.key}`;
+  const platform = usePlatform(system.key);
   const sourcesPath = `${systemPath}?tab=sources`;
   const state = {
     systemsReturn: returnPath,
@@ -208,6 +211,14 @@ export function SystemInspector({
             </Text>
           </Stack>
         </Group>
+        {platform.data?.description && (
+          <Text
+            size="sm"
+            className={classes.inspectorIdentity}
+          >
+            {platform.data.description}
+          </Text>
+        )}
         <Stack gap="xs">
           <Group
             wrap="wrap"
@@ -226,6 +237,18 @@ export function SystemInspector({
               {catalogLabel(system.state)}
             </Badge>
           </Group>
+          <Text
+            size="xs"
+            c="dimmed"
+          >
+            {datCountLabel(system.catalogCount)}
+            {system.lastDatImportedAt && (
+              <>
+                {' '}
+                · Last DAT import <DatImportDate value={system.lastDatImportedAt} />
+              </>
+            )}
+          </Text>
           <InstalledSources
             system={system}
             subscriptions={subscriptions}
@@ -240,12 +263,22 @@ export function SystemInspector({
             </Text>
           )}
         </Stack>
-        <Text
-          size="xs"
-          c="dimmed"
-        >
-          {(system.trackedTitles ?? 0).toLocaleString()} tracked titles ·{' '}
-          {system.ownedTitles.toLocaleString()} with files
+        <Text size="xs">
+          <Link
+            to={`${systemPath}?tab=titles&view=all`}
+            state={state}
+            onClick={onOpen}
+          >
+            {(system.knownTitles ?? 0).toLocaleString()} known titles
+          </Link>
+          {' · '}
+          <Text
+            component="span"
+            size="xs"
+            c="dimmed"
+          >
+            {system.ownedTitles.toLocaleString()} with files
+          </Text>
         </Text>
         {next.length === 1 && (
           <Text

@@ -7,6 +7,8 @@ import {
   applyDatSubscription,
   checkDatSubscription,
   createDatSubscription,
+  createManagedSystem,
+  getAdminSystem,
   getDatSubscriptionPreview,
   getJob,
   importSystemDat,
@@ -16,6 +18,7 @@ import {
   listSystemDats,
   previewSystemDat,
   setSystemEnabled,
+  updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -38,6 +41,9 @@ vi.mock('@romd/admin-api-client', async () => ({
   applyDatSubscription: vi.fn(),
   checkDatSubscription: vi.fn(),
   createDatSubscription: vi.fn(),
+  createManagedSystem: vi.fn(),
+  getAdminSystem: vi.fn(),
+  updateManagedSystemPresentation: vi.fn(),
   getDatSubscriptionPreview: vi.fn(),
 }));
 const psx: ManagedSystem = {
@@ -51,6 +57,13 @@ const psx: ManagedSystem = {
   catalogCount: 0,
   ownedTitles: 0,
 };
+const psxDetails = {
+  key: 'psx',
+  name: 'PlayStation',
+  compactLabel: 'PS1',
+  description: 'A Sony home console.',
+  revision: 'shown-revision',
+};
 const page = <T,>(items: T[]) => ({
   items,
   nextCursor: null,
@@ -62,6 +75,7 @@ const result = <T,>(data: T) =>
   }) as never;
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(getAdminSystem).mockResolvedValue(result(psxDetails));
   vi.mocked(listManagedSystems).mockResolvedValue(
     result(
       completePage([
@@ -90,6 +104,12 @@ it('lets assistive technology dismiss system setup without adding a system', asy
       name: 'Choose PlayStation',
     }),
   );
+  await user.type(
+    await screen.findByRole('textbox', {
+      name: 'Short description',
+    }),
+    ' My notes.',
+  );
   await user.click(
     screen.getByRole('button', {
       name: 'Close',
@@ -98,6 +118,7 @@ it('lets assistive technology dismiss system setup without adding a system', asy
   );
 
   expect(close).toHaveBeenCalledOnce();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
   expect(setSystemEnabled).not.toHaveBeenCalled();
   expect(createDatSubscription).not.toHaveBeenCalled();
 });
@@ -137,6 +158,120 @@ it('adds a system independently only after choosing Add without a DAT', async ()
   expect(importSystemDat).not.toHaveBeenCalled();
   expect(close).toHaveBeenCalled();
 });
+it('prefills known details and saves only edited fields against the displayed revision', async () => {
+  const user = userEvent.setup();
+  const open = vi.fn();
+  vi.mocked(updateManagedSystemPresentation).mockResolvedValue(
+    result({
+      ...psxDetails,
+      name: 'My PlayStation',
+    }),
+  );
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  const name = await screen.findByRole('textbox', {
+    name: 'Display name',
+  });
+  const key = screen.getByRole('textbox', {
+    name: 'System key',
+  });
+  expect(key).toHaveValue('psx');
+  expect(key).toHaveAttribute('readonly');
+  expect(name).toHaveValue('PlayStation');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Short description',
+    }),
+  ).toHaveValue('A Sony home console.');
+  await user.clear(name);
+  await user.type(name, 'My PlayStation');
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Add without a DAT',
+    }),
+  );
+  await waitFor(() => expect(open).toHaveBeenCalledWith('psx', 'sources'));
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+  expect(updateManagedSystemPresentation).toHaveBeenCalledExactlyOnceWith({
+    path: {
+      systemKey: 'psx',
+    },
+    headers: {
+      'If-Match': '"shown-revision"',
+    },
+    body: {
+      name: 'My PlayStation',
+    },
+  });
+});
+
+it('creates and opens a custom system only after confirmation', async () => {
+  const user = userEvent.setup();
+  const open = vi.fn();
+  vi.mocked(createManagedSystem).mockResolvedValue(
+    result({
+      key: 'local-homebrew',
+    }),
+  );
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Create custom system',
+    }),
+  );
+  await user.type(
+    screen.getByRole('textbox', {
+      name: 'Display name',
+    }),
+    'Homebrew Lab',
+  );
+  const key = screen.getByRole('textbox', {
+    name: 'System key',
+  });
+  expect(key).toHaveValue('local-homebrew-lab');
+  await user.clear(key);
+  await user.type(key, 'local-homebrew');
+  await user.type(
+    screen.getByRole('textbox', {
+      name: 'Short description',
+    }),
+    'Local projects.',
+  );
+  expect(createManagedSystem).not.toHaveBeenCalled();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Add without a DAT',
+    }),
+  );
+  await waitFor(() => expect(open).toHaveBeenCalledWith('local-homebrew', 'sources'));
+  expect(createManagedSystem).toHaveBeenCalledExactlyOnceWith({
+    body: {
+      key: 'local-homebrew',
+      name: 'Homebrew Lab',
+      compactLabel: 'Homebrew Lab',
+      description: 'Local projects.',
+    },
+  });
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+});
+
 it.each([
   'healthy',
   'failed',
@@ -881,4 +1016,101 @@ it('previews an uploaded first DAT without adding the system and imports the rev
     },
   });
   expect(await screen.findByText('Processing your source')).toBeInTheDocument();
+});
+
+it('retries a reviewed custom DAT without recreating its system after a failed import request', async () => {
+  const user = userEvent.setup();
+  const file = new File(
+    [
+      'data',
+    ],
+    'homebrew.dat',
+    {
+      type: 'text/xml',
+    },
+  );
+  const sha256 = 'd'.repeat(64);
+  vi.mocked(previewSystemDat).mockResolvedValue(
+    result({
+      name: 'Homebrew',
+      bytes: file.size,
+      suggestedSystemKey: null,
+      existingDatIds: [],
+      preview: {
+        candidateEntries: 1,
+        candidateFiles: 1,
+        candidateBiosEntries: 0,
+        candidateVersion: '1',
+        candidateSha256: sha256,
+      },
+    }),
+  );
+  vi.mocked(createManagedSystem).mockResolvedValue(
+    result({
+      key: 'local-homebrew',
+    }),
+  );
+  vi.mocked(importSystemDat)
+    .mockRejectedValueOnce(new Error('Import request failed.'))
+    .mockResolvedValueOnce(
+      result({
+        jobId: 'job-1',
+      }),
+    );
+  vi.mocked(getJob).mockResolvedValue(
+    result({
+      id: 'job-1',
+      isTerminal: false,
+      phase: 'Validating',
+    }),
+  );
+  render(<AddSystemFlow onClose={vi.fn()} />);
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Create custom system',
+    }),
+  );
+  await user.type(
+    screen.getByRole('textbox', {
+      name: 'Display name',
+    }),
+    'Homebrew',
+  );
+  const input = screen.getByTestId('dat-upload-zone').querySelector('input[type="file"]');
+  if (!input) throw new Error('Missing file input');
+  fireEvent.change(input, {
+    target: {
+      files: [
+        file,
+      ],
+    },
+  });
+  const confirm = await screen.findByRole('button', {
+    name: 'Add system and import DAT',
+  });
+  expect(createManagedSystem).not.toHaveBeenCalled();
+  expect(importSystemDat).not.toHaveBeenCalled();
+
+  await user.click(confirm);
+  expect(await screen.findByText('Import request failed.')).toBeVisible();
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Add reviewed source',
+    }),
+  );
+  expect(await screen.findByText('Processing your source')).toBeVisible();
+  expect(createManagedSystem).toHaveBeenCalledOnce();
+  expect(importSystemDat).toHaveBeenCalledTimes(2);
+  expect(importSystemDat).toHaveBeenLastCalledWith({
+    path: {
+      systemKey: 'local-homebrew',
+    },
+    body: {
+      file,
+    },
+    query: {
+      sha256,
+    },
+  });
 });

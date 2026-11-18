@@ -26,6 +26,7 @@ beforeEach(() => {
           state: 'Ready',
           catalogCount: 2,
           ownedTitles: 3,
+          knownTitles: 223,
         },
       ]),
     ),
@@ -42,9 +43,7 @@ beforeEach(() => {
 it('summarizes multiple sources without assigning one update method to the system', async () => {
   render(<SystemSetupSummary systemKey="one" />);
   expect(await screen.findByText('Catalog ready')).toBeInTheDocument();
-  expect(
-    screen.getByText('2 installed sources · 0 tracked titles · 3 titles with files'),
-  ).toBeInTheDocument();
+  expect(screen.getByText('2 DATs · 223 known titles · 3 titles with files')).toBeInTheDocument();
   expect(screen.queryByText('Manual upload')).not.toBeInTheDocument();
 });
 it('keeps a ready system available when one subscription check fails', async () => {

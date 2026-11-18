@@ -26,7 +26,7 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
     }
     public Task<bool> KeyExistsAsync(string key, CancellationToken ct) => db.Platforms.AnyAsync(x => x.CanonicalKey == key || x.ShortName == key, ct);
     public Task<bool> AssetExistsAsync(string hash, CancellationToken ct) => db.ReferenceAssets.AnyAsync(x => x.Hash == hash, ct);
-    public async Task StageAsync(SystemReference system, CancellationToken ct)
+    public async Task StageAsync(SystemReference system, CancellationToken ct, bool enableForSetup = false)
     {
         var row = system.Id == 0 ? null : await db.Platforms.AsTracking().SingleAsync(x => x.Id == system.Id, ct);
         if (row is null)
@@ -40,6 +40,8 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
         row.BaseMonochrome = system.Definition.Monochrome;
         row.Retired = system.Definition.Retired;
         row.ReferenceOverrides = system.Overrides;
+        if (enableForSetup)
+            row.IsEnabled = true;
         var links = await db.SystemCompanies.AsTracking().Where(x => x.PlatformId == row.Id).ToListAsync(ct);
         db.SystemCompanies.RemoveRange(links.Where(x => !system.ManufacturerKeys.Contains(x.CompanyKey, StringComparer.Ordinal)));
         foreach (var key in system.ManufacturerKeys.Except(links.Select(x => x.CompanyKey), StringComparer.Ordinal))

@@ -13,6 +13,7 @@ using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Source.Platform.Commands.ImportSystemDat;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.ReferenceCatalog;
+using Romd.Contracts.Common.ReferenceCatalog;
 using Romd.Contracts.Management.Models;
 using Romd.Domain.Identity;
 using Romd.Hosting.IntegrationTests.Infrastructure;
@@ -79,6 +80,70 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
         var aliasHit = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup?query=PS1");
         aliasHit.ShouldContain(x => x.Key == psx.Key);
         (await client.GetAsync($"/api/systems/{psx.Key}")).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task RegisterKnownSystem_RequiresCurrentRevisionAndSavesDetailsWithEnablement()
+    {
+        await using var host = new AcceptanceFixture();
+        await host.InitializeAsync();
+        using var client = host.CreateAuthenticatedClient();
+        const string key = "psx";
+        using var original = await client.GetAsync($"/api/systems/{key}");
+        original.EnsureSuccessStatusCode();
+        var before = (await original.Content.ReadFromJsonAsync<SystemResource>()).ShouldNotBeNull();
+
+        using var stale = new HttpRequestMessage(HttpMethod.Patch, $"/api/system-setup/{key}")
+        {
+            Content = JsonContent.Create(new { name = "My PlayStation", description = "A local description." })
+        };
+        stale.Headers.IfMatch.ParseAdd("\"stale\"");
+        using var rejected = await client.SendAsync(stale);
+        rejected.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
+        var systems = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup");
+        var untouched = systems!.Single(x => x.Key == key);
+        untouched.Enabled.ShouldBeFalse();
+        untouched.Name.ShouldBe(before.Name);
+
+        using var patch = new HttpRequestMessage(HttpMethod.Patch, $"/api/system-setup/{key}")
+        {
+            Content = JsonContent.Create(new { name = "My PlayStation", description = "A local description." })
+        };
+        patch.Headers.IfMatch.Add(original.Headers.ETag.ShouldNotBeNull());
+        using var applied = await client.SendAsync(patch);
+        applied.StatusCode.ShouldBe(HttpStatusCode.OK);
+        applied.Headers.ETag.ShouldNotBe(original.Headers.ETag);
+        var current = (await applied.Content.ReadFromJsonAsync<SystemResource>()).ShouldNotBeNull();
+        current.Key.ShouldBe(key);
+        current.Name.ShouldBe("My PlayStation");
+        current.Description.ShouldBe("A local description.");
+        current.CompactLabel.ShouldBe(before.CompactLabel);
+        var enabled = (await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup"))!.Single(x => x.Key == key);
+        enabled.Enabled.ShouldBeTrue();
+        enabled.Name.ShouldBe(current.Name);
+    }
+
+    [Fact]
+    public async Task RegisterCustomSystem_CreatesOneEnabledSystemAndRejectsDuplicateKey()
+    {
+        await using var host = new AcceptanceFixture();
+        await host.InitializeAsync();
+        using var client = host.CreateAuthenticatedClient();
+        var request = new CreateSystem("local-test-station", "Test Station", "Test", "A custom system.");
+
+        using var created = await client.PostAsJsonAsync("/api/system-setup", request);
+
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+        created.Headers.Location.ShouldNotBeNull().OriginalString.ShouldBe("/api/systems/local-test-station");
+        created.Headers.ETag.ShouldNotBeNull();
+        using var duplicate = await client.PostAsJsonAsync("/api/system-setup", request with { Name = "Duplicate" });
+        duplicate.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        var system = (await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup"))!.Single(x => x.Key == request.Key);
+        system.Enabled.ShouldBeTrue();
+        system.Name.ShouldBe(request.Name);
+        system.CatalogCount.ShouldBe(0);
+        system.KnownTitles.ShouldBe(0);
+        system.LastDatImportedAt.ShouldBeNull();
     }
 
     [Fact]
