@@ -453,6 +453,8 @@ restores the fence and lease, then commits. Its fresh scope releases tracked sta
 on success or failure. The unclaimed runner fallback also owns a short transaction
 and notifies observers after commit. Recovery and artifact-cleanup backstops
 recheck current state and apply conditional, purpose-specific writes.
+The DAT replacement sweep checks for a live execution lease again after
+locking the job row. A live lease protects a worker between checkpoints.
 Claim, checkpoint and deferral protocols distinguish an acknowledged commit
 from lost acknowledgement. Provider cleanup preserves the original recovery
 signal or acknowledged result; cleanup cannot establish that an uncertain commit

@@ -14,8 +14,8 @@ namespace Romd.Infrastructure.Jobs;
 ///     Recurring convergence sweep for the DAT replacement saga. Runs three idempotent
 ///     duties in order, each in its own scope and failure-isolated so one failing duty
 ///     never blocks the others:
-///     1. terminally fail stale non-terminal replace jobs (no checkpoint progress within
-///        the stale threshold), preserving their recorded attempt errors;
+///     1. terminally fail replace jobs with an old checkpoint and no live execution lease,
+///        preserving their recorded attempt errors;
 ///     2. age out abandoned PendingActivation versions no live job can still activate,
 ///        converging to the design's repairable state: old version stays Active, the new
 ///        one is discarded, the job is Failed with its errors. Deleting the version row
