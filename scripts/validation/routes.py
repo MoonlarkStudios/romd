@@ -56,7 +56,7 @@ CI_ONLY_STEPS = {
     ('agent-infrastructure', 'Install the locked qualification browser for release regressions'):
         dict(command='npm ci --ignore-scripts --prefix scripts/release/browser',
              reason='locked browser dependencies and native runner packages; local browser setup is documented in packaged-release-qualification'),
-    ('production-compose', 'Install the locked packaged rehearsal browser'):
+    ('production-drills', 'Install the locked packaged rehearsal browser'):
         dict(command='npm ci --ignore-scripts --prefix scripts/release/browser',
              reason='locked browser setup; the actual packaged rehearsal has a required local/CI registry route'),
     ('console', 'Restore committed console dependencies'):
@@ -110,7 +110,13 @@ CI_ONLY_STEPS = {
     ('production-compose', 'Reclaim disposable CI build cache'):
         dict(command='bash scripts/ci/reclaim_build_cache.sh',
              reason='disposable GitHub-hosted builder cache only; local/self-hosted cleanup is forbidden'),
-    ('production-compose', 'Synthetic PS2 DVD CHD end to end'):
+    ('production-compose', 'Export the verified source drill images'):
+        dict(command='bash scripts/ci/drill_images.sh save', reason='same-run image handoff after source smoke'),
+    ('production-drills', 'Verify production drill selection'):
+        dict(command='case "$SELECTED" in', reason='fail on missing or invalid upstream scope selection'),
+    ('production-drills', 'Load and verify the production drill images'):
+        dict(command='bash scripts/ci/drill_images.sh load', reason='verify the source images before the selected drill'),
+    ('production-drills', 'Synthetic PS2 DVD CHD end to end'):
         dict(command='python3 scripts/e2e/chd.py --synthetic', local='e2e:chd:synthetic'),
     ('ci-gate', 'Require every CI job to succeed'):
         dict(command="jq -r 'to_entries[]", reason='aggregates the other job results into one required status check'),
@@ -192,7 +198,9 @@ def execution_route(command, check):
 
 # Required checks that a pull request may skip only under the exact condition
 # scripts/ci/change_scope.py computes; main and reusable runs always execute them.
-SCOPED_ROUTES = {'deployment.packaged-rehearsal': "${{ needs.source-checks.outputs.packaged == 'true' }}"}
+SCOPED_ROUTES = {
+    'deployment.packaged-rehearsal': "${{ matrix.drill == 'packaged' && needs.source-checks.outputs.packaged == 'true' }}",
+}
 
 
 def workflow_routes(text, check):
@@ -268,7 +276,7 @@ def check_registry(root, files, mise, errors, registry=None, workflow_text=None,
             or any(advisory_check.get(mode) != DEPENDENCIES for mode in ('local', 'ci'))):
         errors.append('dependencies.source: source advisory gate must run locally and in required CI')
     rehearsal = by_id.get('deployment.packaged-rehearsal', {})
-    if (not rehearsal.get('required_ci') or rehearsal.get('ci_job') != 'production-compose'
+    if (not rehearsal.get('required_ci') or rehearsal.get('ci_job') != 'production-drills'
             or 'release-runtime' not in rehearsal.get('groups', [])
             or any(rehearsal.get(mode) != REHEARSAL for mode in ('local', 'ci'))):
         errors.append('deployment.packaged-rehearsal: complete packaged runtime rehearsal must remain required')

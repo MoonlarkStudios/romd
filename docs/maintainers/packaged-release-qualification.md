@@ -84,8 +84,8 @@ same startup/restart/restore checks; CI continues using the small synthetic file
 The required Production Compose job builds source/version-labelled images and
 runs the source drill on every pull request. On `main`, and on pull requests
 that [change release paths](continuous-integration.md#expensive-drill-selection),
-it then runs image/SBOM/bundle security checks and the full
-packaged suite on native Docker. It
+a separate runner loads and verifies those same images, then runs image, SBOM
+and bundle security checks and the full packaged suite on native Docker. It
 uses a fresh loopback registry to supply immutable references to those images.
 The publisher repeats that rehearsal on its exact second build before authenticating
 to GHCR or creating releases, assets or public image tags.
