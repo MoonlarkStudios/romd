@@ -178,6 +178,7 @@ RUN case "$TARGETARCH" in arm64) rid=linux-arm64 ;; amd64) rid=linux-x64 ;; *) e
     && dotnet restore src/Romd.Consumer.Host/Romd.Consumer.Host.csproj --runtime "$rid" --lock-file-path "packages.$rid.lock.json" --locked-mode \
     && dotnet restore src/Romd.Worker.Host/Romd.Worker.Host.csproj --runtime "$rid" --lock-file-path "packages.$rid.lock.json" --locked-mode \
     && dotnet restore tools/Romd.Media.Probe/Romd.Media.Probe.csproj --runtime "$rid" --lock-file-path "packages.$rid.lock.json" --locked-mode
+ARG ROMD_SOURCE_REVISION=development
 ARG ROMD_RELEASE_TAG=development
 RUN case "$TARGETARCH" in arm64) rid=linux-arm64 ;; amd64) rid=linux-x64 ;; *) exit 1 ;; esac \
     && dotnet publish src/Romd.Admin.Host/Romd.Admin.Host.csproj \
@@ -187,6 +188,7 @@ RUN case "$TARGETARCH" in arm64) rid=linux-arm64 ;; amd64) rid=linux-x64 ;; *) e
     --disable-build-servers -m:1 -warnaserror -p:UseSharedCompilation=false \
     -p:BuildFrontend=false \
     -p:RomdReleaseTag="$ROMD_RELEASE_TAG" \
+    -p:RomdSourceRevision="$ROMD_SOURCE_REVISION" \
     -p:SkipMissingFrontendWarning=true
 RUN case "$TARGETARCH" in arm64) rid=linux-arm64 ;; amd64) rid=linux-x64 ;; *) exit 1 ;; esac \
     && dotnet publish src/Romd.Consumer.Host/Romd.Consumer.Host.csproj \

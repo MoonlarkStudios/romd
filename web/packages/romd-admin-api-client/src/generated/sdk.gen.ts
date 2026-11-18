@@ -295,7 +295,7 @@ export const getDashboardStatusBar = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * Returns the installed deployment's release version.
+ * Returns the installed release and the running admin host's build.
  */
 export const getServerInfo = <ThrowOnError extends boolean = false>(options?: Options<GetServerInfoData, ThrowOnError>) => (options?.client ?? client).get<GetServerInfoResponses, GetServerInfoErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

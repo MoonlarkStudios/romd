@@ -84,8 +84,8 @@ try
     app.MapRomdHealthCheck();
     app.MapRomdReadinessCheck();
     app.MapRomdOpenIddictEndpoints();
-    string releaseTag = await DeploymentVersion.ResolveAsync(app.Configuration, app.Logger);
-    app.MapGroup("/api").MapRomdAdminHttp(releaseTag);
+    var serverInfo = await DeploymentVersion.ResolveAsync(app.Configuration, app.Logger);
+    app.MapGroup("/api").MapRomdAdminHttp(serverInfo);
     app.MapArtworkDeliveryEndpoints();
     app.MapStorageEndpoints();
 

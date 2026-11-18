@@ -2130,8 +2130,14 @@ export type SavedArtwork = {
     artwork: ResolvedArtwork;
 };
 
+export type ServerBuild = {
+    tag: string;
+    revision: string;
+};
+
 export type ServerInfo = {
-    version: string;
+    release: null | string;
+    build: ServerBuild;
 };
 
 export type SetAccountSuspensionRequest = {

@@ -244,10 +244,11 @@ def main():
             status, _, me = request(host, '/api/me', token=token)
             assert status == 200, 'authenticated API failed'
             if args.build or args.release_tag:
-                expected_version = args.release_tag or 'development'
                 status, _, body = request(host, '/api/server/info', token=token)
                 assert status == 200, 'authenticated server info failed'
-                assert json.loads(body) == {'version': expected_version}, 'server build version mismatch'
+                # A source deployment has no bundle manifest, so it reports its build and no release.
+                expected_build = {'tag': args.release_tag or 'development', 'revision': args.source_revision or 'development'}
+                assert json.loads(body) == {'release': None, 'build': expected_build}, 'server build identity mismatch'
             if args.vfs:
                 verify_vfs(token, json.loads(me)['id'])
             status, _, identity = request('console.example.test', '/api/server/identity')

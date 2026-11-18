@@ -1,13 +1,24 @@
 using System.Reflection;
 using System.Text.Json;
+using Romd.Contracts.Management.Models;
 
 namespace Romd.Admin.Host;
 
 internal static class DeploymentVersion
 {
-    public static async Task<string> ResolveAsync(IConfiguration configuration, ILogger logger)
+    public static async Task<ServerInfo> ResolveAsync(IConfiguration configuration, ILogger logger) => new()
     {
-        string manifestPath = configuration["Romd:DeploymentManifestPath"] ?? "/etc/romd/deployment-manifest.json";
+        Release = await ReadInstalledReleaseAsync(
+            configuration["Romd:DeploymentManifestPath"] ?? "/etc/romd/deployment-manifest.json", logger),
+        Build = new ServerBuild
+        {
+            Tag = BuildMetadata("RomdReleaseTag"),
+            Revision = BuildMetadata("RomdSourceRevision")
+        }
+    };
+
+    private static async Task<string?> ReadInstalledReleaseAsync(string manifestPath, ILogger logger)
+    {
         try
         {
             await using var stream = File.OpenRead(manifestPath);
@@ -28,11 +39,14 @@ internal static class DeploymentVersion
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            logger.LogWarning(exception, "Could not read the ROMD deployment version from {ManifestPath}", manifestPath);
+            logger.LogWarning(exception, "Could not read the ROMD deployment release from {ManifestPath}", manifestPath);
         }
 
-        return typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-            .SingleOrDefault(attribute => attribute.Key == "RomdReleaseTag")?.Value
-            ?? throw new InvalidOperationException("The admin host assembly is missing its ROMD release tag.");
+        return null;
     }
+
+    private static string BuildMetadata(string key) =>
+        typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .SingleOrDefault(attribute => attribute.Key == key)?.Value
+        ?? throw new InvalidOperationException($"The admin host assembly is missing its {key} build metadata.");
 }

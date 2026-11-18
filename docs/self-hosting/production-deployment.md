@@ -591,11 +591,14 @@ restore; perform a fresh installation with new volumes instead.
    ```
 
 6. Verify login, discovery and application operations through ingress.
-   In the admin portal, open **Settings → Server** to check the installed
-   bundle's release tag. Authenticated callers can also read it from
-   `GET /api/server/info`. A stable bundle shows its stable tag even when
-   promotion reused a candidate image.
-   Standalone images show their build tag. Untagged builds show `development`.
+   In the admin portal, open **Settings → Server** to check what is installed
+   and what is running. **Version** is the release tag of the bundle you
+   started from. **Build** is the tag and source commit compiled into the
+   running admin image. A stable release reuses its candidate's image, so a
+   `v1.2.3` installation reports a `v1.2.3-rc.N` build. Authenticated callers
+   can read both from `GET /api/server/info`. An installation without the
+   bundle's `manifest.json` reports no version, and an untagged build reports
+   `development`.
 
 A release that changes the CHD decoder tuple also needs the
 [CHD decoder upgrade](#chd-decoder-upgrades) procedure.

@@ -1,10 +1,11 @@
+using Romd.Contracts.Management.Models;
 using Romd.Host.Endpoints;
 
 namespace Romd.Hosting;
 
 public static class RomdAdminEndpointRouteExtensions
 {
-    public static RouteGroupBuilder MapRomdAdminHttp(this RouteGroupBuilder api, string releaseTag)
+    public static RouteGroupBuilder MapRomdAdminHttp(this RouteGroupBuilder api, ServerInfo serverInfo)
     {
         // Any admin route that fails to declare its own authorization decision is denied for
         // anonymous callers (docs/decisions/api-contract-policy.md, "Protected By Default").
@@ -38,7 +39,7 @@ public static class RomdAdminEndpointRouteExtensions
         api.MapArtworkCurationEndpoints();
         api.MapProviderMatchEndpoints();
         api.MapDashboardEndpoints();
-        api.MapServerInfoEndpoint(releaseTag);
+        api.MapServerInfoEndpoint(serverInfo);
         api.MapSystemEndpoints();
         api.MapDiagnosticsEndpoints();
 
