@@ -30,6 +30,7 @@ using Romd.Admin.Application.Libraries;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.ReferenceData;
 using Romd.Admin.Application.Search;
+using Romd.Admin.Application.Settings;
 using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Source.Rom;
@@ -818,6 +819,7 @@ public static class DependencyInjection
     {
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddScoped<RomdOpenIddictAccountService>();
+        services.AddScoped<ISignInMessageReader, Romd.Persistence.Identity.SignInMessageReader>();
 
         return services;
     }
@@ -1045,6 +1047,7 @@ public static class DependencyInjection
 
     private static IServiceCollection AddRomdPersistenceRepositories(this IServiceCollection services)
     {
+        services.AddScoped<ISignInMessageStore, Romd.Persistence.Identity.SignInMessageStore>();
         services.AddScoped<JobDispatchRepository>();
         services.AddScoped<JobDispatchService>();
         services.TryAddSingleton(new JobExecutionClaimOptions());

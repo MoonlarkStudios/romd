@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import classes from '../components/Workspace/Workspace.module.css';
 import { ArtworkEnrichmentSettings } from './Settings/ArtworkEnrichmentSettings';
+import { SignInMessageSettings } from './Settings/SignInMessageSettings';
 
 export function Settings() {
   const serverInfo = useQuery({
@@ -48,6 +49,7 @@ export function Settings() {
         >
           Version {serverInfo.isError ? 'unavailable' : (serverInfo.data?.version ?? 'loading…')}
         </Text>
+        <SignInMessageSettings />
       </section>
       <section className={classes.panel}>
         <Title

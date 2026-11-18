@@ -2057,6 +2057,10 @@ export type ReplaceArtworkSelectionRequest = {
 
 export type ReplaceDatDiagnosticPhase = 'Pending' | 'Ingesting' | 'Replacing';
 
+export type ReplaceSignInMessageRequest = {
+    message: string;
+};
+
 export type ResolvedArtwork = {
     role: string;
     assetId: null | string;
@@ -2179,6 +2183,11 @@ export type SetTitleContentRatingRequest = {
 export type SetTitleTrackedRequest = {
     tracked: boolean;
     pinnedCatalogReleaseId?: null | string;
+};
+
+export type SignInMessageSettings = {
+    revision: string;
+    message: string;
 };
 
 export type SourceEntryReference = {
@@ -9813,6 +9822,70 @@ export type ResolveMetadataProviderGameResponses = {
 };
 
 export type ResolveMetadataProviderGameResponse = ResolveMetadataProviderGameResponses[keyof ResolveMetadataProviderGameResponses];
+
+export type GetSignInMessageSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/server/sign-in-message';
+};
+
+export type GetSignInMessageSettingsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type GetSignInMessageSettingsError = GetSignInMessageSettingsErrors[keyof GetSignInMessageSettingsErrors];
+
+export type GetSignInMessageSettingsResponses = {
+    /**
+     * OK
+     */
+    200: SignInMessageSettings;
+};
+
+export type GetSignInMessageSettingsResponse = GetSignInMessageSettingsResponses[keyof GetSignInMessageSettingsResponses];
+
+export type ReplaceSignInMessageData = {
+    body: ReplaceSignInMessageRequest;
+    headers: {
+        /**
+         * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.
+         */
+        'If-Match': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/server/sign-in-message';
+};
+
+export type ReplaceSignInMessageErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Precondition Failed
+     */
+    412: ProblemDetails;
+    /**
+     * Precondition Required
+     */
+    428: ProblemDetails;
+};
+
+export type ReplaceSignInMessageError = ReplaceSignInMessageErrors[keyof ReplaceSignInMessageErrors];
+
+export type ReplaceSignInMessageResponses = {
+    /**
+     * OK
+     */
+    200: SignInMessageSettings;
+};
+
+export type ReplaceSignInMessageResponse = ReplaceSignInMessageResponses[keyof ReplaceSignInMessageResponses];
 
 export type GetServerDiagnosticsData = {
     body?: never;

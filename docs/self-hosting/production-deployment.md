@@ -546,10 +546,10 @@ environment variables is not an account-recovery mechanism.
 
 The current schema starts at `20261031050000_FreshMediaBaseline` with the
 additive `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
-and `20261117000000_JobDispatchExpiryIndex` migrations (readiness version 75).
-The Saturn migration preserves PS1 observations and adds distinct Saturn
-fields. Deploy matching hosts worker-first so APIs observe the new readiness
-version.
+`20261117000000_JobDispatchExpiryIndex`, and `20261118194850_SignInMessage`
+migrations (readiness version 76). The Saturn migration preserves PS1
+observations and adds distinct Saturn fields. The sign-in message starts blank.
+Deploy matching hosts worker-first so APIs observe the new readiness version.
 There is no upgrade from the retired pre-baseline migration chain. Use new empty
 database/data volumes for that starting point and keep the previous installation
 and its matching backups for recovery. Baseline downgrades are unsupported.

@@ -139,11 +139,18 @@ public static class OpenIddictEndpoints
         return Results.SignIn(principal, authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
 
-    private static IResult ShowLogin(HttpContext context, IAntiforgery antiforgery, RomdSurfaceAuthOptions surface)
+    private static async Task<IResult> ShowLogin(
+        HttpContext context,
+        IAntiforgery antiforgery,
+        RomdSurfaceAuthOptions surface,
+        ISignInMessageReader signInMessage,
+        CancellationToken ct)
     {
         string returnUrl = SanitizeReturnUrl(context.Request.Query["returnUrl"].FirstOrDefault());
+        string message = await signInMessage.GetMessageAsync(ct);
 
-        return Results.Content(RenderLoginPage(returnUrl, antiforgery.GetAndStoreTokens(context), error: null, isAdmin: surface.IsClientAllowed("romd-admin-spa")), "text/html");
+        return Results.Content(RenderLoginPage(returnUrl, antiforgery.GetAndStoreTokens(context), message,
+            error: null, isAdmin: surface.IsClientAllowed("romd-admin-spa")), "text/html");
     }
 
     private static async Task<IResult> SubmitLogin(
@@ -152,6 +159,7 @@ public static class OpenIddictEndpoints
         IAntiforgery antiforgery,
         AuthenticationAttemptLimiter attempts,
         RomdSurfaceAuthOptions surface,
+        ISignInMessageReader signInMessage,
         CancellationToken cancellationToken)
     {
         if (!await IsValidFormAsync(context, antiforgery))
@@ -174,8 +182,10 @@ public static class OpenIddictEndpoints
         var user = await accountService.ValidateCredentialsAsync(candidate, password, cancellationToken);
         if (user is null)
         {
+            string message = await signInMessage.GetMessageAsync(cancellationToken);
             return Results.Content(
-                RenderLoginPage(returnUrl, antiforgery.GetAndStoreTokens(context), "Invalid ROMD credentials.", isAdmin: surface.IsClientAllowed("romd-admin-spa")),
+                RenderLoginPage(returnUrl, antiforgery.GetAndStoreTokens(context), message,
+                    "Invalid ROMD credentials.", isAdmin: surface.IsClientAllowed("romd-admin-spa")),
                 "text/html",
                 statusCode: StatusCodes.Status401Unauthorized);
         }
@@ -368,9 +378,12 @@ public static class OpenIddictEndpoints
             ? returnUrl
             : "/";
 
-    private static string RenderLoginPage(string returnUrl, AntiforgeryTokenSet tokens, string? error, bool isAdmin)
+    private static string RenderLoginPage(string returnUrl, AntiforgeryTokenSet tokens, string message, string? error, bool isAdmin)
     {
         string encodedReturnUrl = WebUtility.HtmlEncode(returnUrl);
+        string messageMarkup = string.IsNullOrWhiteSpace(message)
+            ? string.Empty
+            : $"""<p class="romd-auth-description romd-auth-message">{WebUtility.HtmlEncode(message)}</p>""";
         string errorMarkup = string.IsNullOrWhiteSpace(error)
             ? string.Empty
             : $"""<p class="romd-auth-error" role="alert">{WebUtility.HtmlEncode(error)}</p>""";
@@ -387,7 +400,7 @@ public static class OpenIddictEndpoints
             <body class="romd-auth-shell">
               <main class="romd-auth-card">
                 {{AuthenticationPageAssets.Brand}}
-                <p class="romd-auth-description">{{(isAdmin ? "Manage your library" : "Sign in to your library")}}</p>
+                {{messageMarkup}}
                 {{errorMarkup}}
                 <form method="post" action="/connect/login" autocomplete="on">
                   {{RenderAntiforgeryField(tokens)}}

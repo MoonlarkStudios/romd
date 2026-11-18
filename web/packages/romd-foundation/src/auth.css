@@ -61,6 +61,11 @@
   line-height: 1.5;
 }
 
+.romd-auth-message {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .romd-auth-card label {
   display: block;
   margin-top: 16px;
