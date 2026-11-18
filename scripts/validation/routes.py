@@ -45,11 +45,11 @@ CI_ONLY_STEPS = {
     ('source-checks', 'Lint workflows'):
         dict(command='curl --fail', reason='downloads hash-pinned actionlint; local workflows:lint uses mise pin'),
     ('agent-infrastructure', 'Prepare hash-locked workflow parser'):
-        dict(command='python3 scripts/ci/prepare.py', local='workflows:lint', reason='tool setup'),
+        dict(command='python3 scripts/ci/prepare.py', local='agents:lint'),
     ('agent-infrastructure', 'Check agent infrastructure'):
-        dict(command='.artifacts/ci-python/bin/python scripts/agents/check.py', local='agents:check'),
+        dict(command='.artifacts/ci-python/bin/python scripts/agents/check.py', local='agents:lint'),
     ('agent-infrastructure', 'Test infrastructure checker'):
-        dict(command='.artifacts/ci-python/bin/python -B -m unittest discover -s scripts/agents', local='agents:check'),
+        dict(command='.artifacts/ci-python/bin/python -B -m unittest discover -s scripts/agents', local='agents:lint'),
     ('agent-infrastructure', 'Test validation runner'):
         dict(command='.artifacts/ci-python/bin/python -B -m unittest discover -s scripts/validation', local='agents:check'),
     # Provision the hosted runner; the browser test itself has a required local/CI registry route.

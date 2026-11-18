@@ -50,7 +50,8 @@ Backend commands run from the root, web from `web/`, console from
 
 | Surface | Default checks |
 | --- | --- |
-| Documentation links/anchors/assets, agent configuration and instructions | `mise run agents:check` |
+| Documentation, skill text, and agent configuration | `mise run agents:lint` |
+| Agent checker, validation routing, or development tooling | `mise run agents:check` |
 | Backend | `mise run dotnet:style -- --base origin/main`, then `mise run test` (configured container engine required for PostgreSQL Testcontainers) |
 | Host behavior/topology, worker registration, integration fixtures, deployment composition | Backend checks plus `mise run test:integration` |
 | Web | `pnpm lint`, `pnpm test`, `pnpm build` |

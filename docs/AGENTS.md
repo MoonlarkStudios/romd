@@ -41,7 +41,7 @@ runbook. Paths in commands are relative to the stated working directory.
   Append only newly confirmed, recurring tooling/environment issues using the
   `romd-retro` skill; a product regression belongs in the fix. Move an entry to
   the archive verbatim once its status becomes FIXED.
-- Run `mise run agents:check` after documentation changes; it checks local Markdown
-  links/anchors and HTML assets across the tracked/non-ignored inventory. For
-  command changes, verify that the task exists and run it when meaningful and
-  feasible; syntax/link checks alone do not verify runtime behavior.
+- Run `mise run agents:lint` after documentation and skill text changes. It
+  checks links, anchors, HTML assets, and agent discovery. Use `mise run agents:check`
+  when changing the checker, validation routing, or development tooling. For
+  documented command changes, verify the command and run it when feasible.
