@@ -114,6 +114,8 @@ CHD recovery run on separate runners and verify the loaded image IDs against
 the producer's IDs before starting. Only the packaged drill installs its
 browser. The CHD runner checks available disk space and waits for the production
 execution lease, as in the source harness.
+Re-running a single drill job more than a day after its run started fails at
+the image download because the artifact has expired; re-run all jobs instead.
 
 ## Native build for backend tests
 
