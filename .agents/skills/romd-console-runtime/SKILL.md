@@ -54,8 +54,10 @@ controller, save/state or scoped user-directory format is `config writer: no`.
 - Register the adapter/provider/resolver/provisioner path needed by the profile.
 - Build commands as `CommandPlan` with `List<String>` arguments.
 - Keep process launching at `runInShell: false`.
-- Route save/state/config to `saveRoot`, `stateRoot`, and `configRoot`, not
-  `contentRoot`.
+- Use `saveRoot` and `stateRoot` for the active profile's saves and states.
+  Place per-title generated config in `configRoot`. A standalone emulator can
+  keep device-wide native settings in its ROMD-scoped runtime user directory.
+  Keep durable files outside the evictable `contentRoot`.
 - Add tests for profile selection/order, resolver/provisioning behavior,
   command arguments, prepare/config output, and negative path handling.
 - Build test fixtures from current `ResolvedPlayTarget` and launch-plan source

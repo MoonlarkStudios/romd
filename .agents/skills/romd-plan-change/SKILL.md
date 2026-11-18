@@ -37,8 +37,9 @@ migration/validation boundaries. Keep routine local edits lightweight.
    before client regeneration; do not hand-edit generated files.
 9. For migration-sensitive areas, identify persisted contract keys and schema
    migrations before implementation.
-10. For instruction/configuration routing changes, run `mise run agents:check`.
-    Its structural checks do not prove runtime behavior or skill quality.
+10. For instruction and agent infrastructure changes, follow the
+    [root validation table](../../../AGENTS.md#validation). Skill behavior
+    requires evidence beyond structural checks.
 11. If the user requests delegation, assign bounded questions or disjoint owned
     file scopes. Keep shared generated artifacts under one owner. Otherwise,
     carry out the plan with one agent.

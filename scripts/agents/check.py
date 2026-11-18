@@ -2,8 +2,9 @@
 """Check ROMD's agent entry points, decision records and executable backend test routing.
 
 Uses Git's tracked/non-ignored inventory, including new files in a dirty checkout.
-Uses the hash-locked workflow YAML parser prepared by mise run agents:check. This is a structural check,
-not the complete Codex config schema or a YAML parser. Local Markdown links, anchors and HTML assets are checked.
+Uses the hash-locked YAML parser prepared by mise run agents:lint.
+Checks ROMD's Claude bridge, skill metadata and Codex config alongside local
+Markdown links, anchors and HTML assets.
 """
 
 from pathlib import Path
@@ -14,6 +15,9 @@ import sys
 import tomllib
 from urllib.parse import unquote, urlsplit
 import xml.etree.ElementTree as ET
+
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'validation'))
 from routes import check_registry
 from doc_links import check_document
@@ -81,6 +85,48 @@ def check_links(path, root, errors):
             bases = (path.parent,) if target.startswith(("./", "../")) else (root, path.parent)
             if not any((base / target).is_file() for base in bases):
                 errors.append(f"{path.relative_to(root)}: missing instruction target {target}")
+
+
+def check_skill_metadata(path, root, errors):
+    relative = path.relative_to(root)
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        if not lines or lines[0] != "---" or "---" not in lines[1:]:
+            errors.append(f"{relative}: expected YAML frontmatter between --- lines")
+            return
+        metadata = yaml.safe_load("\n".join(lines[1:lines.index("---", 1)]))
+    except (OSError, yaml.YAMLError) as error:
+        errors.append(f"{relative}: cannot read skill frontmatter: {error}")
+        return
+    if not isinstance(metadata, dict):
+        errors.append(f"{relative}: skill frontmatter must be a mapping")
+        return
+    for field in ("name", "description"):
+        value = metadata.get(field)
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"{relative}: skill {field} must be a nonempty string")
+
+
+def check_agent_discovery(root, files, errors):
+    try:
+        bridge = (root / "CLAUDE.md").read_text(encoding="utf-8")
+    except OSError as error:
+        errors.append(f"CLAUDE.md: {error}")
+    else:
+        if not (root / "AGENTS.md").is_file() or not any(
+            line.strip() == "@AGENTS.md" for line in prose_lines(bridge)
+        ):
+            errors.append("CLAUDE.md: must import the root instructions with @AGENTS.md")
+
+    config = read_toml(root / ".codex/config.toml", root, errors)
+    agents = config.get("agents")
+    cap = agents.get("max_concurrent_threads_per_session") if isinstance(agents, dict) else None
+    if type(cap) is not int or cap < 1:
+        errors.append(".codex/config.toml: agents.max_concurrent_threads_per_session must be a positive integer")
+
+    for relative in files:
+        if relative.startswith(".agents/skills/") and Path(relative).name == "SKILL.md":
+            check_skill_metadata(root / relative, root, errors)
 
 
 def markdown_headings(text):
@@ -309,7 +355,7 @@ def check_repository(root):
             errors.append(f"{relative}: {error}")
     decision_records = check_decision_records(root, files, errors)
     citation_count = check_decision_citations(root, files, errors)
-    read_toml(root / ".codex/config.toml", root, errors)
+    check_agent_discovery(root, files, errors)
     role_count = check_roles(root, errors)
     mise = read_toml(root / ".mise.toml", root, errors)
     registry_path = root / 'scripts/validation/checks.json'

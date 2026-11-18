@@ -386,24 +386,66 @@ path = " "
                 check_test_routes(self.root, [suite], {"tasks": {task: {"run": f"dotnet test {suite}"}}}, errors)
                 self.assertEqual([], errors)
 
-    def test_inventory_includes_new_nonignored_guidance_and_test_projects(self):
+    def init_repository(self):
         subprocess.run(["git", "init", "--quiet", str(self.root)], check=True)
         self.write(".codex/config.toml", "[agents]\nmax_concurrent_threads_per_session = 4\n")
         self.role()
         self.write(".mise.toml", '[tasks.test]\nrun = []\n')
+        self.write("AGENTS.md", "# Project instructions\n")
+        self.write("CLAUDE.md", "@AGENTS.md\n")
+
+    def test_claude_bridge_requires_an_active_root_import(self):
+        self.init_repository()
+        for bridge in ("@AGENT.md\n", "```md\n@AGENTS.md\n```\n"):
+            with self.subTest(bridge=bridge):
+                self.write("CLAUDE.md", bridge)
+                errors, _ = check_repository(self.root)
+                self.assertEqual(["CLAUDE.md: must import the root instructions with @AGENTS.md"], errors)
+
+    def test_untracked_skill_frontmatter_requires_discovery_metadata(self):
+        self.init_repository()
+        skill = ".agents/skills/example/SKILL.md"
+        for frontmatter, message in (
+            ("description: Read source", "skill name must be a nonempty string"),
+            ("name: example", "skill description must be a nonempty string"),
+            ("name: example\ndescription: ' '", "skill description must be a nonempty string"),
+            ("name: [", "cannot read skill frontmatter"),
+            ("- example", "skill frontmatter must be a mapping"),
+        ):
+            with self.subTest(frontmatter=frontmatter):
+                self.write(skill, f"---\n{frontmatter}\n---\n\n# Example\n")
+                errors, _ = check_repository(self.root)
+                self.assertEqual(1, len(errors))
+                self.assertTrue(errors[0].startswith(f"{skill}: {message}"), errors[0])
+        self.write(skill, "---\nname: example\ndescription: Read source\n---\n\n# Example\n")
+        errors, _ = check_repository(self.root)
+        self.assertEqual([], errors)
+
+    def test_project_codex_concurrency_cap_rejects_ineffective_values(self):
+        self.init_repository()
+        for setting in ("max_concurrent_thread_per_session = 4",
+                        "max_concurrent_threads_per_session = true",
+                        "max_concurrent_threads_per_session = 0"):
+            with self.subTest(setting=setting):
+                self.write(".codex/config.toml", f"[agents]\n{setting}\n")
+                errors, _ = check_repository(self.root)
+                self.assertEqual([
+                    ".codex/config.toml: agents.max_concurrent_threads_per_session must be a positive integer",
+                ], errors)
+
+    def test_inventory_includes_new_nonignored_guidance_and_test_projects(self):
+        self.init_repository()
         self.write("AGENTS.md", "[broken](missing.md)\n")
         self.project("Untracked.Tests")
         self.write(".gitignore", "ignored/\n")
         self.write("ignored/AGENTS.md", "[also broken](missing.md)\n")
         errors, counts = check_repository(self.root)
-        self.assertEqual(1, counts["Markdown files"])
+        self.assertEqual(2, counts["Markdown files"])
         self.assertEqual(1, counts["test projects"])
         self.assertEqual(2, len(errors))
 
     def test_registry_routing_error_names_the_registry_group_not_mise_tasks(self):
-        subprocess.run(["git", "init", "--quiet", str(self.root)], check=True)
-        self.write(".codex/config.toml", "[agents]\n")
-        self.role()
+        self.init_repository()
         self.write(".mise.toml", '[tasks.test]\nrun = "python3 scripts/validation/run.py --group backend"\n')
         self.write("scripts/validation/checks.json", '{"version": 1, "checks": []}\n')
         for name, group, task in (("New.Tests", "backend", "test"),
@@ -416,26 +458,20 @@ path = " "
             self.assertFalse(any(".mise.toml tasks." in error for error in errors))
 
     def test_removed_guidance_does_not_require_staging_before_validation(self):
-        subprocess.run(["git", "init", "--quiet", str(self.root)], check=True)
-        self.write(".codex/config.toml", "[agents]\n")
-        self.role()
-        self.write(".mise.toml", '[tasks.test]\nrun = []\n')
+        self.init_repository()
         removed = self.write("obsolete/AGENTS.md", "[historical](missing.md)\n")
         subprocess.run(["git", "-C", str(self.root), "add", "obsolete/AGENTS.md"], check=True)
         removed.unlink()
         errors, counts = check_repository(self.root)
         self.assertEqual([], errors)
-        self.assertEqual(0, counts["Markdown files"])
+        self.assertEqual(2, counts["Markdown files"])
 
     def test_backend_guide_and_contribution_links_are_part_of_guidance_validation(self):
-        subprocess.run(["git", "init", "--quiet", str(self.root)], check=True)
-        self.write(".codex/config.toml", "[agents]\n")
-        self.role()
-        self.write(".mise.toml", '[tasks.test]\nrun = []\n')
+        self.init_repository()
         self.write("docs/development/dotnet-development.md", "[example](../../src/Missing.cs)\n")
         self.write("CONTRIBUTING.md", "[guide](docs/gone.md)\n")
         errors, counts = check_repository(self.root)
-        self.assertEqual(2, counts["Markdown files"])
+        self.assertEqual(4, counts["Markdown files"])
         self.assertEqual(2, len(errors))
         self.assertTrue(any("src/Missing.cs" in error for error in errors))
         self.assertTrue(any("docs/gone.md" in error for error in errors))
