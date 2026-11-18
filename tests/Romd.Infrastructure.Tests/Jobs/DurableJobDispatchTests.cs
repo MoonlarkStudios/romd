@@ -358,6 +358,52 @@ public sealed class DurableJobDispatchTests
     }
 
     [Fact]
+    public async Task GetAvailableAsync_MixedDispatchStates_ReturnsDisjointDueRowsInGlobalOrder()
+    {
+        using var database = PostgreSqlTestDatabase.Create();
+        await using var db = database.CreateContext();
+        var now = new DateTimeOffset(2026, 11, 17, 12, 0, 0, TimeSpan.Zero);
+        var past = now.AddMinutes(-1);
+        var future = now.AddMinutes(1);
+        var expired = AddDispatch(1, past, delivered: true, executionLease: now);
+        var pending = AddDispatch(2, past);
+        var unacknowledged = AddDispatch(3, now, executionLease: past);
+        AddDispatch(4, past, delivered: true);
+        AddDispatch(5, past, delivered: true, executionLease: future);
+        AddDispatch(6, past, delivered: true, executionLease: past, completed: true);
+        AddDispatch(7, future);
+        AddDispatch(8, past, dispatchLease: future);
+        AddDispatch(9, past, delivered: true, executionLease: past, dispatchLease: future);
+        await db.SaveChangesAsync();
+
+        var dispatches = new JobDispatchRepository(db, new ManualClock(now));
+        (await dispatches.GetAvailableAsync(2, default)).ShouldBe([expired, pending]);
+        (await dispatches.GetAvailableAsync(25, default)).ShouldBe([expired, pending, unacknowledged]);
+
+        Guid AddDispatch(int number, DateTimeOffset availableAt, bool delivered = false,
+            DateTimeOffset? executionLease = null, DateTimeOffset? dispatchLease = null, bool completed = false)
+        {
+            var id = Guid.Parse($"00000000-0000-0000-0000-{number:D12}");
+            var row = UploadJobEntity.FromDomain(UploadJob.Create("archive.zip", past, requestId: id));
+            row.Phase = completed ? "Completed" : executionLease.HasValue ? "IngestingRoms" : "Pending";
+            row.CompletedAt = completed ? now : null;
+            row.ExecutionFenceToken = executionLease.HasValue ? Guid.NewGuid() : null;
+            row.ExecutionLeaseExpiresAtUtc = executionLease;
+            db.Add(row);
+            db.JobDispatches.Add(new JobDispatchEntity
+            {
+                JobId = id,
+                JobType = "upload",
+                CreatedAtUtc = past,
+                AvailableAtUtc = availableAt,
+                DeliveredAtUtc = delivered ? past : null,
+                LeaseExpiresAtUtc = dispatchLease
+            });
+            return id;
+        }
+    }
+
+    [Fact]
     public async Task Dispatch_ExpiredClaimAndOnePoisonMessage_DoNotBlockOtherJobs()
     {
         using var database = PostgreSqlTestDatabase.Create();

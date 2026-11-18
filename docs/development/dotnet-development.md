@@ -164,7 +164,9 @@ It installs the guarded media fact resources alongside the remaining application
 schema. The additive `20261102000000_PspUmdObservations` migration adds nullable
 PSP observations without backfilling evidence. The additive
 `20261109000000_SaturnCdObservations` migration adds distinct Saturn fields while
-preserving PS1 observations and constraints; current readiness is version 74.
+preserving PS1 observations and constraints. The additive
+`20261117000000_JobDispatchExpiryIndex` migration indexes expired execution
+claims for dispatch recovery. Current readiness is version 75.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

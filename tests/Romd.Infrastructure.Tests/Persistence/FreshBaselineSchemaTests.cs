@@ -1,5 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Romd.Domain.Jobs;
 using Romd.Persistence;
+using Romd.Persistence.Entities;
+using Romd.Persistence.Repositories;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
@@ -9,17 +14,20 @@ namespace Romd.Infrastructure.Tests.Persistence;
 public sealed class FreshBaselineSchemaTests
 {
     [Fact]
-    public async Task Provision_EmptyDatabaseAndRepeatedStartup_HasImmutableBaselineAndAdditivePspMigration()
+    public async Task Provision_EmptyDatabaseAndRepeatedStartup_HasImmutableBaselineAndAdditiveMigrations()
     {
         await using var database = PostgreSqlTestDatabase.CreateEmpty();
         await database.ProvisionAsync();
         await database.ProvisionAsync();
         await using var db = database.CreateContext();
-        (await db.Database.GetAppliedMigrationsAsync()).ShouldBe(["20261031050000_FreshMediaBaseline", "20261102000000_PspUmdObservations", "20261109000000_SaturnCdObservations"]);
+        (await db.Database.GetAppliedMigrationsAsync()).ShouldBe([
+            "20261031050000_FreshMediaBaseline", "20261102000000_PspUmdObservations", "20261109000000_SaturnCdObservations",
+            "20261117000000_JobDispatchExpiryIndex"
+        ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(74);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(74);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(75);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(75);
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname = 'romd' AND c.relname IN
@@ -28,6 +36,28 @@ public sealed class FreshBaselineSchemaTests
                     'RomCdConvergenceSources','RomCdConvergenceIntents','RomChdReverificationSources','RomChdReverificationItems',
                     'RomPs2ReferenceReevaluationRequests')
             """).ToArrayAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Provision_ExistingDispatch_AppliesPartialLeaseIndexAndPreservesDueWork()
+    {
+        await using var database = PostgreSqlTestDatabase.CreateEmpty();
+        await using var db = database.CreateContext();
+        await db.Database.GetService<IMigrator>().MigrateAsync("20261109000000_SaturnCdObservations");
+        var job = UploadJob.Create("queued.zip", DateTimeOffset.UnixEpoch);
+        db.Add(UploadJobEntity.FromDomain(job));
+        await db.SaveChangesAsync();
+
+        await database.ProvisionAsync();
+
+        string index = await db.Database.SqlQueryRaw<string>("""
+            SELECT indexdef AS "Value" FROM pg_indexes
+            WHERE schemaname = 'romd' AND indexname = 'IX_Jobs_ExecutionLeaseRecovery'
+            """).SingleAsync();
+        index.ShouldContain("""("ExecutionLeaseExpiresAtUtc", "Id")""");
+        index.ShouldContain("\"CompletedAt\" IS NULL");
+        index.ShouldContain("\"ExecutionFenceToken\" IS NOT NULL");
+        (await new JobDispatchRepository(db, TimeProvider.System).GetAvailableAsync(25, default)).ShouldBe([job.Id]);
     }
 
     [Theory]

@@ -8,12 +8,17 @@ public sealed class JobDispatchRepository(RomdDbContext context, TimeProvider ti
     public async Task<IReadOnlyList<Guid>> GetAvailableAsync(int limit, CancellationToken ct)
     {
         var now = timeProvider.GetUtcNow();
-        return await context.JobDispatches
-            .Where(dispatch => (dispatch.DeliveredAtUtc == null || context.Jobs.Any(job =>
-                    job.Id == dispatch.JobId && job.CompletedAt == null
-                    && job.ExecutionFenceToken != null && job.ExecutionLeaseExpiresAtUtc <= now))
-                && dispatch.AvailableAtUtc <= now
-                && (dispatch.LeaseExpiresAtUtc == null || dispatch.LeaseExpiresAtUtc <= now))
+        var available = context.JobDispatches.Where(dispatch => dispatch.AvailableAtUtc <= now
+            && (dispatch.LeaseExpiresAtUtc == null || dispatch.LeaseExpiresAtUtc <= now));
+        var undelivered = available.Where(dispatch => dispatch.DeliveredAtUtc == null)
+            .Select(dispatch => new { dispatch.JobId, dispatch.AvailableAtUtc });
+        var expired = from job in context.Jobs
+                      where job.CompletedAt == null && job.ExecutionFenceToken != null && job.ExecutionLeaseExpiresAtUtc <= now
+                      join dispatch in available.Where(dispatch => dispatch.DeliveredAtUtc != null) on job.Id equals dispatch.JobId
+                      select new { dispatch.JobId, dispatch.AvailableAtUtc };
+
+        // Each branch has its own index. The delivered predicates keep the union disjoint.
+        return await undelivered.Concat(expired)
             .OrderBy(dispatch => dispatch.AvailableAtUtc).ThenBy(dispatch => dispatch.JobId)
             .Take(limit).Select(dispatch => dispatch.JobId).ToListAsync(ct);
     }
