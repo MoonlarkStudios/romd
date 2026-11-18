@@ -2075,7 +2075,7 @@
         "tags": [
           "Server"
         ],
-        "description": "Returns the release version embedded in the running admin host.",
+        "description": "Returns the installed deployment's release version.",
         "operationId": "GetServerInfo",
         "responses": {
           "200": {

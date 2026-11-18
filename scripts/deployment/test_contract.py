@@ -1784,6 +1784,13 @@ class ReleaseLayoutTests(unittest.TestCase):
                              {name: service['image'] for name, service in plain['services'].items() if name != 'ingress'})
             self.assertEqual('https://nas.example.test:7664',
                              plain['services']['romd-admin']['environment']['Romd__AdminHost__PublicUrl'])
+            self.assertIn({
+                'type': 'bind',
+                'source': str(release / 'manifest.json'),
+                'target': '/etc/romd/deployment-manifest.json',
+                'read_only': True,
+                'bind': {'create_host_path': False},
+            }, plain['services']['romd-admin']['volumes'])
             overridden = json.loads(subprocess.check_output(compose('config', '--format', 'json'), cwd=release,
                                                             env=dict(environment, ROMD_POSTGRES_IMAGE='example/pinned@sha256:' + 'b' * 64)))
             self.assertEqual('example/pinned@sha256:' + 'b' * 64, overridden['services']['postgres']['image'])

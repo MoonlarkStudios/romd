@@ -165,6 +165,7 @@ services:
     volumes:
       - romd-data:/var/lib/romd
       - romd-secrets-admin:/etc/romd/database:ro
+      # Release bundles mount their deployment manifest here.
 
   romd-consumer:
     networks:

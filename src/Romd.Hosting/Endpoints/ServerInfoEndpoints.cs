@@ -15,7 +15,7 @@ public static class ServerInfoEndpoints
             })
             .WithTags("Server")
             .WithName("GetServerInfo")
-            .WithDescription("Returns the release version embedded in the running admin host.")
+            .WithDescription("Returns the installed deployment's release version.")
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
     }
 }

@@ -169,6 +169,7 @@ The bundle contains:
 - `compose.yaml`: production topology, health checks and bounded Docker logs, with each
   image defaulting to its exact digest so plain `docker compose` works from this directory;
 - `images.env`: the same immutable references for all four ROMD images and PostgreSQL;
+- `manifest.json`: the release tag, source revision, and inventories of pinned images and bundle files;
 - `.env.example`: required installation settings;
 - `deploy/postgres/init/`: role/schema initialization for a fresh database;
 - `deploy/examples/`: optional HTTPS proxy and Cloudflare Tunnel overlays;
@@ -590,11 +591,11 @@ restore; perform a fresh installation with new volumes instead.
    ```
 
 6. Verify login, discovery and application operations through ingress.
-   In the admin portal, open **Settings → Server** to see the running admin
-   host's build version. Authenticated callers can also read it from
-   `GET /api/server/info`. Stable promotions reuse the candidate image, so the
-   displayed version retains its `-rc.N` suffix. Untagged builds show
-   `development`.
+   In the admin portal, open **Settings → Server** to check the installed
+   bundle's release tag. Authenticated callers can also read it from
+   `GET /api/server/info`. A stable bundle shows its stable tag even when
+   promotion reused a candidate image.
+   Standalone images show their build tag. Untagged builds show `development`.
 
 A release that changes the CHD decoder tuple also needs the
 [CHD decoder upgrade](#chd-decoder-upgrades) procedure.

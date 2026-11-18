@@ -26,11 +26,21 @@ public sealed class ServerInfoEndpointTests : IDisposable
         response.Headers.WwwAuthenticate.ToString().ShouldContain("Bearer");
     }
 
-    [Fact]
-    public async Task GetServerInfo_AuthenticatedRequest_ReturnsAdminBuildVersion()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("{")]
+    [InlineData("{\"releaseTag\": \"\"}")]
+    public async Task GetServerInfo_DeploymentManifestUnavailable_ReturnsAdminBuildVersion(string? manifest)
     {
+        string path = Path.Combine(_dataDirectory.FullName, "manifest.json");
+        if (manifest is not null)
+        {
+            await File.WriteAllTextAsync(path, manifest);
+        }
+
         await using var factory = RomdHostTestFactory.CreateAdmin(_dataDirectory.FullName, TestJwtSecret,
-            services => services.AddTestAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme));
+            services => services.AddTestAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme),
+            new Dictionary<string, string> { ["Romd:DeploymentManifestPath"] = path });
         using var client = factory.CreateClient().WithTestUser(Guid.NewGuid(), roles: [RomdRoleType.User]);
         string? releaseTag = typeof(Romd.Admin.Host.Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
             .Single(attribute => attribute.Key == "RomdReleaseTag").Value;
@@ -42,6 +52,25 @@ public sealed class ServerInfoEndpointTests : IDisposable
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         body.RootElement.EnumerateObject().Select(property => property.Name).ShouldBe(["version"]);
         releaseTag.ShouldNotBeNullOrWhiteSpace();
+        body.RootElement.GetProperty("version").GetString().ShouldBe(releaseTag);
+    }
+
+    [Theory]
+    [InlineData("v0.4.0")]
+    [InlineData("v0.4.0-rc.1")]
+    public async Task GetServerInfo_DeploymentManifestPresent_ReturnsInstalledReleaseVersion(string releaseTag)
+    {
+        string path = Path.Combine(_dataDirectory.FullName, "manifest.json");
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(new { releaseTag }));
+        await using var factory = RomdHostTestFactory.CreateAdmin(_dataDirectory.FullName, TestJwtSecret,
+            services => services.AddTestAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme),
+            new Dictionary<string, string> { ["Romd:DeploymentManifestPath"] = path });
+        using var client = factory.CreateClient().WithTestUser(Guid.NewGuid(), roles: [RomdRoleType.User]);
+
+        using var response = await client.GetAsync("/api/server/info");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         body.RootElement.GetProperty("version").GetString().ShouldBe(releaseTag);
     }
 

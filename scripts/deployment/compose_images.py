@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Write a release's image references into its bundled compose.yaml as defaults.
+"""Prepare the bundled compose.yaml with pinned images and release metadata.
 
 The source compose.yaml requires each ROMD_*_IMAGE; a bundle carries the exact
 digest-pinned reference as that variable's default instead, so plain
 `docker compose` works from the extracted bundle. The variables still override
-the defaults, and `normalize` restores the source form so two bundles can be
-compared apart from their image references.
+the defaults, and `normalize` restores the required image variables so two
+bundles can be compared apart from their image references.
 """
 import re
 import sys
@@ -13,6 +13,14 @@ import sys
 KEYS = tuple(f'ROMD_{name}_IMAGE' for name in ('ADMIN', 'CONSUMER', 'WORKER', 'PLAYER', 'POSTGRES'))
 DEFAULT = re.compile(r'\$\{(' + '|'.join(KEYS) + r'):-([^}\s]*)\}')
 REFERENCE = re.compile(r'[^\s{}$]+@sha256:[0-9a-f]{64}')
+MANIFEST_MOUNT_MARKER = '      # Release bundles mount their deployment manifest here.\n'
+MANIFEST_MOUNT = '''      - type: bind
+        source: ./manifest.json
+        target: /etc/romd/deployment-manifest.json
+        read_only: true
+        bind:
+          create_host_path: false
+'''
 
 
 def required(key):
@@ -53,9 +61,11 @@ def main(argv):
     compose, images = argv[1], argv[2]
     entries = dict(line.strip().split('=', 1) for line in open(images) if line.strip() and not line.startswith('#'))
     with open(compose) as source:
-        text = source.read()
+        text = render(source.read(), entries)
+    if text.count(MANIFEST_MOUNT_MARKER) != 1:
+        raise ValueError('compose.yaml must mark exactly one deployment manifest mount')
     with open(compose, 'w') as target:
-        target.write(render(text, entries))
+        target.write(text.replace(MANIFEST_MOUNT_MARKER, MANIFEST_MOUNT))
     return 0
 
 
