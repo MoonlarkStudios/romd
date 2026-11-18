@@ -59,6 +59,7 @@ public sealed class ReplaceDatJobRepository : IReplaceDatJobRepository, IReplace
             .Where(j => !TerminalPhases.Contains(j.Phase))
             .Where(j => j.StartedAt != null)
             .Where(j => j.UpdatedAt < progressBefore)
+            .Where(j => j.NextAttemptAtUtc == null)
             .Where(j => j.ExecutionFenceToken == null || j.ExecutionLeaseExpiresAtUtc == null
                 || j.ExecutionLeaseExpiresAtUtc <= now)
             .OrderBy(j => j.CreatedAt)
@@ -81,7 +82,7 @@ public sealed class ReplaceDatJobRepository : IReplaceDatJobRepository, IReplace
             """).AsNoTracking().ToListAsync(ct);
         var current = rows.SingleOrDefault();
         if (current is null || current.StartedAt is null || TerminalPhases.Contains(current.Phase)
-            || current.UpdatedAt >= progressBefore)
+            || current.UpdatedAt >= progressBefore || current.NextAttemptAtUtc is not null)
             return false;
 
         // A heartbeat can renew the lease while the sweep waits for the row lock.
