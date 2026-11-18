@@ -5,6 +5,13 @@ invalidation, and any required metadata work intent must commit together. This
 prevents a worker from consuming an invalidation before the corresponding data
 is visible, or a successful edit from losing its required follow-up work.
 
+| What you are changing | Start here |
+| --- | --- |
+| Transaction ownership or CAS writes | [Composable transaction boundary](#composable-transaction-boundary), [Locked CAS publication](#locked-cas-publication) |
+| Titles, collections, or Library state | [Title writes](#title-writes), [Collection item mutations](#collection-item-mutations), [Library publication](#library-publication) |
+| DAT or reference-catalog edits | [System DAT import preparation](#system-dat-import-preparation), [Catalog and reference settlement](#catalog-and-reference-settlement) |
+| Jobs or worker recovery | [Background-work acceptance](#background-work-acceptance), [Job resources and archive state](#job-resources-and-archive-state), [Durable metadata work](#durable-metadata-work) |
+
 ## Composable transaction boundary
 
 Use `IUnitOfWork.ExecuteInTransactionAsync<T>` from

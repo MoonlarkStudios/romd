@@ -26,6 +26,59 @@ npm test
 `package-lock.json` pins Playwright and its browser revision. The installation
 bundle needs no Node, browser tools, source checkout, or development SDK.
 
+## Source deployment smoke
+
+The source drill builds actual production images, starts a disposable
+HTTPS deployment, checks portal/discovery/player routes, rejects unknown hosts,
+completes admin authorization-code + PKCE login, restarts hosts, and restores a
+Compose-mode backup into a second empty project. Backend integration tests cover
+application behavior and the PostgreSQL role boundaries. The smoke drill does not
+exercise a real Cloudflare account, public certificates, DNS or operator firewall.
+The `--vfs` check uploads a synthetic 4 MiB ROM and matching DAT through the admin
+API, then enables an assigned published library with an explicit policy allowing
+the unrated fixture. It signs in through the consumer PKCE client, confirms that
+bearer tokens cannot read `/vfs`, and issues a registered connection whose export
+uses the configured HTTPS origin and checksum profile. With that app password it
+verifies directory traversal, exact ranges (including EOF clipping), full-file
+integrity, conditional reads, anonymous rejection, and denial after connection
+revocation at startup, after restart, and after restore. The fixture is imported only once; restart/restore checks read
+the persisted content. This is a correctness check, not a performance measurement.
+Its isolated self-signed TLS certificate is trusted explicitly by the test client,
+without modifying system trust. The drill also requires certificate failure for
+an untrusted issuer and a mismatched hostname. Public certificate issuance/renewal
+and outside-LAN connectivity still require separate validation.
+
+Run from the repository root:
+
+```bash
+mise exec -- python3 scripts/validation/run.py --id deployment.contracts
+python3 scripts/deployment/smoke.py --build --vfs
+mise run test:integration
+```
+
+The structural Compose check uses the mise-pinned Compose client with Podman.
+Its Docker BuildKit context-export case skips with a reason on other engines.
+
+The real smoke drill requires Docker and Compose. It creates uniquely named
+disposable projects and removes only those projects and their volumes. It never
+reads the installation `.env`. A continuous lifecycle observer starts before the
+first service container and remains active through both projects' cleanup. Every
+started container must have a matching termination with exit code zero; an OOM,
+forced kill, unexpected exit or restart, missing event coverage or cleanup
+failure fails the drill, even when Compose succeeds. Create-only metadata probes
+acknowledge each project observer's readiness and final drain; an end-of-run
+event-history query is insufficient.
+
+The sanitized lifecycle receipt stays in a new directory under
+`.artifacts/deployment-smoke/`, or the new path supplied with `--evidence-dir`.
+Bounded container logs and state captured before removal stay private under
+`.artifacts/container-lifecycle-private/`; do not publish those diagnostics.
+For a local large-disc check, add `--vfs-file /absolute/path/to/image.iso` with
+`--vfs`. The source is read-only, hashing and download verification are streamed,
+and the temporary catalog names it `vfs-smoke.iso`. Allow disk capacity for upload
+staging, CAS, an uncompressed backup, and a restored CAS copy. This opt-in uses the
+same startup/restart/restore checks; CI continues using the small synthetic file.
+
 ## Before publication
 
 The required Production Compose job builds source/version-labelled images and

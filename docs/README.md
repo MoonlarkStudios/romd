@@ -85,6 +85,12 @@ How the system works and the invariants to preserve.
 | Artwork and enrichment | [Artwork pipeline](architecture/artwork-pipeline.md) |
 | Catalog data | [Reference catalog](architecture/shared-reference-data.md), [content ratings](architecture/content-ratings.md) |
 
+For API work, start with the contract area you are changing:
+[client compatibility](decisions/api-contract-policy.md#first-party-audience-and-repo-atomic-compatibility),
+[resource shape](decisions/api-contract-policy.md#resource-model),
+[pagination](decisions/api-contract-policy.md#pagination), or
+[conditional writes](decisions/api-contract-policy.md#idempotency-and-concurrency).
+
 ## Decisions and designs
 
 [Decision records](decisions/README.md) state the rules ROMD holds itself to

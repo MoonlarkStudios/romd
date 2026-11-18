@@ -928,102 +928,11 @@ pin these rules with synthetic resident builds.
 
 ## Release validation
 
-CI validates merged Compose, builds actual production images, starts a disposable
-HTTPS deployment, checks portal/discovery/player routes, rejects unknown hosts,
-completes admin authorization-code + PKCE login, restarts hosts, and restores a
-Compose-mode backup into a second empty project. Backend integration tests cover
-application behavior and the PostgreSQL role boundaries. The smoke drill does not
-exercise a real Cloudflare account, public certificates, DNS or operator firewall.
-The `--vfs` check uploads a synthetic 4 MiB ROM and matching DAT through the admin
-API, then enables an assigned published library with an explicit policy allowing
-the unrated fixture. It signs in through the consumer PKCE client, confirms that
-bearer tokens cannot read `/vfs`, and issues a registered connection whose export
-uses the configured HTTPS origin and checksum profile. With that app password it
-verifies directory traversal, exact ranges (including EOF clipping), full-file
-integrity, conditional reads, anonymous rejection, and denial after connection
-revocation at startup, after restart, and after restore. The fixture is imported only once; restart/restore checks read
-the persisted content. This is a correctness check, not a performance measurement.
-Its isolated self-signed TLS certificate is trusted explicitly by the test client,
-without modifying system trust. The drill also requires certificate failure for
-an untrusted issuer and a mismatched hostname. Public certificate issuance/renewal
-and outside-LAN connectivity still require separate validation.
-
-Maintainers can run:
-
-```bash
-mise exec -- python3 scripts/validation/run.py --id deployment.contracts
-python3 scripts/deployment/smoke.py --build --vfs
-mise run test:integration
-```
-
-The registered contract check runs under the mise environment so Podman uses the
-pinned Compose client; `mise run contracts:check` runs it with the CHD harness and
-OpenAPI drift contracts. Its Docker BuildKit context-export case skips with a
-reason on other engines.
-
-The real smoke drill requires Docker and Compose. It creates uniquely named
-disposable projects and removes only those projects and their volumes. It never
-reads the installation `.env`. A continuous lifecycle observer starts before the
-first service container and remains active through both projects' cleanup. Every
-started container must have a matching termination with exit code zero; an OOM,
-forced kill, unexpected exit or restart, missing event coverage or cleanup
-failure fails the drill, even when Compose succeeds. Create-only metadata probes
-acknowledge each project observer's readiness and final drain; an end-of-run
-event-history query is insufficient.
-
-The sanitized lifecycle receipt stays in a new directory under
-`.artifacts/deployment-smoke/`, or the new path supplied with `--evidence-dir`.
-Bounded container logs and state captured before removal stay private under
-`.artifacts/container-lifecycle-private/`; do not publish those diagnostics.
-For a local large-disc check, add `--vfs-file /absolute/path/to/image.iso` with
-`--vfs`. The source is read-only, hashing and download verification are streamed,
-and the temporary catalog names it `vfs-smoke.iso`. Allow disk capacity for upload
-staging, CAS, an uncompressed backup, and a restored CAS copy. This opt-in uses the
-same startup/restart/restore checks; CI continues using the small synthetic file.
+See [deployment smoke and packaged qualification](../maintainers/packaged-release-qualification.md)
+for maintainer checks. Install and upgrade only within the qualification scope
+documented in the release notes.
 
 ## Maintainer release candidates
 
-A `-rc.N` candidate tag must identify the clean current `main` tip. The release
-workflow requires that commit's successful `main` CI run instead of repeating
-it. A stable tag promotes a qualified candidate on the same commit without
-rebuilding (see
-[versions and promotion](../maintainers/release-readiness.md#versions-and-promotion)).
-Required `main` CI rehearses the extracted
-package's browser and recovery paths before a release is tagged. The publisher
-retains a second build and recovery drill, then rehearses that exact build's
-full packaged suite against a disposable loopback registry before any public
-write. Publication requires a matching receipt and unchanged installation
-payload and image digests. Both drills share their recovery sequencing. See
-[the rehearsal procedure](../maintainers/packaged-release-qualification.md#before-publication).
-The worker's
-verified GPL source archive is uploaded before any image push. The candidate
-remains a prerelease throughout automated qualification; production promotion
-requires a separate maintainer decision (see
-[versions and promotion](../maintainers/release-readiness.md#versions-and-promotion)).
-
-Source packaging records every bundle file, the full source commit, tag,
-Linux amd64 platform and image digest map in `manifest.json`:
-
-```bash
-scripts/deployment/bundle.sh images.env release-output/deployment.tar.gz FULL_SOURCE_COMMIT v1.2.3-rc.1
-```
-
-A separate runner takes the exact bundle uploaded to the draft release from the
-publisher's same-run artifact and compares it with the publisher's
-independently retained bundle hash and image map before executing the
-installation. It starts the installation with the quick start's one command,
-then verifies running image digests, browser callbacks and authenticated views in both portals, real
-isolated-player startup, restart and restore. Broken required portal assets and
-player startup failures must fail qualification and leave sanitized diagnostics.
-See [packaged release qualification](../maintainers/packaged-release-qualification.md).
-
-The release stays a draft until qualification, security metadata and
-attestation verification all pass. Until then, images carry only a
-`sha-<commit>` staging tag; completion adds the version tag to the qualified
-digests and then publishes the release once as an immutable prerelease.
-Publishing does not overwrite version tags or release assets. A partial draft with assets, an existing release, an existing image
-version, or an uncertain registry/API response blocks another publishing
-attempt. Preserve that state for maintainer review and use a new version for a
-new publish. Failed qualification jobs may be rerun against the original
-candidate; rerunning the publisher cannot silently rebuild or replace it. No
-workflow command turns an unqualified candidate into a final release.
+See [versions and promotion](../maintainers/release-readiness.md#versions-and-promotion)
+and the [immutable publication procedure](../maintainers/release-metadata.md#immutable-publication).

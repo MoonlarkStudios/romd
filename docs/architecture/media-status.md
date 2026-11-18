@@ -135,6 +135,26 @@ admission deferrals; the longest original-range no-progress gap was 570 seconds.
 Continuous progress and starvation freedom remain unqualified. FIFO grants the
 oldest waiter but does not preempt a slow active whole-file transfer.
 
+## Console runtime and controller scope
+
+These are recorded source-client hardware passes. Packaged-client support
+requires its own [release gate](../maintainers/release-readiness.md#candidate-and-publication-gates).
+
+| Runtime or surface | Recorded hardware pass | Limits |
+| --- | --- | --- |
+| DuckStation and RetroArch singleton | One USB 8BitDo Pro 2 on macOS. Port-one gameplay, menu, save/load, slot selection, and screenshots passed on 2026-07-11. Later RetroArch checks covered N64 face positions and paired sticks, and Genesis Plus GX six-button controls and analog D-pad. DuckStation verified a reassigned shoulder and trigger. | Pinned runtime and controller policy envelopes only. Connecting another pad after launch changes device behavior inside the emulator. See [adapter research](../../clients/romd_console/docs/research/runtime-controller-policies/README.md). |
+| Dolphin 2606 GameCube | Managed macOS build with one mapped 8BitDo Pro 2. Gameplay controls, persistence across ROMD restart, native saves, both gameplay and settings return-to-ROMD paths, settings persistence, and two-profile save isolation passed on 2026-07-15. | No packaged Ottercade, Wii, multi-pad port, physical GameCube adapter, Windows, or Linux acceptance. See [runtime notes](../../clients/romd_console/docs/emulator-runtime-pattern.md#dolphin-gamecube). |
+| Console session assignment | Local profile selection and Players navigation accepted on hardware at 1280×720 and enlarged text on 2026-07-12. | Console session assignment does not establish emulator port order. |
+
+For a new controller support claim, cover the claimed device and transport,
+reconnect, exact and fallback identity, identical and mixed devices, launch and
+return, shortcut ownership, and save isolation. The controller qualification
+matrix should exercise 8BitDo Pro 2 in D-input and X-input modes, an Xbox-style
+controller, DualSense over USB and Bluetooth, two identical devices, mixed
+families, and the fallback path. Record provider, GUID, serial availability,
+connection order, reconnect behavior, ROMD assignment, and emulator behavior.
+A physical mismatch blocks forced mapping for that adapter policy.
+
 ## Network client scope
 
 | Client/profile | Recorded evidence and operational limit |
