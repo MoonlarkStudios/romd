@@ -68,14 +68,14 @@ Ottercade and native mount clients remain source-only and experimental. See the 
 
 [Attestations]({download}{attestations}) · [CHD tooling source (GPL)]({download}{source_name})
 
-The attestations file holds the signed provenance and SBOM for the bundle and every image it installs. Verify them with the [GitHub CLI](https://cli.github.com/); no GitHub login is needed:
+The attestations file holds signed provenance and an SBOM for the bundle and for five of the six images it runs: the four ROMD images (admin, consumer, worker and player) and PostgreSQL. The sixth, the nginx ingress, is the upstream image pinned by digest in the bundle's `compose.yaml`; the bundle's attestation covers that pin, and ROMD publishes no separate attestation for the image. Verify them with the [GitHub CLI](https://cli.github.com/); no GitHub login is needed:
 
 ```bash
 gh attestation verify {bundle} --bundle {attestations} --repo {repository}
 gh attestation verify oci://IMAGE@sha256:DIGEST --bundle {attestations} --repo {repository}
 ```
 
-Run the second command for each image in the bundle's `images.env`. See the [verification guide]({docs}maintainers/release-metadata.md#attestation-and-public-verification).
+Run the second command for each of the five images in the bundle's `images.env`. See the [verification guide]({docs}maintainers/release-metadata.md#attestation-and-public-verification).
 
 {qualification}{promotion}
 
