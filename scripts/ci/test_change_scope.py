@@ -19,6 +19,18 @@ class ChangeScopeTests(unittest.TestCase):
             self.assertEqual(BOTH, required_drills(event, unrelated))
         self.assertEqual(BOTH, required_drills('pull_request', []))
 
+    def test_source_advisory_changes_skip_only_the_pr_rehearsal(self):
+        paths = ['scripts/security/' + name for name in (
+            'advisory_exceptions.py', 'source-advisory-exceptions.json', 'source_advisories.py',
+            'test_advisory_exceptions.py', 'test_javascript_advisories.py', 'test_source_advisories.py',
+        )]
+        self.assertEqual(set(), required_drills('pull_request', paths))
+        for event in ('push', 'workflow_call'):
+            self.assertEqual(BOTH, required_drills(event, paths))
+        for shared in ('policy.py', 'metadata.py', 'tools.json', 'go_vex.py', 'new_scanner.py'):
+            with self.subTest(shared=shared):
+                self.assertEqual({'packaged'}, required_drills('pull_request', paths + ['scripts/security/' + shared]))
+
     def test_related_pull_request_paths_select_their_drill(self):
         cases = {'deploy/README.md': {'packaged'}, 'scripts/deployment/validate.py': {'packaged'},
                  'scripts/release/qualify.py': {'packaged'}, 'scripts/backup/backup.sh': {'packaged'},

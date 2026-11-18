@@ -20,8 +20,9 @@ and every lockfile; locked restore remains authoritative.
 
 The guidance, console, native, backend, infrastructure/integration partitions,
 web/OpenAPI and deployment contract suites remain required. The gate requires
-every job to succeed, including the deployment job when its expensive steps are
-unnecessary. A failed or skipped job cannot produce a passing gate.
+every job to succeed. A drill outside the selected scope records that decision
+without loading images or installing tools. A failed or skipped job cannot
+produce a passing gate.
 
 ## Network qualification probes
 
@@ -84,11 +85,13 @@ and an explicit `--results-directory`; use a new results directory for each run.
 
 ## Expensive drill selection
 
-`scripts/ci/change_scope.py` selects the two expensive Production Compose
-drills for a pull request from its changed-path inventory:
+`scripts/ci/change_scope.py` selects the two expensive production drills
+for a pull request from its changed-path inventory:
 
 - The **packaged rehearsal** runs when the pull request changes deployment,
-  release, backup, security or container scripts, or `deploy/`.
+  release, backup, image security or container scripts, or `deploy/`. An
+  explicit list excludes files used only by the separate source advisory gate.
+  Shared security policy and image/SBOM tools still select the rehearsal.
 - The **CHD drill** runs when it changes `native/`, `scripts/e2e/`, a
   `Romd.Media*` or `Moonlark.*` project, or any path containing `chd`.
 - `Dockerfile`, `.dockerignore`, `compose.yaml`, workflows, `scripts/ci/` and
@@ -104,6 +107,15 @@ requires the successful `main` push run for the tagged commit. The image build
 and source deployment drill, and the deployment, ingress and CHD harness
 contract tests, run on every pull request. Extend the path lists only with
 regression tests.
+
+When either drill is selected, the source smoke job exports its four test
+images to a same-run artifact retained for one day. The packaged rehearsal and
+CHD recovery run on separate runners and verify the loaded image IDs against
+the producer's IDs before starting. Only the packaged drill installs its
+browser. The CHD runner checks available disk space and waits for the production
+execution lease, as in the source harness.
+Re-running a single drill job more than a day after its run started fails at
+the image download because the artifact has expired; re-run all jobs instead.
 
 ## Native build for backend tests
 
@@ -189,8 +201,8 @@ Native maintenance uploads selected failure logs/findings for three days, not
 build trees or the whole corpus. Keep packaged-release evidence under the
 separate [release readiness](release-readiness.md) policy.
 
-Production drill failures retain the sanitized lifecycle receipt alongside CHD
-diagnostics; raw container output stays private. The lifecycle collector replays
+Source smoke and CHD drill failures retain their own sanitized diagnostics.
+Raw container output stays private. The lifecycle collector replays
 Docker's bounded retained history for each fresh project before its first probe,
 then observes continuously. Initial/final acknowledgments, deadlines, ownership
 checks and service-coverage assertions remain mandatory.

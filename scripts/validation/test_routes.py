@@ -105,8 +105,8 @@ class RouteTests(unittest.TestCase):
 
     def test_packaged_rehearsal_accepts_only_its_exact_scope_condition(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
-        condition = "${{ needs.source-checks.outputs.packaged == 'true' }}"
-        self.assertEqual(1, workflow.count(condition))
+        condition = "${{ matrix.drill == 'packaged' && needs.source-checks.outputs.packaged == 'true' }}"
+        self.assertIn(condition, workflow)
         self.assertFalse(any('deployment.packaged-rehearsal' in e for e in self.errors(workflow=workflow)))
         for other in ('${{ false }}', "${{ needs.source-checks.outputs.chd == 'true' }}"):
             errors = self.errors(workflow=workflow.replace(condition, other))

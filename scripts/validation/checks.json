@@ -910,7 +910,7 @@
       "prerequisites": ["Native Linux amd64 Docker Engine", "Built source/version-labelled romd-*:test images", "Locked Playwright Chromium"],
       "local": ["python3", "scripts/release/rehearsal.py", "--output", "{evidence}/rehearsal"],
       "ci": ["python3", "scripts/release/rehearsal.py", "--output", "{evidence}/rehearsal"],
-      "ci_job": "production-compose",
+      "ci_job": "production-drills",
       "required_ci": true
     },
     {

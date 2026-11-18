@@ -259,10 +259,53 @@ def release_gate_errors(text, name):
     return []
 
 
-CHD_CONDITION = "${{ needs.source-checks.outputs.chd == 'true' }}"
-CHD_STEPS = {'Reclaim disposable CI build cache', 'Synthetic PS2 DVD CHD end to end'}
-PACKAGED_CONDITION = "${{ needs.source-checks.outputs.packaged == 'true' }}"
-PACKAGED_STEP = 'Rehearse the extracted package before publication'
+DRILL_EXPORT = "${{ needs.source-checks.outputs.packaged == 'true' || needs.source-checks.outputs.chd == 'true' }}"
+DRILL_SELECTED = "${{ needs.source-checks.outputs[matrix.drill] == 'true' }}"
+CHD_CONDITION = "${{ matrix.drill == 'chd' && needs.source-checks.outputs.chd == 'true' }}"
+PACKAGED_CONDITION = "${{ matrix.drill == 'packaged' && needs.source-checks.outputs.packaged == 'true' }}"
+DRILL_ARTIFACT = 'production-drill-images-${{ github.run_id }}'
+
+
+def production_drill_errors(build, drills):
+    """The source smoke and both scope-bound consumers must use the same image build."""
+    errors = []
+    source_steps = {step.get('name'): step for step in build['steps']}
+    smoke = source_steps['Build images and exercise production deployment']
+    reclaim = source_steps['Reclaim disposable CI build cache']
+    export = source_steps['Export the verified source drill images']
+    upload = source_steps['Upload the production drill images']
+    if (not required_step(smoke) or not smoke.get('run', '').startswith('python3 scripts/deployment/smoke.py --build --vfs')
+            or not all(required_step(step, DRILL_EXPORT) for step in (reclaim, export, upload))
+            or export.get('id') != 'images' or export.get('run') != 'bash scripts/ci/drill_images.sh save'
+            or build.get('outputs') != {'image-ids': '${{ steps.images.outputs.image-ids }}'}
+            or upload['with'].get('name') != DRILL_ARTIFACT or upload['with'].get('if-no-files-found') != 'error'
+            or [build['steps'].index(step) for step in (smoke, reclaim, export, upload)]
+            != sorted(build['steps'].index(step) for step in (smoke, reclaim, export, upload))):
+        errors.append('ci.yml/production-compose: source smoke must precede the scope-bound image handoff')
+    if (set(drills.get('needs', [])) != {'source-checks', 'production-compose'}
+            or 'if' in drills or drills.get('continue-on-error', False) is not False
+            or drills.get('strategy') != {'fail-fast': False, 'matrix': {'drill': ['packaged', 'chd']}}):
+        errors.append('ci.yml/production-drills: both drill branches must depend on source smoke and report to the gate')
+    steps = drills['steps']
+    named = {step.get('name'): step for step in steps}
+    selection = named['Verify production drill selection']
+    download = named['Download the production drill images']
+    load = named['Load and verify the production drill images']
+    browser = named['Install the locked packaged rehearsal browser']
+    packaged = named['Rehearse the extracted package before publication']
+    chd = named['Synthetic PS2 DVD CHD end to end']
+    node = next(step for step in steps if step.get('uses', '').startswith('actions/setup-node@'))
+    ordered = (selection, download, load, node, browser, packaged, chd)
+    if (not required_step(selection) or selection.get('env') != {'SELECTED': '${{ needs.source-checks.outputs[matrix.drill] }}'}
+            or not all(required_step(step, DRILL_SELECTED) for step in (download, load))
+            or download['with'].get('name') != DRILL_ARTIFACT
+            or load.get('run') != 'bash scripts/ci/drill_images.sh load'
+            or load.get('env') != {'EXPECTED_IMAGE_IDS': '${{ needs.production-compose.outputs.image-ids }}'}
+            or not all(required_step(step, PACKAGED_CONDITION) for step in (node, browser, packaged))
+            or not packaged.get('run') or not required_step(chd, CHD_CONDITION) or not chd.get('run')
+            or [steps.index(step) for step in ordered] != sorted(steps.index(step) for step in ordered)):
+        errors.append('ci.yml/production-drills: verify the transferred images before running the selected checks')
+    return errors
 
 
 def early_errors(text, name):
@@ -293,20 +336,9 @@ def early_errors(text, name):
             needs = jobs[job_name].get('needs', [])
             if 'source-checks' not in ([needs] if isinstance(needs, str) else needs):
                 errors.append(f'ci.yml/{job_name}: expensive work must wait for early checks')
-        steps = {step.get('name'): step for step in jobs['production-compose']['steps']}
-        if any(steps.get(label, {}).get('if') != CHD_CONDITION
-               or steps[label].get('continue-on-error', False) is not False for label in CHD_STEPS):
-            errors.append('ci.yml/production-compose: expensive drill steps must share the exact tested scope condition')
-        packaged = steps.get(PACKAGED_STEP, {})
-        if (not packaged.get('run') or packaged.get('if') != PACKAGED_CONDITION
-                or packaged.get('continue-on-error', False) is not False):
-            errors.append('ci.yml/production-compose: packaged rehearsal must use the exact tested scope condition')
-        build = steps.get('Build images and exercise production deployment', {})
-        if not build.get('run') or 'if' in build or build.get('continue-on-error', False) is not False:
-            errors.append('ci.yml/production-compose: source build must always execute')
-        return errors
-    except (yaml.YAMLError, KeyError, ValueError, TypeError, AttributeError):
-        return ['ci.yml: invalid early verification or CHD routing']
+        return errors + production_drill_errors(jobs['production-compose'], jobs['production-drills'])
+    except (yaml.YAMLError, KeyError, ValueError, TypeError, AttributeError, StopIteration):
+        return ['ci.yml: invalid early verification or production drill routing']
 
 
 def maintenance_errors(text, name):

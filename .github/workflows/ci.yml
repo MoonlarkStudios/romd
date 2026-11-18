@@ -548,23 +548,17 @@ jobs:
 
   production-compose:
     needs: source-checks
-    name: Production Compose and recovery drill
+    name: Production Compose and source recovery drill
     runs-on: ubuntu-24.04
-    # Reuse one image build for the source drill and the scoped packaged and CHD drills.
     timeout-minutes: 90
     permissions:
       contents: read
+    outputs:
+      image-ids: ${{ steps.images.outputs.image-ids }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '24.22.0'
-      - name: Install the locked packaged rehearsal browser
-        run: |
-          npm ci --ignore-scripts --prefix scripts/release/browser
-          scripts/release/browser/node_modules/.bin/playwright install --with-deps chromium
       - name: Check production topology contracts
         run: python3 scripts/validation/run.py --ci --id deployment.contracts --evidence-parent coverage/production-compose
       - name: Check the CHD harness
@@ -575,38 +569,101 @@ jobs:
         run: >-
           python3 scripts/deployment/smoke.py --build --vfs --source-revision "$(git rev-parse HEAD)"
           --release-tag "v0.0.0-rehearsal.r$(git rev-parse --short=12 HEAD)" --evidence-dir "$RUNNER_TEMP/production-smoke"
+      - name: Reclaim disposable CI build cache
+        if: ${{ needs.source-checks.outputs.packaged == 'true' || needs.source-checks.outputs.chd == 'true' }}
+        timeout-minutes: 5
+        run: bash scripts/ci/reclaim_build_cache.sh
+      - name: Export the verified source drill images
+        id: images
+        if: ${{ needs.source-checks.outputs.packaged == 'true' || needs.source-checks.outputs.chd == 'true' }}
+        run: bash scripts/ci/drill_images.sh save
+      - name: Upload the production drill images
+        if: ${{ needs.source-checks.outputs.packaged == 'true' || needs.source-checks.outputs.chd == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-drill-images-${{ github.run_id }}
+          path: ${{ runner.temp }}/production-drill-images.tar.gz
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
+          # A full rerun replaces the archive; a partial rerun reuses the producer's archive.
+          overwrite: true
+      - name: Keep production source drill diagnostics
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-smoke-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/production-smoke/lifecycle.json
+          if-no-files-found: ignore
+          retention-days: 5
+
+  production-drills:
+    needs: [source-checks, production-compose]
+    name: Production drill (${{ matrix.drill }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        drill: [packaged, chd]
+    steps:
+      # A deliberate no-op still completes successfully for the required CI gate.
+      - name: Verify production drill selection
+        env:
+          SELECTED: ${{ needs.source-checks.outputs[matrix.drill] }}
+        run: |
+          case "$SELECTED" in
+            true|false) printf 'Selected: %s\n' "$SELECTED" ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ needs.source-checks.outputs[matrix.drill] == 'true' }}
+        with:
+          persist-credentials: false
+      - name: Download the production drill images
+        if: ${{ needs.source-checks.outputs[matrix.drill] == 'true' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: production-drill-images-${{ github.run_id }}
+          path: ${{ runner.temp }}
+      - name: Load and verify the production drill images
+        if: ${{ needs.source-checks.outputs[matrix.drill] == 'true' }}
+        env:
+          EXPECTED_IMAGE_IDS: ${{ needs.production-compose.outputs.image-ids }}
+        run: bash scripts/ci/drill_images.sh load
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        if: ${{ matrix.drill == 'packaged' && needs.source-checks.outputs.packaged == 'true' }}
+        with:
+          node-version: '24.22.0'
+      - name: Install the locked packaged rehearsal browser
+        if: ${{ matrix.drill == 'packaged' && needs.source-checks.outputs.packaged == 'true' }}
+        run: |
+          npm ci --ignore-scripts --prefix scripts/release/browser
+          scripts/release/browser/node_modules/.bin/playwright install --with-deps chromium
       - name: Rehearse the extracted package before publication
-        if: ${{ needs.source-checks.outputs.packaged == 'true' }}
+        if: ${{ matrix.drill == 'packaged' && needs.source-checks.outputs.packaged == 'true' }}
         run: python3 scripts/validation/run.py --ci --id deployment.packaged-rehearsal --evidence-parent coverage/packaged-rehearsal
       - name: Retain sanitized packaged rehearsal evidence
-        if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ always() && matrix.drill == 'packaged' && needs.source-checks.outputs.packaged == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: packaged-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
           path: coverage/packaged-rehearsal/
           if-no-files-found: ignore
           retention-days: 7
-      - name: Reclaim disposable CI build cache
-        if: ${{ needs.source-checks.outputs.chd == 'true' }}
-        timeout-minutes: 5
-        run: bash scripts/ci/reclaim_build_cache.sh
-      # Reuses the romd-*:test images smoke.py built. Generated inputs only; no media leaves the runner.
-      # Recovery waits out a 5-minute execution lease. Harness budgets (15 + 15 + 10 minutes) cover the slow phases;
-      # the step limit bounds the rest and leaves headroom inside the job timeout.
+      # Keep the production execution lease and the harness's on-runner disk-space guard.
       - name: Synthetic PS2 DVD CHD end to end
-        if: ${{ needs.source-checks.outputs.chd == 'true' }}
+        if: ${{ matrix.drill == 'chd' && needs.source-checks.outputs.chd == 'true' }}
         timeout-minutes: 45
         run: >-
           python3 scripts/e2e/chd.py --synthetic --checkpoint encoding --image-tag test --convergence-timeout 15 --upload-timeout 10
           --evidence "$RUNNER_TEMP/chd-e2e/evidence.json"
-      - name: Keep production and synthetic CHD diagnostics
-        if: ${{ failure() || cancelled() }}
+      - name: Keep synthetic CHD diagnostics
+        if: ${{ matrix.drill == 'chd' && (failure() || cancelled()) }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: production-chd-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/production-smoke/lifecycle.json
-            ${{ runner.temp }}/chd-e2e
+          path: ${{ runner.temp }}/chd-e2e
           if-no-files-found: ignore
           retention-days: 5
 
@@ -615,7 +672,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: ${{ always() }}
-    needs: [source-checks, agent-infrastructure, console, native, native-artifact, backend, infrastructure, integration, web, production-compose]
+    needs: [source-checks, agent-infrastructure, console, native, native-artifact, backend, infrastructure, integration, web, production-compose, production-drills]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
