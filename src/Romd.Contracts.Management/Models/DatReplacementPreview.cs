@@ -15,6 +15,7 @@ public sealed record DatReviewImpact(
 
 public sealed record DatEntryReviewImpact(
     int StoredRoms, int LostRomMatches, int NewRomMatches, string? TitleLink, bool TitleLinkAtRisk,
-    int Sha1ChangedFiles, bool MetadataOnly, bool OtherChecksumOnly, bool NeedsReview);
+    int Sha1ChangedFiles, bool MetadataOnly, bool OtherChecksumOnly, bool NeedsReview,
+    string? TitleId, int TitleOtherSourceLinks);
 
 public sealed record DatFileReviewImpact(bool StoredBefore, bool StoredAfter, bool LosesCatalogMatch, bool GainsCatalogMatch);

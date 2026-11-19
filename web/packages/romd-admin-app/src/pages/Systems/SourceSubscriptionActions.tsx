@@ -11,7 +11,7 @@ import { Link } from 'react-router';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { datKeys } from '../../hooks/api/useDats';
 import { managedSystemKeys } from '../../hooks/api/useManagedSystems';
-import { DatReplacementReviewModal } from './DatReplacementReviewModal';
+import { DatReplacementReviewModal, type DatReviewOutcome } from './DatReplacementReviewModal';
 
 /** Status polling reads only this local subscription, never the remote publisher. */
 export function SourceSubscriptionActions({
@@ -23,6 +23,8 @@ export function SourceSubscriptionActions({
   compact = false,
   settingsOnly = false,
   primaryOnly = false,
+  onReview,
+  reviewHref,
 }: {
   subscription: DatCatalogSubscription;
   systemName?: string;
@@ -31,7 +33,11 @@ export function SourceSubscriptionActions({
   compact?: boolean;
   settingsOnly?: boolean;
   primaryOnly?: boolean;
-  onAccepted: (result: JobReference) => void;
+  /** Opens the review in the caller's page instead of a dialog. */
+  onReview?: () => void;
+  /** Links to the source page's review instead of opening a dialog here. */
+  reviewHref?: string;
+  onAccepted: (result: JobReference, outcome?: DatReviewOutcome) => void;
 }) {
   const client = useQueryClient();
   const [review, setReview] = useState(false);
@@ -188,20 +194,34 @@ export function SourceSubscriptionActions({
       )}
       {!settingsOnly && (
         <Group>
-          {ready && (
-            <Button
-              {...(primaryOnly
-                ? workspaceActionProps
-                : {
-                    variant: 'light',
-                  })}
-              size={compact ? 'compact-sm' : 'sm'}
-              onClick={() => setReview(true)}
-              disabled={checking}
-            >
-              {current.activeDatId ? 'Review update' : 'Review first DAT'}
-            </Button>
-          )}
+          {ready &&
+            (reviewHref && !checking ? (
+              <Button
+                {...(primaryOnly
+                  ? workspaceActionProps
+                  : {
+                      variant: 'light',
+                    })}
+                component={Link}
+                to={reviewHref}
+                size={compact ? 'compact-sm' : 'sm'}
+              >
+                {current.activeDatId ? 'Review update' : 'Review first DAT'}
+              </Button>
+            ) : (
+              <Button
+                {...(primaryOnly
+                  ? workspaceActionProps
+                  : {
+                      variant: 'light',
+                    })}
+                size={compact ? 'compact-sm' : 'sm'}
+                onClick={() => (onReview ? onReview() : setReview(true))}
+                disabled={checking}
+              >
+                {current.activeDatId ? 'Review update' : 'Review first DAT'}
+              </Button>
+            ))}
           {canCheck && (
             <Button
               {...(primaryOnly
@@ -304,7 +324,7 @@ export function SourceSubscriptionActions({
           systemName={systemName}
           provider={provider}
           onClose={() => setReview(false)}
-          onAccepted={(result) => {
+          onAccepted={(result, outcome) => {
             setReview(false);
             client.setQueryData(
               [
@@ -320,7 +340,7 @@ export function SourceSubscriptionActions({
             void client.invalidateQueries({
               queryKey: managedSystemKeys.subscriptions,
             });
-            onAccepted(result);
+            onAccepted(result, outcome);
           }}
         />
       )}

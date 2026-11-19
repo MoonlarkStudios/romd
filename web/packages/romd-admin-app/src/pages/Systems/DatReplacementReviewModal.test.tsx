@@ -20,10 +20,11 @@ vi.mock('@romd/admin-api-client', () => ({
   createDatReplacement: vi.fn(),
 }));
 vi.mock('./DatChangeBrowser', () => ({
-  DatChangeBrowser: ({ renderSummary }: ComponentProps<typeof DatChangeBrowser>) => (
+  DatChangeBrowser: ({ header, footnotes }: ComponentProps<typeof DatChangeBrowser>) => (
     <>
-      {renderSummary?.(vi.fn())}
+      {header}
       <div>Explore all changes</div>
+      {footnotes}
     </>
   ),
 }));
@@ -120,8 +121,11 @@ describe('DAT review', () => {
     const user = userEvent.setup();
     const { onClose } = show();
     await screen.findByText('Explore all changes');
-    expect(screen.queryByText(/first 50 changed entries/)).not.toBeInTheDocument();
-    expect(screen.getByText(/ROMD keeps your stored ROM files/)).toBeVisible();
+    expect(screen.getByText('Manual upload')).toBeVisible();
+    expect(screen.getByText(/update\.dat/)).toBeVisible();
+    expect(
+      screen.getByText('Applying runs in a background job. Stored ROM files are never deleted.'),
+    ).toBeVisible();
     await user.click(
       screen.getByRole('button', {
         name: 'Discard upload',
@@ -130,11 +134,13 @@ describe('DAT review', () => {
     expect(onClose).toHaveBeenCalled();
     expect(createDatReplacement).not.toHaveBeenCalled();
   });
-  it('leads with both versions and highlights removed entries and changed checksums', async () => {
+  it('leads with dated versions and puts the consequence beside the decision', async () => {
     respond({
       ...preview,
-      activeVersion: 'installed-version',
-      candidateVersion: 'incoming-version',
+      activeVersion: '20261012-015604',
+      candidateVersion: '20261025-205653',
+      activeEntries: 7712,
+      candidateEntries: 7718,
       entriesRemoved: 2,
       filesRemoved: 3,
       entriesChanged: 1,
@@ -153,34 +159,20 @@ describe('DAT review', () => {
       },
     });
     show();
-    const installed = await screen.findByText('Installed DAT');
-    const incoming = screen.getByText('Incoming DAT');
-    const removals = screen.getByRole('button', {
-      name: /2 removed/,
+    const versions = await screen.findByRole('region', {
+      name: 'DAT versions',
     });
+    expect(versions).toHaveTextContent('Installed DAT');
+    expect(versions).toHaveTextContent('20261012-015604');
+    expect(versions).toHaveTextContent('Incoming DAT · 13 days newer');
+    expect(versions).toHaveTextContent('20261025-205653');
+    expect(versions).toHaveTextContent('7,718 entries (+6)');
+    expect(versions).toHaveTextContent('4 changed entries');
     expect(
-      installed.compareDocumentPosition(incoming) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      incoming.compareDocumentPosition(removals) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(screen.getByText('installed-version')).toBeVisible();
-    expect(screen.getByText('incoming-version')).toBeVisible();
-    expect(screen.getByText('1 SHA-1 changed')).toBeVisible();
-    expect(
-      screen.getByRole('button', {
-        name: /2 ROMs losing their catalog match/,
-      }),
+      screen.getByText(
+        'Applying unlinks 1 title and removes the catalog match for 2 stored ROMs. Libraries refresh after the job.',
+      ),
     ).toBeVisible();
-  });
-  it('does not round a small nonzero change down to zero percent', async () => {
-    respond({
-      ...preview,
-      activeEntries: 10000,
-      activeFiles: 60000,
-    });
-    show();
-    expect((await screen.findAllByText(/^· <0\.1% of current$/)).length).toBeGreaterThan(0);
   });
   it('does not offer replacement for identical content', async () => {
     respond({
@@ -275,7 +267,11 @@ it('reviews a saved subscription update and approves its exact hashes without up
     </MantineProvider>,
   );
   await screen.findByText('Explore all changes');
-  expect(screen.getByText(/saved in ROMD/)).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', {
+      name: 'Decide later',
+    }),
+  ).toBeInTheDocument();
   expect(getDatSubscriptionPreview).toHaveBeenCalledWith(
     expect.objectContaining({
       path: {
@@ -297,7 +293,12 @@ it('reviews a saved subscription update and approves its exact hashes without up
       candidateSha256: 'after',
     },
   });
-  await waitFor(() => expect(onAccepted).toHaveBeenCalledWith(accepted));
+  await waitFor(() =>
+    expect(onAccepted).toHaveBeenCalledWith(accepted, {
+      version: '2',
+      summary: '1 added',
+    }),
+  );
 });
 
 it('reviews an initial catalog against an explicit empty baseline and submits exact fingerprints', async () => {

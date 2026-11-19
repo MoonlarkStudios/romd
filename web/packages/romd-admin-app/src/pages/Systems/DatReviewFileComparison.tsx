@@ -128,6 +128,64 @@ function HashValue({ hash }: { hash?: string | null }) {
   );
 }
 
+function MatchStatement({ file }: { file: DatFileChange }) {
+  const impact = file.impact;
+  if (!impact) return null;
+  const statements: [
+    string,
+    'review' | 'gain' | 'quiet',
+  ][] = [];
+  if (impact.losesCatalogMatch)
+    statements.push([
+      'A stored ROM matches the installed file and loses its match in this catalog.',
+      'review',
+    ]);
+  if (impact.gainsCatalogMatch)
+    statements.push([
+      'A stored ROM gains a match in this catalog.',
+      'gain',
+    ]);
+  if (!statements.length)
+    statements.push([
+      impact.storedBefore && !impact.storedAfter
+        ? 'The stored ROM keeps a match elsewhere in the incoming DAT.'
+        : impact.storedAfter
+          ? 'A stored ROM matches the incoming SHA-1.'
+          : 'No stored ROM matches this file.',
+      'quiet',
+    ]);
+  return (
+    <>
+      {statements.map(([text, tone]) => (
+        <Text
+          key={text}
+          size="sm"
+          c={tone === 'gain' ? 'teal' : tone === 'quiet' ? 'dimmed' : undefined}
+          className={tone === 'review' ? classes.priorityText : undefined}
+        >
+          {text}
+        </Text>
+      ))}
+    </>
+  );
+}
+
+function FullValues({ file }: { file: DatFileChange }) {
+  if (!file.fields.length) return null;
+  return (
+    <details className={classes.disclosure}>
+      <summary>Full values</summary>
+      <DatReviewFields
+        file
+        fields={file.fields.map((field) => ({
+          ...field,
+          field: hashLabels[field.field] ?? field.field,
+        }))}
+      />
+    </details>
+  );
+}
+
 export function DatReviewFileComparison({ file }: { file: DatFileChange }) {
   const hashes = Object.keys(hashLabels)
     .map((algorithm) => file.fields.find((field) => field.field === algorithm))
@@ -138,16 +196,17 @@ export function DatReviewFileComparison({ file }: { file: DatFileChange }) {
   const otherChanges = other.filter(
     (field) => field.before !== field.after && field.field !== 'Name',
   );
+  // An added or removed file has no comparison to make: one line says what it is.
+  const whole = file.change !== 'Changed';
+  const sha1 = hashes.find((field) => field.field === 'Sha1');
+  const wholeSha1 = sha1?.after ?? sha1?.before;
   return (
     <Stack
       component="li"
       gap="xs"
       className={classes.fileCard}
     >
-      <Group
-        gap="xs"
-        wrap="wrap"
-      >
+      <div>
         <Text
           fw={600}
           size="sm"
@@ -155,15 +214,36 @@ export function DatReviewFileComparison({ file }: { file: DatFileChange }) {
         >
           {file.name}
         </Text>
-        <Text
-          size="xs"
-          c="dimmed"
+        <Group
+          gap={6}
+          wrap="wrap"
         >
-          {file.kind === 'disk' ? 'Disc' : 'ROM'} · {file.change}
-          {bytes ? ` · ${formatBytes(bytes)}` : ''}
-        </Text>
-      </Group>
-      {hashes.length > 0 && (
+          <Text
+            size="xs"
+            c="dimmed"
+          >
+            {file.kind === 'disk' ? 'Disc' : 'ROM'} · {file.change.toLowerCase()}
+            {bytes ? ` · ${formatBytes(bytes)}` : ''}
+          </Text>
+          {whole && wholeSha1 && (
+            <Group
+              component="span"
+              gap={4}
+              wrap="nowrap"
+            >
+              <Text
+                span
+                size="xs"
+                c="dimmed"
+              >
+                SHA-1
+              </Text>
+              <HashValue hash={wholeSha1} />
+            </Group>
+          )}
+        </Group>
+      </div>
+      {!whole && hashes.length > 0 && (
         <ul
           className={classes.hashList}
           aria-label="Checksums"
@@ -189,20 +269,24 @@ export function DatReviewFileComparison({ file }: { file: DatFileChange }) {
               </Badge>
               <div className={classes.hashValues}>
                 <HashValue hash={before} />
-                <Text
-                  span
-                  c="dimmed"
-                  aria-hidden
-                >
-                  →
-                </Text>
-                <HashValue hash={after} />
+                {before !== after && (
+                  <>
+                    <Text
+                      span
+                      c="dimmed"
+                      aria-hidden
+                    >
+                      →
+                    </Text>
+                    <HashValue hash={after} />
+                  </>
+                )}
               </div>
             </li>
           ))}
         </ul>
       )}
-      {file.change === 'Changed' && otherChanges.length > 0 && (
+      {!whole && otherChanges.length > 0 && (
         <Text
           size="xs"
           c="dimmed"
@@ -210,52 +294,7 @@ export function DatReviewFileComparison({ file }: { file: DatFileChange }) {
           {otherChanges.map((field) => field.field).join(', ')} changed
         </Text>
       )}
-      {file.impact && (
-        <Stack gap={3}>
-          {!file.impact.storedBefore && !file.impact.storedAfter && (
-            <Text
-              size="sm"
-              c="dimmed"
-            >
-              No stored ROM matches this file.
-            </Text>
-          )}
-          {file.impact.losesCatalogMatch && (
-            <Text
-              size="sm"
-              className={classes.priorityText}
-            >
-              A stored ROM matches the installed file and will lose its match in this catalog.
-            </Text>
-          )}
-          {file.impact.gainsCatalogMatch && (
-            <Text
-              size="sm"
-              c="teal"
-            >
-              A stored ROM will gain a match in this catalog.
-            </Text>
-          )}
-          {file.impact.storedBefore &&
-            !file.impact.storedAfter &&
-            !file.impact.losesCatalogMatch && (
-              <Text
-                size="sm"
-                c="dimmed"
-              >
-                The stored ROM’s SHA-1 still appears elsewhere in the incoming DAT.
-              </Text>
-            )}
-          {file.impact.storedAfter && !file.impact.gainsCatalogMatch && (
-            <Text
-              size="sm"
-              c="dimmed"
-            >
-              A stored ROM matches the incoming SHA-1.
-            </Text>
-          )}
-        </Stack>
-      )}
+      <MatchStatement file={file} />
       {file.kind === 'disk' && (
         <Text
           size="xs"
@@ -264,18 +303,7 @@ export function DatReviewFileComparison({ file }: { file: DatFileChange }) {
           Disc and CHD matching is outside this estimate.
         </Text>
       )}
-      {(hashes.length > 0 || other.length > 0) && (
-        <details className={classes.disclosure}>
-          <summary>Full values</summary>
-          <DatReviewFields
-            file
-            fields={file.fields.map((field) => ({
-              ...field,
-              field: hashLabels[field.field] ?? field.field,
-            }))}
-          />
-        </details>
-      )}
+      <FullValues file={file} />
     </Stack>
   );
 }

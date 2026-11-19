@@ -600,6 +600,8 @@ export type DatEntryReviewImpact = {
     metadataOnly: boolean;
     otherChecksumOnly: boolean;
     needsReview: boolean;
+    titleId: null | string;
+    titleOtherSourceLinks: number;
 };
 
 export type DatFieldChange = {

@@ -178,7 +178,8 @@ public sealed partial class DatReplacementReview
         var impact = new DatEntryReviewImpact(stored.Count, lost.Count, gained.Count, title?.TitleName, titleAtRisk,
             sha1Changed, change is { Change: "Changed", FilesAdded: 0, FilesRemoved: 0, FilesChanged: 0 },
             checksumOnly && !otherChange && sha1Changed == 0 && old?.Metadata == next?.Metadata,
-            titleAtRisk || (change.Change == "Removed" && stored.Count > 0) || lost.Count > 0 || changedStoredSha1);
+            titleAtRisk || (change.Change == "Removed" && stored.Count > 0) || lost.Count > 0 || changedStoredSha1,
+            title?.TitleId, title?.OtherSourceLinks ?? 0);
         return (change with { Impact = impact }, lost, gained, diskChanged);
     }
 

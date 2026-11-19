@@ -74,8 +74,8 @@ public sealed class DatReplacementReviewTests
         ]);
         _repository.GetReviewTitleLinksAsync(0, Arg.Any<CancellationToken>()).Returns(
         [
-            new("Old name", "Curated title", ReferencedByAnotherVersion: false),
-            new("Removed B", "Also linked", ReferencedByAnotherVersion: true)
+            new("Old name", 7, "Curated title", ReferencedByAnotherVersion: false, OtherSourceLinks: 0),
+            new("Removed B", 8, "Also linked", ReferencedByAnotherVersion: true, OtherSourceLinks: 2)
         ]);
         _repository.GetReviewStoredRomsAsync(Arg.Any<Sha1[]>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
@@ -94,6 +94,9 @@ public sealed class DatReplacementReviewTests
             Entries(preview.ActiveSha256, preview.CandidateSha256, "NeedsReview", limit: 2), default)).Value;
         page.Total.ShouldBe(4);
         page.Items.Select(entry => entry.Name).ShouldBe(["Old name", "Removed A"]);
+        page.Items[0].Impact.ShouldNotBeNull().TitleLinkAtRisk.ShouldBeTrue();
+        page.Items[0].Impact!.TitleId.ShouldBe(7);
+        page.Items[0].Impact!.TitleOtherSourceLinks.ShouldBe(0);
 
         using var entry = Stream(candidate);
         var detail = (await service.GetEntryChangeAsync(0, "Catalog", entry, "SHA-1 edit",

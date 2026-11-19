@@ -5,6 +5,7 @@ import {
   deleteSystemOverride,
   getAdminSystem,
   getDatSubscription,
+  getDatSubscriptionPreview,
   getJob,
   getManagedSystemDetails,
   getSystemOverrides,
@@ -49,6 +50,9 @@ vi.mock('@romd/admin-api-client', async () => ({
   getDatSubscription: vi.fn(),
   previewDatReplacement: vi.fn(),
   createDatReplacement: vi.fn(),
+  getDatSubscriptionPreview: vi.fn(),
+  listDatReplacementChanges: vi.fn(),
+  listDatSubscriptionChanges: vi.fn(),
   createDatSubscription: vi.fn(),
   getJob: vi.fn(),
   listCatalogTitles: vi.fn(),
@@ -263,10 +267,10 @@ it('prioritizes a source ready for review without requesting entry pages', async
   expect(screen.getAllByRole('article')[0]).toBe(redumpRow);
   expect(within(redumpRow).getByText('Subscription')).toBeInTheDocument();
   expect(
-    within(redumpRow).getByRole('button', {
+    within(redumpRow).getByRole('link', {
       name: 'Review update',
     }),
-  ).toBeInTheDocument();
+  ).toHaveAttribute('href', '/systems/psx/sources/source1?tab=updates&review=subscription');
   expect(within(manualRow).getByText('Manual updates')).toBeInTheDocument();
   expect(
     within(manualRow).getByRole('link', {
@@ -1040,7 +1044,10 @@ it('updates the chosen manual source only after a hash-bound review', async () =
       ],
     },
   });
-  const approve = await screen.findByRole('button', {
+  const review = await screen.findByRole('region', {
+    name: 'Review catalog update',
+  });
+  const approve = await within(review).findByRole('button', {
     name: 'Apply uploaded DAT',
   });
   expect(createDatReplacement).not.toHaveBeenCalled();
@@ -1059,4 +1066,66 @@ it('updates the chosen manual source only after a hash-bound review', async () =
       }),
     ),
   );
+  expect(await screen.findByText('Applied 4')).toBeInTheDocument();
+  expect(screen.getByText('1 added')).toBeInTheDocument();
+  expect(
+    screen.queryByRole('region', {
+      name: 'Review catalog update',
+    }),
+  ).not.toBeInTheDocument();
+});
+it('reviews a subscription update inside the source page and returns to updates', async () => {
+  vi.mocked(getDatSubscriptionPreview).mockResolvedValue(
+    result({
+      activeSha256: 'before',
+      candidateSha256: 'after',
+      activeVersion: '20261012-015604',
+      candidateVersion: '20261025-205653',
+      unchanged: false,
+      activeEntries: 1,
+      candidateEntries: 1,
+      entriesAdded: 0,
+      entriesRemoved: 0,
+      entriesChanged: 0,
+      filesAdded: 0,
+      filesRemoved: 0,
+      filesChanged: 0,
+      hashesChanged: 0,
+      activeBiosEntries: 0,
+      candidateBiosEntries: 0,
+      changes: [],
+      truncated: false,
+    }),
+  );
+  const user = userEvent.setup();
+  hub('/systems/psx/sources/source1?tab=updates&review=subscription');
+  const review = await screen.findByRole('region', {
+    name: 'Review catalog update',
+  });
+  expect(await within(review).findByText('No supported entry changes')).toBeInTheDocument();
+  expect(
+    within(review).getByRole('button', {
+      name: /^Apply (25 Oct|Oct 25) update$/,
+    }),
+  ).toBeInTheDocument();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Back to updates',
+    }),
+  );
+  expect(
+    await screen.findByRole('button', {
+      name: 'Review update',
+    }),
+  ).toBeInTheDocument();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Review update',
+    }),
+  );
+  expect(
+    await screen.findByRole('region', {
+      name: 'Review catalog update',
+    }),
+  ).toBeInTheDocument();
 });

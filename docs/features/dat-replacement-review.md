@@ -7,15 +7,32 @@ the review or reloading discards the preview. Saved subscriptions use the same v
 [subscription flow](dat-subscriptions.md). This manual-upload path keeps its
 candidate in the browser.
 
-The review leads with the system, source, and installed-to-incoming version
-comparison. **Catalog impact** shows which stored ROMs are expected to gain or
-lose a match in this DAT and which removed entries have title links at risk.
-**Needs review** prioritizes entry removals with stored ROMs or at-risk title
-links, ROM match losses, and SHA-1 changes involving stored ROMs. The summary
-links open filtered results. File details label each checksum algorithm and
-show stored match evidence beside the change. The desktop review keeps the list
-and entry visible together. On phones, **Back** restores the filter and page,
-and the decision buttons stay visible.
+The review opens on the source's **Updates** tab
+(`?tab=updates&review=subscription` or `review=upload`), so Back, reload, and
+links return to it; an upload's bytes stay in page memory and do not survive a
+reload. Setup flows keep the same review in a dialog. The source list's
+**Review update** links to the source page review.
+
+The review leads with the source, provider, and installed-to-incoming versions,
+showing date-stamped versions as dates with the raw version beside them. A
+verdict states what applying does: how many changes need review, which titles
+are unlinked, and whether stored ROMs lose or gain a match. Warning color is
+reserved for that catalog impact; a SHA-1 change that touches no stored ROM is
+shown as an ordinary change.
+
+A filter rail is both the summary and the list filter. **Catalog impact** rows
+count entries that need review, removals that unlink a title, stored ROMs losing
+a match, and removals with stored ROMs. **Changes** rows split changed entries
+into SHA-1, CRC/MD5-only, and metadata-only groups. Zero rows stay visible and
+disabled. Desktop shows the rail, list, and entry side by side; phones step from
+summary to list to entry, and **Back** restores the filter, page, scroll
+position, and focus. An entry that unlinks a title names and links the title and
+states whether the title keeps other source links. A title without sources is
+later removed unless it carries curation such as edits, artwork, or collection
+entries. Added and removed files show on one line with their SHA-1; changed
+files compare each checksum. The decision bar stays pinned and repeats the
+consequence beside **Apply**. After approval the source page reports the job
+with the approved version and change summary.
 
 ## Review contract
 
@@ -37,7 +54,8 @@ existing baseline. Entry and expected-file counts describe the document.
 Projected stored ROM counts are distinct logical ROMs within this DAT. They use
 the installed rows' links and the incoming ROM rows' SHA-1 matches, so a hash
 that still appears elsewhere in the incoming DAT does not count as a loss.
-Counts reflect the time of the read. Other catalogs and disc/CHD matching can
+Counts reflect the time of the read. An entry's impact names its linked title
+by public ID and counts that title's links through other source entries. Other catalogs and disc/CHD matching can
 still provide coverage, and library projections refresh after activation.
 A vanished entry can lose its title link when no retained version references it. Unknown fields outside the parser's model
 are not included in semantic comparison. There is no automatic acceptance policy.

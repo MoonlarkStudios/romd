@@ -802,8 +802,9 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
                where game.DatFileId == datId
                join link in _context.TitleSourceLinks on game.SourceEntryId equals link.SourceEntryId
                join title in _context.Titles on link.TitleId equals title.Id
-               select new DatReviewTitleLink(game.Name, title.Name,
-                   _context.DatGames.Any(other => other.DatFileId != datId && other.SourceEntryId == game.SourceEntryId)))
+               select new DatReviewTitleLink(game.Name, title.Id, title.Name,
+                   _context.DatGames.Any(other => other.DatFileId != datId && other.SourceEntryId == game.SourceEntryId),
+                   _context.TitleSourceLinks.Count(other => other.TitleId == title.Id && other.SourceEntryId != game.SourceEntryId)))
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<DatReviewStoredRom>> GetReviewStoredRomsAsync(Sha1[] candidateHashes, CancellationToken ct) =>

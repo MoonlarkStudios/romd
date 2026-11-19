@@ -100,6 +100,42 @@ public sealed partial class DatRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetReviewTitleLinksAsync_CountsTheTitlesLinksThroughOtherEntries()
+    {
+        using var db = CreateDb();
+        await SeedRomLinkDataAsync(db);
+        var now = DateTimeOffset.UtcNow;
+        db.Titles.Add(new TitleEntity
+        {
+            Id = 1,
+            PlatformId = 1,
+            Name = "Matched",
+            NormalizedName = "matched",
+            EnrichmentStatus = "None",
+            CreatedAt = now
+        });
+        db.SourceEntries.Add(new SourceEntryEntity
+        {
+            Id = 2,
+            CatalogSourceId = 1,
+            EntryKey = "Matched Game (Rev 1)",
+            Name = "Matched Game (Rev 1)",
+            PlatformId = 1,
+            CreatedAt = now
+        });
+        db.TitleSourceLinks.AddRange(
+            new TitleSourceLinkEntity { TitleId = 1, SourceEntryId = 1, CreatedAt = now },
+            new TitleSourceLinkEntity { TitleId = 1, SourceEntryId = 2, CreatedAt = now });
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        var repository = new DatRepository(db, TimeProvider.System);
+
+        var titles = await repository.GetReviewTitleLinksAsync(1, default);
+
+        titles.ShouldBe([new DatReviewTitleLink("Matched Game", 1, "Matched", false, 1)]);
+    }
+
+    [Fact]
     public async Task LinkDatRomsToRomFileAsync_UnlinkedDatRom_UpdatesRomFileId()
     {
         using var db = CreateDb();

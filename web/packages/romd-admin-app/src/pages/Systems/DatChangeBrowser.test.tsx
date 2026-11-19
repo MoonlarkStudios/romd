@@ -6,13 +6,15 @@ import type {
   DatReplacementPreview,
 } from '@romd/admin-api-client';
 import {
+  getDatReplacementChange,
   getDatSubscriptionChange,
   listDatReplacementChanges,
   listDatSubscriptionChanges,
 } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { DatChangeBrowser } from './DatChangeBrowser';
 
@@ -53,7 +55,15 @@ function response(data: DatChangesPage) {
     data,
   } as Awaited<ReturnType<typeof listDatSubscriptionChanges>>;
 }
-function show({ onStale = vi.fn(), file }: { onStale?: () => void; file?: File } = {}) {
+function show({
+  onStale = vi.fn(),
+  file,
+  reviewed = preview,
+}: {
+  onStale?: () => void;
+  file?: File;
+  reviewed?: DatReplacementPreview;
+} = {}) {
   render(
     <QueryClientProvider
       client={
@@ -67,21 +77,17 @@ function show({ onStale = vi.fn(), file }: { onStale?: () => void; file?: File }
       }
     >
       <MantineProvider>
-        <DatChangeBrowser
-          datId="dat1"
-          subscriptionId={file ? undefined : 'sub1'}
-          file={file}
-          preview={preview}
-          renderSummary={(viewChanges) => (
-            <button
-              type="button"
-              onClick={() => viewChanges('Removed')}
-            >
-              View removed entries
-            </button>
-          )}
-          onStale={onStale}
-        />
+        <MemoryRouter>
+          <DatChangeBrowser
+            datId="dat1"
+            subscriptionId={file ? undefined : 'sub1'}
+            file={file}
+            preview={reviewed}
+            header={<p>Review header</p>}
+            linkTitles={!file}
+            onStale={onStale}
+          />
+        </MemoryRouter>
       </MantineProvider>
     </QueryClientProvider>,
   );
@@ -172,12 +178,7 @@ it('restarts from the first page when searching or choosing a change filter', as
       }),
     ),
   );
-  await user.type(screen.getByLabelText('Search changed entries'), 'Disc');
-  await user.click(
-    screen.getByRole('button', {
-      name: 'Search',
-    }),
-  );
+  await user.type(screen.getByLabelText('Search changed entries'), 'Disc{Enter}');
   await waitFor(() =>
     expect(listDatSubscriptionChanges).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -216,7 +217,7 @@ it('opens the removed-entry filter from the summary and moves focus to the resul
   });
   await user.click(
     screen.getByRole('button', {
-      name: 'View removed entries',
+      name: 'Removed 1',
     }),
   );
   expect(
@@ -440,11 +441,13 @@ it('returns from an entry to the filtered mobile list after moving across a page
       } as Awaited<ReturnType<typeof getDatSubscriptionChange>>;
     });
     show();
+    expect(screen.getByText('Review header')).toBeVisible();
     await user.click(
       screen.getByRole('button', {
-        name: 'View removed entries',
+        name: 'Removed 1',
       }),
     );
+    expect(screen.queryByText('Review header')).not.toBeInTheDocument();
     await user.click(
       await screen.findByRole('button', {
         name: /^Disc A/,
@@ -477,11 +480,258 @@ it('returns from an entry to the filtered mobile list after moving across a page
     ).toHaveFocus();
     expect(screen.getByText('2–2 of 2')).toBeVisible();
     expect(
-      screen.getByRole('button', {
-        name: 'Removed 1',
+      screen.getByRole('heading', {
+        name: 'Removed',
       }),
-    ).toHaveAttribute('aria-pressed', 'true');
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Back to summary',
+      }),
+    );
+    expect(screen.getByText('Review header')).toBeVisible();
   } finally {
     mockMedia.mockRestore();
   }
+});
+
+const impactPreview = {
+  ...preview,
+  impact: {
+    needsReviewEntries: 1,
+    removedWithStoredRoms: 0,
+    removedWithTitleLinks: 1,
+    lostRomMatches: 0,
+    newRomMatches: 0,
+    sha1ChangedEntries: 1,
+    sha1ChangedFiles: 1,
+    metadataOnlyEntries: 0,
+    otherChecksumOnlyEntries: 0,
+    diskChangedEntries: 0,
+  },
+} as DatReplacementPreview;
+
+it('reserves the warning tone for catalog impact and starts on the entries that need review', async () => {
+  show({
+    reviewed: impactPreview,
+  });
+  expect(
+    screen.getByRole('region', {
+      name: 'Review verdict',
+    }),
+  ).toHaveTextContent('1 change needs reviewUnlinks 1 title. No stored ROM loses its match.');
+  const filters = screen.getByRole('navigation', {
+    name: 'Review filters',
+  });
+  expect(
+    within(filters).getByRole('button', {
+      name: 'Needs review 1',
+    }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(
+    within(filters).getByRole('button', {
+      name: 'Unlinks a title 1',
+    }),
+  ).toHaveAttribute('data-tone', 'review');
+  // A SHA-1 change that touches no stored ROM is a change, not a warning.
+  expect(
+    within(filters).getByRole('button', {
+      name: 'SHA-1 changed 1',
+    }),
+  ).not.toHaveAttribute('data-tone');
+  // Zero rows stay visible so the admin can see they were checked.
+  expect(
+    within(filters).getByRole('button', {
+      name: 'ROMs losing a match —',
+    }),
+  ).toBeDisabled();
+  await waitFor(() =>
+    expect(listDatSubscriptionChanges).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({
+          change: 'NeedsReview',
+        }),
+      }),
+    ),
+  );
+});
+
+it('names the title a removal unlinks, links to it, and collapses a removed file to one line', async () => {
+  const user = userEvent.setup();
+  const removed: DatEntryChange = {
+    id: 'QWllbiBDYXQgMg',
+    name: 'Aien Cat 2 (World) (Aftermarket) (Unl)',
+    change: 'Removed',
+    filesAdded: 0,
+    filesRemoved: 1,
+    filesChanged: 0,
+    impact: {
+      storedRoms: 0,
+      lostRomMatches: 0,
+      newRomMatches: 0,
+      titleLink: 'Aien Cat 2',
+      titleLinkAtRisk: true,
+      sha1ChangedFiles: 0,
+      metadataOnly: false,
+      otherChecksumOnly: false,
+      needsReview: true,
+      titleId: 'title7',
+      titleOtherSourceLinks: 0,
+    },
+  };
+  vi.mocked(listDatSubscriptionChanges).mockResolvedValue(
+    response({
+      items: [
+        removed,
+      ],
+      nextCursor: null,
+      hasNextPage: false,
+      total: 1,
+    }),
+  );
+  vi.mocked(getDatSubscriptionChange).mockResolvedValue({
+    data: {
+      ...pins,
+      id: removed.id,
+      name: removed.name,
+      change: 'Removed',
+      fields: [],
+      impact: removed.impact,
+      files: {
+        items: [
+          {
+            name: 'Aien Cat 2 (World) (Aftermarket) (Unl).nes',
+            kind: 'rom',
+            change: 'Removed',
+            checksumsChanged: false,
+            fields: [
+              {
+                field: 'Sha1',
+                before: 'fc43da81aaaaaaaaaaaaaaaaaaaaaaaaaaaa5305',
+                after: null,
+              },
+              {
+                field: 'Crc',
+                before: '14939d21',
+                after: null,
+              },
+            ],
+            impact: {
+              storedBefore: false,
+              storedAfter: false,
+              losesCatalogMatch: false,
+              gainsCatalogMatch: false,
+            },
+          },
+        ],
+        nextCursor: null,
+        hasNextPage: false,
+      },
+    },
+  } as Awaited<ReturnType<typeof getDatSubscriptionChange>>);
+  show({
+    reviewed: impactPreview,
+  });
+  const row = await screen.findByRole('button', {
+    name: /^Aien Cat 2/,
+  });
+  expect(within(row).getByText('Unlinks title')).toBeInTheDocument();
+  expect(within(row).getByText('1 file')).toBeInTheDocument();
+  await user.click(row);
+  expect(await screen.findByText('Unlinks from title')).toBeInTheDocument();
+  expect(
+    screen.getByRole('link', {
+      name: /Aien Cat 2/,
+    }),
+  ).toHaveAttribute('href', '/titles/title7');
+  // Admin sessions are per tab; a new tab would land on sign-in.
+  expect(
+    screen.getByRole('link', {
+      name: /Aien Cat 2/,
+    }),
+  ).not.toHaveAttribute('target');
+  expect(screen.getByText(/The title has no other sources/)).toBeInTheDocument();
+  expect(await screen.findByText('ROM · removed')).toBeInTheDocument();
+  expect(screen.getByText('fc43da81…5305')).toBeInTheDocument();
+  expect(
+    screen.queryByRole('list', {
+      name: 'Checksums',
+    }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText('No stored ROM matches this file.')).toBeInTheDocument();
+  // One matching entry has nowhere to step to.
+  expect(
+    screen.queryByRole('button', {
+      name: 'Next entry',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', {
+      name: removed.name,
+    }),
+  ).toHaveFocus();
+});
+
+it('names the title without leaving a manual upload review whose bytes live only on this page', async () => {
+  const user = userEvent.setup();
+  const impact = {
+    storedRoms: 0,
+    lostRomMatches: 0,
+    newRomMatches: 0,
+    titleLink: 'Aien Cat 2',
+    titleLinkAtRisk: true,
+    sha1ChangedFiles: 0,
+    metadataOnly: false,
+    otherChecksumOnly: false,
+    needsReview: true,
+    titleId: 'title7',
+    titleOtherSourceLinks: 2,
+  };
+  const removed: DatEntryChange = {
+    ...discA,
+    change: 'Removed',
+    impact,
+  };
+  vi.mocked(listDatReplacementChanges).mockResolvedValue(
+    response({
+      items: [
+        removed,
+      ],
+      nextCursor: null,
+      hasNextPage: false,
+      total: 1,
+    }),
+  );
+  vi.mocked(getDatReplacementChange).mockResolvedValue({
+    data: {
+      ...pins,
+      id: removed.id,
+      name: removed.name,
+      change: 'Removed',
+      fields: [],
+      impact,
+      files: {
+        items: [],
+        nextCursor: null,
+        hasNextPage: false,
+      },
+    },
+  } as Awaited<ReturnType<typeof getDatReplacementChange>>);
+  show({
+    file: new File(
+      [
+        'dat',
+      ],
+      'update.dat',
+    ),
+    reviewed: impactPreview,
+  });
+  await user.click(
+    await screen.findByRole('button', {
+      name: /^Disc A/,
+    }),
+  );
+  expect(await screen.findByText('Aien Cat 2')).toBeInTheDocument();
+  expect(screen.getByText('The title keeps 2 other source links.')).toBeInTheDocument();
+  expect(screen.queryByRole('link')).not.toBeInTheDocument();
 });

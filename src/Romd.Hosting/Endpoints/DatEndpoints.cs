@@ -360,7 +360,8 @@ public static class DatEndpoints
 
     private static Models.DatEntryReviewImpact? EntryImpactContract(DatEntryReviewImpact? impact) => impact is null ? null :
         new(impact.StoredRoms, impact.LostRomMatches, impact.NewRomMatches, impact.TitleLink, impact.TitleLinkAtRisk,
-            impact.Sha1ChangedFiles, impact.MetadataOnly, impact.OtherChecksumOnly, impact.NeedsReview);
+            impact.Sha1ChangedFiles, impact.MetadataOnly, impact.OtherChecksumOnly, impact.NeedsReview,
+            impact.TitleId is int titleId ? IdCoder.Encode(titleId) : null, impact.TitleOtherSourceLinks);
 
     private static Models.DatReviewImpact? ImpactContract(DatReviewImpact? impact) => impact is null ? null :
         new(impact.NeedsReviewEntries, impact.RemovedWithStoredRoms, impact.RemovedWithTitleLinks,

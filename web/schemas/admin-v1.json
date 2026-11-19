@@ -19545,7 +19545,9 @@
           "sha1ChangedFiles",
           "metadataOnly",
           "otherChecksumOnly",
-          "needsReview"
+          "needsReview",
+          "titleId",
+          "titleOtherSourceLinks"
         ],
         "type": "object",
         "properties": {
@@ -19582,6 +19584,16 @@
           },
           "needsReview": {
             "type": "boolean"
+          },
+          "titleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "titleOtherSourceLinks": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
