@@ -680,7 +680,9 @@ export function DatChangeBrowser({
   }
 
   const selectedIndex = page?.items.findIndex((item) => item.id === selectedId) ?? -1;
+  const canNavigateEntries = selectedIndex >= 0 && !entryAtPageEdge;
   function adjacent(direction: -1 | 1) {
+    if (!canNavigateEntries) return;
     const item = page?.items[selectedIndex + direction];
     if (item) select(item);
     else changePage(direction, true);
@@ -938,6 +940,7 @@ export function DatChangeBrowser({
                           setView(
                             {
                               ...view,
+                              filter: change,
                               entry: undefined,
                             },
                             'back',
@@ -1066,7 +1069,7 @@ export function DatChangeBrowser({
                           variant="default"
                           size="compact-sm"
                           leftSection={<IconChevronLeft size={15} />}
-                          disabled={entryAtPageEdge != null || (selectedIndex <= 0 && !position)}
+                          disabled={!canNavigateEntries || (selectedIndex === 0 && !position)}
                           onClick={() => adjacent(-1)}
                         >
                           Previous entry
@@ -1076,8 +1079,8 @@ export function DatChangeBrowser({
                           size="compact-sm"
                           rightSection={<IconChevronRight size={15} />}
                           disabled={
-                            entryAtPageEdge != null ||
-                            (selectedIndex >= (page.items.length ?? 1) - 1 && !page.hasNextPage)
+                            !canNavigateEntries ||
+                            (selectedIndex === page.items.length - 1 && !page.hasNextPage)
                           }
                           onClick={() => adjacent(1)}
                         >

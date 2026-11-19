@@ -1236,11 +1236,15 @@ it('restores the reviewed entry and filter from the URL and keeps them as the re
   vi.mocked(listDatSubscriptionChanges).mockResolvedValue(
     result({
       items: [
-        removed,
+        {
+          ...removed,
+          id: 'disc-a',
+          name: 'Disc A',
+        },
       ],
-      nextCursor: null,
-      hasNextPage: false,
-      total: 1,
+      nextCursor: 'second-page',
+      hasNextPage: true,
+      total: 2,
     }),
   );
   vi.mocked(getDatSubscriptionChange).mockResolvedValue(
@@ -1269,6 +1273,16 @@ it('restores the reviewed entry and filter from the URL and keeps them as the re
       name: 'Disc B',
     }),
   ).toBeInTheDocument();
+  expect(
+    await within(detail).findByRole('button', {
+      name: 'Next entry',
+    }),
+  ).toBeDisabled();
+  expect(
+    within(detail).getByRole('button', {
+      name: 'Previous entry',
+    }),
+  ).toBeDisabled();
   expect(listDatSubscriptionChanges).toHaveBeenCalledWith(
     expect.objectContaining({
       query: expect.objectContaining({
