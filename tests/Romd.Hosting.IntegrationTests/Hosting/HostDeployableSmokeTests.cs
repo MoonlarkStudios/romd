@@ -150,6 +150,7 @@ public sealed class HostDeployableSmokeTests
         "/api/dats",
         "/api/dats/{datId}/replacements",
         "/api/dats/{datId}/replacements/preview",
+        "/api/dats/{datId}/replacements/change-count/preview",
         "/api/dats/{datId}/replacements/changes",
         "/api/dats/{datId}/replacements/changes/{entryId}",
         "/api/download-tickets",

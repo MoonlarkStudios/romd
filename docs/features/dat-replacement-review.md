@@ -56,8 +56,11 @@ original-document hash without changing the supported entry comparison.
 The response names both SHA-256 hashes, entry and file additions/removals/changes,
 changed existing-file checksums, BIOS entry counts, and current/candidate file
 counts. The summary retains its bounded compatibility sample; the UI uses the full
-searchable, filtered change API with pages of 50 entries or files. Every page binds
-to both exact reviewed document hashes and rejects a stale baseline or candidate.
+searchable, filtered change API with standard cursor pages of 50 entries or files.
+For a multi-page result, the UI requests the total with the same search and filter
+using the upload's change-count preview or the subscription's change-count resource.
+Pages and counts bind to both exact document hashes and reject a stale baseline
+or candidate.
 Entry expansion shows metadata changes and paginated file details, with exact
 before/after strings including Int64 byte sizes. Ordering is ordinal and stable.
 Percentages use the current entry/file counts; first imports explicitly have no

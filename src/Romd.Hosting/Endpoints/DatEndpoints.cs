@@ -123,7 +123,14 @@ public static class DatEndpoints
         group.MapPost("{datId}/replacements/changes", ReplacementChanges)
             .WithName("ListDatReplacementChanges")
             .WithDescription(ChangesDescription + " The request resends the reviewed candidate file. " + SnapshotBindingDescription)
-            .Produces<Models.DatChangesPage>()
+            .Produces<CommonModels.Page<Models.DatEntryChange>>()
+            .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict)
+            .WithMetadata(new RequestSizeLimitAttribute(34 * 1024 * 1024))
+            .DisableAntiforgery().RequireAuthorization(AuthorizationPolicies.RequireManager);
+        group.MapPost("{datId}/replacements/change-count/preview", ReplacementChangeCount)
+            .WithName("PreviewDatReplacementChangeCount")
+            .WithDescription(ChangeCountDescription + " The request resends the reviewed candidate file. " + SnapshotBindingDescription)
+            .Produces<Models.DatChangeCount>()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict)
             .WithMetadata(new RequestSizeLimitAttribute(34 * 1024 * 1024))
             .DisableAntiforgery().RequireAuthorization(AuthorizationPolicies.RequireManager);
@@ -299,6 +306,22 @@ public static class DatEndpoints
         return result.Match(value => Results.Ok(ChangesContract(value)), errors => errors.ToProblem());
     }
 
+    private static async Task<IResult> ReplacementChangeCount(Sqid datId, [FromForm] IFormFile? file,
+        [FromForm, RegularExpression(DatReviewPins.ActivePattern)] string activeSha256,
+        [FromForm, RegularExpression(DatReviewPins.CandidatePattern), Length(DatReviewPins.HashLength, DatReviewPins.HashLength)] string candidateSha256,
+        [FromForm, RegularExpression(DatChangePageRequest.ChangePattern)] string? change,
+        [FromForm, MaxLength(DatChangePageRequest.MaxQueryLength)] string? query, IDatReplacementReview review, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return ProblemResults.ValidationProblem("DatReview.FileRequired", "file", "Choose a non-empty DAT document.");
+        var filters = DatChangePageRequest.ForEntries(activeSha256, candidateSha256, change, query, cursor: null, limit: null);
+        if (filters.IsError)
+            return filters.Errors.ToProblem(InvalidChangeRequest);
+        await using var stream = file.OpenReadStream();
+        var result = await review.CountChangesAsync(datId.Value, "", stream, filters.Value, ct);
+        return result.Match(total => Results.Ok(new Models.DatChangeCount(total)), errors => errors.ToProblem());
+    }
+
     private static async Task<IResult> ReplacementEntryChange(Sqid datId, string entryId, [FromForm] IFormFile? file,
         [FromForm, RegularExpression(DatReviewPins.ActivePattern)] string activeSha256, [FromForm, RegularExpression(DatReviewPins.CandidatePattern), Length(DatReviewPins.HashLength, DatReviewPins.HashLength)] string candidateSha256, [FromForm] string? cursor,
         [FromForm, Range(1, DatChangePageRequest.MaxLimit)] int? limit, IDatReplacementReview review, CancellationToken ct)
@@ -314,8 +337,8 @@ public static class DatEndpoints
     }
 
     internal const string ChangesDescription = "A keyset page of the review's changed entries in ordinal name order, " +
-        "filtered by change or impact and a case-insensitive name query. Total counts entries matching the filters across " +
-        "all pages. The cursor is bound to the reviewed pair and filters.";
+        "filtered by change or impact and a case-insensitive name query. The cursor is bound to the reviewed pair and filters.";
+    internal const string ChangeCountDescription = "Counts the reviewed changes matching the same filters as the change list, across all pages.";
     internal const string EntryChangeDescription = "One changed entry of the review, with a keyset page of its changed " +
         "files. entryId is the opaque id from the change list; an unknown or unchanged entry is a 404.";
     internal const string SnapshotBindingDescription = "activeSha256 and candidateSha256 are a snapshot binding of the " +
@@ -339,8 +362,12 @@ public static class DatEndpoints
     /// <summary>The errorCode of a change request's failed validation stage, whose failures name their inputs.</summary>
     internal const string InvalidChangeRequest = "DatReview.InvalidRequest";
 
-    internal static Models.DatChangesPage ChangesContract(DatChangesPage page) =>
-        new(page.Items.Select(EntryContract).ToArray(), page.NextCursor, page.HasNextPage, page.Total);
+    internal static CommonModels.Page<Models.DatEntryChange> ChangesContract(PagedList<DatEntryChange> page) => new()
+    {
+        Items = page.Items.Select(EntryContract).ToArray(),
+        NextCursor = page.NextCursor,
+        HasNextPage = page.HasNextPage
+    };
 
     internal static Models.DatEntryChangeDetail EntryChangeContract(DatEntryChangeDetail value) => new(
         DatEntryId.Encode(value.Name), value.Name, value.Change, value.Fields.Select(Field).ToArray(),

@@ -553,10 +553,7 @@ export type DatCatalogSubscription = {
     automaticChecksPaused?: boolean;
 };
 
-export type DatChangesPage = {
-    items: Array<DatEntryChange>;
-    nextCursor: null | string;
-    hasNextPage: boolean;
+export type DatChangeCount = {
     total: number;
 };
 
@@ -1625,6 +1622,12 @@ export type PageOfCompanyResource = {
 
 export type PageOfDat = {
     items: Array<Dat>;
+    nextCursor?: null | string;
+    hasNextPage: boolean;
+};
+
+export type PageOfDatEntryChange = {
+    items: Array<DatEntryChange>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -5646,10 +5649,55 @@ export type ListDatReplacementChangesResponses = {
     /**
      * OK
      */
-    200: DatChangesPage;
+    200: PageOfDatEntryChange;
 };
 
 export type ListDatReplacementChangesResponse = ListDatReplacementChangesResponses[keyof ListDatReplacementChangesResponses];
+
+export type PreviewDatReplacementChangeCountData = {
+    body: {
+        file?: IFormFile;
+    } & {
+        activeSha256: string;
+    } & {
+        candidateSha256: string;
+    } & {
+        change?: string;
+    } & {
+        query?: string;
+    };
+    path: {
+        datId: string;
+    };
+    query?: never;
+    url: '/api/dats/{datId}/replacements/change-count/preview';
+};
+
+export type PreviewDatReplacementChangeCountErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type PreviewDatReplacementChangeCountError = PreviewDatReplacementChangeCountErrors[keyof PreviewDatReplacementChangeCountErrors];
+
+export type PreviewDatReplacementChangeCountResponses = {
+    /**
+     * OK
+     */
+    200: DatChangeCount;
+};
+
+export type PreviewDatReplacementChangeCountResponse = PreviewDatReplacementChangeCountResponses[keyof PreviewDatReplacementChangeCountResponses];
 
 export type GetDatReplacementChangeData = {
     body: {
@@ -8590,10 +8638,50 @@ export type ListDatSubscriptionChangesResponses = {
     /**
      * OK
      */
-    200: DatChangesPage;
+    200: PageOfDatEntryChange;
 };
 
 export type ListDatSubscriptionChangesResponse = ListDatSubscriptionChangesResponses[keyof ListDatSubscriptionChangesResponses];
+
+export type GetDatSubscriptionChangeCountData = {
+    body?: never;
+    path: {
+        subscriptionId: string;
+    };
+    query: {
+        activeSha256: string;
+        candidateSha256: string;
+        change?: string;
+        query?: string;
+    };
+    url: '/api/dat-subscriptions/{subscriptionId}/change-count';
+};
+
+export type GetDatSubscriptionChangeCountErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type GetDatSubscriptionChangeCountError = GetDatSubscriptionChangeCountErrors[keyof GetDatSubscriptionChangeCountErrors];
+
+export type GetDatSubscriptionChangeCountResponses = {
+    /**
+     * OK
+     */
+    200: DatChangeCount;
+};
+
+export type GetDatSubscriptionChangeCountResponse = GetDatSubscriptionChangeCountResponses[keyof GetDatSubscriptionChangeCountResponses];
 
 export type GetDatSubscriptionChangeData = {
     body?: never;

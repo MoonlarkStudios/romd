@@ -12,6 +12,7 @@ using Romd.Application.Common.Ids;
 using Romd.Contracts.Management.Models;
 using Romd.Host.Authorization;
 using Models = Romd.Contracts.Management.Models;
+using CommonModels = Romd.Contracts.Common.Models;
 
 using ContractDatCatalogDirectory = Romd.Contracts.Management.Models.DatCatalogDirectory;
 using ContractDatCatalogSubscription = Romd.Contracts.Management.Models.DatCatalogSubscription;
@@ -124,7 +125,23 @@ public static class DatCatalogEnrollmentEndpoints
             return result.Match(value => Results.Ok(DatEndpoints.ChangesContract(value)), errors => errors.ToProblem());
         }).WithName("ListDatSubscriptionChanges")
             .WithDescription(DatEndpoints.ChangesDescription + " " + DatEndpoints.SnapshotBindingDescription + " " + ServerHeldDescription)
-            .Produces<Models.DatChangesPage>()
+            .Produces<CommonModels.Page<Models.DatEntryChange>>()
+            .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
+        group.MapGet("/{subscriptionId}/change-count", async (Sqid subscriptionId,
+            [RegularExpression(DatReviewPins.ActivePattern)] string activeSha256,
+            [RegularExpression(DatReviewPins.CandidatePattern), Length(DatReviewPins.HashLength, DatReviewPins.HashLength)] string candidateSha256,
+            [RegularExpression(DatChangePageRequest.ChangePattern)] string? change,
+            [MaxLength(DatChangePageRequest.MaxQueryLength)] string? query,
+            IDatCatalogEnrollmentService service, CancellationToken ct) =>
+        {
+            var filters = DatChangePageRequest.ForEntries(activeSha256, candidateSha256, change, query, cursor: null, limit: null);
+            if (filters.IsError)
+                return filters.Errors.ToProblem(DatEndpoints.InvalidChangeRequest);
+            var result = await service.CountChangesAsync(subscriptionId.Value, filters.Value, ct);
+            return result.Match(total => Results.Ok(new Models.DatChangeCount(total)), errors => errors.ToProblem());
+        }).WithName("GetDatSubscriptionChangeCount")
+            .WithDescription(DatEndpoints.ChangeCountDescription + " " + DatEndpoints.SnapshotBindingDescription + " " + ServerHeldDescription)
+            .Produces<Models.DatChangeCount>()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         group.MapGet("/{subscriptionId}/changes/{entryId}", async (Sqid subscriptionId, string entryId,
             [RegularExpression(DatReviewPins.ActivePattern)] string activeSha256,

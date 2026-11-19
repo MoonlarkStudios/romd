@@ -92,7 +92,10 @@ public sealed class DatReplacementReviewTests
         using var list = Stream(candidate);
         var page = (await service.ListChangesAsync(0, "Catalog", list,
             Entries(preview.ActiveSha256, preview.CandidateSha256, "NeedsReview", limit: 2), default)).Value;
-        page.Total.ShouldBe(4);
+        using var countCandidate = Stream(candidate);
+        var count = (await service.CountChangesAsync(0, "Catalog", countCandidate,
+            Entries(preview.ActiveSha256, preview.CandidateSha256, "NeedsReview"), default)).Value;
+        count.ShouldBe(4);
         page.Items.Select(entry => entry.Name).ShouldBe(["Old name", "Removed A"]);
         page.Items[0].Impact.ShouldNotBeNull().TitleLinkAtRisk.ShouldBeTrue();
         page.Items[0].Impact!.TitleId.ShouldBe(7);

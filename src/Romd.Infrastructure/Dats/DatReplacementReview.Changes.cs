@@ -2,24 +2,39 @@ using System.Text.Json;
 using System.Xml;
 using ErrorOr;
 using Romd.Admin.Application.Source.Dat;
+using Romd.Application.Common.Pagination;
 
 namespace Romd.Infrastructure.Dats;
 
 public sealed partial class DatReplacementReview
 {
-    public async Task<ErrorOr<DatChangesPage>> ListChangesAsync(int? datId, string expectedName,
+    public async Task<ErrorOr<PagedList<DatEntryChange>>> ListChangesAsync(int? datId, string expectedName,
         Stream candidate, DatChangePageRequest page, CancellationToken ct)
     {
-        var pair = await ReviewedPairAsync(datId, expectedName, candidate, page, ct);
+        var matching = await ReadMatchingChangesAsync(datId, expectedName, candidate, page, ct);
+        return matching.IsError ? matching.Errors : page.Page(matching.Value, item => item.Name);
+    }
+
+    public async Task<ErrorOr<int>> CountChangesAsync(int? datId, string expectedName,
+        Stream candidate, DatChangePageRequest filters, CancellationToken ct)
+    {
+        var matching = await ReadMatchingChangesAsync(datId, expectedName, candidate, filters, ct);
+        return matching.IsError ? matching.Errors : matching.Value.Count();
+    }
+
+    private async Task<ErrorOr<IEnumerable<DatEntryChange>>> ReadMatchingChangesAsync(int? datId, string expectedName,
+        Stream candidate, DatChangePageRequest filters, CancellationToken ct)
+    {
+        var pair = await ReviewedPairAsync(datId, expectedName, candidate, filters, ct);
         if (pair.IsError)
             return pair.Errors;
         var (before, after) = pair.Value;
         var changed = EntryChanges(before, after, ct).ToArray();
         var impact = await ReadImpactFactsAsync(datId, before, after, changed, ct);
-        var matching = changed.Select(item => AssessEntry(item, before, after, impact).Entry)
-            .Where(page.Matches).ToArray();
-        var result = page.Page(matching, item => item.Name);
-        return new DatChangesPage(result.Items, result.NextCursor, result.HasNextPage, matching.Length);
+        IEnumerable<DatEntryChange> entries = changed
+            .Select(item => AssessEntry(item, before, after, impact).Entry)
+            .Where(filters.Matches);
+        return ErrorOrFactory.From(entries);
     }
 
     public async Task<ErrorOr<DatEntryChangeDetail>> GetEntryChangeAsync(int? datId, string expectedName,

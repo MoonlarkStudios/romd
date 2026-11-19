@@ -7,8 +7,11 @@ public interface IDatReplacementReview
 {
     Task<ErrorOr<DatDocumentInspection>> InspectAsync(Stream candidate, CancellationToken ct);
     /// <summary>Changed entries of the reviewed pair; a <c>null</c> <paramref name="datId" /> reviews a first import.</summary>
-    Task<ErrorOr<DatChangesPage>> ListChangesAsync(int? datId, string expectedName, Stream candidate,
+    Task<ErrorOr<PagedList<DatEntryChange>>> ListChangesAsync(int? datId, string expectedName, Stream candidate,
         DatChangePageRequest page, CancellationToken ct);
+    /// <summary>Number of changed entries matching the filters across the reviewed pair.</summary>
+    Task<ErrorOr<int>> CountChangesAsync(int? datId, string expectedName, Stream candidate,
+        DatChangePageRequest filters, CancellationToken ct);
     /// <summary>One changed entry of the reviewed pair with a page of its changed files.</summary>
     Task<ErrorOr<DatEntryChangeDetail>> GetEntryChangeAsync(int? datId, string expectedName, Stream candidate,
         string entryName, DatChangePageRequest page, CancellationToken ct);
@@ -30,8 +33,6 @@ public sealed record DatFileChange(string Name, string Kind, string Change, bool
     IReadOnlyList<DatFieldChange> Fields, DatFileReviewImpact? Impact = null);
 public sealed record DatEntryChangeDetail(string Name, string Change, IReadOnlyList<DatFieldChange> Fields,
     PagedList<DatFileChange> Files, string ActiveSha256, string CandidateSha256, DatEntryReviewImpact? Impact = null);
-
-public sealed record DatChangesPage(IReadOnlyList<DatEntryChange> Items, string? NextCursor, bool HasNextPage, int Total);
 
 public sealed record DatDocumentInspection(string Name, int Bytes, DatReplacementPreview Preview);
 

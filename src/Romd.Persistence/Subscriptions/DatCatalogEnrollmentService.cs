@@ -3,6 +3,7 @@ using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Storage.Files;
+using Romd.Application.Common.Pagination;
 using Romd.Domain.Source.Dat;
 using Romd.Persistence.Entities;
 
@@ -127,12 +128,19 @@ public sealed partial class DatCatalogEnrollmentService : IDatCatalogEnrollmentS
             return EnrollmentErrors.NotFound();
         return await ReviewAsync(row, ct);
     }
-    public async Task<ErrorOr<DatChangesPage>> ListChangesAsync(int id, DatChangePageRequest page, CancellationToken ct)
+    public async Task<ErrorOr<PagedList<DatEntryChange>>> ListChangesAsync(int id, DatChangePageRequest page, CancellationToken ct)
     {
         var row = await PinnedRowAsync(id, page, ct);
         if (row.IsError)
             return row.Errors;
         return await ReadReviewAsync(row.Value, (activeId, name, stream) => _review.ListChangesAsync(activeId, name, stream, page, ct), ct);
+    }
+    public async Task<ErrorOr<int>> CountChangesAsync(int id, DatChangePageRequest filters, CancellationToken ct)
+    {
+        var row = await PinnedRowAsync(id, filters, ct);
+        if (row.IsError)
+            return row.Errors;
+        return await ReadReviewAsync(row.Value, (activeId, name, stream) => _review.CountChangesAsync(activeId, name, stream, filters, ct), ct);
     }
     public async Task<ErrorOr<DatEntryChangeDetail>> GetChangeAsync(int id, string entryName, DatChangePageRequest page, CancellationToken ct)
     {

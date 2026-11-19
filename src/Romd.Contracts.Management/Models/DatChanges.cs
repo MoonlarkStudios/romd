@@ -8,4 +8,4 @@ public sealed record DatFileChange(string Name, string Kind, string Change, bool
 public sealed record DatEntryChangeDetail(string Id, string Name, string Change, IReadOnlyList<DatFieldChange> Fields,
     Page<DatFileChange> Files, string ActiveSha256, string CandidateSha256, DatEntryReviewImpact? Impact = null);
 
-public sealed record DatChangesPage(IReadOnlyList<DatEntryChange> Items, string? NextCursor, bool HasNextPage, int Total);
+public sealed record DatChangeCount(int Total);

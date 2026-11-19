@@ -23,8 +23,10 @@ import type {
 import {
   getDatReplacementChange,
   getDatSubscriptionChange,
+  getDatSubscriptionChangeCount,
   listDatReplacementChanges,
   listDatSubscriptionChanges,
+  previewDatReplacementChangeCount,
 } from '@romd/admin-api-client';
 import {
   IconAlertTriangle,
@@ -442,6 +444,11 @@ export function DatChangeBrowser({
   const hasChanges = totalChanges(preview) > 0;
   const rail = reviewRail(preview);
 
+  const filters = {
+    ...pins,
+    query: search || undefined,
+    change: change === 'All' ? undefined : change,
+  };
   const entries = useQuery({
     queryKey: [
       'dat-review-changes',
@@ -460,10 +467,8 @@ export function DatChangeBrowser({
     staleTime: Infinity,
     queryFn: async ({ signal }) => {
       const page = {
-        ...pins,
+        ...filters,
         cursor: position?.cursor,
-        query: search || undefined,
-        change: change === 'All' ? undefined : change,
       };
       const response = subscriptionId
         ? await listDatSubscriptionChanges({
@@ -479,6 +484,44 @@ export function DatChangeBrowser({
             },
             body: {
               ...page,
+              file,
+            },
+            signal,
+          });
+      if (!response.data) throw pageError(response.error);
+      return response.data;
+    },
+  });
+  const count = useQuery({
+    queryKey: [
+      'dat-review-change-count',
+      reviewId,
+      datId,
+      subscriptionId,
+      active,
+      incoming,
+      search,
+      change,
+    ],
+    enabled: (!compact || showList) && entries.data?.hasNextPage === true,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: Infinity,
+    queryFn: async ({ signal }) => {
+      const response = subscriptionId
+        ? await getDatSubscriptionChangeCount({
+            path: {
+              subscriptionId,
+            },
+            query: filters,
+            signal,
+          })
+        : await previewDatReplacementChangeCount({
+            path: {
+              datId,
+            },
+            body: {
+              ...filters,
               file,
             },
             signal,
@@ -541,11 +584,15 @@ export function DatChangeBrowser({
       ? undefined
       : (page?.items.find((item) => item.id === selectedId) ??
         (detail?.id === selectedId ? detail : undefined));
-  const queryError = entries.error ?? files.error;
+  const staleError = [
+    entries.error,
+    files.error,
+    count.error,
+  ].find((error) => error instanceof ReviewPageError && error.stale);
   useEffect(() => {
-    if (queryError instanceof ReviewPageError && queryError.stale) onStale(queryError.message);
+    if (staleError) onStale(staleError.message);
   }, [
-    queryError,
+    staleError,
     onStale,
   ]);
 
@@ -688,6 +735,7 @@ export function DatChangeBrowser({
     else changePage(direction, true);
   }
   const offset = position?.offset ?? 0;
+  const total = page && !page.hasNextPage ? offset + page.items.length : count.data?.total;
   const filterLabel = reviewFilterLabels[change];
   const paged = !!position || !!page?.hasNextPage;
 
@@ -778,13 +826,13 @@ export function DatChangeBrowser({
                     >
                       {filterLabel}
                     </Title>
-                    {page && (
+                    {total != null && (
                       <Text
                         size="xs"
                         c="dimmed"
                       >
                         {countLabel(
-                          page.total,
+                          total,
                           search ? 'match' : 'entry',
                           search ? 'matches' : 'entries',
                         )}
@@ -892,8 +940,8 @@ export function DatChangeBrowser({
                       role="status"
                     >
                       {(offset + 1).toLocaleString()}–
-                      {(offset + page.items.length).toLocaleString()} of{' '}
-                      {page.total.toLocaleString()}
+                      {(offset + page.items.length).toLocaleString()}
+                      {total != null && ` of ${total.toLocaleString()}`}
                     </Text>
                     <Group gap={6}>
                       <Tooltip label="Previous page">
@@ -953,13 +1001,13 @@ export function DatChangeBrowser({
                     <div>
                       <Group gap={6}>
                         {entry && <ChangeBadge change={entry.change} />}
-                        {compact && page && page.total > 1 && selectedIndex >= 0 && (
+                        {compact && total != null && total > 1 && selectedIndex >= 0 && (
                           <Text
                             size="xs"
                             c="dimmed"
                           >
                             {(offset + selectedIndex + 1).toLocaleString()} of{' '}
-                            {page.total.toLocaleString()}
+                            {total.toLocaleString()}
                           </Text>
                         )}
                       </Group>
@@ -1059,7 +1107,7 @@ export function DatChangeBrowser({
                         )}
                       </>
                     )}
-                    {page && page.total > 1 && (
+                    {page && (paged || page.items.length > 1) && (
                       <Group
                         justify="space-between"
                         aria-label="Navigate entries"

@@ -7,6 +7,7 @@ import {
   getAdminSystem,
   getDatSubscription,
   getDatSubscriptionChange,
+  getDatSubscriptionChangeCount,
   getDatSubscriptionPreview,
   getJob,
   getManagedSystemDetails,
@@ -57,6 +58,7 @@ vi.mock('@romd/admin-api-client', async () => ({
   listDatReplacementChanges: vi.fn(),
   listDatSubscriptionChanges: vi.fn(),
   getDatSubscriptionChange: vi.fn(),
+  getDatSubscriptionChangeCount: vi.fn(),
   checkDatSubscription: vi.fn(),
   createDatSubscription: vi.fn(),
   getJob: vi.fn(),
@@ -1244,6 +1246,10 @@ it('restores the reviewed entry and filter from the URL and keeps them as the re
       ],
       nextCursor: 'second-page',
       hasNextPage: true,
+    }),
+  );
+  vi.mocked(getDatSubscriptionChangeCount).mockResolvedValue(
+    result({
       total: 2,
     }),
   );

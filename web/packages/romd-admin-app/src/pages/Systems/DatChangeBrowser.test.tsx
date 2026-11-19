@@ -1,15 +1,17 @@
 import { MantineProvider } from '@mantine/core';
 import type {
-  DatChangesPage,
   DatEntryChange,
   DatEntryChangeDetail,
   DatReplacementPreview,
+  PageOfDatEntryChange,
 } from '@romd/admin-api-client';
 import {
   getDatReplacementChange,
   getDatSubscriptionChange,
+  getDatSubscriptionChangeCount,
   listDatReplacementChanges,
   listDatSubscriptionChanges,
+  previewDatReplacementChangeCount,
 } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -21,8 +23,10 @@ import { DatChangeBrowser } from './DatChangeBrowser';
 vi.mock('@romd/admin-api-client', () => ({
   getDatReplacementChange: vi.fn(),
   getDatSubscriptionChange: vi.fn(),
+  getDatSubscriptionChangeCount: vi.fn(),
   listDatReplacementChanges: vi.fn(),
   listDatSubscriptionChanges: vi.fn(),
+  previewDatReplacementChangeCount: vi.fn(),
 }));
 const pins = {
   activeSha256: 'a'.repeat(64),
@@ -42,15 +46,14 @@ const discA: DatEntryChange = {
   filesRemoved: 0,
   filesChanged: 1,
 };
-const page: DatChangesPage = {
+const page: PageOfDatEntryChange = {
   items: [
     discA,
   ],
   nextCursor: 'next-page',
   hasNextPage: true,
-  total: 2,
 };
-function response(data: DatChangesPage) {
+function response(data: PageOfDatEntryChange) {
   return {
     data,
   } as Awaited<ReturnType<typeof listDatSubscriptionChanges>>;
@@ -94,6 +97,13 @@ function show({
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  const count = {
+    data: {
+      total: 2,
+    },
+  } as Awaited<ReturnType<typeof getDatSubscriptionChangeCount>>;
+  vi.mocked(getDatSubscriptionChangeCount).mockResolvedValue(count);
+  vi.mocked(previewDatReplacementChangeCount).mockResolvedValue(count);
   vi.mocked(listDatSubscriptionChanges).mockResolvedValue(response(page));
 });
 it('pages forward by cursor and back through the visited pages, pinned to both fingerprints', async () => {
@@ -107,7 +117,7 @@ it('pages forward by cursor and back through the visited pages, pinned to both f
       name: 'Previous changes',
     }),
   ).toBeDisabled();
-  expect(screen.getByText('1–1 of 2')).toBeInTheDocument();
+  expect(await screen.findByText('1–1 of 2')).toBeInTheDocument();
   vi.mocked(listDatSubscriptionChanges).mockResolvedValue(
     response({
       items: [
@@ -119,7 +129,6 @@ it('pages forward by cursor and back through the visited pages, pinned to both f
       ],
       nextCursor: null,
       hasNextPage: false,
-      total: 2,
     }),
   );
   await user.click(
@@ -156,7 +165,7 @@ it('pages forward by cursor and back through the visited pages, pinned to both f
   await screen.findByRole('button', {
     name: /^Disc A/,
   });
-  expect(screen.getByText('1–1 of 2')).toBeInTheDocument();
+  expect(await screen.findByText('1–1 of 2')).toBeInTheDocument();
 });
 it('restarts from the first page when searching or choosing a change filter', async () => {
   const user = userEvent.setup();
@@ -348,7 +357,6 @@ it('offers retry for network failure and explains empty filtered results', async
       items: [],
       nextCursor: null,
       hasNextPage: false,
-      total: 0,
     }),
   );
   await user.click(
@@ -363,7 +371,7 @@ it('offers retry for network failure and explains empty filtered results', async
     }),
   ).not.toBeInTheDocument();
 });
-it('resends a manual replacement file with each page request', async () => {
+it('resends a manual replacement file with the page and count requests', async () => {
   const file = new File(
     [
       'dat',
@@ -388,7 +396,20 @@ it('resends a manual replacement file with each page request', async () => {
       }),
     }),
   );
+  expect(await screen.findByText('1–1 of 2')).toBeInTheDocument();
+  expect(previewDatReplacementChangeCount).toHaveBeenCalledWith(
+    expect.objectContaining({
+      path: {
+        datId: 'dat1',
+      },
+      body: expect.objectContaining({
+        ...pins,
+        file,
+      }),
+    }),
+  );
   expect(listDatSubscriptionChanges).not.toHaveBeenCalled();
+  expect(getDatSubscriptionChangeCount).not.toHaveBeenCalled();
 });
 
 it('returns from an entry to the filtered mobile list after moving across a page boundary', async () => {
@@ -418,7 +439,6 @@ it('returns from an entry to the filtered mobile list after moving across a page
               ],
               nextCursor: null,
               hasNextPage: false,
-              total: 2,
             }
           : page,
       ),
@@ -586,7 +606,6 @@ it('names the title a removal unlinks, links to it, and collapses a removed file
       ],
       nextCursor: null,
       hasNextPage: false,
-      total: 1,
     }),
   );
   vi.mocked(getDatSubscriptionChange).mockResolvedValue({
@@ -699,7 +718,6 @@ it('names the title without leaving a manual upload review whose bytes live only
       ],
       nextCursor: null,
       hasNextPage: false,
-      total: 1,
     }),
   );
   vi.mocked(getDatReplacementChange).mockResolvedValue({

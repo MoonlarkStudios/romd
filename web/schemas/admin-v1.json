@@ -5506,7 +5506,7 @@
         "tags": [
           "Dats"
         ],
-        "description": "A keyset page of the review's changed entries in ordinal name order, filtered by change or impact and a case-insensitive name query. Total counts entries matching the filters across all pages. The cursor is bound to the reviewed pair and filters. The request resends the reviewed candidate file. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet.",
+        "description": "A keyset page of the review's changed entries in ordinal name order, filtered by change or impact and a case-insensitive name query. The cursor is bound to the reviewed pair and filters. The request resends the reviewed candidate file. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet.",
         "operationId": "ListDatReplacementChanges",
         "parameters": [
           {
@@ -5605,7 +5605,130 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatChangesPage"
+                  "$ref": "#/components/schemas/PageOfDatEntryChange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dats/{datId}/replacements/change-count/preview": {
+      "post": {
+        "tags": [
+          "Dats"
+        ],
+        "description": "Counts the reviewed changes matching the same filters as the change list, across all pages. The request resends the reviewed candidate file. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet.",
+        "operationId": "PreviewDatReplacementChangeCount",
+        "parameters": [
+          {
+            "name": "datId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "activeSha256",
+                  "candidateSha256"
+                ],
+                "type": "object",
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "$ref": "#/components/schemas/IFormFile"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "activeSha256": {
+                        "pattern": "^(?:[0-9a-fA-F]{64})?$",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "candidateSha256": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-fA-F]{64}$",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "change": {
+                        "pattern": "^(?:Added|Removed|Changed|NeedsReview|RemovedStored|RemovedLinked|Sha1Changed|LostMatches|NewMatches|MetadataOnly|OtherChecksumOnly)$",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "query": {
+                        "maxLength": 200,
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatChangeCount"
                 }
               }
             }
@@ -11562,7 +11685,7 @@
         "tags": [
           "DatSubscriptions"
         ],
-        "description": "A keyset page of the review's changed entries in ordinal name order, filtered by change or impact and a case-insensitive name query. Total counts entries matching the filters across all pages. The cursor is bound to the reviewed pair and filters. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet. The saved candidate and installed document are held by the server, so one that fails validation is a 409 (DatReview.InvalidDocument or DatReview.Identity), not a 400.",
+        "description": "A keyset page of the review's changed entries in ordinal name order, filtered by change or impact and a case-insensitive name query. The cursor is bound to the reviewed pair and filters. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet. The saved candidate and installed document are held by the server, so one that fails validation is a 409 (DatReview.InvalidDocument or DatReview.Identity), not a 400.",
         "operationId": "ListDatSubscriptionChanges",
         "parameters": [
           {
@@ -11633,7 +11756,104 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DatChangesPage"
+                  "$ref": "#/components/schemas/PageOfDatEntryChange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dat-subscriptions/{subscriptionId}/change-count": {
+      "get": {
+        "tags": [
+          "DatSubscriptions"
+        ],
+        "description": "Counts the reviewed changes matching the same filters as the change list, across all pages. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet. The saved candidate and installed document are held by the server, so one that fails validation is a 409 (DatReview.InvalidDocument or DatReview.Identity), not a 400.",
+        "operationId": "GetDatSubscriptionChangeCount",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "activeSha256",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^(?:[0-9a-fA-F]{64})?$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "candidateSha256",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "change",
+            "in": "query",
+            "schema": {
+              "pattern": "^(?:Added|Removed|Changed|NeedsReview|RemovedStored|RemovedLinked|Sha1Changed|LostMatches|NewMatches|MetadataOnly|OtherChecksumOnly)$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatChangeCount"
                 }
               }
             }
@@ -19376,30 +19596,12 @@
           }
         }
       },
-      "DatChangesPage": {
+      "DatChangeCount": {
         "required": [
-          "items",
-          "nextCursor",
-          "hasNextPage",
           "total"
         ],
         "type": "object",
         "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DatEntryChange"
-            }
-          },
-          "nextCursor": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "hasNextPage": {
-            "type": "boolean"
-          },
           "total": {
             "type": "integer",
             "format": "int32"
@@ -24032,6 +24234,30 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Dat"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfDatEntryChange": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatEntryChange"
             }
           },
           "nextCursor": {
