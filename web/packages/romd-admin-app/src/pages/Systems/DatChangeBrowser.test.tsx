@@ -65,6 +65,14 @@ function show({ onStale = vi.fn(), file }: { onStale?: () => void; file?: File }
           subscriptionId={file ? undefined : 'sub1'}
           file={file}
           preview={preview}
+          renderSummary={(viewChanges) => (
+            <button
+              type="button"
+              onClick={() => viewChanges('Removed')}
+            >
+              View removed entries
+            </button>
+          )}
           onStale={onStale}
         />
       </MantineProvider>
@@ -193,6 +201,33 @@ it('restarts from the first page when searching or choosing a change filter', as
     ),
   );
 });
+it('opens the removed-entry filter from the summary and moves focus to the results', async () => {
+  const user = userEvent.setup();
+  show();
+  await screen.findByRole('button', {
+    name: 'Disc A',
+  });
+  await user.click(
+    screen.getByRole('button', {
+      name: 'View removed entries',
+    }),
+  );
+  expect(
+    screen.getByRole('heading', {
+      name: 'Explore all changes',
+    }),
+  ).toHaveFocus();
+  await waitFor(() =>
+    expect(listDatSubscriptionChanges).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({
+          change: 'Removed',
+        }),
+      }),
+    ),
+  );
+});
+
 it('opens one entry by its id with exact before and after file values', async () => {
   const user = userEvent.setup();
   const detail: DatEntryChangeDetail = {
@@ -230,8 +265,8 @@ it('opens one entry by its id with exact before and after file values', async ()
       name: 'Disc A',
     }),
   );
-  await screen.findByText(/track.bin · rom · Changed · checksum changed/);
-  await user.click(screen.getByText(/track.bin · rom · Changed · checksum changed/));
+  expect(await screen.findByText('Checksum changed')).toBeVisible();
+  await user.click(screen.getByText('track.bin'));
   expect(screen.getByText('9007199254740994')).toBeInTheDocument();
   expect(screen.getByText('Changes in Disc A')).toBeInTheDocument();
   expect(getDatSubscriptionChange).toHaveBeenLastCalledWith(

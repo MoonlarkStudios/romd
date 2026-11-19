@@ -7,6 +7,12 @@ the review or reloading discards the preview. Saved subscriptions use the same v
 [subscription flow](dat-subscriptions.md). This manual-upload path keeps its
 candidate in the browser.
 
+The review opens with **Installed DAT** and **New DAT**. The change summary
+highlights removals and existing-file checksum changes. **View removed entries**
+and **View changed entries** open the corresponding filters. Expand a changed
+file to compare its previous and new values. The review stacks the comparison
+on phones and keeps the approval and cancel controls visible while you scroll.
+
 ## Review contract
 
 Preview reads the original CAS document and candidate without creating catalog,

@@ -1,0 +1,128 @@
+/* Give the review one scroll area so the footer stays reachable at every width. */
+.dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  padding: 0;
+}
+
+.content {
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: 0 var(--mantine-spacing-md) var(--mantine-spacing-md);
+  overscroll-behavior: contain;
+}
+
+.footer {
+  flex-shrink: 0;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  padding-block-end: max(var(--mantine-spacing-sm), env(safe-area-inset-bottom));
+  border-block-start: 1px solid var(--romd-portal-border);
+  background: var(--romd-portal-bg);
+}
+
+.versionGrid {
+  margin: 0;
+}
+
+.panel {
+  min-inline-size: 0;
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--romd-portal-surface);
+  overflow-wrap: anywhere;
+}
+
+.versionValue,
+.fieldValue {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.priority {
+  border-color: var(--mantine-color-yellow-light-color);
+  background: var(--mantine-color-yellow-light);
+}
+
+.priorityText {
+  color: var(--mantine-color-yellow-light-color);
+}
+
+.searchControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(9rem, auto);
+  align-items: end;
+  gap: var(--mantine-spacing-xs);
+}
+
+.changeList,
+.fieldList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changeRow {
+  padding: var(--mantine-spacing-xs);
+  border-block-end: 1px solid var(--romd-portal-border);
+  overflow-wrap: anywhere;
+}
+
+.changeRow:first-child {
+  border-block-start: 1px solid var(--romd-portal-border);
+}
+
+.entryButton {
+  max-inline-size: 100%;
+  height: auto;
+  padding: var(--mantine-spacing-xs);
+}
+
+.entryLabel {
+  display: block;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.fileSummary {
+  padding: var(--mantine-spacing-xs) 0;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.fileSummary > span {
+  margin-inline-end: var(--mantine-spacing-xs);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) repeat(2, minmax(0, 1.6fr));
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-xs);
+  border-block-end: 1px solid var(--romd-portal-border);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 36em) {
+  .searchControls {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .changeFilter {
+    grid-column: 1 / -1;
+  }
+
+  .fieldRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

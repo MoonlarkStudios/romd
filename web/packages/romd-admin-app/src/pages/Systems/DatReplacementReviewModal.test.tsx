@@ -8,7 +8,9 @@ import {
 } from '@romd/admin-api-client';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DatChangeBrowser } from './DatChangeBrowser';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 
 vi.mock('@romd/admin-api-client', () => ({
@@ -18,7 +20,12 @@ vi.mock('@romd/admin-api-client', () => ({
   createDatReplacement: vi.fn(),
 }));
 vi.mock('./DatChangeBrowser', () => ({
-  DatChangeBrowser: () => <div>Explore all changes</div>,
+  DatChangeBrowser: ({ renderSummary }: ComponentProps<typeof DatChangeBrowser>) => (
+    <>
+      {renderSummary?.(vi.fn())}
+      <div>Explore all changes</div>
+    </>
+  ),
 }));
 const dat: Dat = {
   id: 'dat-1',
@@ -123,6 +130,37 @@ describe('DAT review', () => {
     expect(onClose).toHaveBeenCalled();
     expect(createDatReplacement).not.toHaveBeenCalled();
   });
+  it('leads with both versions and highlights removed entries and changed checksums', async () => {
+    respond({
+      ...preview,
+      activeVersion: 'installed-version',
+      candidateVersion: 'incoming-version',
+      entriesRemoved: 2,
+      filesRemoved: 3,
+      entriesChanged: 1,
+      hashesChanged: 1,
+    });
+    show();
+    const installed = await screen.findByText('Installed DAT');
+    const incoming = screen.getByText('New DAT');
+    const removals = screen.getByRole('button', {
+      name: 'View removed entries',
+    });
+    expect(
+      installed.compareDocumentPosition(incoming) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      incoming.compareDocumentPosition(removals) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText('installed-version')).toBeVisible();
+    expect(screen.getByText('incoming-version')).toBeVisible();
+    expect(screen.getByText('1 file with checksum changes')).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'View changed entries',
+      }),
+    ).toBeVisible();
+  });
   it('does not round a small nonzero change down to zero percent', async () => {
     respond({
       ...preview,
@@ -130,7 +168,7 @@ describe('DAT review', () => {
       activeFiles: 60000,
     });
     show();
-    expect((await screen.findAllByText('<0.1% of current')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/^· <0\.1% of current$/)).length).toBeGreaterThan(0);
   });
   it('does not offer replacement for identical content', async () => {
     respond({

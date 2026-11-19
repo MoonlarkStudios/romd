@@ -1,6 +1,5 @@
 import {
   Alert,
-  Badge,
   Button,
   Group,
   Loader,
@@ -57,6 +56,8 @@ import {
 import { catalogProviderName } from './catalogProviderName';
 import { DatUploadZone } from './components/DatUploadZone';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
+import classesReview from './DatReview.module.css';
+import { DatReviewVersions } from './DatReviewVersions';
 import { SystemDatOptions, verifiedOffers } from './SystemDatOptions';
 import { SystemLogo, useSystemIcons } from './SystemLogo';
 import { SystemPresentationFields, validSystemPresentation } from './SystemPresentationFields';
@@ -907,20 +908,24 @@ export function AddSourceFlow({
             >
               Review DAT for {knownDraft?.name.trim() || selected.name}
             </Title>
-            <Text>{inspection.name}</Text>
-            <Group>
-              <Badge>{inspection.preview.candidateEntries.toLocaleString()} DAT entries</Badge>
-              <Badge>
-                {(
-                  inspection.preview.candidateFiles ?? inspection.preview.filesAdded
-                ).toLocaleString()}{' '}
-                expected files
-              </Badge>
-              <Badge>{formatBytes(inspection.bytes)}</Badge>
-            </Group>
-            <Text size="sm">
-              Version {inspection.preview.candidateVersion ?? 'not specified'} ·{' '}
-              {inspection.preview.candidateBiosEntries.toLocaleString()} BIOS entries
+            <Text
+              fw={600}
+              style={{
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {inspection.name}
+            </Text>
+            <DatReviewVersions preview={inspection.preview} />
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              {(
+                inspection.preview.candidateFiles ?? inspection.preview.filesAdded
+              ).toLocaleString()}{' '}
+              expected files · {inspection.preview.candidateBiosEntries.toLocaleString()} BIOS
+              entries · {formatBytes(inspection.bytes)}
             </Text>
             <Alert>
               A DAT may cover only part of the system’s catalog. Import ROM files separately.
@@ -966,6 +971,10 @@ export function AddSourceFlow({
                     .map((dat) => (
                       <Button
                         key={dat.id}
+                        classNames={{
+                          root: classesReview.entryButton,
+                          label: classesReview.entryLabel,
+                        }}
                         onClick={() => setReplacement(dat)}
                       >
                         Update this source: {dat.name} ({dat.version ?? 'no version'})

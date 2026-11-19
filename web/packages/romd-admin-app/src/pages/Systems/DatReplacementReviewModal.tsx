@@ -7,8 +7,8 @@ import {
   Modal,
   SimpleGrid,
   Stack,
-  Table,
   Text,
+  Title,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import type {
@@ -24,12 +24,157 @@ import {
   previewDatReplacement,
 } from '@romd/admin-api-client';
 import { useEffect, useState } from 'react';
-import { DatChangeBrowser } from './DatChangeBrowser';
+import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { DatChangeBrowser, type DatChangeFilter } from './DatChangeBrowser';
+import classes from './DatReview.module.css';
+import { DatReviewVersions } from './DatReviewVersions';
 
-function percentage(count: number, baseline: number): string {
-  if (baseline === 0) return 'No existing baseline';
+function percentage(count: number, baseline: number | undefined) {
+  if (count === 0 || !baseline) return undefined;
   const percent = (100 * count) / baseline;
-  return `${count > 0 && percent < 0.1 ? '<0.1' : percent.toFixed(1)}% of current`;
+  return `${percent < 0.1 ? '<0.1' : percent.toFixed(1)}% of current`;
+}
+
+function DatReviewSummary({
+  preview,
+  onViewChanges,
+}: {
+  preview: DatReplacementPreview;
+  onViewChanges: (change: DatChangeFilter) => void;
+}) {
+  const changes = [
+    {
+      kind: 'Removed',
+      entries: preview.entriesRemoved,
+      files: preview.filesRemoved,
+      priority: preview.entriesRemoved > 0 || preview.filesRemoved > 0,
+      link: preview.entriesRemoved > 0 ? 'View removed entries' : undefined,
+    },
+    {
+      kind: 'Changed',
+      entries: preview.entriesChanged,
+      files: preview.filesChanged,
+      priority: preview.hashesChanged > 0,
+      link: preview.entriesChanged > 0 ? 'View changed entries' : undefined,
+    },
+    {
+      kind: 'Added',
+      entries: preview.entriesAdded,
+      files: preview.filesAdded,
+      priority: false,
+      link: undefined,
+    },
+  ] as const;
+  const displayedChanges = preview.activeSha256
+    ? changes
+    : changes.filter(({ kind }) => kind === 'Added');
+
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-label="DAT changes"
+    >
+      <Title
+        order={3}
+        size="h5"
+      >
+        DAT changes
+      </Title>
+      <SimpleGrid
+        cols={{
+          base: 1,
+          xs: displayedChanges.length,
+        }}
+        spacing="xs"
+      >
+        {displayedChanges.map(({ kind, entries, files, priority, link }) => {
+          const entriesShare = percentage(entries, preview.activeEntries);
+          const filesShare = percentage(files, preview.activeFiles);
+          return (
+            <Stack
+              key={kind}
+              gap={4}
+              className={priority ? `${classes.panel} ${classes.priority}` : classes.panel}
+            >
+              <Text
+                fw={600}
+                className={priority ? classes.priorityText : undefined}
+              >
+                {kind}
+              </Text>
+              <Text size="sm">
+                {entries.toLocaleString()} {entries === 1 ? 'DAT entry' : 'DAT entries'}
+                {entriesShare && (
+                  <Text
+                    span
+                    size="xs"
+                    c="dimmed"
+                  >
+                    {' '}
+                    · {entriesShare}
+                  </Text>
+                )}
+              </Text>
+              <Text size="sm">
+                {files.toLocaleString()} {files === 1 ? 'expected file' : 'expected files'}
+                {filesShare && (
+                  <Text
+                    span
+                    size="xs"
+                    c="dimmed"
+                  >
+                    {' '}
+                    · {filesShare}
+                  </Text>
+                )}
+              </Text>
+              {kind === 'Changed' && preview.hashesChanged > 0 && (
+                <Text
+                  size="sm"
+                  fw={600}
+                  className={classes.priorityText}
+                >
+                  {preview.hashesChanged.toLocaleString()}{' '}
+                  {preview.hashesChanged === 1
+                    ? 'file with checksum changes'
+                    : 'files with checksum changes'}
+                </Text>
+              )}
+              {link && (
+                <Button
+                  variant="subtle"
+                  size="compact-sm"
+                  w="fit-content"
+                  px={0}
+                  onClick={() => onViewChanges(kind)}
+                >
+                  {link}
+                </Button>
+              )}
+            </Stack>
+          );
+        })}
+      </SimpleGrid>
+      {preview.activeBiosEntries !== preview.candidateBiosEntries && (
+        <Text
+          size="sm"
+          c="dimmed"
+        >
+          BIOS entries {preview.activeBiosEntries} → {preview.candidateBiosEntries}
+        </Text>
+      )}
+      {(preview.entriesRemoved > 0 || preview.filesRemoved > 0) && (
+        <Text
+          size="sm"
+          c="dimmed"
+        >
+          Removals refer to DAT definitions. ROMD keeps stored ROM files. Renamed entries appear as
+          an addition and a removal.
+        </Text>
+      )}
+    </Stack>
+  );
 }
 
 function message(error: unknown): string {
@@ -158,182 +303,64 @@ export function DatReplacementReviewModal({
       title={initial ? 'Review first catalog import' : 'Review catalog update'}
       size="xl"
       fullScreen={mobile}
+      classNames={{
+        content: classes.dialog,
+        body: classes.body,
+      }}
       closeOnClickOutside={!applying}
       closeOnEscape={!applying}
       withCloseButton={!applying}
     >
-      <Stack>
+      <Stack className={classes.content}>
         <div>
-          <Text fw={600}>{subscription?.name ?? dat?.name}</Text>
+          <Text
+            fw={600}
+            className={classes.fieldValue}
+          >
+            {subscription?.name ?? dat?.name}
+          </Text>
           <Text
             size="sm"
             c="dimmed"
+            className={classes.fieldValue}
           >
             {file?.name ?? 'Verified subscription catalog'}
           </Text>
         </div>
-        <Text size="sm">
-          {initial
-            ? 'This complete catalog has been downloaded and validated. Nothing is imported until you approve. You can close this window and return to the saved candidate.'
-            : file
-              ? 'Your current catalog stays active while you review. Closing this window discards this preview.'
-              : 'Your current catalog stays active while you review. This downloaded update is saved in ROMD, so you can return to it later.'}
-        </Text>
         {loading && (
-          <Group>
+          <Group role="status">
             <Loader size="sm" />
-            <Text>Validating and comparing the complete document…</Text>
+            <Text>Validating and comparing the DAT…</Text>
           </Group>
         )}
         {error && (
           <Alert
             color="red"
-            title="Update needs attention"
+            title="Review needs attention"
+            role="alert"
           >
             {error}
           </Alert>
         )}
         {preview && (
           <>
+            <DatReviewVersions
+              preview={preview}
+              baseline={initial ? 'first-import' : 'installed'}
+            />
             {preview.unchanged ? (
               <Alert
                 color="green"
                 title="Already up to date"
               >
-                This is the exact document already in use. No replacement is needed.
+                The installed DAT matches this document exactly.
               </Alert>
             ) : (
               <>
-                <SimpleGrid
-                  cols={{
-                    base: 1,
-                    sm: 2,
-                  }}
-                  spacing="md"
-                >
-                  <Stack gap={4}>
-                    <Text
-                      size="xs"
-                      c="dimmed"
-                    >
-                      Installed DAT
-                    </Text>
-                    <Text fw={600}>
-                      {initial
-                        ? 'First import'
-                        : (preview.activeVersion ?? 'Version not specified')}
-                    </Text>
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                    >
-                      {preview.activeEntries.toLocaleString()} entries
-                    </Text>
-                  </Stack>
-                  <Stack gap={4}>
-                    <Text
-                      size="xs"
-                      c="dimmed"
-                    >
-                      Candidate DAT
-                    </Text>
-                    <Text fw={600}>{preview.candidateVersion ?? 'Version not specified'}</Text>
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                    >
-                      {preview.candidateEntries.toLocaleString()} entries
-                    </Text>
-                  </Stack>
-                </SimpleGrid>
-                <Table.ScrollContainer minWidth={440}>
-                  <Table withTableBorder>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Changes</Table.Th>
-                        <Table.Th>Added</Table.Th>
-                        <Table.Th>Removed</Table.Th>
-                        <Table.Th>Changed</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      <Table.Tr>
-                        <Table.Td>Entries</Table.Td>
-                        <Table.Td>
-                          {preview.entriesAdded.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.entriesAdded, preview.activeEntries ?? 0)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          {preview.entriesRemoved.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.entriesRemoved, preview.activeEntries ?? 0)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          {preview.entriesChanged.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.entriesChanged, preview.activeEntries ?? 0)}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                      <Table.Tr>
-                        <Table.Td>Expected files</Table.Td>
-                        <Table.Td>
-                          {preview.filesAdded.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.filesAdded, preview.activeFiles ?? 0)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          {preview.filesRemoved.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.filesRemoved, preview.activeFiles ?? 0)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          {preview.filesChanged.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.filesChanged, preview.activeFiles ?? 0)}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    </Table.Tbody>
-                  </Table>
-                </Table.ScrollContainer>
-                <Text size="sm">
-                  {preview.hashesChanged} existing file checksums changed. BIOS entries:{' '}
-                  {preview.activeBiosEntries} → {preview.candidateBiosEntries}.
-                </Text>
                 {preview.entriesAdded + preview.entriesRemoved + preview.entriesChanged === 0 && (
                   <Alert color="blue">
-                    The document changed, but no supported entry changes were detected. Header
-                    metadata, formatting, or fields outside this comparison may differ.
-                  </Alert>
-                )}
-                {(preview.entriesRemoved > 0 || preview.hashesChanged > 0) && (
-                  <Alert color="yellow">
-                    Review removals and changed checksums. Renamed entries appear as an addition and
-                    a removal. Applying a DAT update does not delete your stored ROM files.
+                    No supported entry changes were detected. Header metadata, formatting, or fields
+                    outside this comparison may differ.
                   </Alert>
                 )}
                 <DatChangeBrowser
@@ -342,6 +369,12 @@ export function DatReplacementReviewModal({
                   subscriptionId={subscription?.id}
                   file={file}
                   preview={preview}
+                  renderSummary={(onViewChanges) => (
+                    <DatReviewSummary
+                      preview={preview}
+                      onViewChanges={onViewChanges}
+                    />
+                  )}
                   onStale={(detail) => {
                     setError(detail);
                     setPreview(undefined);
@@ -351,9 +384,16 @@ export function DatReplacementReviewModal({
                   size="sm"
                   c="dimmed"
                 >
-                  These are source catalog changes, not unique title counts. Library impact is not
-                  calculated in this preview. Approval starts catalog processing; catalog and
-                  library updates follow.
+                  Counts describe this DAT. Library impact is not calculated in this preview.
+                  Approval queues catalog processing.
+                </Text>
+                <Text
+                  size="sm"
+                  c="dimmed"
+                >
+                  {file
+                    ? 'Closing this review discards the upload preview.'
+                    : 'This new DAT is saved in ROMD. You can come back to review it later.'}
                 </Text>
               </>
             )}
@@ -363,53 +403,48 @@ export function DatReplacementReviewModal({
                 gap="xs"
                 mt="xs"
               >
-                <Text size="xs">Active</Text>
-                <Code
-                  style={{
-                    overflowWrap: 'anywhere',
-                  }}
-                >
+                <Text size="xs">Installed document</Text>
+                <Code className={classes.fieldValue}>
                   {preview.activeSha256 || 'No installed document yet'}
                 </Code>
-                <Text size="xs">Candidate</Text>
-                <Code
-                  style={{
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {preview.candidateSha256}
-                </Code>
+                <Text size="xs">New document</Text>
+                <Code className={classes.fieldValue}>{preview.candidateSha256}</Code>
               </Stack>
             </details>
           </>
         )}
-        <Group justify="flex-end">
-          <Button
-            variant="default"
-            onClick={onClose}
-            disabled={applying}
-          >
-            {preview?.unchanged ? 'Done' : 'Cancel'}
-          </Button>
-          {error && (
-            <Button
-              variant="light"
-              onClick={() => setAttempt((n) => n + 1)}
-              disabled={applying || loading}
-            >
-              Preview again
-            </Button>
-          )}
-          {preview && !preview.unchanged && (
-            <Button
-              onClick={() => void apply()}
-              loading={applying}
-            >
-              {initial ? 'Import reviewed catalog' : 'Apply reviewed update'}
-            </Button>
-          )}
-        </Group>
       </Stack>
+      <Group
+        justify="flex-end"
+        gap="xs"
+        className={classes.footer}
+      >
+        <Button
+          variant="default"
+          onClick={onClose}
+          disabled={applying}
+        >
+          {preview?.unchanged ? 'Done' : 'Cancel'}
+        </Button>
+        {error && (
+          <Button
+            variant="light"
+            onClick={() => setAttempt((n) => n + 1)}
+            disabled={applying || loading}
+          >
+            Preview again
+          </Button>
+        )}
+        {preview && !preview.unchanged && (
+          <Button
+            {...workspaceActionProps}
+            onClick={() => void apply()}
+            loading={applying}
+          >
+            {initial ? 'Import reviewed catalog' : 'Apply reviewed update'}
+          </Button>
+        )}
+      </Group>
     </Modal>
   );
 }

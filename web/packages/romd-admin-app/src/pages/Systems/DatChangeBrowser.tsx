@@ -7,9 +7,9 @@ import {
   Loader,
   NativeSelect,
   Stack,
-  Table,
   Text,
   TextInput,
+  Title,
 } from '@mantine/core';
 import type {
   DatEntryChange,
@@ -24,7 +24,8 @@ import {
   listDatSubscriptionChanges,
 } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import classes from './DatReview.module.css';
 
 /** Only a stale snapshot binding invalidates the reviewed pair; other conflicts keep their own message. */
 const STALE_REVIEW_CODES: ReadonlySet<string> = new Set([
@@ -48,36 +49,49 @@ function pageError(error: ProblemDetails | undefined): ReviewPageError {
 }
 function Fields({ fields }: { fields: DatFieldChange[] }) {
   return (
-    <Table withTableBorder>
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th>Field</Table.Th>
-          <Table.Th>Before</Table.Th>
-          <Table.Th>After</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {fields.map((field) => (
-          <Table.Tr key={field.field}>
-            <Table.Td>{field.field}</Table.Td>
-            <Table.Td
-              style={{
-                overflowWrap: 'anywhere',
-              }}
+    <ul className={classes.fieldList}>
+      {fields.map((field) => (
+        <li
+          key={field.field}
+          className={classes.fieldRow}
+        >
+          <Text
+            size="sm"
+            fw={600}
+          >
+            {field.field}
+          </Text>
+          <div>
+            <Text
+              size="xs"
+              c="dimmed"
+            >
+              Before
+            </Text>
+            <Text
+              size="sm"
+              className={classes.fieldValue}
             >
               {field.before ?? '—'}
-            </Table.Td>
-            <Table.Td
-              style={{
-                overflowWrap: 'anywhere',
-              }}
+            </Text>
+          </div>
+          <div>
+            <Text
+              size="xs"
+              c="dimmed"
+            >
+              After
+            </Text>
+            <Text
+              size="sm"
+              className={classes.fieldValue}
             >
               {field.after ?? '—'}
-            </Table.Td>
-          </Table.Tr>
-        ))}
-      </Table.Tbody>
-    </Table>
+            </Text>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 function Pager({
@@ -100,6 +114,7 @@ function Pager({
       aria-label={label}
     >
       <Button
+        size="compact-sm"
         variant="default"
         disabled={page === 0}
         onClick={onPrevious}
@@ -113,6 +128,7 @@ function Pager({
         Page {page + 1}
       </Text>
       <Button
+        size="compact-sm"
         variant="default"
         disabled={!hasNextPage}
         onClick={onNext}
@@ -122,23 +138,28 @@ function Pager({
     </Group>
   );
 }
+export type DatChangeFilter = 'Added' | 'Removed' | 'Changed';
+
 export function DatChangeBrowser({
   datId,
   subscriptionId,
   file,
   preview,
+  renderSummary,
   onStale,
 }: {
   datId: string;
   subscriptionId?: string;
   file?: File;
   preview: DatReplacementPreview;
+  renderSummary?: (onViewChanges: (change: DatChangeFilter) => void) => ReactNode;
   onStale: (message: string) => void;
 }) {
-  const viewport = useRef<HTMLDivElement>(null);
-  const resetScroll = () => {
-    if (viewport.current) viewport.current.scrollTop = 0;
-  };
+  const resultsHeading = useRef<HTMLHeadingElement>(null);
+  const resetScroll = () =>
+    resultsHeading.current?.scrollIntoView?.({
+      block: 'nearest',
+    });
   const [draft, setDraft] = useState('');
   const [search, setSearch] = useState('');
   const [change, setChange] = useState('');
@@ -251,64 +272,77 @@ export function DatChangeBrowser({
   ]);
   const page = entries.data;
   const detail = files.data;
+  const viewChanges = (filter: DatChangeFilter) => {
+    setChange(filter);
+    setDraft('');
+    setSearch('');
+    setEntry(undefined);
+    setEntryCursors([]);
+    resultsHeading.current?.focus();
+  };
   return (
     <Stack gap="sm">
+      {renderSummary?.(viewChanges)}
+      <Title
+        order={3}
+        size="h5"
+        tabIndex={-1}
+        ref={resultsHeading}
+      >
+        Explore all changes
+      </Title>
       {entry == null ? (
-        <>
-          <Text fw={600}>Explore all changes</Text>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSearch(draft.trim());
-              setEntryCursors([]);
-              resetScroll();
-            }}
-          >
-            <Group align="flex-end">
-              <TextInput
-                label="Search changed entries"
-                value={draft}
-                onChange={(event) => setDraft(event.currentTarget.value)}
-                maxLength={200}
-                style={{
-                  flex: 1,
-                }}
-              />
-              <Button type="submit">Search</Button>
-              <NativeSelect
-                label="Change type"
-                value={change}
-                onChange={(event) => {
-                  setChange(event.currentTarget.value);
-                  setEntryCursors([]);
-                  resetScroll();
-                }}
-                data={[
-                  {
-                    value: '',
-                    label: 'All changes',
-                  },
-                  {
-                    value: 'Added',
-                    label: 'Added',
-                  },
-                  {
-                    value: 'Removed',
-                    label: 'Removed',
-                  },
-                  {
-                    value: 'Changed',
-                    label: 'Changed',
-                  },
-                ]}
-              />
-            </Group>
-          </form>
-        </>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            setSearch(draft.trim());
+            setEntryCursors([]);
+            resetScroll();
+          }}
+        >
+          <div className={classes.searchControls}>
+            <TextInput
+              label="Search changed entries"
+              value={draft}
+              onChange={(event) => setDraft(event.currentTarget.value)}
+              maxLength={200}
+            />
+            <Button type="submit">Search</Button>
+            <NativeSelect
+              label="Change type"
+              className={classes.changeFilter}
+              value={change}
+              onChange={(event) => {
+                setChange(event.currentTarget.value);
+                setEntryCursors([]);
+                resetScroll();
+              }}
+              data={[
+                {
+                  value: '',
+                  label: 'All changes',
+                },
+                {
+                  value: 'Added',
+                  label: 'Added',
+                },
+                {
+                  value: 'Removed',
+                  label: 'Removed',
+                },
+                {
+                  value: 'Changed',
+                  label: 'Changed',
+                },
+              ]}
+            />
+          </div>
+        </form>
       ) : (
         <>
           <Button
             variant="subtle"
+            w="fit-content"
             onClick={() => {
               setEntry(undefined);
               resetScroll();
@@ -353,79 +387,94 @@ export function DatChangeBrowser({
           {entry != null && detail?.files.items.length === 0 && (
             <Text>No file changes. Entry metadata may have changed.</Text>
           )}
-          <Box
-            ref={viewport}
-            role="region"
-            aria-label={entry == null ? 'Changed entries' : 'Changed files'}
-            tabIndex={0}
-            style={{
-              maxHeight: '35vh',
-              overflowY: 'auto',
-              overscrollBehavior: 'contain',
-            }}
-          >
-            {entry == null && page && page.items.length > 0 && (
-              <Table>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Entry</Table.Th>
-                    <Table.Th>Change</Table.Th>
-                    <Table.Th>Files</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {page.items.map((item) => (
-                    <Table.Tr key={item.id}>
-                      <Table.Td>
-                        <Button
-                          variant="subtle"
-                          styles={{
-                            root: {
-                              height: 'auto',
-                            },
-                            label: {
-                              whiteSpace: 'normal',
-                              textAlign: 'left',
-                              overflowWrap: 'anywhere',
-                            },
-                          }}
-                          onClick={() => {
-                            setEntry(item);
-                            setFileCursors([]);
-                            resetScroll();
-                          }}
-                        >
-                          {item.name}
-                        </Button>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge
-                          w={90}
-                          color={item.change === 'Removed' ? 'orange' : 'blue'}
-                        >
-                          {item.change}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        {item.filesAdded} added · {item.filesRemoved} removed · {item.filesChanged}{' '}
-                        changed
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            )}
-            {entry != null &&
-              detail?.files.items.map((item) => (
-                <details key={`${item.kind}:${item.name}`}>
-                  <summary>
-                    {item.name} · {item.kind} · {item.change}
-                    {item.checksumsChanged ? ' · checksum changed' : ''}
-                  </summary>
-                  <Fields fields={item.fields} />
-                </details>
+          {entry == null && page && page.items.length > 0 && (
+            <Box
+              component="ul"
+              className={classes.changeList}
+              aria-label="Changed entries"
+            >
+              {page.items.map((item) => (
+                <li
+                  key={item.id}
+                  className={classes.changeRow}
+                >
+                  <Group
+                    justify="space-between"
+                    gap="xs"
+                    align="flex-start"
+                  >
+                    <Button
+                      variant="subtle"
+                      classNames={{
+                        root: classes.entryButton,
+                        label: classes.entryLabel,
+                      }}
+                      onClick={() => {
+                        setEntry(item);
+                        setFileCursors([]);
+                        resultsHeading.current?.focus();
+                      }}
+                    >
+                      {item.name}
+                    </Button>
+                    <Badge color={item.change === 'Removed' ? 'orange' : 'blue'}>
+                      {item.change}
+                    </Badge>
+                  </Group>
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                  >
+                    {item.filesAdded.toLocaleString()} files added ·{' '}
+                    {item.filesRemoved.toLocaleString()} removed ·{' '}
+                    {item.filesChanged.toLocaleString()} changed
+                  </Text>
+                </li>
               ))}
-          </Box>
+            </Box>
+          )}
+          {entry != null && detail && detail.files.items.length > 0 && (
+            <Box
+              component="ul"
+              className={classes.changeList}
+              aria-label="Changed files"
+            >
+              {detail.files.items.map((item) => (
+                <li
+                  key={`${item.kind}:${item.name}`}
+                  className={classes.changeRow}
+                >
+                  <details>
+                    <summary className={classes.fileSummary}>
+                      <Text
+                        span
+                        fw={600}
+                        size="sm"
+                      >
+                        {item.name}
+                      </Text>
+                      <Text
+                        span
+                        size="xs"
+                        c="dimmed"
+                      >
+                        {item.kind} · {item.change}
+                      </Text>
+                      {item.checksumsChanged && (
+                        <Badge
+                          color="yellow"
+                          variant="light"
+                        >
+                          Checksum changed
+                        </Badge>
+                      )}
+                    </summary>
+                    <Fields fields={item.fields} />
+                  </details>
+                </li>
+              ))}
+            </Box>
+          )}
           {entry == null && page && (
             <Pager
               label="Change pages"
