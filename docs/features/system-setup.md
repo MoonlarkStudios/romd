@@ -13,6 +13,11 @@ an update review or retry. On wide layouts, select a system to see its catalog
 and next action beside the list. On narrower layouts, open the system directly.
 Returning to Systems restores the list filters and selection.
 
+Opening a system shows **Metadata** first. Administrators can edit the display
+name and short description and add name aliases. Custom systems also allow
+edits to manufacturers and hardware facts. The system key stays fixed. A name
+alias belongs to one system, with case and repeated spaces ignored.
+
 **Add system** searches names and aliases on the server. Choose a system and its
 first DAT in the same flow. For a known system, review its details and make
 any edits before continuing to DAT options. ROMD uses the fixed system key to match

@@ -3,6 +3,7 @@ import {
   getAdminSystem,
   getDatSubscription,
   getJob,
+  getManagedSystemDetails,
   listCatalogTitles,
   listDatCatalogs,
   listDatSubscriptions,
@@ -12,8 +13,10 @@ import {
   listSystemDats,
   previewArtworkCompletion,
   previewDatReplacement,
+  previewSystemNameAliases,
   queueArtworkCompletion,
   triggerSystemBulkEnrichment,
+  updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -27,6 +30,9 @@ import { SystemHub } from './SystemHub';
 vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   getAdminSystem: vi.fn(),
+  getManagedSystemDetails: vi.fn(),
+  updateManagedSystemPresentation: vi.fn(),
+  previewSystemNameAliases: vi.fn(),
   listSystemAliases: vi.fn(),
   listSystemDats: vi.fn(),
   listSourceEntries: vi.fn(),
@@ -49,6 +55,7 @@ vi.mock('@romd/admin-api-client', async () => ({
 }));
 const access = vi.hoisted(() => ({
   canManageSources: true,
+  canEditReferenceData: true,
   canManageTitles: false,
   canTriggerEnrichment: false,
   role: 'Admin',
@@ -65,6 +72,27 @@ const result = <T,>(data: T) =>
   ({
     data,
   }) as never;
+const playStationDetails = {
+  system: {
+    key: 'psx',
+    name: 'PlayStation',
+    compactLabel: 'PS1',
+    ownership: 'Romd',
+    revision: 'revision-at-open',
+    description: 'Sony home console.',
+    manufacturers: [
+      {
+        key: 'sony',
+        name: 'Sony',
+      },
+    ],
+  },
+  hardware: {
+    category: 'console',
+    generation: 5,
+    releaseYear: 1994,
+  },
+};
 const manual = {
   id: 'manual',
   sourceId: 'source2',
@@ -122,11 +150,14 @@ function hub(url = '/systems/psx?tab=sources', systemsReturn?: string) {
 }
 beforeEach(() => {
   Object.assign(access, {
+    canEditReferenceData: true,
     canManageTitles: false,
     canTriggerEnrichment: false,
   });
   vi.resetAllMocks();
   vi.mocked(listCatalogTitles).mockResolvedValue(result(page([])));
+  vi.mocked(getManagedSystemDetails).mockResolvedValue(result(playStationDetails));
+  vi.mocked(previewSystemNameAliases).mockResolvedValue(result([]));
   vi.mocked(getAdminSystem).mockResolvedValue(
     result({
       key: 'psx',
@@ -226,8 +257,137 @@ it('keeps the filtered Systems return destination when switching detail tabs', a
     }),
   ).toHaveAttribute('href', systemsReturn);
 });
-it('defaults to tracked titles and keeps the all-title escape scoped to this system', async () => {
+it('opens on Metadata and saves a new alias after resolving a cross-system conflict', async () => {
+  vi.mocked(previewSystemNameAliases).mockResolvedValueOnce(
+    result([
+      {
+        alias: 'GBA',
+        systemName: 'Game Boy Advance',
+        builtIn: true,
+      },
+    ]),
+  );
+  vi.mocked(updateManagedSystemPresentation).mockImplementation(async () => {
+    vi.mocked(listSystemAliases).mockResolvedValue(
+      result(
+        page([
+          {
+            type: 'name',
+            value: 'PS1',
+          },
+          {
+            type: 'name',
+            value: 'Portable disc reference',
+          },
+        ]),
+      ),
+    );
+    return result(playStationDetails.system);
+  });
+  const user = userEvent.setup();
   hub('/systems/psx');
+
+  expect(
+    await screen.findByRole('tab', {
+      name: 'Metadata',
+    }),
+  ).toHaveAttribute('aria-selected', 'true');
+  expect(
+    await screen.findByRole('textbox', {
+      name: 'System key',
+    }),
+  ).toHaveAttribute('readonly');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Manufacturers',
+    }),
+  ).toHaveValue('Sony');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Category',
+    }),
+  ).toHaveValue('Console');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Generation',
+    }),
+  ).toHaveValue('5');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Release year',
+    }),
+  ).toHaveValue('1994');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Short description',
+    }),
+  ).toHaveValue('Sony home console.');
+  const save = screen.getByRole('button', {
+    name: 'Save changes',
+  });
+  expect(save).toBeDisabled();
+  const aliases = screen.getByRole('combobox', {
+    name: 'Add name aliases',
+  });
+  await user.type(aliases, 'gBa{Enter}');
+  expect(
+    await screen.findByText('“GBA” is already a built-in alias for Game Boy Advance.'),
+  ).toBeVisible();
+  expect(save).toBeDisabled();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Remove alias gBa',
+    }),
+  );
+  await user.type(aliases, 'Portable disc reference{Enter}');
+  await waitFor(() => expect(save).toBeEnabled());
+  await user.click(save);
+  expect(await screen.findByText('System details saved.')).toBeVisible();
+  expect(screen.getByText('Portable disc reference')).toBeVisible();
+  expect(updateManagedSystemPresentation).toHaveBeenCalledExactlyOnceWith({
+    path: {
+      systemKey: 'psx',
+    },
+    query: {
+      enableForSetup: false,
+    },
+    headers: {
+      'If-Match': '"revision-at-open"',
+    },
+    body: {
+      nameAliases: [
+        'Portable disc reference',
+      ],
+    },
+  });
+});
+
+it('shows metadata to users without reference edit permission', async () => {
+  access.canEditReferenceData = false;
+  hub('/systems/psx');
+
+  const name = await screen.findByRole('textbox', {
+    name: 'Display name',
+  });
+  expect(name).toHaveValue('PlayStation');
+  expect(name).toHaveAttribute('readonly');
+  expect(
+    screen.queryByRole('combobox', {
+      name: 'Add name aliases',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', {
+      name: 'Save changes',
+    }),
+  ).not.toBeInTheDocument();
+  expect(await screen.findByText('Existing aliases')).toBeVisible();
+});
+
+it('defaults to tracked titles and keeps the all-title escape scoped to this system', async () => {
+  hub('/systems/psx?tab=titles');
   expect(
     await screen.findByRole('tab', {
       name: 'Titles',
@@ -269,7 +429,7 @@ it('defaults to tracked titles and keeps the all-title escape scoped to this sys
 });
 it.each([
   [
-    '/systems/psx',
+    '/systems/psx?tab=titles',
     'tracked',
   ],
   [

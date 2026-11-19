@@ -17,11 +17,9 @@ import type {
   DatCatalogSubscription,
   JobReference,
   ManagedSystem,
-  ManagedSystemPatch,
   ManagedSystemSetupDetails,
   PublishedDatCatalog,
   SystemDatPreview,
-  SystemResource,
 } from '@romd/admin-api-client';
 import {
   checkDatSubscription,
@@ -45,10 +43,11 @@ import {
   useDatSubscriptions,
   useManagedSystemDetails,
   useManagedSystems,
+  useRefreshSystemPresentation,
   useSetSystemEnabled,
-  useSystemNameAliasPreview,
+  useSystemNameAliasValidation,
 } from '../../hooks/api/useManagedSystems';
-import { platformKeys, usePlatformAliases } from '../../hooks/api/usePlatforms';
+import { usePlatformAliases } from '../../hooks/api/usePlatforms';
 import { formatBytes } from '../../utils/format';
 import {
   localSystemKeyPrefix,
@@ -60,13 +59,15 @@ import { DatUploadZone } from './components/DatUploadZone';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 import { SystemDatOptions, verifiedOffers } from './SystemDatOptions';
 import { SystemLogo, useSystemIcons } from './SystemLogo';
-import {
-  type SystemPresentation,
-  SystemPresentationFields,
-  validSystemPresentation,
-} from './SystemPresentationFields';
+import { SystemPresentationFields, validSystemPresentation } from './SystemPresentationFields';
 import classes from './SystemSetupFlow.module.css';
 import { SystemSetupPicker } from './SystemSetupPicker';
+import {
+  presentationValues,
+  type SystemPresentation,
+  setupAliases,
+  systemPresentationPatch,
+} from './systemPresentation';
 
 export type OpenSetupSystem = (systemKey: string, tab?: 'sources') => void;
 type SetupStep =
@@ -84,60 +85,6 @@ type CustomDraft = SystemPresentation & {
   keySuffixOverride?: string;
   registered?: boolean;
 };
-
-function presentationValues(details?: ManagedSystemSetupDetails): SystemPresentation {
-  return {
-    name: details?.system.name ?? '',
-    description: details?.system.description ?? '',
-    category: details?.hardware?.category ?? null,
-    generation: details?.hardware?.generation ?? null,
-    releaseYear: details?.hardware?.releaseYear ?? null,
-    manufacturerKeys: details?.system.manufacturers?.map((company) => company.key) ?? [],
-    nameAliases: [],
-  };
-}
-
-function setupAliases(values: string[]) {
-  return values.map((value) => value.trim()).filter(Boolean);
-}
-
-function knownPresentationPatch(draft: KnownDraft): ManagedSystemPatch {
-  const original = presentationValues(draft.original);
-  const name = draft.name.trim();
-  const description = draft.description.trim() || null;
-  const nameAliases = setupAliases(draft.nameAliases);
-  const hardwareEditable = draft.original.system.ownership === 'Installation';
-  const manufacturerChanged =
-    draft.manufacturerKeys.length !== original.manufacturerKeys.length ||
-    draft.manufacturerKeys.some((key) => !original.manufacturerKeys.includes(key));
-  return {
-    ...(name !== original.name && {
-      name,
-    }),
-    ...(description !== (original.description || null) && {
-      description,
-    }),
-    ...(nameAliases.length > 0 && {
-      nameAliases,
-    }),
-    ...(hardwareEditable &&
-      draft.category !== original.category && {
-        category: draft.category,
-      }),
-    ...(hardwareEditable &&
-      draft.generation !== original.generation && {
-        generation: draft.generation,
-      }),
-    ...(hardwareEditable &&
-      draft.releaseYear !== original.releaseYear && {
-        releaseYear: draft.releaseYear,
-      }),
-    ...(hardwareEditable &&
-      manufacturerChanged && {
-        manufacturerKeys: draft.manufacturerKeys,
-      }),
-  };
-}
 
 function setupFailure(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -178,21 +125,7 @@ export function AddSourceFlow({
   const customKey = `${localSystemKeyPrefix}${customKeySuffix}`;
   const draft = customDraft ?? knownDraft;
   const aliasesToCheck = draft && !customDraft?.registered ? setupAliases(draft.nameAliases) : [];
-  const aliasPreview = useSystemNameAliasPreview(aliasesToCheck);
-  const aliasesValid =
-    aliasesToCheck.length === 0 || (aliasPreview.isSuccess && aliasPreview.data.length === 0);
-  const aliasFeedback = {
-    aliasError: aliasPreview.isError
-      ? aliasPreview.error.message
-      : aliasPreview.data
-          ?.map(
-            (conflict) =>
-              `“${conflict.alias}” is already ${conflict.builtIn ? 'a built-in alias' : 'an alias'} for ${conflict.systemName}.`,
-          )
-          .join(' '),
-    checkingAliases: aliasPreview.isFetching && !aliasPreview.isSuccess,
-    retryAliasCheck: aliasPreview.isError ? () => void aliasPreview.refetch() : undefined,
-  };
+  const { aliasesValid, ...aliasFeedback } = useSystemNameAliasValidation(aliasesToCheck);
   const canRegisterCustom =
     !!customDraft &&
     validSystemPresentation(customDraft) &&
@@ -232,6 +165,7 @@ export function AddSourceFlow({
     (!!details && aliasesValid && (!knownDraft || validSystemPresentation(knownDraft)));
   const icons = useSystemIcons();
   const client = useQueryClient();
+  const refreshSystemDetails = useRefreshSystemPresentation();
   const navigate = useNavigate();
   const replacements = unregisteredCustom
     ? []
@@ -300,31 +234,10 @@ export function AddSourceFlow({
     if (selected) openSystem(selected.key, 'sources');
   }
 
-  async function refreshSystemDetails(resource: SystemResource) {
-    await client.cancelQueries({
-      queryKey: platformKeys.detail(resource.key),
-    });
-    client.setQueryData(platformKeys.detail(resource.key), resource);
-    void client.invalidateQueries({
-      queryKey: platformKeys.aliases(resource.key),
-    });
-    void client.invalidateQueries({
-      queryKey: platformKeys.lists(),
-    });
-    void client.invalidateQueries({
-      queryKey: [
-        'reference-catalog',
-      ],
-    });
-    void client.invalidateQueries({
-      queryKey: managedSystemKeys.all,
-    });
-  }
-
   async function saveKnownDetails() {
     if (!knownDraft || !selected) return false;
     if (!aliasesValid) throw new Error('Check the name aliases before continuing.');
-    const patch = knownPresentationPatch(knownDraft);
+    const patch = systemPresentationPatch(knownDraft, knownDraft.original);
     if (!Object.keys(patch).length) return false;
     const response = await updateManagedSystemPresentation({
       path: {

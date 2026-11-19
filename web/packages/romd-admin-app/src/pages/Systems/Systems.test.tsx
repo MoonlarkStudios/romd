@@ -189,7 +189,7 @@ it('uses links and local summaries without fetching source details in a narrow w
     within(table).getByRole('link', {
       name: 'PlayStation',
     }),
-  ).toHaveAttribute('href', '/systems/psx?tab=sources');
+  ).toHaveAttribute('href', '/systems/psx');
   expect(within(table).queryByText('Super Nintendo')).not.toBeInTheDocument();
   const row = within(table).getByRole('row', {
     name: /PlayStation/,
@@ -435,12 +435,12 @@ it('loads only the selected wide-workspace catalog and keeps a focused action be
     within(inspector).getByRole('link', {
       name: 'Open system',
     }),
-  ).toHaveAttribute('href', '/systems/psx?tab=sources');
+  ).toHaveAttribute('href', '/systems/psx');
   expect(listSystemDats).toHaveBeenCalledTimes(1);
   const title = screen.getByRole('link', {
     name: 'Game Boy Advance',
   });
-  expect(title).toHaveAttribute('href', '/systems/gba?tab=sources');
+  expect(title).toHaveAttribute('href', '/systems/gba');
   const selectOther = screen.getByRole('button', {
     name: 'Preview Game Boy Advance in sidebar',
   });
@@ -547,7 +547,7 @@ it.each([
   const playStation = await screen.findByRole('link', {
     name: 'PlayStation',
   });
-  expect(playStation).toHaveAttribute('href', '/systems/psx?tab=sources');
+  expect(playStation).toHaveAttribute('href', '/systems/psx');
   await userEvent.click(playStation);
   expect(
     screen.getByRole('link', {

@@ -6359,7 +6359,9 @@ export type UpdateManagedSystemPresentationData = {
     path: {
         systemKey: string;
     };
-    query?: never;
+    query?: {
+        enableForSetup?: boolean;
+    };
     url: '/api/system-setup/{systemKey}';
 };
 

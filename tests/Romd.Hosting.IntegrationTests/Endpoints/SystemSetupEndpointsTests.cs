@@ -152,6 +152,45 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
     }
 
     [Fact]
+    public async Task EditSystemDetails_PreservesMembershipAndRejectsCrossSystemAliasCollision()
+    {
+        await using var host = new AcceptanceFixture();
+        await host.InitializeAsync();
+        using var client = host.CreateAuthenticatedClient();
+        using var gba = await client.GetAsync("/api/systems/gba");
+        using var psx = await client.GetAsync("/api/systems/psx");
+        var playStation = (await psx.Content.ReadFromJsonAsync<SystemResource>()).ShouldNotBeNull();
+        var systems = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup");
+        var advance = systems!.Single(system => system.Key == "gba");
+        advance.Enabled.ShouldBeFalse();
+
+        using var patch = new HttpRequestMessage(HttpMethod.Patch, "/api/system-setup/gba?enableForSetup=false")
+        {
+            Content = JsonContent.Create(new { description = "A local handheld description.", nameAliases = new[] { "Portable Cart Library" } })
+        };
+        patch.Headers.IfMatch.Add(gba.Headers.ETag.ShouldNotBeNull());
+        using var applied = await client.SendAsync(patch);
+        applied.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var details = (await client.GetFromJsonAsync<ManagedSystemSetupDetails>("/api/system-setup/gba")).ShouldNotBeNull();
+        details.System.Description.ShouldBe("A local handheld description.");
+
+        using var conflictingPatch = new HttpRequestMessage(HttpMethod.Patch, "/api/system-setup/psx?enableForSetup=false")
+        {
+            Content = JsonContent.Create(new { description = "This edit must roll back.", nameAliases = new[] { "portable   CART library" } })
+        };
+        conflictingPatch.Headers.IfMatch.Add(psx.Headers.ETag.ShouldNotBeNull());
+        using var conflict = await client.SendAsync(conflictingPatch);
+        conflict.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        var unchanged = (await client.GetFromJsonAsync<SystemResource>("/api/systems/psx")).ShouldNotBeNull();
+        unchanged.Description.ShouldBe(playStation.Description);
+
+        var matches = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup?query=Portable%20Cart%20Library");
+        var match = matches.ShouldHaveSingleItem();
+        match.Key.ShouldBe("gba");
+        match.Enabled.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task RegisterCustomSystem_CreatesOneEnabledSystemAndRejectsDuplicateKey()
     {
         await using var host = new AcceptanceFixture();

@@ -23,8 +23,8 @@ public static class SystemSetupEndpoints
 {
     public static IEndpointRouteBuilder MapSystemSetupEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/system-setup").WithTags("SystemSetup")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin);
+        var routes = app.MapGroup("/system-setup").WithTags("SystemSetup");
+        var group = routes.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireAdmin);
         group.MapGet("", async (ISystemSetupService service, string? query = null, string? cursor = null,
             [Range(1, ReferencePageRequest.MaxLimit)] int limit = ReferencePageRequest.DefaultLimit, string? sortBy = null, CancellationToken ct = default) =>
         {
@@ -41,7 +41,7 @@ public static class SystemSetupEndpoints
             });
         }).WithName("ListManagedSystems").Produces<Page<ContractManagedSystem>>()
             .WithDescription("Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order, page selected before status/count assembly in one repeatable-read observation. Query includes normalized names, short names, manufacturers and name aliases; aliases are a separate paged relationship. Default/max limit 100; sortBy supports key:asc.");
-        group.MapGet("/{systemKey}", async (SystemKeyParameter systemKey, ISystemSetupService service, CancellationToken ct) =>
+        routes.MapGet("/{systemKey}", async (SystemKeyParameter systemKey, ISystemSetupService service, CancellationToken ct) =>
         {
             var details = await service.GetDetailsAsync(systemKey.Key, ct);
             if (details is null)
@@ -50,12 +50,13 @@ public static class SystemSetupEndpoints
             return Results.Ok(new ManagedSystemSetupDetails(details.System,
                 hardware is null ? null : new(hardware.Category, hardware.Generation, hardware.ReleaseYear)));
         }).WithName("GetManagedSystemDetails").Produces<ManagedSystemSetupDetails>()
+            .RequireAuthorization(AuthorizationPolicies.RequireUser)
             .WithDescription("System reference facts and optional hardware metadata read from the same database snapshot.");
         group.MapPost("", CreateAndEnable).WithName("CreateManagedSystem")
             .WithDescription("Create an installation-owned system and add it to the installation's Systems list in the same transaction.")
             .ProducesCreated<SystemResource>().ProducesProblems(400, 409).ConditionalCreate();
-        group.MapPatch("/{systemKey}", UpdateAndEnable).WithName("UpdateManagedSystemPresentation")
-            .WithDescription("Update permitted system facts, add name aliases, and add the system to the Systems list atomically. Use the system reference resource's current ETag.")
+        group.MapPatch("/{systemKey}", UpdatePresentation).WithName("UpdateManagedSystemPresentation")
+            .WithDescription("Update permitted system facts and add name aliases atomically. By default, add the system to the Systems list. Pass enableForSetup=false to keep its membership as is. Use the system reference resource's current ETag.")
             .Produces<SystemResource>().ProducesProblems(400, 409).ConditionalWrite();
         group.MapPut("/{systemKey}/enabled", async (SystemKeyParameter systemKey, SetSystemEnabled request, ISystemSetupService service, CancellationToken ct) =>
         {
@@ -108,8 +109,9 @@ public static class SystemSetupEndpoints
             errors => errors.ToProblem());
     }
 
-    private static async Task<IResult> UpdateAndEnable(SystemKeyParameter systemKey, ManagedSystemPatch patch, HttpContext context,
-        ICommandHandler<UpdateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, CancellationToken ct)
+    private static async Task<IResult> UpdatePresentation(SystemKeyParameter systemKey, ManagedSystemPatch patch, HttpContext context,
+        ICommandHandler<UpdateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, CancellationToken ct,
+        bool enableForSetup = true)
     {
         var ifMatch = Preconditions.IfMatch(context, ReferenceCatalogEndpoints.PreconditionArea);
         if (ifMatch.IsError)
@@ -126,7 +128,7 @@ public static class SystemSetupEndpoints
             : null;
         var result = await handler.HandleAsync(new(systemKey.Key,
             new(Name: patch.Name, Description: patch.Description, HasDescription: supplied.ContainsKey("description")),
-            ifMatch.Value, patch.ManufacturerKeys, EnableForSetup: true, Hardware: hardware, NameAliases: patch.NameAliases), ct);
+            ifMatch.Value, patch.ManufacturerKeys, EnableForSetup: enableForSetup, Hardware: hardware, NameAliases: patch.NameAliases), ct);
         return result.Match(updated => Results.Ok(updated.Resource).WithETag(context, updated.Revision), errors => errors.ToProblem());
     }
 }

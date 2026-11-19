@@ -324,7 +324,7 @@ export function SystemInspector({
           <Button
             {...workspaceActionProps}
             component={Link}
-            to={sourcesPath}
+            to={systemPath}
             state={state}
             onClick={onOpen}
             variant={hasAction ? 'light' : 'filled'}

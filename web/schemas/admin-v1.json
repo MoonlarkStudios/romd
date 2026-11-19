@@ -7076,60 +7076,11 @@
       }
     },
     "/api/system-setup/{systemKey}": {
-      "get": {
-        "tags": [
-          "SystemSetup"
-        ],
-        "description": "System reference facts and optional hardware metadata read from the same database snapshot.",
-        "operationId": "GetManagedSystemDetails",
-        "parameters": [
-          {
-            "name": "systemKey",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ManagedSystemSetupDetails"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      },
       "patch": {
         "tags": [
           "SystemSetup"
         ],
-        "description": "Update permitted system facts, add name aliases, and add the system to the Systems list atomically. Use the system reference resource's current ETag.",
+        "description": "Update permitted system facts and add name aliases atomically. By default, add the system to the Systems list. Pass enableForSetup=false to keep its membership as is. Use the system reference resource's current ETag.",
         "operationId": "UpdateManagedSystemPresentation",
         "parameters": [
           {
@@ -7138,6 +7089,14 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "enableForSetup",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
             }
           },
           {
@@ -7221,6 +7180,55 @@
           },
           "428": {
             "description": "Precondition Required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "SystemSetup"
+        ],
+        "description": "System reference facts and optional hardware metadata read from the same database snapshot.",
+        "operationId": "GetManagedSystemDetails",
+        "parameters": [
+          {
+            "name": "systemKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSystemSetupDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {

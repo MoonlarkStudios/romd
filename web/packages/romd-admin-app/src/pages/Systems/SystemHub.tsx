@@ -3,18 +3,20 @@ import { IconArrowLeft, IconUpload } from '@tabler/icons-react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
 import workspace from '../../components/Workspace/Workspace.module.css';
-import { usePlatform, usePlatformAliases } from '../../hooks/api/usePlatforms';
+import { usePlatform } from '../../hooks/api/usePlatforms';
 import { usePermissions } from '../../hooks/usePermissions';
 import { TitlesLens } from '../Catalog/TitlesLens';
 import { BiosTab } from './BiosTab';
 import { SourcesTab } from './SourcesTab';
 import { SystemHelp } from './SystemHelp';
 import { SystemLogo } from './SystemLogo';
+import { SystemMetadata } from './SystemMetadata';
 import { SystemSettings } from './SystemSettings';
 import { SystemSetupSummary } from './SystemSetupSummary';
 import { systemsListReturnPath } from './systemsListNavigation';
 
 const HUB_TABS = [
+  'metadata',
   'titles',
   'sources',
   'bios',
@@ -30,10 +32,14 @@ export function SystemHub() {
   const backToSystems = systemsListReturnPath(state);
   const [params, setParams] = useSearchParams();
   const platformQuery = usePlatform(systemKey);
-  const aliasesQuery = usePlatformAliases(systemKey);
   const { canUploadRoms } = usePermissions();
   const active =
-    HUB_TABS.find((tab) => tab === params.get('tab')) ?? (params.has('dat') ? 'sources' : 'titles');
+    HUB_TABS.find((tab) => tab === params.get('tab')) ??
+    (params.has('dat') || params.has('setup')
+      ? 'sources'
+      : params.has('view') || params.has('tracked')
+        ? 'titles'
+        : 'metadata');
   const view =
     params.get('view') === 'all' || (!params.has('view') && params.get('tracked') === 'untracked')
       ? 'all'
@@ -161,11 +167,18 @@ export function SystemHub() {
           }}
         >
           <Tabs.List mb="md">
+            <Tabs.Tab value="metadata">Metadata</Tabs.Tab>
             <Tabs.Tab value="sources">Catalog sources</Tabs.Tab>
             <Tabs.Tab value="titles">Titles</Tabs.Tab>
             <Tabs.Tab value="bios">BIOS</Tabs.Tab>
             <Tabs.Tab value="settings">Settings</Tabs.Tab>
           </Tabs.List>
+          <Tabs.Panel value="metadata">
+            <SystemMetadata
+              key={systemKey}
+              systemKey={systemKey}
+            />
+          </Tabs.Panel>
           <Tabs.Panel value="titles">
             <Stack gap="md">
               <Group justify="space-between">
@@ -210,54 +223,7 @@ export function SystemHub() {
             <BiosTab systemKey={systemKey} />
           </Tabs.Panel>
           <Tabs.Panel value="settings">
-            <Stack gap="md">
-              {platform.description && <Text size="sm">{platform.description}</Text>}
-              {Boolean(platform.manufacturers?.length) && (
-                <div>
-                  <Text
-                    fw={600}
-                    size="sm"
-                  >
-                    Manufacturer
-                  </Text>
-                  <Text
-                    size="sm"
-                    c="dimmed"
-                  >
-                    {platform.manufacturers?.map((manufacturer) => manufacturer.name).join(', ')}
-                  </Text>
-                </div>
-              )}
-              <div>
-                <Text
-                  fw={600}
-                  size="sm"
-                >
-                  Aliases
-                </Text>
-                {aliasesQuery.isError ? (
-                  <Button
-                    variant="subtle"
-                    onClick={() => aliasesQuery.refetch()}
-                  >
-                    Retry aliases
-                  </Button>
-                ) : (
-                  <Text
-                    size="sm"
-                    c="dimmed"
-                  >
-                    {aliasesQuery.isPending
-                      ? 'Loading aliases...'
-                      : (aliasesQuery.data ?? [])
-                          .filter((alias) => alias.type === 'name')
-                          .map((alias) => alias.value)
-                          .join(', ') || 'No aliases'}
-                  </Text>
-                )}
-              </div>
-              <SystemSettings systemKey={systemKey} />
-            </Stack>
+            <SystemSettings systemKey={systemKey} />
           </Tabs.Panel>
         </Tabs>
       </Stack>

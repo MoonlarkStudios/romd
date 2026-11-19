@@ -5,10 +5,12 @@ import {
   listManagedSystems,
   type ManagedSystem,
   previewSystemNameAliases,
+  type SystemResource,
   setSystemEnabled,
 } from '@romd/admin-api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { collectPages } from '../../utils/collectPages';
+import { platformKeys } from './usePlatforms';
 
 export const managedSystemKeys = {
   all: [
@@ -19,6 +21,9 @@ export const managedSystemKeys = {
   ] as const,
   subscriptions: [
     'dat-subscriptions',
+  ] as const,
+  nameAliasPreview: [
+    'system-setup-name-alias-preview',
   ] as const,
 };
 const bySystemName = new Intl.Collator(undefined, {
@@ -85,10 +90,10 @@ export function useManagedSystemDetails(systemKey: string | undefined) {
   });
 }
 
-export function useSystemNameAliasPreview(nameAliases: string[]) {
-  return useQuery({
+export function useSystemNameAliasValidation(nameAliases: string[]) {
+  const preview = useQuery({
     queryKey: [
-      'system-setup-name-alias-preview',
+      ...managedSystemKeys.nameAliasPreview,
       nameAliases,
     ],
     enabled: nameAliases.length > 0,
@@ -106,6 +111,48 @@ export function useSystemNameAliasPreview(nameAliases: string[]) {
       return response.data;
     },
   });
+  return {
+    aliasesValid: nameAliases.length === 0 || (preview.isSuccess && preview.data.length === 0),
+    aliasError: preview.isError
+      ? preview.error.message
+      : preview.data
+          ?.map(
+            (conflict) =>
+              `“${conflict.alias}” is already ${conflict.builtIn ? 'a built-in alias' : 'an alias'} for ${conflict.systemName}.`,
+          )
+          .join(' '),
+    checkingAliases: preview.isFetching && !preview.isSuccess,
+    retryAliasCheck: preview.isError ? () => void preview.refetch() : undefined,
+  };
+}
+
+export function useRefreshSystemPresentation() {
+  const client = useQueryClient();
+  return async (resource: SystemResource) => {
+    const detail = platformKeys.detail(resource.key);
+    await client.cancelQueries({
+      queryKey: detail,
+    });
+    client.setQueryData(detail, resource);
+    void client.invalidateQueries({
+      queryKey: platformKeys.aliases(resource.key),
+    });
+    void client.invalidateQueries({
+      queryKey: platformKeys.lists(),
+    });
+    void client.invalidateQueries({
+      queryKey: [
+        'reference-catalog',
+      ],
+    });
+    void client.invalidateQueries({
+      queryKey: managedSystemKeys.all,
+    });
+    void client.invalidateQueries({
+      queryKey: managedSystemKeys.nameAliasPreview,
+      refetchType: 'none',
+    });
+  };
 }
 
 /** The publisher's catalog directory; its message explains an empty or unverified directory. */

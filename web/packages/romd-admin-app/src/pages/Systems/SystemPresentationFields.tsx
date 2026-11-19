@@ -13,7 +13,7 @@ import {
   Textarea,
   TextInput,
 } from '@mantine/core';
-import type { CompanySummary, ManagedSystemHardware } from '@romd/admin-api-client';
+import type { CompanySummary } from '@romd/admin-api-client';
 import { IconLock } from '@tabler/icons-react';
 import { useReferenceCompanies } from '../../hooks/api/useReferenceCompanies';
 import {
@@ -22,13 +22,7 @@ import {
   validLocalSystemKeySuffix,
 } from '../../utils/systemKey';
 import classes from './SystemSetupFlow.module.css';
-
-export type SystemPresentation = ManagedSystemHardware & {
-  name: string;
-  description: string;
-  manufacturerKeys: string[];
-  nameAliases: string[];
-};
+import type { SystemPresentation } from './systemPresentation';
 
 const categories = [
   {
@@ -102,11 +96,11 @@ export function SystemPresentationFields({
   retryAliasCheck,
   hardwareEditable,
   manufacturers = [],
-  existingAliases = [],
+  existingAliases,
   disabled,
 }: {
   value: SystemPresentation;
-  onChange: (value: SystemPresentation) => void;
+  onChange?: (value: SystemPresentation) => void;
   systemKey: string;
   onKeySuffixChange?: (suffix: string) => void;
   aliasError?: string;
@@ -117,10 +111,11 @@ export function SystemPresentationFields({
   existingAliases?: string[];
   disabled: boolean;
 }) {
+  const readOnly = !onChange;
   const keySuffix = systemKey.slice(localSystemKeyPrefix.length);
   const companies = useReferenceCompanies(hardwareEditable);
   const change = (patch: Partial<SystemPresentation>) =>
-    onChange({
+    onChange?.({
       ...value,
       ...patch,
     });
@@ -148,7 +143,8 @@ export function SystemPresentationFields({
       >
         <TextInput
           label="Display name"
-          required
+          readOnly={readOnly}
+          required={!readOnly}
           maxLength={200}
           value={value.name}
           disabled={disabled}
@@ -309,7 +305,7 @@ export function SystemPresentationFields({
           Retry manufacturers
         </Button>
       )}
-      {existingAliases.length > 0 && (
+      {existingAliases && (
         <Stack gap={4}>
           <Text
             size="sm"
@@ -317,60 +313,71 @@ export function SystemPresentationFields({
           >
             Existing aliases
           </Text>
-          <Group gap={4}>
-            {existingAliases.map((alias) => (
-              <Badge
-                variant="default"
-                key={alias}
-              >
-                {alias}
-              </Badge>
-            ))}
-          </Group>
+          {existingAliases.length > 0 ? (
+            <Group gap={4}>
+              {existingAliases.map((alias) => (
+                <Badge
+                  variant="default"
+                  key={alias}
+                >
+                  {alias}
+                </Badge>
+              ))}
+            </Group>
+          ) : (
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              No name aliases
+            </Text>
+          )}
         </Stack>
       )}
-      <TagsInput
-        label="Add name aliases"
-        placeholder="Type an alias and press Enter"
-        description={
-          checkingAliases ? (
-            <output>Checking aliases…</output>
-          ) : (
-            'Aliases help ROMD match uploaded DATs.'
-          )
-        }
-        error={aliasError ? <span role="alert">{aliasError}</span> : undefined}
-        inputWrapperOrder={[
-          'label',
-          'input',
-          'description',
-          'error',
-        ]}
-        value={value.nameAliases}
-        maxTags={16}
-        maxLength={200}
-        acceptValueOnBlur
-        renderPill={({ value: alias, onRemove, disabled: pillDisabled }) => (
-          <Pill
-            withRemoveButton={!pillDisabled}
-            disabled={pillDisabled}
-            onRemove={onRemove}
-            removeButtonProps={{
-              'aria-label': `Remove alias ${alias}`,
-              'aria-hidden': false,
-              tabIndex: 0,
-            }}
-          >
-            {alias}
-          </Pill>
-        )}
-        disabled={disabled}
-        onChange={(nameAliases) =>
-          change({
-            nameAliases,
-          })
-        }
-      />
+      {!readOnly && (
+        <TagsInput
+          label="Add name aliases"
+          placeholder="Type an alias and press Enter"
+          description={
+            checkingAliases ? (
+              <output>Checking aliases…</output>
+            ) : (
+              'Aliases help ROMD match uploaded DATs.'
+            )
+          }
+          error={aliasError ? <span role="alert">{aliasError}</span> : undefined}
+          inputWrapperOrder={[
+            'label',
+            'input',
+            'description',
+            'error',
+          ]}
+          value={value.nameAliases}
+          maxTags={16}
+          maxLength={200}
+          acceptValueOnBlur
+          renderPill={({ value: alias, onRemove, disabled: pillDisabled }) => (
+            <Pill
+              withRemoveButton={!pillDisabled}
+              disabled={pillDisabled}
+              onRemove={onRemove}
+              removeButtonProps={{
+                'aria-label': `Remove alias ${alias}`,
+                'aria-hidden': false,
+                tabIndex: 0,
+              }}
+            >
+              {alias}
+            </Pill>
+          )}
+          disabled={disabled}
+          onChange={(nameAliases) =>
+            change({
+              nameAliases,
+            })
+          }
+        />
+      )}
       {retryAliasCheck && (
         <Button
           size="compact-sm"
@@ -384,6 +391,7 @@ export function SystemPresentationFields({
       )}
       <Textarea
         label="Short description"
+        readOnly={readOnly}
         placeholder="Optional"
         autosize
         minRows={2}

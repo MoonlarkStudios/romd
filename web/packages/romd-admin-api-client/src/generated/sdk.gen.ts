@@ -918,7 +918,7 @@ export const getManagedSystemDetails = <ThrowOnError extends boolean = false>(op
 });
 
 /**
- * Update permitted system facts, add name aliases, and add the system to the Systems list atomically. Use the system reference resource's current ETag.
+ * Update permitted system facts and add name aliases atomically. By default, add the system to the Systems list. Pass enableForSetup=false to keep its membership as is. Use the system reference resource's current ETag.
  */
 export const updateManagedSystemPresentation = <ThrowOnError extends boolean = false>(options: Options<UpdateManagedSystemPresentationData, ThrowOnError>) => (options.client ?? client).patch<UpdateManagedSystemPresentationResponses, UpdateManagedSystemPresentationErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

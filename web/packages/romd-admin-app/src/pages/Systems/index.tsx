@@ -402,7 +402,7 @@ export function Systems() {
                                     component={Link}
                                     size="sm"
                                     className={`romd-card-title ${classes.systemName}`}
-                                    to={`/systems/${system.key}?tab=sources`}
+                                    to={`/systems/${system.key}`}
                                     state={returnState}
                                     onClick={rememberPosition}
                                   >
