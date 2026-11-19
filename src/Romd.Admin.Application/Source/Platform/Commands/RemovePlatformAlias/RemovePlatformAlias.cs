@@ -1,6 +1,7 @@
 using ErrorOr;
 using Romd.Admin.Application.Catalog;
 using Romd.Application.Common.Cqrs;
+using Romd.Domain.ReferenceData;
 
 namespace Romd.Admin.Application.Source.Platform.Commands.RemovePlatformAlias;
 
@@ -30,13 +31,12 @@ public sealed class RemovePlatformAliasCommandHandler : ICommandHandler<RemovePl
             return CatalogErrors.PlatformNotFound();
         }
 
-        var alias = await _aliasRepository.GetByIdAsync(command.AliasId, ct);
-        if (alias is null || alias.PlatformId != command.PlatformId)
-        {
-            return PlatformErrors.AliasNotFound();
-        }
+        if (await _aliasRepository.RemoveInstallationOwnedAsync(command.PlatformId, command.AliasId, ct))
+            return Result.Deleted;
 
-        await _aliasRepository.RemoveAsync(command.AliasId, ct);
-        return Result.Deleted;
+        var alias = await _aliasRepository.GetByIdAsync(command.AliasId, ct);
+        return alias is not null && alias.PlatformId == command.PlatformId && alias.Ownership != ReferenceOwnership.Installation
+            ? PlatformErrors.AliasLocked()
+            : PlatformErrors.AliasNotFound();
     }
 }

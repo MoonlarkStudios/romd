@@ -12,8 +12,9 @@ import {
   Text,
   Textarea,
   TextInput,
+  VisuallyHidden,
 } from '@mantine/core';
-import type { CompanySummary } from '@romd/admin-api-client';
+import type { CompanySummary, PlatformAlias } from '@romd/admin-api-client';
 import { IconLock } from '@tabler/icons-react';
 import { useReferenceCompanies } from '../../hooks/api/useReferenceCompanies';
 import {
@@ -97,6 +98,7 @@ export function SystemPresentationFields({
   hardwareEditable,
   manufacturers = [],
   existingAliases,
+  onRemoveAlias,
   disabled,
 }: {
   value: SystemPresentation;
@@ -108,7 +110,8 @@ export function SystemPresentationFields({
   retryAliasCheck?: () => void;
   hardwareEditable: boolean;
   manufacturers?: CompanySummary[];
-  existingAliases?: string[];
+  existingAliases?: PlatformAlias[];
+  onRemoveAlias?: (alias: PlatformAlias) => void;
   disabled: boolean;
 }) {
   const readOnly = !onChange;
@@ -315,14 +318,44 @@ export function SystemPresentationFields({
           </Text>
           {existingAliases.length > 0 ? (
             <Group gap={4}>
-              {existingAliases.map((alias) => (
-                <Badge
-                  variant="default"
-                  key={alias}
-                >
-                  {alias}
-                </Badge>
-              ))}
+              {existingAliases.map((alias) => {
+                const local = alias.ownership === 'Installation';
+                const label = alias.ownership === 'Romd' ? 'Built-in alias' : 'Ownership unknown';
+                return local && onRemoveAlias ? (
+                  <Pill
+                    key={alias.id}
+                    withRemoveButton
+                    onRemove={() => onRemoveAlias(alias)}
+                    removeButtonProps={{
+                      'aria-label': `Remove alias ${alias.value} from this system`,
+                      'aria-hidden': false,
+                      disabled,
+                      tabIndex: 0,
+                    }}
+                  >
+                    {alias.value}
+                  </Pill>
+                ) : (
+                  <Badge
+                    variant="default"
+                    key={alias.id}
+                    title={local ? undefined : label}
+                    leftSection={
+                      local ? undefined : (
+                        <>
+                          <IconLock
+                            size={12}
+                            aria-hidden="true"
+                          />
+                          <VisuallyHidden>{label}</VisuallyHidden>
+                        </>
+                      )
+                    }
+                  >
+                    {alias.value}
+                  </Badge>
+                );
+              })}
             </Group>
           ) : (
             <Text

@@ -104,6 +104,7 @@ beforeEach(() => {
       page([
         {
           id: 'alias-1',
+          ownership: 'Romd',
           type: 'name',
           value: 'PSX',
         },

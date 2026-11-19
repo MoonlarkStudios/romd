@@ -1,5 +1,6 @@
 import {
   createDatReplacement,
+  deleteSystemAlias,
   getAdminSystem,
   getDatSubscription,
   getJob,
@@ -30,6 +31,7 @@ import { SystemHub } from './SystemHub';
 vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   getAdminSystem: vi.fn(),
+  deleteSystemAlias: vi.fn(),
   getManagedSystemDetails: vi.fn(),
   updateManagedSystemPresentation: vi.fn(),
   previewSystemNameAliases: vi.fn(),
@@ -72,6 +74,18 @@ const result = <T,>(data: T) =>
   ({
     data,
   }) as never;
+const builtInAlias = {
+  id: 'built-in-alias',
+  type: 'name',
+  value: 'PS1',
+  ownership: 'Romd',
+};
+const localAlias = {
+  id: 'local-alias',
+  type: 'name',
+  value: 'Portable disc reference',
+  ownership: 'Installation',
+};
 const playStationDetails = {
   system: {
     key: 'psx',
@@ -169,10 +183,7 @@ beforeEach(() => {
   vi.mocked(listSystemAliases).mockResolvedValue(
     result(
       page([
-        {
-          type: 'name',
-          value: 'PS1',
-        },
+        builtInAlias,
       ]),
     ),
   );
@@ -271,14 +282,8 @@ it('opens on Metadata and saves a new alias after resolving a cross-system confl
     vi.mocked(listSystemAliases).mockResolvedValue(
       result(
         page([
-          {
-            type: 'name',
-            value: 'PS1',
-          },
-          {
-            type: 'name',
-            value: 'Portable disc reference',
-          },
+          builtInAlias,
+          localAlias,
         ]),
       ),
     );
@@ -364,8 +369,73 @@ it('opens on Metadata and saves a new alias after resolving a cross-system confl
   });
 });
 
+it('removes a saved local alias and keeps protected aliases locked', async () => {
+  const unresolvedAlias = {
+    id: 'old-alias',
+    type: 'name',
+    value: 'Old name',
+    ownership: 'Unresolved',
+  };
+  vi.mocked(listSystemAliases).mockResolvedValue(
+    result(
+      page([
+        builtInAlias,
+        localAlias,
+        unresolvedAlias,
+      ]),
+    ),
+  );
+  vi.mocked(deleteSystemAlias).mockImplementation(async () => {
+    vi.mocked(listSystemAliases).mockResolvedValue(
+      result(
+        page([
+          builtInAlias,
+          unresolvedAlias,
+        ]),
+      ),
+    );
+    return result(undefined);
+  });
+  hub('/systems/psx');
+
+  const user = userEvent.setup();
+  const remove = await screen.findByRole('button', {
+    name: 'Remove alias Portable disc reference from this system',
+  });
+  expect(screen.getByTitle('Built-in alias')).toHaveTextContent('PS1');
+  expect(screen.getByTitle('Ownership unknown')).toHaveTextContent('Old name');
+  expect(
+    screen.getAllByRole('button', {
+      name: /Remove alias/,
+    }),
+  ).toEqual([
+    remove,
+  ]);
+
+  await user.click(remove);
+
+  expect(await screen.findByText('Alias removed.')).toBeVisible();
+  expect(screen.queryByText('Portable disc reference')).not.toBeInTheDocument();
+  expect(screen.getByTitle('Built-in alias')).toBeVisible();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+  expect(deleteSystemAlias).toHaveBeenCalledExactlyOnceWith({
+    path: {
+      systemKey: 'psx',
+      aliasId: 'local-alias',
+    },
+  });
+});
+
 it('shows metadata to users without reference edit permission', async () => {
   access.canEditReferenceData = false;
+  vi.mocked(listSystemAliases).mockResolvedValue(
+    result(
+      page([
+        builtInAlias,
+        localAlias,
+      ]),
+    ),
+  );
   hub('/systems/psx');
 
   const name = await screen.findByRole('textbox', {
@@ -383,7 +453,12 @@ it('shows metadata to users without reference edit permission', async () => {
       name: 'Save changes',
     }),
   ).not.toBeInTheDocument();
-  expect(await screen.findByText('Existing aliases')).toBeVisible();
+  expect(await screen.findByText('Portable disc reference')).toBeVisible();
+  expect(
+    screen.queryByRole('button', {
+      name: /Remove alias/,
+    }),
+  ).not.toBeInTheDocument();
 });
 
 it('defaults to tracked titles and keeps the all-title escape scoped to this system', async () => {

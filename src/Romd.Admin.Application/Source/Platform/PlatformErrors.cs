@@ -26,6 +26,9 @@ public static class PlatformErrors
     public static Error AliasNotFound() =>
         Error.NotFound("Platform.AliasNotFound", "The alias does not belong to this system");
 
+    public static Error AliasLocked() =>
+        Error.Conflict("Platform.AliasLocked", "Only locally added aliases can be removed.");
+
     public static Error InvalidAliasType(string type) =>
         Error.Validation("Platform.InvalidAliasType", $"Alias type must be 'name' or 'provider', got '{type}'");
 }

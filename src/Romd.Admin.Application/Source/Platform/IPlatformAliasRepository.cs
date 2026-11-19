@@ -27,9 +27,9 @@ public interface IPlatformAliasRepository
     Task<IStagedPlatformAliasCreation> AddStagedAsync(PlatformAlias alias, CancellationToken ct = default);
 
     /// <summary>
-    ///     Removes an alias by ID.
+    ///     Removes an installation-owned alias only from its owning platform.
     /// </summary>
-    Task RemoveAsync(int aliasId, CancellationToken ct = default);
+    Task<bool> RemoveInstallationOwnedAsync(int platformId, int aliasId, CancellationToken ct = default);
 
     /// <summary>
     ///     Checks whether a name alias with the given normalized value exists on any platform.

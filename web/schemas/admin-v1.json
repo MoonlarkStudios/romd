@@ -6617,7 +6617,7 @@
         "tags": [
           "Platforms"
         ],
-        "description": "Remove an alias from a platform",
+        "description": "Remove an installation-owned alias from its platform.",
         "operationId": "DeleteSystemAlias",
         "parameters": [
           {
@@ -6653,6 +6653,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -24736,7 +24746,8 @@
         "required": [
           "id",
           "type",
-          "value"
+          "value",
+          "ownership"
         ],
         "type": "object",
         "properties": {
@@ -24753,6 +24764,9 @@
             ]
           },
           "value": {
+            "type": "string"
+          },
+          "ownership": {
             "type": "string"
           }
         }

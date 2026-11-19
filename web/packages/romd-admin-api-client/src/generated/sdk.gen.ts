@@ -845,7 +845,7 @@ export const createSystemAlias = <ThrowOnError extends boolean = false>(options:
 });
 
 /**
- * Remove an alias from a platform
+ * Remove an installation-owned alias from its platform.
  */
 export const deleteSystemAlias = <ThrowOnError extends boolean = false>(options: Options<DeleteSystemAliasData, ThrowOnError>) => (options.client ?? client).delete<DeleteSystemAliasResponses, DeleteSystemAliasErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

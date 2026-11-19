@@ -1816,6 +1816,7 @@ export type PlatformAlias = {
     type: string;
     provider?: null | string;
     value: string;
+    ownership: string;
 };
 
 export type PlatformAssignment = {
@@ -6108,6 +6109,10 @@ export type DeleteSystemAliasErrors = {
      * Not Found
      */
     404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
 };
 
 export type DeleteSystemAliasError = DeleteSystemAliasErrors[keyof DeleteSystemAliasErrors];

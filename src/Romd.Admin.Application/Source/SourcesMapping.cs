@@ -198,7 +198,8 @@ public static class SourcesMapping
         Id = IdCoder.Encode(entity.Id),
         Type = entity.Type == Domain.Source.Platform.PlatformAliasType.Name ? "name" : "provider",
         Provider = entity.Provider,
-        Value = entity.Value
+        Value = entity.Value,
+        Ownership = entity.Ownership?.ToString() ?? "Unresolved"
     };
 
     /// <summary>

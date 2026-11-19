@@ -273,10 +273,34 @@ public class PlatformEndpointsTests : IDisposable
         createResponse.StatusCode.ShouldBe(HttpStatusCode.Created);
         using var created = JsonDocument.Parse(await createResponse.Content.ReadAsStringAsync());
         string aliasId = created.RootElement.GetProperty("id").GetString().ShouldNotBeNull();
+        created.RootElement.GetProperty("ownership").GetString().ShouldBe("Installation");
+        string aliasPath = $"/api/systems/{platformId}/aliases/{aliasId}";
+        string anotherSystem = platformId == "psx" ? "gba" : "psx";
 
-        var deleteResponse = await _client.DeleteAsync($"/api/systems/{platformId}/aliases/{aliasId}");
-
+        using var wrongSystem = await _client.DeleteAsync($"/api/systems/{anotherSystem}/aliases/{aliasId}");
+        wrongSystem.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        using var deleteResponse = await _client.DeleteAsync(aliasPath);
         deleteResponse.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        using var alreadyRemoved = await _client.DeleteAsync(aliasPath);
+        alreadyRemoved.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Theory]
+    [InlineData("name")]
+    [InlineData("provider")]
+    public async Task RemoveAlias_BuiltInOwnership_ReturnsConflictAndKeepsAlias(string type)
+    {
+        const string path = "/api/systems/psx/aliases";
+        var aliases = await ReadPage(_client, path);
+        var builtIn = aliases.GetProperty("items").EnumerateArray().First(alias =>
+            alias.GetProperty("type").GetString() == type && alias.GetProperty("ownership").GetString() == "Romd");
+        string id = builtIn.GetProperty("id").GetString().ShouldNotBeNull();
+
+        using var response = await _client.DeleteAsync($"{path}/{id}");
+
+        using var problem = await ProblemEnvelope.ReadAsync(response, 409, "Platform.AliasLocked");
+        var current = await ReadPage(_client, path);
+        current.GetProperty("items").EnumerateArray().ShouldContain(alias => alias.GetProperty("id").GetString() == id);
     }
 
     [Fact]

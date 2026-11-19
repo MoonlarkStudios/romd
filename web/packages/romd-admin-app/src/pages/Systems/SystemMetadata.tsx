@@ -1,15 +1,16 @@
 import { Alert, Button, Group, Skeleton, Stack, Text } from '@mantine/core';
-import type { ManagedSystemSetupDetails } from '@romd/admin-api-client';
-import { updateManagedSystemPresentation } from '@romd/admin-api-client';
-import { useMutation } from '@tanstack/react-query';
+import type { ManagedSystemSetupDetails, PlatformAlias } from '@romd/admin-api-client';
+import { deleteSystemAlias, updateManagedSystemPresentation } from '@romd/admin-api-client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import {
+  managedSystemKeys,
   useManagedSystemDetails,
   useRefreshSystemPresentation,
   useSystemNameAliasValidation,
 } from '../../hooks/api/useManagedSystems';
-import { usePlatformAliases } from '../../hooks/api/usePlatforms';
+import { platformKeys, usePlatformAliases } from '../../hooks/api/usePlatforms';
 import { usePermissions } from '../../hooks/usePermissions';
 import { SystemPresentationFields, validSystemPresentation } from './SystemPresentationFields';
 import {
@@ -25,6 +26,7 @@ type MetadataDraft = {
 };
 
 export function SystemMetadata({ systemKey }: { systemKey: string }) {
+  const client = useQueryClient();
   const { canEditReferenceData } = usePermissions();
   const details = useManagedSystemDetails(systemKey);
   const aliases = usePlatformAliases(systemKey);
@@ -70,6 +72,46 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
     },
   });
 
+  const remove = useMutation({
+    mutationFn: async (alias: PlatformAlias) => {
+      const response = await deleteSystemAlias({
+        path: {
+          systemKey,
+          aliasId: alias.id,
+        },
+      });
+      if (response.error)
+        throw new Error(response.error.detail || 'The alias could not be removed. Try again.');
+    },
+    onSuccess: async (_, alias) => {
+      const key = platformKeys.aliases(systemKey);
+      await client.cancelQueries({
+        queryKey: key,
+      });
+      client.setQueryData<PlatformAlias[]>(key, (current) =>
+        current?.filter((item) => item.id !== alias.id),
+      );
+      void client.invalidateQueries({
+        queryKey: managedSystemKeys.all,
+      });
+      await Promise.all([
+        client.invalidateQueries({
+          queryKey: key,
+        }),
+        client.invalidateQueries({
+          queryKey: managedSystemKeys.nameAliasPreview,
+        }),
+      ]);
+    },
+  });
+  const busy = save.isPending || remove.isPending;
+  const actionError = remove.error ?? save.error;
+  const confirmation = remove.isSuccess
+    ? 'Alias removed.'
+    : save.isSuccess
+      ? 'System details saved.'
+      : undefined;
+
   if (details.isPending) return <Skeleton height={200} />;
   if (details.isError) {
     return (
@@ -100,13 +142,21 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
         systemKey={current.system.key}
         hardwareEditable={canEditReferenceData && current.system.ownership === 'Installation'}
         manufacturers={current.system.manufacturers}
-        existingAliases={aliases.data
-          ?.filter((alias) => alias.type === 'name')
-          .map((alias) => alias.value)}
+        existingAliases={aliases.data?.filter((alias) => alias.type === 'name')}
+        onRemoveAlias={
+          canEditReferenceData
+            ? (alias) => {
+                if (busy) return;
+                save.reset();
+                remove.mutate(alias);
+              }
+            : undefined
+        }
         onChange={
           canEditReferenceData
             ? (next) => {
                 save.reset();
+                remove.reset();
                 setDraft({
                   value: next,
                   original: draft?.original ?? current,
@@ -115,7 +165,7 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
             : undefined
         }
         {...aliasFeedback}
-        disabled={save.isPending}
+        disabled={busy}
       />
       {aliases.isError && (
         <Alert
@@ -130,20 +180,20 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
           </Button>
         </Alert>
       )}
-      {save.isError && (
+      {actionError && (
         <Alert
           color="red"
           role="alert"
         >
-          {save.error.message}
+          {actionError.message}
         </Alert>
       )}
-      {save.isSuccess && (
+      {confirmation && (
         <Text
           component="output"
           size="sm"
         >
-          System details saved.
+          {confirmation}
         </Text>
       )}
       {canEditReferenceData && (
@@ -152,7 +202,7 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
             <Button
               variant="subtle"
               color="gray"
-              disabled={save.isPending}
+              disabled={busy}
               onClick={() => {
                 setDraft(undefined);
                 save.reset();
@@ -164,9 +214,13 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
           )}
           <Button
             {...workspaceActionProps}
-            disabled={!dirty || !validSystemPresentation(value) || !aliasesValid}
+            disabled={busy || !dirty || !validSystemPresentation(value) || !aliasesValid}
             loading={save.isPending}
-            onClick={() => draft && save.mutate(draft)}
+            onClick={() => {
+              if (!draft || busy) return;
+              remove.reset();
+              save.mutate(draft);
+            }}
           >
             Save changes
           </Button>

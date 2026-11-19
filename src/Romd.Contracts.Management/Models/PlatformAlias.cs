@@ -22,6 +22,11 @@ public sealed record PlatformAlias
     ///     The alias text, or the provider's external platform ID.
     /// </summary>
     public required string Value { get; init; }
+
+    /// <summary>
+    ///     Alias ownership: Romd, Installation, or Unresolved.
+    /// </summary>
+    public required string Ownership { get; init; }
 }
 
 /// <summary>

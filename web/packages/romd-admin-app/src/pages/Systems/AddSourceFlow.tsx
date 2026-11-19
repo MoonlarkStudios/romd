@@ -806,9 +806,7 @@ export function AddSourceFlow({
                 value={knownDraft ?? presentationValues(details)}
                 hardwareEditable={details.system.ownership === 'Installation'}
                 manufacturers={details.system.manufacturers}
-                existingAliases={platformAliases.data
-                  ?.filter((alias) => alias.type === 'name')
-                  .map((alias) => alias.value)}
+                existingAliases={platformAliases.data?.filter((alias) => alias.type === 'name')}
                 onChange={(value) =>
                   setKnownDraft({
                     ...value,

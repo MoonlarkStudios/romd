@@ -4,6 +4,7 @@ using Romd.Domain.Source.Platform;
 using Romd.Application.Common.Pagination;
 using System.Globalization;
 using Romd.Persistence.Entities;
+using Romd.Domain.ReferenceData;
 
 namespace Romd.Persistence.Repositories;
 
@@ -66,12 +67,10 @@ public sealed class PlatformAliasRepository : IPlatformAliasRepository
             : throw new InvalidOperationException("Flush staged alias creation before reading its identity.");
     }
 
-    public async Task RemoveAsync(int aliasId, CancellationToken ct = default)
-    {
+    public async Task<bool> RemoveInstallationOwnedAsync(int platformId, int aliasId, CancellationToken ct = default) =>
         await _context.PlatformAliases
-            .Where(a => a.Id == aliasId)
-            .ExecuteDeleteAsync(ct);
-    }
+            .Where(a => a.Id == aliasId && a.PlatformId == platformId && a.Ownership == ReferenceOwnership.Installation)
+            .ExecuteDeleteAsync(ct) == 1;
 
     public async Task<bool> NameAliasExistsAsync(string normalizedValue, CancellationToken ct = default) =>
         await _context.PlatformAliases
