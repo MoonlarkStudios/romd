@@ -42,11 +42,17 @@
 .numberCell, .importDateCell { font-size: var(--mantine-font-size-sm); font-variant-numeric: tabular-nums; }
 .table[data-catalog='inline'] .nameColumn { width: 61%; }
 .table[data-catalog='inline'] .updatesColumn { width: 39%; }
+.systemCell {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+}
+.previewAction { flex-shrink: 0; }
 .systemIdentity {
   display: flex;
   align-items: center;
   gap: var(--mantine-spacing-xs);
-  width: 100%;
+  flex: 1;
   min-width: 0;
   min-height: 44px;
   color: inherit;
@@ -54,7 +60,7 @@
   text-decoration: none;
 }
 .systemIdentity:focus-visible { outline: 2px solid var(--romd-portal-accent); outline-offset: 1px; }
-.systemIdentity:hover .systemName { text-decoration: underline; }
+.systemIdentity:is(:hover, :focus-visible) .systemName { text-decoration: underline; }
 .systemLabels { display: grid; min-width: 0; }
 .catalogStatus {
   display: flex;

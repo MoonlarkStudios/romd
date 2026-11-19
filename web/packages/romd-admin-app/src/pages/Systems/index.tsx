@@ -1,4 +1,5 @@
 import {
+  ActionIcon,
   Alert,
   Button,
   Checkbox,
@@ -8,10 +9,9 @@ import {
   Text,
   TextInput,
   Title,
-  UnstyledButton,
 } from '@mantine/core';
 import { useDebouncedValue, useElementSize } from '@mantine/hooks';
-import { IconPlus, IconSearch, IconUpload } from '@tabler/icons-react';
+import { IconLayoutSidebarRight, IconPlus, IconSearch, IconUpload } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
@@ -415,17 +415,7 @@ export function Systems() {
                             data-selected={isSelected || undefined}
                           >
                             <td>
-                              {showInspector ? (
-                                <UnstyledButton
-                                  className={classes.systemIdentity}
-                                  aria-label={system.name}
-                                  aria-pressed={isSelected}
-                                  aria-controls={systemInspectorId}
-                                  onClick={() => changeFilter('system', system.key)}
-                                >
-                                  {identity}
-                                </UnstyledButton>
-                              ) : (
+                              <div className={classes.systemCell}>
                                 <Link
                                   className={classes.systemIdentity}
                                   aria-label={system.name}
@@ -435,7 +425,25 @@ export function Systems() {
                                 >
                                   {identity}
                                 </Link>
-                              )}
+                                {showInspector && (
+                                  <ActionIcon
+                                    className={classes.previewAction}
+                                    aria-label={`Preview ${system.name} in sidebar`}
+                                    title="Preview in sidebar"
+                                    aria-pressed={isSelected}
+                                    aria-controls={systemInspectorId}
+                                    color={isSelected ? 'teal' : 'gray'}
+                                    variant={isSelected ? 'light' : 'subtle'}
+                                    size="lg"
+                                    onClick={() => changeFilter('system', system.key)}
+                                  >
+                                    <IconLayoutSidebarRight
+                                      size={18}
+                                      aria-hidden="true"
+                                    />
+                                  </ActionIcon>
+                                )}
+                              </div>
                               {inlineCatalog && (
                                 <div className={classes.inlineCatalog}>{availability}</div>
                               )}

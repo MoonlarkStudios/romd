@@ -437,8 +437,13 @@ it('loads only the selected wide-workspace catalog and keeps a focused action be
     }),
   ).toHaveAttribute('href', '/systems/psx?tab=sources');
   expect(listSystemDats).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole('link', {
+      name: 'Game Boy Advance',
+    }),
+  ).toHaveAttribute('href', '/systems/gba?tab=sources');
   const selectOther = screen.getByRole('button', {
-    name: 'Game Boy Advance',
+    name: 'Preview Game Boy Advance in sidebar',
   });
   await userEvent.click(selectOther);
   expect(selectOther).toHaveAttribute('aria-pressed', 'true');
@@ -497,10 +502,19 @@ function DetailDestination() {
 }
 
 it.each([
-  'All systems',
-  'Browser back',
-])('restores filters and scroll after %s', async (back) => {
-  workspace.width = 480;
+  {
+    width: 480,
+    back: 'Browser back',
+  },
+  {
+    width: 1100,
+    back: 'All systems',
+  },
+])('opens a system from its name at $width px and restores the list via $back', async ({
+  width,
+  back,
+}) => {
+  workspace.width = width;
   vi.stubGlobal('scrollY', 240);
   const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   vi.mocked(listDatSubscriptions).mockResolvedValue({
@@ -531,11 +545,7 @@ it.each([
   const playStation = await screen.findByRole('link', {
     name: 'PlayStation',
   });
-  expect(
-    screen.queryByRole('columnheader', {
-      name: 'Catalog',
-    }),
-  ).not.toBeInTheDocument();
+  expect(playStation).toHaveAttribute('href', '/systems/psx?tab=sources');
   await userEvent.click(playStation);
   expect(
     screen.getByRole('link', {
