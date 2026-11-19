@@ -43,13 +43,8 @@ def finding(package='picomatch', version='4.0.7', advisory=ADVISORY, rating='HIG
 
 
 class AdvisoryExceptionTests(unittest.TestCase):
-    def test_committed_exception_is_the_one_reviewed_entry(self):
-        committed = exceptions.load()
-        self.assertEqual([(ADVISORY, 'picomatch', '4.0.7', '2026-12-01T00:00:00Z')],
-                         [(item['advisory'], item['package'], item['version'], item['expiresAt']) for item in committed])
-        self.assertEqual(['@vitejs/plugin-react', '@vitest/coverage-v8', 'vite', 'vitest'], committed[0]['developmentRoots'])
-        self.assertEqual('https://github.com/micromatch/picomatch/issues/234', committed[0]['tracking'])
-        self.assertTrue(committed[0]['owner'].strip())
+    def test_committed_exception_list_is_empty(self):
+        self.assertEqual([], exceptions.load())
 
     def test_development_only_package_is_excepted_and_stays_in_the_report(self):
         findings = exceptions.apply([finding()], lock(), [entry()], NOW)

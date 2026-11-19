@@ -94,8 +94,10 @@ worktree isolation, `dev:status`, shutdown and `dev:smoke` qualification;
 [demo setup](docs/development/demo-data.md) owns the ignored `.demo/` workspace.
 Agent constraints:
 
-- Use one worktree per concurrent task. Never use global process kills,
-  `db:down`, resets or volume pruning as task cleanup.
+- Use one disk-backed worktree per concurrent task. Prefer sibling worktrees
+  and follow the [placement procedure](docs/development/getting-started.md#worktree-placement).
+  Never use global process kills, `db:down`, resets or volume pruning as task
+  cleanup.
 - Commit development-runner or demo-tooling changes, then run
   `mise run dev:smoke` (it tests committed HEAD); keep its evidence private.
 - Never commit private ROMs, BIOS, inventory, credentials or raw evidence.

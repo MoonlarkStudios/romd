@@ -284,8 +284,23 @@ def private_text(path, value):
         target.write(value)
 
 
+def resolve_worktree_parent(root, override, environment):
+    entries = manage.call(['git', 'worktree', 'list', '--porcelain', '-z'],
+                          cwd=root, env=environment, capture=True)
+    checkouts = [Path(entry.removeprefix('worktree ')).resolve()
+                 for entry in entries.split('\0') if entry.startswith('worktree ')]
+    primary = checkouts[0]
+    parent = (override or primary.with_name(f'{primary.name}-worktrees')).resolve()
+    require(not any(parent.is_relative_to(checkout) for checkout in checkouts),
+            'Smoke worktree parent must be outside every checkout for this repository. '
+            'Select a disk-backed directory with --worktree-parent.')
+    parent.mkdir(parents=True, exist_ok=True)
+    return parent
+
+
 class Qualification:
-    def __init__(self, root, evidence, parallel=False, timeout=900, demo=False, demo_workspace=None):
+    def __init__(self, root, evidence, parallel=False, timeout=900, demo=False, demo_workspace=None,
+                 *, worktree_parent=None):
         self.root, self.evidence, self.parallel, self.timeout = root, evidence, parallel, timeout
         self.demo, self.demo_workspace = demo, demo_workspace
         environment = isolated_environment(os.environ)
@@ -295,7 +310,8 @@ class Qualification:
         self.environment = self.runtime.child_environment()
         self.compose = self.runtime.compose_command('-p', self.project, '-f', str(root / 'compose.db.yaml'))
         info = self.runtime.info()
-        self.workspace = Path(tempfile.mkdtemp(prefix='romd-source-smoke-')).resolve()
+        parent = resolve_worktree_parent(root, worktree_parent, self.environment)
+        self.workspace = Path(tempfile.mkdtemp(prefix='romd-source-smoke-', dir=parent))
         self.worktrees, self.stacks = [], []
         self.database_started = False
         self.results = {'schemaVersion': 1, 'project': self.project, 'workspace': str(self.workspace),
@@ -618,6 +634,8 @@ def main():
     parser.add_argument('--demo-workspace', type=Path, help='With --demo, copy and qualify a prepared .demo manifest twice')
     parser.add_argument('--timeout', type=int, default=900, help='Maximum seconds per setup/lifecycle phase')
     parser.add_argument('--evidence-parent', type=Path, default=manage.ROOT / '.artifacts/dev-smoke')
+    parser.add_argument('--worktree-parent', type=Path,
+                        help='Disk-backed directory outside the registered checkouts (default: beside the primary checkout)')
     args = parser.parse_args()
     require(args.timeout > 0, '--timeout must be positive.')
     require(not args.demo_workspace or args.demo, '--demo-workspace requires --demo.')
@@ -628,7 +646,8 @@ def main():
         raise KeyboardInterrupt
     previous = {number: signal.signal(number, interrupted) for number in manage.SHUTDOWN_SIGNALS}
     try:
-        Qualification(manage.ROOT, evidence, args.parallel, args.timeout, args.demo, args.demo_workspace).run()
+        Qualification(manage.ROOT, evidence, args.parallel, args.timeout, args.demo, args.demo_workspace,
+                      worktree_parent=args.worktree_parent).run()
     finally:
         for number, handler in previous.items():
             signal.signal(number, handler)
