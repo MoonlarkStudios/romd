@@ -1,0 +1,189 @@
+.systemChoices {
+  max-block-size: min(44dvh, 340px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.systemChoice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  inline-size: 100%;
+  min-block-size: 48px;
+  padding: var(--mantine-spacing-xs);
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  border-block-end: 1px solid var(--romd-portal-border);
+}
+
+.systemChoice:last-child {
+  border-block-end-color: transparent;
+}
+
+.systemChoice[aria-pressed='true'] {
+  background: var(--mantine-primary-color-light);
+}
+
+.systemChoice:focus-visible {
+  outline: 2px solid var(--romd-portal-accent);
+  outline-offset: -2px;
+}
+
+.systemChoice:disabled {
+  opacity: 0.55;
+}
+
+@media (hover: hover) {
+  .systemChoice:not(:disabled):hover {
+    background: var(--romd-portal-overlay);
+  }
+}
+
+.choiceLabel {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.catalogChoice {
+  padding: var(--mantine-spacing-sm);
+  min-block-size: 44px;
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-sm);
+}
+
+.catalogChoice:has(input:checked) {
+  background: var(--mantine-primary-color-light);
+  border-color: var(--romd-portal-accent);
+}
+
+.catalogChoice:has(input:focus-visible) {
+  outline: 2px solid var(--romd-portal-accent);
+  outline-offset: 2px;
+}
+
+.presentation {
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-md);
+}
+
+.setupDialog {
+  --setup-inset: var(--mantine-spacing-xl);
+  border: 1px solid var(--romd-portal-border);
+}
+
+.setupHeader {
+  padding: var(--mantine-spacing-md) var(--setup-inset);
+  background: var(--romd-portal-bg);
+  border-bottom: 1px solid var(--romd-portal-border);
+}
+
+.headingIcon {
+  display: grid;
+  place-items: center;
+  inline-size: 42px;
+  block-size: 42px;
+  color: var(--romd-portal-accent);
+  background: var(--mantine-primary-color-light);
+  border-radius: var(--mantine-radius-md);
+}
+
+.setupBody {
+  padding: var(--mantine-spacing-md) var(--setup-inset) 0;
+}
+
+.setupBody:not(:has(.setupFooter)) {
+  padding-bottom: var(--mantine-spacing-md);
+}
+
+.setupMode {
+  padding: 3px;
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-md);
+}
+
+.setupMode button {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  color: var(--romd-portal-text);
+}
+
+.setupMode button[aria-pressed='true'] {
+  color: var(--romd-portal-accent);
+  background: var(--mantine-primary-color-light);
+  box-shadow: inset 0 0 0 1px var(--romd-portal-accent);
+}
+
+.setupColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--mantine-spacing-lg);
+}
+
+.setupDetails {
+  min-inline-size: 0;
+}
+
+.selectedPlatform,
+.catalogPanel {
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--romd-portal-surface);
+}
+
+.platformLabel {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.changeSystem {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+
+.catalogPanel > :first-child {
+  margin-block: 0;
+}
+
+.catalogPanel svg {
+  flex-shrink: 0;
+}
+
+.catalogWarning {
+  padding: var(--mantine-spacing-xs);
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--romd-portal-overlay);
+}
+
+.catalogWarning > svg {
+  color: var(--mantine-color-yellow-text);
+}
+
+.setupFooter {
+  grid-column: 1 / -1;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin-inline: calc(-1 * var(--setup-inset));
+  padding: var(--mantine-spacing-sm) var(--setup-inset);
+  border-block-start: 1px solid var(--romd-portal-border);
+  background: var(--romd-portal-bg);
+}
+
+.setupStack {
+  display: grid;
+  gap: var(--mantine-spacing-md);
+}
+
+@media (max-width: 48em) {
+  .setupDialog {
+    --setup-inset: var(--mantine-spacing-md);
+  }
+
+  .setupColumns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--mantine-spacing-md);
+  }
+}

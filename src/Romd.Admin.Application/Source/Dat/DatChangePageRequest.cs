@@ -20,12 +20,13 @@ public sealed class DatChangePageRequest
     public const int MaxLimit = 50;
     public const int MaxQueryLength = 200;
 
-    public const string ChangePattern = "^(?:Added|Removed|Changed)$";
+    public const string ChangePattern = "^(?:Added|Removed|Changed|NeedsReview|RemovedStored|RemovedLinked|Sha1Changed|LostMatches|NewMatches|MetadataOnly|OtherChecksumOnly)$";
     private const int MaxCursorLength = 8192;
     private const string EntrySort = "name:asc";
     private const string FileSort = "kind-name:asc";
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-    private static readonly string[] ChangeKinds = ["Added", "Removed", "Changed"];
+    private static readonly string[] ChangeKinds = ["Added", "Removed", "Changed", "NeedsReview", "RemovedStored",
+        "RemovedLinked", "Sha1Changed", "LostMatches", "NewMatches", "MetadataOnly", "OtherChecksumOnly"];
 
     private readonly string _sort;
     private readonly byte[] _scope;
@@ -59,7 +60,7 @@ public sealed class DatChangePageRequest
     {
         List<Error> errors = [];
         if (change is not null && !ChangeKinds.Contains(change, StringComparer.Ordinal))
-            errors.Add(Invalid("DatReview.InvalidChange", "change", "Use Added, Removed or Changed, or omit the change filter."));
+            errors.Add(Invalid("DatReview.InvalidChange", "change", "Choose a supported review filter or omit the change filter."));
         if (query?.Length > MaxQueryLength)
             errors.Add(Invalid("DatReview.InvalidQuery", "query", $"The query must be at most {MaxQueryLength} characters."));
         string? trimmed = string.IsNullOrWhiteSpace(query) ? null : query.Trim();
@@ -71,8 +72,20 @@ public sealed class DatChangePageRequest
         string entryName, string? cursor, int? limit) =>
         Create(activeSha256, candidateSha256, change: null, query: null, entryName, FileSort, cursor, limit, []);
 
-    public bool Matches(string name, string change) =>
-        (Change is null || Change == change) && (Query is null || name.Contains(Query, StringComparison.OrdinalIgnoreCase));
+    public bool Matches(DatEntryChange item) =>
+        (Query is null || item.Name.Contains(Query, StringComparison.OrdinalIgnoreCase)) && (Change switch
+        {
+            null => true,
+            "NeedsReview" => item.Impact?.NeedsReview == true,
+            "RemovedStored" => item.Change == "Removed" && item.Impact is { StoredRoms: > 0 },
+            "RemovedLinked" => item.Change == "Removed" && item.Impact?.TitleLinkAtRisk == true,
+            "Sha1Changed" => item.Impact is { Sha1ChangedFiles: > 0 },
+            "LostMatches" => item.Impact is { LostRomMatches: > 0 },
+            "NewMatches" => item.Impact is { NewRomMatches: > 0 },
+            "MetadataOnly" => item.Impact?.MetadataOnly == true,
+            "OtherChecksumOnly" => item.Impact?.OtherChecksumOnly == true,
+            _ => Change == item.Change
+        });
 
     /// <summary>Takes the page from an ordered sequence, reading one extra item to decide whether another page follows.</summary>
     public PagedList<T> Page<T>(IEnumerable<T> ordered, Func<T, string> key)

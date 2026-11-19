@@ -1,3 +1,5 @@
+using Romd.Domain.ReferenceData;
+
 namespace Romd.Domain.Source.Platform;
 
 /// <summary>
@@ -19,7 +21,7 @@ public enum PlatformAliasType
 }
 
 /// <summary>
-///     A user-manageable alias attached to a platform. Name aliases route
+///     An alias attached to a platform. Name aliases route
 ///     uploaded DATs to their platform by header name; provider mappings
 ///     translate a platform to an external metadata provider's own ID space.
 /// </summary>
@@ -32,7 +34,8 @@ public sealed class PlatformAlias
         string value,
         string normalizedValue,
         string? provider,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        ReferenceOwnership? ownership)
     {
         Id = id;
         PlatformId = platformId;
@@ -41,6 +44,7 @@ public sealed class PlatformAlias
         NormalizedValue = normalizedValue;
         Provider = provider;
         CreatedAt = createdAt;
+        Ownership = ownership;
     }
 
     public int Id { get; private set; }
@@ -74,6 +78,8 @@ public sealed class PlatformAlias
     /// </summary>
     public DateTimeOffset CreatedAt { get; private set; }
 
+    public ReferenceOwnership? Ownership { get; }
+
     /// <summary>
     ///     Creates a name alias for a platform.
     /// </summary>
@@ -91,7 +97,8 @@ public sealed class PlatformAlias
             trimmed,
             PlatformNameNormalizer.Normalize(trimmed),
             null,
-            now);
+            now,
+            ReferenceOwnership.Installation);
     }
 
     /// <summary>
@@ -112,7 +119,8 @@ public sealed class PlatformAlias
             trimmedId,
             PlatformNameNormalizer.Normalize(trimmedId),
             provider.Trim().ToLowerInvariant(),
-            now);
+            now,
+            ReferenceOwnership.Installation);
     }
 
     /// <summary>
@@ -125,6 +133,7 @@ public sealed class PlatformAlias
         string value,
         string normalizedValue,
         string? provider,
-        DateTimeOffset createdAt) =>
-        new(id, platformId, type, value, normalizedValue, provider, createdAt);
+        DateTimeOffset createdAt,
+        ReferenceOwnership? ownership) =>
+        new(id, platformId, type, value, normalizedValue, provider, createdAt, ownership);
 }

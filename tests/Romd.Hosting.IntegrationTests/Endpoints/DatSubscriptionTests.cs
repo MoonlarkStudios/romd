@@ -134,6 +134,15 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
             next.Items.Single().Name.ShouldBe("Enrollment Undumped");
             next.HasNextPage.ShouldBeFalse();
         }
+        string countUrl = $"/api/dat-subscriptions/{subscription.Id}/change-count" +
+            $"?activeSha256={first.ActiveSha256}&candidateSha256={first.CandidateSha256}&change=Added";
+        var countResponse = await client.GetAsync(countUrl);
+        countResponse.StatusCode.ShouldBe(HttpStatusCode.OK, await countResponse.Content.ReadAsStringAsync());
+        (await countResponse.Content.ReadFromJsonAsync<Models.DatChangeCount>())!.Total.ShouldBe(initialCount);
+        var filteredCount = await client.GetFromJsonAsync<Models.DatChangeCount>($"{countUrl}&query=One");
+        filteredCount!.Total.ShouldBe(1);
+        var staleCount = await client.GetAsync(countUrl.Replace(first.CandidateSha256, new string('0', 64), StringComparison.Ordinal));
+        (await ProblemAsync(staleCount, HttpStatusCode.Conflict)).GetProperty("errorCode").GetString().ShouldBe("DatEnrollment.Stale");
         var stale = await client.GetAsync(Changes(subscription.Id, null,
             ("activeSha256", first.ActiveSha256), ("candidateSha256", new string('0', 64))));
         (await ProblemAsync(stale, HttpStatusCode.Conflict)).GetProperty("errorCode").GetString().ShouldBe("DatEnrollment.Stale");
@@ -320,6 +329,18 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
         second.Items.Single().Name.ShouldBe("Paging Gamma");
         second.HasNextPage.ShouldBeFalse();
         second.NextCursor.ShouldBeNull();
+        string countUrl = $"/api/dats/{datId}/replacements/change-count/preview";
+        using var countForm = Form();
+        var countResponse = await client.PostAsync(countUrl, countForm);
+        countResponse.StatusCode.ShouldBe(HttpStatusCode.OK, await countResponse.Content.ReadAsStringAsync());
+        (await countResponse.Content.ReadFromJsonAsync<Models.DatChangeCount>())!.Total.ShouldBe(2);
+        using var filteredCountForm = Form(query: "Gamma");
+        var filteredResponse = await client.PostAsync(countUrl, filteredCountForm);
+        filteredResponse.StatusCode.ShouldBe(HttpStatusCode.OK, await filteredResponse.Content.ReadAsStringAsync());
+        (await filteredResponse.Content.ReadFromJsonAsync<Models.DatChangeCount>())!.Total.ShouldBe(1);
+        using var staleCountForm = Form(candidateSha256: new string('0', 64));
+        (await ProblemAsync(await client.PostAsync(countUrl, staleCountForm), HttpStatusCode.Conflict))
+            .GetProperty("errorCode").GetString().ShouldBe("DatReview.Stale");
         // A cursor is bound to its filters; one from another filter set is invalid input.
         using var foreignForm = Form(first.NextCursor, query: "Gamma");
         ErrorFields(await ProblemAsync(await client.PostAsync($"/api/dats/{datId}/replacements/changes", foreignForm), HttpStatusCode.BadRequest))
@@ -416,7 +437,7 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
             .Where(endpoint => AuthorizationInventory.RoutePatternOf(endpoint) is var route
                 && (route.StartsWith("/api/dat-subscriptions", StringComparison.Ordinal) || route == "/api/dat-catalogs"))
             .ToArray();
-        routes.Length.ShouldBe(10);
+        routes.Length.ShouldBe(11);
         routes.ShouldAllBe(endpoint => endpoint.Metadata.GetOrderedMetadata<IAuthorizeData>()
             .Any(data => data.Policy == AuthorizationPolicies.RequireAdmin));
     }

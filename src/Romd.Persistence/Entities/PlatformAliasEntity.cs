@@ -64,7 +64,8 @@ public sealed class PlatformAliasEntity : EntityBase, ICreatableEntity
             Value,
             NormalizedValue,
             Provider,
-            CreatedAt);
+            CreatedAt,
+            Ownership);
     }
 
     public static PlatformAliasEntity FromDomain(PlatformAlias domain)
@@ -77,7 +78,8 @@ public sealed class PlatformAliasEntity : EntityBase, ICreatableEntity
             Value = domain.Value,
             NormalizedValue = domain.NormalizedValue,
             Provider = domain.Provider,
-            CreatedAt = domain.CreatedAt
+            CreatedAt = domain.CreatedAt,
+            Ownership = domain.Ownership
         };
     }
 }

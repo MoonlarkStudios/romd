@@ -4,21 +4,70 @@ A system is a local collection choice. A catalog source contributes definitions 
 that system; its DAT is an installed document version. A subscription is one way
 to update a source. Multiple manual and subscribed sources can coexist.
 
-**Add system** searches supported identities and aliases on the server, then
-immediately adds or restores the system and opens its home. Adding a source is optional. Shared
-reference updates add picker choices without enabling them.
+**Systems** shows the installed catalog and source update status separately.
+**Known titles** matches the system's **All titles** view. **DATs** counts installed
+documents, one current version per source, including disabled sources. **Last DAT
+import** is the newest import date among those versions.
+Use **Needs attention** to find systems that need a first DAT, catalog work, or
+an update review or retry. On wide layouts, select a system to see its catalog
+and next action beside the list. On narrower layouts, open the system directly.
+Returning to Systems restores the list filters and selection.
 
-**Catalog sources** lists each installed source's version, lifecycle, entry/file
-counts, update method, and actions. Counts describe that source and may overlap;
-they are not added together as a unique game total. Pending subscriptions appear
-before their first document is installed. Subscription matching uses the active
-DAT identity, never the first subscription on a system.
+Opening a system shows **Metadata** first. Administrators can edit the display
+name and description. In **Aliases**, type a name after the badges and press
+Enter. New aliases appear alongside saved ones. Choose **Save changes** to keep
+new aliases. The remove control on a saved local alias removes it immediately.
+Built-in aliases and aliases of unknown ownership are locked.
 
-**Add source** opens a side panel (full width on narrow screens) offering verified
-subscriptions and manual DAT upload. Existing subscriptions are marked connected.
-A compatible manual source is connected from its own management panel so that
-source selection is explicit. Manual upload also works from Your systems: inspect
-the DAT, suggest a matching system, and require confirmation when ambiguous.
+Custom systems also allow edits to manufacturers and hardware facts. The system
+key stays fixed. An alias belongs to one system, with case and repeated spaces
+ignored.
+
+Known systems start with a paragraph from the ROMD catalog. Edit it or use
+**Clear description**, then choose **Save changes**. Clearing it keeps it
+blank across catalog updates. **Restore default** returns the description to
+ROMD's current wording while keeping edits to other fields.
+
+**Add system** searches names and aliases on the server. Choose a system and its
+first DAT in the same flow. For a known system, review its details and make
+any edits before continuing to DAT options. ROMD uses the fixed system key to match
+verified subscriptions. Built-in manufacturers, category, generation, release year,
+and existing aliases are shown with the system details. Built-in hardware facts
+are fixed. You can add name aliases for matching DAT headers. If an alias is
+already registered, ROMD shows which system uses it. Case and repeated spaces
+do not distinguish aliases.
+
+Choose **Custom system** for a system outside the reference catalog. Custom
+systems get a suggested system key with a fixed `local-` prefix. You can edit
+the part after the prefix before creation. You can select
+registered manufacturers, enter optional hardware facts, and add aliases.
+They use manual DATs. Release year means the first public hardware release.
+Unknown facts are left blank. Release histories include
+[Sony Interactive Entertainment](https://sonyinteractive.com/en/our-company/expanded-company-timeline/),
+[Nintendo](https://www.nintendo.co.jp/corporate/en/history/index.html),
+[Sega](https://www.sega.co.jp/en/company/history/), and the
+[Atari collection at The Strong](https://museumofplay.org/app/uploads/2021/09/Finding-Aid-to-the-Cort-and-Barbara-Allen-Atari-packaging-design-collection_053018.pdf).
+
+ROMD offers verified subscriptions from the signed
+directory, with a choice when formats differ. You can also **Upload a DAT** or
+choose **Add without a DAT** and return to **Catalog sources** later. A candidate
+waits for review before import. If you close setup after a subscription is
+created, continue from its row under **Catalog sources**. Restoring a system
+keeps its sources and subscriptions. Shared reference updates add picker choices
+without enabling them.
+
+**Catalog sources** shows the installed version, DAT entry count, source status,
+and update method. Entry counts describe a source and may overlap across sources.
+Rows with updates to review, checks to retry, or imports in progress appear first.
+Pending subscriptions appear before their first document is installed.
+
+Choose **Add first DAT** or **Add source** to pick a verified subscription or
+upload a DAT. For a compatible installed source, choose **Connect subscription**
+on its row. ROMD binds the chosen source explicitly. To replace a manual DAT,
+choose **Upload new version** on its row or open that action from its menu.
+Managers can replace manual DATs. Administrators manage subscriptions and add
+new sources. If the publisher directory is unavailable, manual replacements and
+saved subscription reviews remain available through their existing validation.
 
 Every manual add is reviewed and hash-bound. Matching names offer an explicit
 choice between updating a manual source and adding a separate source; display
@@ -41,7 +90,7 @@ A subscription can be switched to **Manual updates** after confirmation. Only
 subscription tracking and its pending selection are detached; installed sources,
 DATs, stored files, and completed jobs remain. The operation uses catalog/source
 locks and rejects running imports. A compatible source can be connected again
-through **Use subscription**. The worker checks subscribed sources daily and
+through **Connect subscription**. The worker checks subscribed sources daily and
 prepares updates for review; activation always requires approval. A pending review
 holds its exact candidate until the administrator approves it or explicitly checks
 again. The source shows the last check, next scheduled check, and any failure.

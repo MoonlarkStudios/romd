@@ -127,6 +127,13 @@ public static class DatEndpoints
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict)
             .WithMetadata(new RequestSizeLimitAttribute(34 * 1024 * 1024))
             .DisableAntiforgery().RequireAuthorization(AuthorizationPolicies.RequireManager);
+        group.MapPost("{datId}/replacements/change-count/preview", ReplacementChangeCount)
+            .WithName("PreviewDatReplacementChangeCount")
+            .WithDescription(ChangeCountDescription + " The request resends the reviewed candidate file. " + SnapshotBindingDescription)
+            .Produces<Models.DatChangeCount>()
+            .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict)
+            .WithMetadata(new RequestSizeLimitAttribute(34 * 1024 * 1024))
+            .DisableAntiforgery().RequireAuthorization(AuthorizationPolicies.RequireManager);
         group.MapPost("{datId}/replacements/changes/{entryId}", ReplacementEntryChange)
             .WithName("GetDatReplacementChange")
             .WithDescription(EntryChangeDescription + " The request resends the reviewed candidate file. " + SnapshotBindingDescription)
@@ -280,7 +287,7 @@ public static class DatEndpoints
         if (file is null || file.Length == 0)
             return ProblemResults.ValidationProblem("DatReview.FileRequired", "file", "Choose a non-empty DAT document.");
         await using var stream = file.OpenReadStream();
-        var result = await review.PreviewAsync(datId.Value, stream, ct);
+        var result = await review.PreviewWithImpactAsync(datId.Value, "", stream, ct);
         return result.Match(p => Results.Ok(ReviewContract(p)), errors => errors.ToProblem());
     }
 
@@ -299,6 +306,22 @@ public static class DatEndpoints
         return result.Match(value => Results.Ok(ChangesContract(value)), errors => errors.ToProblem());
     }
 
+    private static async Task<IResult> ReplacementChangeCount(Sqid datId, [FromForm] IFormFile? file,
+        [FromForm, RegularExpression(DatReviewPins.ActivePattern)] string activeSha256,
+        [FromForm, RegularExpression(DatReviewPins.CandidatePattern), Length(DatReviewPins.HashLength, DatReviewPins.HashLength)] string candidateSha256,
+        [FromForm, RegularExpression(DatChangePageRequest.ChangePattern)] string? change,
+        [FromForm, MaxLength(DatChangePageRequest.MaxQueryLength)] string? query, IDatReplacementReview review, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return ProblemResults.ValidationProblem("DatReview.FileRequired", "file", "Choose a non-empty DAT document.");
+        var filters = DatChangePageRequest.ForEntries(activeSha256, candidateSha256, change, query, cursor: null, limit: null);
+        if (filters.IsError)
+            return filters.Errors.ToProblem(InvalidChangeRequest);
+        await using var stream = file.OpenReadStream();
+        var result = await review.CountChangesAsync(datId.Value, "", stream, filters.Value, ct);
+        return result.Match(total => Results.Ok(new Models.DatChangeCount(total)), errors => errors.ToProblem());
+    }
+
     private static async Task<IResult> ReplacementEntryChange(Sqid datId, string entryId, [FromForm] IFormFile? file,
         [FromForm, RegularExpression(DatReviewPins.ActivePattern)] string activeSha256, [FromForm, RegularExpression(DatReviewPins.CandidatePattern), Length(DatReviewPins.HashLength, DatReviewPins.HashLength)] string candidateSha256, [FromForm] string? cursor,
         [FromForm, Range(1, DatChangePageRequest.MaxLimit)] int? limit, IDatReplacementReview review, CancellationToken ct)
@@ -314,7 +337,8 @@ public static class DatEndpoints
     }
 
     internal const string ChangesDescription = "A keyset page of the review's changed entries in ordinal name order, " +
-        "filtered by change kind and a case-insensitive name query. The cursor is bound to the reviewed pair and filters.";
+        "filtered by change or impact and a case-insensitive name query. The cursor is bound to the reviewed pair and filters.";
+    internal const string ChangeCountDescription = "Counts the reviewed changes matching the same filters as the change list, across all pages.";
     internal const string EntryChangeDescription = "One changed entry of the review, with a keyset page of its changed " +
         "files. entryId is the opaque id from the change list; an unknown or unchanged entry is a 404.";
     internal const string SnapshotBindingDescription = "activeSha256 and candidateSha256 are a snapshot binding of the " +
@@ -349,13 +373,28 @@ public static class DatEndpoints
         DatEntryId.Encode(value.Name), value.Name, value.Change, value.Fields.Select(Field).ToArray(),
         new CommonModels.Page<Models.DatFileChange>
         {
-            Items = value.Files.Items.Select(x => new Models.DatFileChange(x.Name, x.Kind, x.Change, x.ChecksumsChanged, x.Fields.Select(Field).ToArray())).ToArray(),
+            Items = value.Files.Items.Select(FileChangeContract).ToArray(),
             NextCursor = value.Files.NextCursor,
             HasNextPage = value.Files.HasNextPage
-        }, value.ActiveSha256, value.CandidateSha256);
+        }, value.ActiveSha256, value.CandidateSha256, EntryImpactContract(value.Impact));
 
     private static Models.DatEntryChange EntryContract(DatEntryChange x) =>
-        new(DatEntryId.Encode(x.Name), x.Name, x.Change, x.FilesAdded, x.FilesRemoved, x.FilesChanged);
+        new(DatEntryId.Encode(x.Name), x.Name, x.Change, x.FilesAdded, x.FilesRemoved, x.FilesChanged, EntryImpactContract(x.Impact));
+
+    private static Models.DatFileChange FileChangeContract(DatFileChange file) =>
+        new(file.Name, file.Kind, file.Change, file.ChecksumsChanged, file.Fields.Select(Field).ToArray(),
+            file.Impact is { } impact ? new(impact.StoredBefore, impact.StoredAfter, impact.LosesCatalogMatch, impact.GainsCatalogMatch) : null);
+
+    private static Models.DatEntryReviewImpact? EntryImpactContract(DatEntryReviewImpact? impact) => impact is null ? null :
+        new(impact.StoredRoms, impact.LostRomMatches, impact.NewRomMatches, impact.TitleLink, impact.TitleLinkAtRisk,
+            impact.Sha1ChangedFiles, impact.MetadataOnly, impact.OtherChecksumOnly, impact.NeedsReview,
+            impact.TitleId is int titleId ? IdCoder.Encode(titleId) : null, impact.TitleOtherSourceLinks);
+
+    private static Models.DatReviewImpact? ImpactContract(DatReviewImpact? impact) => impact is null ? null :
+        new(impact.NeedsReviewEntries, impact.RemovedWithStoredRoms, impact.RemovedWithTitleLinks,
+            impact.LostRomMatches, impact.NewRomMatches, impact.Sha1ChangedEntries, impact.Sha1ChangedFiles,
+            impact.MetadataOnlyEntries, impact.OtherChecksumOnlyEntries, impact.DiskChangedEntries);
+
     private static Models.DatFieldChange Field(DatFieldChange value) => new(value.Field, value.Before, value.After);
 
     private static async Task<IResult> ApplyReviewedReplacement(Sqid datId, [FromForm] IFormFile? file,
@@ -374,5 +413,5 @@ public static class DatEndpoints
         p.ActiveSha256, p.CandidateSha256, p.ActiveVersion, p.CandidateVersion, p.Unchanged,
         p.ActiveEntries, p.CandidateEntries, p.EntriesAdded, p.EntriesRemoved, p.EntriesChanged,
         p.FilesAdded, p.FilesRemoved, p.FilesChanged, p.HashesChanged, p.ActiveBiosEntries,
-        p.CandidateBiosEntries, p.Changes.Select(EntryContract).ToArray(), p.Truncated, p.ActiveFiles, p.CandidateFiles);
+        p.CandidateBiosEntries, p.Changes.Select(EntryContract).ToArray(), p.Truncated, p.ActiveFiles, p.CandidateFiles, ImpactContract(p.Impact));
 }

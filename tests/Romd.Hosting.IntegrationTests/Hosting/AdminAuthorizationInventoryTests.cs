@@ -57,6 +57,7 @@ public sealed class AdminAuthorizationInventoryTests
     [InlineData("/api/dats/{datId}/replacements")]
     [InlineData("/api/dats/{datId}/replacements/preview")]
     [InlineData("/api/dats/{datId}/replacements/changes")]
+    [InlineData("/api/dats/{datId}/replacements/change-count/preview")]
     [InlineData("/api/dats/{datId}/replacements/changes/{entryId}")]
     public async Task ReplacementRoutes_RequireManager(string route)
     {

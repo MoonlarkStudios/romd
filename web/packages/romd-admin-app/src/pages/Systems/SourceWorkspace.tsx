@@ -1,9 +1,9 @@
-import { Alert, Button, Group, Skeleton, Stack, Tabs, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, Skeleton, Stack, Tabs, Text, Title } from '@mantine/core';
 import type { JobReference } from '@romd/admin-api-client';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { useDatsByPlatform } from '../../hooks/api/useDats';
 import { useJob } from '../../hooks/api/useJobs';
@@ -11,57 +11,86 @@ import {
   managedSystemKeys,
   useDatCatalogs,
   useDatSubscriptions,
-  useManagedSystems,
 } from '../../hooks/api/useManagedSystems';
-import { DatUploadZone } from './components/DatUploadZone';
-import { DatReplacementReviewModal } from './DatReplacementReviewModal';
+import { usePlatform } from '../../hooks/api/usePlatforms';
+import { usePermissions } from '../../hooks/usePermissions';
+import type { DatReviewOutcome } from './DatReplacementReviewModal';
 import { DatSubscriptionCard } from './DatSubscriptionCard';
+import { withReviewView } from './datReviewSummary';
 import { SourceActions, sourcePath } from './SourceActions';
 import { SourceEntryExplorer } from './SourceEntryExplorer';
 import { SourceHelp } from './SourceHelp';
 import { SourceStatusBadge } from './SourceStatusBadge';
-import { SourceSubscriptionActions } from './SourceSubscriptionActions';
-import classes from './Sources.module.css';
+import { subscriptionReady } from './SourceSubscriptionActions';
+import { SourceUpdates } from './SourceUpdates';
+import { connectableCatalog, datProviderLabel } from './sourceCatalog';
 
 export function SourceWorkspace() {
   const { systemKey = '', sourceId = '' } = useParams();
   const dats = useDatsByPlatform(systemKey);
-  const systems = useManagedSystems();
-  const catalogs = useDatCatalogs();
-  const subscriptions = useDatSubscriptions();
+  const system = usePlatform(systemKey);
+  const { role, canManageSources } = usePermissions();
+  const isAdmin = role === 'Admin';
+  const subscriptions = useDatSubscriptions({
+    enabled: isAdmin,
+  });
   const client = useQueryClient();
+  const { state } = useLocation();
   const [params, setParams] = useSearchParams();
   const [file, setFile] = useState<File>();
   const [jobId, setJobId] = useState<string>();
+  const [outcome, setOutcome] = useState<DatReviewOutcome>();
   const job = useJob(jobId);
   const dat = dats.data?.find((d) => (d.sourceId ?? d.id) === sourceId);
-  const system = systems.data?.find((s) => s.key === systemKey);
-  const subscription = subscriptions.data?.find(
-    (s) => s.systemKey === systemKey && s.activeDatId === dat?.id,
-  );
-  const catalog = catalogs.data?.catalogs.find(
-    (c) => c.name === dat?.name && c.systemId === system?.key,
-  );
-  const available =
-    !catalogs.isPending && !catalogs.isError && !catalogs.data?.message && subscriptions.isSuccess;
-  const retryAvailability = () => {
-    void catalogs.refetch();
-    void subscriptions.refetch();
-  };
-  const active =
-    [
-      'entries',
-      'updates',
-      'settings',
-    ].find((value) => value === params.get('tab')) ?? 'entries';
+  const subscription =
+    isAdmin && dat ? subscriptions.data?.find((item) => item.activeDatId === dat.id) : undefined;
+  const subscribed = !!(dat?.hasSubscription || subscription);
+  const canUpload = canManageSources && !subscribed;
+  // Settings and `review=` predate the two-tab page; their URLs open the Updates tab.
+  const legacyTab = params.get('tab') === 'settings';
+  const active = legacyTab
+    ? 'updates'
+    : ([
+        'entries',
+        'updates',
+      ].find((value) => value === params.get('tab')) ?? 'entries');
+  const catalogs = useDatCatalogs({
+    enabled:
+      isAdmin && active === 'updates' && !!dat && !subscribed && dat.sourceStatus === 'Active',
+  });
+  const catalog =
+    isAdmin && !subscribed && dat && !catalogs.isError
+      ? connectableCatalog(
+          catalogs.data,
+          subscriptions.isSuccess ? subscriptions.data : undefined,
+          systemKey,
+          dat,
+        )
+      : undefined;
   const previousSourceId = useRef(sourceId);
   useEffect(() => {
     if (previousSourceId.current === sourceId) return;
     previousSourceId.current = sourceId;
     setFile(undefined);
     setJobId(undefined);
+    setOutcome(undefined);
   }, [
     sourceId,
+  ]);
+  useEffect(() => {
+    if (!legacyTab && !params.has('review')) return;
+    const next = new URLSearchParams(params);
+    next.delete('review');
+    if (legacyTab) next.set('tab', 'updates');
+    setParams(next, {
+      replace: true,
+      state,
+    });
+  }, [
+    legacyTab,
+    params,
+    setParams,
+    state,
   ]);
   useEffect(() => {
     if (!job.data?.isTerminal) return;
@@ -80,26 +109,46 @@ export function SourceWorkspace() {
     job.data?.isTerminal,
     client,
   ]);
-  const accepted = (result: JobReference) => {
-    setFile(undefined);
+  const accepted = (result: JobReference, approved?: DatReviewOutcome) => {
     setJobId(result.jobId);
+    setOutcome(approved);
     void client.invalidateQueries({
       queryKey: managedSystemKeys.all,
     });
+    void client.invalidateQueries({
+      queryKey: managedSystemKeys.subscriptions,
+    });
   };
+  const updateReady = !!subscription && subscriptionReady(subscription);
+  const imported = dat?.importedAt ? Date.parse(dat.importedAt) : Number.NaN;
+  const cancelled = job.data?.phase === 'Cancelled';
+  const applied = job.data?.isTerminal && job.data.phase === 'Completed' && !job.data.hasErrors;
+  const needsAttention = job.data?.isTerminal && !applied && !cancelled;
+  const jobTitle = cancelled
+    ? 'Update cancelled'
+    : needsAttention
+      ? 'Update needs attention'
+      : applied
+        ? outcome?.version
+          ? `Applied ${outcome.version}`
+          : 'Update applied'
+        : outcome?.version
+          ? `Applying ${outcome.version}`
+          : 'Applying update';
   return (
     <div className={workspace.page}>
       <Stack gap="md">
         <Button
           component={Link}
           to={`/systems/${systemKey}?tab=sources`}
+          state={state}
           variant="subtle"
           color="gray"
           p={0}
           w="fit-content"
           leftSection={<IconArrowLeft size={15} />}
         >
-          {system?.name ?? 'System'} sources
+          {system.data?.name ?? 'System'} sources
         </Button>
         {dats.isPending ? (
           <Skeleton height={240} />
@@ -148,29 +197,58 @@ export function SourceWorkspace() {
                     size="sm"
                     c="dimmed"
                   >
-                    {dat.type}
+                    {datProviderLabel(dat.type)}
                   </Text>
                   <SourceStatusBadge status={dat.sourceStatus} />
                   <Text
                     size="sm"
                     c="dimmed"
                   >
-                    {Number(dat.gameCount ?? 0).toLocaleString()} entries
+                    {Number(dat.gameCount ?? 0).toLocaleString()} DAT entries
                   </Text>
                 </Group>
-                <Text size="sm">Installed DAT: {dat.version ?? 'Version not specified'}</Text>
+                <Text size="sm">
+                  Installed DAT: {dat.version ?? 'Version not specified'}
+                  {Number.isFinite(imported) && (
+                    <Text
+                      span
+                      c="dimmed"
+                      inherit
+                    >
+                      {' '}
+                      · imported{' '}
+                      {new Date(imported).toLocaleDateString(undefined, {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  )}
+                </Text>
               </Stack>
               <SourceActions
                 dat={dat}
                 path={sourcePath(systemKey, dat)}
-                lifecycle={active === 'settings'}
+                showUpdates={false}
+                subscription={subscription}
+                lifecycle
               />
             </Group>
             {jobId && (
               <Alert
-                color={job.data?.hasErrors ? 'orange' : 'blue'}
-                title={job.data?.isTerminal ? 'Source processing finished' : 'Processing source'}
+                color={
+                  cancelled ? 'gray' : needsAttention || job.data?.hasErrors ? 'orange' : 'blue'
+                }
+                title={jobTitle}
               >
+                {outcome?.summary && !cancelled && !needsAttention && (
+                  <Text
+                    size="sm"
+                    mb={4}
+                  >
+                    {outcome.summary}
+                  </Text>
+                )}
                 <Button
                   component={Link}
                   to={`/jobs/${jobId}`}
@@ -181,7 +259,10 @@ export function SourceWorkspace() {
                 {job.data?.isTerminal && (
                   <Button
                     variant="subtle"
-                    onClick={() => setJobId(undefined)}
+                    onClick={() => {
+                      setJobId(undefined);
+                      setOutcome(undefined);
+                    }}
                   >
                     Dismiss
                   </Button>
@@ -192,9 +273,12 @@ export function SourceWorkspace() {
               value={active}
               onChange={(value) => {
                 if (!value) return;
-                const next = new URLSearchParams(params);
+                // A review position belongs to the Updates tab; other tabs keep a clean URL.
+                const next = withReviewView(params, {});
                 next.set('tab', value);
-                setParams(next);
+                setParams(next, {
+                  state,
+                });
               }}
               keepMounted={false}
               color="teal"
@@ -205,8 +289,27 @@ export function SourceWorkspace() {
             >
               <Tabs.List mb="md">
                 <Tabs.Tab value="entries">Entries</Tabs.Tab>
-                <Tabs.Tab value="updates">Updates</Tabs.Tab>
-                <Tabs.Tab value="settings">Settings</Tabs.Tab>
+                <Tabs.Tab
+                  value="updates"
+                  aria-label={
+                    updateReady
+                      ? `Updates, ${subscription?.activeDatId ? 'update' : 'first DAT'} ready`
+                      : undefined
+                  }
+                  rightSection={
+                    updateReady ? (
+                      <Badge
+                        size="xs"
+                        color="orange"
+                        variant="light"
+                      >
+                        {subscription?.activeDatId ? 'Ready' : 'First DAT'}
+                      </Badge>
+                    ) : undefined
+                  }
+                >
+                  Updates
+                </Tabs.Tab>
               </Tabs.List>
               <Tabs.Panel value="entries">
                 <SourceEntryExplorer
@@ -215,120 +318,46 @@ export function SourceWorkspace() {
                 />
               </Tabs.Panel>
               <Tabs.Panel value="updates">
-                <Stack gap="md">
-                  <Title
-                    order={2}
-                    className={workspace.sectionHeading}
-                  >
-                    {!available
-                      ? 'Updates'
-                      : subscription
-                        ? 'Subscription updates'
-                        : 'Manual updates'}
-                  </Title>
-                  {!available ? (
-                    <Alert color="yellow">
-                      Update availability has not been verified.
-                      <Button
-                        variant="subtle"
-                        onClick={retryAvailability}
-                      >
-                        Retry availability
-                      </Button>
-                    </Alert>
-                  ) : subscription ? (
-                    <SourceSubscriptionActions
-                      subscription={subscription}
-                      onAccepted={accepted}
-                    />
-                  ) : (
-                    <>
-                      <Text
-                        size="sm"
-                        c="dimmed"
-                      >
-                        The installed DAT stays active until a new version is reviewed and approved.
-                      </Text>
-                      <DatUploadZone
-                        loading={!!jobId && !job.data?.isTerminal}
-                        onDrop={(files) => setFile(files[0])}
-                      />
-                    </>
-                  )}
-                </Stack>
-              </Tabs.Panel>
-              <Tabs.Panel value="settings">
-                <Stack gap="md">
-                  <section className={classes.section}>
-                    <Stack gap="sm">
-                      <Title
-                        order={2}
-                        className={workspace.sectionHeading}
-                      >
-                        Update method
-                      </Title>
-                      {!available ? (
+                <SourceUpdates
+                  dat={dat}
+                  systemName={system.data?.name}
+                  provider={datProviderLabel(dat.type) ?? 'the publisher'}
+                  isAdmin={isAdmin}
+                  subscribed={subscribed}
+                  subscription={subscription}
+                  subscriptionStatus={{
+                    pending: subscriptions.isPending,
+                    retry: () => void subscriptions.refetch(),
+                  }}
+                  canUpload={canUpload}
+                  file={file}
+                  onFile={setFile}
+                  uploading={!!jobId && !job.data?.isTerminal}
+                  jobNotice={!!jobId}
+                  offer={
+                    isAdmin && dat.sourceStatus === 'Active' && !subscribed ? (
+                      catalogs.isError || (catalogs.data?.enabled && catalogs.data.message) ? (
                         <Alert color="yellow">
-                          Subscription settings could not be verified.
+                          The subscription directory is unavailable.
                           <Button
                             variant="subtle"
-                            onClick={retryAvailability}
+                            onClick={() => void catalogs.refetch()}
                           >
-                            Retry availability
+                            Retry directory
                           </Button>
                         </Alert>
-                      ) : subscription ? (
-                        <SourceSubscriptionActions
-                          subscription={subscription}
-                          manage
-                          settingsOnly
-                          onAccepted={accepted}
+                      ) : catalog ? (
+                        <DatSubscriptionCard
+                          dat={dat}
+                          catalogId={catalog.catalogId}
                         />
-                      ) : (
-                        <>
-                          <Text size="sm">Manual updates</Text>
-                          {catalog && (
-                            <DatSubscriptionCard
-                              dat={dat}
-                              catalogId={catalog.catalogId}
-                            />
-                          )}
-                        </>
-                      )}
-                    </Stack>
-                  </section>
-                  <section className={classes.section}>
-                    <Stack gap="sm">
-                      <Title
-                        order={2}
-                        className={workspace.sectionHeading}
-                      >
-                        Installed DAT
-                      </Title>
-                      <Text size="sm">Version: {dat.version ?? 'Not specified'}</Text>
-                      <Text
-                        size="sm"
-                        c="dimmed"
-                      >
-                        Imported{' '}
-                        {dat.importedAt
-                          ? new Date(dat.importedAt).toLocaleString()
-                          : 'date unavailable'}
-                      </Text>
-                    </Stack>
-                  </section>
-                </Stack>
+                      ) : null
+                    ) : null
+                  }
+                  onAccepted={accepted}
+                />
               </Tabs.Panel>
             </Tabs>
-            {file && (
-              <DatReplacementReviewModal
-                key={dat.id}
-                dat={dat}
-                file={file}
-                onClose={() => setFile(undefined)}
-                onAccepted={accepted}
-              />
-            )}
           </>
         )}
       </Stack>

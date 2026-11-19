@@ -43,11 +43,14 @@ public sealed class SystemSetupService(RomdDbContext db, IDatReplacementReview r
             HasData = db.DatFiles.Any(x => x.PlatformId == p.Id) || db.Titles.Any(x => x.PlatformId == p.Id)
                 || db.DatSubscriptions.Any(x => x.PlatformId == p.Id),
             Catalogs = db.DatFiles.Count(x => x.PlatformId == p.Id && x.Lifecycle == "Active"),
+            LastDatImportedAt = db.DatFiles.Where(x => x.PlatformId == p.Id && x.Lifecycle == "Active")
+                .Max(x => (DateTimeOffset?)x.CreatedAt),
             UsableCatalog = db.DatFiles.Any(d => d.PlatformId == p.Id && d.Lifecycle == "Active"
                 && db.DatSources.Any(s => s.Id == d.DatSourceId
                     && db.CatalogSources.Any(c => c.Id == s.CatalogSourceId && c.Status == "Active"))),
             Owned = db.Titles.Count(x => x.PlatformId == p.Id && x.HasLocalPayload),
             Tracked = db.Titles.Count(x => x.PlatformId == p.Id && db.TrackedTitles.Any(t => t.TitleId == x.Id)),
+            Known = db.Titles.Count(x => x.PlatformId == p.Id),
             LastPhase = db.Jobs.Where(x => x.PlatformId == p.Id && (x is UploadJobEntity || x is ReplaceDatJobEntity))
                 .OrderByDescending(x => x.CreatedAt).Select(x => x.Phase).FirstOrDefault(),
             Processing = db.Jobs.Any(x => x.PlatformId == p.Id && (x is UploadJobEntity || x is ReplaceDatJobEntity) && !Terminal.Contains(x.Phase))
@@ -66,7 +69,7 @@ public sealed class SystemSetupService(RomdDbContext db, IDatReplacementReview r
                 : x.Catalogs > 0 && !x.UsableCatalog ? "No installed sources are active. Review their status in Catalog sources."
                 : !x.UsableCatalog && x.LastPhase is "Failed" or "CompletedWithErrors" or "Cancelled"
                     ? "The source did not finish processing. Open Jobs for details and retry." : null,
-            x.Catalogs, x.Owned, x.Tracked)).ToArray();
+            x.Catalogs, x.Owned, x.Tracked, x.Known, x.LastDatImportedAt)).ToArray();
         if (snapshot is not null)
             await snapshot.CommitAsync(ct);
         return new Page<ManagedSystem>
@@ -75,6 +78,15 @@ public sealed class SystemSetupService(RomdDbContext db, IDatReplacementReview r
             HasNextPage = more,
             NextCursor = more ? request.CursorFor(page[^1].CanonicalKey!) : null
         };
+    }
+
+    public async Task<ManagedSystemDetails?> GetDetailsAsync(string systemKey, CancellationToken ct)
+    {
+        if (await new SystemReferenceReader(db).GetWithHardwareAsync(systemKey, ct) is not { } details)
+            return null;
+        var system = details.Reference.Resource;
+        var hardware = system.BuiltInVersion is not null ? BuiltInSystemHardware.Get(systemKey) : details.Hardware;
+        return new(system, hardware);
     }
 
     public async Task<ErrorOr<Success>> SetEnabledAsync(int platformId, bool enabled, CancellationToken ct)

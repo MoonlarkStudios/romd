@@ -24,7 +24,7 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useCatalogCount, useCatalogSearch } from '../../hooks/api/useCatalogSearch';
 import { useSetTitlesTracking } from '../../hooks/api/useTitleActions';
@@ -62,6 +62,7 @@ export function TitlesLens({
   const [confirmUntrack, setConfirmUntrack] = useState(false);
   const mutation = useSetTitlesTracking();
   const [searchParams] = useSearchParams();
+  const { state } = useLocation();
   const navigate = useNavigate();
   const artworkJobId = searchParams.get('artworkJob');
   // Links to the retired catalog run view open that run in the enrichment workspace.
@@ -385,8 +386,9 @@ export function TitlesLens({
         >
           <Text fw={600}>No tracked titles yet</Text>
           <Button
-            component="a"
-            href={browseAllHref}
+            component={Link}
+            to={browseAllHref}
+            state={state}
             {...workspaceActionProps}
             variant="light"
           >

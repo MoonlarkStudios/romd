@@ -7,7 +7,8 @@ import { expect, it, vi } from 'vitest';
 import { render } from '../../test/utils/render';
 import { SourceSubscriptionActions } from './SourceSubscriptionActions';
 
-vi.mock('@romd/admin-api-client', () => ({
+vi.mock('@romd/admin-api-client', async () => ({
+  ...(await vi.importActual('@romd/admin-api-client')),
   getDatSubscription: vi.fn(),
   checkDatSubscription: vi.fn(),
   deleteDatSubscription: vi.fn(),
@@ -111,5 +112,55 @@ it('checks the existing subscription by its id', async () => {
       },
     }),
   );
-  expect(await screen.findByText('Update available')).toBeInTheDocument();
+  expect(await screen.findByText('Update ready')).toBeInTheDocument();
+});
+
+it('only offers retry for a failed subscription in the inspector and checks its exact id', async () => {
+  const subscription: DatCatalogSubscription = {
+    id: 'failed-subscription',
+    catalogId: 'redump/psx/discs',
+    systemId: 'psx',
+    systemKey: 'psx',
+    activeDatId: 'installed-dat',
+    lastCheckedAt: null,
+    message: null,
+    candidateSha256: null,
+    jobId: null,
+    name: 'PlayStation',
+    state: 'CheckFailed',
+  };
+  vi.mocked(getDatSubscription).mockResolvedValue({
+    data: subscription,
+  } as Awaited<ReturnType<typeof getDatSubscription>>);
+  vi.mocked(checkDatSubscription).mockResolvedValue({
+    data: {
+      ...subscription,
+      state: 'UpdateAvailable',
+    },
+  } as Awaited<ReturnType<typeof checkDatSubscription>>);
+  render(
+    <SourceSubscriptionActions
+      subscription={subscription}
+      primaryOnly
+      onAccepted={vi.fn()}
+    />,
+  );
+
+  const retry = screen.getByRole('button', {
+    name: 'Retry check',
+  });
+  expect(screen.getAllByRole('button')).toEqual([
+    retry,
+  ]);
+  await userEvent.click(retry);
+  expect(checkDatSubscription).toHaveBeenLastCalledWith({
+    path: {
+      subscriptionId: 'failed-subscription',
+    },
+  });
+  expect(
+    await screen.findByRole('button', {
+      name: 'Review update',
+    }),
+  ).toBeInTheDocument();
 });

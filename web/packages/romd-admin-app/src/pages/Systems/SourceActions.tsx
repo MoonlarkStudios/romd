@@ -1,12 +1,13 @@
 import { ActionIcon, Menu } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type { Dat, SourceLifecycleStatus } from '@romd/admin-api-client';
-import { IconDots, IconDownload, IconSettings, IconUpload } from '@tabler/icons-react';
+import type { Dat, DatCatalogSubscription, SourceLifecycleStatus } from '@romd/admin-api-client';
+import { IconDots, IconDownload, IconUpload } from '@tabler/icons-react';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { downloadDatSource } from '../../hooks/api/useDats';
 import { usePermissions } from '../../hooks/usePermissions';
 import { ConfirmSourceStatusModal } from './ConfirmSourceStatusModal';
+import { StopSubscriptionModal } from './SourceSubscriptionActions';
 
 export function sourcePath(systemKey: string, dat: Dat) {
   return `/systems/${systemKey}/sources/${dat.sourceId ?? dat.id}`;
@@ -15,16 +16,24 @@ export function sourcePath(systemKey: string, dat: Dat) {
 export function SourceActions({
   dat,
   path,
-  manual = false,
+  showUpdates = true,
+  offerManualUpload = false,
   lifecycle = false,
+  subscription,
 }: {
   dat: Dat;
   path: string;
-  manual?: boolean;
+  showUpdates?: boolean;
+  offerManualUpload?: boolean;
+  /** The source page's own menu: status changes and the update method live here. */
   lifecycle?: boolean;
+  subscription?: DatCatalogSubscription;
 }) {
   const { canManageSources } = usePermissions();
+  const { state: returnState } = useLocation();
   const [status, setStatus] = useState<SourceLifecycleStatus | 'Delete' | null>(null);
+  const [stopSubscription, setStopSubscription] = useState(false);
+  const applying = subscription?.state === 'Applying';
   return (
     <>
       <Menu position="bottom-end">
@@ -39,12 +48,15 @@ export function SourceActions({
           </ActionIcon>
         </Menu.Target>
         <Menu.Dropdown>
-          <Menu.Item
-            component={Link}
-            to={`${path}?tab=updates`}
-          >
-            Updates
-          </Menu.Item>
+          {showUpdates && (
+            <Menu.Item
+              component={Link}
+              to={`${path}?tab=updates`}
+              state={returnState}
+            >
+              Updates
+            </Menu.Item>
+          )}
           <Menu.Item
             leftSection={<IconDownload size={16} />}
             onClick={() =>
@@ -58,22 +70,24 @@ export function SourceActions({
           >
             Download installed DAT
           </Menu.Item>
-          {manual && (
+          {offerManualUpload && (
             <Menu.Item
               component={Link}
               to={`${path}?tab=updates`}
+              state={returnState}
               leftSection={<IconUpload size={16} />}
             >
               Upload new version
             </Menu.Item>
           )}
-          {!lifecycle && (
+          {lifecycle && subscription && (
             <Menu.Item
-              component={Link}
-              to={`${path}?tab=settings`}
-              leftSection={<IconSettings size={16} />}
+              disabled={applying}
+              onClick={() => setStopSubscription(true)}
             >
-              Source settings
+              {subscription.activeDatId
+                ? 'Switch to manual updates'
+                : 'Remove pending subscription'}
             </Menu.Item>
           )}
           {lifecycle && canManageSources && (
@@ -110,6 +124,13 @@ export function SourceActions({
           )}
         </Menu.Dropdown>
       </Menu>
+      {subscription && (
+        <StopSubscriptionModal
+          subscription={subscription}
+          opened={stopSubscription}
+          onClose={() => setStopSubscription(false)}
+        />
+      )}
       <ConfirmSourceStatusModal
         dat={dat}
         targetStatus={status}

@@ -1,14 +1,15 @@
 import {
   Alert,
+  Badge,
   Button,
   Code,
   Group,
   Loader,
   Modal,
-  SimpleGrid,
   Stack,
-  Table,
   Text,
+  Title,
+  Tooltip,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import type {
@@ -23,14 +24,40 @@ import {
   getDatSubscriptionPreview,
   previewDatReplacement,
 } from '@romd/admin-api-client';
-import { useEffect, useState } from 'react';
-import { DatChangeBrowser } from './DatChangeBrowser';
+import { type ReactNode, useEffect, useState } from 'react';
+import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { formatBytes, formatRelativeTime } from '../../utils/format';
+import { catalogProviderName } from './catalogProviderName';
+import { DatChangeBrowser, type ReviewViewChange } from './DatChangeBrowser';
+import classes from './DatReview.module.css';
+import { DatReviewVersions, formatVersionDate, versionDate } from './DatReviewVersions';
+import { decisionConsequence, type ReviewView, reviewOutcome } from './datReviewSummary';
+import { datProviderLabel } from './sourceCatalog';
 
-function percentage(count: number, baseline: number): string {
-  if (baseline === 0) return 'No existing baseline';
-  const percent = (100 * count) / baseline;
-  return `${count > 0 && percent < 0.1 ? '<0.1' : percent.toFixed(1)}% of current`;
-}
+/** What the admin approved, kept so the page can report the job against the same facts. */
+export type DatReviewOutcome = {
+  version: string | null;
+  summary: string;
+};
+
+type ReviewTarget =
+  | {
+      dat: Pick<Dat, 'id' | 'name'> & Partial<Pick<Dat, 'type' | 'systemKey'>>;
+      subscription?: never;
+      file: File;
+    }
+  | {
+      subscription: DatCatalogSubscription;
+      dat?: never;
+      file?: never;
+    };
+
+type ReviewProps = ReviewTarget & {
+  systemName?: string;
+  provider?: string;
+  onClose: () => void;
+  onAccepted: (result: JobReference, outcome: DatReviewOutcome) => void;
+};
 
 function message(error: unknown): string {
   if (
@@ -43,28 +70,91 @@ function message(error: unknown): string {
   return 'The server could not confirm this request. Check Jobs before retrying an application.';
 }
 
-export function DatReplacementReviewModal({
+function Fingerprints({ preview }: { preview: DatReplacementPreview }) {
+  return (
+    <details className={classes.disclosure}>
+      <summary>Document fingerprints</summary>
+      <Stack
+        gap="xs"
+        pt="xs"
+      >
+        <Text size="xs">Installed document</Text>
+        <Code className={classes.fieldValue}>
+          {preview.activeSha256 || 'No installed document yet'}
+        </Code>
+        <Text size="xs">Incoming document</Text>
+        <Code className={classes.fieldValue}>{preview.candidateSha256}</Code>
+      </Stack>
+    </details>
+  );
+}
+
+function Footnotes({ preview }: { preview: DatReplacementPreview }) {
+  return (
+    <Stack
+      gap={6}
+      className={classes.footnotes}
+    >
+      {preview.activeBiosEntries !== preview.candidateBiosEntries && (
+        <Text
+          size="xs"
+          c="dimmed"
+        >
+          BIOS entries {preview.activeBiosEntries.toLocaleString()} →{' '}
+          {preview.candidateBiosEntries.toLocaleString()}
+        </Text>
+      )}
+      {!!preview.impact?.diskChangedEntries && (
+        <Text
+          size="xs"
+          c="dimmed"
+        >
+          Stored ROM matches cover this DAT’s ROM files. Disc and CHD matching follow separate rules
+          and are not estimated here.
+        </Text>
+      )}
+      {!!preview.impact && (
+        <Text
+          size="xs"
+          c="dimmed"
+        >
+          Impact uses the stored ROMs and title links present when this review loaded. Stored ROM
+          files are never deleted.
+        </Text>
+      )}
+      <Fingerprints preview={preview} />
+    </Stack>
+  );
+}
+
+/**
+ * Reviews an installed DAT against an incoming candidate and approves the exact reviewed pair.
+ * `layout` decides only the frame: a dialog in setup flows, or a section of the source page.
+ */
+export function DatReplacementReview({
   dat,
   subscription,
   file,
+  systemName,
+  provider,
   onClose,
   onAccepted,
-}: (
-  | {
-      dat: Pick<Dat, 'id' | 'name'>;
-      subscription?: never;
-      file: File;
-    }
-  | {
-      subscription: DatCatalogSubscription;
-      dat?: never;
-      file?: never;
-    }
-) & {
-  onClose: () => void;
-  onAccepted: (result: JobReference) => void;
+  onApplyingChange,
+  layout,
+  headerActions,
+  view,
+  onViewChange,
+}: Omit<ReviewProps, 'onClose'> & {
+  layout: 'modal' | 'page';
+  /** Omitted on a page whose tab is the review itself; there is nothing to close to. */
+  onClose?: () => void;
+  onApplyingChange?: (applying: boolean) => void;
+  /** Actions beside the origin, such as checking the publisher again. */
+  headerActions?: ReactNode;
+  view?: ReviewView;
+  onViewChange?: (view: ReviewView, change: ReviewViewChange) => void;
 }) {
-  const mobile = useMediaQuery('(max-width: 48em)');
+  const mobile = useMediaQuery('(max-width: 48em)') ?? false;
   const datId = dat?.id ?? '';
   const initial = subscription != null && subscription.activeDatId == null;
   const [preview, setPreview] = useState<DatReplacementPreview>();
@@ -72,7 +162,7 @@ export function DatReplacementReviewModal({
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt intentionally triggers an explicit user retry, including identical requests.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt triggers an explicit retry; a polled subscription object must not discard the review unless its id changes.
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -109,7 +199,7 @@ export function DatReplacementReviewModal({
     return () => controller.abort();
   }, [
     datId,
-    subscription,
+    subscription?.id,
     file,
     attempt,
   ]);
@@ -117,6 +207,7 @@ export function DatReplacementReviewModal({
   const apply = async () => {
     if (!preview || preview.unchanged || applying) return;
     setApplying(true);
+    onApplyingChange?.(true);
     setError(undefined);
     try {
       const response = subscription
@@ -142,274 +233,281 @@ export function DatReplacementReviewModal({
       if (response.error || !response.data) {
         setError(message(response.error));
         setPreview(undefined);
-      } else onAccepted(response.data);
+      } else
+        onAccepted(response.data, {
+          version: preview.candidateVersion,
+          summary: reviewOutcome(preview),
+        });
     } catch {
       setError('The server did not confirm the request. Check Jobs before trying again.');
       setPreview(undefined);
     } finally {
       setApplying(false);
+      onApplyingChange?.(false);
     }
   };
 
+  const sourceName = subscription?.name ?? dat?.name;
+  const system = systemName ?? dat?.systemKey ?? subscription?.systemKey ?? undefined;
+  const providerKey = subscription?.catalogId.split('/')[0];
+  const providerLabel =
+    provider ??
+    (providerKey
+      ? catalogProviderName(providerKey)
+      : dat?.type
+        ? datProviderLabel(dat.type)
+        : undefined);
+  const checked = subscription?.lastCheckedAt;
+  // On the source page the hero already names the source, so the review names only its origin.
+  const identity = layout === 'modal';
+  const heading = identity ? (system ?? sourceName) : undefined;
+  const sourceHeader = (
+    <header className={classes.sourceHeader}>
+      {heading && (
+        <Title
+          order={2}
+          size="h4"
+          className={classes.fieldValue}
+        >
+          {heading}
+        </Title>
+      )}
+      {identity && sourceName && sourceName !== heading && (
+        <Text
+          size="sm"
+          c="dimmed"
+          className={classes.fieldValue}
+        >
+          {sourceName}
+        </Text>
+      )}
+      <Group
+        gap="xs"
+        align="center"
+        wrap="wrap"
+      >
+        {headerActions && <div className={classes.headerActions}>{headerActions}</div>}
+        <Badge
+          size="sm"
+          variant="light"
+          color={file ? 'gray' : 'teal'}
+        >
+          {file ? 'Manual upload' : 'Subscription'}
+        </Badge>
+        {providerLabel && <Text size="sm">{providerLabel}</Text>}
+        {checked && (
+          <Text
+            size="xs"
+            c="dimmed"
+            component="time"
+            dateTime={checked}
+            title={new Date(checked).toLocaleString()}
+          >
+            Checked {formatRelativeTime(checked)}
+          </Text>
+        )}
+        {file && (
+          <Text
+            size="xs"
+            c="dimmed"
+            className={classes.fieldValue}
+          >
+            {file.name} · {formatBytes(file.size)}
+          </Text>
+        )}
+      </Group>
+    </header>
+  );
+  const incomingDate = versionDate(preview?.candidateVersion);
+  const applyLabel = initial
+    ? 'Import catalog'
+    : file
+      ? 'Apply uploaded DAT'
+      : !mobile && incomingDate != null
+        ? `Apply ${formatVersionDate(incomingDate, {
+            day: 'numeric',
+            month: 'short',
+          })} update`
+        : 'Apply update';
+  const closeLabel = preview?.unchanged
+    ? 'Done'
+    : file
+      ? 'Discard upload'
+      : initial
+        ? 'Not now'
+        : 'Decide later';
+  const closeHint = preview?.unchanged
+    ? undefined
+    : file
+      ? 'Closing discards this upload. The installed DAT stays active.'
+      : 'This update stays saved in ROMD. You can come back to it later.';
+
+  const content = (
+    <Stack
+      className={layout === 'modal' ? classes.content : classes.pageContent}
+      gap="md"
+    >
+      {(!preview || preview.unchanged) && sourceHeader}
+      {loading && (
+        <Group role="status">
+          <Loader size="sm" />
+          <Text>Validating and comparing the DAT…</Text>
+        </Group>
+      )}
+      {error && (
+        <Alert
+          color="red"
+          title="Review needs attention"
+          role="alert"
+        >
+          {error}
+        </Alert>
+      )}
+      {preview &&
+        (preview.unchanged ? (
+          <>
+            <DatReviewVersions
+              preview={preview}
+              baseline="installed"
+            />
+            <Alert
+              color="green"
+              title="Already up to date"
+            >
+              The installed DAT matches this document exactly.
+            </Alert>
+            <Fingerprints preview={preview} />
+          </>
+        ) : (
+          <DatChangeBrowser
+            key={`${preview.activeSha256}:${preview.candidateSha256}`}
+            datId={datId}
+            subscriptionId={subscription?.id}
+            file={file}
+            preview={preview}
+            header={
+              <Stack gap="sm">
+                {sourceHeader}
+                <DatReviewVersions
+                  preview={preview}
+                  baseline={initial ? 'first-import' : 'installed'}
+                />
+              </Stack>
+            }
+            footnotes={<Footnotes preview={preview} />}
+            linkTitles={layout === 'page' && subscription != null}
+            view={view}
+            onViewChange={onViewChange}
+            onStale={(detail) => {
+              setError(detail);
+              setPreview(undefined);
+            }}
+          />
+        ))}
+    </Stack>
+  );
+  const footer = (
+    <div
+      className={layout === 'modal' ? classes.footer : `${classes.footer} ${classes.pageFooter}`}
+    >
+      {preview && !preview.unchanged && (
+        <Text
+          size="sm"
+          className={classes.footerNote}
+        >
+          {decisionConsequence(preview)}
+        </Text>
+      )}
+      <Group
+        justify="flex-end"
+        gap="xs"
+        className={classes.decisionActions}
+      >
+        {onClose && (
+          <Tooltip
+            label={closeHint}
+            disabled={!closeHint}
+            multiline
+            w={240}
+          >
+            <Button
+              variant="default"
+              onClick={onClose}
+              disabled={applying}
+            >
+              {closeLabel}
+            </Button>
+          </Tooltip>
+        )}
+        {error && (
+          <Button
+            variant="light"
+            onClick={() => setAttempt((n) => n + 1)}
+            disabled={applying || loading}
+          >
+            Preview again
+          </Button>
+        )}
+        {preview && !preview.unchanged && (
+          <Button
+            {...workspaceActionProps}
+            onClick={() => void apply()}
+            loading={applying}
+          >
+            {applyLabel}
+          </Button>
+        )}
+      </Group>
+    </div>
+  );
+
+  if (layout === 'page')
+    return (
+      <section
+        className={classes.pageReview}
+        aria-label={initial ? 'Review first catalog import' : 'Review catalog update'}
+      >
+        {content}
+        {footer}
+      </section>
+    );
+  return (
+    <>
+      {content}
+      {footer}
+    </>
+  );
+}
+
+/** The dialog frame, used where the review interrupts a setup flow rather than a source page. */
+export function DatReplacementReviewModal(props: ReviewProps) {
+  const mobile = useMediaQuery('(max-width: 48em)');
+  const initial = props.subscription != null && props.subscription.activeDatId == null;
+  const [applying, setApplying] = useState(false);
   return (
     <Modal
       opened
-      onClose={onClose}
+      onClose={props.onClose}
       title={initial ? 'Review first catalog import' : 'Review catalog update'}
-      size="xl"
+      size="min(1280px, 94vw)"
       fullScreen={mobile}
+      closeButtonProps={{
+        'aria-label': 'Close review',
+      }}
+      classNames={{
+        content: classes.dialog,
+        body: classes.body,
+        title: 'romd-section-heading',
+      }}
       closeOnClickOutside={!applying}
       closeOnEscape={!applying}
       withCloseButton={!applying}
     >
-      <Stack>
-        <div>
-          <Text fw={600}>{subscription?.name ?? dat?.name}</Text>
-          <Text
-            size="sm"
-            c="dimmed"
-          >
-            {file?.name ?? 'Verified subscription catalog'}
-          </Text>
-        </div>
-        <Text size="sm">
-          {initial
-            ? 'This complete catalog has been downloaded and validated. Nothing is imported until you approve. You can close this window and return to the saved candidate.'
-            : file
-              ? 'Your current catalog stays active while you review. Closing this window discards this preview.'
-              : 'Your current catalog stays active while you review. This downloaded update is saved in ROMD, so you can return to it later.'}
-        </Text>
-        {loading && (
-          <Group>
-            <Loader size="sm" />
-            <Text>Validating and comparing the complete document…</Text>
-          </Group>
-        )}
-        {error && (
-          <Alert
-            color="red"
-            title="Update needs attention"
-          >
-            {error}
-          </Alert>
-        )}
-        {preview && (
-          <>
-            {preview.unchanged ? (
-              <Alert
-                color="green"
-                title="Already up to date"
-              >
-                This is the exact document already in use. No replacement is needed.
-              </Alert>
-            ) : (
-              <>
-                <SimpleGrid
-                  cols={{
-                    base: 1,
-                    sm: 2,
-                  }}
-                  spacing="md"
-                >
-                  <Stack gap={4}>
-                    <Text
-                      size="xs"
-                      c="dimmed"
-                    >
-                      Installed DAT
-                    </Text>
-                    <Text fw={600}>
-                      {initial
-                        ? 'First import'
-                        : (preview.activeVersion ?? 'Version not specified')}
-                    </Text>
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                    >
-                      {preview.activeEntries.toLocaleString()} entries
-                    </Text>
-                  </Stack>
-                  <Stack gap={4}>
-                    <Text
-                      size="xs"
-                      c="dimmed"
-                    >
-                      Candidate DAT
-                    </Text>
-                    <Text fw={600}>{preview.candidateVersion ?? 'Version not specified'}</Text>
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                    >
-                      {preview.candidateEntries.toLocaleString()} entries
-                    </Text>
-                  </Stack>
-                </SimpleGrid>
-                <Table.ScrollContainer minWidth={440}>
-                  <Table withTableBorder>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>Changes</Table.Th>
-                        <Table.Th>Added</Table.Th>
-                        <Table.Th>Removed</Table.Th>
-                        <Table.Th>Changed</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      <Table.Tr>
-                        <Table.Td>Entries</Table.Td>
-                        <Table.Td>
-                          {preview.entriesAdded.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.entriesAdded, preview.activeEntries ?? 0)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          {preview.entriesRemoved.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.entriesRemoved, preview.activeEntries ?? 0)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          {preview.entriesChanged.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.entriesChanged, preview.activeEntries ?? 0)}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                      <Table.Tr>
-                        <Table.Td>Expected files</Table.Td>
-                        <Table.Td>
-                          {preview.filesAdded.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.filesAdded, preview.activeFiles ?? 0)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          {preview.filesRemoved.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.filesRemoved, preview.activeFiles ?? 0)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          {preview.filesChanged.toLocaleString()}
-                          <Text
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {percentage(preview.filesChanged, preview.activeFiles ?? 0)}
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    </Table.Tbody>
-                  </Table>
-                </Table.ScrollContainer>
-                <Text size="sm">
-                  {preview.hashesChanged} existing file checksums changed. BIOS entries:{' '}
-                  {preview.activeBiosEntries} → {preview.candidateBiosEntries}.
-                </Text>
-                {preview.entriesAdded + preview.entriesRemoved + preview.entriesChanged === 0 && (
-                  <Alert color="blue">
-                    The document changed, but no supported entry changes were detected. Header
-                    metadata, formatting, or fields outside this comparison may differ.
-                  </Alert>
-                )}
-                {(preview.entriesRemoved > 0 || preview.hashesChanged > 0) && (
-                  <Alert color="yellow">
-                    Review removals and changed checksums. Renamed entries appear as an addition and
-                    a removal. Applying a DAT update does not delete your stored ROM files.
-                  </Alert>
-                )}
-                <DatChangeBrowser
-                  key={`${preview.activeSha256}:${preview.candidateSha256}`}
-                  datId={datId}
-                  subscriptionId={subscription?.id}
-                  file={file}
-                  preview={preview}
-                  onStale={(detail) => {
-                    setError(detail);
-                    setPreview(undefined);
-                  }}
-                />
-                <Text
-                  size="sm"
-                  c="dimmed"
-                >
-                  These are source catalog changes, not unique title counts. Library impact is not
-                  calculated in this preview. Approval starts catalog processing; catalog and
-                  library updates follow.
-                </Text>
-              </>
-            )}
-            <details>
-              <summary>Document fingerprints</summary>
-              <Stack
-                gap="xs"
-                mt="xs"
-              >
-                <Text size="xs">Active</Text>
-                <Code
-                  style={{
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {preview.activeSha256 || 'No installed document yet'}
-                </Code>
-                <Text size="xs">Candidate</Text>
-                <Code
-                  style={{
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {preview.candidateSha256}
-                </Code>
-              </Stack>
-            </details>
-          </>
-        )}
-        <Group justify="flex-end">
-          <Button
-            variant="default"
-            onClick={onClose}
-            disabled={applying}
-          >
-            {preview?.unchanged ? 'Done' : 'Cancel'}
-          </Button>
-          {error && (
-            <Button
-              variant="light"
-              onClick={() => setAttempt((n) => n + 1)}
-              disabled={applying || loading}
-            >
-              Preview again
-            </Button>
-          )}
-          {preview && !preview.unchanged && (
-            <Button
-              onClick={() => void apply()}
-              loading={applying}
-            >
-              {initial ? 'Import reviewed catalog' : 'Apply reviewed update'}
-            </Button>
-          )}
-        </Group>
-      </Stack>
+      <DatReplacementReview
+        {...props}
+        layout="modal"
+        onApplyingChange={setApplying}
+      />
     </Modal>
   );
 }

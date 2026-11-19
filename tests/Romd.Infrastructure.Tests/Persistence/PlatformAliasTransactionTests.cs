@@ -114,7 +114,7 @@ public sealed class PlatformAliasTransactionTests : IDisposable
         await using var transaction = await work.BeginTransactionAsync();
 
         var error = await Should.ThrowAsync<ArgumentException>(() => repository.AddStagedAsync(
-            PlatformAlias.Rehydrate(42, 1, PlatformAliasType.Name, "Existing", "existing", null, CreatedAt)));
+            PlatformAlias.Rehydrate(42, 1, PlatformAliasType.Name, "Existing", "existing", null, CreatedAt, ReferenceOwnership.Installation)));
 
         error.ParamName.ShouldBe("alias");
         db.ChangeTracker.Entries().ShouldBeEmpty();

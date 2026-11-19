@@ -8,7 +8,9 @@ import {
 } from '@romd/admin-api-client';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DatChangeBrowser } from './DatChangeBrowser';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 
 vi.mock('@romd/admin-api-client', () => ({
@@ -18,7 +20,13 @@ vi.mock('@romd/admin-api-client', () => ({
   createDatReplacement: vi.fn(),
 }));
 vi.mock('./DatChangeBrowser', () => ({
-  DatChangeBrowser: () => <div>Explore all changes</div>,
+  DatChangeBrowser: ({ header, footnotes }: ComponentProps<typeof DatChangeBrowser>) => (
+    <>
+      {header}
+      <div>Explore all changes</div>
+      {footnotes}
+    </>
+  ),
 }));
 const dat: Dat = {
   id: 'dat-1',
@@ -113,24 +121,58 @@ describe('DAT review', () => {
     const user = userEvent.setup();
     const { onClose } = show();
     await screen.findByText('Explore all changes');
-    expect(screen.queryByText(/first 50 changed entries/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Library impact is not calculated/)).toBeInTheDocument();
+    expect(screen.getByText('Manual upload')).toBeVisible();
+    expect(screen.getByText(/update\.dat/)).toBeVisible();
+    expect(
+      screen.getByText('Applying runs in a background job. Stored ROM files are never deleted.'),
+    ).toBeVisible();
     await user.click(
       screen.getByRole('button', {
-        name: 'Cancel',
+        name: 'Discard upload',
       }),
     );
     expect(onClose).toHaveBeenCalled();
     expect(createDatReplacement).not.toHaveBeenCalled();
   });
-  it('does not round a small nonzero change down to zero percent', async () => {
+  it('leads with dated versions and puts the consequence beside the decision', async () => {
     respond({
       ...preview,
-      activeEntries: 10000,
-      activeFiles: 60000,
+      activeVersion: '20261012-015604',
+      candidateVersion: '20261025-205653',
+      activeEntries: 7712,
+      candidateEntries: 7718,
+      entriesRemoved: 2,
+      filesRemoved: 3,
+      entriesChanged: 1,
+      hashesChanged: 1,
+      impact: {
+        needsReviewEntries: 2,
+        removedWithStoredRoms: 1,
+        removedWithTitleLinks: 1,
+        lostRomMatches: 2,
+        newRomMatches: 0,
+        sha1ChangedEntries: 1,
+        sha1ChangedFiles: 1,
+        metadataOnlyEntries: 0,
+        otherChecksumOnlyEntries: 0,
+        diskChangedEntries: 0,
+      },
     });
     show();
-    expect((await screen.findAllByText('<0.1% of current')).length).toBeGreaterThan(0);
+    const versions = await screen.findByRole('region', {
+      name: 'DAT versions',
+    });
+    expect(versions).toHaveTextContent('Installed DAT');
+    expect(versions).toHaveTextContent('20261012-015604');
+    expect(versions).toHaveTextContent('Incoming DAT · 13 days newer');
+    expect(versions).toHaveTextContent('20261025-205653');
+    expect(versions).toHaveTextContent('7,718 entries (+6)');
+    expect(versions).toHaveTextContent('4 changed entries');
+    expect(
+      screen.getByText(
+        'Applying removes 1 title link and removes the catalog match for 2 stored ROMs. Libraries refresh after the job.',
+      ),
+    ).toBeVisible();
   });
   it('does not offer replacement for identical content', async () => {
     respond({
@@ -141,7 +183,7 @@ describe('DAT review', () => {
     await screen.findByText('Already up to date');
     expect(
       screen.queryByRole('button', {
-        name: 'Apply reviewed update',
+        name: 'Apply uploaded DAT',
       }),
     ).not.toBeInTheDocument();
   });
@@ -156,7 +198,7 @@ describe('DAT review', () => {
     await screen.findByText('Invalid checksum.');
     expect(
       screen.queryByRole('button', {
-        name: 'Apply reviewed update',
+        name: 'Apply uploaded DAT',
       }),
     ).not.toBeInTheDocument();
     respond(preview);
@@ -166,7 +208,7 @@ describe('DAT review', () => {
       }),
     );
     await screen.findByRole('button', {
-      name: 'Apply reviewed update',
+      name: 'Apply uploaded DAT',
     });
     expect(createDatReplacement).not.toHaveBeenCalled();
   });
@@ -180,14 +222,14 @@ describe('DAT review', () => {
     } as Awaited<ReturnType<typeof createDatReplacement>>);
     await user.click(
       await screen.findByRole('button', {
-        name: 'Apply reviewed update',
+        name: 'Apply uploaded DAT',
       }),
     );
     await screen.findByText('The active catalog changed.');
     await waitFor(() =>
       expect(
         screen.queryByRole('button', {
-          name: 'Apply reviewed update',
+          name: 'Apply uploaded DAT',
         }),
       ).not.toBeInTheDocument(),
     );
@@ -225,7 +267,11 @@ it('reviews a saved subscription update and approves its exact hashes without up
     </MantineProvider>,
   );
   await screen.findByText('Explore all changes');
-  expect(screen.getByText(/saved in ROMD/)).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', {
+      name: 'Decide later',
+    }),
+  ).toBeInTheDocument();
   expect(getDatSubscriptionPreview).toHaveBeenCalledWith(
     expect.objectContaining({
       path: {
@@ -235,7 +281,7 @@ it('reviews a saved subscription update and approves its exact hashes without up
   );
   await user.click(
     screen.getByRole('button', {
-      name: 'Apply reviewed update',
+      name: 'Apply update',
     }),
   );
   expect(applyDatSubscription).toHaveBeenCalledWith({
@@ -247,7 +293,12 @@ it('reviews a saved subscription update and approves its exact hashes without up
       candidateSha256: 'after',
     },
   });
-  await waitFor(() => expect(onAccepted).toHaveBeenCalledWith(accepted));
+  await waitFor(() =>
+    expect(onAccepted).toHaveBeenCalledWith(accepted, {
+      version: '2',
+      summary: '1 added',
+    }),
+  );
 });
 
 it('reviews an initial catalog against an explicit empty baseline and submits exact fingerprints', async () => {
@@ -276,12 +327,12 @@ it('reviews an initial catalog against an explicit empty baseline and submits ex
     </MantineProvider>,
   );
   expect(await screen.findByText('No installed document yet')).toBeInTheDocument();
-  expect(screen.getByText('Verified subscription catalog')).toBeInTheDocument();
+  expect(screen.getByText('Subscription')).toBeInTheDocument();
   expect(screen.queryByText(/PlayStation discs/)).not.toBeInTheDocument();
   expect(applyDatSubscription).not.toHaveBeenCalled();
   await user.click(
     screen.getByRole('button', {
-      name: 'Import reviewed catalog',
+      name: 'Import catalog',
     }),
   );
   await waitFor(() => expect(accepted).toHaveBeenCalled());

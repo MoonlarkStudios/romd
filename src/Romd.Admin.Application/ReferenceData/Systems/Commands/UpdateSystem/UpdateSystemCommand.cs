@@ -11,4 +11,5 @@ using SystemOverrides = Romd.Domain.ReferenceData.SystemOverrides;
 
 namespace Romd.Admin.Application.ReferenceData.Systems.Commands;
 
-public sealed record UpdateSystemCommand(string Key, SystemOverrides Changes, RevisionPrecondition IfMatch, IReadOnlyList<string>? ManufacturerKeys = null) : ICommand<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>;
+public sealed record UpdateSystemCommand(string Key, SystemOverrides Changes, RevisionPrecondition IfMatch, IReadOnlyList<string>? ManufacturerKeys = null,
+    bool EnableForSetup = false, SystemHardwareChanges? Hardware = null, IReadOnlyList<string>? NameAliases = null) : ICommand<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>;

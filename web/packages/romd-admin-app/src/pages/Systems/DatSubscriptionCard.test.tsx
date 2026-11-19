@@ -8,7 +8,8 @@ import { managedSystemKeys } from '../../hooks/api/useManagedSystems';
 import { render } from '../../test/utils/render';
 import { DatSubscriptionCard } from './DatSubscriptionCard';
 
-vi.mock('@romd/admin-api-client', () => ({
+vi.mock('@romd/admin-api-client', async () => ({
+  ...(await vi.importActual('@romd/admin-api-client')),
   createDatSubscription: vi.fn(),
 }));
 beforeEach(() => {
@@ -46,7 +47,7 @@ it('subscribes this source explicitly by its catalog and DAT', async () => {
   renderCard();
   await user.click(
     screen.getByRole('button', {
-      name: 'Use subscription',
+      name: 'Connect subscription',
     }),
   );
   await waitFor(() =>
@@ -71,7 +72,7 @@ it('shows why the source could not be subscribed and keeps it on manual updates'
   renderCard();
   await user.click(
     screen.getByRole('button', {
-      name: 'Use subscription',
+      name: 'Connect subscription',
     }),
   );
   expect(
@@ -79,7 +80,7 @@ it('shows why the source could not be subscribed and keeps it on manual updates'
   ).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Use subscription',
+      name: 'Connect subscription',
     }),
   ).toBeEnabled();
 });
@@ -103,7 +104,7 @@ it('explains when the catalog is already tracked by a pending subscription witho
   renderCard();
   await user.click(
     screen.getByRole('button', {
-      name: 'Use subscription',
+      name: 'Connect subscription',
     }),
   );
   expect(
@@ -145,7 +146,7 @@ it('refreshes the local subscriptions after subscribing so the source shows its 
   );
   await user.click(
     screen.getByRole('button', {
-      name: 'Use subscription',
+      name: 'Connect subscription',
     }),
   );
   await waitFor(() =>

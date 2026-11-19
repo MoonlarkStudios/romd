@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useLocation, useSearchParams } from 'react-router';
 import type { TitleStatus } from '../../components/Title/enrichmentPresentation';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import {
@@ -96,7 +96,19 @@ export function useCatalogFilters(options: UseCatalogFiltersOptions = {}): UseCa
   const { lockedFilters } = options;
   const lockedPlatformId = lockedFilters?.systemKey;
   const lockedTracked = lockedFilters?.tracked;
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, updateSearchParams] = useSearchParams();
+  const { state } = useLocation();
+  const setSearchParams = useCallback<typeof updateSearchParams>(
+    (next, options) =>
+      updateSearchParams(next, {
+        state,
+        ...options,
+      }),
+    [
+      state,
+      updateSearchParams,
+    ],
+  );
 
   // Parse current URL state
   const urlQuery = searchParams.get('q') || '';
