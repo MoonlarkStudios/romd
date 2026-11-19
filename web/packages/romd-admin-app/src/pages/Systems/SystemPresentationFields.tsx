@@ -141,7 +141,7 @@ export function SystemPresentationFields({
     }));
 
   const savedAliasPills = existingAliases?.length ? (
-    <Pill.Group>
+    <Pill.Group mt={4}>
       {existingAliases.map((alias) => {
         const local = alias.ownership === 'Installation';
         const lockLabel = local
@@ -391,7 +391,7 @@ export function SystemPresentationFields({
             }}
             placeholder="Type an alias and press Enter"
             inputContainer={(input) => (
-              <Stack gap={4}>
+              <Stack gap={8}>
                 {savedAliasPills}
                 {input}
               </Stack>
