@@ -82,7 +82,11 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
             NextCursor = more ? request.CursorFor(items[^1].Key) : null
         };
     }
-    public async Task<ReferenceResourceResult<SystemResource, ContractSystemOverrides>?> GetAsync(string key, CancellationToken ct)
+    public async Task<ReferenceResourceResult<SystemResource, ContractSystemOverrides>?> GetAsync(string key, CancellationToken ct) =>
+        (await GetWithHardwareAsync(key, ct))?.Reference;
+
+    internal async Task<(ReferenceResourceResult<SystemResource, ContractSystemOverrides> Reference, SystemHardware? Hardware)?> GetWithHardwareAsync(
+        string key, CancellationToken ct)
     {
         await using var snapshot = db.Database.CurrentTransaction is null
             ? await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct) : null;
@@ -90,7 +94,7 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
         var result = row is null ? null : (await ReadAsync([row], ct))[0];
         if (snapshot is not null)
             await snapshot.CommitAsync(ct);
-        return result;
+        return result is null ? null : (result, TypedReferenceMapping.Hardware(row!));
     }
     private async Task<IReadOnlyList<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>> ReadAsync(IReadOnlyList<PlatformEntity> rows, CancellationToken ct)
     {

@@ -24,6 +24,11 @@ database IDs and editable display names. Explicit presentation overrides are
 stored separately from built-in definitions. Clients consume the server's
 versioned effective snapshot, not generated system lists.
 
+`catalog/system-hardware.json` supplies built-in category, generation, and first
+public release year for admin system setup. It is keyed by canonical system key
+and embedded separately from the schema-1 client snapshot. Optional facts can
+be omitted.
+
 See [the architecture and HTTP contract](../docs/architecture/shared-reference-data.md) for
 the agreed resource-oriented API (`systems`, companies, regions, languages,
 rating boards, and ratings), direct resource edits, the common `overrides` reset

@@ -184,7 +184,7 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
             Site("src/Romd.Persistence/ReferenceData/SystemCatalogImport.cs", "SystemCatalogImport", "ImportAsync", "SaveChangesAsync", 2)),
         Boundary(TransactionBoundaryKind.ReadSnapshot,
             "Typed reference pages/details read their effective dependent facts in one repeatable-read snapshot.",
-            Site("src/Romd.Persistence/ReferenceData/TypedReferenceReaders.cs", "SystemReferenceReader", "GetAsync", "BeginTransactionAsync"),
+            Site("src/Romd.Persistence/ReferenceData/TypedReferenceReaders.cs", "SystemReferenceReader", "GetWithHardwareAsync", "BeginTransactionAsync"),
             Site("src/Romd.Persistence/ReferenceData/TypedReferenceReaders.cs", "SystemReferenceReader", "ListAsync", "BeginTransactionAsync")),
         Boundary(TransactionBoundaryKind.ReadSnapshot,
             "Descriptor retention checks bind the exact current file/representation references in one repeatable-read snapshot.",

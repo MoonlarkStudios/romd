@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Source.Platform;
 using Romd.Domain.Catalog;
-using Romd.Domain.ReferenceData;
 using Romd.Domain.Source.Platform;
 using Romd.Persistence.Entities;
 
@@ -83,20 +82,11 @@ public sealed class SystemSetupService(RomdDbContext db, IDatReplacementReview r
 
     public async Task<ManagedSystemDetails?> GetDetailsAsync(string systemKey, CancellationToken ct)
     {
-        await using var snapshot = db.Database.CurrentTransaction is null
-            ? await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct) : null;
-        var resource = await new SystemReferenceReader(db).GetAsync(systemKey, ct);
-        if (resource is null)
+        if (await new SystemReferenceReader(db).GetWithHardwareAsync(systemKey, ct) is not { } details)
             return null;
-
-        var row = await db.Platforms.SingleAsync(platform => platform.CanonicalKey == systemKey, ct);
-        var hardware = row.Ownership == ReferenceOwnership.Romd
-            ? BuiltInSystemHardware.Get(systemKey)
-            : TypedReferenceMapping.Hardware(row);
-
-        if (snapshot is not null)
-            await snapshot.CommitAsync(ct);
-        return new(resource.Resource, hardware);
+        var system = details.Reference.Resource;
+        var hardware = system.BuiltInVersion is not null ? BuiltInSystemHardware.Get(systemKey) : details.Hardware;
+        return new(system, hardware);
     }
 
     public async Task<ErrorOr<Success>> SetEnabledAsync(int platformId, bool enabled, CancellationToken ct)
