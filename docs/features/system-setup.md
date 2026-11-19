@@ -14,8 +14,8 @@ and next action beside the list. On narrower layouts, open the system directly.
 Returning to Systems restores the list filters and selection.
 
 **Add system** searches names and aliases on the server. Choose a system and its
-first DAT in the same flow. For a known system, you can edit its display name and
-short description before confirming. ROMD uses the fixed system key to match
+first DAT in the same flow. For a known system, review its details and make
+any edits before continuing to DAT options. ROMD uses the fixed system key to match
 verified subscriptions. Built-in manufacturers, category, generation, release year,
 and existing aliases are shown with the system details. Built-in hardware facts
 are fixed. You can add name aliases for matching DAT headers. If an alias is

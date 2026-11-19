@@ -38,7 +38,7 @@ export function SystemDatOptions({
   onUpload,
   onSkip,
   onClose,
-  onCancel,
+  onBack,
 }: {
   system: ManagedSystem;
   newSystem: boolean;
@@ -53,11 +53,11 @@ export function SystemDatOptions({
   onUpload: (files: File[]) => void;
   onSkip: () => void;
   onClose: () => void;
-  onCancel?: () => void;
+  onBack?: () => void;
 }) {
   const [chosen, setChosen] = useState<string>();
   const [showUpload, setShowUpload] = useState(false);
-  const guided = !!onCancel;
+  const guided = !!onBack;
   const options = verifiedOffers(directory, system.key);
   const connected = new Set(subscriptions.data?.map((subscription) => subscription.catalogId));
   if (pendingSubscription) connected.add(pendingSubscription.catalogId);
@@ -347,9 +347,10 @@ export function SystemDatOptions({
           variant="subtle"
           color="gray"
           disabled={busy}
-          onClick={onCancel}
+          onClick={onBack}
+          mr="auto"
         >
-          Cancel
+          Back to system details
         </Button>
         {finishAction}
         {subscribeAction}

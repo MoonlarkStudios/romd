@@ -91,7 +91,6 @@
   padding: var(--mantine-spacing-md) var(--setup-inset) 0;
 }
 
-.setupBody:has(.sourceStack),
 .setupBody:not(:has(.setupFooter)) {
   padding-bottom: var(--mantine-spacing-md);
 }
@@ -173,7 +172,7 @@
   background: var(--romd-portal-bg);
 }
 
-.sourceStack {
+.setupStack {
   display: grid;
   gap: var(--mantine-spacing-md);
 }

@@ -143,6 +143,14 @@ beforeEach(() => {
   vi.mocked(listDatSubscriptions).mockResolvedValue(result([]));
   vi.mocked(setSystemEnabled).mockResolvedValue(result(undefined));
 });
+async function continueToDatOptions(user = userEvent.setup()) {
+  const next = screen.getByRole('button', {
+    name: 'Continue to DAT options',
+  });
+  await waitFor(() => expect(next).toBeEnabled());
+  await user.click(next);
+}
+
 it('lets assistive technology dismiss system setup without adding a system', async () => {
   const user = userEvent.setup();
   const close = vi.fn();
@@ -175,6 +183,12 @@ it('adds a system independently only after choosing Add without a DAT', async ()
   const user = userEvent.setup();
   const close = vi.fn();
   render(<AddSystemFlow onClose={close} />);
+  expect(
+    screen.queryByRole('heading', {
+      name: 'First DAT',
+      exact: true,
+    }),
+  ).not.toBeInTheDocument();
   await user.type(screen.getByLabelText('Find a system'), 'PS1');
   expect(setSystemEnabled).not.toHaveBeenCalled();
   await user.click(
@@ -182,6 +196,18 @@ it('adds a system independently only after choosing Add without a DAT', async ()
       name: 'Choose PlayStation',
     }),
   );
+  expect(
+    await screen.findByRole('textbox', {
+      name: 'Display name',
+    }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole('heading', {
+      name: 'Choose the first DAT',
+    }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByTestId('dat-upload-zone')).not.toBeInTheDocument();
+  await continueToDatOptions(user);
   expect(
     await screen.findByRole('heading', {
       name: 'Choose the first DAT',
@@ -261,7 +287,29 @@ it('locks inherited facts and only saves local presentation edits and new aliase
   );
   await user.clear(name);
   await user.type(name, 'My PlayStation');
+  await continueToDatOptions(user);
+  expect(
+    await screen.findByRole('heading', {
+      name: 'My PlayStation',
+    }),
+  ).toBeVisible();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Back to system details',
+    }),
+  );
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Display name',
+    }),
+  ).toHaveValue('My PlayStation');
+  expect(
+    screen.getByRole('button', {
+      name: 'Remove alias Local PlayStation DAT',
+    }),
+  ).toBeVisible();
   expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+  await continueToDatOptions(user);
 
   await user.click(
     screen.getByRole('button', {
@@ -432,7 +480,7 @@ it.each([
     name: 'Add name aliases',
   });
   const confirm = screen.getByRole('button', {
-    name: 'Add without a DAT',
+    name: mode === 'Known system' ? 'Continue to DAT options' : 'Add without a DAT',
   });
   expect(confirm).toBeEnabled();
   await user.type(aliases, 'pS1{Enter}');
@@ -549,6 +597,7 @@ it('keeps manual upload and setup later usable when the publisher fails', async 
       name: 'Choose PlayStation',
     }),
   );
+  await continueToDatOptions();
   expect(
     await screen.findByRole('button', {
       name: 'Retry catalog availability',
@@ -925,6 +974,7 @@ it('preselects the sole verified DAT, then imports only after the explicit revie
       name: 'Choose PlayStation',
     }),
   );
+  await continueToDatOptions(user);
   const subscribe = await screen.findByRole('button', {
     name: 'Add system and check',
   });
@@ -999,6 +1049,7 @@ it('requires a choice when the signed directory offers multiple formats', async 
     }),
   );
 
+  await continueToDatOptions(user);
   const choice = await screen.findByRole('radio', {
     name: second.name,
   });
@@ -1055,6 +1106,7 @@ it('retries the existing subscription after its first check fails', async () => 
     }),
   );
 
+  await continueToDatOptions(user);
   const subscribe = await screen.findByRole('button', {
     name: 'Add system and check',
   });
@@ -1162,6 +1214,7 @@ it('previews an uploaded first DAT without adding the system and imports the rev
       name: 'Choose PlayStation',
     }),
   );
+  await continueToDatOptions(user);
   const upload = await screen.findByRole('button', {
     name: 'Upload a DAT',
   });

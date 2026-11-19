@@ -31,12 +31,7 @@ import {
   previewSystemDat,
   updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
-import {
-  IconDatabaseImport,
-  IconDeviceGamepad2,
-  IconStack2,
-  IconUpload,
-} from '@tabler/icons-react';
+import { IconDeviceGamepad2, IconStack2 } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -74,7 +69,14 @@ import classes from './SystemSetupFlow.module.css';
 import { SystemSetupPicker } from './SystemSetupPicker';
 
 export type OpenSetupSystem = (systemKey: string, tab?: 'sources') => void;
-type SetupStep = 'system' | 'custom' | 'file' | 'source' | 'manual-review' | 'job';
+type SetupStep =
+  | 'system'
+  | 'known-details'
+  | 'custom'
+  | 'file'
+  | 'source'
+  | 'manual-review'
+  | 'job';
 type KnownDraft = SystemPresentation & {
   original: ManagedSystemSetupDetails;
 };
@@ -476,7 +478,7 @@ export function AddSourceFlow({
     setSelected(candidate);
     setKnownDraft(undefined);
     setPendingSubscription(undefined);
-    if (addingSystem) setStep('source');
+    if (addingSystem) setStep('known-details');
   }
 
   function systemHint(candidate: ManagedSystem) {
@@ -584,7 +586,7 @@ export function AddSourceFlow({
   }
 
   const showSetupMode =
-    addingSystem && (step === 'system' || step === 'source' || step === 'custom');
+    addingSystem && (step === 'system' || step === 'known-details' || step === 'custom');
   const title = addingSystem
     ? 'Add system'
     : !system
@@ -608,7 +610,14 @@ export function AddSourceFlow({
       onUpload={inspect}
       onSkip={skipDat}
       onClose={enabled && addingSystem ? finish : onClose}
-      onCancel={addingSystem ? onClose : undefined}
+      onBack={
+        addingSystem
+          ? () => {
+              setError(undefined);
+              setStep('known-details');
+            }
+          : undefined
+      }
     />
   );
   return (
@@ -710,68 +719,29 @@ export function AddSourceFlow({
                   : 'We could not identify one clear match. Choose the correct system below.'}
               </Alert>
             )}
-            <div className={addingSystem ? classes.setupColumns : undefined}>
-              <SystemSetupPicker
-                search={search}
-                onSearch={setSearch}
-                selectedKey={inspection ? (pickerSelection?.key ?? '') : undefined}
-                getHint={systemHint}
-                onChoose={chooseSystem}
-                disabled={busy}
-              />
-              {addingSystem && (
-                <>
-                  <Stack
-                    className={classes.catalogPanel}
-                    gap="sm"
-                  >
-                    <Title
-                      order={2}
-                      size="h5"
-                    >
-                      First DAT
-                    </Title>
-                    <Group
-                      wrap="nowrap"
-                      align="flex-start"
-                      gap="xs"
-                    >
-                      <IconDatabaseImport
-                        size={18}
-                        aria-hidden="true"
-                      />
-                      <Text size="sm">Choose a verified subscription when one is available.</Text>
-                    </Group>
-                    <Group
-                      wrap="nowrap"
-                      align="flex-start"
-                      gap="xs"
-                    >
-                      <IconUpload
-                        size={18}
-                        aria-hidden="true"
-                      />
-                      <Text size="sm">
-                        Have a DAT already? Upload it and review what it contains.
-                      </Text>
-                    </Group>
-                  </Stack>
-                  <Group
-                    className={classes.setupFooter}
-                    gap="xs"
-                    justify="flex-end"
-                  >
-                    <Button
-                      variant="default"
-                      disabled={busy}
-                      onClick={onClose}
-                    >
-                      Cancel
-                    </Button>
-                  </Group>
-                </>
-              )}
-            </div>
+            <SystemSetupPicker
+              search={search}
+              onSearch={setSearch}
+              selectedKey={inspection ? (pickerSelection?.key ?? '') : undefined}
+              getHint={systemHint}
+              onChoose={chooseSystem}
+              disabled={busy}
+            />
+            {addingSystem && (
+              <Group
+                className={classes.setupFooter}
+                gap="xs"
+                justify="flex-end"
+              >
+                <Button
+                  variant="default"
+                  disabled={busy}
+                  onClick={onClose}
+                >
+                  Cancel
+                </Button>
+              </Group>
+            )}
             {inspection && (
               <Group justify="space-between">
                 <Button
@@ -878,145 +848,147 @@ export function AddSourceFlow({
             </Group>
           </div>
         )}
-        {step === 'source' && selected && (
-          <div className={addingSystem ? classes.setupColumns : classes.sourceStack}>
-            <Stack
-              gap="md"
-              className={classes.setupDetails}
+        {step === 'known-details' && selected && (
+          <div className={classes.setupStack}>
+            <Group
+              className={classes.selectedPlatform}
+              gap="sm"
+              wrap="nowrap"
             >
-              <Group
-                className={addingSystem ? classes.selectedPlatform : undefined}
-                gap="sm"
-                wrap="nowrap"
+              <SystemLogo icon={icons.get(selected.key)} />
+              <div className={classes.platformLabel}>
+                <Title
+                  order={2}
+                  size="h5"
+                  ref={heading}
+                  tabIndex={-1}
+                >
+                  {selected.name}
+                </Title>
+                {selected.manufacturer && (
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                  >
+                    {selected.manufacturer}
+                  </Text>
+                )}
+              </div>
+              <Button
+                className={classes.changeSystem}
+                variant="subtle"
+                color="gray"
+                size="compact-sm"
+                aria-label="Choose another system"
+                disabled={busy}
+                onClick={chooseKnownMode}
               >
-                <SystemLogo icon={icons.get(selected.key)} />
-                <div className={classes.platformLabel}>
-                  <Title
-                    order={2}
-                    size={addingSystem ? 'h5' : 'h4'}
-                    ref={heading}
-                    tabIndex={-1}
-                  >
-                    {selected.name}
-                  </Title>
-                  {(addingSystem ? selected.manufacturer : selected.shortName) && (
-                    <Text
-                      size="xs"
-                      c="dimmed"
-                    >
-                      {addingSystem ? selected.manufacturer : selected.shortName}
-                    </Text>
-                  )}
-                </div>
-                {addingSystem && (
-                  <Button
-                    className={classes.changeSystem}
-                    variant="subtle"
-                    color="gray"
-                    size="compact-sm"
-                    aria-label="Choose another system"
-                    disabled={busy}
-                    onClick={chooseKnownMode}
-                  >
-                    Change
-                  </Button>
-                )}
-              </Group>
-              {addingSystem &&
-                (details ? (
-                  <SystemPresentationFields
-                    value={knownDraft ?? presentationValues(details)}
-                    hardwareEditable={details.system.ownership === 'Installation'}
-                    manufacturers={details.system.manufacturers}
-                    existingAliases={platformAliases.data
-                      ?.filter((alias) => alias.type === 'name')
-                      .map((alias) => alias.value)}
-                    onChange={(value) =>
-                      setKnownDraft({
-                        ...value,
-                        original: knownDraft?.original ?? details,
-                      })
-                    }
-                    systemKey={selected.key}
-                    {...aliasFeedback}
-                    disabled={busy}
-                  />
-                ) : presentation.isError ? (
-                  <Alert
-                    color="yellow"
-                    title="System details could not be loaded"
-                  >
-                    <Button
-                      variant="subtle"
-                      onClick={() => void presentation.refetch()}
-                    >
-                      Retry details
-                    </Button>
-                  </Alert>
-                ) : (
-                  <Skeleton height={110} />
-                ))}
-              {addingSystem && platformAliases.isError && (
+                Change
+              </Button>
+            </Group>
+            {details ? (
+              <SystemPresentationFields
+                value={knownDraft ?? presentationValues(details)}
+                hardwareEditable={details.system.ownership === 'Installation'}
+                manufacturers={details.system.manufacturers}
+                existingAliases={platformAliases.data
+                  ?.filter((alias) => alias.type === 'name')
+                  .map((alias) => alias.value)}
+                onChange={(value) =>
+                  setKnownDraft({
+                    ...value,
+                    original: knownDraft?.original ?? details,
+                  })
+                }
+                systemKey={selected.key}
+                {...aliasFeedback}
+                disabled={busy}
+              />
+            ) : presentation.isError ? (
+              <Alert
+                color="yellow"
+                title="System details could not be loaded"
+              >
                 <Button
-                  size="compact-sm"
                   variant="subtle"
-                  w="fit-content"
-                  onClick={() => void platformAliases.refetch()}
+                  onClick={() => void presentation.refetch()}
                 >
-                  Retry existing aliases
+                  Retry details
                 </Button>
-              )}
-            </Stack>
-            {restoring ? (
-              <>
-                <Stack
-                  className={classes.catalogPanel}
-                  gap="sm"
-                >
-                  <Title
-                    order={3}
-                    size="h5"
-                  >
-                    Saved catalog setup
-                  </Title>
-                  <Text size="sm">Restore this system with its saved catalog setup.</Text>
-                </Stack>
-                <Group
-                  className={classes.setupFooter}
-                  gap="xs"
-                  justify="flex-end"
-                >
-                  <Button
-                    variant="subtle"
-                    color="gray"
-                    disabled={busy}
-                    onClick={onClose}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    {...workspaceActionProps}
-                    loading={busy}
-                    disabled={!canConfirmKnown}
-                    onClick={skipDat}
-                  >
-                    Restore system
-                  </Button>
-                </Group>
-              </>
+              </Alert>
             ) : (
-              <>
-                {!addingSystem && (
-                  <Title
-                    order={3}
-                    size="h5"
-                  >
-                    {selected.catalogCount === 0 ? 'Choose the first DAT' : 'Add a catalog source'}
-                  </Title>
-                )}
-                {sourceOptions}
-              </>
+              <Skeleton height={110} />
             )}
+            {platformAliases.isError && (
+              <Button
+                size="compact-sm"
+                variant="subtle"
+                w="fit-content"
+                onClick={() => void platformAliases.refetch()}
+              >
+                Retry existing aliases
+              </Button>
+            )}
+            {restoring && <Text size="sm">Restore this system with its saved catalog setup.</Text>}
+            <Group
+              className={classes.setupFooter}
+              gap="xs"
+              justify="flex-end"
+            >
+              <Button
+                variant="subtle"
+                color="gray"
+                disabled={busy}
+                onClick={onClose}
+              >
+                Cancel
+              </Button>
+              <Button
+                {...workspaceActionProps}
+                loading={busy}
+                disabled={!canConfirmKnown || (!restoring && subscriptions.isPending)}
+                onClick={restoring ? skipDat : () => setStep('source')}
+              >
+                {restoring ? 'Restore system' : 'Continue to DAT options'}
+              </Button>
+            </Group>
+          </div>
+        )}
+        {step === 'source' && selected && (
+          <div className={classes.setupStack}>
+            <Group
+              gap="sm"
+              wrap="nowrap"
+            >
+              <SystemLogo icon={icons.get(selected.key)} />
+              <div className={classes.platformLabel}>
+                <Title
+                  order={2}
+                  size="h4"
+                  ref={heading}
+                  tabIndex={-1}
+                >
+                  {knownDraft?.name.trim() || selected.name}
+                </Title>
+                {!addingSystem && selected.shortName && (
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                  >
+                    {selected.shortName}
+                  </Text>
+                )}
+              </div>
+            </Group>
+            {!addingSystem && (
+              <Title
+                order={3}
+                size="h5"
+              >
+                {selected.catalogCount === 0 ? 'Choose the first DAT' : 'Add a catalog source'}
+              </Title>
+            )}
+            {sourceOptions}
           </div>
         )}
         {step === 'manual-review' && inspection && selected && (
