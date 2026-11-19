@@ -1,4 +1,5 @@
 using System.Reflection;
+using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.ReferenceData;
 using Romd.Domain.ReferenceData;
@@ -22,7 +23,8 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
     {
         var row = await db.Platforms.SingleOrDefaultAsync(x => x.CanonicalKey == key && x.Ownership != null, ct);
         return row is null ? null : new(row.Id, key, new(row.Ownership!.Value, row.BuiltInVersion), TypedReferenceMapping.Definition(row), row.ReferenceOverrides ?? new(),
-            await db.SystemCompanies.Where(x => x.PlatformId == row.Id).OrderBy(x => x.CompanyKey).Select(x => x.CompanyKey).ToArrayAsync(ct));
+            await db.SystemCompanies.Where(x => x.PlatformId == row.Id).OrderBy(x => x.CompanyKey).Select(x => x.CompanyKey).ToArrayAsync(ct),
+            TypedReferenceMapping.Hardware(row));
     }
     public Task<bool> KeyExistsAsync(string key, CancellationToken ct) => db.Platforms.AnyAsync(x => x.CanonicalKey == key || x.ShortName == key, ct);
     public Task<bool> AssetExistsAsync(string hash, CancellationToken ct) => db.ReferenceAssets.AnyAsync(x => x.Hash == hash, ct);
@@ -39,6 +41,9 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
         row.BaseAssetHash = system.Definition.AssetHash;
         row.BaseMonochrome = system.Definition.Monochrome;
         row.Retired = system.Definition.Retired;
+        row.HardwareCategory = system.Hardware?.Category;
+        row.HardwareGeneration = system.Hardware?.Generation;
+        row.HardwareReleaseYear = system.Hardware?.ReleaseYear;
         row.ReferenceOverrides = system.Overrides;
         if (enableForSetup)
             row.IsEnabled = true;
@@ -47,6 +52,28 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
         foreach (var key in system.ManufacturerKeys.Except(links.Select(x => x.CompanyKey), StringComparer.Ordinal))
             db.SystemCompanies.Add(new() { Platform = row, CompanyKey = key });
     }
+    public async Task<ErrorOr<Success>> StageSetupAliasesAsync(int platformId, IReadOnlyList<string> names, CancellationToken ct)
+    {
+        var aliases = names.Select(name => PlatformAlias.CreateName(platformId, name, clock.GetUtcNow()))
+            .DistinctBy(alias => alias.NormalizedValue).ToArray();
+        var normalized = aliases.Select(alias => alias.NormalizedValue).ToArray();
+        var existing = await db.PlatformAliases.Where(alias => alias.Type == PlatformAliasType.Name && normalized.Contains(alias.NormalizedValue))
+            .ToDictionaryAsync(alias => alias.NormalizedValue, ct);
+        foreach (var alias in aliases)
+        {
+            if (existing.TryGetValue(alias.NormalizedValue, out var current))
+            {
+                if (current.PlatformId != platformId)
+                    return Error.Conflict("ReferenceResource.Conflict", $"The alias '{alias.Value}' already belongs to another system.");
+            }
+            else
+            {
+                db.PlatformAliases.Add(PlatformAliasEntity.FromDomain(alias));
+            }
+        }
+        return Result.Success;
+    }
+
     public async Task<bool> HasDependentsAsync(int id, CancellationToken ct)
     {
         // Deleting a system must never cascade away catalog or installation data.

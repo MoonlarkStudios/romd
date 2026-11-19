@@ -1,4 +1,5 @@
 import {
+  getManagedSystemDetails,
   listDatCatalogs,
   listDatSubscriptions,
   listManagedSystems,
@@ -49,6 +50,28 @@ export function useManagedSystems(query = '', enabled = true) {
       query.state.data?.some((x) => x.enabled && x.state === 'Processing') ? 3000 : false,
   });
 }
+export function useManagedSystemDetails(systemKey: string | undefined) {
+  return useQuery({
+    queryKey: [
+      ...managedSystemKeys.all,
+      'details',
+      systemKey,
+    ],
+    enabled: !!systemKey,
+    queryFn: async ({ signal }) => {
+      if (!systemKey) throw new Error('System key is required');
+      const response = await getManagedSystemDetails({
+        path: {
+          systemKey,
+        },
+        signal,
+      });
+      if (response.error || !response.data) throw new Error('System details could not be loaded.');
+      return response.data;
+    },
+  });
+}
+
 /** The publisher's catalog directory; its message explains an empty or unverified directory. */
 export function useDatCatalogs() {
   return useQuery({

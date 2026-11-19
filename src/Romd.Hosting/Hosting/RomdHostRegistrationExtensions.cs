@@ -650,7 +650,7 @@ public static class RomdHostRegistrationExtensions
                     Type = type | (clears ? JsonSchemaType.Null : 0),
                     Format = format,
                     Items = type == JsonSchemaType.Array ? new OpenApiSchema { Type = JsonSchemaType.String } : null,
-                    MaxItems = property.Name == "ManufacturerKeys" ? 16 : null,
+                    MaxItems = property.Name is "ManufacturerKeys" or "NameAliases" ? 16 : null,
                     UniqueItems = property.Name == "ManufacturerKeys" ? true : null
                 };
             });

@@ -7020,7 +7020,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateSystem"
+                "$ref": "#/components/schemas/CreateManagedSystemRequest"
               }
             }
           },
@@ -7076,11 +7076,60 @@
       }
     },
     "/api/system-setup/{systemKey}": {
+      "get": {
+        "tags": [
+          "SystemSetup"
+        ],
+        "description": "System reference facts and optional hardware metadata read from the same database snapshot.",
+        "operationId": "GetManagedSystemDetails",
+        "parameters": [
+          {
+            "name": "systemKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSystemSetupDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "tags": [
           "SystemSetup"
         ],
-        "description": "Update a system's name or description and add it to the Systems list atomically. Use the system reference resource's current ETag.",
+        "description": "Update permitted system facts, add name aliases, and add the system to the Systems list atomically. Use the system reference resource's current ETag.",
         "operationId": "UpdateManagedSystemPresentation",
         "parameters": [
           {
@@ -7105,7 +7154,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReferencePatch"
+                "$ref": "#/components/schemas/ManagedSystemPatch"
               }
             }
           },
@@ -18864,6 +18913,80 @@
           }
         }
       },
+      "CreateManagedSystemRequest": {
+        "required": [
+          "key",
+          "name",
+          "compactLabel"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "compactLabel": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "icon": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "monochrome": {
+            "type": "boolean",
+            "default": false
+          },
+          "manufacturerKeys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generation": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "nameAliases": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateSystem": {
         "required": [
           "key",
@@ -22519,6 +22642,108 @@
           }
         }
       },
+      "ManagedSystemHardware": {
+        "required": [
+          "category",
+          "generation",
+          "releaseYear"
+        ],
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generation": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ManagedSystemPatch": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generation": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "manufacturerKeys": {
+            "maxItems": 16,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nameAliases": {
+            "maxItems": 16,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ManagedSystemSetupDetails": {
+        "required": [
+          "system",
+          "hardware"
+        ],
+        "type": "object",
+        "properties": {
+          "system": {
+            "$ref": "#/components/schemas/SystemResource"
+          },
+          "hardware": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedSystemHardware"
+              }
+            ]
+          }
+        }
+      },
       "MediaReconciliationPolicy": {
         "required": [
           "kindId",
@@ -25322,21 +25547,6 @@
             "default": false
           }
         }
-      },
-      "ReferencePatch": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": [
-              "null",
-              "string"
-            ]
-          }
-        },
-        "additionalProperties": false
       },
       "ReferenceRating": {
         "required": [

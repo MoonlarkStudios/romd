@@ -22,6 +22,9 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
     public string? BaseAssetHash { get; set; }
     public bool BaseMonochrome { get; set; }
     public bool Retired { get; set; }
+    public string? HardwareCategory { get; set; }
+    public int? HardwareGeneration { get; set; }
+    public int? HardwareReleaseYear { get; set; }
 
     public string Name { get; set; } = null!;
     public string ShortName { get; set; } = null!;
@@ -77,6 +80,7 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
             t.HasCheckConstraint("CK_Platforms_ReferenceIdentity", "(\"CanonicalKey\" IS NULL AND \"Ownership\" IS NULL AND \"BaseName\" IS NULL AND \"BaseCompactLabel\" IS NULL AND \"BaseDescription\" IS NULL AND \"BaseAssetHash\" IS NULL AND NOT \"Retired\" AND NOT \"BaseMonochrome\") OR (\"CanonicalKey\" IS NOT NULL AND \"Ownership\" IS NOT NULL AND \"BaseName\" IS NOT NULL AND \"BaseCompactLabel\" IS NOT NULL)");
             t.HasCheckConstraint("CK_Platforms_ReferenceOwnership", "CASE WHEN \"Ownership\" IS NULL THEN \"BuiltInVersion\" IS NULL WHEN \"Ownership\" = 'Romd' THEN \"BuiltInVersion\" IS NOT NULL AND \"BuiltInVersion\" > 0 ELSE \"Ownership\" = 'Installation' AND \"BuiltInVersion\" IS NULL END");
         });
+        builder.Property(x => x.HardwareCategory).HasMaxLength(20);
         builder.Property(x => x.Ownership).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.BaseName).HasMaxLength(200);
         builder.Property(x => x.BaseCompactLabel).HasMaxLength(40);

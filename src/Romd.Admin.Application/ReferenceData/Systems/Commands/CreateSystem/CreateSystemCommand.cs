@@ -9,4 +9,4 @@ using ContractSystemOverrides = Romd.Contracts.Common.ReferenceCatalog.SystemOve
 namespace Romd.Admin.Application.ReferenceData.Systems.Commands;
 
 public sealed record CreateSystemCommand(string Key, SystemDefinition Definition, IReadOnlyList<string>? ManufacturerKeys = null,
-    bool EnableForSetup = false) : ICommand<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>;
+    bool EnableForSetup = false, SystemHardware? Hardware = null, IReadOnlyList<string>? NameAliases = null) : ICommand<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>;

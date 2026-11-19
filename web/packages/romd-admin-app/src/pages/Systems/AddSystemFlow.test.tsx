@@ -8,13 +8,15 @@ import {
   checkDatSubscription,
   createDatSubscription,
   createManagedSystem,
-  getAdminSystem,
   getDatSubscriptionPreview,
   getJob,
+  getManagedSystemDetails,
   importSystemDat,
+  listAdminCompanies,
   listDatCatalogs,
   listDatSubscriptions,
   listManagedSystems,
+  listSystemAliases,
   listSystemDats,
   previewSystemDat,
   setSystemEnabled,
@@ -42,7 +44,9 @@ vi.mock('@romd/admin-api-client', async () => ({
   checkDatSubscription: vi.fn(),
   createDatSubscription: vi.fn(),
   createManagedSystem: vi.fn(),
-  getAdminSystem: vi.fn(),
+  getManagedSystemDetails: vi.fn(),
+  listAdminCompanies: vi.fn(),
+  listSystemAliases: vi.fn(),
   updateManagedSystemPresentation: vi.fn(),
   getDatSubscriptionPreview: vi.fn(),
 }));
@@ -59,6 +63,13 @@ const psx: ManagedSystem = {
 };
 const psxDetails = {
   key: 'psx',
+  ownership: 'Romd',
+  manufacturers: [
+    {
+      key: 'sony',
+      name: 'Sony',
+    },
+  ],
   name: 'PlayStation',
   compactLabel: 'PS1',
   description: 'A Sony home console.',
@@ -75,7 +86,42 @@ const result = <T,>(data: T) =>
   }) as never;
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(getAdminSystem).mockResolvedValue(result(psxDetails));
+  vi.mocked(getManagedSystemDetails).mockResolvedValue(
+    result({
+      system: psxDetails,
+      hardware: {
+        category: 'console',
+        generation: 5,
+        releaseYear: 1994,
+      },
+    }),
+  );
+  vi.mocked(listSystemAliases).mockResolvedValue(
+    result(
+      page([
+        {
+          id: 'alias-1',
+          type: 'name',
+          value: 'PSX',
+        },
+        {
+          id: 'mapping-1',
+          type: 'provider',
+          value: 'provider-only',
+        },
+      ]),
+    ),
+  );
+  vi.mocked(listAdminCompanies).mockResolvedValue(
+    result(
+      page([
+        {
+          key: 'sony',
+          name: 'Sony',
+        },
+      ]),
+    ),
+  );
   vi.mocked(listManagedSystems).mockResolvedValue(
     result(
       completePage([
@@ -158,7 +204,7 @@ it('adds a system independently only after choosing Add without a DAT', async ()
   expect(importSystemDat).not.toHaveBeenCalled();
   expect(close).toHaveBeenCalled();
 });
-it('prefills known details and saves only edited fields against the displayed revision', async () => {
+it('locks inherited facts and only saves local presentation edits and new aliases', async () => {
   const user = userEvent.setup();
   const open = vi.fn();
   vi.mocked(updateManagedSystemPresentation).mockResolvedValue(
@@ -193,6 +239,23 @@ it('prefills known details and saves only edited fields against the displayed re
       name: 'Short description',
     }),
   ).toHaveValue('A Sony home console.');
+  for (const [label, value] of Object.entries({
+    Manufacturers: 'Sony',
+    Category: 'Console',
+    Generation: '5',
+    'Release year': '1994',
+  })) {
+    expect(screen.getByLabelText(label)).toHaveAttribute('readonly');
+    expect(screen.getByLabelText(label)).toHaveValue(value);
+  }
+  expect(await screen.findByText('PSX')).toBeVisible();
+  expect(screen.queryByText('provider-only')).not.toBeInTheDocument();
+  await user.type(
+    screen.getByRole('combobox', {
+      name: 'Add name aliases',
+    }),
+    'Local PlayStation DAT{Enter}',
+  );
   await user.clear(name);
   await user.type(name, 'My PlayStation');
   expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
@@ -213,6 +276,9 @@ it('prefills known details and saves only edited fields against the displayed re
     },
     body: {
       name: 'My PlayStation',
+      nameAliases: [
+        'Local PlayStation DAT',
+      ],
     },
   });
 });
@@ -259,6 +325,41 @@ it('creates and opens a custom system only after confirmation', async () => {
     }),
     'Local projects.',
   );
+  await user.click(
+    screen.getByRole('combobox', {
+      name: 'Manufacturers',
+    }),
+  );
+  await user.click(
+    await screen.findByRole('option', {
+      name: 'Sony',
+    }),
+  );
+  await user.click(
+    screen.getByRole('combobox', {
+      name: 'Category',
+    }),
+  );
+  await user.click(
+    await screen.findByRole('option', {
+      name: 'Handheld',
+    }),
+  );
+  await user.type(screen.getByLabelText('Generation'), '7');
+  const year = screen.getByLabelText('Release year');
+  await user.type(year, '200');
+  expect(
+    screen.getByRole('button', {
+      name: 'Add without a DAT',
+    }),
+  ).toBeDisabled();
+  await user.type(year, '7');
+  await user.type(
+    screen.getByRole('combobox', {
+      name: 'Add name aliases',
+    }),
+    'Homebrew Pocket{Enter}',
+  );
   expect(createManagedSystem).not.toHaveBeenCalled();
   await user.click(
     screen.getByRole('button', {
@@ -272,6 +373,15 @@ it('creates and opens a custom system only after confirmation', async () => {
       name: 'Homebrew Lab',
       compactLabel: 'Homebrew Lab',
       description: 'Local projects.',
+      manufacturerKeys: [
+        'sony',
+      ],
+      category: 'handheld',
+      generation: 7,
+      releaseYear: 2007,
+      nameAliases: [
+        'Homebrew Pocket',
+      ],
     },
   });
   expect(setSystemEnabled).not.toHaveBeenCalled();

@@ -465,6 +465,20 @@ export type CreateLibraryRequest = {
     isDefault?: boolean;
 };
 
+export type CreateManagedSystemRequest = {
+    key: string;
+    name: string;
+    compactLabel: string;
+    description?: null | string;
+    icon?: null | string;
+    monochrome?: boolean;
+    manufacturerKeys?: null | Array<string>;
+    category?: null | string;
+    generation?: null | number;
+    releaseYear?: null | number;
+    nameAliases?: null | Array<string>;
+};
+
 export type CreateSystem = {
     key: string;
     name: string;
@@ -1303,6 +1317,27 @@ export type ManagedSystem = {
     lastDatImportedAt?: null | string;
 };
 
+export type ManagedSystemHardware = {
+    category: null | string;
+    generation: null | number;
+    releaseYear: null | number;
+};
+
+export type ManagedSystemPatch = {
+    category?: null | string;
+    generation?: null | number;
+    releaseYear?: null | number;
+    manufacturerKeys?: Array<string>;
+    nameAliases?: Array<string>;
+    name?: string;
+    description?: null | string;
+};
+
+export type ManagedSystemSetupDetails = {
+    system: SystemResource;
+    hardware: null | ManagedSystemHardware;
+};
+
 export type MediaReconciliationPolicy = {
     kindId: string;
     recipeId: string;
@@ -1985,11 +2020,6 @@ export type ReferenceNamed = {
     name: string;
     description: null | string;
     retired?: boolean;
-};
-
-export type ReferencePatch = {
-    name?: string;
-    description?: null | string;
 };
 
 export type ReferenceRating = {
@@ -6249,7 +6279,7 @@ export type ListManagedSystemsResponses = {
 export type ListManagedSystemsResponse = ListManagedSystemsResponses[keyof ListManagedSystemsResponses];
 
 export type CreateManagedSystemData = {
-    body: CreateSystem;
+    body: CreateManagedSystemRequest;
     path?: never;
     query?: never;
     url: '/api/system-setup';
@@ -6277,8 +6307,39 @@ export type CreateManagedSystemResponses = {
 
 export type CreateManagedSystemResponse = CreateManagedSystemResponses[keyof CreateManagedSystemResponses];
 
+export type GetManagedSystemDetailsData = {
+    body?: never;
+    path: {
+        systemKey: string;
+    };
+    query?: never;
+    url: '/api/system-setup/{systemKey}';
+};
+
+export type GetManagedSystemDetailsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type GetManagedSystemDetailsError = GetManagedSystemDetailsErrors[keyof GetManagedSystemDetailsErrors];
+
+export type GetManagedSystemDetailsResponses = {
+    /**
+     * OK
+     */
+    200: ManagedSystemSetupDetails;
+};
+
+export type GetManagedSystemDetailsResponse = GetManagedSystemDetailsResponses[keyof GetManagedSystemDetailsResponses];
+
 export type UpdateManagedSystemPresentationData = {
-    body: ReferencePatch;
+    body: ManagedSystemPatch;
     headers: {
         /**
          * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.

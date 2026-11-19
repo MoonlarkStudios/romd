@@ -17,6 +17,10 @@ namespace Romd.Persistence.ReferenceData;
 
 internal static partial class TypedReferenceMapping
 {
+    internal static SystemHardware? Hardware(PlatformEntity row) =>
+        row.HardwareCategory is null && row.HardwareGeneration is null && row.HardwareReleaseYear is null
+            ? null : new(row.HardwareCategory, row.HardwareGeneration, row.HardwareReleaseYear);
+
     internal static SystemDefinition Definition(PlatformEntity row) => new(row.BaseName!, row.BaseCompactLabel!, row.BaseDescription, row.BaseAssetHash, row.BaseMonochrome, row.Retired);
     internal static CompanyDefinition Definition(CompanyEntity row) => new(row.BaseName, row.BaseDescription, row.Retired);
     internal static SystemDefinition Effective(PlatformEntity row) => (row.ReferenceOverrides ?? new()).Apply(Definition(row));
@@ -101,7 +105,10 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
                 facts.Name, facts.CompactLabel, facts.Description, icon, facts.Retired, companies.GetValueOrDefault(row.Id) ?? [])
             { Revision = "" };
             var overrides = TypedReferenceMapping.Overrides(row.ReferenceOverrides ?? new());
-            var revision = TypedReferenceMapping.Revision(new { Resource = resource, Definition = TypedReferenceMapping.Definition(row), Overrides = overrides });
+            var definition = TypedReferenceMapping.Definition(row);
+            var revision = TypedReferenceMapping.Hardware(row) is { } hardware
+                ? TypedReferenceMapping.Revision(new { Resource = resource, Definition = definition, Overrides = overrides, Hardware = hardware })
+                : TypedReferenceMapping.Revision(new { Resource = resource, Definition = definition, Overrides = overrides });
             return new ReferenceResourceResult<SystemResource, ContractSystemOverrides>(resource with { Revision = revision }, overrides, revision);
         }).ToArray();
     }

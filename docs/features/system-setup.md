@@ -16,9 +16,21 @@ Returning to Systems restores the list filters and selection.
 **Add system** searches names and aliases on the server. Choose a system and its
 first DAT in the same flow. For a known system, you can edit its display name and
 short description before confirming. ROMD uses the fixed system key to match
-verified subscriptions. Use **Create custom system** for a system outside the
-reference catalog. Custom systems get a suggested key that you can edit before
-creation and use manual DATs. ROMD offers verified subscriptions from the signed
+verified subscriptions. Built-in manufacturers, category, generation, release year,
+and existing aliases are shown with the system details. Built-in hardware facts
+are fixed. You can add name aliases for matching DAT headers.
+
+Choose **Custom system** for a system outside the reference catalog. Custom
+systems get a suggested key you can edit before creation. You can select
+registered manufacturers, enter optional hardware facts, and add aliases.
+They use manual DATs. Release year means the first public hardware release.
+Unknown facts are left blank. Release histories include
+[Sony Interactive Entertainment](https://sonyinteractive.com/en/our-company/expanded-company-timeline/),
+[Nintendo](https://www.nintendo.co.jp/corporate/en/history/index.html),
+[Sega](https://www.sega.co.jp/en/company/history/), and the
+[Atari collection at The Strong](https://museumofplay.org/app/uploads/2021/09/Finding-Aid-to-the-Cort-and-Barbara-Allen-Atari-packaging-design-collection_053018.pdf).
+
+ROMD offers verified subscriptions from the signed
 directory, with a choice when formats differ. You can also **Upload a DAT** or
 choose **Add without a DAT** and return to **Catalog sources** later. A candidate
 waits for review before import. If you close setup after a subscription is

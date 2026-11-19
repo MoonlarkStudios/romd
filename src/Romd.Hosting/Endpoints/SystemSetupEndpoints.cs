@@ -10,6 +10,7 @@ using Romd.Application.Common.Ids;
 using Romd.Contracts.Common.ReferenceCatalog;
 using Romd.Contracts.Management.Models;
 using Romd.Host.Authorization;
+using Romd.Domain.ReferenceData;
 
 using ContractManagedSystem = Romd.Contracts.Management.Models.ManagedSystem;
 using ContractSystemDatPreview = Romd.Contracts.Management.Models.SystemDatPreview;
@@ -39,11 +40,21 @@ public static class SystemSetupEndpoints
             });
         }).WithName("ListManagedSystems").Produces<Page<ContractManagedSystem>>()
             .WithDescription("Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order, page selected before status/count assembly in one repeatable-read observation. Query includes normalized names, short names, manufacturers and name aliases; aliases are a separate paged relationship. Default/max limit 100; sortBy supports key:asc.");
+        group.MapGet("/{systemKey}", async (SystemKeyParameter systemKey, ISystemSetupService service, CancellationToken ct) =>
+        {
+            var details = await service.GetDetailsAsync(systemKey.Key, ct);
+            if (details is null)
+                return ReferenceCatalogEndpoints.UnknownSystem();
+            var hardware = details.Hardware;
+            return Results.Ok(new ManagedSystemSetupDetails(details.System,
+                hardware is null ? null : new(hardware.Category, hardware.Generation, hardware.ReleaseYear)));
+        }).WithName("GetManagedSystemDetails").Produces<ManagedSystemSetupDetails>()
+            .WithDescription("System reference facts and optional hardware metadata read from the same database snapshot.");
         group.MapPost("", CreateAndEnable).WithName("CreateManagedSystem")
             .WithDescription("Create an installation-owned system and add it to the installation's Systems list in the same transaction.")
             .ProducesCreated<SystemResource>().ProducesProblems(400, 409).ConditionalCreate();
         group.MapPatch("/{systemKey}", UpdateAndEnable).WithName("UpdateManagedSystemPresentation")
-            .WithDescription("Update a system's name or description and add it to the Systems list atomically. Use the system reference resource's current ETag.")
+            .WithDescription("Update permitted system facts, add name aliases, and add the system to the Systems list atomically. Use the system reference resource's current ETag.")
             .Produces<SystemResource>().ProducesProblems(400, 409).ConditionalWrite();
         group.MapPut("/{systemKey}/enabled", async (SystemKeyParameter systemKey, SetSystemEnabled request, ISystemSetupService service, CancellationToken ct) =>
         {
@@ -78,25 +89,36 @@ public static class SystemSetupEndpoints
         return app;
     }
 
-    private static async Task<IResult> CreateAndEnable(CreateSystem request,
+    private static async Task<IResult> CreateAndEnable(CreateManagedSystemRequest request,
         ICommandHandler<CreateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, HttpContext context, CancellationToken ct)
     {
         var result = await handler.HandleAsync(new(request.Key,
-            new(request.Name, request.CompactLabel, request.Description, request.Icon, request.Monochrome), request.ManufacturerKeys, EnableForSetup: true), ct);
+            new(request.Name, request.CompactLabel, request.Description, request.Icon, request.Monochrome), request.ManufacturerKeys, EnableForSetup: true,
+            Hardware: new(request.Category, request.Generation, request.ReleaseYear), NameAliases: request.NameAliases), ct);
         return result.Match(
             created => Results.Created("/api/systems/" + Uri.EscapeDataString(created.Resource.Key), created.Resource).WithETag(context, created.Revision),
             errors => errors.ToProblem());
     }
 
-    private static async Task<IResult> UpdateAndEnable(SystemKeyParameter systemKey, ReferencePatch patch, HttpContext context,
+    private static async Task<IResult> UpdateAndEnable(SystemKeyParameter systemKey, ManagedSystemPatch patch, HttpContext context,
         ICommandHandler<UpdateSystemCommand, ReferenceResourceResult<SystemResource, ContractSystemOverrides>> handler, CancellationToken ct)
     {
         var ifMatch = Preconditions.IfMatch(context, ReferenceCatalogEndpoints.PreconditionArea);
         if (ifMatch.IsError)
             return ifMatch.Errors.ToProblem();
+        var supplied = patch.Changes;
+        if (supplied.ContainsKey("manufacturerKeys") && patch.ManufacturerKeys is null ||
+            supplied.ContainsKey("nameAliases") && patch.NameAliases is null)
+            return ProblemResults.Problem(400, "ReferenceResource.Invalid", "Manufacturer keys and name aliases cannot be null.");
+        var hasCategory = supplied.ContainsKey("category");
+        var hasGeneration = supplied.ContainsKey("generation");
+        var hasReleaseYear = supplied.ContainsKey("releaseYear");
+        SystemHardwareChanges? hardware = hasCategory || hasGeneration || hasReleaseYear
+            ? new(new(patch.Category, patch.Generation, patch.ReleaseYear), hasCategory, hasGeneration, hasReleaseYear)
+            : null;
         var result = await handler.HandleAsync(new(systemKey.Key,
-            new(Name: patch.Name, Description: patch.Description, HasDescription: patch.Changes.ContainsKey("description")),
-            ifMatch.Value, EnableForSetup: true), ct);
+            new(Name: patch.Name, Description: patch.Description, HasDescription: supplied.ContainsKey("description")),
+            ifMatch.Value, patch.ManufacturerKeys, EnableForSetup: true, Hardware: hardware, NameAliases: patch.NameAliases), ct);
         return result.Match(updated => Results.Ok(updated.Resource).WithETag(context, updated.Revision), errors => errors.ToProblem());
     }
 }

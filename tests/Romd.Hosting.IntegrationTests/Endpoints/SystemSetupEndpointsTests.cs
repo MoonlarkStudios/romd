@@ -92,6 +92,17 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
         using var original = await client.GetAsync($"/api/systems/{key}");
         original.EnsureSuccessStatusCode();
         var before = (await original.Content.ReadFromJsonAsync<SystemResource>()).ShouldNotBeNull();
+        var details = (await client.GetFromJsonAsync<ManagedSystemSetupDetails>($"/api/system-setup/{key}")).ShouldNotBeNull();
+        details.System.Revision.ShouldBe(before.Revision);
+        details.Hardware.ShouldBe(new ManagedSystemHardware("console", 5, 1994));
+
+        using var rewrite = new HttpRequestMessage(HttpMethod.Patch, $"/api/system-setup/{key}")
+        {
+            Content = JsonContent.Create(new { releaseYear = 2000, nameAliases = new[] { "Forbidden setup alias" } })
+        };
+        rewrite.Headers.IfMatch.Add(original.Headers.ETag.ShouldNotBeNull());
+        using var locked = await client.SendAsync(rewrite);
+        locked.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
         using var stale = new HttpRequestMessage(HttpMethod.Patch, $"/api/system-setup/{key}")
         {
@@ -107,7 +118,7 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
 
         using var patch = new HttpRequestMessage(HttpMethod.Patch, $"/api/system-setup/{key}")
         {
-            Content = JsonContent.Create(new { name = "My PlayStation", description = "A local description." })
+            Content = JsonContent.Create(new { name = "My PlayStation", description = "A local description.", nameAliases = new[] { "My Local PSX", "PS1" } })
         };
         patch.Headers.IfMatch.Add(original.Headers.ETag.ShouldNotBeNull());
         using var applied = await client.SendAsync(patch);
@@ -121,6 +132,10 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
         var enabled = (await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup"))!.Single(x => x.Key == key);
         enabled.Enabled.ShouldBeTrue();
         enabled.Name.ShouldBe(current.Name);
+        var matches = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup?query=My%20Local%20PSX");
+        matches.ShouldContain(system => system.Key == key);
+        var rejectedAliases = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup?query=Forbidden%20setup%20alias");
+        rejectedAliases.ShouldBeEmpty();
     }
 
     [Fact]
@@ -129,13 +144,35 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
         await using var host = new AcceptanceFixture();
         await host.InitializeAsync();
         using var client = host.CreateAuthenticatedClient();
-        var request = new CreateSystem("local-test-station", "Test Station", "Test", "A custom system.");
+        var request = new CreateManagedSystemRequest("local-test-station", "Test Station", "Test", "A custom system.",
+            ManufacturerKeys: ["sony"], Category: "handheld", Generation: 7, ReleaseYear: 2007, NameAliases: ["Test Pocket"]);
+
+        using var conflict = await client.PostAsJsonAsync("/api/system-setup", request with { NameAliases = ["PS1"] });
+        conflict.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        using var rolledBack = await client.GetAsync($"/api/system-setup/{request.Key}");
+        rolledBack.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         using var created = await client.PostAsJsonAsync("/api/system-setup", request);
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         created.Headers.Location.ShouldNotBeNull().OriginalString.ShouldBe("/api/systems/local-test-station");
-        created.Headers.ETag.ShouldNotBeNull();
+        var etag = created.Headers.ETag.ShouldNotBeNull();
+        var details = (await client.GetFromJsonAsync<ManagedSystemSetupDetails>($"/api/system-setup/{request.Key}")).ShouldNotBeNull();
+        details.Hardware.ShouldBe(new ManagedSystemHardware("handheld", 7, 2007));
+        details.System.Manufacturers.Select(company => company.Key).ShouldBe(["sony"]);
+        var matches = await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup?query=Test%20Pocket");
+        matches.ShouldContain(system => system.Key == request.Key);
+        using var patch = new HttpRequestMessage(HttpMethod.Patch, $"/api/system-setup/{request.Key}")
+        {
+            Content = JsonContent.Create(new { generation = (int?)null, releaseYear = 2008 })
+        };
+        patch.Headers.IfMatch.Add(etag);
+        using var updated = await client.SendAsync(patch);
+        updated.StatusCode.ShouldBe(HttpStatusCode.OK);
+        updated.Headers.ETag.ShouldNotBe(etag);
+        var revised = (await client.GetFromJsonAsync<ManagedSystemSetupDetails>($"/api/system-setup/{request.Key}")).ShouldNotBeNull();
+        revised.Hardware.ShouldBe(new ManagedSystemHardware("handheld", null, 2008));
+
         using var duplicate = await client.PostAsJsonAsync("/api/system-setup", request with { Name = "Duplicate" });
         duplicate.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         var system = (await TestHelpers.ReadAllPageItemsAsync<ContractManagedSystem>(client, "/api/system-setup"))!.Single(x => x.Key == request.Key);

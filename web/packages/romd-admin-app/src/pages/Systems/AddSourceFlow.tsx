@@ -17,8 +17,9 @@ import type {
   DatCatalogSubscription,
   JobReference,
   ManagedSystem,
+  ManagedSystemPatch,
+  ManagedSystemSetupDetails,
   PublishedDatCatalog,
-  ReferencePatch,
   SystemDatPreview,
   SystemResource,
 } from '@romd/admin-api-client';
@@ -47,10 +48,11 @@ import {
   managedSystemKeys,
   useDatCatalogs,
   useDatSubscriptions,
+  useManagedSystemDetails,
   useManagedSystems,
   useSetSystemEnabled,
 } from '../../hooks/api/useManagedSystems';
-import { platformKeys, usePlatform } from '../../hooks/api/usePlatforms';
+import { platformKeys, usePlatformAliases } from '../../hooks/api/usePlatforms';
 import { formatBytes } from '../../utils/format';
 import { suggestSystemKey } from '../../utils/systemKey';
 import { catalogProviderName } from './catalogProviderName';
@@ -58,30 +60,75 @@ import { DatUploadZone } from './components/DatUploadZone';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 import { SystemDatOptions, verifiedOffers } from './SystemDatOptions';
 import { SystemLogo, useSystemIcons } from './SystemLogo';
-import { type SystemPresentation, SystemPresentationFields } from './SystemPresentationFields';
+import {
+  type SystemPresentation,
+  SystemPresentationFields,
+  validSystemPresentation,
+} from './SystemPresentationFields';
 import classes from './SystemSetupFlow.module.css';
 import { SystemSetupPicker } from './SystemSetupPicker';
 
 export type OpenSetupSystem = (systemKey: string, tab?: 'sources') => void;
 type SetupStep = 'system' | 'custom' | 'file' | 'source' | 'manual-review' | 'job';
 type KnownDraft = SystemPresentation & {
-  original: SystemResource;
+  original: ManagedSystemSetupDetails;
 };
 type CustomDraft = SystemPresentation & {
   keyOverride?: string;
   registered?: boolean;
 };
 
-function knownPresentationPatch(draft: KnownDraft): ReferencePatch {
+function presentationValues(details?: ManagedSystemSetupDetails): SystemPresentation {
+  return {
+    name: details?.system.name ?? '',
+    description: details?.system.description ?? '',
+    category: details?.hardware?.category ?? null,
+    generation: details?.hardware?.generation ?? null,
+    releaseYear: details?.hardware?.releaseYear ?? null,
+    manufacturerKeys: details?.system.manufacturers?.map((company) => company.key) ?? [],
+    nameAliases: [],
+  };
+}
+
+function setupAliases(values: string[]) {
+  return values.map((value) => value.trim()).filter(Boolean);
+}
+
+function knownPresentationPatch(draft: KnownDraft): ManagedSystemPatch {
+  const original = presentationValues(draft.original);
   const name = draft.name.trim();
   const description = draft.description.trim() || null;
+  const nameAliases = setupAliases(draft.nameAliases);
+  const hardwareEditable = draft.original.system.ownership === 'Installation';
+  const manufacturerChanged =
+    draft.manufacturerKeys.length !== original.manufacturerKeys.length ||
+    draft.manufacturerKeys.some((key) => !original.manufacturerKeys.includes(key));
   return {
-    ...(name !== draft.original.name && {
+    ...(name !== original.name && {
       name,
     }),
-    ...(description !== draft.original.description && {
+    ...(description !== (original.description || null) && {
       description,
     }),
+    ...(nameAliases.length > 0 && {
+      nameAliases,
+    }),
+    ...(hardwareEditable &&
+      draft.category !== original.category && {
+        category: draft.category,
+      }),
+    ...(hardwareEditable &&
+      draft.generation !== original.generation && {
+        generation: draft.generation,
+      }),
+    ...(hardwareEditable &&
+      draft.releaseYear !== original.releaseYear && {
+        releaseYear: draft.releaseYear,
+      }),
+    ...(hardwareEditable &&
+      manufacturerChanged && {
+        manufacturerKeys: draft.manufacturerKeys,
+      }),
   };
 }
 
@@ -120,7 +167,8 @@ export function AddSourceFlow({
   const [customDraft, setCustomDraft] = useState<CustomDraft>();
   const customKey = customDraft?.keyOverride ?? suggestSystemKey(customDraft?.name ?? '');
   const canRegisterCustom =
-    !!customDraft?.name.trim() &&
+    !!customDraft &&
+    validSystemPresentation(customDraft) &&
     customKey.length <= 50 &&
     /^local-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(customKey);
   const unregisteredCustom = !!customDraft && !customDraft.registered;
@@ -146,9 +194,12 @@ export function AddSourceFlow({
   const enable = useSetSystemEnabled();
   const job = useJob(jobId);
   const dats = useDatsByPlatform(unregisteredCustom ? undefined : selected?.key);
-  const presentation = usePlatform(addingSystem && !customDraft ? selected?.key : undefined);
+  const setupKey = addingSystem && !customDraft ? selected?.key : undefined;
+  const presentation = useManagedSystemDetails(setupKey);
+  const platformAliases = usePlatformAliases(setupKey);
   const details = presentation.data;
-  const canConfirmKnown = !knownDraft || !!knownDraft.name.trim();
+  const canConfirmKnown =
+    !setupKey || (!!details && (!knownDraft || validSystemPresentation(knownDraft)));
   const icons = useSystemIcons();
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -225,6 +276,9 @@ export function AddSourceFlow({
     });
     client.setQueryData(platformKeys.detail(resource.key), resource);
     void client.invalidateQueries({
+      queryKey: platformKeys.aliases(resource.key),
+    });
+    void client.invalidateQueries({
       queryKey: platformKeys.lists(),
     });
     void client.invalidateQueries({
@@ -246,7 +300,7 @@ export function AddSourceFlow({
         systemKey: selected.key,
       },
       headers: {
-        'If-Match': `"${knownDraft.original.revision}"`,
+        'If-Match': `"${knownDraft.original.system.revision}"`,
       },
       body: patch,
     });
@@ -271,18 +325,32 @@ export function AddSourceFlow({
       throw new Error('Enter a display name and a valid system key.');
     if (customDraft.registered) return customKey;
     const name = customDraft.name.trim();
+    const nameAliases = setupAliases(customDraft.nameAliases);
     const response = await createManagedSystem({
       body: {
         key: customKey,
         name,
         compactLabel: name.slice(0, 40).trimEnd(),
         description: customDraft.description.trim() || null,
+        ...(customDraft.category !== null && {
+          category: customDraft.category,
+        }),
+        ...(customDraft.generation !== null && {
+          generation: customDraft.generation,
+        }),
+        ...(customDraft.releaseYear !== null && {
+          releaseYear: customDraft.releaseYear,
+        }),
+        ...(customDraft.manufacturerKeys.length > 0 && {
+          manufacturerKeys: customDraft.manufacturerKeys,
+        }),
+        ...(nameAliases.length > 0 && {
+          nameAliases,
+        }),
       },
     });
     if (response.response?.status === 409) {
-      throw new Error(
-        'That system key is already in use. Return to system details and choose a different key.',
-      );
+      throw new Error(setupFailure(response.error));
     }
     if (!response.data || response.error) throw response.error;
     await refreshSystemDetails(response.data);
@@ -483,10 +551,7 @@ export function AddSourceFlow({
 
   function chooseCustomMode() {
     chooseKnownMode();
-    setCustomDraft({
-      name: '',
-      description: '',
-    });
+    setCustomDraft(presentationValues());
     setStep('custom');
   }
 
@@ -739,6 +804,7 @@ export function AddSourceFlow({
                           keyOverride,
                         })
                 }
+                hardwareEditable
                 disabled={busy || !!customDraft.registered}
               />
             </Stack>
@@ -828,15 +894,14 @@ export function AddSourceFlow({
                 )}
               </Group>
               {addingSystem &&
-                !restoring &&
                 (details ? (
                   <SystemPresentationFields
-                    value={
-                      knownDraft ?? {
-                        name: details.name,
-                        description: details.description ?? '',
-                      }
-                    }
+                    value={knownDraft ?? presentationValues(details)}
+                    hardwareEditable={details.system.ownership === 'Installation'}
+                    manufacturers={details.system.manufacturers}
+                    existingAliases={platformAliases.data
+                      ?.filter((alias) => alias.type === 'name')
+                      .map((alias) => alias.value)}
                     onChange={(value) =>
                       setKnownDraft({
                         ...value,
@@ -861,6 +926,16 @@ export function AddSourceFlow({
                 ) : (
                   <Skeleton height={110} />
                 ))}
+              {addingSystem && platformAliases.isError && (
+                <Button
+                  size="compact-sm"
+                  variant="subtle"
+                  w="fit-content"
+                  onClick={() => void platformAliases.refetch()}
+                >
+                  Retry existing aliases
+                </Button>
+              )}
             </Stack>
             {restoring ? (
               <>
@@ -892,6 +967,7 @@ export function AddSourceFlow({
                   <Button
                     {...workspaceActionProps}
                     loading={busy}
+                    disabled={!canConfirmKnown}
                     onClick={skipDat}
                   >
                     Restore system
