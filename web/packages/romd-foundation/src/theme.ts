@@ -128,9 +128,6 @@ export const adminCssVariablesResolver: CSSVariablesResolver = (theme) => {
   const primary = `--mantine-color-${theme.primaryColor}`;
   const resolved = resolvePortalColors(theme, {
     '--mantine-color-default-color': 'var(--romd-portal-text)',
-    // Explicit legacy accents still use the foundation ramps in Admin.
-    '--mantine-color-teal-contrast':
-      'light-dark(var(--mantine-color-white), var(--mantine-color-dark-9))',
     ...actionCssVariables(...portalAccent, [
       theme.primaryColor,
     ]),
@@ -142,8 +139,16 @@ export const adminCssVariablesResolver: CSSVariablesResolver = (theme) => {
     '--mantine-primary-color-light-color': 'var(--romd-admin-selected-text)',
     '--mantine-color-gray-light': 'var(--romd-portal-overlay)',
     '--mantine-color-gray-light-color': 'var(--romd-portal-muted)',
-    '--mantine-color-gray-light-hover': 'var(--romd-portal-overlay)',
+    '--mantine-color-gray-light-hover':
+      'color-mix(in srgb, var(--romd-portal-overlay), var(--romd-portal-text) 10%)',
     '--mantine-color-success': 'var(--romd-admin-success)',
+    ...statusCssVariables(
+      [
+        'blue',
+      ],
+      'var(--romd-admin-info)',
+      'var(--romd-admin-info-surface)',
+    ),
     ...statusCssVariables(
       [
         'green',

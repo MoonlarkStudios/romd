@@ -3,6 +3,7 @@ import { romdTheme } from '@romd/foundation/theme';
 import classes from './theme.module.css';
 
 const statusColors = new Set([
+  'blue',
   'green',
   'yellow',
   'orange',

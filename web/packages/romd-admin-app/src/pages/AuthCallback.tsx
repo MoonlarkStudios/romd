@@ -50,10 +50,7 @@ export function AuthCallback() {
       className="romd-auth-shell"
       aria-label="Completing sign-in"
     >
-      <Loader
-        size="lg"
-        color="mint"
-      />
+      <Loader size="lg" />
     </main>
   );
 }

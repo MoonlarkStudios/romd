@@ -5,6 +5,8 @@
   --romd-admin-focus: var(--romd-portal-accent);
   --romd-admin-selected: light-dark(#e1e7e1, #2b3a36);
   --romd-admin-selected-text: var(--romd-portal-accent);
+  --romd-admin-info: light-dark(#315878, #a8c1db);
+  --romd-admin-info-surface: light-dark(#e5edf5, #263644);
   --romd-admin-success: light-dark(#176746, #70e0ad);
   --romd-admin-success-surface: light-dark(#ddf4e8, #17382f);
   --romd-admin-warning: light-dark(#80510c, #f1bd67);
