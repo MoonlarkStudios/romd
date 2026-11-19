@@ -431,7 +431,7 @@ export function SystemPresentationFields({
         placeholder="Optional"
         autosize
         minRows={2}
-        maxRows={4}
+        maxRows={12}
         maxLength={2000}
         value={value.description}
         disabled={disabled}

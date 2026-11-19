@@ -40,7 +40,8 @@ and regional names. [Nintendo](https://press.nintendo.com/CompanyHistory),
 [SNK](https://neogeomuseum.snk-corp.co.jp/english/whats/index.php), and
 [Bandai](https://www.bandai.co.jp/releases/images/3/204.pdf).
 
-The home computer descriptions also draw on museum collection records. [Computer History Museum](https://www.computerhistory.org/revolution/story/298).
+The home computer descriptions also draw on museum collection records. [Computer History Museum](https://www.computerhistory.org/revolution/story/298) and
+[The Centre for Computing History](https://www.computinghistory.org.uk/det/509/Sinclair-ZX-Spectrum-3/).
 
 See [the architecture and HTTP contract](../docs/architecture/shared-reference-data.md) for
 the agreed resource-oriented API (`systems`, companies, regions, languages,

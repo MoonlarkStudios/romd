@@ -20,8 +20,8 @@ alias belongs to one system, with case and repeated spaces ignored. Use the
 remove control next to a saved local alias to remove it immediately. Built-in
 aliases and aliases of unknown ownership are locked.
 
-Known systems start with a short description from the ROMD catalog. Edit it or
-use **Clear description**, then choose **Save changes**. Clearing it keeps it
+Known systems start with a paragraph from the ROMD catalog. Edit it or use
+**Clear description**, then choose **Save changes**. Clearing it keeps it
 blank across catalog updates. **Restore default** returns the description to
 ROMD's current wording while keeping edits to other fields.
 
