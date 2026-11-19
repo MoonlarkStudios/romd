@@ -1845,6 +1845,10 @@ export type PreviewArtworkRequest = {
     candidateReference: string;
 };
 
+export type PreviewSystemNameAliasesRequest = {
+    nameAliases: Array<string>;
+};
+
 export type ProblemDetails = {
     type?: null | string;
     title?: null | string;
@@ -2329,6 +2333,12 @@ export type SystemHealth = {
     routedCount: number;
     unroutedCount: number;
     failedJobCount: number;
+};
+
+export type SystemNameAliasConflict = {
+    alias: string;
+    systemName: string;
+    builtIn: boolean;
 };
 
 export type SystemOverrides = {
@@ -6417,6 +6427,31 @@ export type SetSystemEnabledResponses = {
 };
 
 export type SetSystemEnabledResponse = SetSystemEnabledResponses[keyof SetSystemEnabledResponses];
+
+export type PreviewSystemNameAliasesData = {
+    body: PreviewSystemNameAliasesRequest;
+    path?: never;
+    query?: never;
+    url: '/api/system-setup/name-aliases/preview';
+};
+
+export type PreviewSystemNameAliasesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type PreviewSystemNameAliasesError = PreviewSystemNameAliasesErrors[keyof PreviewSystemNameAliasesErrors];
+
+export type PreviewSystemNameAliasesResponses = {
+    /**
+     * OK
+     */
+    200: Array<SystemNameAliasConflict>;
+};
+
+export type PreviewSystemNameAliasesResponse = PreviewSystemNameAliasesResponses[keyof PreviewSystemNameAliasesResponses];
 
 export type PreviewSystemDatData = {
     body: {

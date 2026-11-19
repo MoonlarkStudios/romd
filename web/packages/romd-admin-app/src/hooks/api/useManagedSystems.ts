@@ -3,6 +3,7 @@ import {
   listDatCatalogs,
   listDatSubscriptions,
   listManagedSystems,
+  previewSystemNameAliases,
   setSystemEnabled,
 } from '@romd/admin-api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -67,6 +68,29 @@ export function useManagedSystemDetails(systemKey: string | undefined) {
         signal,
       });
       if (response.error || !response.data) throw new Error('System details could not be loaded.');
+      return response.data;
+    },
+  });
+}
+
+export function useSystemNameAliasPreview(nameAliases: string[]) {
+  return useQuery({
+    queryKey: [
+      'system-setup-name-alias-preview',
+      nameAliases,
+    ],
+    enabled: nameAliases.length > 0,
+    retry: false,
+    queryFn: async ({ signal }) => {
+      const response = await previewSystemNameAliases({
+        body: {
+          nameAliases,
+        },
+        signal,
+      });
+      if (response.response?.status === 400 && response.error?.detail)
+        throw new Error(response.error.detail);
+      if (!response.data || response.error) throw new Error('Name aliases could not be checked.');
       return response.data;
     },
   });

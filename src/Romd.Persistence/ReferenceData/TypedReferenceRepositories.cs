@@ -2,6 +2,7 @@ using System.Reflection;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.ReferenceData;
+using SystemNameAliasConflict = Romd.Contracts.Management.Models.SystemNameAliasConflict;
 using Romd.Domain.ReferenceData;
 using Romd.Domain.Source.Platform;
 using Romd.Persistence.Entities;
@@ -52,6 +53,13 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
         foreach (var key in system.ManufacturerKeys.Except(links.Select(x => x.CompanyKey), StringComparer.Ordinal))
             db.SystemCompanies.Add(new() { Platform = row, CompanyKey = key });
     }
+    public Task<SystemNameAliasConflict[]> FindSetupNameAliasConflictsAsync(string[] normalizedNames, CancellationToken ct) =>
+        (from alias in db.PlatformAliases
+         join system in db.Platforms on alias.PlatformId equals system.Id
+         where alias.Type == PlatformAliasType.Name && normalizedNames.Contains(alias.NormalizedValue)
+         orderby alias.NormalizedValue
+         select new SystemNameAliasConflict(alias.Value, system.Name, alias.Ownership == ReferenceOwnership.Romd)).ToArrayAsync(ct);
+
     public async Task<ErrorOr<Success>> StageSetupAliasesAsync(int platformId, IReadOnlyList<string> names, CancellationToken ct)
     {
         var aliases = names.Select(name => PlatformAlias.CreateName(platformId, name, clock.GetUtcNow()))

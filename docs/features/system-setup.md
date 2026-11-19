@@ -18,10 +18,13 @@ first DAT in the same flow. For a known system, you can edit its display name an
 short description before confirming. ROMD uses the fixed system key to match
 verified subscriptions. Built-in manufacturers, category, generation, release year,
 and existing aliases are shown with the system details. Built-in hardware facts
-are fixed. You can add name aliases for matching DAT headers.
+are fixed. You can add name aliases for matching DAT headers. If an alias is
+already registered, ROMD shows which system uses it. Case and repeated spaces
+do not distinguish aliases.
 
 Choose **Custom system** for a system outside the reference catalog. Custom
-systems get a suggested key you can edit before creation. You can select
+systems get a suggested system key with a fixed `local-` prefix. You can edit
+the part after the prefix before creation. You can select
 registered manufacturers, enter optional hardware facts, and add aliases.
 They use manual DATs. Release year means the first public hardware release.
 Unknown facts are left blank. Release histories include

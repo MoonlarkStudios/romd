@@ -10,6 +10,11 @@ public sealed record ManagedSystemSetupDetails(SystemResource System, ManagedSys
 public sealed record ManagedSystemHardware(string? Category, int? Generation, int? ReleaseYear);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record PreviewSystemNameAliasesRequest(IReadOnlyList<string> NameAliases);
+
+public sealed record SystemNameAliasConflict(string Alias, string SystemName, bool BuiltIn);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CreateManagedSystemRequest(string Key, string Name, string CompactLabel, string? Description = null,
     string? Icon = null, bool Monochrome = false, IReadOnlyList<string>? ManufacturerKeys = null,
     string? Category = null, int? Generation = null, int? ReleaseYear = null, IReadOnlyList<string>? NameAliases = null);

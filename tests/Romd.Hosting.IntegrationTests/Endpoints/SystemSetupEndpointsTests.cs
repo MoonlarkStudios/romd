@@ -83,6 +83,19 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
     }
 
     [Fact]
+    public async Task PreviewNameAliases_NormalizesNamesAndIgnoresProviderMappings()
+    {
+        using var client = fixture.CreateAuthenticatedClient();
+        var request = new PreviewSystemNameAliasesRequest(["pS1", "ps1", "sOnY   PlayStation", "7", "A new local alias"]);
+
+        using var response = await client.PostAsJsonAsync("/api/system-setup/name-aliases/preview", request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var conflicts = (await response.Content.ReadFromJsonAsync<SystemNameAliasConflict[]>()).ShouldNotBeNull();
+        conflicts.ShouldBe([new("PS1", "PlayStation", true), new("Sony PlayStation", "PlayStation", true)]);
+    }
+
+    [Fact]
     public async Task RegisterKnownSystem_RequiresCurrentRevisionAndSavesDetailsWithEnablement()
     {
         await using var host = new AcceptanceFixture();

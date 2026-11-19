@@ -7285,6 +7285,50 @@
         }
       }
     },
+    "/api/system-setup/name-aliases/preview": {
+      "post": {
+        "tags": [
+          "SystemSetup"
+        ],
+        "description": "Check up to 16 proposed name aliases for existing matches using the same case and whitespace normalization as DAT matching.",
+        "operationId": "PreviewSystemNameAliases",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewSystemNameAliasesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SystemNameAliasConflict"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/system-setup/dat-preview": {
       "post": {
         "tags": [
@@ -24800,6 +24844,21 @@
           }
         }
       },
+      "PreviewSystemNameAliasesRequest": {
+        "required": [
+          "nameAliases"
+        ],
+        "type": "object",
+        "properties": {
+          "nameAliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "ProblemDetails": {
         "required": [
           "errorCode",
@@ -26823,6 +26882,25 @@
           "failedJobCount": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "SystemNameAliasConflict": {
+        "required": [
+          "alias",
+          "systemName",
+          "builtIn"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "systemName": {
+            "type": "string"
+          },
+          "builtIn": {
+            "type": "boolean"
           }
         }
       },

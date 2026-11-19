@@ -19,6 +19,7 @@ import {
   listSystemAliases,
   listSystemDats,
   previewSystemDat,
+  previewSystemNameAliases,
   setSystemEnabled,
   updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
@@ -38,6 +39,7 @@ vi.mock('@romd/admin-api-client', async () => ({
   setSystemEnabled: vi.fn(),
   listSystemDats: vi.fn(),
   previewSystemDat: vi.fn(),
+  previewSystemNameAliases: vi.fn(),
   importSystemDat: vi.fn(),
   getJob: vi.fn(),
   applyDatSubscription: vi.fn(),
@@ -86,6 +88,7 @@ const result = <T,>(data: T) =>
   }) as never;
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(previewSystemNameAliases).mockResolvedValue(result([]));
   vi.mocked(getManagedSystemDetails).mockResolvedValue(
     result({
       system: psxDetails,
@@ -316,9 +319,12 @@ it('creates and opens a custom system only after confirmation', async () => {
   const key = screen.getByRole('textbox', {
     name: 'System key',
   });
-  expect(key).toHaveValue('local-homebrew-lab');
+  expect(key).toHaveValue('homebrew-lab');
+  expect(key).toHaveAccessibleDescription('The local- prefix is fixed.');
   await user.clear(key);
-  await user.type(key, 'local-homebrew');
+  expect(screen.getByText('local-')).toBeVisible();
+  expect(key).toHaveValue('');
+  await user.type(key, 'homebrew');
   await user.type(
     screen.getByRole('textbox', {
       name: 'Short description',
@@ -385,6 +391,68 @@ it('creates and opens a custom system only after confirmation', async () => {
     },
   });
   expect(setSystemEnabled).not.toHaveBeenCalled();
+});
+
+it.each([
+  'Known system',
+  'Custom system',
+] as const)('blocks a conflicting name alias during %s setup until removed', async (mode) => {
+  const user = userEvent.setup();
+  vi.mocked(previewSystemNameAliases).mockResolvedValue(
+    result([
+      {
+        alias: 'PS1',
+        systemName: 'PlayStation',
+        builtIn: true,
+      },
+    ]),
+  );
+  render(<AddSystemFlow onClose={vi.fn()} />);
+
+  if (mode === 'Known system') {
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Choose PlayStation',
+      }),
+    );
+  } else {
+    await user.click(
+      screen.getByRole('button', {
+        name: mode,
+      }),
+    );
+    await user.type(
+      screen.getByRole('textbox', {
+        name: 'Display name',
+      }),
+      'Pocket Test',
+    );
+  }
+  const aliases = await screen.findByRole('combobox', {
+    name: 'Add name aliases',
+  });
+  const confirm = screen.getByRole('button', {
+    name: 'Add without a DAT',
+  });
+  expect(confirm).toBeEnabled();
+  await user.type(aliases, 'pS1{Enter}');
+
+  expect(
+    await screen.findByText('“PS1” is already a built-in alias for PlayStation.'),
+  ).toBeVisible();
+  expect(aliases).toBeInvalid();
+  expect(confirm).toBeDisabled();
+  expect(createManagedSystem).not.toHaveBeenCalled();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Remove alias pS1',
+    }),
+  );
+  expect(confirm).toBeEnabled();
+  expect(aliases).not.toBeInvalid();
 });
 
 it.each([

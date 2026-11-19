@@ -51,10 +51,15 @@ import {
   useManagedSystemDetails,
   useManagedSystems,
   useSetSystemEnabled,
+  useSystemNameAliasPreview,
 } from '../../hooks/api/useManagedSystems';
 import { platformKeys, usePlatformAliases } from '../../hooks/api/usePlatforms';
 import { formatBytes } from '../../utils/format';
-import { suggestSystemKey } from '../../utils/systemKey';
+import {
+  localSystemKeyPrefix,
+  suggestSystemKey,
+  validLocalSystemKeySuffix,
+} from '../../utils/systemKey';
 import { catalogProviderName } from './catalogProviderName';
 import { DatUploadZone } from './components/DatUploadZone';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
@@ -74,7 +79,7 @@ type KnownDraft = SystemPresentation & {
   original: ManagedSystemSetupDetails;
 };
 type CustomDraft = SystemPresentation & {
-  keyOverride?: string;
+  keySuffixOverride?: string;
   registered?: boolean;
 };
 
@@ -165,12 +170,32 @@ export function AddSourceFlow({
   const [selected, setSelected] = useState(system);
   const [knownDraft, setKnownDraft] = useState<KnownDraft>();
   const [customDraft, setCustomDraft] = useState<CustomDraft>();
-  const customKey = customDraft?.keyOverride ?? suggestSystemKey(customDraft?.name ?? '');
+  const customKeySuffix =
+    customDraft?.keySuffixOverride ??
+    suggestSystemKey(customDraft?.name ?? '').slice(localSystemKeyPrefix.length);
+  const customKey = `${localSystemKeyPrefix}${customKeySuffix}`;
+  const draft = customDraft ?? knownDraft;
+  const aliasesToCheck = draft && !customDraft?.registered ? setupAliases(draft.nameAliases) : [];
+  const aliasPreview = useSystemNameAliasPreview(aliasesToCheck);
+  const aliasesValid =
+    aliasesToCheck.length === 0 || (aliasPreview.isSuccess && aliasPreview.data.length === 0);
+  const aliasFeedback = {
+    aliasError: aliasPreview.isError
+      ? aliasPreview.error.message
+      : aliasPreview.data
+          ?.map(
+            (conflict) =>
+              `“${conflict.alias}” is already ${conflict.builtIn ? 'a built-in alias' : 'an alias'} for ${conflict.systemName}.`,
+          )
+          .join(' '),
+    checkingAliases: aliasPreview.isFetching && !aliasPreview.isSuccess,
+    retryAliasCheck: aliasPreview.isError ? () => void aliasPreview.refetch() : undefined,
+  };
   const canRegisterCustom =
     !!customDraft &&
     validSystemPresentation(customDraft) &&
-    customKey.length <= 50 &&
-    /^local-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(customKey);
+    validLocalSystemKeySuffix(customKeySuffix) &&
+    aliasesValid;
   const unregisteredCustom = !!customDraft && !customDraft.registered;
   const [step, setStep] = useState<SetupStep>(
     system ? 'source' : startWithUpload ? 'file' : 'system',
@@ -199,7 +224,8 @@ export function AddSourceFlow({
   const platformAliases = usePlatformAliases(setupKey);
   const details = presentation.data;
   const canConfirmKnown =
-    !setupKey || (!!details && (!knownDraft || validSystemPresentation(knownDraft)));
+    !setupKey ||
+    (!!details && aliasesValid && (!knownDraft || validSystemPresentation(knownDraft)));
   const icons = useSystemIcons();
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -293,6 +319,7 @@ export function AddSourceFlow({
 
   async function saveKnownDetails() {
     if (!knownDraft || !selected) return false;
+    if (!aliasesValid) throw new Error('Check the name aliases before continuing.');
     const patch = knownPresentationPatch(knownDraft);
     if (!Object.keys(patch).length) return false;
     const response = await updateManagedSystemPresentation({
@@ -321,6 +348,7 @@ export function AddSourceFlow({
   }
 
   async function registerCustom() {
+    if (!aliasesValid) throw new Error('Check the name aliases before continuing.');
     if (!customDraft || !canRegisterCustom)
       throw new Error('Enter a display name and a valid system key.');
     if (customDraft.registered) return customKey;
@@ -356,7 +384,7 @@ export function AddSourceFlow({
     await refreshSystemDetails(response.data);
     setCustomDraft({
       ...customDraft,
-      keyOverride: response.data.key,
+      keySuffixOverride: response.data.key.slice(localSystemKeyPrefix.length),
       registered: true,
     });
     setEnabledKey(response.data.key);
@@ -795,15 +823,16 @@ export function AddSourceFlow({
                   })
                 }
                 systemKey={customKey}
-                onKeyChange={
+                onKeySuffixChange={
                   customDraft.registered
                     ? undefined
-                    : (keyOverride) =>
+                    : (keySuffixOverride) =>
                         setCustomDraft({
                           ...customDraft,
-                          keyOverride,
+                          keySuffixOverride,
                         })
                 }
+                {...aliasFeedback}
                 hardwareEditable
                 disabled={busy || !!customDraft.registered}
               />
@@ -909,6 +938,7 @@ export function AddSourceFlow({
                       })
                     }
                     systemKey={selected.key}
+                    {...aliasFeedback}
                     disabled={busy}
                   />
                 ) : presentation.isError ? (
@@ -1074,7 +1104,7 @@ export function AddSourceFlow({
               <Button
                 {...workspaceActionProps}
                 loading={busy}
-                disabled={!canConfirmKnown}
+                disabled={customDraft ? !canRegisterCustom : !canConfirmKnown}
                 onClick={() =>
                   void run(async () => {
                     if (!file) return;

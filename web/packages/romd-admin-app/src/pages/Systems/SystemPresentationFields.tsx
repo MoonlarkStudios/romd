@@ -4,6 +4,7 @@ import {
   Group,
   MultiSelect,
   NumberInput,
+  Pill,
   Select,
   SimpleGrid,
   Stack,
@@ -15,6 +16,11 @@ import {
 import type { CompanySummary, ManagedSystemHardware } from '@romd/admin-api-client';
 import { IconLock } from '@tabler/icons-react';
 import { useReferenceCompanies } from '../../hooks/api/useReferenceCompanies';
+import {
+  localSystemKeyPrefix,
+  localSystemKeySuffixMaxLength,
+  validLocalSystemKeySuffix,
+} from '../../utils/systemKey';
 import classes from './SystemSetupFlow.module.css';
 
 export type SystemPresentation = ManagedSystemHardware & {
@@ -90,7 +96,10 @@ export function SystemPresentationFields({
   value,
   onChange,
   systemKey,
-  onKeyChange,
+  onKeySuffixChange,
+  aliasError,
+  checkingAliases,
+  retryAliasCheck,
   hardwareEditable,
   manufacturers = [],
   existingAliases = [],
@@ -99,12 +108,16 @@ export function SystemPresentationFields({
   value: SystemPresentation;
   onChange: (value: SystemPresentation) => void;
   systemKey: string;
-  onKeyChange?: (key: string) => void;
+  onKeySuffixChange?: (suffix: string) => void;
+  aliasError?: string;
+  checkingAliases?: boolean;
+  retryAliasCheck?: () => void;
   hardwareEditable: boolean;
   manufacturers?: CompanySummary[];
   existingAliases?: string[];
   disabled: boolean;
 }) {
+  const keySuffix = systemKey.slice(localSystemKeyPrefix.length);
   const companies = useReferenceCompanies(hardwareEditable);
   const change = (patch: Partial<SystemPresentation>) =>
     onChange({
@@ -153,13 +166,35 @@ export function SystemPresentationFields({
             'description',
             'error',
           ]}
-          {...(!onKeyChange ? lockedField : {})}
-          description={onKeyChange ? 'Starts with local-.' : undefined}
-          required={!!onKeyChange}
-          maxLength={50}
-          value={systemKey}
-          disabled={disabled && !!onKeyChange}
-          onChange={onKeyChange ? (event) => onKeyChange(event.currentTarget.value) : undefined}
+          {...(onKeySuffixChange
+            ? {
+                leftSection: (
+                  <Text
+                    span
+                    size="sm"
+                    c="dimmed"
+                    aria-hidden="true"
+                  >
+                    {localSystemKeyPrefix}
+                  </Text>
+                ),
+                leftSectionWidth: 56,
+                leftSectionPointerEvents: 'none',
+                description: 'The local- prefix is fixed.',
+                required: true,
+                maxLength: localSystemKeySuffixMaxLength,
+                value: keySuffix,
+                disabled,
+                error:
+                  keySuffix && !validLocalSystemKeySuffix(keySuffix)
+                    ? 'Use lowercase letters, numbers, and single hyphens between them.'
+                    : undefined,
+                onChange: (event) => onKeySuffixChange(event.currentTarget.value),
+              }
+            : {
+                ...lockedField,
+                value: systemKey,
+              })}
         />
         {hardwareEditable ? (
           <>
@@ -297,7 +332,14 @@ export function SystemPresentationFields({
       <TagsInput
         label="Add name aliases"
         placeholder="Type an alias and press Enter"
-        description="Aliases help ROMD match uploaded DATs."
+        description={
+          checkingAliases ? (
+            <output>Checking aliases…</output>
+          ) : (
+            'Aliases help ROMD match uploaded DATs.'
+          )
+        }
+        error={aliasError ? <span role="alert">{aliasError}</span> : undefined}
         inputWrapperOrder={[
           'label',
           'input',
@@ -308,6 +350,20 @@ export function SystemPresentationFields({
         maxTags={16}
         maxLength={200}
         acceptValueOnBlur
+        renderPill={({ value: alias, onRemove, disabled: pillDisabled }) => (
+          <Pill
+            withRemoveButton={!pillDisabled}
+            disabled={pillDisabled}
+            onRemove={onRemove}
+            removeButtonProps={{
+              'aria-label': `Remove alias ${alias}`,
+              'aria-hidden': false,
+              tabIndex: 0,
+            }}
+          >
+            {alias}
+          </Pill>
+        )}
         disabled={disabled}
         onChange={(nameAliases) =>
           change({
@@ -315,6 +371,17 @@ export function SystemPresentationFields({
           })
         }
       />
+      {retryAliasCheck && (
+        <Button
+          size="compact-sm"
+          variant="subtle"
+          w="fit-content"
+          disabled={disabled || checkingAliases}
+          onClick={retryAliasCheck}
+        >
+          Retry alias check
+        </Button>
+      )}
       <Textarea
         label="Short description"
         placeholder="Optional"

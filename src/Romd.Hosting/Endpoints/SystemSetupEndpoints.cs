@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using Romd.Contracts.Common.Models;
 using Microsoft.AspNetCore.Mvc;
 using Romd.Admin.Application.ReferenceData.Systems.Commands;
+using Romd.Admin.Application.ReferenceData.Systems.Queries.PreviewSystemNameAliases;
 using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Source.Platform.Commands.ImportSystemDat;
 using Romd.Application.Common.Cqrs;
@@ -61,6 +62,13 @@ public static class SystemSetupEndpoints
             var result = await service.SetEnabledAsync(systemKey.SystemId, request.Enabled, ct);
             return result.Match(_ => Results.NoContent(), errors => errors.ToProblem());
         }).WithName("SetSystemEnabled").Produces(204).ProducesProblems(400);
+        group.MapPost("/name-aliases/preview", async (PreviewSystemNameAliasesRequest request,
+            IQueryHandler<PreviewSystemNameAliasesQuery, SystemNameAliasConflict[]> handler, CancellationToken ct) =>
+        {
+            var result = await handler.HandleAsync(new(request.NameAliases), ct);
+            return result.Match(Results.Ok, errors => errors.ToProblem());
+        }).WithName("PreviewSystemNameAliases").Produces<SystemNameAliasConflict[]>().ProducesProblems(400)
+            .WithDescription("Check up to 16 proposed name aliases for existing matches using the same case and whitespace normalization as DAT matching.");
         group.MapPost("/dat-preview", async ([FromForm] IFormFile file, ISystemSetupService service, [FromServices] IReferenceCatalogService referenceCatalog, CancellationToken ct) =>
         {
             if (file.Length is <= 0 or > 33554432)
