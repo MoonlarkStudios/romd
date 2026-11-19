@@ -438,7 +438,7 @@ export function SystemPresentationFields({
             htmlFor={descriptionId}
             size="sm"
           >
-            Short description
+            Description
           </Input.Label>
           {descriptionActions}
         </Group>

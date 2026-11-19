@@ -14,7 +14,7 @@ and next action beside the list. On narrower layouts, open the system directly.
 Returning to Systems restores the list filters and selection.
 
 Opening a system shows **Metadata** first. Administrators can edit the display
-name and short description and add name aliases. Custom systems also allow
+name and description and add name aliases. Custom systems also allow
 edits to manufacturers and hardware facts. The system key stays fixed. A name
 alias belongs to one system, with case and repeated spaces ignored. Use the
 remove control next to a saved local alias to remove it immediately. Built-in

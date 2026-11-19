@@ -164,7 +164,7 @@ it('lets assistive technology dismiss system setup without adding a system', asy
   );
   await user.type(
     await screen.findByRole('textbox', {
-      name: 'Short description',
+      name: 'Description',
     }),
     ' My notes.',
   );
@@ -266,7 +266,7 @@ it('locks inherited facts and only saves local presentation edits and new aliase
   expect(name).toHaveValue('PlayStation');
   expect(
     screen.getByRole('textbox', {
-      name: 'Short description',
+      name: 'Description',
     }),
   ).toHaveValue('A Sony home console.');
   for (const [label, value] of Object.entries({
@@ -376,7 +376,7 @@ it('creates and opens a custom system only after confirmation', async () => {
   await user.type(key, 'homebrew');
   await user.type(
     screen.getByRole('textbox', {
-      name: 'Short description',
+      name: 'Description',
     }),
     'Local projects.',
   );

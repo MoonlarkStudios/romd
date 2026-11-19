@@ -333,7 +333,7 @@ it('opens on Metadata and saves a new alias after resolving a cross-system confl
   ).toHaveValue('1994');
   expect(
     screen.getByRole('textbox', {
-      name: 'Short description',
+      name: 'Description',
     }),
   ).toHaveValue('Sony home console.');
   const save = screen.getByRole('button', {
@@ -427,7 +427,7 @@ it('edits, clears, and restores the default description without discarding anoth
   hub('/systems/psx');
   const user = userEvent.setup();
   const description = await screen.findByRole('textbox', {
-    name: 'Short description',
+    name: 'Description',
   });
   const save = screen.getByRole('button', {
     name: 'Save changes',
