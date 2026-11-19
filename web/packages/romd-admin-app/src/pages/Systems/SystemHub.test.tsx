@@ -536,11 +536,9 @@ it('removes a saved local alias and keeps protected aliases locked', async () =>
       name: 'Aliases',
     }),
   );
-  expect(
-    aliases.getByRole('combobox', {
-      name: 'Aliases',
-    }),
-  ).toBeEnabled();
+  const entry = aliases.getByRole('combobox', {
+    name: 'Aliases',
+  });
   const remove = await aliases.findByRole('button', {
     name: 'Remove alias Portable disc reference from this system',
   });
@@ -553,6 +551,11 @@ it('removes a saved local alias and keeps protected aliases locked', async () =>
   ).toEqual([
     remove,
   ]);
+
+  await user.type(entry, '{Backspace}');
+  expect(remove).toBeVisible();
+  expect(aliases.getByTitle('Ownership unknown')).toBeVisible();
+  expect(deleteSystemAlias).not.toHaveBeenCalled();
 
   await user.click(remove);
 

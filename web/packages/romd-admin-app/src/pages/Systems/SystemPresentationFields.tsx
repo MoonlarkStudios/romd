@@ -78,6 +78,9 @@ export function validSystemPresentation(value: SystemPresentation) {
   );
 }
 
+// This tag slot renders saved badges while keeping their values out of the draft.
+const savedAliasesSlot = '\u0000';
+
 const lockedField = {
   readOnly: true,
   rightSection: (
@@ -140,49 +143,46 @@ export function SystemPresentationFields({
       label: company.name,
     }));
 
-  const savedAliasPills = existingAliases?.length ? (
-    <Pill.Group mt={4}>
-      {existingAliases.map((alias) => {
-        const local = alias.ownership === 'Installation';
-        const lockLabel = local
-          ? undefined
-          : alias.ownership === 'Romd'
-            ? 'Built-in alias'
-            : 'Ownership unknown';
-        const remove = local && onRemoveAlias ? () => onRemoveAlias(alias) : undefined;
-        return (
-          <Pill
-            key={alias.id}
-            bg="var(--romd-portal-overlay)"
-            title={lockLabel}
-            withRemoveButton={!!remove}
-            onRemove={remove}
-            removeButtonProps={{
-              'aria-label': `Remove alias ${alias.value} from this system`,
-              'aria-hidden': false,
-              disabled,
-              tabIndex: 0,
-            }}
-          >
-            {lockLabel && (
-              <>
-                <IconLock
-                  size={12}
-                  aria-hidden="true"
-                  style={{
-                    verticalAlign: 'text-bottom',
-                    marginInlineEnd: 4,
-                  }}
-                />
-                <VisuallyHidden>{lockLabel}</VisuallyHidden>
-              </>
-            )}
-            {alias.value}
-          </Pill>
-        );
-      })}
-    </Pill.Group>
-  ) : null;
+  const savedAliasPills = existingAliases?.map((alias) => {
+    const local = alias.ownership === 'Installation';
+    const lockLabel = local
+      ? undefined
+      : alias.ownership === 'Romd'
+        ? 'Built-in alias'
+        : 'Ownership unknown';
+    const remove = local && onRemoveAlias ? () => onRemoveAlias(alias) : undefined;
+    return (
+      <Pill
+        key={alias.id}
+        bg="var(--romd-portal-overlay)"
+        title={lockLabel}
+        withRemoveButton={!!remove}
+        onRemove={remove}
+        removeButtonProps={{
+          'aria-label': `Remove alias ${alias.value} from this system`,
+          'aria-hidden': false,
+          disabled,
+          tabIndex: 0,
+        }}
+      >
+        {lockLabel && (
+          <>
+            <IconLock
+              size={12}
+              aria-hidden="true"
+              style={{
+                verticalAlign: 'text-bottom',
+                marginInlineEnd: 4,
+              }}
+            />
+            <VisuallyHidden>{lockLabel}</VisuallyHidden>
+          </>
+        )}
+        {alias.value}
+      </Pill>
+    );
+  });
+  const hasSavedAliases = !!savedAliasPills?.length;
 
   return (
     <Stack
@@ -373,15 +373,18 @@ export function SystemPresentationFields({
               id: aliasesLabelId,
             }}
           >
-            {savedAliasPills ??
-              (existingAliases && (
+            {hasSavedAliases ? (
+              <Pill.Group mt={4}>{savedAliasPills}</Pill.Group>
+            ) : (
+              existingAliases && (
                 <Text
                   size="sm"
                   c="dimmed"
                 >
                   No aliases
                 </Text>
-              ))}
+              )
+            )}
           </Input.Wrapper>
         ) : (
           <TagsInput
@@ -389,18 +392,12 @@ export function SystemPresentationFields({
             labelProps={{
               id: aliasesLabelId,
             }}
-            placeholder="Type an alias and press Enter"
-            inputContainer={(input) => (
-              <Stack gap={8}>
-                {savedAliasPills}
-                {input}
-              </Stack>
-            )}
+            placeholder="Add an alias"
             description={
               checkingAliases ? (
                 <output>Checking aliases…</output>
               ) : (
-                'Aliases help ROMD match uploaded DATs.'
+                'Press Enter to add an alias for matching DATs.'
               )
             }
             error={aliasError ? <span role="alert">{aliasError}</span> : undefined}
@@ -410,30 +407,45 @@ export function SystemPresentationFields({
               'description',
               'error',
             ]}
-            value={value.nameAliases}
-            maxTags={16}
+            value={
+              hasSavedAliases
+                ? [
+                    savedAliasesSlot,
+                    ...value.nameAliases,
+                  ]
+                : value.nameAliases
+            }
+            maxTags={hasSavedAliases ? 17 : 16}
             maxLength={200}
             acceptValueOnBlur
-            renderPill={({ value: alias, onRemove, disabled: pillDisabled }) => (
-              <Pill
-                withRemoveButton={!pillDisabled}
-                disabled={pillDisabled}
-                onRemove={onRemove}
-                removeButtonProps={{
-                  'aria-label': `Remove alias ${alias}`,
-                  'aria-hidden': false,
-                  tabIndex: 0,
-                }}
-              >
-                {alias}
-              </Pill>
-            )}
+            renderPill={({ value: alias, onRemove, disabled: pillDisabled }) =>
+              alias === savedAliasesSlot ? (
+                savedAliasPills
+              ) : (
+                <Pill
+                  bg="var(--romd-portal-overlay)"
+                  withRemoveButton={!pillDisabled}
+                  disabled={pillDisabled}
+                  onRemove={onRemove}
+                  removeButtonProps={{
+                    'aria-label': `Remove alias ${alias}`,
+                    'aria-hidden': false,
+                    tabIndex: 0,
+                  }}
+                >
+                  {alias}
+                </Pill>
+              )
+            }
             disabled={disabled}
-            onChange={(nameAliases) =>
+            onChange={(aliases) => {
+              const nameAliases = aliases.filter((alias) => alias !== savedAliasesSlot);
+              // Backspace in an empty editor leaves the saved badges in place.
+              if (!nameAliases.length && !value.nameAliases.length) return;
               change({
                 nameAliases,
-              })
-            }
+              });
+            }}
           />
         )}
         {retryAliasLoad && (

@@ -14,9 +14,9 @@ and next action beside the list. On narrower layouts, open the system directly.
 Returning to Systems restores the list filters and selection.
 
 Opening a system shows **Metadata** first. Administrators can edit the display
-name and description. The **Aliases** section shows saved aliases and lets you
-add one by typing it and pressing Enter. Choose **Save changes** to keep new
-aliases. The remove control on a saved local alias removes it immediately.
+name and description. In **Aliases**, type a name after the badges and press
+Enter. New aliases appear alongside saved ones. Choose **Save changes** to keep
+new aliases. The remove control on a saved local alias removes it immediately.
 Built-in aliases and aliases of unknown ownership are locked.
 
 Custom systems also allow edits to manufacturers and hardware facts. The system
