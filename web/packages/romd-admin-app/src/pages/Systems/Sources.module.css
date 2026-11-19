@@ -1,8 +1,42 @@
-.list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--mantine-color-default-border); }
-.row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .8fr) minmax(0, 1fr); gap: 20px; align-items: center; padding: 16px 8px; border-bottom: 1px solid var(--mantine-color-default-border); overflow-wrap: anywhere; }
+.list {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+
+.row,
+.listHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 1.15fr);
+  gap: var(--mantine-spacing-md);
+  align-items: start;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.listHeader {
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-xs);
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+}
+
+.row {
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-xs);
+}
+
+.updateControls {
+  min-width: 0;
+}
 .row:hover { background: var(--mantine-color-default-hover); }
 .name { color: inherit; font-weight: 600; font-size: 14px; text-decoration: none; }
 .name:hover { text-decoration: underline; }
 .entry { padding: 14px 0; border-bottom: 1px solid var(--mantine-color-default-border); min-width: 0; }
 .section { padding: 16px 0; border-bottom: 1px solid var(--mantine-color-default-border); }
-@media (max-width: 800px) { .row { grid-template-columns: minmax(0, 1fr); gap: 10px; } }
+@media (max-width: 950px) {
+  .listHeader { display: none; }
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--mantine-spacing-xs);
+  }
+}

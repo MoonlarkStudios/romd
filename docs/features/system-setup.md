@@ -56,17 +56,18 @@ created, continue from its row under **Catalog sources**. Restoring a system
 keeps its sources and subscriptions. Shared reference updates add picker choices
 without enabling them.
 
-**Catalog sources** lists each installed source's version, lifecycle, entry/file
-counts, update method, and actions. Counts describe that source and may overlap;
-they are not added together as a unique game total. Pending subscriptions appear
-before their first document is installed. Subscription matching uses the active
-DAT identity, never the first subscription on a system.
+**Catalog sources** shows the installed version, DAT entry count, source status,
+and update method. Entry counts describe a source and may overlap across sources.
+Rows with updates to review, checks to retry, or imports in progress appear first.
+Pending subscriptions appear before their first document is installed.
 
-**Add source** opens a panel offering verified
-subscriptions and manual DAT upload. Existing subscriptions are marked connected.
-A compatible manual source is connected from its own management panel so that
-source selection is explicit. Manual upload also works from Your systems: inspect
-the DAT, suggest a matching system, and require confirmation when ambiguous.
+Choose **Add first DAT** or **Add source** to pick a verified subscription or
+upload a DAT. For a compatible installed source, choose **Connect subscription**
+on its row. ROMD binds the chosen source explicitly. To replace a manual DAT,
+choose **Upload new version** on its row or open that action from its menu.
+Managers can replace manual DATs. Administrators manage subscriptions and add
+new sources. If the publisher directory is unavailable, manual replacements and
+saved subscription reviews remain available through their existing validation.
 
 Every manual add is reviewed and hash-bound. Matching names offer an explicit
 choice between updating a manual source and adding a separate source; display
@@ -89,7 +90,7 @@ A subscription can be switched to **Manual updates** after confirmation. Only
 subscription tracking and its pending selection are detached; installed sources,
 DATs, stored files, and completed jobs remain. The operation uses catalog/source
 locks and rejects running imports. A compatible source can be connected again
-through **Use subscription**. The worker checks subscribed sources daily and
+through **Connect subscription**. The worker checks subscribed sources daily and
 prepares updates for review; activation always requires approval. A pending review
 holds its exact candidate until the administrator approves it or explicitly checks
 again. The source shows the last check, next scheduled check, and any failure.

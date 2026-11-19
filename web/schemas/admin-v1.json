@@ -6957,69 +6957,6 @@
       }
     },
     "/api/system-setup": {
-      "get": {
-        "tags": [
-          "SystemSetup"
-        ],
-        "description": "Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order, page selected before status/count assembly in one repeatable-read observation. Query includes normalized names, short names, manufacturers and name aliases; aliases are a separate paged relationship. Default/max limit 100; sortBy supports key:asc.",
-        "operationId": "ListManagedSystems",
-        "parameters": [
-          {
-            "name": "query",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "maximum": 100,
-              "minimum": 1,
-              "type": "integer",
-              "format": "int32",
-              "default": 100
-            }
-          },
-          {
-            "name": "sortBy",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageOfManagedSystem"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        }
-      },
       "post": {
         "tags": [
           "SystemSetup"
@@ -7074,6 +7011,69 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "SystemSetup"
+        ],
+        "description": "Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order, page selected before status/count assembly in one repeatable-read observation. Query includes normalized names, short names, manufacturers and name aliases; aliases are a separate paged relationship. Default/max limit 100; sortBy supports key:asc.",
+        "operationId": "ListManagedSystems",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfManagedSystem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -19250,6 +19250,9 @@
           },
           "sourceStatus": {
             "$ref": "#/components/schemas/SourceLifecycleStatus"
+          },
+          "hasSubscription": {
+            "type": "boolean"
           },
           "sourceFile": {
             "oneOf": [

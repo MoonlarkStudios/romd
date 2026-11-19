@@ -25,7 +25,7 @@ public static class SystemSetupEndpoints
     {
         var routes = app.MapGroup("/system-setup").WithTags("SystemSetup");
         var group = routes.MapGroup("").RequireAuthorization(AuthorizationPolicies.RequireAdmin);
-        group.MapGet("", async (ISystemSetupService service, string? query = null, string? cursor = null,
+        routes.MapGet("", async (ISystemSetupService service, string? query = null, string? cursor = null,
             [Range(1, ReferencePageRequest.MaxLimit)] int limit = ReferencePageRequest.DefaultLimit, string? sortBy = null, CancellationToken ct = default) =>
         {
             var request = ReferencePageRequest.Create("Admin:system-setup", query, cursor, limit, sortBy);
@@ -40,6 +40,7 @@ public static class SystemSetupEndpoints
                 HasNextPage = page.HasNextPage
             });
         }).WithName("ListManagedSystems").Produces<Page<ContractManagedSystem>>()
+            .RequireAuthorization(AuthorizationPolicies.RequireManager)
             .WithDescription("Registered systems in ascending PostgreSQL C (UTF-8 byte) natural-key order, page selected before status/count assembly in one repeatable-read observation. Query includes normalized names, short names, manufacturers and name aliases; aliases are a separate paged relationship. Default/max limit 100; sortBy supports key:asc.");
         routes.MapGet("/{systemKey}", async (SystemKeyParameter systemKey, ISystemSetupService service, CancellationToken ct) =>
         {

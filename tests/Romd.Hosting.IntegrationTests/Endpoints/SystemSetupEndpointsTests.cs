@@ -68,6 +68,18 @@ public sealed class SystemSetupEndpointsTests(IntegrationTestFixture fixture)
     }
 
     [Fact]
+    public async Task Directory_ManagerCanListSystems_AndSubscriptionAdministrationRemainsForbidden()
+    {
+        using var client = fixture.CreateClient().WithTestUser(Guid.NewGuid(), "manager@localhost", [RomdRoleType.Manager]);
+
+        using var systems = await client.GetAsync("/api/system-setup");
+        using var subscriptions = await client.GetAsync("/api/dat-subscriptions");
+
+        systems.StatusCode.ShouldBe(HttpStatusCode.OK);
+        subscriptions.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Directory_EnableDisable_PreservesPlatformAndAliases()
     {
         using var client = fixture.CreateAuthenticatedClient();

@@ -159,9 +159,10 @@ export function useRefreshSystemPresentation() {
 }
 
 /** The publisher's catalog directory; its message explains an empty or unverified directory. */
-export function useDatCatalogs() {
+export function useDatCatalogs({ enabled = true } = {}) {
   return useQuery({
     queryKey: managedSystemKeys.catalogs,
+    enabled,
     queryFn: async ({ signal }) => {
       const response = await listDatCatalogs({
         signal,
@@ -177,9 +178,10 @@ export function useDatCatalogs() {
   });
 }
 /** Local subscription state only; it never contacts the publisher. */
-export function useDatSubscriptions({ pollApplying = false }: { pollApplying?: boolean } = {}) {
+export function useDatSubscriptions({ enabled = true, pollApplying = false } = {}) {
   return useQuery({
     queryKey: managedSystemKeys.subscriptions,
+    enabled,
     queryFn: async ({ signal }) => {
       const response = await listDatSubscriptions({
         signal,
@@ -191,7 +193,9 @@ export function useDatSubscriptions({ pollApplying = false }: { pollApplying?: b
       return response.data;
     },
     refetchInterval: (query) =>
-      pollApplying && query.state.data?.some((subscription) => subscription.state === 'Applying')
+      enabled &&
+      pollApplying &&
+      query.state.data?.some((subscription) => subscription.state === 'Applying')
         ? 3000
         : false,
   });

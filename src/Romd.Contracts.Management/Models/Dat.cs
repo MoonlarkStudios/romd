@@ -44,6 +44,9 @@ public sealed record Dat
     /// </summary>
     public required SourceLifecycleStatus SourceStatus { get; init; }
 
+    /// <summary>Whether this source has a configured DAT subscription, including paused subscriptions.</summary>
+    public bool HasSubscription { get; init; }
+
     /// <summary>
     ///     The stored source DAT file in CAS (its sizes and compression). Null when the source file
     ///     is no longer present in storage.

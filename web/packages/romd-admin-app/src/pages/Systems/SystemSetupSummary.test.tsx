@@ -11,6 +11,12 @@ vi.mock('@romd/admin-api-client', async () => ({
   listDatSubscriptions: vi.fn(),
   listManagedSystems: vi.fn(),
 }));
+vi.mock('../../hooks/usePermissions', () => ({
+  usePermissions: () => ({
+    role: 'Admin',
+    canManageSources: true,
+  }),
+}));
 const result = <T,>(data: T) =>
   ({
     data,

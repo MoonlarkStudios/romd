@@ -11,8 +11,9 @@ import {
   managedSystemKeys,
   useDatCatalogs,
   useDatSubscriptions,
-  useManagedSystems,
 } from '../../hooks/api/useManagedSystems';
+import { usePlatform } from '../../hooks/api/usePlatforms';
+import { usePermissions } from '../../hooks/usePermissions';
 import { DatUploadZone } from './components/DatUploadZone';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 import { DatSubscriptionCard } from './DatSubscriptionCard';
@@ -22,13 +23,17 @@ import { SourceHelp } from './SourceHelp';
 import { SourceStatusBadge } from './SourceStatusBadge';
 import { SourceSubscriptionActions } from './SourceSubscriptionActions';
 import classes from './Sources.module.css';
+import { connectableCatalog, datProviderLabel } from './sourceCatalog';
 
 export function SourceWorkspace() {
   const { systemKey = '', sourceId = '' } = useParams();
   const dats = useDatsByPlatform(systemKey);
-  const systems = useManagedSystems();
-  const catalogs = useDatCatalogs();
-  const subscriptions = useDatSubscriptions();
+  const system = usePlatform(systemKey);
+  const { role, canManageSources } = usePermissions();
+  const isAdmin = role === 'Admin';
+  const subscriptions = useDatSubscriptions({
+    enabled: isAdmin,
+  });
   const client = useQueryClient();
   const { state } = useLocation();
   const [params, setParams] = useSearchParams();
@@ -36,25 +41,29 @@ export function SourceWorkspace() {
   const [jobId, setJobId] = useState<string>();
   const job = useJob(jobId);
   const dat = dats.data?.find((d) => (d.sourceId ?? d.id) === sourceId);
-  const system = systems.data?.find((s) => s.key === systemKey);
-  const subscription = subscriptions.data?.find(
-    (s) => s.systemKey === systemKey && s.activeDatId === dat?.id,
-  );
-  const catalog = catalogs.data?.catalogs.find(
-    (c) => c.name === dat?.name && c.systemId === system?.key,
-  );
-  const available =
-    !catalogs.isPending && !catalogs.isError && !catalogs.data?.message && subscriptions.isSuccess;
-  const retryAvailability = () => {
-    void catalogs.refetch();
-    void subscriptions.refetch();
-  };
+  const subscription =
+    isAdmin && dat ? subscriptions.data?.find((item) => item.activeDatId === dat.id) : undefined;
+  const subscribed = !!(dat?.hasSubscription || subscription);
+  const canUpload = canManageSources && !subscribed;
   const active =
     [
       'entries',
       'updates',
       'settings',
     ].find((value) => value === params.get('tab')) ?? 'entries';
+  const catalogs = useDatCatalogs({
+    enabled:
+      isAdmin && active === 'settings' && !!dat && !subscribed && dat.sourceStatus === 'Active',
+  });
+  const catalog =
+    isAdmin && !subscribed && dat && !catalogs.isError
+      ? connectableCatalog(
+          catalogs.data,
+          subscriptions.isSuccess ? subscriptions.data : undefined,
+          systemKey,
+          dat,
+        )
+      : undefined;
   const previousSourceId = useRef(sourceId);
   useEffect(() => {
     if (previousSourceId.current === sourceId) return;
@@ -101,7 +110,7 @@ export function SourceWorkspace() {
           w="fit-content"
           leftSection={<IconArrowLeft size={15} />}
         >
-          {system?.name ?? 'System'} sources
+          {system.data?.name ?? 'System'} sources
         </Button>
         {dats.isPending ? (
           <Skeleton height={240} />
@@ -150,7 +159,7 @@ export function SourceWorkspace() {
                     size="sm"
                     c="dimmed"
                   >
-                    {dat.type}
+                    {datProviderLabel(dat.type)}
                   </Text>
                   <SourceStatusBadge status={dat.sourceStatus} />
                   <Text
@@ -171,7 +180,13 @@ export function SourceWorkspace() {
             {jobId && (
               <Alert
                 color={job.data?.hasErrors ? 'orange' : 'blue'}
-                title={job.data?.isTerminal ? 'Source processing finished' : 'Processing source'}
+                title={
+                  job.data?.isTerminal
+                    ? job.data.hasErrors
+                      ? 'Import needs attention'
+                      : 'Import finished'
+                    : 'Import in progress'
+                }
               >
                 <Button
                   component={Link}
@@ -224,22 +239,29 @@ export function SourceWorkspace() {
                     order={2}
                     className={workspace.sectionHeading}
                   >
-                    {!available
-                      ? 'Updates'
-                      : subscription
-                        ? 'Subscription updates'
-                        : 'Manual updates'}
+                    {subscribed ? 'Subscription updates' : 'Manual updates'}
                   </Title>
-                  {!available ? (
-                    <Alert color="yellow">
-                      Update availability has not been verified.
-                      <Button
-                        variant="subtle"
-                        onClick={retryAvailability}
-                      >
-                        Retry availability
-                      </Button>
-                    </Alert>
+                  {subscribed && !isAdmin ? (
+                    <Text
+                      size="sm"
+                      c="dimmed"
+                    >
+                      An administrator manages this subscription.
+                    </Text>
+                  ) : subscribed && !subscription ? (
+                    subscriptions.isPending ? (
+                      <Skeleton height={64} />
+                    ) : (
+                      <Alert color="yellow">
+                        Subscription status could not be loaded.
+                        <Button
+                          variant="subtle"
+                          onClick={() => void subscriptions.refetch()}
+                        >
+                          Retry status
+                        </Button>
+                      </Alert>
+                    )
                   ) : subscription ? (
                     <SourceSubscriptionActions
                       subscription={subscription}
@@ -253,10 +275,12 @@ export function SourceWorkspace() {
                       >
                         The installed DAT stays active until a new version is reviewed and approved.
                       </Text>
-                      <DatUploadZone
-                        loading={!!jobId && !job.data?.isTerminal}
-                        onDrop={(files) => setFile(files[0])}
-                      />
+                      {canUpload && (
+                        <DatUploadZone
+                          loading={!!jobId && !job.data?.isTerminal}
+                          onDrop={(files) => setFile(files[0])}
+                        />
+                      )}
                     </>
                   )}
                 </Stack>
@@ -271,16 +295,12 @@ export function SourceWorkspace() {
                       >
                         Update method
                       </Title>
-                      {!available ? (
-                        <Alert color="yellow">
-                          Subscription settings could not be verified.
-                          <Button
-                            variant="subtle"
-                            onClick={retryAvailability}
-                          >
-                            Retry availability
-                          </Button>
-                        </Alert>
+                      {subscribed && !subscription ? (
+                        <Text size="sm">
+                          {isAdmin
+                            ? 'Subscribed'
+                            : 'This subscription is managed by an administrator.'}
+                        </Text>
                       ) : subscription ? (
                         <SourceSubscriptionActions
                           subscription={subscription}
@@ -291,6 +311,20 @@ export function SourceWorkspace() {
                       ) : (
                         <>
                           <Text size="sm">Manual updates</Text>
+                          {isAdmin &&
+                            dat.sourceStatus === 'Active' &&
+                            (catalogs.isError ||
+                              (catalogs.data?.enabled && catalogs.data.message)) && (
+                              <Alert color="yellow">
+                                Subscription directory unavailable.
+                                <Button
+                                  variant="subtle"
+                                  onClick={() => void catalogs.refetch()}
+                                >
+                                  Retry directory
+                                </Button>
+                              </Alert>
+                            )}
                           {catalog && (
                             <DatSubscriptionCard
                               dat={dat}
@@ -324,7 +358,7 @@ export function SourceWorkspace() {
                 </Stack>
               </Tabs.Panel>
             </Tabs>
-            {file && (
+            {file && canUpload && (
               <DatReplacementReviewModal
                 key={dat.id}
                 dat={dat}

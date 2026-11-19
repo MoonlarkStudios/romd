@@ -9,10 +9,10 @@ headered NES or big-endian N64.
 ## Subscribe and review
 
 1. Choose a verified subscription during **Add system**. For a system you
-   already added, open **Catalog sources** and choose **Set up catalog** or
+   already added, open **Catalog sources** and choose **Add first DAT** or
    **Add source**.
 2. Choose the catalog form that matches your files and start the check. For an existing
-   compatible manual source, use its **Use subscription** action instead.
+   compatible manual source, choose **Connect subscription** on its source row instead.
 3. Review the saved candidate's additions, removals and changed checksums. Browse
    the searchable, paginated changes before approving **Import reviewed catalog**.
 4. Follow the accepted job in **Jobs**. Refresh affected audience libraries when

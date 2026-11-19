@@ -14,4 +14,4 @@ public sealed record DatWithSize(
     long? SizeOnDiskBytes,
     bool? IsCompressed,
     CatalogSourceStatus SourceStatus,
-    int CatalogSourceId, int MatchedRomFileCount = 0);
+    int CatalogSourceId, int MatchedRomFileCount = 0, bool HasSubscription = false);

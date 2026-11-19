@@ -15,12 +15,14 @@ export function sourcePath(systemKey: string, dat: Dat) {
 export function SourceActions({
   dat,
   path,
-  manual = false,
+  showUpdates = true,
+  offerManualUpload = false,
   lifecycle = false,
 }: {
   dat: Dat;
   path: string;
-  manual?: boolean;
+  showUpdates?: boolean;
+  offerManualUpload?: boolean;
   lifecycle?: boolean;
 }) {
   const { canManageSources } = usePermissions();
@@ -40,13 +42,15 @@ export function SourceActions({
           </ActionIcon>
         </Menu.Target>
         <Menu.Dropdown>
-          <Menu.Item
-            component={Link}
-            to={`${path}?tab=updates`}
-            state={returnState}
-          >
-            Updates
-          </Menu.Item>
+          {showUpdates && (
+            <Menu.Item
+              component={Link}
+              to={`${path}?tab=updates`}
+              state={returnState}
+            >
+              Updates
+            </Menu.Item>
+          )}
           <Menu.Item
             leftSection={<IconDownload size={16} />}
             onClick={() =>
@@ -60,7 +64,7 @@ export function SourceActions({
           >
             Download installed DAT
           </Menu.Item>
-          {manual && (
+          {offerManualUpload && (
             <Menu.Item
               component={Link}
               to={`${path}?tab=updates`}

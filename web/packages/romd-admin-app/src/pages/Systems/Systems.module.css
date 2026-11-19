@@ -113,3 +113,14 @@
 @media (min-height: 640px) {
   .inspector { position: sticky; top: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md)); }
 }
+
+.hubIdentity {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (max-width: 40em) {
+  .hubIdentity {
+    flex-basis: 100%;
+  }
+}

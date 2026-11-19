@@ -14,11 +14,16 @@ export function SystemSetupSummary({
   systemKey: string;
   viewingSources?: boolean;
 }) {
-  const systems = useManagedSystems();
-  const subscriptions = useDatSubscriptions();
-  const { role } = usePermissions();
+  const { role, canManageSources } = usePermissions();
+  const systems = useManagedSystems('', {
+    enabled: canManageSources,
+  });
+  const subscriptions = useDatSubscriptions({
+    enabled: role === 'Admin',
+  });
   const { state } = useLocation();
   const system = systems.data?.find((s) => s.key === systemKey);
+  if (!canManageSources) return null;
   if (!system)
     return systems.isError ? (
       <Alert color="red">
@@ -27,9 +32,10 @@ export function SystemSetupSummary({
       </Alert>
     ) : null;
   const sourcesPath = `/systems/${systemKey}?tab=sources`;
-  const related = (subscriptions.data ?? []).filter(
-    (subscription) => subscription.systemKey === systemKey,
-  );
+  const related =
+    role === 'Admin'
+      ? (subscriptions.data ?? []).filter((subscription) => subscription.systemKey === systemKey)
+      : [];
   const status = systemSubscriptionStatus(related);
   const firstDats = status.firstDats.length;
   const updates = status.updates.length;
@@ -120,7 +126,7 @@ export function SystemSetupSummary({
           View processing details
         </Button>
       )}
-      {!viewingSources && subscriptions.isError && (
+      {!viewingSources && role === 'Admin' && subscriptions.isError && (
         <Text
           size="xs"
           c="dimmed"

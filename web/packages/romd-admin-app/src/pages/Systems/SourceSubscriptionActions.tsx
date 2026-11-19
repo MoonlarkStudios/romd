@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { datKeys } from '../../hooks/api/useDats';
 import { managedSystemKeys } from '../../hooks/api/useManagedSystems';
 import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 
@@ -55,19 +56,18 @@ export function SourceSubscriptionActions({
   const current = status.data;
   const previousState = useRef(current.state);
   useEffect(() => {
-    const completed = previousState.current === 'Applying' && current.state !== 'Applying';
+    if (previousState.current === current.state) return;
+    const completed = previousState.current === 'Applying';
     previousState.current = current.state;
+    void client.invalidateQueries({
+      queryKey: managedSystemKeys.subscriptions,
+    });
     if (!completed) return;
     void client.invalidateQueries({
-      queryKey: [
-        'dats',
-      ],
+      queryKey: datKeys.all,
     });
     void client.invalidateQueries({
       queryKey: managedSystemKeys.all,
-    });
-    void client.invalidateQueries({
-      queryKey: managedSystemKeys.subscriptions,
     });
   }, [
     current.state,
@@ -101,32 +101,47 @@ export function SourceSubscriptionActions({
       setChecking(false);
     }
   };
-  const label = ready
-    ? current.activeDatId
-      ? 'Update available'
-      : 'Ready for review'
-    : current.state === 'Applying'
-      ? 'Processing update'
-      : current.state === 'CheckFailed'
-        ? 'Check needs attention'
-        : current.state === 'NotChecked'
-          ? 'Not checked'
-          : 'Up to date';
+  const applying = current.state === 'Applying';
+  const failed = current.state === 'CheckFailed';
+  const paused = current.automaticChecksPaused;
+  const canCheck =
+    !settingsOnly &&
+    !applying &&
+    !paused &&
+    (primaryOnly ? failed || current.state === 'NotChecked' : !compact || !ready);
+  const label = checking
+    ? 'Checking for updates'
+    : ready
+      ? current.activeDatId
+        ? 'Update ready'
+        : 'First DAT ready'
+      : applying
+        ? 'Import in progress'
+        : paused
+          ? 'Checks paused'
+          : failed
+            ? 'Check failed'
+            : current.state === 'NotChecked'
+              ? 'Not checked'
+              : 'Up to date';
   return (
-    <Stack gap="sm">
+    <Stack gap={compact ? 6 : 'sm'}>
       {!primaryOnly && (
         <Group>
           <Badge
-            color={
-              ready || current.state === 'CheckFailed'
-                ? 'orange'
-                : current.state === 'Applying'
-                  ? 'blue'
-                  : 'gray'
-            }
+            role="status"
+            color={ready || failed ? 'orange' : applying || checking ? 'blue' : 'gray'}
           >
             {label}
           </Badge>
+          {compact && failed && !paused && current.nextCheckAt && (
+            <Text
+              size="xs"
+              c="dimmed"
+            >
+              Next retry {new Date(current.nextCheckAt).toLocaleString()}
+            </Text>
+          )}
           {!compact && current.lastCheckedAt && (
             <Text
               size="xs"
@@ -176,43 +191,38 @@ export function SourceSubscriptionActions({
                 : {
                     variant: 'light',
                   })}
+              size={compact ? 'compact-sm' : 'sm'}
               onClick={() => setReview(true)}
               disabled={checking}
             >
-              {current.activeDatId
-                ? 'Review update'
-                : primaryOnly
-                  ? 'Review first DAT'
-                  : 'Review source'}
+              {current.activeDatId ? 'Review update' : 'Review first DAT'}
             </Button>
           )}
-          {((!compact && !primaryOnly) ||
-            (primaryOnly &&
-              (current.state === 'CheckFailed' || current.state === 'NotChecked'))) && (
+          {canCheck && (
             <Button
               {...(primaryOnly
                 ? workspaceActionProps
                 : {
                     variant: 'subtle',
                   })}
+              size={compact ? 'compact-sm' : 'sm'}
               loading={checking}
-              disabled={current.state === 'Applying'}
               onClick={() => void check()}
             >
-              {current.state === 'CheckFailed'
+              {failed
                 ? 'Retry check'
                 : primaryOnly && !current.activeDatId
                   ? 'Check for first DAT'
                   : 'Check for updates'}
             </Button>
           )}
-          {current.jobId && (!primaryOnly || current.state === 'Applying') && (
+          {current.jobId && (applying || (!primaryOnly && (!compact || failed))) && (
             <Button
               component={Link}
               to={`/jobs/${current.jobId}`}
               variant="subtle"
             >
-              View job
+              {applying ? 'View progress' : 'View last job'}
             </Button>
           )}
         </Group>
@@ -221,7 +231,9 @@ export function SourceSubscriptionActions({
         <Button
           variant="subtle"
           color="gray"
-          disabled={current.state === 'Applying' || checking}
+          w="fit-content"
+          size={compact ? 'compact-sm' : 'sm'}
+          disabled={applying || checking}
           onClick={() => setConfirmStop(true)}
         >
           {current.activeDatId ? 'Switch to manual updates' : 'Remove pending subscription'}
@@ -260,9 +272,14 @@ export function SourceSubscriptionActions({
                     throw new Error(
                       'Could not change update settings. Processing may still be running; try again after it finishes.',
                     );
-                  await client.invalidateQueries({
-                    queryKey: managedSystemKeys.subscriptions,
-                  });
+                  await Promise.all([
+                    client.invalidateQueries({
+                      queryKey: managedSystemKeys.subscriptions,
+                    }),
+                    client.invalidateQueries({
+                      queryKey: datKeys.all,
+                    }),
+                  ]);
                   setConfirmStop(false);
                 } catch (e) {
                   setError(e instanceof Error ? e.message : 'Could not change update settings.');

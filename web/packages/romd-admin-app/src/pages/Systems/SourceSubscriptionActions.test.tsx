@@ -7,7 +7,8 @@ import { expect, it, vi } from 'vitest';
 import { render } from '../../test/utils/render';
 import { SourceSubscriptionActions } from './SourceSubscriptionActions';
 
-vi.mock('@romd/admin-api-client', () => ({
+vi.mock('@romd/admin-api-client', async () => ({
+  ...(await vi.importActual('@romd/admin-api-client')),
   getDatSubscription: vi.fn(),
   checkDatSubscription: vi.fn(),
   deleteDatSubscription: vi.fn(),
@@ -111,7 +112,7 @@ it('checks the existing subscription by its id', async () => {
       },
     }),
   );
-  expect(await screen.findByText('Update available')).toBeInTheDocument();
+  expect(await screen.findByText('Update ready')).toBeInTheDocument();
 });
 
 it('only offers retry for a failed subscription in the inspector and checks its exact id', async () => {

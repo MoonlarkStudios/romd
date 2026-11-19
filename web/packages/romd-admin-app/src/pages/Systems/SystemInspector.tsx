@@ -38,7 +38,7 @@ function InstalledSources({
 }: {
   system: ManagedSystem;
   subscriptions: DatCatalogSubscription[];
-  subscriptionState: 'available' | 'pending' | 'unavailable';
+  subscriptionState: 'available' | 'pending' | 'unavailable' | 'restricted';
 }) {
   const dats = useDatsByPlatform(system.catalogCount > 0 ? system.key : undefined);
   if (system.catalogCount === 0)
@@ -81,14 +81,14 @@ function InstalledSources({
     <>
       <ul className={classes.sources}>
         {installed.slice(0, shownSources).map((dat) => {
-          const subscribed = subscriptions.some(
-            (subscription) => subscription.activeDatId === dat.id,
-          );
+          const subscribed =
+            dat.hasSubscription ||
+            subscriptions.some((subscription) => subscription.activeDatId === dat.id);
           const metadata = [
             dat.version,
             subscribed
               ? 'Subscription'
-              : subscriptionState === 'available'
+              : dat.hasSubscription === false || subscriptionState === 'available'
                 ? 'Manual updates'
                 : null,
           ]
@@ -142,7 +142,7 @@ export function SystemInspector({
   system: ManagedSystem;
   icon?: SystemResource['icon'];
   subscriptions: DatCatalogSubscription[];
-  subscriptionState: 'available' | 'pending' | 'unavailable';
+  subscriptionState: 'available' | 'pending' | 'unavailable' | 'restricted';
   status: ReturnType<typeof systemSubscriptionStatus>;
   canSetUp: boolean;
   returnPath: string;

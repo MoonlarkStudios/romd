@@ -61,7 +61,7 @@ export function systemNeedsAttention(
 export function systemUpdateLabels(
   system: ManagedSystem,
   status: ReturnType<typeof systemSubscriptionStatus>,
-  subscriptionState: 'available' | 'pending' | 'unavailable',
+  subscriptionState: 'available' | 'pending' | 'unavailable' | 'restricted',
 ) {
   const notices: {
     label: string;
@@ -99,6 +99,13 @@ export function systemUpdateLabels(
       color: 'blue',
     });
   if (notices.length > 0) return notices;
+  if (subscriptionState === 'restricted')
+    return [
+      {
+        label: '—',
+        color: 'dimmed',
+      },
+    ];
   if (subscriptionState !== 'available')
     return [
       {

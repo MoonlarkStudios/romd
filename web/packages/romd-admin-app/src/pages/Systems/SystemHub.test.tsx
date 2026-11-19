@@ -1,5 +1,6 @@
 import {
   createDatReplacement,
+  createDatSubscription,
   deleteSystemAlias,
   deleteSystemOverride,
   getAdminSystem,
@@ -48,6 +49,7 @@ vi.mock('@romd/admin-api-client', async () => ({
   getDatSubscription: vi.fn(),
   previewDatReplacement: vi.fn(),
   createDatReplacement: vi.fn(),
+  createDatSubscription: vi.fn(),
   getJob: vi.fn(),
   listCatalogTitles: vi.fn(),
   getCatalogStats: vi.fn().mockResolvedValue({
@@ -124,6 +126,7 @@ const manual = {
 };
 const redump = {
   ...manual,
+  hasSubscription: true,
   id: 'redump',
   sourceId: 'source1',
   name: 'Sony - PlayStation',
@@ -168,6 +171,8 @@ function hub(url = '/systems/psx?tab=sources', systemsReturn?: string) {
 }
 beforeEach(() => {
   Object.assign(access, {
+    role: 'Admin',
+    canManageSources: true,
     canEditReferenceData: true,
     canManageTitles: false,
     canTriggerEnrichment: false,
@@ -239,7 +244,15 @@ beforeEach(() => {
     }),
   );
 });
-it('lists mixed sources and does not eagerly request any entry pages', async () => {
+it('prioritizes a source ready for review without requesting entry pages', async () => {
+  vi.mocked(listSystemDats).mockResolvedValueOnce(
+    result(
+      page([
+        manual,
+        redump,
+      ]),
+    ),
+  );
   hub();
   const redumpRow = await screen.findByRole('article', {
     name: redump.name,
@@ -247,6 +260,7 @@ it('lists mixed sources and does not eagerly request any entry pages', async () 
   const manualRow = screen.getByRole('article', {
     name: manual.name,
   });
+  expect(screen.getAllByRole('article')[0]).toBe(redumpRow);
   expect(within(redumpRow).getByText('Subscription')).toBeInTheDocument();
   expect(
     within(redumpRow).getByRole('button', {
@@ -261,8 +275,133 @@ it('lists mixed sources and does not eagerly request any entry pages', async () 
   ).toBeInTheDocument();
   expect(screen.getByText('Catalog ready')).toBeInTheDocument();
   expect(listSourceEntries).not.toHaveBeenCalled();
-  expect(listDatCatalogs).not.toHaveBeenCalled();
+  expect(
+    within(manualRow).getByRole('link', {
+      name: 'Upload new version',
+    }),
+  ).toHaveAttribute('href', '/systems/psx/sources/source2?tab=updates');
 });
+it('connects a compatible subscription from the exact installed source row', async () => {
+  const catalogId = 'no-intro/psx/test';
+  vi.mocked(listDatCatalogs).mockResolvedValue(
+    result({
+      enabled: true,
+      message: null,
+      catalogs: [
+        {
+          catalogId,
+          name: manual.name,
+          systemId: 'psx',
+        },
+      ],
+    }),
+  );
+  const connected = {
+    ...sub,
+    id: 'connected',
+    catalogId,
+    activeDatId: manual.id,
+    state: 'UpToDate',
+    jobId: 'previous-job',
+  };
+  vi.mocked(createDatSubscription).mockImplementation(async () => {
+    vi.mocked(listDatSubscriptions).mockResolvedValue(
+      result([
+        sub,
+        connected,
+      ]),
+    );
+    vi.mocked(getDatSubscription).mockImplementation(async ({ path }) =>
+      result(path.subscriptionId === connected.id ? connected : sub),
+    );
+    return result(connected);
+  });
+  hub();
+  const row = await screen.findByRole('article', {
+    name: manual.name,
+  });
+  await userEvent.click(
+    await within(row).findByRole('button', {
+      name: 'Connect subscription',
+    }),
+  );
+  expect(createDatSubscription).toHaveBeenCalledExactlyOnceWith({
+    body: {
+      catalogId,
+      datId: manual.id,
+    },
+  });
+  expect(
+    await within(row).findByRole('button', {
+      name: 'Check for updates',
+    }),
+  ).toBeVisible();
+  expect(
+    within(row).queryByRole('link', {
+      name: /job/,
+    }),
+  ).not.toBeInTheDocument();
+});
+
+it('keeps manual replacement available when the subscription directory cannot be loaded', async () => {
+  vi.mocked(listDatCatalogs).mockResolvedValue(
+    result({
+      enabled: true,
+      message: 'The directory could not be verified.',
+      catalogs: [],
+    }),
+  );
+  hub();
+  expect(await screen.findByText(/Subscription directory unavailable/)).toBeVisible();
+  const manualRow = screen.getByRole('article', {
+    name: manual.name,
+  });
+  await userEvent.click(
+    within(manualRow).getByRole('link', {
+      name: 'Upload new version',
+    }),
+  );
+  expect(await screen.findByTestId('dat-upload-zone')).toBeVisible();
+});
+
+it('lets Managers replace a manual DAT without calling Admin subscription endpoints', async () => {
+  access.role = 'Manager';
+  hub();
+  const manualRow = await screen.findByRole('article', {
+    name: manual.name,
+  });
+  const subscribedRow = screen.getByRole('article', {
+    name: redump.name,
+  });
+  expect(within(subscribedRow).getByText('Subscription')).toBeVisible();
+  expect(
+    within(subscribedRow).queryByRole('link', {
+      name: 'Upload new version',
+    }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(
+    within(manualRow).getByRole('link', {
+      name: 'Upload new version',
+    }),
+  );
+  expect(await screen.findByTestId('dat-upload-zone')).toBeVisible();
+  expect(listDatCatalogs).not.toHaveBeenCalled();
+  expect(listDatSubscriptions).not.toHaveBeenCalled();
+});
+
+it('hides manual replacement from users below Manager on the direct Updates route', async () => {
+  access.role = 'Contributor';
+  access.canManageSources = false;
+  hub('/systems/psx/sources/source2?tab=updates');
+  expect(
+    await screen.findByRole('heading', {
+      name: 'Manual updates',
+    }),
+  ).toBeVisible();
+  expect(screen.queryByTestId('dat-upload-zone')).not.toBeInTheDocument();
+  expect(listDatSubscriptions).not.toHaveBeenCalled();
+});
+
 it('keeps the filtered Systems return destination when switching detail tabs', async () => {
   const systemsReturn = '/systems?q=psx&attention=1&system=psx';
   hub('/systems/psx?tab=sources', systemsReturn);
@@ -750,6 +889,13 @@ it('opens the current DAT through a stable source URL after replacement', async 
   );
 });
 it('keeps updates and settings addressable without fetching entries', async () => {
+  vi.mocked(listDatCatalogs).mockResolvedValue(
+    result({
+      enabled: true,
+      message: 'The directory could not be verified.',
+      catalogs: [],
+    }),
+  );
   hub('/systems/psx/sources/source1?tab=settings');
   expect(
     await screen.findByRole('button', {
@@ -772,6 +918,7 @@ it('keeps updates and settings addressable without fetching entries', async () =
       name: 'Review update',
     }),
   ).toBeInTheDocument();
+  expect(listDatCatalogs).not.toHaveBeenCalled();
   expect(listSourceEntries).not.toHaveBeenCalled();
 });
 it('handles a removed source without falling back to an unrelated DAT', async () => {
@@ -801,7 +948,7 @@ it('shows first-source guidance independently of adding the system', async () =>
   expect(await screen.findByText('No DAT installed')).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Set up catalog',
+      name: 'Add first DAT',
     }),
   ).toBeEnabled();
 });
@@ -833,7 +980,7 @@ it('keeps a pending subscription visible before its first DAT exists', async () 
   expect(await screen.findByText('No DAT installed')).toBeInTheDocument();
   expect(
     await screen.findByRole('button', {
-      name: 'Review source',
+      name: 'Review first DAT',
     }),
   ).toBeInTheDocument();
 });

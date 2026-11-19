@@ -215,7 +215,7 @@ export function SystemDatOptions({
           size="sm"
           c="dimmed"
         >
-          A matching DAT is installed. Open that source to configure its updates.
+          A matching DAT is installed. Use Connect subscription on its row in Catalog sources.
         </Text>
       )}
       {options.length > 0 && !available.length && !resumable.length && !firstDat && (

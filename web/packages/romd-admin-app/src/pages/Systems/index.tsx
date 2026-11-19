@@ -56,16 +56,17 @@ export function Systems() {
   const matches = useManagedSystems(searched, {
     enabled: !!searched,
   });
+  const canSetUp = usePermissions().hasRole('Admin');
   const subscriptions = useDatSubscriptions({
+    enabled: canSetUp,
     pollApplying: true,
   });
   const client = useQueryClient();
   const applyingIds = useRef<string[]>([]);
-  const canSetUp = usePermissions().hasRole('Admin');
   const icons = useSystemIcons();
   const [setup, setSetup] = useState<'system' | 'upload'>();
 
-  const bySystem = groupSystemSubscriptions(subscriptions.data ?? []);
+  const bySystem = groupSystemSubscriptions(canSetUp ? (subscriptions.data ?? []) : []);
   const enabled = (systems.data ?? []).filter((system) => system.enabled);
   const findStatus = (key: string) => systemSubscriptionStatus(bySystem.get(key) ?? []);
   const attentionCount = enabled.filter((system) =>
@@ -82,11 +83,13 @@ export function Systems() {
     .filter(({ system, status }) => !attentionOnly || systemNeedsAttention(system, status));
   const searching = search.trim() !== searched || (!!searched && matches.isPending);
   const searchFailed = !!searched && matches.isError;
-  const subscriptionState = subscriptions.isError
-    ? 'unavailable'
-    : subscriptions.isPending
-      ? 'pending'
-      : 'available';
+  const subscriptionState = !canSetUp
+    ? 'restricted'
+    : subscriptions.isError
+      ? 'unavailable'
+      : subscriptions.isPending
+        ? 'pending'
+        : 'available';
   const showInspector = width >= inspectorMinWidth;
   const inlineCatalog = width > 0 && width < 520;
   const showImportDate = width >= 1100;
@@ -259,7 +262,7 @@ export function Systems() {
                     }
                   />
                 </Group>
-                {subscriptions.isError && (
+                {canSetUp && subscriptions.isError && (
                   <Alert
                     color="yellow"
                     title="Subscription status is unavailable"

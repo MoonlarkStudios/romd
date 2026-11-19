@@ -11,6 +11,7 @@ using Romd.Domain.Jobs;
 using Romd.Domain.Source.Dat;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Extensions;
+using Romd.Persistence.Subscriptions;
 
 namespace Romd.Persistence.Repositories;
 
@@ -35,6 +36,7 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
 
     public async Task<ErrorOr<PagedList<DatWithSize>>> GetPageAsync(int? platformId, bool? unrouted, string? query, string? cursor, int limit, CancellationToken ct)
     {
+        var subscribedSourceIds = DatSubscriptionSourceQueries.SubscribedSourceIds(_context);
         if (limit is < 1 or > 100)
             return FieldErrors.Validation("Dats.InvalidLimit", "Use a limit between 1 and 100.", "limit");
         string? term = query?.Trim().ToLowerInvariant();
@@ -65,12 +67,13 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
                               Compressed = (bool?)f.IsCompressed,
                               catalog.Status,
                               CatalogSourceId = catalog.Id,
+                              HasSubscription = subscribedSourceIds.Contains(d.DatSourceId),
                               MatchedRomFileCount = (from rom in _context.DatRoms
                                                      join game in _context.DatGames on rom.DatGameId equals game.Id
                                                      where game.DatFileId == d.Id && rom.RomFileId != null
                                                      select rom.RomFileId).Distinct().Count()
                           }).Take(limit + 1).ToListAsync(ct);
-        return new PagedList<DatWithSize>(rows.Take(limit).Select(row => new DatWithSize(row.Dat.ToDomain(), row.Size, row.Disk, row.Compressed, Enum.Parse<CatalogSourceStatus>(row.Status), row.CatalogSourceId, row.MatchedRomFileCount)).ToArray(), rows.Count > limit ? KeysetCursor.Encode(new DatPosition(rows[limit - 1].Dat.Name, rows[limit - 1].Dat.Id), fingerprint) : null, rows.Count > limit);
+        return new PagedList<DatWithSize>(rows.Take(limit).Select(row => new DatWithSize(row.Dat.ToDomain(), row.Size, row.Disk, row.Compressed, Enum.Parse<CatalogSourceStatus>(row.Status), row.CatalogSourceId, row.MatchedRomFileCount, row.HasSubscription)).ToArray(), rows.Count > limit ? KeysetCursor.Encode(new DatPosition(rows[limit - 1].Dat.Name, rows[limit - 1].Dat.Id), fingerprint) : null, rows.Count > limit);
     }
 
     public async Task<ErrorOr<PagedList<DatWithSourceStatus>>> GetSystemPageAsync(int platformId, string? query, string? cursor, int limit, CancellationToken ct)
@@ -78,7 +81,7 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
         var result = await GetPageAsync(platformId, null, query, cursor, limit, ct);
         if (result.IsError)
             return result.Errors;
-        return new PagedList<DatWithSourceStatus>(result.Value.Items.Select(row => new DatWithSourceStatus(row.Dat, row.SourceStatus, row.CatalogSourceId, row.MatchedRomFileCount)).ToArray(), result.Value.NextCursor, result.Value.HasNextPage);
+        return new PagedList<DatWithSourceStatus>(result.Value.Items.Select(row => new DatWithSourceStatus(row.Dat, row.SourceStatus, row.CatalogSourceId, row.MatchedRomFileCount, row.HasSubscription)).ToArray(), result.Value.NextCursor, result.Value.HasNextPage);
     }
     private sealed record DatPosition(string Name, int Id);
 
@@ -138,6 +141,7 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
 
     public async Task<DatWithSize?> GetByIdWithSizeAsync(int id, CancellationToken cancellationToken = default)
     {
+        var subscribedSourceIds = DatSubscriptionSourceQueries.SubscribedSourceIds(_context);
         var row = await (
                 from d in _context.DatFiles.AsNoTracking()
                 where d.Id == id
@@ -153,6 +157,7 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
                     IsCompressed = (bool?)f.IsCompressed,
                     SourceStatus = c.Status,
                     CatalogSourceId = c.Id,
+                    HasSubscription = subscribedSourceIds.Contains(d.DatSourceId),
                     MatchedRomFileCount = (from rom in _context.DatRoms
                                            join game in _context.DatGames on rom.DatGameId equals game.Id
                                            where game.DatFileId == d.Id && rom.RomFileId != null
@@ -169,11 +174,13 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
                 row.IsCompressed,
                 Enum.Parse<CatalogSourceStatus>(row.SourceStatus),
                 row.CatalogSourceId,
-                row.MatchedRomFileCount);
+                row.MatchedRomFileCount,
+                row.HasSubscription);
     }
 
     public async Task<IReadOnlyList<DatWithSize>> GetAllWithSizeAsync(CancellationToken cancellationToken = default)
     {
+        var subscribedSourceIds = DatSubscriptionSourceQueries.SubscribedSourceIds(_context);
         var rows = await (
                 from d in _context.DatFiles.AsNoTracking()
                 where d.Lifecycle == nameof(DatFileLifecycle.Active)
@@ -190,6 +197,7 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
                     IsCompressed = (bool?)f.IsCompressed,
                     SourceStatus = c.Status,
                     CatalogSourceId = c.Id,
+                    HasSubscription = subscribedSourceIds.Contains(d.DatSourceId),
                     MatchedRomFileCount = (from rom in _context.DatRoms
                                            join game in _context.DatGames on rom.DatGameId equals game.Id
                                            where game.DatFileId == d.Id && rom.RomFileId != null
@@ -205,7 +213,8 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
                 r.IsCompressed,
                 Enum.Parse<CatalogSourceStatus>(r.SourceStatus),
                 r.CatalogSourceId,
-                r.MatchedRomFileCount))
+                r.MatchedRomFileCount,
+                r.HasSubscription))
             .ToList();
     }
 
@@ -224,6 +233,7 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
         Expression<Func<DatFileEntity, bool>> predicate,
         CancellationToken cancellationToken)
     {
+        var subscribedSourceIds = DatSubscriptionSourceQueries.SubscribedSourceIds(_context);
         var rows = await (
                 from d in _context.DatFiles.AsNoTracking().Where(predicate)
                 where d.Lifecycle == nameof(DatFileLifecycle.Active)
@@ -235,6 +245,7 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
                     Dat = d,
                     SourceStatus = c.Status,
                     CatalogSourceId = c.Id,
+                    HasSubscription = subscribedSourceIds.Contains(d.DatSourceId),
                     MatchedRomFileCount = (from rom in _context.DatRoms
                                            join game in _context.DatGames on rom.DatGameId equals game.Id
                                            where game.DatFileId == d.Id && rom.RomFileId != null
@@ -247,7 +258,8 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
                 r.Dat.ToDomain(),
                 Enum.Parse<CatalogSourceStatus>(r.SourceStatus),
                 r.CatalogSourceId,
-                r.MatchedRomFileCount))
+                r.MatchedRomFileCount,
+                r.HasSubscription))
             .ToList();
     }
 

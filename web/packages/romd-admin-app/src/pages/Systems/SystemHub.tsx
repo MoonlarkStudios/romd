@@ -13,6 +13,7 @@ import { SystemLogo } from './SystemLogo';
 import { SystemMetadata } from './SystemMetadata';
 import { SystemSettings } from './SystemSettings';
 import { SystemSetupSummary } from './SystemSetupSummary';
+import classes from './Systems.module.css';
 import { systemsListReturnPath } from './systemsListNavigation';
 
 const HUB_TABS = [
@@ -96,10 +97,7 @@ export function SystemHub() {
           <Group
             gap="sm"
             wrap="nowrap"
-            style={{
-              minWidth: 0,
-              flex: 1,
-            }}
+            className={classes.hubIdentity}
           >
             <SystemLogo
               icon={platform.icon}

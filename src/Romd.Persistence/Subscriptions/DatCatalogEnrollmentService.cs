@@ -12,7 +12,7 @@ namespace Romd.Persistence.Subscriptions;
 /// <summary>Subscription enrollment and scheduled checks; candidates remain separate from ingestion until approval.</summary>
 public sealed partial class DatCatalogEnrollmentService : IDatCatalogEnrollmentService, IDatSubscriptionStopStore, IDatSubscriptionCheckReader, IDatSubscriptionCheckStore
 {
-    private static readonly string[] Terminal = ["Completed", "CompletedWithErrors", "Failed", "Cancelled", "Deferred"];
+    private static readonly string[] Terminal = DatSubscriptionSourceQueries.TerminalJobPhases;
     private readonly RomdDbContext _db;
     private readonly ISignedDatCatalogClient _client;
     private readonly IDatRepository _dats;
@@ -200,13 +200,11 @@ public sealed partial class DatCatalogEnrollmentService : IDatCatalogEnrollmentS
     {
         if (row.DatSourceId is int sourceId)
             return await _dats.GetActiveBySourceIdAsync(sourceId, ct);
-        if (row.JobId is null || await RunningAsync(row, ct) || row.CandidateFileId is not int fileId)
-            return null;
-        // The upload's exact retained document identifies its result without a
-        // new completion scheduler. Do not infer a source from a display name.
-        var ids = await _db.DatFiles.Where(x => x.FileId == fileId && x.PlatformId == row.PlatformId && x.Lifecycle == "Active")
-            .Select(x => x.Id).Take(2).ToListAsync(ct);
-        return ids.Count == 1 ? await _dats.GetByIdAsync(ids[0], ct) : null;
+        var installed = await DatSubscriptionSourceQueries
+            .CompletedFirstImportDocuments(_db, _db.DatSubscriptions.Where(item => item.Id == row.Id))
+            .Select(dat => dat.Id)
+            .SingleOrDefaultAsync(ct);
+        return installed == 0 ? null : await _dats.GetByIdAsync(installed, ct);
     }
     private async Task<DatCatalogSubscription> StatusAsync(DatSubscriptionEntity row, CancellationToken ct)
     {

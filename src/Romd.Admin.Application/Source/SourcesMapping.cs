@@ -28,7 +28,8 @@ public static class SourcesMapping
         CatalogSourceStatus sourceStatus,
         int catalogSourceId,
         Models.StoredFileRef? sourceFile = null,
-        int matchedRomFileCount = 0) =>
+        int matchedRomFileCount = 0,
+        bool hasSubscription = false) =>
         new()
         {
             Id = IdCoder.Encode(entity.Id),
@@ -47,6 +48,7 @@ public static class SourcesMapping
             CatalogSourceId = IdCoder.Encode(catalogSourceId),
             Lifecycle = entity.Lifecycle.ToContract(),
             SourceStatus = sourceStatus.ToContract(),
+            HasSubscription = hasSubscription,
             SourceFile = sourceFile
         };
 
@@ -91,7 +93,8 @@ public static class SourcesMapping
             systemKeys, entity.SourceStatus,
             entity.CatalogSourceId,
             StoredFileRefMapping.ToStoredFileRef(entity.SizeBytes, entity.SizeOnDiskBytes, entity.IsCompressed),
-            entity.MatchedRomFileCount);
+            entity.MatchedRomFileCount,
+            entity.HasSubscription);
 
     /// <summary>
     ///     Maps a collection of DAT-with-size read models to contract models.
@@ -104,7 +107,7 @@ public static class SourcesMapping
     /// </summary>
     public static Models.Dat ToContract(this DatWithSourceStatus entity, SystemKeys systemKeys) =>
         entity.Dat.ToContract(systemKeys, entity.SourceStatus, entity.CatalogSourceId,
-            matchedRomFileCount: entity.MatchedRomFileCount);
+            matchedRomFileCount: entity.MatchedRomFileCount, hasSubscription: entity.HasSubscription);
 
     /// <summary>
     ///     Maps a collection of DAT-with-source-status read models to contract models.

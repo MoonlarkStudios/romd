@@ -527,6 +527,7 @@ export type Dat = {
     catalogSourceId: string;
     lifecycle: DatLifecycle;
     sourceStatus: SourceLifecycleStatus;
+    hasSubscription?: boolean;
     sourceFile?: null | StoredFileRef;
 };
 

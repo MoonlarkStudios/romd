@@ -1,46 +1,79 @@
-import {
-  Alert,
-  Badge,
-  Button,
-  Group,
-  Skeleton,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-} from '@mantine/core';
+import { Alert, Button, Group, Skeleton, Stack, Text, TextInput, Title } from '@mantine/core';
+import type { DatCatalogSubscription } from '@romd/admin-api-client';
 import { IconPlus, IconSearch } from '@tabler/icons-react';
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useSearchParams } from 'react-router';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useDatsByPlatform } from '../../hooks/api/useDats';
-import { useDatSubscriptions, useManagedSystems } from '../../hooks/api/useManagedSystems';
+import {
+  useDatCatalogs,
+  useDatSubscriptions,
+  useManagedSystems,
+} from '../../hooks/api/useManagedSystems';
 import { usePermissions } from '../../hooks/usePermissions';
 import { AddSourceFlow } from './AddSourceFlow';
+import { DatSubscriptionCard } from './DatSubscriptionCard';
 import { SourceActions, sourcePath } from './SourceActions';
 import { SourceHelp } from './SourceHelp';
 import { SourceStatusBadge } from './SourceStatusBadge';
 import { SourceSubscriptionActions } from './SourceSubscriptionActions';
 import classes from './Sources.module.css';
+import { connectableCatalog, datProviderLabel } from './sourceCatalog';
+
+function attentionRank(subscription: DatCatalogSubscription | undefined) {
+  switch (subscription?.state) {
+    case 'ReadyToImport':
+    case 'UpdateAvailable':
+      return 0;
+    case 'CheckFailed':
+    case 'NotChecked':
+      return subscription.automaticChecksPaused ? 3 : 1;
+    case 'Applying':
+      return 2;
+    default:
+      return 3;
+  }
+}
 
 export function SourcesTab({ systemKey }: { systemKey: string }) {
   const dats = useDatsByPlatform(systemKey);
-  const systems = useManagedSystems();
-  const tracked = useDatSubscriptions();
-  const { role } = usePermissions();
+  const { role, canManageSources } = usePermissions();
+  const isAdmin = role === 'Admin';
+  const systems = useManagedSystems('', {
+    enabled: isAdmin,
+  });
+  const tracked = useDatSubscriptions({
+    enabled: isAdmin,
+  });
   const { state } = useLocation();
   const system = systems.data?.find((s) => s.key === systemKey);
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState('');
-  const subscriptions = tracked.data?.filter((s) => s.systemKey === systemKey) ?? [];
+  const subscriptions = isAdmin
+    ? (tracked.data?.filter((s) => s.systemKey === systemKey) ?? [])
+    : [];
+  const hasConnectableSource = dats.data?.some(
+    (dat) =>
+      dat.sourceStatus === 'Active' &&
+      !dat.hasSubscription &&
+      !subscriptions.some((subscription) => subscription.activeDatId === dat.id),
+  );
+  const shouldCheckDirectory = isAdmin && tracked.isSuccess && !!hasConnectableSource;
+  const directory = useDatCatalogs({
+    enabled: shouldCheckDirectory,
+  });
+  const directoryUnavailable =
+    shouldCheckDirectory &&
+    (directory.isError || (directory.data?.enabled && !!directory.data.message));
   const selected = dats.data?.find((d) => d.id === params.get('dat'));
   const pending = subscriptions.filter(
     (s) => !s.activeDatId || !dats.data?.some((d) => d.id === s.activeDatId),
   );
   const setupRequested = params.get('setup') === '1';
-  const empty = dats.isSuccess && tracked.isSuccess && !dats.data.length && !pending.length;
+  const empty =
+    dats.isSuccess && (!isAdmin || tracked.isSuccess) && !dats.data.length && !pending.length;
   const closeSetup = () => {
     setAdding(false);
     if (!setupRequested) return;
@@ -63,8 +96,22 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
       />
     );
   }
-  const installed =
-    dats.data?.filter((d) => d.name.toLowerCase().includes(search.toLowerCase())) ?? [];
+  const rows = [
+    ...(dats.data ?? []).map((dat) => ({
+      key: dat.sourceId ?? dat.id,
+      name: dat.name,
+      dat,
+      subscription: subscriptions.find((item) => item.activeDatId === dat.id),
+    })),
+    ...pending.map((subscription) => ({
+      key: subscription.id,
+      name: subscription.name,
+      dat: undefined,
+      subscription,
+    })),
+  ]
+    .filter(({ name }) => name.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((a, b) => attentionRank(a.subscription) - attentionRank(b.subscription));
   return (
     <Stack gap="md">
       <Group justify="space-between">
@@ -77,7 +124,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
           </Title>
           <SourceHelp />
         </Group>
-        {role === 'Admin' && !empty && (
+        {isAdmin && !empty && (
           <Button
             {...workspaceActionProps}
             leftSection={<IconPlus size={16} />}
@@ -88,7 +135,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
           </Button>
         )}
       </Group>
-      {tracked.isError && (
+      {isAdmin && tracked.isError && (
         <Alert color="yellow">
           Subscription status could not be loaded.
           <Button
@@ -96,6 +143,22 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
             onClick={() => void tracked.refetch()}
           >
             Retry status
+          </Button>
+        </Alert>
+      )}
+      {directoryUnavailable && (
+        <Alert
+          color="yellow"
+          role="status"
+        >
+          Subscription directory unavailable. You can still upload new DAT versions and review saved
+          updates.
+          <Button
+            variant="subtle"
+            loading={directory.isFetching}
+            onClick={() => void directory.refetch()}
+          >
+            Retry directory
           </Button>
         </Alert>
       )}
@@ -149,18 +212,18 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
               >
                 Add a DAT to identify releases and match ROM files.
               </Text>
-              {role === 'Admin' && (
+              {isAdmin && (
                 <Button
                   {...workspaceActionProps}
                   onClick={() => setAdding(true)}
                   disabled={!system}
                 >
-                  Set up catalog
+                  Add first DAT
                 </Button>
               )}
             </Stack>
           )}
-          {(dats.data?.length ?? 0) > 5 && (
+          {(dats.data?.length ?? 0) + pending.length > 5 && (
             <TextInput
               aria-label="Filter sources"
               placeholder="Find a source..."
@@ -169,130 +232,145 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
               onChange={(e) => setSearch(e.currentTarget.value)}
             />
           )}
-          <div className={classes.list}>
-            {installed.map((dat) => {
-              const subscription = subscriptions.find((s) => s.activeDatId === dat.id);
-              const path = sourcePath(systemKey, dat);
-              return (
-                <article
-                  className={classes.row}
-                  aria-label={dat.name}
-                  key={dat.sourceId ?? dat.id}
-                >
-                  <Stack gap={5}>
-                    <Link
-                      className={classes.name}
-                      to={path}
-                      state={state}
-                    >
-                      {dat.name}
-                    </Link>
-                    <Group gap="xs">
-                      <Text
-                        size="xs"
-                        c="dimmed"
-                      >
-                        {dat.type}
-                      </Text>
-                      <SourceStatusBadge status={dat.sourceStatus} />
-                    </Group>
-                  </Stack>
-                  <Stack gap={4}>
-                    <Text size="sm">{dat.version ?? 'Version not specified'}</Text>
-                    <Text
-                      size="xs"
-                      c="dimmed"
-                    >
-                      {Number(dat.gameCount ?? 0).toLocaleString()} DAT entries
-                    </Text>
-                  </Stack>
-                  <Group
-                    justify="space-between"
-                    align="flex-start"
-                    wrap="nowrap"
+          {rows.length > 0 && (
+            <div className={classes.list}>
+              <div
+                className={classes.listHeader}
+                aria-hidden="true"
+              >
+                <span>Source</span>
+                <span>Installed DAT</span>
+                <span>Updates</span>
+              </div>
+              {rows.map(({ key, name, dat, subscription }) => {
+                const path = dat ? sourcePath(systemKey, dat) : undefined;
+                const subscribed = !!(subscription || dat?.hasSubscription);
+                const provider = dat && datProviderLabel(dat.type);
+                const catalog =
+                  dat && shouldCheckDirectory && !directoryUnavailable
+                    ? connectableCatalog(directory.data, subscriptions, systemKey, dat)
+                    : undefined;
+                const canUpload = canManageSources && !subscribed && !!path;
+                return (
+                  <article
+                    className={classes.row}
+                    aria-label={name}
+                    key={key}
                   >
-                    <Stack
-                      gap={6}
-                      style={{
-                        minWidth: 0,
-                      }}
-                    >
-                      <Text
-                        size="xs"
-                        c="dimmed"
-                      >
-                        {subscription
-                          ? 'Subscription'
-                          : tracked.isSuccess
-                            ? 'Manual updates'
-                            : 'Update method unavailable'}
-                      </Text>
-                      {subscription && (
-                        <SourceSubscriptionActions
-                          subscription={subscription}
-                          compact
-                          onAccepted={() => {}}
-                        />
+                    <Stack gap={5}>
+                      {path ? (
+                        <Link
+                          className={classes.name}
+                          to={path}
+                          state={state}
+                        >
+                          {name}
+                        </Link>
+                      ) : (
+                        <Text
+                          fw={600}
+                          size="sm"
+                        >
+                          {name}
+                        </Text>
+                      )}
+                      {dat && (
+                        <Group gap="xs">
+                          {provider && (
+                            <Text
+                              size="xs"
+                              c="dimmed"
+                            >
+                              {provider}
+                            </Text>
+                          )}
+                          <SourceStatusBadge status={dat.sourceStatus} />
+                        </Group>
                       )}
                     </Stack>
-                    <SourceActions
-                      dat={dat}
-                      path={path}
-                      manual={!subscription && tracked.isSuccess}
-                    />
-                  </Group>
-                </article>
-              );
-            })}
-            {pending
-              .filter((s) => s.name.toLowerCase().includes(search.toLowerCase()))
-              .map((s) => (
-                <article
-                  className={classes.row}
-                  aria-label={s.name}
-                  key={s.id}
-                >
-                  <Stack gap={4}>
-                    <Text
-                      fw={600}
-                      size="sm"
+                    <Stack gap={3}>
+                      <Text size="sm">
+                        {dat ? (dat.version ?? 'Version not specified') : 'No DAT installed'}
+                      </Text>
+                      {dat && (
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                        >
+                          {(dat.gameCount ?? 0).toLocaleString()} DAT{' '}
+                          {(dat.gameCount ?? 0) === 1 ? 'entry' : 'entries'}
+                        </Text>
+                      )}
+                    </Stack>
+                    <Group
+                      justify="space-between"
+                      align="flex-start"
+                      wrap="nowrap"
+                      gap="xs"
                     >
-                      {s.name}
-                    </Text>
-                    <Badge
-                      color="gray"
-                      w="fit-content"
-                    >
-                      Subscription
-                    </Badge>
-                  </Stack>
-                  <Text
-                    size="sm"
-                    c="dimmed"
-                  >
-                    No DAT installed
-                  </Text>
-                  <SourceSubscriptionActions
-                    subscription={s}
-                    manage
-                    onAccepted={() => {}}
-                  />
-                </article>
-              ))}
-          </div>
-          {search &&
-            !installed.length &&
-            !pending.some((s) => s.name.toLowerCase().includes(search.toLowerCase())) && (
-              <Text
-                c="dimmed"
-                size="sm"
-              >
-                No sources match this search.
-              </Text>
-            )}
+                      <Stack
+                        gap={6}
+                        className={classes.updateControls}
+                      >
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                        >
+                          {subscribed ? 'Subscription' : 'Manual updates'}
+                        </Text>
+                        {subscription && (
+                          <SourceSubscriptionActions
+                            key={subscription.id}
+                            subscription={subscription}
+                            compact
+                            manage={!dat}
+                            onAccepted={() => {}}
+                          />
+                        )}
+                        {dat && catalog ? (
+                          <DatSubscriptionCard
+                            dat={dat}
+                            catalogId={catalog.catalogId}
+                            compact
+                          />
+                        ) : canUpload && path ? (
+                          <Button
+                            component={Link}
+                            to={`${path}?tab=updates`}
+                            state={state}
+                            size="compact-sm"
+                            variant="light"
+                            w="fit-content"
+                          >
+                            Upload new version
+                          </Button>
+                        ) : null}
+                      </Stack>
+                      {dat && path && (
+                        <SourceActions
+                          dat={dat}
+                          path={path}
+                          showUpdates={isAdmin && subscribed}
+                          offerManualUpload={canUpload && !!catalog}
+                        />
+                      )}
+                    </Group>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+          {search.trim() && !rows.length && (
+            <Text
+              c="dimmed"
+              size="sm"
+            >
+              No sources match this search.
+            </Text>
+          )}
         </>
       )}
-      {role === 'Admin' && (adding || setupRequested) && system && (
+      {isAdmin && (adding || setupRequested) && system && (
         <AddSourceFlow
           system={system}
           onClose={closeSetup}
