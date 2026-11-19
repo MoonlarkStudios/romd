@@ -1,5 +1,4 @@
 import {
-  ActionIcon,
   Alert,
   Button,
   Checkbox,
@@ -9,9 +8,10 @@ import {
   Text,
   TextInput,
   Title,
+  UnstyledButton,
 } from '@mantine/core';
 import { useDebouncedValue, useElementSize } from '@mantine/hooks';
-import { IconLayoutSidebarRight, IconPlus, IconSearch, IconUpload } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconUpload } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
@@ -319,6 +319,7 @@ export function Systems() {
                   <table
                     className={classes.table}
                     data-catalog={inlineCatalog ? 'inline' : 'column'}
+                    data-row-action={showInspector ? 'preview' : 'open'}
                     data-import-date={showImportDate || undefined}
                     aria-label="Systems"
                   >
@@ -383,32 +384,6 @@ export function Systems() {
                             {statusLabel}
                           </Text>
                         );
-                        const identity = (
-                          <>
-                            <SystemLogo
-                              icon={icons.get(system.key)}
-                              size="sm"
-                            />
-                            <span className={classes.systemLabels}>
-                              <Text
-                                component="span"
-                                size="sm"
-                                className={`romd-card-title ${classes.systemName}`}
-                              >
-                                {system.name}
-                              </Text>
-                              <Text
-                                component="span"
-                                size="xs"
-                                c="dimmed"
-                              >
-                                {inlineCatalog
-                                  ? `${(system.knownTitles ?? 0).toLocaleString()} known titles · ${datCountLabel(system.catalogCount)}`
-                                  : system.shortName !== system.name && system.shortName}
-                              </Text>
-                            </span>
-                          </>
-                        );
                         return (
                           <tr
                             key={system.key}
@@ -416,32 +391,41 @@ export function Systems() {
                           >
                             <td>
                               <div className={classes.systemCell}>
-                                <Link
-                                  className={classes.systemIdentity}
-                                  aria-label={system.name}
-                                  to={`/systems/${system.key}?tab=sources`}
-                                  state={returnState}
-                                  onClick={rememberPosition}
-                                >
-                                  {identity}
-                                </Link>
+                                <SystemLogo
+                                  icon={icons.get(system.key)}
+                                  size="sm"
+                                />
+                                <div className={classes.systemLabels}>
+                                  <Text
+                                    component={Link}
+                                    size="sm"
+                                    className={`romd-card-title ${classes.systemName}`}
+                                    to={`/systems/${system.key}?tab=sources`}
+                                    state={returnState}
+                                    onClick={rememberPosition}
+                                  >
+                                    {system.name}
+                                  </Text>
+                                  <Text
+                                    component="span"
+                                    size="xs"
+                                    c="dimmed"
+                                  >
+                                    {inlineCatalog
+                                      ? `${(system.knownTitles ?? 0).toLocaleString()} known titles · ${datCountLabel(system.catalogCount)}`
+                                      : system.shortName !== system.name && system.shortName}
+                                  </Text>
+                                </div>
                                 {showInspector && (
-                                  <ActionIcon
+                                  <UnstyledButton
                                     className={classes.previewAction}
                                     aria-label={`Preview ${system.name} in sidebar`}
-                                    title="Preview in sidebar"
                                     aria-pressed={isSelected}
                                     aria-controls={systemInspectorId}
-                                    color={isSelected ? 'teal' : 'gray'}
-                                    variant={isSelected ? 'light' : 'subtle'}
-                                    size="lg"
                                     onClick={() => changeFilter('system', system.key)}
                                   >
-                                    <IconLayoutSidebarRight
-                                      size={18}
-                                      aria-hidden="true"
-                                    />
-                                  </ActionIcon>
+                                    <span className={classes.previewLabel}>Preview</span>
+                                  </UnstyledButton>
                                 )}
                               </div>
                               {inlineCatalog && (

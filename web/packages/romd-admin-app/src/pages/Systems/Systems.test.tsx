@@ -437,15 +437,17 @@ it('loads only the selected wide-workspace catalog and keeps a focused action be
     }),
   ).toHaveAttribute('href', '/systems/psx?tab=sources');
   expect(listSystemDats).toHaveBeenCalledTimes(1);
-  expect(
-    screen.getByRole('link', {
-      name: 'Game Boy Advance',
-    }),
-  ).toHaveAttribute('href', '/systems/gba?tab=sources');
+  const title = screen.getByRole('link', {
+    name: 'Game Boy Advance',
+  });
+  expect(title).toHaveAttribute('href', '/systems/gba?tab=sources');
   const selectOther = screen.getByRole('button', {
     name: 'Preview Game Boy Advance in sidebar',
   });
-  await userEvent.click(selectOther);
+  title.focus();
+  await userEvent.tab();
+  expect(selectOther).toHaveFocus();
+  await userEvent.keyboard('{Enter}');
   expect(selectOther).toHaveAttribute('aria-pressed', 'true');
   expect(
     await within(
