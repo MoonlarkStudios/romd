@@ -23,7 +23,7 @@ import {
   setSystemEnabled,
   updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { completePage } from '../../test/fixtures/referencePages';
@@ -888,6 +888,61 @@ it.each([
       },
     }),
   );
+});
+
+it('orders name and alias search matches by display name across server pages', async () => {
+  vi.mocked(listManagedSystems).mockImplementation(async (options) => {
+    if (options?.query?.query !== 'cube')
+      return result(
+        completePage([
+          psx,
+        ]),
+      );
+    if (options.query.cursor === 'next-page') {
+      return result(
+        completePage([
+          {
+            ...psx,
+            key: 'zzz',
+            shortName: 'zzz',
+            name: 'Alpha Cube',
+          },
+        ]),
+      );
+    }
+    return result({
+      items: [
+        {
+          ...psx,
+          key: 'aaa',
+          shortName: 'aaa',
+          name: 'Zeta Cube',
+        },
+      ],
+      nextCursor: 'next-page',
+      hasNextPage: true,
+    });
+  });
+  render(<AddSystemFlow onClose={vi.fn()} />);
+
+  await userEvent.type(screen.getByLabelText('Find a system'), 'cube');
+  await screen.findByRole('button', {
+    name: 'Choose Alpha Cube',
+  });
+
+  const results = within(
+    screen.getByRole('group', {
+      name: 'Supported systems',
+    }),
+  );
+  expect(results.getAllByRole('button')).toEqual([
+    results.getByRole('button', {
+      name: 'Choose Alpha Cube',
+    }),
+    results.getByRole('button', {
+      name: 'Choose Zeta Cube',
+    }),
+  ]);
 });
 
 const playStationOffer: PublishedDatCatalog = {

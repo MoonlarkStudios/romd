@@ -20,6 +20,11 @@ export const managedSystemKeys = {
     'dat-subscriptions',
   ] as const,
 };
+const bySystemName = new Intl.Collator(undefined, {
+  sensitivity: 'base',
+  numeric: true,
+});
+
 export function useManagedSystems(query = '', enabled = true) {
   return useQuery({
     queryKey: query
@@ -31,7 +36,7 @@ export function useManagedSystems(query = '', enabled = true) {
       : managedSystemKeys.all,
     enabled,
     queryFn: async ({ signal }) => {
-      return collectPages(async (cursor) => {
+      const systems = await collectPages(async (cursor) => {
         signal.throwIfAborted();
         const response = await listManagedSystems({
           signal,
@@ -46,6 +51,7 @@ export function useManagedSystems(query = '', enabled = true) {
           throw new Error('Your systems could not be loaded. Try again.');
         return response.data;
       });
+      return query ? systems.sort((a, b) => bySystemName.compare(a.name, b.name)) : systems;
     },
     refetchInterval: (query) =>
       query.state.data?.some((x) => x.enabled && x.state === 'Processing') ? 3000 : false,
