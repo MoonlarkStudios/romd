@@ -242,17 +242,18 @@ export function SpotlightSearch() {
       }}
       styles={{
         content: {
-          backgroundColor: 'var(--mantine-color-body)',
+          backgroundColor: 'var(--mantine-color-default)',
           border: '1px solid var(--mantine-color-default-border)',
         },
         search: {
-          backgroundColor: 'transparent',
+          backgroundColor: 'var(--romd-admin-field)',
           borderBottom: '1px solid var(--mantine-color-default-border)',
         },
         action: {
           borderRadius: 'var(--mantine-radius-sm)',
           '&[data-selected]': {
             backgroundColor: 'var(--mantine-primary-color-light)',
+            color: 'var(--mantine-primary-color-light-color)',
           },
         },
       }}

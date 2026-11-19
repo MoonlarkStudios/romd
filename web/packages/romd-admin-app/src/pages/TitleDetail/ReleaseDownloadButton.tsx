@@ -53,7 +53,7 @@ export function ReleaseDownloadButton({
       startBrowserDownload(result.data.downloadUrl);
       notifications.show({
         message: 'Download started. Check your browser for progress.',
-        color: 'teal',
+        color: 'green',
       });
     } catch {
       notifications.show({

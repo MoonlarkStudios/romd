@@ -230,7 +230,6 @@ function DetailsPreview({ title, metadata }: { title: ArtworkPreviewTitle; metad
           <Button
             component="span"
             size="md"
-            color="mint"
             leftSection={<IconPlayerPlayFilled size={18} />}
           >
             Play Now

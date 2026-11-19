@@ -13,7 +13,7 @@ export const titleStatusColors: Record<TitleStatus, MantineColor> = {
   Blocked: 'red',
   Processing: 'blue',
   Automatic: 'gray',
-  Settled: 'teal',
+  Settled: 'green',
 };
 
 export type TitleStatusFlags = Pick<

@@ -37,7 +37,7 @@ export function StorageSegment({ storage }: StorageSegmentProps) {
           >
             <IconDatabase
               size={13}
-              color="var(--mantine-color-blue-5)"
+              color="var(--mantine-color-dimmed)"
             />
             <Text
               size="xs"

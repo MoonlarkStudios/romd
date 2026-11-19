@@ -68,8 +68,9 @@ The total reflects count-query time, not a transactional snapshot across subsequ
 
 ## Mantine compatibility
 
-Application providers use the foundation's `portalCssVariablesResolver`, built
-on `v8CssVariablesResolver`, and the scoped consumer presentation uses the v8
-resolver directly to preserve translucent light-variant
-colors during migration. Keep test providers aligned with this behavior; removing
-the resolver is a separate visual change requiring admin and consumer review.
+The Admin app and its shared test renderer use the foundation's
+`adminCssVariablesResolver`. The consumer portal uses
+`portalCssVariablesResolver`, and the scoped consumer presentation uses
+`darkCssVariablesResolver`. All three build on Mantine's
+`v8CssVariablesResolver` to preserve variant behavior. Keep test providers
+aligned with their app's resolver.

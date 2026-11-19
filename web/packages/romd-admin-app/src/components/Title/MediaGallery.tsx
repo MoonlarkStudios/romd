@@ -446,7 +446,6 @@ export function MediaGallery({
                   <Badge
                     key={selectedRole}
                     size="xs"
-                    color="teal"
                     variant="light"
                     leftSection={<IconCheck size={10} />}
                   >

@@ -35,7 +35,7 @@ export function CoverageSegment({ coverage }: CoverageSegmentProps) {
           >
             <IconDisc
               size={13}
-              color="var(--mantine-color-teal-5)"
+              color="var(--mantine-color-dimmed)"
             />
             <Text
               size="xs"

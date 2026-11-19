@@ -1455,7 +1455,7 @@ export function MetadataPanel({
                   {field.label}
                 </Text>
                 <Badge
-                  color={preserved ? 'gray' : next !== null ? 'teal' : 'gray'}
+                  color={preserved || next === null ? 'gray' : undefined}
                   variant="light"
                 >
                   {preserved ? 'Keep existing' : next !== null ? 'Use provider' : 'Unavailable'}

@@ -148,7 +148,7 @@ export function ReleasesPanel({
             message: pinnedCatalogReleaseId
               ? 'Preferred release pinned'
               : 'Automatic release preference restored',
-            color: 'teal',
+            color: 'green',
           });
         },
         onError: () =>
@@ -585,10 +585,7 @@ export function ReleasesPanel({
                   .join(' · ')}
               </Text>
               {isPreferred(detail) && (
-                <Badge
-                  color="teal"
-                  variant="light"
-                >
+                <Badge variant="light">
                   Preferred · {preference?.pinnedCatalogReleaseId ? 'Pinned' : 'Automatic'}
                 </Badge>
               )}

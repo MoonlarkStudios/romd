@@ -197,7 +197,6 @@ function DraftResults({
               <Button
                 size="compact-sm"
                 variant="light"
-                color="teal"
                 onClick={() => setView('added')}
               >
                 {data.addedCount} added

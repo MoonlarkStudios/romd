@@ -50,7 +50,7 @@ export function HealthIndicator({ health, isLoading, isError }: HealthIndicatorP
         >
           <IconCircleFilled
             size={8}
-            color={`var(--mantine-color-${color}-5)`}
+            color={`var(--mantine-color-${color}-light-color)`}
           />
           <Text
             size="xs"

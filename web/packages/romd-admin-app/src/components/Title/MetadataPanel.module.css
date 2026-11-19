@@ -2,6 +2,8 @@
    spacing tier, and a narrow editor uses the compact tier whatever the host asked for. */
 .panel {
   container: metadata-editor / inline-size; min-width: 0; display: flex; flex-direction: column; gap: var(--metadata-panel-gap);
+  padding: var(--metadata-panel-gap); border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md); background: var(--mantine-color-default);
   --metadata-panel-gap: var(--mantine-spacing-lg); --metadata-field-gap: var(--mantine-spacing-md);
   --metadata-field-padding: var(--mantine-spacing-md) var(--mantine-spacing-xs); --metadata-field-min-height: 92px;
 }

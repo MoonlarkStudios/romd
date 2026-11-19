@@ -636,9 +636,12 @@ describe('Metadata editor layout', () => {
       '.field { padding: var(--metadata-field-padding); min-height: var(--metadata-field-min-height); }',
     );
     // The shared title stylesheet no longer sizes the field button, so the density tier alone decides it.
-    expect(readFileSync(`${import.meta.dirname}/TitleDetail.module.css`, 'utf8')).toMatch(
-      /\.field \{ width: 100%; border-bottom: [^}]*\}/,
-    );
+    const fieldStyle = readFileSync(`${import.meta.dirname}/TitleDetail.module.css`, 'utf8').match(
+      /\.field \{[^}]*\}/,
+    )?.[0];
+    expect(fieldStyle).toContain('width: 100%');
+    expect(fieldStyle).toContain('background: var(--romd-admin-field)');
+    expect(fieldStyle).not.toMatch(/padding|min-height/);
   });
 });
 

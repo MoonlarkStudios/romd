@@ -8,11 +8,11 @@
   border-bottom: 1px solid var(--mantine-color-default-border);
   padding: var(--mantine-spacing-sm);
 }
-.candidate[data-selected] { background: var(--mantine-color-default-hover); }
-.candidate:focus-within { outline: 2px solid var(--mantine-color-teal-filled); outline-offset: -2px; }
+.candidate[data-selected] { background: var(--mantine-primary-color-light); }
+.candidate:focus-within { outline: 2px solid var(--romd-admin-focus); outline-offset: -2px; }
 .preview { min-width: 0; padding-left: calc(var(--mantine-spacing-md) + var(--mantine-spacing-sm)); }
 /* The card-title role's strong text colour has no light-scheme value, so light schemes use the admin text colour. */
-.pickerHeading:global(.romd-card-title) { color: light-dark(var(--mantine-color-text), var(--romd-text-strong)); }
+.pickerHeading:global(.romd-card-title) { color: var(--mantine-color-text); }
 .actions {
   position: sticky;
   bottom: 0;

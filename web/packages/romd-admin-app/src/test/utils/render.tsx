@@ -1,6 +1,7 @@
-import { MantineProvider, v8CssVariablesResolver } from '@mantine/core';
+import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { CatalogFixture } from '@romd/consumer-ui/testing';
+import { adminCssVariablesResolver } from '@romd/foundation/theme';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type RenderOptions, render } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
@@ -52,7 +53,7 @@ function AllProviders({ children, routerOptions, auth = signedOutAuth }: Wrapper
 
   return (
     <MantineProvider
-      cssVariablesResolver={v8CssVariablesResolver}
+      cssVariablesResolver={adminCssVariablesResolver}
       theme={theme}
       env="test"
     >

@@ -187,7 +187,7 @@ export function LibraryCollections({ libraryId }: { libraryId: string }) {
                     {row.libraryCount > 1 && (
                       <Badge
                         variant="light"
-                        color="teal"
+                        color="gray"
                       >
                         Shared · {row.libraryCount} libraries
                       </Badge>
@@ -245,7 +245,6 @@ export function LibraryCollections({ libraryId }: { libraryId: string }) {
               mt="lg"
             >
               <Switch
-                color="teal"
                 label="Featured shelf"
                 checked={row.isFeatured}
                 disabled={save.isPending}

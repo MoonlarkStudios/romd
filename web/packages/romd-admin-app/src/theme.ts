@@ -1,11 +1,36 @@
-import { createTheme } from '@mantine/core';
+import { AppShell, createTheme, defaultVariantColorsResolver, Input, Modal } from '@mantine/core';
 import { romdTheme } from '@romd/foundation/theme';
+import classes from './theme.module.css';
+
+const statusColors = new Set([
+  'blue',
+  'green',
+  'yellow',
+  'orange',
+  'red',
+]);
 
 export const theme = createTheme({
   primaryColor: romdTheme.primaryColor,
   primaryShade: romdTheme.primaryShade,
   autoContrast: true,
-  variantColorResolver: romdTheme.variantColorResolver,
+  variantColorResolver: (input) => {
+    const resolved = romdTheme.variantColorResolver?.(input) ?? defaultVariantColorsResolver(input);
+    if (input.variant !== 'filled') return resolved;
+
+    const color = input.color || input.theme.primaryColor;
+    if (color === input.theme.primaryColor)
+      return {
+        ...resolved,
+        color: 'var(--mantine-primary-color-contrast)',
+      };
+    if (statusColors.has(color))
+      return {
+        ...resolved,
+        color: 'var(--romd-admin-on-status)',
+      };
+    return resolved;
+  },
   fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   defaultRadius: 'sm',
   colors: {
@@ -23,6 +48,24 @@ export const theme = createTheme({
   },
   components: {
     ...romdTheme.components,
+    AppShell: AppShell.extend({
+      classNames: {
+        root: classes.shell,
+        header: classes.shellHeader,
+      },
+    }),
+    Input: Input.extend({
+      classNames: {
+        wrapper: classes.fieldWrapper,
+        input: classes.fieldInput,
+      },
+    }),
+    Modal: Modal.extend({
+      classNames: {
+        content: classes.panel,
+        header: classes.panel,
+      },
+    }),
     CloseButton: {
       defaultProps: {
         'aria-label': 'Close',
@@ -44,7 +87,9 @@ export const theme = createTheme({
       },
     },
     Paper: {
-      // Let Paper use default theme colors instead of hardcoding dark mode
+      classNames: {
+        root: classes.panel,
+      },
       styles: {
         root: {
           // Subtle border effect that works in both modes
@@ -53,7 +98,9 @@ export const theme = createTheme({
       },
     },
     Card: {
-      // Let Card use default theme colors instead of hardcoding dark mode
+      classNames: {
+        root: classes.panel,
+      },
       styles: {
         root: {
           // Subtle border effect that works in both modes

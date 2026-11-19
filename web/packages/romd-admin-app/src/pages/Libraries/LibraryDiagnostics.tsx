@@ -65,7 +65,7 @@ export function LibraryDiagnostics({ libraryId }: { libraryId: string }) {
                     </Text>
                   )}
                 </Stack>
-                <Badge color={row.isExposed ? 'teal' : 'gray'}>
+                <Badge color={row.isExposed ? 'green' : 'gray'}>
                   {row.isExposed ? 'Visible' : 'Hidden'}
                 </Badge>
               </Group>

@@ -50,7 +50,7 @@ export function ServerStatus() {
         >
           <IconCircleFilled
             size={8}
-            color={`var(--mantine-color-${color}-5)`}
+            color={`var(--mantine-color-${color}-light-color)`}
           />
           <Text
             size="xs"

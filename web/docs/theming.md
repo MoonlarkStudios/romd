@@ -1,13 +1,14 @@
 # Web theme ownership
 
-ROMD's web default is Moonlark charcoal and teal: a neutral `#191B1C` canvas,
-cream `#F4EFE4` text and the studio's ROMD teal `#88C9B9` action accent. Elevated
-surfaces stay neutral so game artwork supplies most of the color. The admin's
-light counterpart uses warm paper and a deeper teal for readable actions.
-New sessions default to dark; an explicit admin light/dark preference is retained.
-The consumer portal and browser player remain dark. Logos and game artwork
-retain their own colors. See the [screenshot guide](../../docs/assets/screenshots/README.md)
-for reviewed product captures.
+ROMD uses the Moonlark charcoal-and-teal palette. Admin pairs a charcoal
+canvas with warm off-white text and mint for actions, selection and focus.
+Light mode pairs warm paper with deeper teal. Panel and field fills establish
+the editing hierarchy, while green, amber and red communicate success,
+attention and danger. New Admin sessions default to dark and keep an explicit
+light or dark preference. The consumer portal and browser player stay dark.
+Logos and game artwork have their own colors. See the
+[screenshot guide](../../docs/assets/screenshots/README.md) for reviewed
+product captures.
 
 ## Current layer
 
@@ -19,22 +20,27 @@ the dark palette's imperative mirror, for contexts that cannot use CSS.
 - `portal-theme.css`: portal/authentication canvas, surfaces, text, borders,
   actions and errors. Both schemes use readable secondary text and a separate
   warm red for errors. Muted text remains readable on elevated surfaces.
+- `admin-theme.css`: Admin SPA roles for fields, control borders, selection,
+  focus and status in both schemes. The shared portal palette supplies the
+  canvas, panel, text and action colors. Admin components select the default
+  Mantine action, the relevant status variant, or a semantic CSS role so
+  palette changes apply across workspaces.
 - `variables.css` and `tokens.ts`: dark presentation roles used by the consumer,
   isolated player and embedded previews. Keep the mirror aligned.
-- `theme.ts`: Mantine color ramps and semantic CSS variable adapter. The primary
-  `teal` and legacy `mint`/`pine` color names share the action ramp. Both filled
-  and light variants use the semantic accent; the scoped dark adapter keeps
-  embedded consumer actions independent of the admin scheme. Colored segmented
-  controls and filled actions resolve their label contrast through CSS, so it
-  follows the active scheme.
+- `theme.ts`: Mantine color ramps and semantic CSS variable adapters. The
+  shared theme uses `teal` with the legacy `mint` and `pine` aliases. The Admin
+  adapter maps its primary and status variants to the Admin palette, while the
+  scoped dark adapter supplies the consumer preview's own colors. Filled
+  actions resolve label contrast through the active palette.
 - `auth.css`: shared sign-in layout, fields, focus states and logo variants.
 
-The Vite `portalTheme` plugin inlines the small palette stylesheet and bootstrap
-script before application mount. The .NET host embeds these exact files in
-login and device verification HTML through `AuthenticationPageAssets`.
-Do not create a second server-side palette or rely on the SPA mounting to paint
-the authentication background. The bootstrap reads Mantine's preference key
-without writing storage; consumer redirects always select dark.
+The Vite `portalTheme` plugin inlines the shared stylesheet and bootstrap
+script before application mount. The Admin Vite entry point also inlines
+`admin-theme.css` after the shared stylesheet. The Admin Mantine resolver maps
+those same roles after mount. The .NET host embeds the shared files in login
+and device verification HTML through `AuthenticationPageAssets`.
+The bootstrap reads Mantine's preference key and respects the stored Admin
+scheme. Consumer redirects always select dark.
 
 The scoped consumer presentation owns its dark colors even inside a light
 admin page. Its preview must not change the host's scheme. Ottercade's Flutter

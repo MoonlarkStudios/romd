@@ -24,10 +24,7 @@ export function Login() {
         className="romd-auth-shell"
         aria-label="Checking sign-in"
       >
-        <Loader
-          size="lg"
-          color="mint"
-        />
+        <Loader size="lg" />
       </main>
     );
   }

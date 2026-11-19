@@ -349,7 +349,7 @@ function ProviderImages({
                 {(candidate.isSaved || added.has(candidate.providerAssetId)) && (
                   <Badge
                     size="xs"
-                    color="teal"
+                    color="green"
                   >
                     Added
                   </Badge>
@@ -549,7 +549,6 @@ function AddArtworkContent({
   return (
     <Stack className={classes.addArtwork}>
       <Tabs
-        color="teal"
         value={mode}
         onChange={(value) => setMode(value ?? 'providers')}
       >
