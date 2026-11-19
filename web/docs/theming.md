@@ -40,6 +40,12 @@ The scoped consumer presentation owns its dark colors even inside a light
 admin page. Its preview must not change the host's scheme. Ottercade's Flutter
 skins are independently owned; this web change does not re-theme native apps.
 
+## Sign-in message
+
+An administrator can set the optional **Sign-in message** under **Settings**.
+Both hosted web sign-in forms show the same plain-text message before
+credentials are entered. A blank message hides the subtitle.
+
 ## Shared header geometry
 
 `romdLayout` in the foundation's `tokens.ts` owns header height, horizontal

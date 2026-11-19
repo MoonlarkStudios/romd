@@ -185,6 +185,7 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
         ArtworkVariantEntity.Configure(modelBuilder.Entity<ArtworkVariantEntity>());
         ArtworkSelectionEntity.Configure(modelBuilder.Entity<ArtworkSelectionEntity>());
         ArtworkEnrichmentSettingsEntity.Configure(modelBuilder.Entity<ArtworkEnrichmentSettingsEntity>());
+        SignInMessageEntity.Configure(modelBuilder.Entity<SignInMessageEntity>());
         ArtworkAcquisitionEntity.Configure(modelBuilder.Entity<ArtworkAcquisitionEntity>());
         EnrichmentOmissionEntity.Configure(modelBuilder.Entity<EnrichmentOmissionEntity>());
         Romd.Persistence.MetadataProviders.ProviderIdentityDatabaseFunctions.Configure(modelBuilder);

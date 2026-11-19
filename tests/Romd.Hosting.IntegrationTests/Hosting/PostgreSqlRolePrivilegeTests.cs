@@ -497,8 +497,14 @@ public sealed class PostgreSqlRolePrivilegeTests
                 """))
             .ShouldBeTrue();
 
+        Convert.ToString(await ScalarAsync(consumerConnectionString, """SELECT "Message" FROM romd."SignInMessage" """))
+            .ShouldBe(string.Empty);
+
         string[] denied =
         [
+            """INSERT INTO romd."SignInMessage" ("Id", "Revision", "Message") VALUES (1, gen_random_uuid(), 'probe')""",
+            """UPDATE romd."SignInMessage" SET "Message" = 'probe'""",
+            """DELETE FROM romd."SignInMessage" """,
             @"SELECT * FROM romd.""AccountLinks""",
             @"SELECT * FROM romd.""AdminAuditEvents""",
             """

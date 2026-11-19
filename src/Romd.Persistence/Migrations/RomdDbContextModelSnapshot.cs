@@ -3987,6 +3987,35 @@ namespace Romd.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.SignInMessageEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("Revision")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SignInMessage", "romd", t =>
+                        {
+                            t.HasCheckConstraint("CK_SignInMessage_Singleton", "\"Id\" = 1");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Message = "",
+                            Revision = new Guid("00000000-0000-0000-0000-000000000000")
+                        });
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.SourceEntryEntity", b =>
                 {
                     b.Property<int>("Id")

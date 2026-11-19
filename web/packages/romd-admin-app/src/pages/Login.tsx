@@ -73,7 +73,6 @@ export function Login() {
             alt=""
           />
         </h1>
-        <p className="romd-auth-description">Manage your library</p>
         {error && (
           <Alert
             color="red"

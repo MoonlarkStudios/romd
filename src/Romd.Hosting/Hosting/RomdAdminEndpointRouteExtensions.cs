@@ -40,6 +40,7 @@ public static class RomdAdminEndpointRouteExtensions
         api.MapProviderMatchEndpoints();
         api.MapDashboardEndpoints();
         api.MapServerInfoEndpoint(serverInfo);
+        api.MapSignInMessageEndpoints();
         api.MapSystemEndpoints();
         api.MapDiagnosticsEndpoints();
 
