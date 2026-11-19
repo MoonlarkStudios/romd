@@ -1966,3 +1966,24 @@ Agent guidance: retain failed CI evidence and inspect the new diagnostics if the
 watchdog fires again. Do not increase its deadline, remove the real concurrent
 reads or accept an unchanged retry as a fix. Validate corrected source with the
 focused CHD/cache tests, registered media check and fresh hosted CI.
+
+## Local ingress TLS renewal retains the previous certificate
+
+Status: DEFERRED
+
+Commands:
+
+- `mise run contracts:check`
+- `mise exec -- python3 scripts/deployment/test_ingress.py BuiltInIngressTlsTests.test_replaced_certificate_is_served_without_restarting_and_a_broken_one_is_not`
+
+Root cause: In the disposable ingress fixture on Fedora 44 with rootless
+Podman, the HTTPS listener still serves the original certificate after the
+renewed PEM files replace it and the 30-second deadline expires. The reason
+the fixture retains the old certificate is unconfirmed.
+
+Change: None.
+
+Agent guidance: The failure stops the grouped contract run before OpenAPI
+drift validation. For API changes, run
+`mise exec -- python3 scripts/validation/run.py --id openapi.drift` separately
+and report the ingress result alongside the drift result.
