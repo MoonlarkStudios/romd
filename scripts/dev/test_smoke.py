@@ -111,6 +111,7 @@ class SmokeTests(unittest.TestCase):
             git = self.repository(root)
             qualification = self.qualification(root, evidence, parallel=True)
             try:
+                self.assertEqual(qualification.workspace.parent, root.resolve().with_name('main-worktrees'))
                 with patch.object(smoke.manage, 'check_tools'):
                     qualification.prepare()
                 self.assertEqual(len(qualification.worktrees), 2)
@@ -126,6 +127,20 @@ class SmokeTests(unittest.TestCase):
             self.assertEqual((root / '.env').read_text(), 'private fixture')
             self.assertEqual(git('worktree', 'list', '--porcelain').count('worktree '), 1)
             self.assertFalse(qualification.workspace.exists())
+
+    def test_smoke_workspace_parent_from_nested_linked_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory).resolve()
+            root = parent / 'main'
+            git = self.repository(root)
+            checkout = root / '.worktrees' / 'linked'
+            git('worktree', 'add', '--detach', str(checkout))
+            environment = smoke.isolated_environment(os.environ)
+            self.assertEqual(smoke.resolve_worktree_parent(checkout, None, environment), parent / 'main-worktrees')
+            override = parent / 'alternate workspace'
+            self.assertEqual(smoke.resolve_worktree_parent(checkout, override, environment), override)
+            with self.assertRaisesRegex(smoke.manage.SetupError, 'outside every checkout'):
+                smoke.resolve_worktree_parent(checkout, checkout / 'nested', environment)
 
     def test_dirty_source_fails_before_bootstrap_or_database_changes(self):
         with tempfile.TemporaryDirectory() as directory:

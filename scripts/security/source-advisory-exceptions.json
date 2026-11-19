@@ -1,16 +1,3 @@
 {
-  "exceptions": [
-    {
-      "advisory": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
-      "ecosystem": "npm",
-      "scope": "web/pnpm-lock.yaml",
-      "package": "picomatch",
-      "version": "4.0.7",
-      "developmentRoots": ["@vitejs/plugin-react", "@vitest/coverage-v8", "vite", "vitest"],
-      "owner": "JackSkylark",
-      "rationale": "ReDoS in glob pattern parsing. picomatch is reached only through Vite and Vitest build and test tooling, never from a workspace package's production dependencies, so it is not in any shipped frontend or image. The patterns it parses come from this repository's own build and test configuration, not from request or user input. No patched release exists.",
-      "tracking": "https://github.com/micromatch/picomatch/issues/234",
-      "expiresAt": "2026-12-01T00:00:00Z"
-    }
-  ]
+  "exceptions": []
 }
