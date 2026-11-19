@@ -1,7 +1,9 @@
 import {
   Badge,
+  Box,
   Button,
   Group,
+  Input,
   MultiSelect,
   NumberInput,
   Pill,
@@ -16,7 +18,7 @@ import {
 } from '@mantine/core';
 import type { CompanySummary, PlatformAlias } from '@romd/admin-api-client';
 import { IconLock } from '@tabler/icons-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useId } from 'react';
 import { useReferenceCompanies } from '../../hooks/api/useReferenceCompanies';
 import {
   localSystemKeyPrefix,
@@ -117,6 +119,7 @@ export function SystemPresentationFields({
   descriptionActions?: ReactNode;
   disabled: boolean;
 }) {
+  const descriptionId = useId();
   const readOnly = !onChange;
   const keySuffix = systemKey.slice(localSystemKeyPrefix.length);
   const companies = useReferenceCompanies(hardwareEditable);
@@ -425,23 +428,37 @@ export function SystemPresentationFields({
           Retry alias check
         </Button>
       )}
-      <Textarea
-        label="Short description"
-        readOnly={readOnly}
-        placeholder="Optional"
-        autosize
-        minRows={2}
-        maxRows={12}
-        maxLength={2000}
-        value={value.description}
-        disabled={disabled}
-        onChange={(event) =>
-          change({
-            description: event.currentTarget.value,
-          })
-        }
-      />
-      {descriptionActions}
+      <Box>
+        <Group
+          justify="space-between"
+          wrap="nowrap"
+          gap="xs"
+        >
+          <Input.Label
+            htmlFor={descriptionId}
+            size="sm"
+          >
+            Short description
+          </Input.Label>
+          {descriptionActions}
+        </Group>
+        <Textarea
+          id={descriptionId}
+          readOnly={readOnly}
+          placeholder="Optional"
+          autosize
+          minRows={2}
+          maxRows={12}
+          maxLength={2000}
+          value={value.description}
+          disabled={disabled}
+          onChange={(event) =>
+            change({
+              description: event.currentTarget.value,
+            })
+          }
+        />
+      </Box>
     </Stack>
   );
 }

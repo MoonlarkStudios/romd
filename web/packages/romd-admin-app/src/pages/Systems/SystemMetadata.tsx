@@ -1,10 +1,11 @@
-import { Alert, Button, Group, Skeleton, Stack, Text } from '@mantine/core';
+import { ActionIcon, Alert, Button, Group, Skeleton, Stack, Text, Tooltip } from '@mantine/core';
 import type { ManagedSystemSetupDetails, PlatformAlias } from '@romd/admin-api-client';
 import {
   deleteSystemAlias,
   deleteSystemOverride,
   updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
+import { IconEraser, IconRestore } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
@@ -249,56 +250,68 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
         onChange={canEditReferenceData ? change : undefined}
         descriptionActions={
           canEditReferenceData &&
-          (canClear || canRestore || canRetryDefaults) && (
-            <Group gap="xs">
+          (canClear || canRestore) && (
+            <Group
+              gap={4}
+              wrap="nowrap"
+            >
               {canClear && (
-                <Button
-                  size="compact-sm"
-                  variant="subtle"
-                  color="gray"
-                  disabled={busy}
-                  onClick={() =>
-                    change({
-                      ...value,
-                      description: '',
-                    })
-                  }
-                >
-                  Clear description
-                </Button>
-              )}
-              {canRestore && (
-                <Button
-                  size="compact-sm"
-                  variant="subtle"
-                  disabled={busy}
-                  loading={restore.isPending}
-                  onClick={() => {
-                    if (busy) return;
-                    if (!overrides.data?.hasDescription) {
-                      change({
-                        ...value,
-                        description: savedDescription,
-                      });
-                      return;
-                    }
-                    save.reset();
-                    remove.reset();
-                    restore.mutate((draft?.original ?? current).system.revision);
+                <Tooltip
+                  label="Clear description"
+                  events={{
+                    hover: true,
+                    focus: true,
+                    touch: false,
                   }}
                 >
-                  Restore default
-                </Button>
+                  <ActionIcon
+                    aria-label="Clear description"
+                    variant="subtle"
+                    color="gray"
+                    disabled={busy}
+                    onClick={() =>
+                      change({
+                        ...value,
+                        description: '',
+                      })
+                    }
+                  >
+                    <IconEraser size={17} />
+                  </ActionIcon>
+                </Tooltip>
               )}
-              {canRetryDefaults && (
-                <Button
-                  size="compact-sm"
-                  variant="subtle"
-                  disabled={busy}
-                  onClick={() => void overrides.refetch()}
+              {canRestore && (
+                <Tooltip
+                  label="Restore default"
+                  events={{
+                    hover: true,
+                    focus: true,
+                    touch: false,
+                  }}
                 >
-                  Retry description defaults
-                </Button>
+                  <ActionIcon
+                    aria-label="Restore default"
+                    variant="subtle"
+                    color="gray"
+                    disabled={busy}
+                    loading={restore.isPending}
+                    onClick={() => {
+                      if (busy) return;
+                      if (!overrides.data?.hasDescription) {
+                        change({
+                          ...value,
+                          description: savedDescription,
+                        });
+                        return;
+                      }
+                      save.reset();
+                      remove.reset();
+                      restore.mutate((draft?.original ?? current).system.revision);
+                    }}
+                  >
+                    <IconRestore size={17} />
+                  </ActionIcon>
+                </Tooltip>
               )}
             </Group>
           )
@@ -306,6 +319,17 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
         {...aliasFeedback}
         disabled={busy}
       />
+      {canEditReferenceData && canRetryDefaults && (
+        <Button
+          size="compact-sm"
+          variant="subtle"
+          w="fit-content"
+          disabled={busy}
+          onClick={() => void overrides.refetch()}
+        >
+          Retry description defaults
+        </Button>
+      )}
       {aliases.isError && (
         <Alert
           color="yellow"
