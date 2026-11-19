@@ -2,15 +2,15 @@
 .assignments { composes: panel from '../../components/Workspace/Workspace.module.css'; }
 .library { composes: panel from '../../components/Workspace/Workspace.module.css'; }
 .heading { composes: sectionHeading from '../../components/Workspace/Workspace.module.css'; }
-.dropzone { border: 1px dashed var(--mantine-color-teal-6); border-radius: 12px; padding: 24px; background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-6)); }
+.dropzone { border: 1px dashed var(--mantine-primary-color-filled); border-radius: 12px; padding: 24px; background: var(--mantine-color-default); }
 .browser { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; }
 .sources { display: flex; flex-direction: column; gap: 8px; }
 .source { border: 1px solid var(--mantine-color-default-border); border-radius: 8px; padding: 12px; text-align: left; }
-.source[aria-pressed='true'] { border-color: var(--mantine-color-teal-6); background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-6)); }
+.source[aria-pressed='true'] { border-color: var(--mantine-primary-color-filled); background: var(--mantine-primary-color-light); }
 .candidate { position: relative; border: 2px solid var(--mantine-color-default-border); border-radius: 10px; padding: 8px; overflow: hidden; }
-.candidate[aria-pressed='true'] { border-color: var(--mantine-color-teal-6); background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-6)); }
-.candidate:focus-visible, .source:focus-visible { outline: 3px solid var(--mantine-color-teal-5); outline-offset: 3px; }
-.footer { position: sticky; bottom: 0; background: var(--mantine-color-body); border-top: 1px solid var(--mantine-color-default-border); padding: 16px 0 4px; z-index: 2; }
+.candidate[aria-pressed='true'] { border-color: var(--mantine-primary-color-filled); background: var(--mantine-primary-color-light); }
+.candidate:focus-visible, .source:focus-visible { outline: 3px solid var(--romd-admin-focus); outline-offset: 3px; }
+.footer { position: sticky; bottom: 0; background: var(--mantine-color-default); border-top: 1px solid var(--mantine-color-default-border); padding: 16px 0 4px; z-index: 2; }
 /* The add-artwork dialog lays out for its own width. */
 .addArtwork { container: artwork-library / inline-size; }
 @container artwork-library (max-width: 650px) { .browser { grid-template-columns: minmax(0, 1fr); gap: 16px; } .sources { flex-direction: row; overflow-x: auto; } .source { flex: 0 0 160px; } }
@@ -36,9 +36,9 @@
 }
 .roleStrip { display: grid; grid-template-columns: repeat(var(--artwork-role-columns), minmax(0, 1fr)); gap: var(--mantine-spacing-sm); }
 .roleButton { display: flex; align-items: center; gap: var(--mantine-spacing-sm); padding: var(--artwork-role-padding); min-width: 0; border: 1px solid var(--mantine-color-default-border); border-radius: var(--mantine-radius-sm); }
-.roleButton[aria-checked='true'] { border-color: var(--mantine-color-teal-6); background: light-dark(var(--mantine-color-teal-0), var(--mantine-color-dark-6)); }
+.roleButton[aria-checked='true'] { border-color: var(--mantine-primary-color-filled); background: var(--mantine-primary-color-light); }
 .roleButton:disabled { cursor: default; }
-.roleButton:focus-visible, .workspace summary:focus-visible { outline: 2px solid var(--mantine-color-teal-5); outline-offset: 3px; }
+.roleButton:focus-visible, .workspace summary:focus-visible { outline: 2px solid var(--romd-admin-focus); outline-offset: 3px; }
 .roleThumbnail { width: var(--artwork-thumbnail-width); flex: 0 0 var(--artwork-thumbnail-width); max-height: var(--artwork-thumbnail-height); overflow: hidden; }
 .roleThumbnail p { font-size: var(--mantine-font-size-xs); }
 .editorLayout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 370px); gap: var(--artwork-layout-gap); align-items: start; }

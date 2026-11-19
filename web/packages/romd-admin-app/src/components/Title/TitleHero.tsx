@@ -163,7 +163,7 @@ export function TitleHero({
                 {!compact && title.genre && (
                   <Badge
                     variant="light"
-                    color="blue"
+                    color="gray"
                   >
                     {title.genre}
                   </Badge>

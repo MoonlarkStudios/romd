@@ -26,7 +26,7 @@ export function StatusBar({ health, coverage, storage, isLoading, isError }: Sta
         right: 0,
         zIndex: 200,
         borderTop: '1px solid var(--mantine-color-default-border)',
-        background: 'var(--mantine-color-body)',
+        background: 'var(--mantine-color-default)',
         height: 32,
         display: 'flex',
         alignItems: 'center',

@@ -799,7 +799,7 @@ it('titles the inline picker with the scheme text colour rather than the dark-on
   expect(heading).toHaveClass('romd-card-title', classes.pickerHeading);
   const styles = readFileSync(`${import.meta.dirname}/ProviderMatches.module.css`, 'utf8');
   expect(styles).toContain(
-    '.pickerHeading:global(.romd-card-title) { color: light-dark(var(--mantine-color-text), var(--romd-text-strong)); }',
+    '.pickerHeading:global(.romd-card-title) { color: var(--mantine-color-text); }',
   );
 });
 

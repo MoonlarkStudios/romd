@@ -7,16 +7,21 @@ import {
 } from '@mantine/core';
 import { romdColors, romdFonts } from './tokens';
 
-function actionCssVariables(accent: string, hover: string, onAccent: string) {
+function actionCssVariables(
+  accent: string,
+  hover: string,
+  onAccent: string,
+  colors = [
+    'teal',
+    'mint',
+    'pine',
+  ],
+) {
   return {
     '--mantine-primary-color-light-color': accent,
     '--mantine-primary-color-contrast': onAccent,
     ...Object.fromEntries(
-      [
-        'teal',
-        'mint',
-        'pine',
-      ].flatMap((color) =>
+      colors.flatMap((color) =>
         Object.entries({
           filled: accent,
           'filled-hover': hover,
@@ -56,36 +61,122 @@ export const darkCssVariablesResolver: CSSVariablesResolver = (theme) => {
   };
 };
 
-/** Match the HTML authentication canvas without losing Mantine's variant colors. */
-export const portalCssVariablesResolver: CSSVariablesResolver = (theme) => {
+const portalColors = {
+  '--mantine-color-body': 'var(--romd-portal-bg)',
+  '--mantine-color-text': 'var(--romd-portal-text)',
+  '--mantine-color-dimmed': 'var(--romd-portal-muted)',
+  '--mantine-color-default': 'var(--romd-portal-surface)',
+  '--mantine-color-default-hover': 'var(--romd-portal-overlay)',
+  '--mantine-color-default-border': 'var(--romd-portal-border)',
+  '--mantine-color-placeholder': 'var(--romd-portal-muted)',
+  '--mantine-color-anchor': 'var(--romd-portal-accent)',
+  '--mantine-color-error': 'var(--romd-portal-error)',
+};
+
+function resolvePortalColors(
+  theme: Parameters<CSSVariablesResolver>[0],
+  colors: Record<string, string>,
+) {
   const resolved = v8CssVariablesResolver(theme);
-  const portal = {
-    '--mantine-color-body': 'var(--romd-portal-bg)',
-    '--mantine-color-text': 'var(--romd-portal-text)',
-    '--mantine-color-dimmed': 'var(--romd-portal-muted)',
-    '--mantine-color-default': 'var(--romd-portal-surface)',
-    '--mantine-color-default-hover': 'var(--romd-portal-overlay)',
-    '--mantine-color-default-border': 'var(--romd-portal-border)',
-    '--mantine-color-placeholder': 'var(--romd-portal-muted)',
-    '--mantine-color-anchor': 'var(--romd-portal-accent)',
-    '--mantine-color-error': 'var(--romd-portal-error)',
-  };
-  const actions = actionCssVariables(
-    'var(--romd-portal-accent)',
-    'var(--romd-portal-accent-hover)',
-    'var(--romd-portal-on-accent)',
-  );
   return {
     ...resolved,
     light: {
       ...resolved.light,
-      ...portal,
-      ...actions,
+      ...portalColors,
+      ...colors,
     },
     dark: {
       ...resolved.dark,
-      ...portal,
-      ...actions,
+      ...portalColors,
+      ...colors,
+    },
+  };
+}
+
+const portalAccent = [
+  'var(--romd-portal-accent)',
+  'var(--romd-portal-accent-hover)',
+  'var(--romd-portal-on-accent)',
+] as const;
+
+/** Match the HTML authentication canvas without losing Mantine's variant colors. */
+export const portalCssVariablesResolver: CSSVariablesResolver = (theme) =>
+  resolvePortalColors(theme, actionCssVariables(...portalAccent));
+
+function statusCssVariables(colors: string[], foreground: string, surface: string) {
+  return Object.fromEntries(
+    colors.flatMap((color) =>
+      Object.entries({
+        text: foreground,
+        filled: foreground,
+        'filled-hover': `color-mix(in srgb, ${foreground}, var(--romd-portal-bg) 8%)`,
+        light: surface,
+        'light-color': foreground,
+        'light-hover': `color-mix(in srgb, ${surface}, ${foreground} 8%)`,
+        outline: foreground,
+        'outline-hover': surface,
+      }).map(([role, value]) => [
+        `--mantine-color-${color}-${role}`,
+        value,
+      ]),
+    ),
+  );
+}
+
+/** Adapt the Admin first-paint palette to Mantine's surfaces and variants. */
+export const adminCssVariablesResolver: CSSVariablesResolver = (theme) => {
+  const primary = `--mantine-color-${theme.primaryColor}`;
+  const resolved = resolvePortalColors(theme, {
+    '--mantine-color-default-color': 'var(--romd-portal-text)',
+    // Explicit legacy accents still use the foundation ramps in Admin.
+    '--mantine-color-teal-contrast':
+      'light-dark(var(--mantine-color-white), var(--mantine-color-dark-9))',
+    ...actionCssVariables(...portalAccent, [
+      theme.primaryColor,
+    ]),
+    [`${primary}-text`]: 'var(--romd-portal-accent)',
+    [`${primary}-light`]: 'var(--romd-admin-selected)',
+    [`${primary}-light-hover`]:
+      'color-mix(in srgb, var(--romd-admin-selected), var(--romd-portal-accent) 10%)',
+    [`${primary}-light-color`]: 'var(--romd-admin-selected-text)',
+    '--mantine-primary-color-light-color': 'var(--romd-admin-selected-text)',
+    '--mantine-color-gray-light': 'var(--romd-portal-overlay)',
+    '--mantine-color-gray-light-color': 'var(--romd-portal-muted)',
+    '--mantine-color-gray-light-hover': 'var(--romd-portal-overlay)',
+    '--mantine-color-success': 'var(--romd-admin-success)',
+    ...statusCssVariables(
+      [
+        'green',
+      ],
+      'var(--romd-admin-success)',
+      'var(--romd-admin-success-surface)',
+    ),
+    ...statusCssVariables(
+      [
+        'yellow',
+        'orange',
+      ],
+      'var(--romd-admin-warning)',
+      'var(--romd-admin-warning-surface)',
+    ),
+    ...statusCssVariables(
+      [
+        'red',
+      ],
+      'var(--romd-portal-error)',
+      'var(--romd-admin-danger-surface)',
+    ),
+  });
+  return {
+    ...resolved,
+    dark: {
+      ...resolved.dark,
+      '--mantine-color-dark-0': 'var(--romd-portal-text)',
+      '--mantine-color-dark-2': 'var(--romd-portal-muted)',
+      '--mantine-color-dark-4': 'var(--romd-portal-border)',
+      '--mantine-color-dark-5': 'var(--romd-portal-overlay)',
+      '--mantine-color-dark-6': 'var(--romd-portal-surface)',
+      '--mantine-color-dark-7': 'var(--romd-portal-bg)',
     },
   };
 };

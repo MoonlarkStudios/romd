@@ -401,7 +401,6 @@ function ProviderMatchPickerContent({
                     <Badge
                       size="xs"
                       variant="light"
-                      color="teal"
                     >
                       Selected
                     </Badge>

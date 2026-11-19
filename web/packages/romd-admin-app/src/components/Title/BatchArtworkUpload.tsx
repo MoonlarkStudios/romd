@@ -284,7 +284,7 @@ export function BatchArtworkUpload({
             w={130}
           />
           {item.status === 'saved' ? (
-            <Badge color="teal">Added</Badge>
+            <Badge color="green">Added</Badge>
           ) : (
             <ActionIcon
               aria-label={`Remove ${item.file.name}`}

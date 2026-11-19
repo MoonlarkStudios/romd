@@ -1,0 +1,26 @@
+[data-mantine-color-scheme] .fieldWrapper[data-variant='default'] {
+  --input-bg: var(--romd-admin-field);
+  --input-bd-focus: var(--romd-admin-focus);
+}
+
+.fieldWrapper[data-variant='default']:not([data-error], [data-success]) {
+  --input-bd: var(--romd-admin-control-border);
+}
+
+.fieldWrapper[data-variant='default'] .fieldInput:focus-visible {
+  outline: 2px solid var(--romd-admin-focus);
+  outline-offset: 2px;
+}
+
+[data-mantine-color-scheme] .panel {
+  --paper-border-color: var(--mantine-color-default-border);
+  background-color: var(--mantine-color-default);
+}
+
+[data-mantine-color-scheme] .shell {
+  --app-shell-border-color: var(--mantine-color-default-border);
+}
+
+.shellHeader {
+  background-color: var(--mantine-color-default);
+}

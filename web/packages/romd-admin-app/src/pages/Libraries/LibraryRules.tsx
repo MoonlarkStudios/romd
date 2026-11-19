@@ -93,7 +93,7 @@ export function LibraryRules({
           notifications.show({
             title: 'Library saved',
             message: 'Refresh the library when you are ready to publish these changes.',
-            color: 'teal',
+            color: 'green',
           });
         } catch {
           /* Mutation error is displayed beside the save action. */
@@ -258,7 +258,6 @@ export function LibraryRules({
             </div>
             <SegmentedControl
               fullWidth
-              color="teal"
               value={form.titleSelectionMode}
               onChange={(value) =>
                 set('titleSelectionMode', value === 'IncludeOnly' ? 'IncludeOnly' : 'Rules')
@@ -275,7 +274,6 @@ export function LibraryRules({
               ]}
             />
             <Switch
-              color="teal"
               label="Include untracked titles"
               description="Off by default: only tracked titles qualify, including handpicked games. Turn on to also consider untracked titles under these rules."
               checked={form.includeUntrackedTitles}
@@ -342,7 +340,6 @@ export function LibraryRules({
               />
             )}
             <Switch
-              color="teal"
               label="Include missing games"
               description="Allow games you do not own to appear where the client supports missing games. Collection shelves show owned games."
               checked={form.showMissingGames}

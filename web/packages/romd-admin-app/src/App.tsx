@@ -10,7 +10,7 @@ import '@romd/foundation/auth.css';
 
 import { MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
-import { portalCssVariablesResolver } from '@romd/foundation/theme';
+import { adminCssVariablesResolver } from '@romd/foundation/theme';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { ErrorBoundary, ErrorFallback } from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
@@ -24,7 +24,7 @@ const router = createBrowserRouter(routes);
 export function App() {
   return (
     <MantineProvider
-      cssVariablesResolver={portalCssVariablesResolver}
+      cssVariablesResolver={adminCssVariablesResolver}
       theme={theme}
       defaultColorScheme="dark"
     >

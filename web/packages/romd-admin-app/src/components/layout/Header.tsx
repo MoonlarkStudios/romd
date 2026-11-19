@@ -111,6 +111,7 @@ export function Header({ opened, toggle }: HeaderProps) {
         <ActivityCenter />
         <ActionIcon
           variant="subtle"
+          color="gray"
           onClick={toggleColorScheme}
           size={romdLayout.headerControlSize}
           aria-label="Toggle color scheme"
@@ -126,6 +127,7 @@ export function Header({ opened, toggle }: HeaderProps) {
           <Menu.Target>
             <ActionIcon
               variant="subtle"
+              color="gray"
               size={romdLayout.headerControlSize}
               aria-label="User menu"
             >

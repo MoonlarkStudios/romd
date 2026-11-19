@@ -7,7 +7,7 @@ const adminApiOrigin = process.env.VITE_ROMD_ADMIN_API_ORIGIN ?? 'http://localho
 
 export default defineConfig({
   plugins: [
-    portalTheme(),
+    portalTheme('admin'),
     react(),
   ],
   server: {

@@ -97,7 +97,7 @@ function Audience({ libraryId }: { libraryId: string }) {
           >
             <Group>
               <Avatar
-                color="teal"
+                color="gray"
                 radius="xl"
               >
                 {user.email.slice(0, 1).toUpperCase()}
@@ -399,7 +399,6 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
       )}
       {queuedExport && (
         <Alert
-          color="teal"
           mb="lg"
           title={exportJob ? 'Export progress' : 'Export queued'}
         >
@@ -432,7 +431,7 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
       )}
       {needsLibraryRefresh(library) && (
         <Alert
-          color="teal"
+          color={refreshing ? 'blue' : 'yellow'}
           mb="lg"
           title={refreshing ? 'Refreshing library' : 'Updates available'}
         >
@@ -456,7 +455,6 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
         onChange={(v) => {
           if (v) go(v);
         }}
-        color="teal"
         className={classes.tabs}
         classNames={{
           list: classes.tabsList,

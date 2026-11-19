@@ -1,11 +1,12 @@
 .page { width: 100%; min-width: 0; box-sizing: border-box; max-width: 1440px; margin: 0 auto; padding: 16px 8px 48px; }
-.eyebrow { font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .16em; color: light-dark(var(--mantine-color-teal-9), var(--mantine-color-teal-3)); }
+.eyebrow { font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .16em; color: var(--mantine-color-anchor); }
 .heading { min-height: calc(2.25rem * var(--mantine-scale)); display: flex; align-items: center; font-size: 26px; font-weight: 650; line-height: 1.3; letter-spacing: 0; overflow-wrap: anywhere; }
 .intro { max-width: 590px; line-height: 1.7; color: var(--mantine-color-dimmed); }
 .hero { padding: 8px 0 0; margin-bottom: calc(var(--mantine-spacing-md) - var(--stack-gap, 0px)); }
-.panel { border: 1px solid var(--mantine-color-default-border); border-radius: 16px; padding: 26px; background: var(--mantine-color-body); }
+.panel { border: 1px solid var(--mantine-color-default-border); border-radius: 16px; padding: 26px; background: var(--mantine-color-default); }
 .sectionHeading { font-size: 20px; letter-spacing: 0; font-weight: 600; }
 .tabs { margin-bottom: 30px; }
 .tabsList { gap: 16px; flex-wrap: nowrap; overflow-x: auto; }
 .tab { padding: 8px 4px; font-weight: 550; white-space: nowrap; }
+.tab[data-active] { color: var(--mantine-primary-color-light-color); }
 @media (max-width: 600px) { .page { padding: 0 0 32px; } .panel { padding: 18px; } .tabsList { gap: 12px; } }

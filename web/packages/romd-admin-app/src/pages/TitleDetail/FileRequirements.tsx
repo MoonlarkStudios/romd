@@ -175,7 +175,7 @@ export function FileRequirements({ files }: FileRequirementsProps) {
                   {({ copied, copy }) => (
                     <ActionIcon
                       variant="subtle"
-                      color={copied ? 'teal' : 'gray'}
+                      color={copied ? 'green' : 'gray'}
                       aria-label={`Copy SHA-1 for ${file.name}`}
                       onClick={copy}
                     >

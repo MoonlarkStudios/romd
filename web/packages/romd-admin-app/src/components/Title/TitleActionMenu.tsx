@@ -158,7 +158,7 @@ function TitleMergeForm({ titleId, currentTitle, onClose }: TitleMergeFormProps)
       <Card
         withBorder
         padding="sm"
-        bg="red.0"
+        bg="var(--mantine-color-red-light)"
       >
         <Group
           gap="xs"
@@ -167,11 +167,11 @@ function TitleMergeForm({ titleId, currentTitle, onClose }: TitleMergeFormProps)
         >
           <IconAlertTriangle
             size={16}
-            color="var(--mantine-color-red-7)"
+            color="var(--mantine-color-error)"
           />
           <Text
             size="xs"
-            c="red"
+            c="var(--mantine-color-error)"
             fw={500}
           >
             {`This moves all releases and media to the selected title, then deletes "${currentTitle.name}".`}
