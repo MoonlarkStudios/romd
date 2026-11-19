@@ -2,7 +2,7 @@ import type { DatReplacementPreview } from '@romd/admin-api-client';
 
 export const reviewFilterLabels = {
   NeedsReview: 'Needs review',
-  RemovedLinked: 'Unlinks a title',
+  RemovedLinked: 'Removes a title link',
   LostMatches: 'ROMs losing a match',
   RemovedStored: 'Removed with stored ROMs',
   All: 'All changes',
@@ -195,24 +195,20 @@ export function reviewVerdict(preview: DatReplacementPreview): ReviewVerdict {
     };
   const effects = [
     impact.removedWithTitleLinks
-      ? `unlinks ${countLabel(impact.removedWithTitleLinks, 'title')}`
+      ? `removes ${countLabel(impact.removedWithTitleLinks, 'title link')}`
       : undefined,
     impact.lostRomMatches
       ? `${countLabel(impact.lostRomMatches, 'stored ROM loses its', 'stored ROMs lose their')} match`
       : undefined,
   ].filter((effect) => effect != null);
-  const unaffected = !impact.lostRomMatches
-    ? ' No stored ROM loses its match.'
-    : !impact.removedWithTitleLinks
-      ? ' No title links are lost.'
-      : '';
+  const unaffected = impact.lostRomMatches ? '' : ' No stored ROM loses its match.';
   if (!effects.length)
     return {
       tone: 'review',
       title: countLabel(impact.needsReviewEntries, 'change needs review', 'changes need review'),
-      detail: `These entries involve stored ROMs, but every stored ROM keeps a match.${gains(impact.newRomMatches)}`,
+      detail: `No stored ROM loses its match. See the flagged entries for details.${gains(impact.newRomMatches)}`,
     };
-  const sentence = `${effects.join('; ')}.`;
+  const sentence = `${effects.join('. ')}.`;
   return {
     tone: 'review',
     title: countLabel(impact.needsReviewEntries, 'change needs review', 'changes need review'),
@@ -224,21 +220,26 @@ export function reviewVerdict(preview: DatReplacementPreview): ReviewVerdict {
 export function decisionConsequence(preview: DatReplacementPreview) {
   const impact = preview.impact;
   if (firstImport(preview))
-    return `Importing adds ${countLabel(preview.candidateEntries, 'catalog entry', 'catalog entries')} in a background job.`;
+    return `Importing adds ${countLabel(preview.candidateEntries, 'catalog entry', 'catalog entries')} in a background job.${gains(impact?.newRomMatches ?? 0)}`;
   if (!impact) return 'Applying runs in a background job. Stored ROM files are never deleted.';
   const effects = [
     impact.removedWithTitleLinks
-      ? `unlinks ${countLabel(impact.removedWithTitleLinks, 'title')}`
+      ? `removes ${countLabel(impact.removedWithTitleLinks, 'title link')}`
       : undefined,
     impact.lostRomMatches
       ? `removes the catalog match for ${countLabel(impact.lostRomMatches, 'stored ROM')}`
       : undefined,
+    impact.newRomMatches
+      ? `adds a catalog match for ${countLabel(impact.newRomMatches, 'stored ROM')}`
+      : undefined,
   ].filter((effect) => effect != null);
   const first = effects.length
     ? `Applying ${effects.join(' and ')}.`
-    : 'Applying changes no stored ROM matches or title links.';
+    : impact.needsReviewEntries
+      ? 'Review the flagged changes before applying.'
+      : 'Applying changes no stored ROM matches or title links.';
   const unaffected =
-    effects.length && !impact.lostRomMatches ? ' No stored ROM loses its match.' : '';
+    impact.removedWithTitleLinks && !impact.lostRomMatches ? ' No stored ROM loses its match.' : '';
   return `${first}${unaffected} Libraries refresh after the job.`;
 }
 
@@ -247,7 +248,7 @@ export function reviewOutcome(preview: DatReplacementPreview) {
   const impact = preview.impact;
   return [
     impact?.removedWithTitleLinks
-      ? countLabel(impact.removedWithTitleLinks, 'title unlinked', 'titles unlinked')
+      ? countLabel(impact.removedWithTitleLinks, 'title link removed', 'title links removed')
       : undefined,
     impact?.lostRomMatches
       ? countLabel(

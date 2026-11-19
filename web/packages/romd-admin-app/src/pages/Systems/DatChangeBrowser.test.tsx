@@ -519,7 +519,7 @@ it('reserves the warning tone for catalog impact and starts on the entries that 
     screen.getByRole('region', {
       name: 'Review verdict',
     }),
-  ).toHaveTextContent('1 change needs reviewUnlinks 1 title. No stored ROM loses its match.');
+  ).toHaveTextContent('1 change needs reviewRemoves 1 title link. No stored ROM loses its match.');
   const filters = screen.getByRole('navigation', {
     name: 'Review filters',
   });
@@ -530,7 +530,7 @@ it('reserves the warning tone for catalog impact and starts on the entries that 
   ).toHaveAttribute('aria-pressed', 'true');
   expect(
     within(filters).getByRole('button', {
-      name: 'Unlinks a title 1',
+      name: 'Removes a title link 1',
     }),
   ).toHaveAttribute('data-tone', 'review');
   // A SHA-1 change that touches no stored ROM is a change, not a warning.
@@ -650,7 +650,7 @@ it('names the title a removal unlinks, links to it, and collapses a removed file
       name: /Aien Cat 2/,
     }),
   ).not.toHaveAttribute('target');
-  expect(screen.getByText(/The title has no other sources/)).toBeInTheDocument();
+  expect(screen.getByText(/No existing source links are projected to remain/)).toBeInTheDocument();
   expect(await screen.findByText('ROM · removed')).toBeInTheDocument();
   expect(screen.getByText('fc43da81…5305')).toBeInTheDocument();
   expect(

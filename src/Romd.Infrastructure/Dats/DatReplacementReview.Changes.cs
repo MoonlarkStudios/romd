@@ -15,7 +15,7 @@ public sealed partial class DatReplacementReview
             return pair.Errors;
         var (before, after) = pair.Value;
         var changed = EntryChanges(before, after, ct).ToArray();
-        var impact = await ReadImpactFactsAsync(datId, after, changed, ct);
+        var impact = await ReadImpactFactsAsync(datId, before, after, changed, ct);
         var matching = changed.Select(item => AssessEntry(item, before, after, impact).Entry)
             .Where(page.Matches).ToArray();
         var result = page.Page(matching, item => item.Name);
@@ -34,7 +34,7 @@ public sealed partial class DatReplacementReview
         // The detail is a member of the change list, so an entry without a change is not found.
         if (EntryChange(entryName, old, next) is not { } change)
             return Error.NotFound("DatReview.Entry", "This entry has no change in the reviewed documents.");
-        var impact = await ReadImpactFactsAsync(datId, after, [change], ct);
+        var impact = await ReadImpactFactsAsync(datId, before, after, [change], ct);
         var entry = AssessEntry(change, before, after, impact).Entry;
         return new DatEntryChangeDetail(entryName, change.Change, Fields(old?.Metadata, next?.Metadata),
             page.Page(FileChanges(entryName, old, next, impact, ct), file => $"{file.Kind}:{file.Name}"),

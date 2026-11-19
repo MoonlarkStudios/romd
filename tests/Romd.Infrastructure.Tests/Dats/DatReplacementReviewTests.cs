@@ -106,6 +106,40 @@ public sealed class DatReplacementReviewTests
         AssertReadOnly();
     }
 
+
+    [Theory]
+    [InlineData(false, 0, 0)]
+    [InlineData(false, 1, 1)]
+    [InlineData(true, 0, 1)]
+    public async Task GetEntryChangeAsync_ProjectsOtherTitleLinksAcrossTheWholeUpdate(
+        bool keepOtherEdition, int externalLinks, int expectedRemainingLinks)
+    {
+        string original = Dat(Entry("Edition A") + Entry("Edition B") + Entry("Another title"));
+        string candidate = Dat(Entry("Another title") + (keepOtherEdition ? Entry("Edition B") : ""));
+        var service = Service(original);
+        _repository.GetReviewTitleLinksAsync(0, Arg.Any<CancellationToken>()).Returns(
+        [
+            new("Edition A", 7, "Title", ReferencedByAnotherVersion: false, OtherSourceLinks: 1 + externalLinks),
+            new("Edition B", 7, "Title", ReferencedByAnotherVersion: false, OtherSourceLinks: 1 + externalLinks)
+        ]);
+
+        using var input = Stream(candidate);
+        var preview = (await service.PreviewWithImpactAsync(0, "Catalog", input, default)).Value;
+        preview.Impact.ShouldNotBeNull().RemovedWithTitleLinks.ShouldBe(keepOtherEdition ? 1 : 2);
+        preview.Changes.ShouldAllBe(entry => entry.Impact!.TitleOtherSourceLinks == expectedRemainingLinks);
+
+        using var entries = Stream(candidate);
+        var page = (await service.ListChangesAsync(0, "Catalog", entries,
+            Entries(preview.ActiveSha256, preview.CandidateSha256, "RemovedLinked", limit: 1), default)).Value;
+        page.Items.Single().Impact.ShouldNotBeNull().TitleOtherSourceLinks.ShouldBe(expectedRemainingLinks);
+
+        using var entry = Stream(candidate);
+        var detail = (await service.GetEntryChangeAsync(0, "Catalog", entry, "Edition A",
+            Files(preview.ActiveSha256, preview.CandidateSha256, "Edition A"), default)).Value;
+        detail.Impact.ShouldNotBeNull().TitleOtherSourceLinks.ShouldBe(expectedRemainingLinks);
+        AssertReadOnly();
+    }
+
     [Fact]
     public async Task PrepareAsync_ExactReviewedPairOwnsPrivateBytesWithoutCreatingAJob()
     {

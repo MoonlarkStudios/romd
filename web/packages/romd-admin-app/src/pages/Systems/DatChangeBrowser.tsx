@@ -319,7 +319,7 @@ function TitleImpact({
       >
         {impact.titleOtherSourceLinks
           ? `The title keeps ${countLabel(impact.titleOtherSourceLinks, 'other source link')}.`
-          : 'The title has no other sources. ROMD removes a title without sources unless it has your curation, such as edits, artwork, or collection entries.'}
+          : 'No existing source links are projected to remain. ROMD removes titles without sources unless they carry curation, such as edits, artwork, or collection entries.'}
       </Text>
     </div>
   );

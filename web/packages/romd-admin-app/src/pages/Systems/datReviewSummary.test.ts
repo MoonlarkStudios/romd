@@ -66,10 +66,10 @@ describe('review verdict', () => {
     expect(reviewVerdict(reviewed)).toEqual({
       tone: 'review',
       title: '1 change needs review',
-      detail: 'Unlinks 1 title. No stored ROM loses its match.',
+      detail: 'Removes 1 title link. No stored ROM loses its match.',
     });
     expect(decisionConsequence(reviewed)).toBe(
-      'Applying unlinks 1 title. No stored ROM loses its match. Libraries refresh after the job.',
+      'Applying removes 1 title link. No stored ROM loses its match. Libraries refresh after the job.',
     );
     expect(defaultReviewFilter(reviewed)).toBe('NeedsReview');
   });
@@ -81,10 +81,19 @@ describe('review verdict', () => {
       newRomMatches: 1,
     });
     expect(reviewVerdict(reviewed).detail).toBe(
-      '2 stored ROMs lose their match. No title links are lost. 1 stored ROM gains a match.',
+      '2 stored ROMs lose their match. 1 stored ROM gains a match.',
     );
     expect(decisionConsequence(reviewed)).toBe(
-      'Applying removes the catalog match for 2 stored ROMs. Libraries refresh after the job.',
+      'Applying removes the catalog match for 2 stored ROMs and adds a catalog match for 1 stored ROM. Libraries refresh after the job.',
+    );
+  });
+
+  it('states when applying gains a ROM match without any losses', () => {
+    const reviewed = preview({
+      newRomMatches: 1,
+    });
+    expect(decisionConsequence(reviewed)).toBe(
+      'Applying adds a catalog match for 1 stored ROM. Libraries refresh after the job.',
     );
   });
 
@@ -96,7 +105,7 @@ describe('review verdict', () => {
           removedWithStoredRoms: 1,
         }),
       ).detail,
-    ).toBe('These entries involve stored ROMs, but every stored ROM keeps a match.');
+    ).toBe('No stored ROM loses its match. See the flagged entries for details.');
   });
 
   it('clears an update that touches no stored ROM or title link', () => {
@@ -193,7 +202,7 @@ it('records what was approved for the job notice', () => {
         removedWithTitleLinks: 1,
       }),
     ),
-  ).toBe('1 title unlinked · 1 removed · 1 changed · 7 added');
+  ).toBe('1 title link removed · 1 removed · 1 changed · 7 added');
 });
 
 it('keeps the review position in a readable URL and omits defaults', () => {

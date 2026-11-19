@@ -26,19 +26,19 @@ not survive a reload. Setup flows keep the same review in a dialog.
 
 The review leads with the source, provider, and installed-to-incoming versions,
 showing date-stamped versions as dates with the raw version beside them. A
-verdict states what applying does: how many changes need review, which titles
-are unlinked, and whether stored ROMs lose or gain a match. Warning color is
+verdict states what applying does: how many changes need review, which title links
+are removed, and whether stored ROMs lose or gain a match. Warning color is
 reserved for that catalog impact; a SHA-1 change that touches no stored ROM is
 shown as an ordinary change.
 
 A filter rail is both the summary and the list filter. **Catalog impact** rows
-count entries that need review, removals that unlink a title, stored ROMs losing
+count entries that need review, removals that remove a title link, stored ROMs losing
 a match, and removals with stored ROMs. **Changes** rows split changed entries
 into SHA-1, CRC/MD5-only, and metadata-only groups. Zero rows stay visible and
 disabled. Desktop shows the rail, list, and entry side by side; phones step from
 summary to list to entry, and **Back** restores the filter, page, scroll
 position, and focus. An entry that unlinks a title names and links the title and
-states whether the title keeps other source links. A title without sources is
+states how many existing source links are projected to survive the whole update. A title without sources is
 later removed unless it carries curation such as edits, artwork, or collection
 entries. Added and removed files show on one line with their SHA-1; changed
 files compare each checksum. The decision bar stays pinned and repeats the
@@ -66,7 +66,7 @@ Projected stored ROM counts are distinct logical ROMs within this DAT. They use
 the installed rows' links and the incoming ROM rows' SHA-1 matches, so a hash
 that still appears elsewhere in the incoming DAT does not count as a loss.
 Counts reflect the time of the read. An entry's impact names its linked title
-by public ID and counts that title's links through other source entries. Other catalogs and disc/CHD matching can
+by public ID and counts that title's remaining links through other source entries after the reviewed changes. Other catalogs and disc/CHD matching can
 still provide coverage, and library projections refresh after activation.
 A vanished entry can lose its title link when no retained version references it. Unknown fields outside the parser's model
 are not included in semantic comparison. There is no automatic acceptance policy.

@@ -170,7 +170,7 @@ describe('DAT review', () => {
     expect(versions).toHaveTextContent('4 changed entries');
     expect(
       screen.getByText(
-        'Applying unlinks 1 title and removes the catalog match for 2 stored ROMs. Libraries refresh after the job.',
+        'Applying removes 1 title link and removes the catalog match for 2 stored ROMs. Libraries refresh after the job.',
       ),
     ).toBeVisible();
   });

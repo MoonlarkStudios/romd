@@ -12,9 +12,11 @@ public sealed partial class DatReplacementReview
     private sealed record ReviewMatchFacts(
         Dictionary<(string Entry, string Key), DatReviewRomLink> Installed,
         HashSet<int> InstalledRomIds,
-        Dictionary<string, DatReviewTitleLink> TitleLinks,
+        Dictionary<string, TitleLinkImpact> TitleLinks,
         ILookup<Sha1, DatReviewStoredRom> Incoming,
         HashSet<Sha1> CandidateHashes);
+
+    private sealed record TitleLinkImpact(string Name, int TitleId, bool WillUnlink, int OtherRemainingLinks);
 
     public async Task<ErrorOr<DatReplacementPreview>> PreviewWithImpactAsync(int? datId, string expectedName,
         Stream candidate, CancellationToken ct)
@@ -44,7 +46,7 @@ public sealed partial class DatReplacementReview
         }
 
         var changed = EntryChanges(before, after, ct).ToArray();
-        var facts = await ReadImpactFactsAsync(datId, after, changed, ct);
+        var facts = await ReadImpactFactsAsync(datId, before, after, changed, ct);
         var entries = new List<DatEntryChange>(changed.Length);
         HashSet<int> lost = [];
         HashSet<int> gained = [];
@@ -73,7 +75,7 @@ public sealed partial class DatReplacementReview
         };
     }
 
-    private async Task<ReviewMatchFacts> ReadImpactFactsAsync(int? datId, Document candidate,
+    private async Task<ReviewMatchFacts> ReadImpactFactsAsync(int? datId, Document installedDocument, Document candidate,
         IReadOnlyList<DatEntryChange> changes, CancellationToken ct)
     {
         if (changes.Count == 0)
@@ -103,8 +105,31 @@ public sealed partial class DatReplacementReview
         return new(
             installed.ToDictionary(link => (link.EntryName, "rom:" + link.FileName)),
             installed.Select(link => link.RomId).ToHashSet(),
-            links.ToDictionary(link => link.EntryName, StringComparer.Ordinal),
+            ProjectTitleLinks(links, installedDocument, candidate),
             incoming.ToLookup(rom => rom.Sha1), candidateHashes);
+    }
+
+    private static Dictionary<string, TitleLinkImpact> ProjectTitleLinks(
+        IReadOnlyList<DatReviewTitleLink> links, Document installed, Document candidate)
+    {
+        // Count unlinks for the entire document pair, including when only one entry is requested.
+        var effects = links.Select(link =>
+        {
+            bool willUnlink = candidate.Entries.TryGetValue(link.EntryName, out var entry)
+                ? entry.Bios && installed.Entries.GetValueOrDefault(link.EntryName) is { Bios: false }
+                : !link.ReferencedByAnotherVersion;
+            return (Link: link, WillUnlink: willUnlink);
+        }).ToArray();
+
+        var unlinksByTitle = effects.Where(effect => effect.WillUnlink)
+            .CountBy(effect => effect.Link.TitleId).ToDictionary();
+
+        return effects.ToDictionary(effect => effect.Link.EntryName, effect =>
+        {
+            var link = effect.Link;
+            int otherUnlinks = unlinksByTitle.GetValueOrDefault(link.TitleId) - (effect.WillUnlink ? 1 : 0);
+            return new TitleLinkImpact(link.TitleName, link.TitleId, effect.WillUnlink, link.OtherSourceLinks - otherUnlinks);
+        }, StringComparer.Ordinal);
     }
 
     private static Sha1? RomHash(string key, FileFact? file) =>
@@ -173,13 +198,12 @@ public sealed partial class DatReplacementReview
         }
 
         var title = facts.TitleLinks.GetValueOrDefault(change.Name);
-        bool titleAtRisk = title is not null &&
-            ((next is null && !title.ReferencedByAnotherVersion) || (next?.Bios == true && old?.Bios == false));
-        var impact = new DatEntryReviewImpact(stored.Count, lost.Count, gained.Count, title?.TitleName, titleAtRisk,
+        bool titleAtRisk = title?.WillUnlink == true;
+        var impact = new DatEntryReviewImpact(stored.Count, lost.Count, gained.Count, title?.Name, titleAtRisk,
             sha1Changed, change is { Change: "Changed", FilesAdded: 0, FilesRemoved: 0, FilesChanged: 0 },
             checksumOnly && !otherChange && sha1Changed == 0 && old?.Metadata == next?.Metadata,
             titleAtRisk || (change.Change == "Removed" && stored.Count > 0) || lost.Count > 0 || changedStoredSha1,
-            title?.TitleId, title?.OtherSourceLinks ?? 0);
+            title?.TitleId, title?.OtherRemainingLinks ?? 0);
         return (change with { Impact = impact }, lost, gained, diskChanged);
     }
 
