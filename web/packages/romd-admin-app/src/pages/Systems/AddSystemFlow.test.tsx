@@ -278,11 +278,16 @@ it('locks inherited facts and only saves local presentation edits and new aliase
     expect(screen.getByLabelText(label)).toHaveAttribute('readonly');
     expect(screen.getByLabelText(label)).toHaveValue(value);
   }
-  expect(await screen.findByText('PSX')).toBeVisible();
+  const aliases = within(
+    screen.getByRole('group', {
+      name: 'Aliases',
+    }),
+  );
+  expect(await aliases.findByText('PSX')).toBeVisible();
   expect(screen.queryByText('provider-only')).not.toBeInTheDocument();
   await user.type(
-    screen.getByRole('combobox', {
-      name: 'Add name aliases',
+    aliases.getByRole('combobox', {
+      name: 'Aliases',
     }),
     'Local PlayStation DAT{Enter}',
   );
@@ -411,7 +416,7 @@ it('creates and opens a custom system only after confirmation', async () => {
   await user.type(year, '7');
   await user.type(
     screen.getByRole('combobox', {
-      name: 'Add name aliases',
+      name: 'Aliases',
     }),
     'Homebrew Pocket{Enter}',
   );
@@ -478,7 +483,7 @@ it.each([
     );
   }
   const aliases = await screen.findByRole('combobox', {
-    name: 'Add name aliases',
+    name: 'Aliases',
   });
   const confirm = screen.getByRole('button', {
     name: mode === 'Known system' ? 'Continue to DAT options' : 'Add without a DAT',

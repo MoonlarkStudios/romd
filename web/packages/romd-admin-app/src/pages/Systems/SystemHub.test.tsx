@@ -341,7 +341,7 @@ it('opens on Metadata and saves a new alias after resolving a cross-system confl
   });
   expect(save).toBeDisabled();
   const aliases = screen.getByRole('combobox', {
-    name: 'Add name aliases',
+    name: 'Aliases',
   });
   await user.type(aliases, 'gBa{Enter}');
   expect(
@@ -531,11 +531,21 @@ it('removes a saved local alias and keeps protected aliases locked', async () =>
   hub('/systems/psx');
 
   const user = userEvent.setup();
-  const remove = await screen.findByRole('button', {
+  const aliases = within(
+    await screen.findByRole('group', {
+      name: 'Aliases',
+    }),
+  );
+  expect(
+    aliases.getByRole('combobox', {
+      name: 'Aliases',
+    }),
+  ).toBeEnabled();
+  const remove = await aliases.findByRole('button', {
     name: 'Remove alias Portable disc reference from this system',
   });
-  expect(screen.getByTitle('Built-in alias')).toHaveTextContent('PS1');
-  expect(screen.getByTitle('Ownership unknown')).toHaveTextContent('Old name');
+  expect(aliases.getByTitle('Built-in alias')).toHaveTextContent('PS1');
+  expect(aliases.getByTitle('Ownership unknown')).toHaveTextContent('Old name');
   expect(
     screen.getAllByRole('button', {
       name: /Remove alias/,
@@ -577,7 +587,7 @@ it('shows metadata to users without reference edit permission', async () => {
   expect(name).toHaveAttribute('readonly');
   expect(
     screen.queryByRole('combobox', {
-      name: 'Add name aliases',
+      name: 'Aliases',
     }),
   ).not.toBeInTheDocument();
   expect(

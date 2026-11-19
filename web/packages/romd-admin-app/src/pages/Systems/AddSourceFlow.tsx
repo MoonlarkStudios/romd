@@ -807,6 +807,9 @@ export function AddSourceFlow({
                 hardwareEditable={details.system.ownership === 'Installation'}
                 manufacturers={details.system.manufacturers}
                 existingAliases={platformAliases.data?.filter((alias) => alias.type === 'name')}
+                retryAliasLoad={
+                  platformAliases.isError ? () => void platformAliases.refetch() : undefined
+                }
                 onChange={(value) =>
                   setKnownDraft({
                     ...value,
@@ -831,16 +834,6 @@ export function AddSourceFlow({
               </Alert>
             ) : (
               <Skeleton height={110} />
-            )}
-            {platformAliases.isError && (
-              <Button
-                size="compact-sm"
-                variant="subtle"
-                w="fit-content"
-                onClick={() => void platformAliases.refetch()}
-              >
-                Retry existing aliases
-              </Button>
             )}
             {restoring && <Text size="sm">Restore this system with its saved catalog setup.</Text>}
             <Group

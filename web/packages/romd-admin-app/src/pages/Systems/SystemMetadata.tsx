@@ -237,6 +237,7 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
         hardwareEditable={canEditReferenceData && current.system.ownership === 'Installation'}
         manufacturers={current.system.manufacturers}
         existingAliases={aliases.data?.filter((alias) => alias.type === 'name')}
+        retryAliasLoad={aliases.isError ? () => void aliases.refetch() : undefined}
         onRemoveAlias={
           canEditReferenceData
             ? (alias) => {
@@ -329,19 +330,6 @@ export function SystemMetadata({ systemKey }: { systemKey: string }) {
         >
           Retry description defaults
         </Button>
-      )}
-      {aliases.isError && (
-        <Alert
-          color="yellow"
-          title="Existing aliases could not be loaded"
-        >
-          <Button
-            variant="subtle"
-            onClick={() => void aliases.refetch()}
-          >
-            Retry existing aliases
-          </Button>
-        </Alert>
       )}
       {actionError && (
         <Alert

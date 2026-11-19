@@ -1,5 +1,4 @@
 import {
-  Badge,
   Box,
   Button,
   Group,
@@ -98,6 +97,7 @@ export function SystemPresentationFields({
   aliasError,
   checkingAliases,
   retryAliasCheck,
+  retryAliasLoad,
   hardwareEditable,
   manufacturers = [],
   existingAliases,
@@ -112,6 +112,7 @@ export function SystemPresentationFields({
   aliasError?: string;
   checkingAliases?: boolean;
   retryAliasCheck?: () => void;
+  retryAliasLoad?: () => void;
   hardwareEditable: boolean;
   manufacturers?: CompanySummary[];
   existingAliases?: PlatformAlias[];
@@ -119,6 +120,7 @@ export function SystemPresentationFields({
   descriptionActions?: ReactNode;
   disabled: boolean;
 }) {
+  const aliasesLabelId = useId();
   const descriptionId = useId();
   const readOnly = !onChange;
   const keySuffix = systemKey.slice(localSystemKeyPrefix.length);
@@ -137,6 +139,50 @@ export function SystemPresentationFields({
       value: company.key,
       label: company.name,
     }));
+
+  const savedAliasPills = existingAliases?.length ? (
+    <Pill.Group>
+      {existingAliases.map((alias) => {
+        const local = alias.ownership === 'Installation';
+        const lockLabel = local
+          ? undefined
+          : alias.ownership === 'Romd'
+            ? 'Built-in alias'
+            : 'Ownership unknown';
+        const remove = local && onRemoveAlias ? () => onRemoveAlias(alias) : undefined;
+        return (
+          <Pill
+            key={alias.id}
+            bg="var(--romd-portal-overlay)"
+            title={lockLabel}
+            withRemoveButton={!!remove}
+            onRemove={remove}
+            removeButtonProps={{
+              'aria-label': `Remove alias ${alias.value} from this system`,
+              'aria-hidden': false,
+              disabled,
+              tabIndex: 0,
+            }}
+          >
+            {lockLabel && (
+              <>
+                <IconLock
+                  size={12}
+                  aria-hidden="true"
+                  style={{
+                    verticalAlign: 'text-bottom',
+                    marginInlineEnd: 4,
+                  }}
+                />
+                <VisuallyHidden>{lockLabel}</VisuallyHidden>
+              </>
+            )}
+            {alias.value}
+          </Pill>
+        );
+      })}
+    </Pill.Group>
+  ) : null;
 
   return (
     <Stack
@@ -314,120 +360,113 @@ export function SystemPresentationFields({
           Retry manufacturers
         </Button>
       )}
-      {existingAliases && (
-        <Stack gap={4}>
-          <Text
-            size="sm"
-            fw={500}
+      <Stack
+        gap={4}
+        role="group"
+        aria-labelledby={aliasesLabelId}
+      >
+        {readOnly ? (
+          <Input.Wrapper
+            label="Aliases"
+            labelElement="div"
+            labelProps={{
+              id: aliasesLabelId,
+            }}
           >
-            Existing aliases
-          </Text>
-          {existingAliases.length > 0 ? (
-            <Group gap={4}>
-              {existingAliases.map((alias) => {
-                const local = alias.ownership === 'Installation';
-                const label = alias.ownership === 'Romd' ? 'Built-in alias' : 'Ownership unknown';
-                return local && onRemoveAlias ? (
-                  <Pill
-                    key={alias.id}
-                    withRemoveButton
-                    onRemove={() => onRemoveAlias(alias)}
-                    removeButtonProps={{
-                      'aria-label': `Remove alias ${alias.value} from this system`,
-                      'aria-hidden': false,
-                      disabled,
-                      tabIndex: 0,
-                    }}
-                  >
-                    {alias.value}
-                  </Pill>
-                ) : (
-                  <Badge
-                    variant="default"
-                    key={alias.id}
-                    title={local ? undefined : label}
-                    leftSection={
-                      local ? undefined : (
-                        <>
-                          <IconLock
-                            size={12}
-                            aria-hidden="true"
-                          />
-                          <VisuallyHidden>{label}</VisuallyHidden>
-                        </>
-                      )
-                    }
-                  >
-                    {alias.value}
-                  </Badge>
-                );
-              })}
-            </Group>
-          ) : (
+            {savedAliasPills ??
+              (existingAliases && (
+                <Text
+                  size="sm"
+                  c="dimmed"
+                >
+                  No aliases
+                </Text>
+              ))}
+          </Input.Wrapper>
+        ) : (
+          <TagsInput
+            label="Aliases"
+            labelProps={{
+              id: aliasesLabelId,
+            }}
+            placeholder="Type an alias and press Enter"
+            inputContainer={(input) => (
+              <Stack gap={4}>
+                {savedAliasPills}
+                {input}
+              </Stack>
+            )}
+            description={
+              checkingAliases ? (
+                <output>Checking aliases…</output>
+              ) : (
+                'Aliases help ROMD match uploaded DATs.'
+              )
+            }
+            error={aliasError ? <span role="alert">{aliasError}</span> : undefined}
+            inputWrapperOrder={[
+              'label',
+              'input',
+              'description',
+              'error',
+            ]}
+            value={value.nameAliases}
+            maxTags={16}
+            maxLength={200}
+            acceptValueOnBlur
+            renderPill={({ value: alias, onRemove, disabled: pillDisabled }) => (
+              <Pill
+                withRemoveButton={!pillDisabled}
+                disabled={pillDisabled}
+                onRemove={onRemove}
+                removeButtonProps={{
+                  'aria-label': `Remove alias ${alias}`,
+                  'aria-hidden': false,
+                  tabIndex: 0,
+                }}
+              >
+                {alias}
+              </Pill>
+            )}
+            disabled={disabled}
+            onChange={(nameAliases) =>
+              change({
+                nameAliases,
+              })
+            }
+          />
+        )}
+        {retryAliasLoad && (
+          <>
             <Text
-              size="sm"
-              c="dimmed"
+              size="xs"
+              role="alert"
             >
-              No name aliases
+              Saved aliases could not be loaded.
             </Text>
-          )}
-        </Stack>
-      )}
-      {!readOnly && (
-        <TagsInput
-          label="Add name aliases"
-          placeholder="Type an alias and press Enter"
-          description={
-            checkingAliases ? (
-              <output>Checking aliases…</output>
-            ) : (
-              'Aliases help ROMD match uploaded DATs.'
-            )
-          }
-          error={aliasError ? <span role="alert">{aliasError}</span> : undefined}
-          inputWrapperOrder={[
-            'label',
-            'input',
-            'description',
-            'error',
-          ]}
-          value={value.nameAliases}
-          maxTags={16}
-          maxLength={200}
-          acceptValueOnBlur
-          renderPill={({ value: alias, onRemove, disabled: pillDisabled }) => (
-            <Pill
-              withRemoveButton={!pillDisabled}
-              disabled={pillDisabled}
-              onRemove={onRemove}
-              removeButtonProps={{
-                'aria-label': `Remove alias ${alias}`,
-                'aria-hidden': false,
-                tabIndex: 0,
-              }}
+            <Button
+              size="compact-sm"
+              variant="subtle"
+              w="fit-content"
+              disabled={disabled}
+              onClick={retryAliasLoad}
             >
-              {alias}
-            </Pill>
-          )}
-          disabled={disabled}
-          onChange={(nameAliases) =>
-            change({
-              nameAliases,
-            })
-          }
-        />
-      )}
-      {retryAliasCheck && (
-        <Button
-          size="compact-sm"
-          variant="subtle"
-          w="fit-content"
-          disabled={disabled || checkingAliases}
-          onClick={retryAliasCheck}
-        >
-          Retry alias check
-        </Button>
-      )}
+              Retry loading saved aliases
+            </Button>
+          </>
+        )}
+        {retryAliasCheck && (
+          <Button
+            size="compact-sm"
+            variant="subtle"
+            w="fit-content"
+            disabled={disabled || checkingAliases}
+            onClick={retryAliasCheck}
+          >
+            Retry alias check
+          </Button>
+        )}
+      </Stack>
       <Box>
         <Group
           justify="space-between"
