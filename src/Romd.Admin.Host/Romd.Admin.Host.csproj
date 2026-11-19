@@ -8,6 +8,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RomdReleaseTag Condition="'$(RomdReleaseTag)' == ''">development</RomdReleaseTag>
+    <RomdSourceRevision Condition="'$(RomdSourceRevision)' == ''">development</RomdSourceRevision>
 
     <FrontendRoot>../../web</FrontendRoot>
     <FrontendDist>$(FrontendRoot)/packages/romd-admin-app/dist</FrontendDist>
@@ -19,6 +20,7 @@
 
   <ItemGroup>
     <AssemblyMetadata Include="RomdReleaseTag" Value="$(RomdReleaseTag)" />
+    <AssemblyMetadata Include="RomdSourceRevision" Value="$(RomdSourceRevision)" />
     <ProjectReference Include="..\Romd.Hosting\Romd.Hosting.csproj" />
   </ItemGroup>
 

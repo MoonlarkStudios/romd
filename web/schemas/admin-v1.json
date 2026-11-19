@@ -2075,7 +2075,7 @@
         "tags": [
           "Server"
         ],
-        "description": "Returns the release version embedded in the running admin host.",
+        "description": "Returns the installed release and the running admin host's build.",
         "operationId": "GetServerInfo",
         "responses": {
           "200": {
@@ -26720,14 +26720,36 @@
           }
         }
       },
-      "ServerInfo": {
+      "ServerBuild": {
         "required": [
-          "version"
+          "tag",
+          "revision"
         ],
         "type": "object",
         "properties": {
-          "version": {
+          "tag": {
             "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          }
+        }
+      },
+      "ServerInfo": {
+        "required": [
+          "release",
+          "build"
+        ],
+        "type": "object",
+        "properties": {
+          "release": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "build": {
+            "$ref": "#/components/schemas/ServerBuild"
           }
         }
       },

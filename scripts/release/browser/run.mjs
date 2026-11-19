@@ -273,6 +273,10 @@ export async function qualifyBrowser(config, chromium) {
     const admin = await context.newPage();
     stage = 'admin-browser-sign-in';
     await signIn(admin, 'admin', config, diagnostics);
+    stage = 'admin-deployment-version';
+    await admin.getByRole('link', { name: 'Settings', exact: true }).click();
+    await admin.getByText(`Version ${config.expectedReleaseTag}`, { exact: true }).waitFor();
+    diagnostics.checks.adminDeploymentVersion = true;
     stage = 'synthetic-content-provisioning';
     const state = await ensureFixture(admin, config);
     await admin.close();

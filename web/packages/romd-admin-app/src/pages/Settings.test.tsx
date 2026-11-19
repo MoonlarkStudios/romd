@@ -18,18 +18,47 @@ afterEach(() => {
   });
 });
 
-it('shows the running server version', async () => {
+const build = {
+  tag: 'v0.4.0-rc.1',
+  revision: '0123456789abcdef0123456789abcdef01234567',
+};
+
+it.each([
+  'v0.4.0',
+  'v0.4.0-rc.1',
+])('shows the installed release %s beside the running build', async (release) => {
   server.use(
     http.get('*/api/server/info', () =>
       HttpResponse.json({
-        version: 'v0.4.0-rc.1',
+        release,
+        build,
       }),
     ),
   );
 
   render(<Settings />);
 
-  expect(await screen.findByText('Version v0.4.0-rc.1')).toBeVisible();
+  expect(await screen.findByText(`Version ${release}`)).toBeVisible();
+  expect(screen.getByText('Build v0.4.0-rc.1 (0123456789ab)')).toBeVisible();
+});
+
+it('shows only the build when the server does not run from a release bundle', async () => {
+  server.use(
+    http.get('*/api/server/info', () =>
+      HttpResponse.json({
+        release: null,
+        build: {
+          tag: 'development',
+          revision: 'development',
+        },
+      }),
+    ),
+  );
+
+  render(<Settings />);
+
+  expect(await screen.findByText('Build development')).toBeVisible();
+  expect(screen.queryByText(/^Version/)).toBeNull();
 });
 
 it('reports when the server version is unavailable', async () => {

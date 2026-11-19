@@ -309,7 +309,7 @@ class Runner:
                         input_bytes=public_key.encode(), binary_result=True)
         self.certificate_spki = base64.b64encode(hashlib.sha256(spki).digest()).decode()
 
-    def browser(self, stage, inject_fault):
+    def browser(self, stage, inject_fault, release_tag):
         config = self.work / 'browser-input.json'
         config.write_text(json.dumps({'adminOrigin': f'https://{HOST}:{PORTS["admin"]}',
                                      'consumerOrigin': f'https://{HOST}:{PORTS["consumer"]}',
@@ -319,6 +319,7 @@ class Runner:
                                      'hostAddress': self.env['ROMD_BIND'],
                                      'certificateSpki': self.certificate_spki,
                                      'allowProvision': stage == 'browser-initial',
+                                     'expectedReleaseTag': release_tag,
                                      'expectedState': self.persisted_state,
                                      'evidenceDir': str(self.evidence / stage),
                                      'injectFault': inject_fault}))
@@ -402,10 +403,10 @@ def qualify(args, evidence):
                 # What a person installs on their devices, copied once from the first start.
                 trusted_authority = runner.ingress_file('ca.crt', 'generated-authority')
                 runner.trust('initial', trusted_authority)
-                runner.browser('browser-initial', args.inject_fault)
+                runner.browser('browser-initial', args.inject_fault, args.expected_tag)
                 recovery.restart()
                 runner.trust('after-restart', trusted_authority)
-                runner.browser('browser-after-restart', 'none')
+                runner.browser('browser-after-restart', 'none', args.expected_tag)
                 backup_set = recovery.backup_and_stop(bundle / 'scripts/backup/backup.sh', work / 'backups')
                 # Stop the source before exposing its restored identity, and free its ingress socket/network.
                 with gate.stopping(env['COMPOSE_PROJECT_NAME']):
@@ -416,7 +417,7 @@ def qualify(args, evidence):
                 runner.run([bundle / 'scripts/deployment/verify.sh'], 'restored-http-verification', env=restore_env)
                 # A restore into fresh volumes must still be trusted by devices that only know the original authority.
                 runner.trust('after-restore', trusted_authority, env=restore_env)
-                runner.browser('browser-after-restore', 'none')
+                runner.browser('browser-after-restore', 'none', args.expected_tag)
                 report['certificateAuthoritySha256'] = hashlib.sha256(trusted_authority.encode()).hexdigest()
             report['result'] = 'passed'
     except (ValueError, RuntimeError, KeyError, OSError, IndexError, TypeError, AttributeError,

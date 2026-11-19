@@ -5,9 +5,8 @@ namespace Romd.Host.Endpoints;
 
 public static class ServerInfoEndpoints
 {
-    public static void MapServerInfoEndpoint(this IEndpointRouteBuilder api, string releaseTag)
+    public static void MapServerInfoEndpoint(this IEndpointRouteBuilder api, ServerInfo info)
     {
-        var info = new ServerInfo { Version = releaseTag };
         api.MapGet("/server/info", (HttpContext context) =>
             {
                 context.Response.Headers.CacheControl = "no-store";
@@ -15,7 +14,7 @@ public static class ServerInfoEndpoints
             })
             .WithTags("Server")
             .WithName("GetServerInfo")
-            .WithDescription("Returns the release version embedded in the running admin host.")
+            .WithDescription("Returns the installed release and the running admin host's build.")
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
     }
 }

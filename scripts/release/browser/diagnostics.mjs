@@ -66,7 +66,7 @@ export class Diagnostics {
   }
 
   result() {
-    const required = ['adminCallback', 'adminAuthenticatedView', 'consumerCallback',
+    const required = ['adminCallback', 'adminAuthenticatedView', 'adminDeploymentVersion', 'consumerCallback',
       'consumerAuthenticatedView', 'playerHandshake', 'playerReady', 'playerGameStarted',
       'playerBodyPlaying', 'consumerPlaying'];
     return this.failures === 0 && required.every((key) => this.checks[key] === true);

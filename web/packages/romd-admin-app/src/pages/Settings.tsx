@@ -1,9 +1,17 @@
-import { Anchor, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Box, Stack, Text, Title } from '@mantine/core';
+import type { ServerBuild } from '@romd/admin-api-client';
 import { getServerInfo } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import classes from '../components/Workspace/Workspace.module.css';
 import { ArtworkEnrichmentSettings } from './Settings/ArtworkEnrichmentSettings';
+
+// A stable release reuses its candidate's image, so the build can name an earlier tag than the release.
+function buildLabel(build: ServerBuild) {
+  return build.revision === build.tag
+    ? `Build ${build.tag}`
+    : `Build ${build.tag} (${build.revision.slice(0, 12)})`;
+}
 
 export function Settings() {
   const serverInfo = useQuery({
@@ -41,13 +49,34 @@ export function Settings() {
         >
           Server
         </Title>
-        <Text
-          size="sm"
-          mt="xs"
-          role="status"
-        >
-          Version {serverInfo.isError ? 'unavailable' : (serverInfo.data?.version ?? 'loading…')}
-        </Text>
+        <Box role="status">
+          {serverInfo.data ? (
+            <>
+              {serverInfo.data.release && (
+                <Text
+                  size="sm"
+                  mt="xs"
+                >
+                  {`Version ${serverInfo.data.release}`}
+                </Text>
+              )}
+              <Text
+                size="sm"
+                mt="xs"
+                c="dimmed"
+              >
+                {buildLabel(serverInfo.data.build)}
+              </Text>
+            </>
+          ) : (
+            <Text
+              size="sm"
+              mt="xs"
+            >
+              {serverInfo.isError ? 'Version unavailable' : 'Version loading…'}
+            </Text>
+          )}
+        </Box>
       </section>
       <section className={classes.panel}>
         <Title
