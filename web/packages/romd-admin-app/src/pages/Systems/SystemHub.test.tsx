@@ -1025,7 +1025,20 @@ it('keeps a pending subscription visible before its first DAT exists', async () 
     }),
   ).toBeInTheDocument();
 });
-it('updates the chosen manual source only after a hash-bound review', async () => {
+it.each([
+  [
+    'Completed',
+    'Applied 4',
+  ],
+  [
+    'Cancelled',
+    'Update cancelled',
+  ],
+  [
+    'Failed',
+    'Update needs attention',
+  ],
+])('reports a %s manual replacement after the hash-bound review', async (phase, notice) => {
   vi.mocked(previewDatReplacement).mockResolvedValue(
     result({
       activeSha256: 'before',
@@ -1056,7 +1069,7 @@ it('updates the chosen manual source only after a hash-bound review', async () =
   vi.mocked(getJob).mockResolvedValue(
     result({
       id: 'job',
-      phase: 'Completed',
+      phase,
       isTerminal: true,
       hasErrors: false,
     }),
@@ -1103,8 +1116,12 @@ it('updates the chosen manual source only after a hash-bound review', async () =
       }),
     ),
   );
-  expect(await screen.findByText('Applied 4')).toBeInTheDocument();
-  expect(screen.getByText('1 added')).toBeInTheDocument();
+  expect(await screen.findByText(notice)).toBeInTheDocument();
+  if (phase === 'Completed') expect(screen.getByText('1 added')).toBeInTheDocument();
+  else {
+    expect(screen.queryByText('Applied 4')).not.toBeInTheDocument();
+    expect(screen.queryByText('1 added')).not.toBeInTheDocument();
+  }
   expect(
     screen.queryByRole('region', {
       name: 'Review catalog update',

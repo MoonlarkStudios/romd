@@ -121,6 +121,20 @@ export function SourceWorkspace() {
   };
   const updateReady = !!subscription && subscriptionReady(subscription);
   const imported = dat?.importedAt ? Date.parse(dat.importedAt) : Number.NaN;
+  const cancelled = job.data?.phase === 'Cancelled';
+  const applied = job.data?.isTerminal && job.data.phase === 'Completed' && !job.data.hasErrors;
+  const needsAttention = job.data?.isTerminal && !applied && !cancelled;
+  const jobTitle = cancelled
+    ? 'Update cancelled'
+    : needsAttention
+      ? 'Update needs attention'
+      : applied
+        ? outcome?.version
+          ? `Applied ${outcome.version}`
+          : 'Update applied'
+        : outcome?.version
+          ? `Applying ${outcome.version}`
+          : 'Applying update';
   return (
     <div className={workspace.page}>
       <Stack gap="md">
@@ -222,20 +236,12 @@ export function SourceWorkspace() {
             </Group>
             {jobId && (
               <Alert
-                color={job.data?.hasErrors ? 'orange' : 'blue'}
-                title={
-                  job.data?.isTerminal
-                    ? job.data.hasErrors
-                      ? 'Update needs attention'
-                      : outcome?.version
-                        ? `Applied ${outcome.version}`
-                        : 'Update applied'
-                    : outcome?.version
-                      ? `Applying ${outcome.version}`
-                      : 'Applying update'
+                color={
+                  cancelled ? 'gray' : needsAttention || job.data?.hasErrors ? 'orange' : 'blue'
                 }
+                title={jobTitle}
               >
-                {outcome?.summary && (
+                {outcome?.summary && !cancelled && !needsAttention && (
                   <Text
                     size="sm"
                     mb={4}
