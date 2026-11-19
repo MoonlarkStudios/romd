@@ -231,11 +231,16 @@ it('creates and opens a custom system only after confirmation', async () => {
       onSystemOpen={open}
     />,
   );
-  await user.click(
-    screen.getByRole('button', {
-      name: 'Create custom system',
-    }),
-  );
+  const knownMode = screen.getByRole('button', {
+    name: 'Known system',
+  });
+  const customMode = screen.getByRole('button', {
+    name: 'Custom system',
+  });
+  expect(knownMode).toHaveAttribute('aria-pressed', 'true');
+  await user.click(customMode);
+  expect(customMode).toHaveAttribute('aria-pressed', 'true');
+  expect(knownMode).toHaveAttribute('aria-pressed', 'false');
   await user.type(
     screen.getByRole('textbox', {
       name: 'Display name',
@@ -1068,7 +1073,7 @@ it('retries a reviewed custom DAT without recreating its system after a failed i
 
   await user.click(
     screen.getByRole('button', {
-      name: 'Create custom system',
+      name: 'Custom system',
     }),
   );
   await user.type(

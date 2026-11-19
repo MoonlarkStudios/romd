@@ -6,6 +6,7 @@ interface DatUploadZoneProps {
   onDrop: (files: File[]) => void;
   loading?: boolean;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 interface DropzoneFileError {
@@ -30,7 +31,7 @@ function validateDatCatalog(file: File): DropzoneFileError | null {
   };
 }
 
-export function DatUploadZone({ onDrop, loading, disabled }: DatUploadZoneProps) {
+export function DatUploadZone({ onDrop, loading, disabled, compact = false }: DatUploadZoneProps) {
   return (
     <Dropzone
       data-testid="dat-upload-zone"
@@ -39,11 +40,14 @@ export function DatUploadZone({ onDrop, loading, disabled }: DatUploadZoneProps)
       loading={loading}
       disabled={disabled}
       maxFiles={1}
+      p={compact ? 'sm' : undefined}
+      aria-label="Upload a DAT file"
     >
       <Group
-        justify="center"
-        gap="xl"
-        mih={120}
+        justify={compact ? 'flex-start' : 'center'}
+        gap={compact ? 'sm' : 'xl'}
+        mih={compact ? 48 : 120}
+        wrap={compact ? 'nowrap' : 'wrap'}
         style={{
           pointerEvents: 'none',
         }}
@@ -51,8 +55,8 @@ export function DatUploadZone({ onDrop, loading, disabled }: DatUploadZoneProps)
         <Dropzone.Accept>
           <IconUpload
             style={{
-              width: rem(52),
-              height: rem(52),
+              width: rem(compact ? 24 : 52),
+              height: rem(compact ? 24 : 52),
               color: 'var(--mantine-primary-color-filled)',
             }}
             stroke={1.5}
@@ -61,8 +65,8 @@ export function DatUploadZone({ onDrop, loading, disabled }: DatUploadZoneProps)
         <Dropzone.Reject>
           <IconX
             style={{
-              width: rem(52),
-              height: rem(52),
+              width: rem(compact ? 24 : 52),
+              height: rem(compact ? 24 : 52),
               color: 'var(--mantine-color-red-6)',
             }}
             stroke={1.5}
@@ -71,8 +75,8 @@ export function DatUploadZone({ onDrop, loading, disabled }: DatUploadZoneProps)
         <Dropzone.Idle>
           <IconFileImport
             style={{
-              width: rem(52),
-              height: rem(52),
+              width: rem(compact ? 24 : 52),
+              height: rem(compact ? 24 : 52),
               color: 'var(--mantine-color-dimmed)',
             }}
             stroke={1.5}
@@ -81,18 +85,19 @@ export function DatUploadZone({ onDrop, loading, disabled }: DatUploadZoneProps)
 
         <div>
           <Text
-            size="lg"
-            inline
+            size={compact ? 'sm' : 'lg'}
+            fw={compact ? 600 : undefined}
           >
-            Drag a DAT file here or click to select
+            {compact ? 'Choose a DAT file' : 'Drag a DAT file here or click to select'}
           </Text>
           <Text
-            size="sm"
+            size={compact ? 'xs' : 'sm'}
             c="dimmed"
-            inline
-            mt={7}
+            mt={compact ? undefined : 7}
           >
-            Accepts .dat and .xml files (Logiqx format)
+            {compact
+              ? 'Drop a Logiqx .dat or .xml file'
+              : 'Accepts .dat and .xml files (Logiqx format)'}
           </Text>
         </div>
       </Group>

@@ -1,4 +1,5 @@
-import { Group, SimpleGrid, Stack, Text, Textarea, TextInput } from '@mantine/core';
+import { SimpleGrid, Stack, Textarea, TextInput } from '@mantine/core';
+import { IconLock } from '@tabler/icons-react';
 import classes from './SystemSetupFlow.module.css';
 
 export type SystemPresentation = {
@@ -11,14 +12,12 @@ export function SystemPresentationFields({
   onChange,
   systemKey,
   onKeyChange,
-  manufacturer,
   disabled,
 }: {
   value: SystemPresentation;
   onChange: (value: SystemPresentation) => void;
   systemKey: string;
   onKeyChange?: (key: string) => void;
-  manufacturer?: string | null;
   disabled: boolean;
 }) {
   return (
@@ -48,6 +47,21 @@ export function SystemPresentationFields({
         />
         <TextInput
           label="System key"
+          inputWrapperOrder={[
+            'label',
+            'input',
+            'description',
+            'error',
+          ]}
+          rightSection={
+            !onKeyChange && (
+              <IconLock
+                size={15}
+                aria-hidden="true"
+              />
+            )
+          }
+          rightSectionPointerEvents="none"
           description={
             onKeyChange
               ? 'Starts with local-. Use lowercase letters, numbers and hyphens.'
@@ -61,22 +75,6 @@ export function SystemPresentationFields({
           onChange={onKeyChange ? (event) => onKeyChange(event.currentTarget.value) : undefined}
         />
       </SimpleGrid>
-      {manufacturer && (
-        <Group gap="xs">
-          <Text
-            size="sm"
-            fw={500}
-          >
-            Manufacturer
-          </Text>
-          <Text
-            size="sm"
-            c="dimmed"
-          >
-            {manufacturer}
-          </Text>
-        </Group>
-      )}
       <Textarea
         label="Short description"
         placeholder="Optional"

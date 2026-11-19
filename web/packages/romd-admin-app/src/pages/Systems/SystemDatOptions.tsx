@@ -1,9 +1,10 @@
-import { Alert, Button, Group, Radio, Stack, Text } from '@mantine/core';
+import { Alert, Button, Group, Radio, Stack, Text, Title } from '@mantine/core';
 import type {
   DatCatalogSubscription,
   ManagedSystem,
   PublishedDatCatalog,
 } from '@romd/admin-api-client';
+import { IconAlertCircle } from '@tabler/icons-react';
 import { useState } from 'react';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import type { useDatsByPlatform } from '../../hooks/api/useDats';
@@ -37,6 +38,7 @@ export function SystemDatOptions({
   onUpload,
   onSkip,
   onClose,
+  onCancel,
 }: {
   system: ManagedSystem;
   newSystem: boolean;
@@ -51,9 +53,11 @@ export function SystemDatOptions({
   onUpload: (files: File[]) => void;
   onSkip: () => void;
   onClose: () => void;
+  onCancel?: () => void;
 }) {
   const [chosen, setChosen] = useState<string>();
   const [showUpload, setShowUpload] = useState(false);
+  const guided = !!onCancel;
   const options = verifiedOffers(directory, system.key);
   const connected = new Set(subscriptions.data?.map((subscription) => subscription.catalogId));
   if (pendingSubscription) connected.add(pendingSubscription.catalogId);
@@ -83,8 +87,39 @@ export function SystemDatOptions({
   const disabled = directory.isSuccess && !directory.data.enabled;
   const unavailable = directory.isError || (!disabled && !!directory.data?.message);
   const subscriptionChecking = subscriptions.isPending || dats.isPending;
-  return (
-    <Stack gap="md">
+  const subscribeAction = available.length > 0 && (
+    <Button
+      {...workspaceActionProps}
+      disabled={!selected || !eligibilityKnown || !canConfirm}
+      loading={busy}
+      onClick={() => selected && onSubscribe(selected)}
+    >
+      {newSystem ? 'Add system and check' : 'Subscribe and check'}
+    </Button>
+  );
+  const finishAction = (
+    <Button
+      variant={guided ? 'default' : 'subtle'}
+      w="fit-content"
+      disabled={busy || (newSystem && !canConfirm)}
+      onClick={newSystem ? onSkip : onClose}
+    >
+      {newSystem ? 'Add without a DAT' : 'Done'}
+    </Button>
+  );
+  const optionsPanel = (
+    <Stack
+      gap="sm"
+      className={guided ? classes.catalogPanel : undefined}
+    >
+      {guided && (
+        <Title
+          order={3}
+          size="h5"
+        >
+          {firstDat ? 'Choose the first DAT' : 'Add a catalog source'}
+        </Title>
+      )}
       {directory.isPending && (
         <Text
           size="sm"
@@ -94,20 +129,49 @@ export function SystemDatOptions({
           Checking catalog availability…
         </Text>
       )}
-      {unavailable && (
-        <Alert
-          color="yellow"
-          title="Catalog availability could not be checked"
-        >
-          {directory.data?.message ?? 'You can still upload a DAT.'}
-          <Button
-            variant="subtle"
-            onClick={() => void directory.refetch()}
+      {unavailable &&
+        (guided ? (
+          <Group
+            className={classes.catalogWarning}
+            gap="xs"
+            wrap="nowrap"
           >
-            Retry catalog availability
-          </Button>
-        </Alert>
-      )}
+            <IconAlertCircle
+              size={18}
+              aria-hidden="true"
+            />
+            <Text
+              size="sm"
+              flex={1}
+              role="status"
+            >
+              Catalog availability could not be checked
+            </Text>
+            <Button
+              variant="subtle"
+              color="gray"
+              size="compact-sm"
+              aria-label="Retry catalog availability"
+              disabled={busy || directory.isFetching}
+              onClick={() => void directory.refetch()}
+            >
+              Retry
+            </Button>
+          </Group>
+        ) : (
+          <Alert
+            color="yellow"
+            title="Catalog availability could not be checked"
+          >
+            {directory.data?.message ?? 'You can still upload a DAT.'}
+            <Button
+              variant="subtle"
+              onClick={() => void directory.refetch()}
+            >
+              Retry catalog availability
+            </Button>
+          </Alert>
+        ))}
       {disabled && (
         <Text
           size="sm"
@@ -235,18 +299,9 @@ export function SystemDatOptions({
           )}
         </>
       )}
-      {(available.length > 0 || !uploadExpanded) && (
+      {((!guided && available.length > 0) || !uploadExpanded) && (
         <Group gap="xs">
-          {available.length > 0 && (
-            <Button
-              {...workspaceActionProps}
-              disabled={!selected || !eligibilityKnown || !canConfirm}
-              loading={busy}
-              onClick={() => selected && onSubscribe(selected)}
-            >
-              {newSystem ? 'Add system and check' : 'Subscribe and check'}
-            </Button>
-          )}
+          {!guided && subscribeAction}
           {!uploadExpanded && (
             <Button
               variant="default"
@@ -260,37 +315,45 @@ export function SystemDatOptions({
       )}
       {uploadExpanded && (
         <Stack gap="xs">
-          <Text
-            size="sm"
-            fw={600}
-          >
-            Upload a DAT
-          </Text>
+          {(!guided || available.length > 0) && (
+            <Text
+              size="sm"
+              fw={600}
+            >
+              Upload a DAT
+            </Text>
+          )}
           <DatUploadZone
             onDrop={onUpload}
             loading={busy}
+            compact={guided}
           />
         </Stack>
       )}
-      {newSystem ? (
-        <Button
-          variant="subtle"
-          w="fit-content"
-          disabled={busy || !canConfirm}
-          onClick={onSkip}
-        >
-          Add without a DAT
-        </Button>
-      ) : (
-        <Button
-          variant="subtle"
-          w="fit-content"
-          disabled={busy}
-          onClick={onClose}
-        >
-          Done
-        </Button>
-      )}
+      {!guided && finishAction}
     </Stack>
+  );
+
+  if (!guided) return optionsPanel;
+  return (
+    <>
+      {optionsPanel}
+      <Group
+        className={classes.setupFooter}
+        gap="xs"
+        justify="flex-end"
+      >
+        <Button
+          variant="subtle"
+          color="gray"
+          disabled={busy}
+          onClick={onCancel}
+        >
+          Cancel
+        </Button>
+        {finishAction}
+        {subscribeAction}
+      </Group>
+    </>
   );
 }
