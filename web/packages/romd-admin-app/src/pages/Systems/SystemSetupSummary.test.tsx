@@ -11,6 +11,12 @@ vi.mock('@romd/admin-api-client', async () => ({
   listDatSubscriptions: vi.fn(),
   listManagedSystems: vi.fn(),
 }));
+vi.mock('../../hooks/usePermissions', () => ({
+  usePermissions: () => ({
+    role: 'Admin',
+    canManageSources: true,
+  }),
+}));
 const result = <T,>(data: T) =>
   ({
     data,
@@ -26,6 +32,7 @@ beforeEach(() => {
           state: 'Ready',
           catalogCount: 2,
           ownedTitles: 3,
+          knownTitles: 223,
         },
       ]),
     ),
@@ -42,9 +49,7 @@ beforeEach(() => {
 it('summarizes multiple sources without assigning one update method to the system', async () => {
   render(<SystemSetupSummary systemKey="one" />);
   expect(await screen.findByText('Catalog ready')).toBeInTheDocument();
-  expect(
-    screen.getByText('2 installed sources · 0 tracked titles · 3 titles with files'),
-  ).toBeInTheDocument();
+  expect(screen.getByText('2 DATs · 223 known titles · 3 titles with files')).toBeInTheDocument();
   expect(screen.queryByText('Manual upload')).not.toBeInTheDocument();
 });
 it('keeps a ready system available when one subscription check fails', async () => {
@@ -58,6 +63,7 @@ it('keeps a ready system available when one subscription check fails', async () 
       {
         id: 'second',
         systemKey: 'one',
+        activeDatId: 'installed',
         state: 'UpdateAvailable',
       },
     ]),
@@ -67,6 +73,24 @@ it('keeps a ready system available when one subscription check fails', async () 
   expect(screen.getByText('Catalog ready')).toBeInTheDocument();
   expect(screen.getByText('1 update to review')).toBeInTheDocument();
   expect(screen.queryByText('Needs attention')).not.toBeInTheDocument();
+});
+it('distinguishes a first DAT review from an update to an installed DAT', async () => {
+  vi.mocked(listDatSubscriptions).mockResolvedValue(
+    result([
+      {
+        id: 'first',
+        systemKey: 'one',
+        state: 'ReadyToImport',
+      },
+    ]),
+  );
+  render(<SystemSetupSummary systemKey="one" />);
+  expect(
+    await screen.findByRole('link', {
+      name: 'First DAT ready for review',
+    }),
+  ).toHaveAttribute('href', '/systems/one?tab=sources');
+  expect(screen.queryByText('1 update to review')).not.toBeInTheDocument();
 });
 it('marks subscription status unavailable when local subscriptions cannot be read', async () => {
   vi.mocked(listDatSubscriptions).mockResolvedValue({

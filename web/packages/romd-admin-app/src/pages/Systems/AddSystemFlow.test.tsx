@@ -1,16 +1,29 @@
-import type { ManagedSystem } from '@romd/admin-api-client';
+import type {
+  DatCatalogSubscription,
+  ManagedSystem,
+  PublishedDatCatalog,
+} from '@romd/admin-api-client';
 import {
+  applyDatSubscription,
+  checkDatSubscription,
   createDatSubscription,
+  createManagedSystem,
+  getDatSubscriptionPreview,
   getJob,
+  getManagedSystemDetails,
   importSystemDat,
+  listAdminCompanies,
   listDatCatalogs,
   listDatSubscriptions,
   listManagedSystems,
+  listSystemAliases,
   listSystemDats,
   previewSystemDat,
+  previewSystemNameAliases,
   setSystemEnabled,
+  updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { completePage } from '../../test/fixtures/referencePages';
@@ -26,9 +39,18 @@ vi.mock('@romd/admin-api-client', async () => ({
   setSystemEnabled: vi.fn(),
   listSystemDats: vi.fn(),
   previewSystemDat: vi.fn(),
+  previewSystemNameAliases: vi.fn(),
   importSystemDat: vi.fn(),
   getJob: vi.fn(),
+  applyDatSubscription: vi.fn(),
+  checkDatSubscription: vi.fn(),
   createDatSubscription: vi.fn(),
+  createManagedSystem: vi.fn(),
+  getManagedSystemDetails: vi.fn(),
+  listAdminCompanies: vi.fn(),
+  listSystemAliases: vi.fn(),
+  updateManagedSystemPresentation: vi.fn(),
+  getDatSubscriptionPreview: vi.fn(),
 }));
 const psx: ManagedSystem = {
   key: 'psx',
@@ -41,6 +63,20 @@ const psx: ManagedSystem = {
   catalogCount: 0,
   ownedTitles: 0,
 };
+const psxDetails = {
+  key: 'psx',
+  ownership: 'Romd',
+  manufacturers: [
+    {
+      key: 'sony',
+      name: 'Sony',
+    },
+  ],
+  name: 'PlayStation',
+  compactLabel: 'PS1',
+  description: 'A Sony home console.',
+  revision: 'shown-revision',
+};
 const page = <T,>(items: T[]) => ({
   items,
   nextCursor: null,
@@ -52,6 +88,44 @@ const result = <T,>(data: T) =>
   }) as never;
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(previewSystemNameAliases).mockResolvedValue(result([]));
+  vi.mocked(getManagedSystemDetails).mockResolvedValue(
+    result({
+      system: psxDetails,
+      hardware: {
+        category: 'console',
+        generation: 5,
+        releaseYear: 1994,
+      },
+    }),
+  );
+  vi.mocked(listSystemAliases).mockResolvedValue(
+    result(
+      page([
+        {
+          id: 'alias-1',
+          ownership: 'Romd',
+          type: 'name',
+          value: 'PSX',
+        },
+        {
+          id: 'mapping-1',
+          type: 'provider',
+          value: 'provider-only',
+        },
+      ]),
+    ),
+  );
+  vi.mocked(listAdminCompanies).mockResolvedValue(
+    result(
+      page([
+        {
+          key: 'sony',
+          name: 'Sony',
+        },
+      ]),
+    ),
+  );
   vi.mocked(listManagedSystems).mockResolvedValue(
     result(
       completePage([
@@ -70,11 +144,30 @@ beforeEach(() => {
   vi.mocked(listDatSubscriptions).mockResolvedValue(result([]));
   vi.mocked(setSystemEnabled).mockResolvedValue(result(undefined));
 });
+async function continueToDatOptions(user = userEvent.setup()) {
+  const next = screen.getByRole('button', {
+    name: 'Continue to DAT options',
+  });
+  await waitFor(() => expect(next).toBeEnabled());
+  await user.click(next);
+}
+
 it('lets assistive technology dismiss system setup without adding a system', async () => {
   const user = userEvent.setup();
   const close = vi.fn();
   render(<AddSystemFlow onClose={close} />);
 
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  await user.type(
+    await screen.findByRole('textbox', {
+      name: 'Description',
+    }),
+    ' My notes.',
+  );
   await user.click(
     screen.getByRole('button', {
       name: 'Close',
@@ -83,18 +176,48 @@ it('lets assistive technology dismiss system setup without adding a system', asy
   );
 
   expect(close).toHaveBeenCalledOnce();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
   expect(setSystemEnabled).not.toHaveBeenCalled();
   expect(createDatSubscription).not.toHaveBeenCalled();
 });
-it('adds a system independently of any source or subscription', async () => {
+it('adds a system independently only after choosing Add without a DAT', async () => {
   const user = userEvent.setup();
   const close = vi.fn();
   render(<AddSystemFlow onClose={close} />);
+  expect(
+    screen.queryByRole('heading', {
+      name: 'First DAT',
+      exact: true,
+    }),
+  ).not.toBeInTheDocument();
   await user.type(screen.getByLabelText('Find a system'), 'PS1');
   expect(setSystemEnabled).not.toHaveBeenCalled();
   await user.click(
     await screen.findByRole('button', {
-      name: 'Add PlayStation',
+      name: 'Choose PlayStation',
+    }),
+  );
+  expect(
+    await screen.findByRole('textbox', {
+      name: 'Display name',
+    }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole('heading', {
+      name: 'Choose the first DAT',
+    }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByTestId('dat-upload-zone')).not.toBeInTheDocument();
+  await continueToDatOptions(user);
+  expect(
+    await screen.findByRole('heading', {
+      name: 'Choose the first DAT',
+    }),
+  ).toBeVisible();
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Add without a DAT',
     }),
   );
   await waitFor(() =>
@@ -111,6 +234,281 @@ it('adds a system independently of any source or subscription', async () => {
   expect(importSystemDat).not.toHaveBeenCalled();
   expect(close).toHaveBeenCalled();
 });
+it('locks inherited facts and only saves local presentation edits and new aliases', async () => {
+  const user = userEvent.setup();
+  const open = vi.fn();
+  vi.mocked(updateManagedSystemPresentation).mockResolvedValue(
+    result({
+      ...psxDetails,
+      name: 'My PlayStation',
+    }),
+  );
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  const name = await screen.findByRole('textbox', {
+    name: 'Display name',
+  });
+  const key = screen.getByRole('textbox', {
+    name: 'System key',
+  });
+  expect(key).toHaveValue('psx');
+  expect(key).toHaveAttribute('readonly');
+  expect(name).toHaveValue('PlayStation');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Description',
+    }),
+  ).toHaveValue('A Sony home console.');
+  for (const [label, value] of Object.entries({
+    Manufacturers: 'Sony',
+    Category: 'Console',
+    Generation: '5',
+    'Release year': '1994',
+  })) {
+    expect(screen.getByLabelText(label)).toHaveAttribute('readonly');
+    expect(screen.getByLabelText(label)).toHaveValue(value);
+  }
+  const aliases = within(
+    screen.getByRole('group', {
+      name: 'Aliases',
+    }),
+  );
+  expect(await aliases.findByText('PSX')).toBeVisible();
+  expect(screen.queryByText('provider-only')).not.toBeInTheDocument();
+  await user.type(
+    aliases.getByRole('combobox', {
+      name: 'Aliases',
+    }),
+    'Local PlayStation DAT{Enter}',
+  );
+  await user.clear(name);
+  await user.type(name, 'My PlayStation');
+  await continueToDatOptions(user);
+  expect(
+    await screen.findByRole('heading', {
+      name: 'My PlayStation',
+    }),
+  ).toBeVisible();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Back to system details',
+    }),
+  );
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Display name',
+    }),
+  ).toHaveValue('My PlayStation');
+  expect(
+    screen.getByRole('button', {
+      name: 'Remove alias Local PlayStation DAT',
+    }),
+  ).toBeVisible();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+  await continueToDatOptions(user);
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Add without a DAT',
+    }),
+  );
+  await waitFor(() => expect(open).toHaveBeenCalledWith('psx', 'sources'));
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+  expect(updateManagedSystemPresentation).toHaveBeenCalledExactlyOnceWith({
+    path: {
+      systemKey: 'psx',
+    },
+    headers: {
+      'If-Match': '"shown-revision"',
+    },
+    body: {
+      name: 'My PlayStation',
+      nameAliases: [
+        'Local PlayStation DAT',
+      ],
+    },
+  });
+});
+
+it('creates and opens a custom system only after confirmation', async () => {
+  const user = userEvent.setup();
+  const open = vi.fn();
+  vi.mocked(createManagedSystem).mockResolvedValue(
+    result({
+      key: 'local-homebrew',
+    }),
+  );
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+  const knownMode = screen.getByRole('button', {
+    name: 'Known system',
+  });
+  const customMode = screen.getByRole('button', {
+    name: 'Custom system',
+  });
+  expect(knownMode).toHaveAttribute('aria-pressed', 'true');
+  await user.click(customMode);
+  expect(customMode).toHaveAttribute('aria-pressed', 'true');
+  expect(knownMode).toHaveAttribute('aria-pressed', 'false');
+  await user.type(
+    screen.getByRole('textbox', {
+      name: 'Display name',
+    }),
+    'Homebrew Lab',
+  );
+  const key = screen.getByRole('textbox', {
+    name: 'System key',
+  });
+  expect(key).toHaveValue('homebrew-lab');
+  expect(key).toHaveAccessibleDescription('The local- prefix is fixed.');
+  await user.clear(key);
+  expect(screen.getByText('local-')).toBeVisible();
+  expect(key).toHaveValue('');
+  await user.type(key, 'homebrew');
+  await user.type(
+    screen.getByRole('textbox', {
+      name: 'Description',
+    }),
+    'Local projects.',
+  );
+  await user.click(
+    screen.getByRole('combobox', {
+      name: 'Manufacturers',
+    }),
+  );
+  await user.click(
+    await screen.findByRole('option', {
+      name: 'Sony',
+    }),
+  );
+  await user.click(
+    screen.getByRole('combobox', {
+      name: 'Category',
+    }),
+  );
+  await user.click(
+    await screen.findByRole('option', {
+      name: 'Handheld',
+    }),
+  );
+  await user.type(screen.getByLabelText('Generation'), '7');
+  const year = screen.getByLabelText('Release year');
+  await user.type(year, '200');
+  expect(
+    screen.getByRole('button', {
+      name: 'Add without a DAT',
+    }),
+  ).toBeDisabled();
+  await user.type(year, '7');
+  await user.type(
+    screen.getByRole('combobox', {
+      name: 'Aliases',
+    }),
+    'Homebrew Pocket{Enter}',
+  );
+  expect(createManagedSystem).not.toHaveBeenCalled();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Add without a DAT',
+    }),
+  );
+  await waitFor(() => expect(open).toHaveBeenCalledWith('local-homebrew', 'sources'));
+  expect(createManagedSystem).toHaveBeenCalledExactlyOnceWith({
+    body: {
+      key: 'local-homebrew',
+      name: 'Homebrew Lab',
+      compactLabel: 'Homebrew Lab',
+      description: 'Local projects.',
+      manufacturerKeys: [
+        'sony',
+      ],
+      category: 'handheld',
+      generation: 7,
+      releaseYear: 2007,
+      nameAliases: [
+        'Homebrew Pocket',
+      ],
+    },
+  });
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+});
+
+it.each([
+  'Known system',
+  'Custom system',
+] as const)('blocks a conflicting name alias during %s setup until removed', async (mode) => {
+  const user = userEvent.setup();
+  vi.mocked(previewSystemNameAliases).mockResolvedValue(
+    result([
+      {
+        alias: 'PS1',
+        systemName: 'PlayStation',
+        builtIn: true,
+      },
+    ]),
+  );
+  render(<AddSystemFlow onClose={vi.fn()} />);
+
+  if (mode === 'Known system') {
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Choose PlayStation',
+      }),
+    );
+  } else {
+    await user.click(
+      screen.getByRole('button', {
+        name: mode,
+      }),
+    );
+    await user.type(
+      screen.getByRole('textbox', {
+        name: 'Display name',
+      }),
+      'Pocket Test',
+    );
+  }
+  const aliases = await screen.findByRole('combobox', {
+    name: 'Aliases',
+  });
+  const confirm = screen.getByRole('button', {
+    name: mode === 'Known system' ? 'Continue to DAT options' : 'Add without a DAT',
+  });
+  expect(confirm).toBeEnabled();
+  await user.type(aliases, 'pS1{Enter}');
+
+  expect(
+    await screen.findByText('“PS1” is already a built-in alias for PlayStation.'),
+  ).toBeVisible();
+  expect(aliases).toBeInvalid();
+  expect(confirm).toBeDisabled();
+  expect(createManagedSystem).not.toHaveBeenCalled();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Remove alias pS1',
+    }),
+  );
+  expect(confirm).toBeEnabled();
+  expect(aliases).not.toBeInvalid();
+});
+
 it.each([
   'healthy',
   'failed',
@@ -141,11 +539,12 @@ it.each([
   );
   expect(
     await screen.findByRole('button', {
-      name: 'Subscribe to Redump',
+      name: 'Subscribe and check',
     }),
   ).toBeInTheDocument();
-  expect(screen.getByText(/10,974 entries/)).toBeInTheDocument();
-  if (health === 'failed') expect(screen.getByText('Latest refresh delayed')).toBeInTheDocument();
+  expect(screen.getByText(/10,974 DAT entries/)).toBeInTheDocument();
+  if (health === 'failed')
+    expect(await screen.findByText('Latest refresh delayed')).toBeInTheDocument();
   expect(createDatSubscription).not.toHaveBeenCalled();
 });
 it('offers No-Intro only for SNES and describes cartridges as entries and files', async () => {
@@ -189,25 +588,22 @@ it('offers No-Intro only for SNES and describes cartridges as entries and files'
   );
   expect(
     await screen.findByRole('button', {
-      name: 'Subscribe to No-Intro',
+      name: 'Subscribe and check',
     }),
   ).toBeInTheDocument();
-  expect(screen.getByText(/4,358 entries · 4,358 files/)).toBeInTheDocument();
-  expect(
-    screen.queryByRole('button', {
-      name: 'Subscribe to Redump',
-    }),
-  ).not.toBeInTheDocument();
+  expect(screen.getByText(/4,358 DAT entries · 4,358 expected files/)).toBeInTheDocument();
+  expect(screen.queryByText('Sony - PlayStation')).not.toBeInTheDocument();
   expect(createDatSubscription).not.toHaveBeenCalled();
 });
 it('keeps manual upload and setup later usable when the publisher fails', async () => {
   vi.mocked(listDatCatalogs).mockRejectedValue(new Error('offline'));
-  render(
-    <AddSourceFlow
-      system={psx}
-      onClose={vi.fn()}
-    />,
+  render(<AddSystemFlow onClose={vi.fn()} />);
+  await userEvent.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
   );
+  await continueToDatOptions();
   expect(
     await screen.findByRole('button', {
       name: 'Retry catalog availability',
@@ -215,10 +611,13 @@ it('keeps manual upload and setup later usable when the publisher fails', async 
   ).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Done',
+      name: 'Add without a DAT',
     }),
   ).toBeEnabled();
   expect(screen.getByTestId('dat-upload-zone')).toBeInTheDocument();
+  expect(
+    screen.queryByText('There is no verified subscription available for this system.'),
+  ).not.toBeInTheDocument();
 });
 it('unknown DAT asks for a system and reviews coverage before any import', async () => {
   const preview = {
@@ -245,10 +644,7 @@ it('unknown DAT asks for a system and reviews coverage before any import', async
       onClose={vi.fn()}
     />,
   );
-  await screen.findByRole('button', {
-    name: 'Choose PlayStation',
-  });
-  const input = screen.getByTestId('dat-upload-zone').querySelector('input[type="file"]');
+  const input = (await screen.findByTestId('dat-upload-zone')).querySelector('input[type="file"]');
   expect(input).not.toBeNull();
   if (!input) throw new Error('Missing file input');
   fireEvent.change(input, {
@@ -269,7 +665,7 @@ it('unknown DAT asks for a system and reviews coverage before any import', async
   expect(await screen.findByText(/could not identify one clear match/)).toBeInTheDocument();
   expect(importSystemDat).not.toHaveBeenCalled();
   await user.click(
-    screen.getByRole('button', {
+    await screen.findByRole('button', {
       name: 'Choose PlayStation',
     }),
   );
@@ -278,12 +674,10 @@ it('unknown DAT asks for a system and reviews coverage before any import', async
       name: 'Continue with PlayStation',
     }),
   );
-  expect(
-    await screen.findByText(/does not establish that the catalog covers every release/),
-  ).toBeInTheDocument();
+  expect(await screen.findByText(/A DAT may cover only part/)).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Add reviewed source',
+      name: 'Import catalog',
     }),
   ).toBeEnabled();
   expect(importSystemDat).not.toHaveBeenCalled();
@@ -357,7 +751,7 @@ it('waits for catalog readiness after the upload job completes', async () => {
   });
   await user.click(
     await screen.findByRole('button', {
-      name: 'Add reviewed source',
+      name: 'Import catalog',
     }),
   );
   await waitFor(() => expect(getJob).toHaveBeenCalled());
@@ -419,11 +813,11 @@ it('subscribes by enrolling the catalog, then finishes when it is already up to 
       onClose={close}
     />,
   );
-  await userEvent.click(
-    await screen.findByRole('button', {
-      name: 'Subscribe to Redump',
-    }),
-  );
+  const subscribe = await screen.findByRole('button', {
+    name: 'Subscribe and check',
+  });
+  await waitFor(() => expect(subscribe).toBeEnabled());
+  await userEvent.click(subscribe);
   await waitFor(() => expect(close).toHaveBeenCalled());
   expect(createDatSubscription).toHaveBeenCalledWith({
     body: {
@@ -461,7 +855,7 @@ it('waits for local subscription status before offering to subscribe', async () 
   );
   expect(
     await screen.findByRole('button', {
-      name: 'Subscribe to Redump',
+      name: 'Subscribe and check',
     }),
   ).toBeDisabled();
   expect(createDatSubscription).not.toHaveBeenCalled();
@@ -487,7 +881,7 @@ it.each([
   await userEvent.type(screen.getByLabelText('Find a system'), search);
   expect(
     await screen.findByRole('button', {
-      name: 'Add PlayStation',
+      name: 'Choose PlayStation',
     }),
   ).toBeInTheDocument();
   expect(listManagedSystems).toHaveBeenCalledWith(
@@ -500,4 +894,529 @@ it.each([
       },
     }),
   );
+});
+
+it.each([
+  {
+    view: 'the initial picker',
+    search: '',
+  },
+  {
+    view: 'search results',
+    search: 'console',
+  },
+])('orders systems by display name across server pages in $view', async ({ search }) => {
+  vi.mocked(listManagedSystems).mockImplementation(async (options) => {
+    if (options?.query?.query !== (search || undefined))
+      return result(
+        completePage([
+          psx,
+        ]),
+      );
+    if (options?.query?.cursor === 'next-page') {
+      return result(
+        completePage([
+          {
+            ...psx,
+            key: '5200',
+            shortName: '5200',
+            name: 'Atari 5200',
+          },
+        ]),
+      );
+    }
+    return result({
+      items: [
+        {
+          ...psx,
+          key: '3ds',
+          shortName: '3ds',
+          name: 'Nintendo 3DS',
+        },
+      ],
+      nextCursor: 'next-page',
+      hasNextPage: true,
+    });
+  });
+  render(<AddSystemFlow onClose={vi.fn()} />);
+
+  if (search) await userEvent.type(screen.getByLabelText('Find a system'), search);
+  await screen.findByRole('button', {
+    name: 'Choose Atari 5200',
+  });
+
+  const results = within(
+    screen.getByRole('group', {
+      name: 'Supported systems',
+    }),
+  );
+  expect(results.getAllByRole('button')).toEqual([
+    results.getByRole('button', {
+      name: 'Choose Atari 5200',
+    }),
+    results.getByRole('button', {
+      name: 'Choose Nintendo 3DS',
+    }),
+  ]);
+});
+
+const playStationOffer: PublishedDatCatalog = {
+  catalogId: 'redump/psx/discs',
+  systemId: psx.key,
+  name: 'Sony - PlayStation',
+  provider: 'redump',
+  health: 'healthy',
+  documentHash: 'a'.repeat(64),
+  entryCount: 10974,
+  fileCount: 60444,
+};
+const pendingSubscription: DatCatalogSubscription = {
+  id: 'sub',
+  catalogId: playStationOffer.catalogId,
+  systemId: psx.key,
+  name: playStationOffer.name,
+  systemKey: psx.key,
+  activeDatId: null,
+  state: 'ReadyToImport',
+  lastCheckedAt: null,
+  message: null,
+  candidateSha256: 'b'.repeat(64),
+  jobId: null,
+};
+
+function offer(...catalogs: PublishedDatCatalog[]) {
+  vi.mocked(listDatCatalogs).mockResolvedValue(
+    result({
+      enabled: true,
+      message: null,
+      catalogs,
+    }),
+  );
+}
+
+it('preselects the sole verified DAT, then imports only after the explicit review', async () => {
+  offer(playStationOffer);
+  vi.mocked(createDatSubscription).mockResolvedValue(result(pendingSubscription));
+  vi.mocked(getDatSubscriptionPreview).mockResolvedValue(
+    result({
+      activeSha256: 'none',
+      candidateSha256: pendingSubscription.candidateSha256,
+      activeEntries: 0,
+      candidateEntries: playStationOffer.entryCount,
+      entriesAdded: playStationOffer.entryCount,
+      entriesRemoved: 0,
+      entriesChanged: 0,
+      filesAdded: playStationOffer.fileCount,
+      filesRemoved: 0,
+      filesChanged: 0,
+      hashesChanged: 0,
+      activeBiosEntries: 0,
+      candidateBiosEntries: 0,
+      changes: [],
+      truncated: false,
+    }),
+  );
+  vi.mocked(applyDatSubscription).mockResolvedValue(
+    result({
+      jobId: 'job-1',
+    }),
+  );
+  vi.mocked(getJob).mockResolvedValue(
+    result({
+      id: 'job-1',
+      isTerminal: true,
+      hasErrors: false,
+      phase: 'Completed',
+      progressPercent: '100',
+    }),
+  );
+  const open = vi.fn();
+  const user = userEvent.setup();
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  await continueToDatOptions(user);
+  const subscribe = await screen.findByRole('button', {
+    name: 'Add system and check',
+  });
+  await waitFor(() => expect(subscribe).toBeEnabled());
+  expect(
+    screen.getByRole('radio', {
+      name: playStationOffer.name,
+    }),
+  ).toBeChecked();
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+
+  await user.click(subscribe);
+  const apply = await screen.findByRole('button', {
+    name: 'Import catalog',
+  });
+  expect(createDatSubscription).toHaveBeenCalledWith({
+    body: {
+      catalogId: playStationOffer.catalogId,
+    },
+  });
+  expect(applyDatSubscription).not.toHaveBeenCalled();
+  vi.mocked(listManagedSystems).mockResolvedValue(
+    result(
+      completePage([
+        {
+          ...psx,
+          enabled: true,
+          state: 'Ready',
+          catalogCount: 1,
+        },
+      ]),
+    ),
+  );
+  await user.click(apply);
+  expect(applyDatSubscription).toHaveBeenCalledWith({
+    path: {
+      subscriptionId: pendingSubscription.id,
+    },
+    body: {
+      activeSha256: 'none',
+      candidateSha256: pendingSubscription.candidateSha256,
+    },
+  });
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Open catalog sources',
+    }),
+  );
+  expect(open).toHaveBeenCalledWith(psx.key, 'sources');
+});
+
+it('requires a choice when the signed directory offers multiple formats', async () => {
+  const second = {
+    ...playStationOffer,
+    catalogId: 'no-intro/psx/digital',
+    provider: 'no-intro',
+    name: 'Sony - PlayStation (Digital)',
+  };
+  offer(playStationOffer, second);
+  vi.mocked(createDatSubscription).mockResolvedValue(
+    result({
+      ...pendingSubscription,
+      catalogId: second.catalogId,
+      state: 'UpToDate',
+    }),
+  );
+  const user = userEvent.setup();
+  render(<AddSystemFlow onClose={vi.fn()} />);
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+
+  await continueToDatOptions(user);
+  const choice = await screen.findByRole('radio', {
+    name: second.name,
+  });
+  const subscribe = screen.getByRole('button', {
+    name: 'Add system and check',
+  });
+  expect(choice).not.toBeChecked();
+  expect(
+    screen.getByRole('radio', {
+      name: playStationOffer.name,
+    }),
+  ).not.toBeChecked();
+  expect(subscribe).toBeDisabled();
+  expect(createDatSubscription).not.toHaveBeenCalled();
+
+  await waitFor(() => expect(choice).toBeEnabled());
+  await user.click(choice);
+  await user.click(subscribe);
+  await waitFor(() =>
+    expect(createDatSubscription).toHaveBeenCalledWith({
+      body: {
+        catalogId: second.catalogId,
+      },
+    }),
+  );
+});
+
+it('retries the existing subscription after its first check fails', async () => {
+  offer(playStationOffer);
+  vi.mocked(createDatSubscription).mockResolvedValue(
+    result({
+      ...pendingSubscription,
+      state: 'CheckFailed',
+      message: 'Catalog verification failed.',
+    }),
+  );
+  vi.mocked(checkDatSubscription).mockResolvedValue(
+    result({
+      ...pendingSubscription,
+      state: 'UpToDate',
+    }),
+  );
+  const open = vi.fn();
+  const user = userEvent.setup();
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+
+  await continueToDatOptions(user);
+  const subscribe = await screen.findByRole('button', {
+    name: 'Add system and check',
+  });
+  await waitFor(() => expect(subscribe).toBeEnabled());
+  await user.click(subscribe);
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Retry check',
+    }),
+  );
+
+  await waitFor(() => expect(open).toHaveBeenCalledWith(psx.key, 'sources'));
+  expect(checkDatSubscription).toHaveBeenCalledWith({
+    path: {
+      subscriptionId: pendingSubscription.id,
+    },
+  });
+  expect(createDatSubscription).toHaveBeenCalledOnce();
+  expect(setSystemEnabled).toHaveBeenCalledOnce();
+  expect(applyDatSubscription).not.toHaveBeenCalled();
+});
+
+it('restores a removed system with its saved setup only after confirmation', async () => {
+  vi.mocked(listManagedSystems).mockResolvedValue(
+    result(
+      completePage([
+        {
+          ...psx,
+          state: 'Ready',
+          catalogCount: 1,
+        },
+      ]),
+    ),
+  );
+  const open = vi.fn();
+  const user = userEvent.setup();
+  render(
+    <AddSystemFlow
+      onClose={vi.fn()}
+      onSystemOpen={open}
+    />,
+  );
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Restore system',
+    }),
+  );
+
+  await waitFor(() => expect(open).toHaveBeenCalledWith(psx.key, 'sources'));
+  expect(setSystemEnabled).toHaveBeenCalledOnce();
+  expect(createDatSubscription).not.toHaveBeenCalled();
+});
+
+it('previews an uploaded first DAT without adding the system and imports the reviewed bytes', async () => {
+  offer(playStationOffer);
+  const file = new File(
+    [
+      'data',
+    ],
+    'catalog.dat',
+    {
+      type: 'text/xml',
+    },
+  );
+  const reviewedHash = 'c'.repeat(64);
+  vi.mocked(previewSystemDat).mockResolvedValue(
+    result({
+      name: playStationOffer.name,
+      bytes: file.size,
+      suggestedSystemKey: psx.key,
+      existingDatIds: [],
+      preview: {
+        candidateEntries: 1,
+        candidateFiles: 1,
+        candidateBiosEntries: 0,
+        candidateVersion: '1',
+        candidateSha256: reviewedHash,
+        filesAdded: 1,
+      },
+    }),
+  );
+  vi.mocked(importSystemDat).mockResolvedValue(
+    result({
+      jobId: 'job-1',
+    }),
+  );
+  vi.mocked(getJob).mockResolvedValue(
+    result({
+      id: 'job-1',
+      isTerminal: false,
+      phase: 'Validating',
+      progressPercent: '12',
+    }),
+  );
+  const user = userEvent.setup();
+  render(<AddSystemFlow onClose={vi.fn()} />);
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Choose PlayStation',
+    }),
+  );
+  await continueToDatOptions(user);
+  const upload = await screen.findByRole('button', {
+    name: 'Upload a DAT',
+  });
+  await user.click(upload);
+  const input = screen.getByTestId('dat-upload-zone').querySelector('input[type="file"]');
+  if (!input) throw new Error('Missing file input');
+  fireEvent.change(input, {
+    target: {
+      files: [
+        file,
+      ],
+    },
+  });
+  const importButton = await screen.findByRole('button', {
+    name: 'Import catalog',
+  });
+
+  expect(previewSystemDat).toHaveBeenCalledWith({
+    body: {
+      file,
+    },
+  });
+  expect(setSystemEnabled).not.toHaveBeenCalled();
+  expect(importSystemDat).not.toHaveBeenCalled();
+  await user.click(importButton);
+  expect(importSystemDat).toHaveBeenCalledWith({
+    path: {
+      systemKey: psx.key,
+    },
+    body: {
+      file,
+    },
+    query: {
+      sha256: reviewedHash,
+    },
+  });
+  expect(await screen.findByText('Processing your source')).toBeInTheDocument();
+});
+
+it('retries a reviewed custom DAT without recreating its system after a failed import request', async () => {
+  const user = userEvent.setup();
+  const file = new File(
+    [
+      'data',
+    ],
+    'homebrew.dat',
+    {
+      type: 'text/xml',
+    },
+  );
+  const sha256 = 'd'.repeat(64);
+  vi.mocked(previewSystemDat).mockResolvedValue(
+    result({
+      name: 'Homebrew',
+      bytes: file.size,
+      suggestedSystemKey: null,
+      existingDatIds: [],
+      preview: {
+        candidateEntries: 1,
+        candidateFiles: 1,
+        candidateBiosEntries: 0,
+        candidateVersion: '1',
+        candidateSha256: sha256,
+      },
+    }),
+  );
+  vi.mocked(createManagedSystem).mockResolvedValue(
+    result({
+      key: 'local-homebrew',
+    }),
+  );
+  vi.mocked(importSystemDat)
+    .mockRejectedValueOnce(new Error('Import request failed.'))
+    .mockResolvedValueOnce(
+      result({
+        jobId: 'job-1',
+      }),
+    );
+  vi.mocked(getJob).mockResolvedValue(
+    result({
+      id: 'job-1',
+      isTerminal: false,
+      phase: 'Validating',
+    }),
+  );
+  render(<AddSystemFlow onClose={vi.fn()} />);
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Custom system',
+    }),
+  );
+  await user.type(
+    screen.getByRole('textbox', {
+      name: 'Display name',
+    }),
+    'Homebrew',
+  );
+  const input = screen.getByTestId('dat-upload-zone').querySelector('input[type="file"]');
+  if (!input) throw new Error('Missing file input');
+  fireEvent.change(input, {
+    target: {
+      files: [
+        file,
+      ],
+    },
+  });
+  const confirm = await screen.findByRole('button', {
+    name: 'Add system and import DAT',
+  });
+  expect(createManagedSystem).not.toHaveBeenCalled();
+  expect(importSystemDat).not.toHaveBeenCalled();
+
+  await user.click(confirm);
+  expect(await screen.findByText('Import request failed.')).toBeVisible();
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Import catalog',
+    }),
+  );
+  expect(await screen.findByText('Processing your source')).toBeVisible();
+  expect(createManagedSystem).toHaveBeenCalledOnce();
+  expect(importSystemDat).toHaveBeenCalledTimes(2);
+  expect(importSystemDat).toHaveBeenLastCalledWith({
+    path: {
+      systemKey: 'local-homebrew',
+    },
+    body: {
+      file,
+    },
+    query: {
+      sha256,
+    },
+  });
 });

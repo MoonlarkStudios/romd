@@ -35,6 +35,7 @@
     <EmbeddedResource Include="MediaFacts/InspectionFacts.sql" LogicalName="Romd.MediaFacts.InspectionFacts.sql" />
     <EmbeddedResource Include="MediaFacts/Schema.sql" LogicalName="Romd.MediaFacts.Schema.sql" />
     <EmbeddedResource Include="../../reference-data/dist/reference-data.json" LogicalName="Romd.ReferenceData.json" />
+    <EmbeddedResource Include="../../reference-data/catalog/system-hardware.json" LogicalName="Romd.SystemHardware.json" />
     <EmbeddedResource Include="../../reference-data/assets/presentation/platforms/*.png" LogicalName="ReferenceAssets/platforms/%(Filename)%(Extension)" />
     <EmbeddedResource Include="../../reference-data/assets/presentation/ratings/**/*.svg" LogicalName="ReferenceAssets/ratings/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>

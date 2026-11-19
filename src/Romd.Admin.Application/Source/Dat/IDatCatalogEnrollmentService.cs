@@ -21,5 +21,6 @@ public interface IDatCatalogEnrollmentService
 
     Task<ErrorOr<DatReplacementPreview>> PreviewAsync(int id, CancellationToken ct);
     Task<ErrorOr<PagedList<DatEntryChange>>> ListChangesAsync(int id, DatChangePageRequest page, CancellationToken ct);
+    Task<ErrorOr<int>> CountChangesAsync(int id, DatChangePageRequest filters, CancellationToken ct);
     Task<ErrorOr<DatEntryChangeDetail>> GetChangeAsync(int id, string entryName, DatChangePageRequest page, CancellationToken ct);
 }

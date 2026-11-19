@@ -547,7 +547,8 @@ environment variables is not an account-recovery mechanism.
 
 The current schema starts at `20261031050000_FreshMediaBaseline` with the
 additive `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
-and `20261117000000_JobDispatchExpiryIndex` migrations (readiness version 75).
+`20261117000000_JobDispatchExpiryIndex` and `20261118000000_SystemHardwareMetadata`
+migrations (readiness version 76).
 The Saturn migration preserves PS1 observations and adds distinct Saturn
 fields. Deploy matching hosts worker-first so APIs observe the new readiness
 version.

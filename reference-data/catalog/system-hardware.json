@@ -1,0 +1,249 @@
+{
+  "2600": {
+    "category": "console",
+    "generation": 2,
+    "releaseYear": 1977
+  },
+  "32x": {
+    "category": "add-on",
+    "generation": 5,
+    "releaseYear": 1994
+  },
+  "3do": {
+    "category": "console",
+    "generation": 5,
+    "releaseYear": 1993
+  },
+  "3ds": {
+    "category": "handheld",
+    "generation": 8,
+    "releaseYear": 2011
+  },
+  "5200": {
+    "category": "console",
+    "generation": 2,
+    "releaseYear": 1982
+  },
+  "7800": {
+    "category": "console",
+    "generation": 3
+  },
+  "amiga": {
+    "category": "computer"
+  },
+  "arcade": {
+    "category": "arcade"
+  },
+  "atarist": {
+    "category": "computer"
+  },
+  "c64": {
+    "category": "computer"
+  },
+  "cdi": {
+    "category": "media-player"
+  },
+  "coleco": {
+    "category": "console",
+    "generation": 2,
+    "releaseYear": 1982
+  },
+  "dc": {
+    "category": "console",
+    "generation": 6,
+    "releaseYear": 1998
+  },
+  "dos": {
+    "category": "software"
+  },
+  "gb": {
+    "category": "handheld",
+    "generation": 4,
+    "releaseYear": 1989
+  },
+  "gba": {
+    "category": "handheld",
+    "generation": 6,
+    "releaseYear": 2001
+  },
+  "gbc": {
+    "category": "handheld",
+    "generation": 5,
+    "releaseYear": 1998
+  },
+  "gc": {
+    "category": "console",
+    "generation": 6,
+    "releaseYear": 2001
+  },
+  "genesis": {
+    "category": "console",
+    "generation": 4,
+    "releaseYear": 1988
+  },
+  "gg": {
+    "category": "handheld",
+    "generation": 4,
+    "releaseYear": 1990
+  },
+  "intv": {
+    "category": "console",
+    "generation": 2
+  },
+  "jaguar": {
+    "category": "console",
+    "generation": 5,
+    "releaseYear": 1993
+  },
+  "lynx": {
+    "category": "handheld",
+    "generation": 4
+  },
+  "msx": {
+    "category": "computer"
+  },
+  "n64": {
+    "category": "console",
+    "generation": 5,
+    "releaseYear": 1996
+  },
+  "nds": {
+    "category": "handheld",
+    "generation": 7,
+    "releaseYear": 2004
+  },
+  "neogeo": {
+    "category": "console",
+    "generation": 4
+  },
+  "neogeocd": {
+    "category": "console",
+    "generation": 4
+  },
+  "nes": {
+    "category": "console",
+    "generation": 3,
+    "releaseYear": 1983
+  },
+  "ngp": {
+    "category": "handheld"
+  },
+  "ngpc": {
+    "category": "handheld"
+  },
+  "ps2": {
+    "category": "console",
+    "generation": 6,
+    "releaseYear": 2000
+  },
+  "ps3": {
+    "category": "console",
+    "generation": 7,
+    "releaseYear": 2006
+  },
+  "ps4": {
+    "category": "console",
+    "generation": 8,
+    "releaseYear": 2013
+  },
+  "ps5": {
+    "category": "console",
+    "generation": 9,
+    "releaseYear": 2020
+  },
+  "psp": {
+    "category": "handheld",
+    "generation": 7,
+    "releaseYear": 2004
+  },
+  "psx": {
+    "category": "console",
+    "generation": 5,
+    "releaseYear": 1994
+  },
+  "saturn": {
+    "category": "console",
+    "generation": 5,
+    "releaseYear": 1994
+  },
+  "segacd": {
+    "category": "add-on",
+    "generation": 4,
+    "releaseYear": 1991
+  },
+  "sgx": {
+    "category": "console",
+    "generation": 4
+  },
+  "sms": {
+    "category": "console",
+    "generation": 3
+  },
+  "snes": {
+    "category": "console",
+    "generation": 4,
+    "releaseYear": 1990
+  },
+  "switch": {
+    "category": "hybrid",
+    "generation": 8,
+    "releaseYear": 2017
+  },
+  "tg16": {
+    "category": "console",
+    "generation": 4
+  },
+  "tgcd": {
+    "category": "add-on",
+    "generation": 4
+  },
+  "vb": {
+    "category": "console",
+    "generation": 5,
+    "releaseYear": 1995
+  },
+  "vita": {
+    "category": "handheld",
+    "generation": 8,
+    "releaseYear": 2011
+  },
+  "wii": {
+    "category": "console",
+    "generation": 7,
+    "releaseYear": 2006
+  },
+  "wiiu": {
+    "category": "console",
+    "generation": 8,
+    "releaseYear": 2012
+  },
+  "ws": {
+    "category": "handheld"
+  },
+  "wsc": {
+    "category": "handheld"
+  },
+  "x360": {
+    "category": "console",
+    "generation": 7,
+    "releaseYear": 2005
+  },
+  "xbox": {
+    "category": "console",
+    "generation": 6,
+    "releaseYear": 2001
+  },
+  "xone": {
+    "category": "console",
+    "generation": 8,
+    "releaseYear": 2013
+  },
+  "xsx": {
+    "category": "console",
+    "generation": 9,
+    "releaseYear": 2020
+  },
+  "zxs": {
+    "category": "computer"
+  }
+}

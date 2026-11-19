@@ -3,15 +3,18 @@ import type { Dat } from '@romd/admin-api-client';
 import { createDatSubscription } from '@romd/admin-api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { datKeys } from '../../hooks/api/useDats';
 import { managedSystemKeys } from '../../hooks/api/useManagedSystems';
 
 /** Subscribes this installed source to its publisher catalog; never binds by a system-wide guess. */
 export function DatSubscriptionCard({
   dat,
   catalogId,
+  compact = false,
 }: {
   dat: Pick<Dat, 'id'>;
   catalogId: string;
+  compact?: boolean;
 }) {
   const client = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -32,9 +35,14 @@ export function DatSubscriptionCard({
             'The subscription could not be connected. Your current catalog is unchanged. Try again shortly.',
         );
       // The source workspace renders the new subscription's review and update actions.
-      await client.invalidateQueries({
-        queryKey: managedSystemKeys.subscriptions,
-      });
+      await Promise.all([
+        client.invalidateQueries({
+          queryKey: managedSystemKeys.subscriptions,
+        }),
+        client.invalidateQueries({
+          queryKey: datKeys.all,
+        }),
+      ]);
       // Enrollment is idempotent on the catalog, so it can return a pending subscription without a source.
       if (response.data.activeDatId !== dat.id)
         setError(
@@ -46,30 +54,35 @@ export function DatSubscriptionCard({
       setBusy(false);
     }
   };
+  const action = (
+    <>
+      <Group>
+        <Button
+          variant="light"
+          size={compact ? 'compact-sm' : 'sm'}
+          loading={busy}
+          onClick={() => void subscribe()}
+        >
+          Connect subscription
+        </Button>
+      </Group>
+      {error && <Alert color="red">{error}</Alert>}
+    </>
+  );
+  if (compact) return action;
   return (
     <Paper
       withBorder
       p="md"
     >
       <Stack gap="sm">
-        <Text fw={600}>Connect a subscription</Text>
         <Text
           size="sm"
           c="dimmed"
         >
-          Use the compatible subscription catalog to update this source. ROMD checks daily, and
-          changes require review before activation.
+          ROMD checks for new DAT versions daily. You review each version before importing it.
         </Text>
-        {error && <Alert color="red">{error}</Alert>}
-        <Group>
-          <Button
-            variant="light"
-            loading={busy}
-            onClick={() => void subscribe()}
-          >
-            Use subscription
-          </Button>
-        </Group>
+        {action}
       </Stack>
     </Paper>
   );

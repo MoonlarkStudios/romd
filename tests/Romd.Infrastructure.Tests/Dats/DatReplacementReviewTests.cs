@@ -9,6 +9,7 @@ using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Dat.Parsing;
 using Romd.Dat.Parsing.Formats.Logiqx;
+using Romd.Domain.Hashing;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Dats;
 using Shouldly;
@@ -40,8 +41,106 @@ public sealed class DatReplacementReviewTests
     private void AssertReadOnly()
     {
         _repository.ReceivedCalls().ShouldAllBe(call => call.GetMethodInfo().Name == "GetByIdAsync"
-            || call.GetMethodInfo().Name == "GetActiveBySourceIdAsync");
+            || call.GetMethodInfo().Name == "GetActiveBySourceIdAsync"
+            || call.GetMethodInfo().Name == "GetReviewRomLinksAsync"
+            || call.GetMethodInfo().Name == "GetReviewTitleLinksAsync"
+            || call.GetMethodInfo().Name == "GetReviewStoredRomsAsync");
         _storage.ReceivedCalls().ShouldAllBe(call => call.GetMethodInfo().Name == "RetrieveByIdAsync");
+    }
+
+
+    [Fact]
+    public async Task PreviewWithImpactAsync_PredictsDeduplicatedCatalogMatchesAndPrioritizesAffectedEntries()
+    {
+        const string retained = "1111111111111111111111111111111111111111";
+        const string lost = "2222222222222222222222222222222222222222";
+        const string gained = "3333333333333333333333333333333333333333";
+        const string stable = "4444444444444444444444444444444444444444";
+        static string Rom(string name, string sha1, string crc = "11111111") =>
+            $"<game name='{name}'><rom name='file.bin' size='123' sha1='{sha1}' crc='{crc}' /></game>";
+
+        string original = Dat(Rom("Old name", retained) + Rom("Removed A", lost) + Rom("Removed B", lost) +
+            Rom("SHA-1 edit", retained) + Rom("CRC edit", stable));
+        string candidate = Dat(Rom("New name", retained) + Rom("SHA-1 edit", gained) + Rom("CRC edit", stable, "22222222") +
+            "<game name='Disc'><disk name='disc' sha1='2222222222222222222222222222222222222222'/></game>");
+        var service = Service(original);
+        _repository.GetReviewRomLinksAsync(0, Arg.Any<CancellationToken>()).Returns(
+        [
+            new("Old name", "file.bin", 1, Sha1.Parse(retained)),
+            new("Removed A", "file.bin", 2, Sha1.Parse(lost)),
+            new("Removed B", "file.bin", 2, Sha1.Parse(lost)),
+            new("SHA-1 edit", "file.bin", 1, Sha1.Parse(retained)),
+            new("CRC edit", "file.bin", 4, Sha1.Parse(stable))
+        ]);
+        _repository.GetReviewTitleLinksAsync(0, Arg.Any<CancellationToken>()).Returns(
+        [
+            new("Old name", 7, "Curated title", ReferencedByAnotherVersion: false, OtherSourceLinks: 0),
+            new("Removed B", 8, "Also linked", ReferencedByAnotherVersion: true, OtherSourceLinks: 2)
+        ]);
+        _repository.GetReviewStoredRomsAsync(Arg.Any<Sha1[]>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            var hashes = call.Arg<Sha1[]>();
+            DatReviewStoredRom[] stored = [new(1, Sha1.Parse(retained)), new(2, Sha1.Parse(lost)),
+                new(3, Sha1.Parse(gained)), new(4, Sha1.Parse(stable))];
+            return Task.FromResult<IReadOnlyList<DatReviewStoredRom>>(stored.Where(rom => hashes.Contains(rom.Sha1)).ToArray());
+        });
+
+        using var input = Stream(candidate);
+        var preview = (await service.PreviewWithImpactAsync(0, "Catalog", input, default)).Value;
+        preview.Impact.ShouldBe(new DatReviewImpact(4, 3, 1, 1, 1, 1, 1, 0, 1, 1));
+
+        using var list = Stream(candidate);
+        var page = (await service.ListChangesAsync(0, "Catalog", list,
+            Entries(preview.ActiveSha256, preview.CandidateSha256, "NeedsReview", limit: 2), default)).Value;
+        using var countCandidate = Stream(candidate);
+        var count = (await service.CountChangesAsync(0, "Catalog", countCandidate,
+            Entries(preview.ActiveSha256, preview.CandidateSha256, "NeedsReview"), default)).Value;
+        count.ShouldBe(4);
+        page.Items.Select(entry => entry.Name).ShouldBe(["Old name", "Removed A"]);
+        page.Items[0].Impact.ShouldNotBeNull().TitleLinkAtRisk.ShouldBeTrue();
+        page.Items[0].Impact!.TitleId.ShouldBe(7);
+        page.Items[0].Impact!.TitleOtherSourceLinks.ShouldBe(0);
+
+        using var entry = Stream(candidate);
+        var detail = (await service.GetEntryChangeAsync(0, "Catalog", entry, "SHA-1 edit",
+            Files(preview.ActiveSha256, preview.CandidateSha256, "SHA-1 edit"), default)).Value;
+        detail.Files.Items.Single().Impact.ShouldBe(new DatFileReviewImpact(true, true, false, true));
+        detail.Files.Items.Single().Fields.ShouldContain(field => field.Field == "Crc" && field.Before == field.After);
+        AssertReadOnly();
+    }
+
+
+    [Theory]
+    [InlineData(false, 0, 0)]
+    [InlineData(false, 1, 1)]
+    [InlineData(true, 0, 1)]
+    public async Task GetEntryChangeAsync_ProjectsOtherTitleLinksAcrossTheWholeUpdate(
+        bool keepOtherEdition, int externalLinks, int expectedRemainingLinks)
+    {
+        string original = Dat(Entry("Edition A") + Entry("Edition B") + Entry("Another title"));
+        string candidate = Dat(Entry("Another title") + (keepOtherEdition ? Entry("Edition B") : ""));
+        var service = Service(original);
+        _repository.GetReviewTitleLinksAsync(0, Arg.Any<CancellationToken>()).Returns(
+        [
+            new("Edition A", 7, "Title", ReferencedByAnotherVersion: false, OtherSourceLinks: 1 + externalLinks),
+            new("Edition B", 7, "Title", ReferencedByAnotherVersion: false, OtherSourceLinks: 1 + externalLinks)
+        ]);
+
+        using var input = Stream(candidate);
+        var preview = (await service.PreviewWithImpactAsync(0, "Catalog", input, default)).Value;
+        preview.Impact.ShouldNotBeNull().RemovedWithTitleLinks.ShouldBe(keepOtherEdition ? 1 : 2);
+        preview.Changes.ShouldAllBe(entry => entry.Impact!.TitleOtherSourceLinks == expectedRemainingLinks);
+
+        using var entries = Stream(candidate);
+        var page = (await service.ListChangesAsync(0, "Catalog", entries,
+            Entries(preview.ActiveSha256, preview.CandidateSha256, "RemovedLinked", limit: 1), default)).Value;
+        page.Items.Single().Impact.ShouldNotBeNull().TitleOtherSourceLinks.ShouldBe(expectedRemainingLinks);
+
+        using var entry = Stream(candidate);
+        var detail = (await service.GetEntryChangeAsync(0, "Catalog", entry, "Edition A",
+            Files(preview.ActiveSha256, preview.CandidateSha256, "Edition A"), default)).Value;
+        detail.Impact.ShouldNotBeNull().TitleOtherSourceLinks.ShouldBe(expectedRemainingLinks);
+        AssertReadOnly();
     }
 
     [Fact]

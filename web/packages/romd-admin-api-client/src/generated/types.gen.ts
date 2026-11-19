@@ -465,6 +465,20 @@ export type CreateLibraryRequest = {
     isDefault?: boolean;
 };
 
+export type CreateManagedSystemRequest = {
+    key: string;
+    name: string;
+    compactLabel: string;
+    description?: null | string;
+    icon?: null | string;
+    monochrome?: boolean;
+    manufacturerKeys?: null | Array<string>;
+    category?: null | string;
+    generation?: null | number;
+    releaseYear?: null | number;
+    nameAliases?: null | Array<string>;
+};
+
 export type CreateSystem = {
     key: string;
     name: string;
@@ -513,6 +527,7 @@ export type Dat = {
     catalogSourceId: string;
     lifecycle: DatLifecycle;
     sourceStatus: SourceLifecycleStatus;
+    hasSubscription?: boolean;
     sourceFile?: null | StoredFileRef;
 };
 
@@ -538,6 +553,10 @@ export type DatCatalogSubscription = {
     automaticChecksPaused?: boolean;
 };
 
+export type DatChangeCount = {
+    total: number;
+};
+
 export type DatDisk = {
     id: string;
     gameId: string;
@@ -554,6 +573,7 @@ export type DatEntryChange = {
     filesAdded: number;
     filesRemoved: number;
     filesChanged: number;
+    impact?: null | DatEntryReviewImpact;
 };
 
 export type DatEntryChangeDetail = {
@@ -564,6 +584,21 @@ export type DatEntryChangeDetail = {
     files: PageOfDatFileChange;
     activeSha256: string;
     candidateSha256: string;
+    impact?: null | DatEntryReviewImpact;
+};
+
+export type DatEntryReviewImpact = {
+    storedRoms: number;
+    lostRomMatches: number;
+    newRomMatches: number;
+    titleLink: null | string;
+    titleLinkAtRisk: boolean;
+    sha1ChangedFiles: number;
+    metadataOnly: boolean;
+    otherChecksumOnly: boolean;
+    needsReview: boolean;
+    titleId: null | string;
+    titleOtherSourceLinks: number;
 };
 
 export type DatFieldChange = {
@@ -578,6 +613,14 @@ export type DatFileChange = {
     change: string;
     checksumsChanged: boolean;
     fields: Array<DatFieldChange>;
+    impact?: null | DatFileReviewImpact;
+};
+
+export type DatFileReviewImpact = {
+    storedBefore: boolean;
+    storedAfter: boolean;
+    losesCatalogMatch: boolean;
+    gainsCatalogMatch: boolean;
 };
 
 export type DatGame = {
@@ -617,6 +660,20 @@ export type DatReplacementPreview = {
     truncated: boolean;
     activeFiles?: number;
     candidateFiles?: number;
+    impact?: null | DatReviewImpact;
+};
+
+export type DatReviewImpact = {
+    needsReviewEntries: number;
+    removedWithStoredRoms: number;
+    removedWithTitleLinks: number;
+    lostRomMatches: number;
+    newRomMatches: number;
+    sha1ChangedEntries: number;
+    sha1ChangedFiles: number;
+    metadataOnlyEntries: number;
+    otherChecksumOnlyEntries: number;
+    diskChangedEntries: number;
 };
 
 export type DatRom = {
@@ -1299,6 +1356,29 @@ export type ManagedSystem = {
     catalogCount: number;
     ownedTitles: number;
     trackedTitles?: number;
+    knownTitles?: number;
+    lastDatImportedAt?: null | string;
+};
+
+export type ManagedSystemHardware = {
+    category: null | string;
+    generation: null | number;
+    releaseYear: null | number;
+};
+
+export type ManagedSystemPatch = {
+    category?: null | string;
+    generation?: null | number;
+    releaseYear?: null | number;
+    manufacturerKeys?: Array<string>;
+    nameAliases?: Array<string>;
+    name?: string;
+    description?: null | string;
+};
+
+export type ManagedSystemSetupDetails = {
+    system: SystemResource;
+    hardware: null | ManagedSystemHardware;
 };
 
 export type MediaReconciliationPolicy = {
@@ -1779,6 +1859,7 @@ export type PlatformAlias = {
     type: string;
     provider?: null | string;
     value: string;
+    ownership: string;
 };
 
 export type PlatformAssignment = {
@@ -1806,6 +1887,10 @@ export type PlatformMetadataPolicy = {
 
 export type PreviewArtworkRequest = {
     candidateReference: string;
+};
+
+export type PreviewSystemNameAliasesRequest = {
+    nameAliases: Array<string>;
 };
 
 export type ProblemDetails = {
@@ -2298,6 +2383,12 @@ export type SystemHealth = {
     routedCount: number;
     unroutedCount: number;
     failedJobCount: number;
+};
+
+export type SystemNameAliasConflict = {
+    alias: string;
+    systemName: string;
+    builtIn: boolean;
 };
 
 export type SystemOverrides = {
@@ -5569,6 +5660,51 @@ export type ListDatReplacementChangesResponses = {
 
 export type ListDatReplacementChangesResponse = ListDatReplacementChangesResponses[keyof ListDatReplacementChangesResponses];
 
+export type PreviewDatReplacementChangeCountData = {
+    body: {
+        file?: IFormFile;
+    } & {
+        activeSha256: string;
+    } & {
+        candidateSha256: string;
+    } & {
+        change?: string;
+    } & {
+        query?: string;
+    };
+    path: {
+        datId: string;
+    };
+    query?: never;
+    url: '/api/dats/{datId}/replacements/change-count/preview';
+};
+
+export type PreviewDatReplacementChangeCountErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type PreviewDatReplacementChangeCountError = PreviewDatReplacementChangeCountErrors[keyof PreviewDatReplacementChangeCountErrors];
+
+export type PreviewDatReplacementChangeCountResponses = {
+    /**
+     * OK
+     */
+    200: DatChangeCount;
+};
+
+export type PreviewDatReplacementChangeCountResponse = PreviewDatReplacementChangeCountResponses[keyof PreviewDatReplacementChangeCountResponses];
+
 export type GetDatReplacementChangeData = {
     body: {
         file?: IFormFile;
@@ -6067,6 +6203,10 @@ export type DeleteSystemAliasErrors = {
      * Not Found
      */
     404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
 };
 
 export type DeleteSystemAliasError = DeleteSystemAliasErrors[keyof DeleteSystemAliasErrors];
@@ -6247,6 +6387,117 @@ export type ListManagedSystemsResponses = {
 
 export type ListManagedSystemsResponse = ListManagedSystemsResponses[keyof ListManagedSystemsResponses];
 
+export type CreateManagedSystemData = {
+    body: CreateManagedSystemRequest;
+    path?: never;
+    query?: never;
+    url: '/api/system-setup';
+};
+
+export type CreateManagedSystemErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type CreateManagedSystemError = CreateManagedSystemErrors[keyof CreateManagedSystemErrors];
+
+export type CreateManagedSystemResponses = {
+    /**
+     * Created
+     */
+    201: SystemResource;
+};
+
+export type CreateManagedSystemResponse = CreateManagedSystemResponses[keyof CreateManagedSystemResponses];
+
+export type GetManagedSystemDetailsData = {
+    body?: never;
+    path: {
+        systemKey: string;
+    };
+    query?: never;
+    url: '/api/system-setup/{systemKey}';
+};
+
+export type GetManagedSystemDetailsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type GetManagedSystemDetailsError = GetManagedSystemDetailsErrors[keyof GetManagedSystemDetailsErrors];
+
+export type GetManagedSystemDetailsResponses = {
+    /**
+     * OK
+     */
+    200: ManagedSystemSetupDetails;
+};
+
+export type GetManagedSystemDetailsResponse = GetManagedSystemDetailsResponses[keyof GetManagedSystemDetailsResponses];
+
+export type UpdateManagedSystemPresentationData = {
+    body: ManagedSystemPatch;
+    headers: {
+        /**
+         * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.
+         */
+        'If-Match': string;
+    };
+    path: {
+        systemKey: string;
+    };
+    query?: {
+        enableForSetup?: boolean;
+    };
+    url: '/api/system-setup/{systemKey}';
+};
+
+export type UpdateManagedSystemPresentationErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+    /**
+     * Precondition Failed
+     */
+    412: ProblemDetails;
+    /**
+     * Precondition Required
+     */
+    428: ProblemDetails;
+};
+
+export type UpdateManagedSystemPresentationError = UpdateManagedSystemPresentationErrors[keyof UpdateManagedSystemPresentationErrors];
+
+export type UpdateManagedSystemPresentationResponses = {
+    /**
+     * OK
+     */
+    200: SystemResource;
+};
+
+export type UpdateManagedSystemPresentationResponse = UpdateManagedSystemPresentationResponses[keyof UpdateManagedSystemPresentationResponses];
+
 export type SetSystemEnabledData = {
     body: SetSystemEnabled;
     path: {
@@ -6277,6 +6528,31 @@ export type SetSystemEnabledResponses = {
 };
 
 export type SetSystemEnabledResponse = SetSystemEnabledResponses[keyof SetSystemEnabledResponses];
+
+export type PreviewSystemNameAliasesData = {
+    body: PreviewSystemNameAliasesRequest;
+    path?: never;
+    query?: never;
+    url: '/api/system-setup/name-aliases/preview';
+};
+
+export type PreviewSystemNameAliasesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type PreviewSystemNameAliasesError = PreviewSystemNameAliasesErrors[keyof PreviewSystemNameAliasesErrors];
+
+export type PreviewSystemNameAliasesResponses = {
+    /**
+     * OK
+     */
+    200: Array<SystemNameAliasConflict>;
+};
+
+export type PreviewSystemNameAliasesResponse = PreviewSystemNameAliasesResponses[keyof PreviewSystemNameAliasesResponses];
 
 export type PreviewSystemDatData = {
     body: {
@@ -8372,6 +8648,46 @@ export type ListDatSubscriptionChangesResponses = {
 };
 
 export type ListDatSubscriptionChangesResponse = ListDatSubscriptionChangesResponses[keyof ListDatSubscriptionChangesResponses];
+
+export type GetDatSubscriptionChangeCountData = {
+    body?: never;
+    path: {
+        subscriptionId: string;
+    };
+    query: {
+        activeSha256: string;
+        candidateSha256: string;
+        change?: string;
+        query?: string;
+    };
+    url: '/api/dat-subscriptions/{subscriptionId}/change-count';
+};
+
+export type GetDatSubscriptionChangeCountErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type GetDatSubscriptionChangeCountError = GetDatSubscriptionChangeCountErrors[keyof GetDatSubscriptionChangeCountErrors];
+
+export type GetDatSubscriptionChangeCountResponses = {
+    /**
+     * OK
+     */
+    200: DatChangeCount;
+};
+
+export type GetDatSubscriptionChangeCountResponse = GetDatSubscriptionChangeCountResponses[keyof GetDatSubscriptionChangeCountResponses];
 
 export type GetDatSubscriptionChangeData = {
     body?: never;

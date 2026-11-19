@@ -11,6 +11,10 @@ public interface IDatRepository
     Task<ErrorOr<PagedList<DatWithSize>>> GetPageAsync(int? platformId, bool? unrouted, string? query, string? cursor, int limit, CancellationToken ct);
     Task<ErrorOr<PagedList<DatWithSourceStatus>>> GetSystemPageAsync(int platformId, string? query, string? cursor, int limit, CancellationToken ct);
 
+    Task<IReadOnlyList<DatReviewRomLink>> GetReviewRomLinksAsync(int datId, CancellationToken ct);
+    Task<IReadOnlyList<DatReviewTitleLink>> GetReviewTitleLinksAsync(int datId, CancellationToken ct);
+    Task<IReadOnlyList<DatReviewStoredRom>> GetReviewStoredRomsAsync(Sha1[] candidateHashes, CancellationToken ct);
+
     Task<DatFile?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
     /// <summary>

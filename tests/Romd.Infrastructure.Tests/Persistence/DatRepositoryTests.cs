@@ -7,6 +7,7 @@ using Romd.Admin.Application.Source.Dat;
 using Romd.Application.Common.Systems;
 using Romd.Domain.Catalog;
 using Romd.Domain.Hashing;
+using Romd.Domain.Jobs;
 using Romd.Domain.Source.Dat;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
@@ -75,6 +76,63 @@ public sealed partial class DatRepositoryTests : IDisposable
         unrouted.Value.Items.Single(item => item.Dat.Id == 1).MatchedRomFileCount.ShouldBe(1);
         (await repository.GetUnroutedAsync()).Single(item => item.Dat.Id == 1)
             .ToContract(keys).MatchedRomFileCount.ShouldBe(1);
+    }
+
+
+    [Fact]
+    public async Task DatReviewReads_FindInstalledAndIncomingRomMatchesWithoutWriting()
+    {
+        using var db = CreateDb();
+        await SeedRomLinkDataAsync(db);
+        var repository = new DatRepository(db, TimeProvider.System);
+        await repository.LinkDatRomsToRomFileAsync(NewSha1(1), 1);
+        db.ChangeTracker.Clear();
+
+        var installed = await repository.GetReviewRomLinksAsync(1, default);
+        var incoming = await repository.GetReviewStoredRomsAsync([NewSha1(1), NewSha1(2)], default);
+        var titles = await repository.GetReviewTitleLinksAsync(1, default);
+
+        installed.Single().RomId.ShouldBe(1);
+        installed.Single().Sha1.ShouldBe(NewSha1(1));
+        incoming.ShouldBe([new DatReviewStoredRom(1, NewSha1(1))]);
+        titles.ShouldBeEmpty();
+        db.ChangeTracker.HasChanges().ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task GetReviewTitleLinksAsync_CountsTheTitlesLinksThroughOtherEntries()
+    {
+        using var db = CreateDb();
+        await SeedRomLinkDataAsync(db);
+        var now = DateTimeOffset.UtcNow;
+        db.Titles.Add(new TitleEntity
+        {
+            Id = 1,
+            PlatformId = 1,
+            Name = "Matched",
+            NormalizedName = "matched",
+            EnrichmentStatus = "None",
+            CreatedAt = now
+        });
+        db.SourceEntries.Add(new SourceEntryEntity
+        {
+            Id = 2,
+            CatalogSourceId = 1,
+            EntryKey = "Matched Game (Rev 1)",
+            Name = "Matched Game (Rev 1)",
+            PlatformId = 1,
+            CreatedAt = now
+        });
+        db.TitleSourceLinks.AddRange(
+            new TitleSourceLinkEntity { TitleId = 1, SourceEntryId = 1, CreatedAt = now },
+            new TitleSourceLinkEntity { TitleId = 1, SourceEntryId = 2, CreatedAt = now });
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+        var repository = new DatRepository(db, TimeProvider.System);
+
+        var titles = await repository.GetReviewTitleLinksAsync(1, default);
+
+        titles.ShouldBe([new DatReviewTitleLink("Matched Game", 1, "Matched", false, 1)]);
     }
 
     [Fact]
@@ -309,6 +367,54 @@ public sealed partial class DatRepositoryTests : IDisposable
         results.Single(r => r.Dat.Id == 7).CatalogSourceId.ShouldBe(107);
         results.Single(r => r.Dat.Id == 8).SourceStatus.ShouldBe(CatalogSourceStatus.Disabled);
         results.Single(r => r.Dat.Id == 8).CatalogSourceId.ShouldBe(108);
+    }
+
+    [Fact]
+    public async Task GetSystemPageAsync_SubscriptionBoundToOneSource_DistinguishesUpdateMethods()
+    {
+        using var db = CreateDb();
+        await SeedPlatformAsync(db, platformId: 3);
+        await SeedDatWithFileAsync(db, datId: 7, fileId: 5, size: 10, sizeOnDisk: 10, platformId: 3);
+        await SeedDatWithFileAsync(db, datId: 8, fileId: 6, size: 10, sizeOnDisk: 10, platformId: 3);
+        db.DatSubscriptions.Add(new DatSubscriptionEntity { CatalogId = "no-intro/snes", DatSourceId = 7, State = "NotChecked" });
+        await db.SaveChangesAsync();
+        var repository = new DatRepository(db, TimeProvider.System);
+
+        var page = await repository.GetSystemPageAsync(3, null, null, 50, CancellationToken.None);
+
+        page.IsError.ShouldBeFalse();
+        page.Value.Items.Single(item => item.Dat.Id == 7).HasSubscription.ShouldBeTrue();
+        page.Value.Items.Single(item => item.Dat.Id == 8).HasSubscription.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("Pending", false)]
+    [InlineData("Completed", true)]
+    public async Task GetSystemPageAsync_FirstImportWithoutSourceBinding_UsesExactDocumentAfterJobFinishes(
+        string phase, bool expected)
+    {
+        using var db = CreateDb();
+        await SeedPlatformAsync(db, platformId: 3);
+        await SeedDatWithFileAsync(db, datId: 7, fileId: 5, size: 10, sizeOnDisk: 10, platformId: 3);
+        await SeedDatWithFileAsync(db, datId: 8, fileId: 6, size: 10, sizeOnDisk: 10, platformId: 3);
+        var job = UploadJobEntity.FromDomain(UploadJob.Create("first.dat", DateTimeOffset.UtcNow, 3));
+        job.Phase = phase;
+        db.Jobs.Add(job);
+        db.DatSubscriptions.Add(new DatSubscriptionEntity
+        {
+            CatalogId = "no-intro/snes",
+            PlatformId = 3,
+            CandidateFileId = 5,
+            JobId = job.Id,
+            State = "Applying"
+        });
+        await db.SaveChangesAsync();
+
+        var page = await new DatRepository(db, TimeProvider.System).GetSystemPageAsync(3, null, null, 50, CancellationToken.None);
+
+        page.IsError.ShouldBeFalse();
+        page.Value.Items.Single(item => item.Dat.Id == 7).HasSubscription.ShouldBe(expected);
+        page.Value.Items.Single(item => item.Dat.Id == 8).HasSubscription.ShouldBeFalse();
     }
 
     [Fact]

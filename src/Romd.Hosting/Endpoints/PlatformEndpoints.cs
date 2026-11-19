@@ -54,8 +54,8 @@ public static class PlatformEndpoints
 
         group.MapDelete("{systemKey}/aliases/{aliasId}", RemoveAlias)
             .WithName("DeleteSystemAlias")
-            .WithDescription("Remove an alias from a platform")
-            .Produces(StatusCodes.Status204NoContent).ProducesProblems(400, 404)
+            .WithDescription("Remove an installation-owned alias from its platform.")
+            .Produces(StatusCodes.Status204NoContent).ProducesProblems(400, 404, 409)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
 

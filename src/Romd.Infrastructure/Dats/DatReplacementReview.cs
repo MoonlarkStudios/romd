@@ -35,7 +35,7 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
     private const int MaximumEntries = 100_000;
     private const int MaximumFiles = 500_000;
     private const int SampleLimit = 50;
-    private sealed record FileFact(string Content, string Hashes);
+    private sealed record FileFact(string Content, string Hashes, string? Sha1);
     private sealed record Entry(bool Bios, string Metadata, Dictionary<string, FileFact> Files);
     private sealed record Document(byte[] Bytes, string Hash, string Name, string? Version, Dictionary<string, Entry> Entries);
     private sealed record ReviewedDocuments(Document Active, Document Candidate, DatReplacementFacts Facts)
@@ -49,8 +49,9 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
         try
         {
             var document = await ParseAsync(candidate, ct);
+            var empty = EmptyBaseline(document.Name);
             return new DatDocumentInspection(document.Name, document.Bytes.Length,
-                Compare(new Document([], "", document.Name, null, []), document));
+                Compare(empty, document, EntryChanges(empty, document, ct)));
         }
         catch (Exception ex) when (ex is InvalidDocumentException or XmlException)
         {
@@ -62,12 +63,11 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
     {
         try
         {
-            var document = await ParseAsync(candidate, ct);
-            if (!string.Equals(document.Name, expectedName, StringComparison.Ordinal))
-                return Error.Validation("DatReview.Identity", "This document does not match the selected catalog.");
-            // Empty identity denotes the explicit absence of an installed catalog;
-            // it is never accepted by the replacement activation path.
-            return Compare(new Document([], "", expectedName, null, []), document);
+            var document = await ReadInitialAsync(expectedName, candidate, ct);
+            if (document.IsError)
+                return document.Errors;
+            var (before, after) = document.Value;
+            return Compare(before, after, EntryChanges(before, after, ct));
         }
         catch (Exception ex) when (ex is InvalidDocumentException or XmlException)
         {
@@ -75,10 +75,22 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
         }
     }
 
+    private static Document EmptyBaseline(string name) => new([], "", name, null, []);
+
+    private async Task<ErrorOr<(Document Before, Document After)>> ReadInitialAsync(string expectedName, Stream candidate,
+        CancellationToken ct)
+    {
+        var document = await ParseAsync(candidate, ct);
+        if (!string.Equals(document.Name, expectedName, StringComparison.Ordinal))
+            return Error.Validation("DatReview.Identity", "This document does not match the selected catalog.");
+        return (EmptyBaseline(expectedName), document);
+    }
+
     public async Task<ErrorOr<DatReplacementPreview>> PreviewAsync(int datId, Stream candidate, CancellationToken ct)
     {
         var pair = await ReadAsync(datId, candidate, ct);
-        return pair.IsError ? pair.Errors : Compare(pair.Value.Active, pair.Value.Candidate);
+        return pair.IsError ? pair.Errors : Compare(pair.Value.Active, pair.Value.Candidate,
+            EntryChanges(pair.Value.Active, pair.Value.Candidate, ct));
     }
 
     public async Task<ErrorOr<IPreparedDatReplacement>> PrepareAsync(int datId, Stream candidate,
@@ -192,11 +204,11 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
                     fields["Size"] = null;
                     facts = fields.ToJsonString();
                 }
-                if (!files.TryAdd("rom:" + rom.Name, new(facts, JsonSerializer.Serialize(new { rom.Crc, rom.Md5, rom.Sha1 }))))
+                if (!files.TryAdd("rom:" + rom.Name, new(facts, JsonSerializer.Serialize(new { rom.Crc, rom.Md5, rom.Sha1 }), rom.Sha1)))
                     throw new InvalidDocumentException("Duplicate file names within an entry cannot be reviewed safely.");
             }
             foreach (var disk in game.Disks)
-                if (!files.TryAdd("disk:" + disk.Name, new(JsonSerializer.Serialize(disk), JsonSerializer.Serialize(new { disk.Md5, disk.Sha1 }))))
+                if (!files.TryAdd("disk:" + disk.Name, new(JsonSerializer.Serialize(disk), JsonSerializer.Serialize(new { disk.Md5, disk.Sha1 }), disk.Sha1)))
                     throw new InvalidDocumentException("Duplicate disk names within an entry cannot be reviewed safely.");
             fileCount += files.Count;
             if (entries.Count >= MaximumEntries || fileCount > MaximumFiles)
@@ -280,11 +292,11 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
         return (entries, files, unknownSizes);
     }
 
-    private static DatReplacementPreview Compare(Document before, Document after)
+    private static DatReplacementPreview Compare(Document before, Document after, IEnumerable<DatEntryChange> changes)
     {
         int added = 0, removed = 0, changed = 0, fa = 0, fr = 0, fc = 0, hashes = 0;
         var samples = new List<DatEntryChange>();
-        foreach (var item in EntryChanges(before, after, CancellationToken.None))
+        foreach (var item in changes)
         {
             if (item.Change == "Added")
                 added++;

@@ -1,6 +1,7 @@
 {
   "2600": {
     "name": "Atari 2600",
+    "description": "The Atari 2600 went on sale as the Video Computer System, a home console that could switch games by swapping cartridges. A joystick suited games such as Adventure, while paddle controllers gave games such as Breakout a dial for precise movement. Cartridge releases can carry either the Atari VCS or Atari 2600 name.",
     "manufacturerIds": [
       "atari"
     ],
@@ -15,6 +16,7 @@
   },
   "32x": {
     "name": "Sega 32X",
+    "description": "The Sega 32X plugged into the cartridge slot of a Genesis or Mega Drive and added hardware for more detailed graphics. Most releases came on dedicated 32X cartridges. A small group of Sega CD 32X releases used discs and required both expansions on the same console.",
     "manufacturerIds": [
       "sega"
     ],
@@ -29,6 +31,7 @@
   },
   "3do": {
     "name": "3DO Interactive Multiplayer",
+    "description": "The 3DO Company designed a platform that other manufacturers could license, so the hardware appeared under names such as Panasonic, GoldStar, and Sanyo. Their players came in different case designs and loaded games from CDs. A game labeled for one manufacturer's player generally belongs to the same 3DO platform.",
     "manufacturerIds": [
       "panasonic"
     ],
@@ -43,6 +46,7 @@
   },
   "3ds": {
     "name": "Nintendo 3DS",
+    "description": "The Nintendo 3DS kept the DS family’s two-screen layout and added stereoscopic 3D on the upper screen of compatible models. The 2DS and New 2DS XL run 3DS software with a flat image. A few titles require the faster hardware introduced with New Nintendo 3DS models.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -57,6 +61,7 @@
   },
   "5200": {
     "name": "Atari 5200",
+    "description": "Atari adapted technology from its 400 and 800 computers for the 5200 SuperSystem, a console with its own cartridges. Its standard controller paired an analog stick with a numeric keypad, and games could use printed overlays to label the buttons. Several releases were home versions of Atari arcade games.",
     "manufacturerIds": [
       "atari"
     ],
@@ -71,6 +76,7 @@
   },
   "7800": {
     "name": "Atari 7800",
+    "description": "The Atari 7800 ProSystem used its own cartridges for games such as the home versions of Joust and Food Fight. Atari also designed the console to play most Atari 2600 cartridges directly. The two systems consequently share some familiar game names across distinct cartridge releases.",
     "manufacturerIds": [
       "atari"
     ],
@@ -85,6 +91,7 @@
   },
   "amiga": {
     "name": "Amiga",
+    "description": "Commodore’s Amiga family used dedicated chips for graphics and sound, which gave developers room to make games with smooth scrolling and sampled audio. Floppy disks were a common way to start a game. Later machines such as the Amiga 1200 added capabilities that some software requires.",
     "manufacturerIds": [
       "commodore"
     ],
@@ -99,6 +106,7 @@
   },
   "arcade": {
     "name": "Arcade",
+    "description": "Arcade games originally ran on dedicated boards or modular hardware installed in coin-operated cabinets. A single title can have several releases for different regions or board revisions, sometimes with different controls or game rules. Arcade DATs group and identify those releases according to the source’s own set definitions.",
     "manufacturerIds": [],
     "aliases": [],
     "providerMappings": {
@@ -111,6 +119,7 @@
   },
   "atarist": {
     "name": "Atari ST",
+    "description": "The Atari ST family included home computers such as the 520ST and 1040ST. Built-in MIDI ports made the machines useful for music production, while games commonly shipped on floppy disks and used a mouse or joystick. Later ST models varied in memory and video capabilities, which can affect software compatibility.",
     "manufacturerIds": [
       "atari"
     ],
@@ -125,6 +134,7 @@
   },
   "c64": {
     "name": "Commodore 64",
+    "description": "The Commodore 64 used its SID sound chip for the music and effects heard in many of its games. Software shipped on cassettes, floppy disks, and cartridges, sometimes with several editions of the same title. The restyled Commodore 64C belongs to the same computer family and uses the same software formats.",
     "manufacturerIds": [
       "commodore"
     ],
@@ -139,6 +149,7 @@
   },
   "cdi": {
     "name": "Philips CD-i",
+    "description": "Philips CD-i players ran interactive software from optical discs. The catalog included games, educational programs, and multimedia titles designed for use with a television and a controller or remote. Some video-heavy titles required the Digital Video Cartridge, an expansion that gave compatible players hardware for decoding video.",
     "manufacturerIds": [
       "philips"
     ],
@@ -153,6 +164,7 @@
   },
   "coleco": {
     "name": "ColecoVision",
+    "description": "ColecoVision brought home versions of arcade games such as Donkey Kong to a cartridge console. Its controllers combined a joystick, side buttons, and a numeric keypad. Some cartridges came with overlays that slid over the keypad to show what each button did in that game.",
     "manufacturerIds": [
       "coleco"
     ],
@@ -167,6 +179,7 @@
   },
   "dc": {
     "name": "Sega Dreamcast",
+    "description": "The Dreamcast was Sega’s last home console. Its games usually shipped on GD-ROM discs, and an included modem enabled online play in supported titles. The controller accepted a Visual Memory Unit for saves, and some games used the unit’s small screen to show extra information or run minigames.",
     "manufacturerIds": [
       "sega"
     ],
@@ -181,6 +194,7 @@
   },
   "dos": {
     "name": "DOS",
+    "description": "DOS covers games written for MS-DOS, PC DOS, and compatible operating systems on IBM-style PCs. Releases were distributed on media including floppy disks and CD-ROMs. The same game could offer several graphics or sound options during setup, depending on the hardware installed in the machine.",
     "manufacturerIds": [
       "ibm"
     ],
@@ -195,6 +209,7 @@
   },
   "gb": {
     "name": "Game Boy",
+    "description": "Nintendo’s original Game Boy ran cartridges on a monochrome screen and could connect to a second handheld with a link cable. Games such as Tetris used the cable for head-to-head play, while Pokémon used it for trading and battles. The smaller Game Boy Pocket ran the same cartridges.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -209,6 +224,7 @@
   },
   "gba": {
     "name": "Game Boy Advance",
+    "description": "The Game Boy Advance introduced wider color graphics and a new cartridge shape. Its native games run across the original handheld, the folding Game Boy Advance SP, and the compact Game Boy Micro. The first two models can also run older Game Boy and Game Boy Color cartridges.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -225,6 +241,7 @@
   },
   "gbc": {
     "name": "Game Boy Color",
+    "description": "The Game Boy Color added a color LCD to Nintendo’s handheld line. It can apply simple palettes to monochrome Game Boy titles and display the full colors built into newer releases. Cartridge compatibility varies by game, with some color titles also playable on an original Game Boy.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -241,6 +258,7 @@
   },
   "gc": {
     "name": "Nintendo GameCube",
+    "description": "The GameCube used small optical discs and removable memory cards for saves. Four controller ports made local multiplayer available without a separate adapter, and some games could link to a Game Boy Advance for extra controls or a second screen. Its discs have a distinct format from the full-size Wii discs that followed.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -257,6 +275,7 @@
   },
   "genesis": {
     "name": "Sega Genesis",
+    "description": "Sega sold this cartridge console as the Genesis in North America and the Mega Drive in much of the rest of the world. Its library includes several regional editions of familiar games. Sega CD and 32X releases use expansion hardware with their own game formats, even when the packaging also carries the Genesis or Mega Drive name.",
     "manufacturerIds": [
       "sega"
     ],
@@ -274,6 +293,7 @@
   },
   "gg": {
     "name": "Sega Game Gear",
+    "description": "The Game Gear brought Sega cartridge games to a handheld with a backlit color screen. Its library includes portable versions of familiar Sega series such as Sonic and Columns. The hardware shared roots with the Master System and could run compatible Master System cartridges through a separately sold adapter.",
     "manufacturerIds": [
       "sega"
     ],
@@ -288,6 +308,7 @@
   },
   "intv": {
     "name": "Intellivision",
+    "description": "Mattel’s Intellivision used controllers with a circular directional disc, side buttons, and a numeric keypad. Many games included overlays that labeled the keypad for actions specific to that cartridge, especially sports and strategy titles. The smaller Intellivision II was a hardware revision in the same console family.",
     "manufacturerIds": [
       "mattel"
     ],
@@ -302,6 +323,7 @@
   },
   "jaguar": {
     "name": "Atari Jaguar",
+    "description": "Atari’s Jaguar used cartridges and a controller with a numeric keypad beneath the main buttons. Some games included an overlay for actions such as switching weapons or changing views. The optional Jaguar CD added a separate disc library while leaving the original cartridge slot available.",
     "manufacturerIds": [
       "atari"
     ],
@@ -316,6 +338,7 @@
   },
   "lynx": {
     "name": "Atari Lynx",
+    "description": "The Atari Lynx was a cartridge handheld with a backlit color display. Players could turn the unit around and flip the image on screen for left-handed play. A ComLynx cable connected multiple systems in games that supported it, and the smaller Lynx II played the same cartridges.",
     "manufacturerIds": [
       "atari"
     ],
@@ -330,6 +353,7 @@
   },
   "msx": {
     "name": "MSX",
+    "description": "MSX was a home computer standard used by several manufacturers, including Sony and Panasonic. Games appeared on cartridges, cassette tapes, and disks, depending on the machine and release. Later versions such as MSX2 expanded the graphics hardware, so the game’s generation and media both matter when identifying a release.",
     "manufacturerIds": [
       "microsoft"
     ],
@@ -344,6 +368,7 @@
   },
   "n64": {
     "name": "Nintendo 64",
+    "description": "The Nintendo 64 paired cartridge games with an analog stick suited to moving through 3D spaces. Four built-in controller ports supported local multiplayer in games such as Mario Kart 64. Accessories added features for particular titles, including vibration through the Rumble Pak and extra memory through the Expansion Pak.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -360,6 +385,7 @@
   },
   "nds": {
     "name": "Nintendo DS",
+    "description": "The Nintendo DS placed a touch-sensitive screen below its main display. Developers could use the lower screen for maps, menus, or play with the stylus, alongside the usual buttons. The original DS and DS Lite also accepted Game Boy Advance cartridges, a slot that was dropped from the DSi.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -376,6 +402,7 @@
   },
   "neogeo": {
     "name": "Neo Geo",
+    "description": "SNK sold Neo Geo hardware for arcades as the Multi Video System and for homes as the Advanced Entertainment System. The two share arcade releases such as Metal Slug and Samurai Shodown. MVS and AES cartridges have different physical formats, and SNK later released disc editions for the Neo Geo CD.",
     "manufacturerIds": [
       "snk"
     ],
@@ -390,6 +417,7 @@
   },
   "neogeocd": {
     "name": "Neo Geo CD",
+    "description": "The Neo Geo CD brought much of SNK’s arcade-derived collection to optical discs, which were cheaper to produce than the original cartridges. The change brought loading pauses between parts of some games. SNK shipped several player designs, including a top-loading model and the faster-loading Neo Geo CDZ.",
     "manufacturerIds": [
       "snk"
     ],
@@ -404,6 +432,7 @@
   },
   "nes": {
     "name": "Nintendo Entertainment System",
+    "description": "Nintendo launched this cartridge family in Japan as the Family Computer, commonly called the Famicom, and overseas as the Nintendo Entertainment System. The Japanese and overseas models use differently shaped cartridges, and many games have distinct regional releases. The two names refer to related versions of the same console family.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -422,6 +451,7 @@
   },
   "ngp": {
     "name": "Neo Geo Pocket",
+    "description": "SNK’s first Neo Geo Pocket was a monochrome cartridge handheld with a small directional stick. Its early releases included portable takes on board games, sports, and SNK’s own fighting franchises. The Neo Geo Pocket Color followed soon afterward, and many original monochrome releases also run on that newer model.",
     "manufacturerIds": [
       "snk"
     ],
@@ -436,6 +466,7 @@
   },
   "ngpc": {
     "name": "Neo Geo Pocket Color",
+    "description": "The Neo Geo Pocket Color kept SNK’s small directional stick and added a color display. Its cartridge library included portable fighters alongside games such as Sonic the Hedgehog Pocket Adventure. It can play monochrome Neo Geo Pocket releases, while some color cartridges require the newer hardware.",
     "manufacturerIds": [
       "snk"
     ],
@@ -450,6 +481,7 @@
   },
   "ps2": {
     "name": "PlayStation 2",
+    "description": "The PlayStation 2 used DVDs for many games, although some releases shipped on CDs. It could also play DVD movies and a wide range of original PlayStation games. The original and Slim hardware revisions share the native PS2 library, and games typically store saves on removable memory cards.",
     "manufacturerIds": [
       "sony"
     ],
@@ -466,6 +498,7 @@
   },
   "ps3": {
     "name": "PlayStation 3",
+    "description": "The PlayStation 3 brought Blu-ray discs and downloadable PlayStation Network games to Sony’s home console line. The original case, Slim, and Super Slim are hardware revisions of the same PS3 platform. Support for playing PlayStation 2 discs was limited to certain early PS3 models.",
     "manufacturerIds": [
       "sony"
     ],
@@ -482,6 +515,7 @@
   },
   "ps4": {
     "name": "PlayStation 4",
+    "description": "The PlayStation 4 used the DualShock 4, which added a touchpad and a Share button for recording and broadcasting play. Games shipped on Blu-ray discs and through digital downloads. Later PS4 Slim and PS4 Pro hardware shared the native library, with some games offering enhanced graphics on the Pro.",
     "manufacturerIds": [
       "sony"
     ],
@@ -496,6 +530,7 @@
   },
   "ps5": {
     "name": "PlayStation 5",
+    "description": "An internal solid-state drive and the DualSense controller define the PlayStation 5 generation. Games that use its haptics and adaptive triggers can vary the feel of surfaces or the resistance of an action. PS5 releases come in digital and disc editions, with disc play requiring a console equipped with a drive.",
     "manufacturerIds": [
       "sony"
     ],
@@ -510,6 +545,7 @@
   },
   "psp": {
     "name": "PlayStation Portable",
+    "description": "Sony’s PlayStation Portable used small optical discs called Universal Media Discs for games and movies, and it also supported downloadable games. Most models had a UMD drive. The PSP go dropped that drive and ran digital releases, while remaining part of the same handheld generation.",
     "manufacturerIds": [
       "sony"
     ],
@@ -526,6 +562,7 @@
   },
   "psx": {
     "name": "PlayStation",
+    "description": "Sony’s original PlayStation used CDs for its game library and removable memory cards to store saved progress. Its controllers evolved from a digital pad to models with twin analog sticks and vibration. The compact PS one was a later version of the first PlayStation that used the same game discs.",
     "manufacturerIds": [
       "sony"
     ],
@@ -544,6 +581,7 @@
   },
   "saturn": {
     "name": "Sega Saturn",
+    "description": "Sega’s Saturn ran games from CDs and hosted both sprite-based arcade conversions and 3D games. Some releases used a RAM expansion cartridge in the console’s accessory slot. Games such as Virtua Fighter and Nights into Dreams were released for Saturn, whose discs use a different format from the earlier Sega CD.",
     "manufacturerIds": [
       "sega"
     ],
@@ -558,6 +596,7 @@
   },
   "segacd": {
     "name": "Sega CD",
+    "description": "Known as Mega-CD in Japan and Europe, the Sega CD added a disc drive to the Genesis or Mega Drive. Developers used the extra capacity for features such as recorded music and full-motion video. Front-loading and top-loading units belong to the same platform, with a few titles also requiring a 32X.",
     "manufacturerIds": [
       "sega"
     ],
@@ -572,6 +611,7 @@
   },
   "sgx": {
     "name": "PC Engine SuperGrafx",
+    "description": "NEC’s SuperGrafx is an enhanced PC Engine with extra hardware for drawing graphics. It can play standard Japanese PC Engine HuCards and also has a small set of cartridges designed for the enhanced machine. Those dedicated releases are what distinguish the SuperGrafx library from the broader PC Engine catalog.",
     "manufacturerIds": [
       "nec"
     ],
@@ -586,6 +626,7 @@
   },
   "sms": {
     "name": "Sega Master System",
+    "description": "The Sega Master System developed from the Japanese Sega Mark III. Games were sold on cartridges and, on hardware with the right slot, thin Sega Cards. It is the home console generation that preceded the Mega Drive, and a number of its game series later received separate Mega Drive and Game Gear releases.",
     "manufacturerIds": [
       "sega"
     ],
@@ -600,6 +641,7 @@
   },
   "snes": {
     "name": "Super Nintendo Entertainment System",
+    "description": "Nintendo’s Super NES and Japan’s Super Famicom are regional versions of the same cartridge console. Some cartridges include their own enhancement chips, such as the Super FX in Star Fox. A game may have several releases for this family with different regional names, languages, or cartridge shells.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -618,6 +660,7 @@
   },
   "switch": {
     "name": "Nintendo Switch",
+    "description": "The Nintendo Switch uses game cards and digital downloads. The standard and OLED models have removable Joy-Con controllers and can dock for TV play, while the Switch Lite is built for handheld use. Some titles designed around motion controls or detached controllers need extra accessories on the Lite.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -632,6 +675,7 @@
   },
   "tg16": {
     "name": "TurboGrafx-16",
+    "description": "The TurboGrafx-16 is the North American version of the cartridge console known in Japan as the PC Engine. Its slim cartridges were called TurboChips in North America and HuCards in Japan. An optional CD drive expanded the family, with its disc releases identified separately from the base console’s cartridges.",
     "manufacturerIds": [
       "nec"
     ],
@@ -648,6 +692,7 @@
   },
   "tgcd": {
     "name": "TurboGrafx-CD",
+    "description": "The TurboGrafx-CD and Japan’s PC Engine CD-ROM² brought disc games to the TurboGrafx and PC Engine family. Some players used an add-on drive, while Duo models combined the drive and console in one unit. Disc releases can differ in the system software and extra memory they expect.",
     "manufacturerIds": [
       "nec"
     ],
@@ -662,6 +707,7 @@
   },
   "vb": {
     "name": "Virtual Boy",
+    "description": "Nintendo’s Virtual Boy displayed red images against a black background, using a separate view for each eye to give supported scenes a sense of depth. Players looked into a visor mounted on a tabletop stand and held a wired controller. Its games came on cartridges made for this system.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -676,6 +722,7 @@
   },
   "vita": {
     "name": "PlayStation Vita",
+    "description": "The PlayStation Vita used front and rear touch surfaces alongside two analog sticks and conventional buttons. Games arrived on small Vita game cards as well as digital downloads. The original hardware used an OLED screen, and a slimmer revision switched to an LCD while keeping the native Vita library.",
     "manufacturerIds": [
       "sony"
     ],
@@ -690,6 +737,7 @@
   },
   "wii": {
     "name": "Wii",
+    "description": "Nintendo’s Wii made pointing and motion controls central to many games through the Wii Remote and the sensor bar. Native games shipped on optical discs, with additional titles distributed digitally. Earlier Wii units could also run GameCube discs and had ports for that console’s controllers and memory cards.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -704,6 +752,7 @@
   },
   "wiiu": {
     "name": "Wii U",
+    "description": "The Wii U paired a home console with the GamePad, a controller with its own touchscreen. Some games used it for maps or private information, and others could move play from the TV to the GamePad. Wii U software came on its own optical discs and as digital downloads.",
     "manufacturerIds": [
       "nintendo"
     ],
@@ -718,6 +767,7 @@
   },
   "ws": {
     "name": "WonderSwan",
+    "description": "Bandai’s WonderSwan was a monochrome cartridge handheld released in Japan. It ran on one AA battery and had button clusters positioned for both horizontal and vertical play. Games could choose an orientation that suited their layout, which made the same screen useful for tall playfields and wider scenes.",
     "manufacturerIds": [
       "bandai"
     ],
@@ -732,6 +782,7 @@
   },
   "wsc": {
     "name": "WonderSwan Color",
+    "description": "The WonderSwan Color added a color screen to Bandai’s cartridge handheld while keeping its horizontal and vertical control layouts. It can also run original WonderSwan games, and some color releases work on the monochrome system. Bandai’s later SwanCrystal revised the display while staying in the same software family.",
     "manufacturerIds": [
       "bandai"
     ],
@@ -746,6 +797,7 @@
   },
   "x360": {
     "name": "Xbox 360",
+    "description": "The Xbox 360 combined DVD game releases with digital downloads and online multiplayer through Xbox Live. Microsoft shipped several console revisions, including the Xbox 360 S and E. Some games were built for the optional Kinect camera, which used body movement and gestures in place of conventional controller input.",
     "manufacturerIds": [
       "microsoft"
     ],
@@ -760,6 +812,7 @@
   },
   "xbox": {
     "name": "Xbox",
+    "description": "Microsoft’s first Xbox used DVD game discs and included an internal hard drive for saves and other game data. Its Ethernet port let players connect consoles for local multiplayer through System Link. The original Xbox Live service later added internet play for games that supported it.",
     "manufacturerIds": [
       "microsoft"
     ],
@@ -774,6 +827,7 @@
   },
   "xone": {
     "name": "Xbox One",
+    "description": "The Xbox One generation spans the original console, the smaller Xbox One S, and the more powerful Xbox One X. They share a library delivered on disc and by download, with hardware differences that can change how a game runs. The Xbox One S All-Digital Edition removed the disc drive.",
     "manufacturerIds": [
       "microsoft"
     ],
@@ -788,6 +842,7 @@
   },
   "xsx": {
     "name": "Xbox Series X|S",
+    "description": "Microsoft’s Xbox Series X and Series S share an SSD-based platform for the same generation of games. The Series S plays digital releases, and Microsoft released Series X models with and without a disc drive. Games optimized for these consoles can offer higher frame rates or other enhancements over their Xbox One editions.",
     "manufacturerIds": [
       "microsoft"
     ],
@@ -802,6 +857,7 @@
   },
   "zxs": {
     "name": "ZX Spectrum",
+    "description": "The Sinclair ZX Spectrum family includes early 16K and 48K computers and later 128K models. Games were commonly loaded from cassette, while the Spectrum +3 added a built-in disk drive. The memory and media requirements of a particular release can matter more than the shared Spectrum name.",
     "manufacturerIds": [
       "sinclair"
     ],
