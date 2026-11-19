@@ -13,38 +13,9 @@ import { datKeys } from '../../hooks/api/useDats';
 import { managedSystemKeys } from '../../hooks/api/useManagedSystems';
 import { DatReplacementReviewModal, type DatReviewOutcome } from './DatReplacementReviewModal';
 
-/** Status polling reads only this local subscription, never the remote publisher. */
-export function SourceSubscriptionActions({
-  subscription,
-  systemName,
-  provider,
-  onAccepted,
-  manage = false,
-  compact = false,
-  settingsOnly = false,
-  primaryOnly = false,
-  onReview,
-  reviewHref,
-}: {
-  subscription: DatCatalogSubscription;
-  systemName?: string;
-  provider?: string;
-  manage?: boolean;
-  compact?: boolean;
-  settingsOnly?: boolean;
-  primaryOnly?: boolean;
-  /** Opens the review in the caller's page instead of a dialog. */
-  onReview?: () => void;
-  /** Links to the source page's review instead of opening a dialog here. */
-  reviewHref?: string;
-  onAccepted: (result: JobReference, outcome?: DatReviewOutcome) => void;
-}) {
+/** Polls this local subscription only, never the remote publisher, and refreshes sources when an import ends. */
+export function useSubscriptionStatus(subscription: DatCatalogSubscription) {
   const client = useQueryClient();
-  const [review, setReview] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [stopping, setStopping] = useState(false);
-  const [confirmStop, setConfirmStop] = useState(false);
-  const [error, setError] = useState<string>();
   const status = useQuery({
     queryKey: [
       'source-subscription',
@@ -83,14 +54,28 @@ export function SourceSubscriptionActions({
     current.state,
     client,
   ]);
-  const ready = current.state === 'ReadyToImport' || current.state === 'UpdateAvailable';
+  return {
+    status,
+    current,
+  };
+}
+
+export function subscriptionReady(subscription: Pick<DatCatalogSubscription, 'state'>) {
+  return subscription.state === 'ReadyToImport' || subscription.state === 'UpdateAvailable';
+}
+
+/** Asks the publisher for a newer DAT; the installed source never changes here. */
+export function useSubscriptionCheck(subscriptionId: string) {
+  const client = useQueryClient();
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<string>();
   const check = async () => {
     setChecking(true);
     setError(undefined);
     try {
       const response = await checkDatSubscription({
         path: {
-          subscriptionId: current.id,
+          subscriptionId,
         },
       });
       if (response.error || !response.data)
@@ -98,7 +83,7 @@ export function SourceSubscriptionActions({
       client.setQueryData(
         [
           'source-subscription',
-          current.id,
+          subscriptionId,
         ],
         response.data,
       );
@@ -111,11 +96,118 @@ export function SourceSubscriptionActions({
       setChecking(false);
     }
   };
+  return {
+    check,
+    checking,
+    error,
+  };
+}
+
+/** Confirms leaving subscription updates; the installed source, versions, and ROMs stay. */
+export function StopSubscriptionModal({
+  subscription,
+  opened,
+  onClose,
+}: {
+  subscription: DatCatalogSubscription;
+  opened: boolean;
+  onClose: () => void;
+}) {
+  const client = useQueryClient();
+  const [stopping, setStopping] = useState(false);
+  const [error, setError] = useState<string>();
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={
+        subscription.activeDatId ? 'Switch to manual updates?' : 'Remove pending subscription?'
+      }
+      centered
+    >
+      <Stack>
+        <Text>
+          Your installed source, DAT versions, and ROMs stay saved. Subscription tracking and its
+          pending update selection are removed. You can connect a subscription again later.
+        </Text>
+        <Group justify="flex-end">
+          <Button
+            variant="default"
+            onClick={onClose}
+          >
+            Keep subscription
+          </Button>
+          <Button
+            loading={stopping}
+            onClick={async () => {
+              setStopping(true);
+              setError(undefined);
+              try {
+                const response = await deleteDatSubscription({
+                  path: {
+                    subscriptionId: subscription.id,
+                  },
+                });
+                if (response.error)
+                  throw new Error(
+                    'Could not change update settings. Processing may still be running; try again after it finishes.',
+                  );
+                await Promise.all([
+                  client.invalidateQueries({
+                    queryKey: managedSystemKeys.subscriptions,
+                  }),
+                  client.invalidateQueries({
+                    queryKey: datKeys.all,
+                  }),
+                ]);
+                onClose();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : 'Could not change update settings.');
+              } finally {
+                setStopping(false);
+              }
+            }}
+          >
+            Confirm change
+          </Button>
+        </Group>
+        {error && <Alert color="red">{error}</Alert>}
+      </Stack>
+    </Modal>
+  );
+}
+
+/** Compact subscription status and actions for system-level lists and inspectors. */
+export function SourceSubscriptionActions({
+  subscription,
+  systemName,
+  provider,
+  onAccepted,
+  manage = false,
+  compact = false,
+  primaryOnly = false,
+  reviewHref,
+}: {
+  subscription: DatCatalogSubscription;
+  systemName?: string;
+  provider?: string;
+  manage?: boolean;
+  compact?: boolean;
+  primaryOnly?: boolean;
+  /** Links to the source page's review instead of opening a dialog here. */
+  reviewHref?: string;
+  onAccepted: (result: JobReference, outcome?: DatReviewOutcome) => void;
+}) {
+  const client = useQueryClient();
+  const [review, setReview] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
+  const { status, current } = useSubscriptionStatus(subscription);
+  const { check, checking, error } = useSubscriptionCheck(current.id);
+  const ready = subscriptionReady(current);
   const applying = current.state === 'Applying';
   const failed = current.state === 'CheckFailed';
   const paused = current.automaticChecksPaused;
   const canCheck =
-    !settingsOnly &&
     !applying &&
     !paused &&
     (primaryOnly ? failed || current.state === 'NotChecked' : !compact || !ready);
@@ -192,7 +284,7 @@ export function SourceSubscriptionActions({
           )}
         </Alert>
       )}
-      {!settingsOnly && (
+      {
         <Group>
           {ready &&
             (reviewHref && !checking ? (
@@ -216,7 +308,7 @@ export function SourceSubscriptionActions({
                       variant: 'light',
                     })}
                 size={compact ? 'compact-sm' : 'sm'}
-                onClick={() => (onReview ? onReview() : setReview(true))}
+                onClick={() => setReview(true)}
                 disabled={checking}
               >
                 {current.activeDatId ? 'Review update' : 'Review first DAT'}
@@ -250,7 +342,7 @@ export function SourceSubscriptionActions({
             </Button>
           )}
         </Group>
-      )}
+      }
       {manage && (
         <Button
           variant="subtle"
@@ -263,61 +355,11 @@ export function SourceSubscriptionActions({
           {current.activeDatId ? 'Switch to manual updates' : 'Remove pending subscription'}
         </Button>
       )}
-      <Modal
+      <StopSubscriptionModal
+        subscription={current}
         opened={confirmStop}
         onClose={() => setConfirmStop(false)}
-        title={current.activeDatId ? 'Switch to manual updates?' : 'Remove pending subscription?'}
-        centered
-      >
-        <Stack>
-          <Text>
-            Your installed source, DAT versions, and ROMs stay saved. Subscription tracking and its
-            pending update selection are removed. You can connect a subscription again later.
-          </Text>
-          <Group justify="flex-end">
-            <Button
-              variant="default"
-              onClick={() => setConfirmStop(false)}
-            >
-              Keep subscription
-            </Button>
-            <Button
-              loading={stopping}
-              onClick={async () => {
-                setStopping(true);
-                setError(undefined);
-                try {
-                  const response = await deleteDatSubscription({
-                    path: {
-                      subscriptionId: current.id,
-                    },
-                  });
-                  if (response.error)
-                    throw new Error(
-                      'Could not change update settings. Processing may still be running; try again after it finishes.',
-                    );
-                  await Promise.all([
-                    client.invalidateQueries({
-                      queryKey: managedSystemKeys.subscriptions,
-                    }),
-                    client.invalidateQueries({
-                      queryKey: datKeys.all,
-                    }),
-                  ]);
-                  setConfirmStop(false);
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : 'Could not change update settings.');
-                } finally {
-                  setStopping(false);
-                }
-              }}
-            >
-              Confirm change
-            </Button>
-          </Group>
-          {error && <Alert color="red">{error}</Alert>}
-        </Stack>
-      </Modal>
+      />
       {review && (
         <DatReplacementReviewModal
           subscription={current}

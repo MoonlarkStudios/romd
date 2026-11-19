@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Skeleton, Stack, Tabs, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Group, Skeleton, Stack, Tabs, Text, Title } from '@mantine/core';
 import type { JobReference } from '@romd/admin-api-client';
 import { IconArrowLeft } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -14,15 +14,15 @@ import {
 } from '../../hooks/api/useManagedSystems';
 import { usePlatform } from '../../hooks/api/usePlatforms';
 import { usePermissions } from '../../hooks/usePermissions';
-import { DatUploadZone } from './components/DatUploadZone';
-import { DatReplacementReview, type DatReviewOutcome } from './DatReplacementReviewModal';
+import type { DatReviewOutcome } from './DatReplacementReviewModal';
 import { DatSubscriptionCard } from './DatSubscriptionCard';
+import { withReviewView } from './datReviewSummary';
 import { SourceActions, sourcePath } from './SourceActions';
 import { SourceEntryExplorer } from './SourceEntryExplorer';
 import { SourceHelp } from './SourceHelp';
 import { SourceStatusBadge } from './SourceStatusBadge';
-import { SourceSubscriptionActions } from './SourceSubscriptionActions';
-import classes from './Sources.module.css';
+import { subscriptionReady } from './SourceSubscriptionActions';
+import { SourceUpdates } from './SourceUpdates';
 import { connectableCatalog, datProviderLabel } from './sourceCatalog';
 
 export function SourceWorkspace() {
@@ -46,24 +46,17 @@ export function SourceWorkspace() {
     isAdmin && dat ? subscriptions.data?.find((item) => item.activeDatId === dat.id) : undefined;
   const subscribed = !!(dat?.hasSubscription || subscription);
   const canUpload = canManageSources && !subscribed;
-  // The review lives in the Updates tab URL, so Back, reload, and shared links return to it.
-  // An upload's bytes stay in this page's memory, so its review cannot survive a reload.
-  const reviewParam = params.get('review');
-  const reviewing =
-    reviewParam === 'subscription'
-      ? !!subscription
-      : reviewParam === 'upload'
-        ? !!file && canUpload
-        : false;
-  const active =
-    [
-      'entries',
-      'updates',
-      'settings',
-    ].find((value) => value === params.get('tab')) ?? 'entries';
+  // Settings and `review=` predate the two-tab page; their URLs open the Updates tab.
+  const legacyTab = params.get('tab') === 'settings';
+  const active = legacyTab
+    ? 'updates'
+    : ([
+        'entries',
+        'updates',
+      ].find((value) => value === params.get('tab')) ?? 'entries');
   const catalogs = useDatCatalogs({
     enabled:
-      isAdmin && active === 'settings' && !!dat && !subscribed && dat.sourceStatus === 'Active',
+      isAdmin && active === 'updates' && !!dat && !subscribed && dat.sourceStatus === 'Active',
   });
   const catalog =
     isAdmin && !subscribed && dat && !catalogs.isError
@@ -85,36 +78,20 @@ export function SourceWorkspace() {
     sourceId,
   ]);
   useEffect(() => {
-    if (reviewParam !== 'upload' || file) return;
+    if (!legacyTab && !params.has('review')) return;
     const next = new URLSearchParams(params);
     next.delete('review');
+    if (legacyTab) next.set('tab', 'updates');
     setParams(next, {
       replace: true,
       state,
     });
   }, [
-    reviewParam,
-    file,
+    legacyTab,
     params,
     setParams,
     state,
   ]);
-  const openReview = (kind: 'subscription' | 'upload') => {
-    const next = new URLSearchParams(params);
-    next.set('tab', 'updates');
-    next.set('review', kind);
-    setParams(next, {
-      state,
-    });
-  };
-  const closeReview = () => {
-    setFile(undefined);
-    const next = new URLSearchParams(params);
-    next.delete('review');
-    setParams(next, {
-      state,
-    });
-  };
   useEffect(() => {
     if (!job.data?.isTerminal) return;
     void client.invalidateQueries({
@@ -135,20 +112,6 @@ export function SourceWorkspace() {
   const accepted = (result: JobReference, approved?: DatReviewOutcome) => {
     setJobId(result.jobId);
     setOutcome(approved);
-    if (subscription && reviewParam === 'subscription')
-      client.setQueryData(
-        [
-          'source-subscription',
-          subscription.id,
-        ],
-        {
-          ...subscription,
-          state: 'Applying',
-          jobId: result.jobId,
-        },
-      );
-    if (reviewParam) closeReview();
-    else setFile(undefined);
     void client.invalidateQueries({
       queryKey: managedSystemKeys.all,
     });
@@ -156,6 +119,8 @@ export function SourceWorkspace() {
       queryKey: managedSystemKeys.subscriptions,
     });
   };
+  const updateReady = !!subscription && subscriptionReady(subscription);
+  const imported = dat?.importedAt ? Date.parse(dat.importedAt) : Number.NaN;
   return (
     <div className={workspace.page}>
       <Stack gap="md">
@@ -228,12 +193,31 @@ export function SourceWorkspace() {
                     {Number(dat.gameCount ?? 0).toLocaleString()} DAT entries
                   </Text>
                 </Group>
-                <Text size="sm">Installed DAT: {dat.version ?? 'Version not specified'}</Text>
+                <Text size="sm">
+                  Installed DAT: {dat.version ?? 'Version not specified'}
+                  {Number.isFinite(imported) && (
+                    <Text
+                      span
+                      c="dimmed"
+                      inherit
+                    >
+                      {' '}
+                      · imported{' '}
+                      {new Date(imported).toLocaleDateString(undefined, {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  )}
+                </Text>
               </Stack>
               <SourceActions
                 dat={dat}
                 path={sourcePath(systemKey, dat)}
-                lifecycle={active === 'settings'}
+                showUpdates={false}
+                subscription={subscription}
+                lifecycle
               />
             </Group>
             {jobId && (
@@ -283,7 +267,8 @@ export function SourceWorkspace() {
               value={active}
               onChange={(value) => {
                 if (!value) return;
-                const next = new URLSearchParams(params);
+                // A review position belongs to the Updates tab; other tabs keep a clean URL.
+                const next = withReviewView(params, {});
                 next.set('tab', value);
                 setParams(next, {
                   state,
@@ -298,8 +283,27 @@ export function SourceWorkspace() {
             >
               <Tabs.List mb="md">
                 <Tabs.Tab value="entries">Entries</Tabs.Tab>
-                <Tabs.Tab value="updates">Updates</Tabs.Tab>
-                <Tabs.Tab value="settings">Settings</Tabs.Tab>
+                <Tabs.Tab
+                  value="updates"
+                  aria-label={
+                    updateReady
+                      ? `Updates, ${subscription?.activeDatId ? 'update' : 'first DAT'} ready`
+                      : undefined
+                  }
+                  rightSection={
+                    updateReady ? (
+                      <Badge
+                        size="xs"
+                        color="orange"
+                        variant="light"
+                      >
+                        {subscription?.activeDatId ? 'Ready' : 'First DAT'}
+                      </Badge>
+                    ) : undefined
+                  }
+                >
+                  Updates
+                </Tabs.Tab>
               </Tabs.List>
               <Tabs.Panel value="entries">
                 <SourceEntryExplorer
@@ -308,173 +312,44 @@ export function SourceWorkspace() {
                 />
               </Tabs.Panel>
               <Tabs.Panel value="updates">
-                {reviewing ? (
-                  <Stack gap="sm">
-                    <Button
-                      variant="subtle"
-                      color="gray"
-                      p={0}
-                      w="fit-content"
-                      leftSection={<IconArrowLeft size={15} />}
-                      onClick={closeReview}
-                    >
-                      Back to updates
-                    </Button>
-                    {subscription && reviewParam === 'subscription' ? (
-                      <DatReplacementReview
-                        key={subscription.id}
-                        layout="page"
-                        subscription={subscription}
-                        systemName={system.data?.name}
-                        provider={datProviderLabel(dat.type)}
-                        onClose={closeReview}
-                        onAccepted={accepted}
-                      />
-                    ) : (
-                      file && (
-                        <DatReplacementReview
-                          key={`${dat.id}:${file.name}:${file.lastModified}`}
-                          layout="page"
-                          dat={dat}
-                          file={file}
-                          systemName={system.data?.name}
-                          onClose={closeReview}
-                          onAccepted={accepted}
-                        />
-                      )
-                    )}
-                  </Stack>
-                ) : (
-                  <Stack gap="md">
-                    <Title
-                      order={2}
-                      className={workspace.sectionHeading}
-                    >
-                      {subscribed ? 'Subscription updates' : 'Manual updates'}
-                    </Title>
-                    {subscribed && !isAdmin ? (
-                      <Text
-                        size="sm"
-                        c="dimmed"
-                      >
-                        An administrator manages this subscription.
-                      </Text>
-                    ) : subscribed && !subscription ? (
-                      subscriptions.isPending ? (
-                        <Skeleton height={64} />
-                      ) : (
+                <SourceUpdates
+                  dat={dat}
+                  systemName={system.data?.name}
+                  provider={datProviderLabel(dat.type) ?? 'the publisher'}
+                  isAdmin={isAdmin}
+                  subscribed={subscribed}
+                  subscription={subscription}
+                  subscriptionStatus={{
+                    pending: subscriptions.isPending,
+                    retry: () => void subscriptions.refetch(),
+                  }}
+                  canUpload={canUpload}
+                  file={file}
+                  onFile={setFile}
+                  uploading={!!jobId && !job.data?.isTerminal}
+                  jobNotice={!!jobId}
+                  offer={
+                    isAdmin && dat.sourceStatus === 'Active' && !subscribed ? (
+                      catalogs.isError || (catalogs.data?.enabled && catalogs.data.message) ? (
                         <Alert color="yellow">
-                          Subscription status could not be loaded.
+                          The subscription directory is unavailable.
                           <Button
                             variant="subtle"
-                            onClick={() => void subscriptions.refetch()}
+                            onClick={() => void catalogs.refetch()}
                           >
-                            Retry status
+                            Retry directory
                           </Button>
                         </Alert>
-                      )
-                    ) : subscription ? (
-                      <SourceSubscriptionActions
-                        subscription={subscription}
-                        systemName={system.data?.name}
-                        provider={datProviderLabel(dat.type)}
-                        onReview={() => openReview('subscription')}
-                        onAccepted={accepted}
-                      />
-                    ) : (
-                      <>
-                        <Text
-                          size="sm"
-                          c="dimmed"
-                        >
-                          The installed DAT stays active until a new version is reviewed and
-                          approved.
-                        </Text>
-                        {canUpload && (
-                          <DatUploadZone
-                            loading={!!jobId && !job.data?.isTerminal}
-                            onDrop={(files) => {
-                              setFile(files[0]);
-                              openReview('upload');
-                            }}
-                          />
-                        )}
-                      </>
-                    )}
-                  </Stack>
-                )}
-              </Tabs.Panel>
-              <Tabs.Panel value="settings">
-                <Stack gap="md">
-                  <section className={classes.section}>
-                    <Stack gap="sm">
-                      <Title
-                        order={2}
-                        className={workspace.sectionHeading}
-                      >
-                        Update method
-                      </Title>
-                      {subscribed && !subscription ? (
-                        <Text size="sm">
-                          {isAdmin
-                            ? 'Subscribed'
-                            : 'This subscription is managed by an administrator.'}
-                        </Text>
-                      ) : subscription ? (
-                        <SourceSubscriptionActions
-                          subscription={subscription}
-                          manage
-                          settingsOnly
-                          onAccepted={accepted}
+                      ) : catalog ? (
+                        <DatSubscriptionCard
+                          dat={dat}
+                          catalogId={catalog.catalogId}
                         />
-                      ) : (
-                        <>
-                          <Text size="sm">Manual updates</Text>
-                          {isAdmin &&
-                            dat.sourceStatus === 'Active' &&
-                            (catalogs.isError ||
-                              (catalogs.data?.enabled && catalogs.data.message)) && (
-                              <Alert color="yellow">
-                                Subscription directory unavailable.
-                                <Button
-                                  variant="subtle"
-                                  onClick={() => void catalogs.refetch()}
-                                >
-                                  Retry directory
-                                </Button>
-                              </Alert>
-                            )}
-                          {catalog && (
-                            <DatSubscriptionCard
-                              dat={dat}
-                              catalogId={catalog.catalogId}
-                            />
-                          )}
-                        </>
-                      )}
-                    </Stack>
-                  </section>
-                  <section className={classes.section}>
-                    <Stack gap="sm">
-                      <Title
-                        order={2}
-                        className={workspace.sectionHeading}
-                      >
-                        Installed DAT
-                      </Title>
-                      <Text size="sm">Version: {dat.version ?? 'Not specified'}</Text>
-                      <Text
-                        size="sm"
-                        c="dimmed"
-                      >
-                        Imported{' '}
-                        {dat.importedAt
-                          ? new Date(dat.importedAt).toLocaleString()
-                          : 'date unavailable'}
-                      </Text>
-                    </Stack>
-                  </section>
-                </Stack>
+                      ) : null
+                    ) : null
+                  }
+                  onAccepted={accepted}
+                />
               </Tabs.Panel>
             </Tabs>
           </>

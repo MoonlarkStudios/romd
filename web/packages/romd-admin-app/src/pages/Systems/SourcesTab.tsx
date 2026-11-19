@@ -326,9 +326,7 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                             provider={provider}
                             compact
                             manage={!dat}
-                            reviewHref={
-                              path ? `${path}?tab=updates&review=subscription` : undefined
-                            }
+                            reviewHref={path ? `${path}?tab=updates` : undefined}
                             onAccepted={() => {}}
                           />
                         )}

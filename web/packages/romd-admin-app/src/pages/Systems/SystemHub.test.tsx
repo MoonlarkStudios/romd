@@ -1,16 +1,19 @@
 import {
+  checkDatSubscription,
   createDatReplacement,
   createDatSubscription,
   deleteSystemAlias,
   deleteSystemOverride,
   getAdminSystem,
   getDatSubscription,
+  getDatSubscriptionChange,
   getDatSubscriptionPreview,
   getJob,
   getManagedSystemDetails,
   getSystemOverrides,
   listCatalogTitles,
   listDatCatalogs,
+  listDatSubscriptionChanges,
   listDatSubscriptions,
   listManagedSystems,
   listSourceEntries,
@@ -25,7 +28,7 @@ import {
 } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { parsePath, Route, Routes } from 'react-router';
+import { parsePath, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { completePage } from '../../test/fixtures/referencePages';
 import { render } from '../../test/utils/render';
@@ -53,6 +56,8 @@ vi.mock('@romd/admin-api-client', async () => ({
   getDatSubscriptionPreview: vi.fn(),
   listDatReplacementChanges: vi.fn(),
   listDatSubscriptionChanges: vi.fn(),
+  getDatSubscriptionChange: vi.fn(),
+  checkDatSubscription: vi.fn(),
   createDatSubscription: vi.fn(),
   getJob: vi.fn(),
   listCatalogTitles: vi.fn(),
@@ -145,18 +150,25 @@ const sub = {
   name: 'Redump',
   state: 'UpdateAvailable',
 };
+function CurrentUrl() {
+  const location = useLocation();
+  return <output data-testid="url">{`${location.pathname}${location.search}`}</output>;
+}
 function hub(url = '/systems/psx?tab=sources', systemsReturn?: string) {
   render(
-    <Routes>
-      <Route
-        path="/systems/:systemKey/sources/:sourceId"
-        element={<SourceWorkspace />}
-      />
-      <Route
-        path="/systems/:systemKey"
-        element={<SystemHub />}
-      />
-    </Routes>,
+    <>
+      <CurrentUrl />
+      <Routes>
+        <Route
+          path="/systems/:systemKey/sources/:sourceId"
+          element={<SourceWorkspace />}
+        />
+        <Route
+          path="/systems/:systemKey"
+          element={<SystemHub />}
+        />
+      </Routes>
+    </>,
     {
       routerOptions: {
         initialEntries: [
@@ -270,7 +282,7 @@ it('prioritizes a source ready for review without requesting entry pages', async
     within(redumpRow).getByRole('link', {
       name: 'Review update',
     }),
-  ).toHaveAttribute('href', '/systems/psx/sources/source1?tab=updates&review=subscription');
+  ).toHaveAttribute('href', '/systems/psx/sources/source1?tab=updates');
   expect(within(manualRow).getByText('Manual updates')).toBeInTheDocument();
   expect(
     within(manualRow).getByRole('link', {
@@ -892,38 +904,63 @@ it('opens the current DAT through a stable source URL after replacement', async 
     ),
   );
 });
-it('keeps updates and settings addressable without fetching entries', async () => {
-  vi.mocked(listDatCatalogs).mockResolvedValue(
-    result({
-      enabled: true,
-      message: 'The directory could not be verified.',
-      catalogs: [],
-    }),
-  );
+it('opens old settings links on Updates and keeps the update method in the source menu', async () => {
+  vi.mocked(getDatSubscriptionPreview).mockReturnValue(new Promise(() => {}));
+  const user = userEvent.setup();
   hub('/systems/psx/sources/source1?tab=settings');
   expect(
-    await screen.findByRole('button', {
-      name: 'Switch to manual updates',
+    await screen.findByRole('tab', {
+      name: /Updates/,
+      selected: true,
     }),
   ).toBeInTheDocument();
   expect(
-    screen.queryByRole('button', {
-      name: 'Review update',
+    screen.queryByRole('tab', {
+      name: 'Settings',
     }),
   ).not.toBeInTheDocument();
-  expect(listSourceEntries).not.toHaveBeenCalled();
-  await userEvent.click(
-    screen.getByRole('tab', {
-      name: 'Updates',
+  await waitFor(() =>
+    expect(screen.getByTestId('url')).toHaveTextContent('/systems/psx/sources/source1?tab=updates'),
+  );
+  await user.click(
+    screen.getByRole('button', {
+      name: /^Actions for /,
     }),
   );
   expect(
-    await screen.findByRole('button', {
-      name: 'Review update',
+    await screen.findByRole('menuitem', {
+      name: 'Switch to manual updates',
     }),
   ).toBeInTheDocument();
   expect(listDatCatalogs).not.toHaveBeenCalled();
   expect(listSourceEntries).not.toHaveBeenCalled();
+});
+it('says when a subscribed source has no new update and checks again on request', async () => {
+  const upToDate = {
+    ...sub,
+    state: 'UpToDate',
+    lastCheckedAt: new Date().toISOString(),
+  };
+  vi.mocked(listDatSubscriptions).mockResolvedValue(
+    result([
+      upToDate,
+    ]),
+  );
+  vi.mocked(getDatSubscription).mockResolvedValue(result(upToDate));
+  vi.mocked(checkDatSubscription).mockResolvedValue(result(upToDate) as never);
+  const user = userEvent.setup();
+  hub('/systems/psx/sources/source1?tab=updates');
+  const status = await screen.findByRole('region', {
+    name: 'Update status',
+  });
+  expect(within(status).getByText('No new updates')).toBeInTheDocument();
+  await user.click(
+    within(status).getByRole('button', {
+      name: 'Check for updates',
+    }),
+  );
+  await waitFor(() => expect(checkDatSubscription).toHaveBeenCalled());
+  expect(getDatSubscriptionPreview).not.toHaveBeenCalled();
 });
 it('handles a removed source without falling back to an unrelated DAT', async () => {
   hub('/systems/psx/sources/missing');
@@ -1074,7 +1111,7 @@ it('updates the chosen manual source only after a hash-bound review', async () =
     }),
   ).not.toBeInTheDocument();
 });
-it('reviews a subscription update inside the source page and returns to updates', async () => {
+it('shows a pending subscription update as the Updates tab itself', async () => {
   vi.mocked(getDatSubscriptionPreview).mockResolvedValue(
     result({
       activeSha256: 'before',
@@ -1097,8 +1134,12 @@ it('reviews a subscription update inside the source page and returns to updates'
       truncated: false,
     }),
   );
-  const user = userEvent.setup();
   hub('/systems/psx/sources/source1?tab=updates&review=subscription');
+  expect(
+    await screen.findByRole('tab', {
+      name: 'Updates, update ready',
+    }),
+  ).toBeInTheDocument();
   const review = await screen.findByRole('region', {
     name: 'Review catalog update',
   });
@@ -1108,24 +1149,123 @@ it('reviews a subscription update inside the source page and returns to updates'
       name: /^Apply (25 Oct|Oct 25) update$/,
     }),
   ).toBeInTheDocument();
-  await user.click(
-    screen.getByRole('button', {
-      name: 'Back to updates',
+  expect(
+    within(review).getByRole('button', {
+      name: 'Check again',
+    }),
+  ).toBeInTheDocument();
+  // The review is the tab; there is no separate page to close back to.
+  expect(
+    within(review).queryByRole('button', {
+      name: 'Decide later',
+    }),
+  ).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('url')).toHaveTextContent(/\?tab=updates$/));
+});
+it('restores the reviewed entry and filter from the URL and keeps them as the reader moves', async () => {
+  const impact = {
+    storedRoms: 0,
+    lostRomMatches: 0,
+    newRomMatches: 0,
+    titleLink: null,
+    titleLinkAtRisk: false,
+    sha1ChangedFiles: 0,
+    metadataOnly: false,
+    otherChecksumOnly: false,
+    needsReview: false,
+    titleId: null,
+    titleOtherSourceLinks: 0,
+  };
+  const removed = {
+    id: 'disc-b',
+    name: 'Disc B',
+    change: 'Removed',
+    filesAdded: 0,
+    filesRemoved: 1,
+    filesChanged: 0,
+    impact,
+  };
+  vi.mocked(getDatSubscriptionPreview).mockResolvedValue(
+    result({
+      activeSha256: 'before',
+      candidateSha256: 'after',
+      activeVersion: '1',
+      candidateVersion: '2',
+      unchanged: false,
+      activeEntries: 2,
+      candidateEntries: 1,
+      entriesAdded: 0,
+      entriesRemoved: 1,
+      entriesChanged: 0,
+      filesAdded: 0,
+      filesRemoved: 1,
+      filesChanged: 0,
+      hashesChanged: 0,
+      activeBiosEntries: 0,
+      candidateBiosEntries: 0,
+      changes: [],
+      truncated: false,
+    }),
+  );
+  vi.mocked(listDatSubscriptionChanges).mockResolvedValue(
+    result({
+      items: [
+        removed,
+      ],
+      nextCursor: null,
+      hasNextPage: false,
+      total: 1,
+    }),
+  );
+  vi.mocked(getDatSubscriptionChange).mockResolvedValue(
+    result({
+      activeSha256: 'before',
+      candidateSha256: 'after',
+      id: 'disc-b',
+      name: 'Disc B',
+      change: 'Removed',
+      fields: [],
+      impact,
+      files: {
+        items: [],
+        nextCursor: null,
+        hasNextPage: false,
+      },
+    }),
+  );
+  const user = userEvent.setup();
+  hub('/systems/psx/sources/source1?tab=updates&filter=removed&entry=disc-b');
+  const detail = await screen.findByRole('region', {
+    name: 'Entry changes',
+  });
+  expect(
+    await within(detail).findByRole('heading', {
+      name: 'Disc B',
+    }),
+  ).toBeInTheDocument();
+  expect(listDatSubscriptionChanges).toHaveBeenCalledWith(
+    expect.objectContaining({
+      query: expect.objectContaining({
+        change: 'Removed',
+      }),
     }),
   );
   expect(
-    await screen.findByRole('button', {
-      name: 'Review update',
+    screen.getByRole('button', {
+      name: 'Removed 1',
+      pressed: true,
     }),
   ).toBeInTheDocument();
   await user.click(
     screen.getByRole('button', {
-      name: 'Review update',
+      name: 'All changes 1',
     }),
   );
-  expect(
-    await screen.findByRole('region', {
-      name: 'Review catalog update',
+  await waitFor(() => expect(screen.getByTestId('url')).toHaveTextContent(/\?tab=updates$/));
+  await user.click(
+    screen.getByRole('tab', {
+      name: 'Entries',
     }),
-  ).toBeInTheDocument();
+  );
+  await waitFor(() => expect(screen.getByTestId('url')).toHaveTextContent(/\?tab=entries$/));
 });

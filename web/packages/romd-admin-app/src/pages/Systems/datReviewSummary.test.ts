@@ -6,6 +6,8 @@ import {
   reviewOutcome,
   reviewRail,
   reviewVerdict,
+  reviewViewFromParams,
+  withReviewView,
 } from './datReviewSummary';
 
 const quiet: DatReviewImpact = {
@@ -192,4 +194,21 @@ it('records what was approved for the job notice', () => {
       }),
     ),
   ).toBe('1 title unlinked · 1 removed · 1 changed · 7 added');
+});
+
+it('keeps the review position in a readable URL and omits defaults', () => {
+  const params = withReviewView(new URLSearchParams('tab=updates&q=old'), {
+    filter: 'Sha1Changed',
+    entry: 'RGlzYyBB',
+  });
+  expect(params.toString()).toBe('tab=updates&filter=sha1-changed&entry=RGlzYyBB');
+  expect(reviewViewFromParams(params)).toEqual({
+    filter: 'Sha1Changed',
+    entry: 'RGlzYyBB',
+    query: undefined,
+  });
+  expect(withReviewView(params, {}).toString()).toBe('tab=updates');
+  expect(
+    reviewViewFromParams(new URLSearchParams('filter=unknown&q=%20%20')).filter,
+  ).toBeUndefined();
 });

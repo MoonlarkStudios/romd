@@ -24,14 +24,14 @@ import {
   getDatSubscriptionPreview,
   previewDatReplacement,
 } from '@romd/admin-api-client';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { formatBytes, formatRelativeTime } from '../../utils/format';
 import { catalogProviderName } from './catalogProviderName';
-import { DatChangeBrowser } from './DatChangeBrowser';
+import { DatChangeBrowser, type ReviewViewChange } from './DatChangeBrowser';
 import classes from './DatReview.module.css';
 import { DatReviewVersions, formatVersionDate, versionDate } from './DatReviewVersions';
-import { decisionConsequence, reviewOutcome } from './datReviewSummary';
+import { decisionConsequence, type ReviewView, reviewOutcome } from './datReviewSummary';
 import { datProviderLabel } from './sourceCatalog';
 
 /** What the admin approved, kept so the page can report the job against the same facts. */
@@ -141,9 +141,18 @@ export function DatReplacementReview({
   onAccepted,
   onApplyingChange,
   layout,
-}: ReviewProps & {
+  headerActions,
+  view,
+  onViewChange,
+}: Omit<ReviewProps, 'onClose'> & {
   layout: 'modal' | 'page';
+  /** Omitted on a page whose tab is the review itself; there is nothing to close to. */
+  onClose?: () => void;
   onApplyingChange?: (applying: boolean) => void;
+  /** Actions beside the origin, such as checking the publisher again. */
+  headerActions?: ReactNode;
+  view?: ReviewView;
+  onViewChange?: (view: ReviewView, change: ReviewViewChange) => void;
 }) {
   const mobile = useMediaQuery('(max-width: 48em)') ?? false;
   const datId = dat?.id ?? '';
@@ -277,6 +286,7 @@ export function DatReplacementReview({
         align="center"
         wrap="wrap"
       >
+        {headerActions && <div className={classes.headerActions}>{headerActions}</div>}
         <Badge
           size="sm"
           variant="light"
@@ -386,6 +396,8 @@ export function DatReplacementReview({
             }
             footnotes={<Footnotes preview={preview} />}
             linkTitles={layout === 'page' && subscription != null}
+            view={view}
+            onViewChange={onViewChange}
             onStale={(detail) => {
               setError(detail);
               setPreview(undefined);
@@ -411,20 +423,22 @@ export function DatReplacementReview({
         gap="xs"
         className={classes.decisionActions}
       >
-        <Tooltip
-          label={closeHint}
-          disabled={!closeHint}
-          multiline
-          w={240}
-        >
-          <Button
-            variant="default"
-            onClick={onClose}
-            disabled={applying}
+        {onClose && (
+          <Tooltip
+            label={closeHint}
+            disabled={!closeHint}
+            multiline
+            w={240}
           >
-            {closeLabel}
-          </Button>
-        </Tooltip>
+            <Button
+              variant="default"
+              onClick={onClose}
+              disabled={applying}
+            >
+              {closeLabel}
+            </Button>
+          </Tooltip>
+        )}
         {error && (
           <Button
             variant="light"

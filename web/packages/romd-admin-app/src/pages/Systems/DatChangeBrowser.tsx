@@ -45,6 +45,7 @@ import {
   type DatChangeFilter,
   defaultReviewFilter,
   type ReviewRailRow,
+  type ReviewView,
   reviewFilterLabels,
   reviewRail,
   reviewVerdict,
@@ -341,6 +342,12 @@ type CursorPosition = {
   offset: number;
 };
 
+/**
+ * How a review position change reaches history. `back` returns to the previous position, using
+ * browser history when the reader arrived there by a push.
+ */
+export type ReviewViewChange = 'push' | 'replace' | 'back';
+
 export function DatChangeBrowser({
   datId,
   subscriptionId,
@@ -349,6 +356,8 @@ export function DatChangeBrowser({
   header,
   footnotes,
   linkTitles = false,
+  view: controlledView,
+  onViewChange,
   onStale,
 }: {
   datId: string;
@@ -359,6 +368,9 @@ export function DatChangeBrowser({
   footnotes?: ReactNode;
   /** True only where Back restores the review, so following a title link loses nothing. */
   linkTitles?: boolean;
+  /** The reader's position; when omitted the browser keeps it locally, as in a dialog. */
+  view?: ReviewView;
+  onViewChange?: (view: ReviewView, change: ReviewViewChange) => void;
   onStale: (message: string) => void;
 }) {
   const reviewId = useId();
@@ -371,17 +383,55 @@ export function DatChangeBrowser({
   const lastSelectedId = useRef<string>(undefined);
   const listScroll = useRef(0);
   const focusTarget = useRef<'list' | 'entry' | 'restore' | 'summary'>(null);
-  const [showList, setShowList] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [search, setSearch] = useState('');
-  const [change, setChange] = useState<DatChangeFilter>(defaultReviewFilter(preview));
-  const [entryCursors, setEntryCursors] = useState<CursorPosition[]>([]);
-  const [entry, setEntry] = useState<DatEntryChange>();
+  const [localView, setLocalView] = useState<ReviewView>({});
+  const view = controlledView ?? localView;
+  const setView = (next: ReviewView, change: ReviewViewChange) => {
+    if (onViewChange) onViewChange(next, change);
+    else setLocalView(next);
+  };
+  const defaultFilter = defaultReviewFilter(preview);
+  const change = view.filter ?? defaultFilter;
+  const search = view.query ?? '';
+  const selectedId = view.entry;
+  // On narrow screens the position picks the screen: summary, list, or entry.
+  const showList = view.filter != null || selectedId != null;
+  const [draft, setDraft] = useState(search);
+  useEffect(() => {
+    setDraft(search);
+  }, [
+    search,
+  ]);
+  // Keyset cursors belong to one filter and search; any other list starts at its first page.
+  const listKey = `${change}\u0000${search}`;
+  const [paging, setPaging] = useState<{
+    key: string;
+    cursors: CursorPosition[];
+  }>({
+    key: listKey,
+    cursors: [],
+  });
+  const entryCursors = paging.key === listKey ? paging.cursors : [];
+  const setEntryCursors = (cursors: CursorPosition[], key = listKey) =>
+    setPaging({
+      key,
+      cursors,
+    });
   const [entryAtPageEdge, setEntryAtPageEdge] = useState<'first' | 'last'>();
-  const [fileCursors, setFileCursors] = useState<string[]>([]);
+  const [filePaging, setFilePaging] = useState<{
+    entry?: string;
+    cursors: string[];
+  }>({
+    cursors: [],
+  });
+  const fileCursors = filePaging.entry === selectedId ? filePaging.cursors : [];
+  const setFileCursors = (cursors: string[]) =>
+    setFilePaging({
+      entry: selectedId,
+      cursors,
+    });
   const summaryVisible = !compact || !showList;
-  const listVisible = !compact || (showList && entry == null);
-  const detailVisible = !compact || entry != null;
+  const listVisible = !compact || (showList && selectedId == null);
+  const detailVisible = !compact || selectedId != null;
   const active = preview.activeSha256;
   const incoming = preview.candidateSha256;
   const pins = {
@@ -437,7 +487,6 @@ export function DatChangeBrowser({
       return response.data;
     },
   });
-  const selectedId = entry?.id;
   const files = useQuery({
     queryKey: [
       'dat-review-entry-changes',
@@ -486,6 +535,12 @@ export function DatChangeBrowser({
   });
   const page = entries.data;
   const detail = files.data;
+  // A linked entry may sit on a page that is not loaded; its detail still names it.
+  const entry: Pick<DatEntryChange, 'id' | 'name' | 'change' | 'impact'> | undefined =
+    selectedId == null
+      ? undefined
+      : (page?.items.find((item) => item.id === selectedId) ??
+        (detail?.id === selectedId ? detail : undefined));
   const queryError = entries.error ?? files.error;
   useEffect(() => {
     if (queryError instanceof ReviewPageError && queryError.stale) onStale(queryError.message);
@@ -494,23 +549,44 @@ export function DatChangeBrowser({
     onStale,
   ]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once the page that holds the next entry arrives.
   useEffect(() => {
     if (!page || !entryAtPageEdge) return;
     focusTarget.current = 'entry';
     const next = entryAtPageEdge === 'first' ? page.items[0] : page.items.at(-1);
     lastSelectedId.current = next?.id;
-    setEntry(next);
-    setFileCursors([]);
     setEntryAtPageEdge(undefined);
+    setView(
+      {
+        ...view,
+        entry: next?.id,
+      },
+      'replace',
+    );
   }, [
     page,
     entryAtPageEdge,
   ]);
 
-  // The list remains mounted while inspecting an entry so its query and controls survive Back.
+  // Focus follows the position whether it changed here or through browser history.
+  const previous = useRef({
+    selectedId,
+    showList,
+  });
   useLayoutEffect(() => {
-    const target = focusTarget.current;
+    let target = focusTarget.current;
     focusTarget.current = null;
+    const before = previous.current;
+    previous.current = {
+      selectedId,
+      showList,
+    };
+    if (!target && compact) {
+      if (before.selectedId && !selectedId) target = 'restore';
+      else if (before.showList && !showList) target = 'summary';
+      else if (!before.selectedId && selectedId) target = 'entry';
+      else if (!before.showList && showList) target = 'list';
+    }
     if (target === 'entry') {
       detailHeading.current?.focus();
     } else if (target === 'summary') {
@@ -530,22 +606,31 @@ export function DatChangeBrowser({
   });
 
   function select(item: DatEntryChange) {
-    if (!entry) listScroll.current = scrollContainer(browser.current)?.scrollTop ?? 0;
+    if (!selectedId) listScroll.current = scrollContainer(browser.current)?.scrollTop ?? 0;
     focusTarget.current = 'entry';
     lastSelectedId.current = item.id;
-    setShowList(true);
-    setEntry(item);
-    setFileCursors([]);
+    setView(
+      {
+        ...view,
+        entry: item.id,
+      },
+      compact && !selectedId ? 'push' : 'replace',
+    );
   }
 
   function filter(next: DatChangeFilter) {
-    setChange(next);
-    setShowList(true);
-    setEntry(undefined);
     setEntryAtPageEdge(undefined);
-    setEntryCursors([]);
+    setEntryCursors([], `${next}\u0000${search}`);
     focusTarget.current = 'list';
     if (listBody.current) listBody.current.scrollTop = 0;
+    // Wide screens keep the default filter out of the URL; narrow screens need it to open the list.
+    setView(
+      {
+        filter: compact || next !== defaultFilter ? next : undefined,
+        query: view.query,
+      },
+      compact ? 'push' : 'replace',
+    );
   }
 
   function changePage(direction: -1 | 1, keepEntry = false) {
@@ -567,18 +652,31 @@ export function DatChangeBrowser({
     if (keepEntry) {
       setEntryAtPageEdge(direction === 1 ? 'first' : 'last');
     } else {
-      setEntry(undefined);
       focusTarget.current = 'list';
       if (listBody.current) listBody.current.scrollTop = 0;
+      if (selectedId)
+        setView(
+          {
+            ...view,
+            entry: undefined,
+          },
+          'replace',
+        );
     }
   }
 
   function submitSearch(value: string) {
-    setSearch(value.trim());
-    setEntry(undefined);
-    setEntryCursors([]);
+    const query = value.trim() || undefined;
     setEntryAtPageEdge(undefined);
+    setEntryCursors([], `${change}\u0000${query ?? ''}`);
     if (listBody.current) listBody.current.scrollTop = 0;
+    setView(
+      {
+        filter: view.filter,
+        query,
+      },
+      'replace',
+    );
   }
 
   const selectedIndex = page?.items.findIndex((item) => item.id === selectedId) ?? -1;
@@ -652,7 +750,12 @@ export function DatChangeBrowser({
                       leftSection={<IconArrowLeft size={15} />}
                       onClick={() => {
                         focusTarget.current = 'summary';
-                        setShowList(false);
+                        setView(
+                          {
+                            query: view.query,
+                          },
+                          'back',
+                        );
                       }}
                     >
                       Back to summary
@@ -820,7 +923,7 @@ export function DatChangeBrowser({
                 hidden={!detailVisible}
                 aria-label="Entry changes"
               >
-                {entry ? (
+                {selectedId ? (
                   <Stack gap="sm">
                     {compact && (
                       <Button
@@ -831,8 +934,14 @@ export function DatChangeBrowser({
                         leftSection={<IconArrowLeft size={15} />}
                         onClick={() => {
                           focusTarget.current = 'restore';
-                          setEntry(undefined);
                           setEntryAtPageEdge(undefined);
+                          setView(
+                            {
+                              ...view,
+                              entry: undefined,
+                            },
+                            'back',
+                          );
                         }}
                       >
                         Back to {change === 'All' ? 'all changes' : filterLabel.toLowerCase()}
@@ -840,7 +949,7 @@ export function DatChangeBrowser({
                     )}
                     <div>
                       <Group gap={6}>
-                        <ChangeBadge change={entry.change} />
+                        {entry && <ChangeBadge change={entry.change} />}
                         {compact && page && page.total > 1 && selectedIndex >= 0 && (
                           <Text
                             size="xs"
@@ -859,11 +968,11 @@ export function DatChangeBrowser({
                         ref={detailHeading}
                         className={`${classes.fieldValue} ${classes.focusTarget}`}
                       >
-                        {entry.name}
+                        {entry?.name ?? 'Loading entry…'}
                       </Title>
                     </div>
                     <TitleImpact
-                      impact={detail?.impact ?? entry.impact}
+                      impact={detail?.impact ?? entry?.impact}
                       linkTitle={linkTitles}
                     />
                     {entries.error && entryAtPageEdge && (

@@ -263,3 +263,53 @@ export function reviewOutcome(preview: DatReplacementPreview) {
     .filter((part) => part != null)
     .join(' · ');
 }
+
+/** Where the reader is in a review. Absent fields mean the defaults: the verdict's filter and no entry. */
+export type ReviewView = {
+  filter?: DatChangeFilter;
+  entry?: string;
+  query?: string;
+};
+
+const filterSlugs: Record<DatChangeFilter, string> = {
+  NeedsReview: 'needs-review',
+  RemovedLinked: 'unlinks-title',
+  LostMatches: 'losing-match',
+  RemovedStored: 'removed-stored',
+  All: 'all',
+  Removed: 'removed',
+  Changed: 'changed',
+  Sha1Changed: 'sha1-changed',
+  OtherChecksumOnly: 'crc-md5-only',
+  MetadataOnly: 'metadata-only',
+  Added: 'added',
+  NewMatches: 'gaining-match',
+};
+
+const reviewParamNames = [
+  'filter',
+  'entry',
+  'q',
+] as const;
+
+export function reviewViewFromParams(params: URLSearchParams): ReviewView {
+  const slug = params.get('filter');
+  const filter = (Object.keys(filterSlugs) as DatChangeFilter[]).find(
+    (key) => filterSlugs[key] === slug,
+  );
+  return {
+    filter,
+    entry: params.get('entry') || undefined,
+    query: params.get('q')?.trim() || undefined,
+  };
+}
+
+/** Writes only the fields that differ from the defaults, so a fresh review has a bare URL. */
+export function withReviewView(params: URLSearchParams, view: ReviewView) {
+  const next = new URLSearchParams(params);
+  for (const name of reviewParamNames) next.delete(name);
+  if (view.filter) next.set('filter', filterSlugs[view.filter]);
+  if (view.entry) next.set('entry', view.entry);
+  if (view.query) next.set('q', view.query);
+  return next;
+}

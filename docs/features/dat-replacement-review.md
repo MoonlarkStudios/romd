@@ -7,11 +7,22 @@ the review or reloading discards the preview. Saved subscriptions use the same v
 [subscription flow](dat-subscriptions.md). This manual-upload path keeps its
 candidate in the browser.
 
-The review opens on the source's **Updates** tab
-(`?tab=updates&review=subscription` or `review=upload`), so Back, reload, and
-links return to it; an upload's bytes stay in page memory and do not survive a
-reload. Setup flows keep the same review in a dialog. The source list's
-**Review update** links to the source page review.
+A source page has two tabs, **Entries** and **Updates**. For a subscribed
+source, **Updates** is either the pending update's review or a status panel
+that says why there is none (no new update, check failed, checks paused, or an
+import in progress) with **Check for updates** or **Retry check**. The review
+itself offers **Check again**. A manual source shows the upload zone, and the
+subscription offer when the publisher's directory lists it. The source menu
+holds status changes and **Switch to manual updates**. Older `?tab=settings` and
+`review=` links open **Updates**.
+
+The reader's place in a subscription review is in the URL:
+`?tab=updates&filter=sha1-changed&entry=<entry id>&q=<search>`. Defaults are
+omitted, so an untouched review is `?tab=updates`. Reload, Back from a linked
+title, and shared links return to the same filter and entry; on phones each
+step from summary to list to entry is a history entry. An uploaded DAT lives
+only in page memory, so its review position stays local and the review does
+not survive a reload. Setup flows keep the same review in a dialog.
 
 The review leads with the source, provider, and installed-to-incoming versions,
 showing date-stamped versions as dates with the raw version beside them. A

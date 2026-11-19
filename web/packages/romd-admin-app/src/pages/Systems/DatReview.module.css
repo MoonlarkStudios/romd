@@ -554,3 +554,76 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Sits at the end of the origin line, so the line reads origin first and actions last. */
+.headerActions {
+  order: 1;
+  margin-inline-start: auto;
+}
+
+.updateStatus {
+  --dat-review-warning: light-dark(var(--mantine-color-yellow-9), var(--mantine-color-yellow-4));
+
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--mantine-spacing-md);
+  align-items: start;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+}
+
+.updateStatusIcon {
+  display: inline-flex;
+  padding-block-start: 2px;
+  color: var(--mantine-color-dimmed);
+}
+
+.updateStatus[data-tone="clear"] .updateStatusIcon {
+  color: var(--mantine-color-teal-text);
+}
+
+.updateStatus[data-tone="review"] {
+  border-inline-start: 3px solid var(--dat-review-warning);
+}
+
+.updateStatus[data-tone="review"] .updateStatusIcon {
+  color: var(--dat-review-warning);
+}
+
+.updateStatusBody {
+  min-width: 0;
+}
+
+.updateStatusDetail {
+  display: grid;
+  gap: 2px;
+  margin-block-start: 4px;
+}
+
+.spin {
+  animation: dat-review-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+@keyframes dat-review-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 48em) {
+  .updateStatus {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: var(--mantine-spacing-md);
+  }
+
+  .updateStatus > :last-child:not(.updateStatusBody) {
+    grid-column: 1 / -1;
+  }
+}
