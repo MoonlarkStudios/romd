@@ -216,11 +216,16 @@ function SubscriptionUpdates({
     );
 
   const checked = when(current.lastCheckedAt);
-  // A check that is already due reads as noise ("next check just now"); the scheduler runs it soon.
+  // Once a check is due the scheduler owns when it actually starts.
   const next =
-    current.nextCheckAt && Date.parse(current.nextCheckAt) > Date.now() + 60_000
-      ? when(current.nextCheckAt)
-      : null;
+    current.nextCheckAt && Date.parse(current.nextCheckAt) > Date.now() ? (
+      <time dateTime={current.nextCheckAt}>
+        {new Date(current.nextCheckAt).toLocaleString(undefined, {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })}
+      </time>
+    ) : null;
   let panel: ReactNode;
   if (checking)
     panel = (

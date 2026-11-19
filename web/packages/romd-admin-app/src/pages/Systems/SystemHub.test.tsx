@@ -940,6 +940,7 @@ it('says when a subscribed source has no new update and checks again on request'
     ...sub,
     state: 'UpToDate',
     lastCheckedAt: new Date().toISOString(),
+    nextCheckAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
   };
   vi.mocked(listDatSubscriptions).mockResolvedValue(
     result([
@@ -954,6 +955,14 @@ it('says when a subscribed source has no new update and checks again on request'
     name: 'Update status',
   });
   expect(within(status).getByText('No new updates')).toBeInTheDocument();
+  expect(
+    within(status).getByText(
+      new Date(upToDate.nextCheckAt).toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }),
+    ),
+  ).toHaveAttribute('datetime', upToDate.nextCheckAt);
   await user.click(
     within(status).getByRole('button', {
       name: 'Check for updates',
