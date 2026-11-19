@@ -29,6 +29,19 @@ public release year for admin system setup. It is keyed by canonical system key
 and embedded separately from the schema-1 client snapshot. Optional facts can
 be omitted.
 
+System descriptions summarize platform facts in original wording. The
+hardware index was the starting point for console research. [Video Game Console Library](https://www.videogameconsolelibrary.com/console/).
+
+Manufacturer histories and hardware records help distinguish successive models
+and regional names. [Nintendo](https://press.nintendo.com/CompanyHistory),
+[SEGA](https://www.sega.jp/history/hard/index.html),
+[PlayStation](https://www.playstation.com/en-us/playstation-history/1994-ps-one/),
+[Xbox](https://news.xbox.com/en-us/2021/05/13/celebrating-20-years-of-xbox/),
+[SNK](https://neogeomuseum.snk-corp.co.jp/english/whats/index.php), and
+[Bandai](https://www.bandai.co.jp/releases/images/3/204.pdf).
+
+The home computer descriptions also draw on museum collection records. [Computer History Museum](https://www.computerhistory.org/revolution/story/298).
+
 See [the architecture and HTTP contract](../docs/architecture/shared-reference-data.md) for
 the agreed resource-oriented API (`systems`, companies, regions, languages,
 rating boards, and ratings), direct resource edits, the common `overrides` reset

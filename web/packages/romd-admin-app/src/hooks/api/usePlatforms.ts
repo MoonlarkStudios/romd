@@ -1,5 +1,10 @@
 import type { SystemResource } from '@romd/admin-api-client';
-import { getAdminSystem, listAdminSystems, listSystemAliases } from '@romd/admin-api-client';
+import {
+  getAdminSystem,
+  getSystemOverrides,
+  listAdminSystems,
+  listSystemAliases,
+} from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 import { collectPages } from '../../utils/collectPages';
 
@@ -25,6 +30,12 @@ export const platformKeys = {
     [
       ...platformKeys.details(),
       id,
+    ] as const,
+  overrides: (key: string) =>
+    [
+      ...platformKeys.all,
+      'overrides',
+      key,
     ] as const,
   aliases: (id: string) =>
     [
@@ -75,6 +86,24 @@ export function usePlatformAliases(systemKey: string | undefined) {
       });
     },
     enabled: !!systemKey,
+  });
+}
+
+export function usePlatformOverrides(systemKey: string, enabled: boolean) {
+  return useQuery({
+    queryKey: platformKeys.overrides(systemKey),
+    enabled,
+    queryFn: async ({ signal }) => {
+      const response = await getSystemOverrides({
+        path: {
+          systemKey,
+        },
+        signal,
+      });
+      if (!response.data || response.error)
+        throw new Error('Description overrides could not be loaded.');
+      return response.data;
+    },
   });
 }
 

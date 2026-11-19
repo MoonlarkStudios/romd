@@ -1,10 +1,12 @@
 import {
   createDatReplacement,
   deleteSystemAlias,
+  deleteSystemOverride,
   getAdminSystem,
   getDatSubscription,
   getJob,
   getManagedSystemDetails,
+  getSystemOverrides,
   listCatalogTitles,
   listDatCatalogs,
   listDatSubscriptions,
@@ -32,6 +34,8 @@ vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   getAdminSystem: vi.fn(),
   deleteSystemAlias: vi.fn(),
+  deleteSystemOverride: vi.fn(),
+  getSystemOverrides: vi.fn(),
   getManagedSystemDetails: vi.fn(),
   updateManagedSystemPresentation: vi.fn(),
   previewSystemNameAliases: vi.fn(),
@@ -171,6 +175,11 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(listCatalogTitles).mockResolvedValue(result(page([])));
   vi.mocked(getManagedSystemDetails).mockResolvedValue(result(playStationDetails));
+  vi.mocked(getSystemOverrides).mockResolvedValue(
+    result({
+      hasDescription: false,
+    }),
+  );
   vi.mocked(previewSystemNameAliases).mockResolvedValue(result([]));
   vi.mocked(getAdminSystem).mockResolvedValue(
     result({
@@ -367,6 +376,129 @@ it('opens on Metadata and saves a new alias after resolving a cross-system confl
       ],
     },
   });
+});
+
+it('edits, clears, and restores the default description without discarding another field', async () => {
+  const original = playStationDetails.system;
+  vi.mocked(updateManagedSystemPresentation).mockImplementation(async ({ body }) => {
+    const updated = {
+      ...original,
+      ...body,
+      revision: body.description === null ? 'description-cleared' : 'description-edited',
+    };
+    vi.mocked(getManagedSystemDetails).mockResolvedValue(
+      result({
+        ...playStationDetails,
+        system: updated,
+      }),
+    );
+    vi.mocked(getSystemOverrides).mockResolvedValue(
+      result({
+        hasDescription: true,
+      }),
+    );
+    return result(updated);
+  });
+  vi.mocked(deleteSystemOverride).mockImplementation(async () => {
+    const restored = {
+      ...original,
+      revision: 'description-restored',
+    };
+    vi.mocked(getManagedSystemDetails).mockResolvedValue(
+      result({
+        ...playStationDetails,
+        system: restored,
+      }),
+    );
+    vi.mocked(getSystemOverrides).mockResolvedValue(
+      result({
+        hasDescription: false,
+      }),
+    );
+    return {
+      response: new Response(null, {
+        status: 204,
+        headers: {
+          ETag: '"description-restored"',
+        },
+      }),
+    } as Awaited<ReturnType<typeof deleteSystemOverride>>;
+  });
+  hub('/systems/psx');
+  const user = userEvent.setup();
+  const description = await screen.findByRole('textbox', {
+    name: 'Short description',
+  });
+  const save = screen.getByRole('button', {
+    name: 'Save changes',
+  });
+  expect(description).toHaveValue(original.description);
+  expect(
+    screen.queryByRole('button', {
+      name: 'Restore default',
+    }),
+  ).not.toBeInTheDocument();
+
+  await user.clear(description);
+  await user.type(description, 'My PlayStation description.');
+  await user.click(save);
+  await screen.findByText('System details saved.');
+  expect(description).toHaveValue('My PlayStation description.');
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Clear description',
+    }),
+  );
+  expect(description).toHaveValue('');
+  await user.click(save);
+  await screen.findByText('System details saved.');
+  expect(updateManagedSystemPresentation).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      body: {
+        description: null,
+      },
+    }),
+  );
+  expect(description).toHaveValue('');
+
+  const name = screen.getByRole('textbox', {
+    name: 'Display name',
+  });
+  await user.clear(name);
+  await user.type(name, 'My PlayStation');
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Restore default',
+    }),
+  );
+  expect(await screen.findByText('Default description restored.')).toBeVisible();
+  expect(description).toHaveValue(original.description);
+  expect(name).toHaveValue('My PlayStation');
+  expect(deleteSystemOverride).toHaveBeenCalledExactlyOnceWith({
+    path: {
+      systemKey: 'psx',
+      field: 'description',
+    },
+    headers: {
+      'If-Match': '"description-cleared"',
+    },
+  });
+
+  await user.click(save);
+  await waitFor(() =>
+    expect(updateManagedSystemPresentation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        body: {
+          name: 'My PlayStation',
+        },
+        headers: {
+          'If-Match': '"description-restored"',
+        },
+      }),
+    ),
+  );
+  await screen.findByText('System details saved.');
 });
 
 it('removes a saved local alias and keeps protected aliases locked', async () => {

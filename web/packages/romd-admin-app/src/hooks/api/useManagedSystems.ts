@@ -138,6 +138,9 @@ export function useRefreshSystemPresentation() {
       queryKey: platformKeys.aliases(resource.key),
     });
     void client.invalidateQueries({
+      queryKey: platformKeys.overrides(resource.key),
+    });
+    void client.invalidateQueries({
       queryKey: platformKeys.lists(),
     });
     void client.invalidateQueries({

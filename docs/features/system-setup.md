@@ -20,6 +20,11 @@ alias belongs to one system, with case and repeated spaces ignored. Use the
 remove control next to a saved local alias to remove it immediately. Built-in
 aliases and aliases of unknown ownership are locked.
 
+Known systems start with a short description from the ROMD catalog. Edit it or
+use **Clear description**, then choose **Save changes**. Clearing it keeps it
+blank across catalog updates. **Restore default** returns the description to
+ROMD's current wording while keeping edits to other fields.
+
 **Add system** searches names and aliases on the server. Choose a system and its
 first DAT in the same flow. For a known system, review its details and make
 any edits before continuing to DAT options. ROMD uses the fixed system key to match

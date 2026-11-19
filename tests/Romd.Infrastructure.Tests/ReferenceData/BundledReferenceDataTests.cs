@@ -29,13 +29,16 @@ public sealed class BundledReferenceDataTests
         platforms.Count.ShouldBe(56);
         (await db.Regions.CountAsync()).ShouldBe(20);
         (await db.GameLanguages.CountAsync()).ShouldBe(16);
-        BundledReferenceData.Document.GetProperty("catalogVersion").GetInt32().ShouldBe(1);
+        BundledReferenceData.Document.GetProperty("catalogVersion").GetInt32().ShouldBe(2);
         var companies = BundledReferenceData.Category("companies");
         var platformAliases = await db.PlatformAliases.ToListAsync();
         foreach (var entry in BundledReferenceData.Category("systems").EnumerateObject())
         {
             var platform = platforms[entry.Name];
             platform.Name.ShouldBe(entry.Value.GetProperty("name").GetString());
+            var description = entry.Value.GetProperty("description").GetString();
+            description.ShouldNotBeNullOrWhiteSpace();
+            platform.BaseDescription.ShouldBe(description);
             var manufacturers = entry.Value.GetProperty("manufacturerIds").EnumerateArray()
                 .Select(id => companies.GetProperty(id.GetString()!).GetProperty("name").GetString()).ToArray();
             platform.Manufacturer.ShouldBe(manufacturers.Length == 0 ? null : string.Join(", ", manufacturers));

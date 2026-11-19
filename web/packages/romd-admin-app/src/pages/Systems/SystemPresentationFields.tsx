@@ -16,6 +16,7 @@ import {
 } from '@mantine/core';
 import type { CompanySummary, PlatformAlias } from '@romd/admin-api-client';
 import { IconLock } from '@tabler/icons-react';
+import type { ReactNode } from 'react';
 import { useReferenceCompanies } from '../../hooks/api/useReferenceCompanies';
 import {
   localSystemKeyPrefix,
@@ -99,6 +100,7 @@ export function SystemPresentationFields({
   manufacturers = [],
   existingAliases,
   onRemoveAlias,
+  descriptionActions,
   disabled,
 }: {
   value: SystemPresentation;
@@ -112,6 +114,7 @@ export function SystemPresentationFields({
   manufacturers?: CompanySummary[];
   existingAliases?: PlatformAlias[];
   onRemoveAlias?: (alias: PlatformAlias) => void;
+  descriptionActions?: ReactNode;
   disabled: boolean;
 }) {
   const readOnly = !onChange;
@@ -438,6 +441,7 @@ export function SystemPresentationFields({
           })
         }
       />
+      {descriptionActions}
     </Stack>
   );
 }

@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 1,
+  "catalogVersion": 2,
   "systems": {
     "2600": {
       "name": "Atari 2600",
+      "description": "Originally sold as the Video Computer System, this cartridge console brought Atari arcade games into the home.",
       "manufacturerIds": [
         "atari"
       ],
@@ -18,6 +19,7 @@
     },
     "32x": {
       "name": "Sega 32X",
+      "description": "A cartridge-slot add-on for the Genesis and Mega Drive that added 32-bit processing and ran its own games.",
       "manufacturerIds": [
         "sega"
       ],
@@ -32,6 +34,7 @@
     },
     "3do": {
       "name": "3DO Interactive Multiplayer",
+      "description": "A CD-based game platform licensed to hardware makers including Panasonic, GoldStar, and Sanyo.",
       "manufacturerIds": [
         "panasonic"
       ],
@@ -46,6 +49,7 @@
     },
     "3ds": {
       "name": "Nintendo 3DS",
+      "description": "A dual-screen handheld family that introduced glasses-free 3D and later included the 2D-only Nintendo 2DS.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -60,6 +64,7 @@
     },
     "5200": {
       "name": "Atari 5200",
+      "description": "The SuperSystem used hardware adapted from Atari's 8-bit computers and shipped with analog joysticks.",
       "manufacturerIds": [
         "atari"
       ],
@@ -74,6 +79,7 @@
     },
     "7800": {
       "name": "Atari 7800",
+      "description": "The ProSystem played its own arcade-style games and supported most Atari 2600 cartridges.",
       "manufacturerIds": [
         "atari"
       ],
@@ -88,6 +94,7 @@
     },
     "amiga": {
       "name": "Amiga",
+      "description": "A Commodore computer family with custom graphics and sound chips, with many games distributed on floppy disks.",
       "manufacturerIds": [
         "commodore"
       ],
@@ -102,6 +109,7 @@
     },
     "arcade": {
       "name": "Arcade",
+      "description": "Groups games made for arcade cabinets and dedicated arcade boards from different manufacturers.",
       "manufacturerIds": [],
       "aliases": [],
       "providerMappings": {
@@ -114,6 +122,7 @@
     },
     "atarist": {
       "name": "Atari ST",
+      "description": "A home computer family used for games and music production, with built-in MIDI ports for connecting instruments.",
       "manufacturerIds": [
         "atari"
       ],
@@ -128,6 +137,7 @@
     },
     "c64": {
       "name": "Commodore 64",
+      "description": "An 8-bit home computer with SID sound and games sold on cassette, floppy disk, and cartridge.",
       "manufacturerIds": [
         "commodore"
       ],
@@ -142,6 +152,7 @@
     },
     "cdi": {
       "name": "Philips CD-i",
+      "description": "An interactive compact disc format used by Philips players for games, educational programs, and multimedia.",
       "manufacturerIds": [
         "philips"
       ],
@@ -156,6 +167,7 @@
     },
     "coleco": {
       "name": "ColecoVision",
+      "description": "A cartridge console whose home version of Donkey Kong helped bring an arcade hit to living rooms.",
       "manufacturerIds": [
         "coleco"
       ],
@@ -170,6 +182,7 @@
     },
     "dc": {
       "name": "Sega Dreamcast",
+      "description": "Sega's last home console used GD-ROM discs and included a modem for supported online games.",
       "manufacturerIds": [
         "sega"
       ],
@@ -184,6 +197,7 @@
     },
     "dos": {
       "name": "DOS",
+      "description": "Groups games written for DOS on IBM PCs and compatible computers, including MS-DOS and PC DOS titles.",
       "manufacturerIds": [
         "ibm"
       ],
@@ -198,6 +212,7 @@
     },
     "gb": {
       "name": "Game Boy",
+      "description": "The original Game Boy played cartridges on a monochrome screen and could link two handhelds for supported games.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -212,6 +227,7 @@
     },
     "gba": {
       "name": "Game Boy Advance",
+      "description": "A Game Boy successor with a wider color screen and its own cartridge format, later sold in SP and Micro designs.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -228,6 +244,7 @@
     },
     "gbc": {
       "name": "Game Boy Color",
+      "description": "A color-screen Game Boy that plays original Game Boy cartridges alongside games designed for its color hardware.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -244,6 +261,7 @@
     },
     "gc": {
       "name": "Nintendo GameCube",
+      "description": "A console that uses small optical discs and has four controller ports for local multiplayer.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -260,6 +278,7 @@
     },
     "genesis": {
       "name": "Sega Genesis",
+      "description": "A cartridge console sold in North America as the Genesis and in Japan and Europe as the Mega Drive.",
       "manufacturerIds": [
         "sega"
       ],
@@ -277,6 +296,7 @@
     },
     "gg": {
       "name": "Sega Game Gear",
+      "description": "A handheld with a backlit color screen and a cartridge library that included portable versions of Sega arcade games.",
       "manufacturerIds": [
         "sega"
       ],
@@ -291,6 +311,7 @@
     },
     "intv": {
       "name": "Intellivision",
+      "description": "Mattel's cartridge console used controllers with a directional disc, a numeric keypad, and game-specific keypad overlays.",
       "manufacturerIds": [
         "mattel"
       ],
@@ -305,6 +326,7 @@
     },
     "jaguar": {
       "name": "Atari Jaguar",
+      "description": "A cartridge console with a numeric keypad on its controller and an optional Jaguar CD attachment for disc games.",
       "manufacturerIds": [
         "atari"
       ],
@@ -319,6 +341,7 @@
     },
     "lynx": {
       "name": "Atari Lynx",
+      "description": "A color handheld with a backlit screen and a screen-flip mode for left-handed play.",
       "manufacturerIds": [
         "atari"
       ],
@@ -333,6 +356,7 @@
     },
     "msx": {
       "name": "MSX",
+      "description": "A common home-computer standard used by several manufacturers, with games distributed on cartridges, tapes, and disks.",
       "manufacturerIds": [
         "microsoft"
       ],
@@ -347,6 +371,7 @@
     },
     "n64": {
       "name": "Nintendo 64",
+      "description": "A cartridge console with four controller ports and a controller designed around an analog stick for 3D games.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -363,6 +388,7 @@
     },
     "nds": {
       "name": "Nintendo DS",
+      "description": "A dual-screen handheld with a touch-sensitive lower screen and wireless multiplayer in supported games.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -379,6 +405,7 @@
     },
     "neogeo": {
       "name": "Neo Geo",
+      "description": "The cartridge-based Neo Geo home console, also called AES, brought titles from SNK's MVS arcade library into the home.",
       "manufacturerIds": [
         "snk"
       ],
@@ -393,6 +420,7 @@
     },
     "neogeocd": {
       "name": "Neo Geo CD",
+      "description": "A disc-based Neo Geo home console with CD editions of games from SNK's arcade and cartridge libraries.",
       "manufacturerIds": [
         "snk"
       ],
@@ -407,6 +435,7 @@
     },
     "nes": {
       "name": "Nintendo Entertainment System",
+      "description": "A cartridge-based home console released in Japan as the Family Computer, commonly called the Famicom.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -425,6 +454,7 @@
     },
     "ngp": {
       "name": "Neo Geo Pocket",
+      "description": "SNK's original Neo Geo handheld used a monochrome display and a small set of dedicated cartridges.",
       "manufacturerIds": [
         "snk"
       ],
@@ -439,6 +469,7 @@
     },
     "ngpc": {
       "name": "Neo Geo Pocket Color",
+      "description": "SNK's color-screen Neo Geo handheld succeeded the monochrome model and had its own color game library.",
       "manufacturerIds": [
         "snk"
       ],
@@ -453,6 +484,7 @@
     },
     "ps2": {
       "name": "PlayStation 2",
+      "description": "The second PlayStation used DVD-ROM games, played DVD movies, and supported most original PlayStation games.",
       "manufacturerIds": [
         "sony"
       ],
@@ -469,6 +501,7 @@
     },
     "ps3": {
       "name": "PlayStation 3",
+      "description": "A PlayStation console that adopted Blu-ray Discs for games and introduced the PlayStation Network.",
       "manufacturerIds": [
         "sony"
       ],
@@ -485,6 +518,7 @@
     },
     "ps4": {
       "name": "PlayStation 4",
+      "description": "A home console that introduced the DualShock 4 controller and later included Slim and Pro models.",
       "manufacturerIds": [
         "sony"
       ],
@@ -499,6 +533,7 @@
     },
     "ps5": {
       "name": "PlayStation 5",
+      "description": "A PlayStation generation built around solid-state storage and the DualSense controller, available in disc and digital models.",
       "manufacturerIds": [
         "sony"
       ],
@@ -513,6 +548,7 @@
     },
     "psp": {
       "name": "PlayStation Portable",
+      "description": "The first PlayStation handheld introduced UMD games, and the later PSP go model used downloads exclusively.",
       "manufacturerIds": [
         "sony"
       ],
@@ -529,6 +565,7 @@
     },
     "psx": {
       "name": "PlayStation",
+      "description": "The first PlayStation home console used CD-ROM games and was later available as the compact PS one.",
       "manufacturerIds": [
         "sony"
       ],
@@ -547,6 +584,7 @@
     },
     "saturn": {
       "name": "Sega Saturn",
+      "description": "A CD-based Sega console with a library spanning 2D arcade ports and early 3D home games.",
       "manufacturerIds": [
         "sega"
       ],
@@ -561,6 +599,7 @@
     },
     "segacd": {
       "name": "Sega CD",
+      "description": "A disc-drive add-on for the Genesis and Mega Drive, sold as the Mega-CD in Japan and Europe.",
       "manufacturerIds": [
         "sega"
       ],
@@ -575,6 +614,7 @@
     },
     "sgx": {
       "name": "PC Engine SuperGrafx",
+      "description": "An enhanced PC Engine model that plays regular HuCard games and a small library designed for SuperGrafx hardware.",
       "manufacturerIds": [
         "nec"
       ],
@@ -589,6 +629,7 @@
     },
     "sms": {
       "name": "Sega Master System",
+      "description": "Sega's home console derived from the Mark III, with games released on cartridges and, for some models, Sega Cards.",
       "manufacturerIds": [
         "sega"
       ],
@@ -603,6 +644,7 @@
     },
     "snes": {
       "name": "Super Nintendo Entertainment System",
+      "description": "A cartridge console sold in Japan as the Super Famicom, with games that sometimes used extra chips inside the cartridge.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -621,6 +663,7 @@
     },
     "switch": {
       "name": "Nintendo Switch",
+      "description": "A console family built around handheld play, with dockable models that can also play on a television.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -635,6 +678,7 @@
     },
     "tg16": {
       "name": "TurboGrafx-16",
+      "description": "The PC Engine cartridge platform, sold in North America as TurboGrafx-16, used thin cards called HuCards or TurboChips.",
       "manufacturerIds": [
         "nec"
       ],
@@ -651,6 +695,7 @@
     },
     "tgcd": {
       "name": "TurboGrafx-CD",
+      "description": "Groups CD games for the PC Engine's CD-ROM² system and its North American counterpart, TurboGrafx-CD.",
       "manufacturerIds": [
         "nec"
       ],
@@ -665,6 +710,7 @@
     },
     "vb": {
       "name": "Virtual Boy",
+      "description": "A tabletop game system with a visor that creates stereoscopic 3D images using red graphics against a black background.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -679,6 +725,7 @@
     },
     "vita": {
       "name": "PlayStation Vita",
+      "description": "The PSP's successor added two analog sticks, a front touchscreen, and a rear touch pad.",
       "manufacturerIds": [
         "sony"
       ],
@@ -693,6 +740,7 @@
     },
     "wii": {
       "name": "Wii",
+      "description": "A home console built around the Wii Remote, which uses motion and pointing for supported games.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -707,6 +755,7 @@
     },
     "wiiu": {
       "name": "Wii U",
+      "description": "The Wii's successor paired the television with a touchscreen GamePad that could display supported games on its own screen.",
       "manufacturerIds": [
         "nintendo"
       ],
@@ -721,6 +770,7 @@
     },
     "ws": {
       "name": "WonderSwan",
+      "description": "Bandai's original WonderSwan was a monochrome cartridge handheld released in Japan.",
       "manufacturerIds": [
         "bandai"
       ],
@@ -735,6 +785,7 @@
     },
     "wsc": {
       "name": "WonderSwan Color",
+      "description": "A color-screen revision of the WonderSwan that also runs games for the original monochrome handheld.",
       "manufacturerIds": [
         "bandai"
       ],
@@ -749,6 +800,7 @@
     },
     "x360": {
       "name": "Xbox 360",
+      "description": "The second Xbox used DVD games and expanded Xbox Live with downloadable titles and a console marketplace.",
       "manufacturerIds": [
         "microsoft"
       ],
@@ -763,6 +815,7 @@
     },
     "xbox": {
       "name": "Xbox",
+      "description": "Microsoft's first console used a built-in hard drive and supported network play through Xbox Live.",
       "manufacturerIds": [
         "microsoft"
       ],
@@ -777,6 +830,7 @@
     },
     "xone": {
       "name": "Xbox One",
+      "description": "The Xbox generation between Xbox 360 and Xbox Series X|S included the original console, Xbox One S, and Xbox One X.",
       "manufacturerIds": [
         "microsoft"
       ],
@@ -791,6 +845,7 @@
     },
     "xsx": {
       "name": "Xbox Series X|S",
+      "description": "The Xbox Series consoles share a game library across the higher-performance Series X and the disc-free Series S.",
       "manufacturerIds": [
         "microsoft"
       ],
@@ -805,6 +860,7 @@
     },
     "zxs": {
       "name": "ZX Spectrum",
+      "description": "Sinclair's home computer family loaded many games from cassette and included the 48K Spectrum and Spectrum 128 models.",
       "manufacturerIds": [
         "sinclair"
       ],
