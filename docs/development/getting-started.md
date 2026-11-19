@@ -250,20 +250,39 @@ startup. Commands validate distinct unprivileged ports and configure matching
 Vite proxies, CORS, OIDC callbacks/logout, and player parent/origin mappings.
 They never stop an unrelated port owner.
 
-For concurrent tasks, use separate worktrees, restore their dependencies
-(`mise run bootstrap`), and select their engine as in initial setup. Prefer
-sibling worktrees outside the checkout. A worktree nested inside it, such as
-Claude Code's `.claude/worktrees/`, also inherits the parent checkout's
-`.mise.toml` and `.mise.local.toml`, including its engine selection and sourced
-environment; `mise config ls` there lists every file it loads. Unless ignored,
-such a nested directory also shows as untracked in the parent and blocks its
-`dev:smoke` clean-tree check. Initialize the shared PostgreSQL server
-with `mise run db:up` before starting multiple source sessions. Each worktree
-derives its own database and defaults to its own `.data/romd` content store;
+### Worktree placement
+
+Use a separate disk-backed worktree for each concurrent task. Prefer a sibling
+directory, such as `../romd-worktrees/` from the primary ROMD checkout. On
+Linux, use `findmnt -T <parent>` to verify the underlying filesystem. Worktrees
+under a `tmpfs` mount make build output compete for memory and swap.
+
+Run these commands from the primary checkout to create a worktree on a new
+topic branch.
+
+```sh
+mkdir -p ../romd-worktrees
+git worktree add -b codex/example-task ../romd-worktrees/example-task HEAD
+```
+
+The checkout's `.worktrees/` directory also works when the checkout is on disk.
+Git and container build contexts already ignore it. To use it, create
+`.worktrees/` and pass `.worktrees/example-task` to `git worktree add` in the
+example above. Nested worktrees, including Claude Code's `.claude/worktrees/`,
+can inherit the parent checkout's `.mise.toml` and `.mise.local.toml`. Use
+`mise config ls` from the nested worktree to see which files it loads and review
+any inherited port, data path, or environment overrides before starting a stack.
+
+From the new worktree, select the container engine as in initial setup and
+restore dependencies with `mise run bootstrap`. Initialize the shared PostgreSQL
+server with `mise run db:up` before starting multiple source sessions. Each
+worktree derives its own database and defaults to its own `.data/romd` content store;
 avoid copying absolute data paths or private host settings from another checkout.
 Explicit data path overrides still select that path and require deliberate
 ownership. Shared PostgreSQL is a local development convenience, not a security
 boundary between agents.
+
+### Discover and stop a session
 
 Discover the current checkout's endpoints and diagnostics without scraping logs:
 
@@ -412,11 +431,13 @@ mise run dev:smoke --parallel
 The task exercises **committed HEAD** and refuses tracked changes or non-ignored
 untracked files; commit the intended implementation before running it. Ignored
 local files do not block it and are not copied. It creates disposable linked
-worktrees outside the checkout, restores pinned .NET/web dependencies, and starts
-its own PostgreSQL Compose project on a free loopback port. It strips inherited
-application credentials, data paths, browser/DB port overrides and Compose project
-settings. The ordinary checkout, its content and its shared development PostgreSQL
-server are not used by the test.
+worktrees under `<primary-checkout-name>-worktrees/` beside the primary checkout,
+restores pinned .NET/web dependencies, and starts its own PostgreSQL Compose
+project on a free loopback port. Use `--worktree-parent PATH` to select another
+disk-backed directory outside all registered checkouts for this repository.
+The harness strips inherited application credentials, data paths, browser/DB
+port overrides and Compose project settings. The test run uses disposable
+checkouts, data directories and a dedicated PostgreSQL server.
 
 Each worktree uses its automatic port range and default data path. The check
 verifies worker-first readiness, all five HTTP endpoints, authorization-code/PKCE
