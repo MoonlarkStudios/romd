@@ -2075,7 +2075,7 @@
         "tags": [
           "Server"
         ],
-        "description": "Returns the release version embedded in the running admin host.",
+        "description": "Returns the installed release and the running admin host's build.",
         "operationId": "GetServerInfo",
         "responses": {
           "200": {
@@ -5506,7 +5506,7 @@
         "tags": [
           "Dats"
         ],
-        "description": "A keyset page of the review's changed entries in ordinal name order, filtered by change kind and a case-insensitive name query. The cursor is bound to the reviewed pair and filters. The request resends the reviewed candidate file. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet.",
+        "description": "A keyset page of the review's changed entries in ordinal name order, filtered by change or impact and a case-insensitive name query. The cursor is bound to the reviewed pair and filters. The request resends the reviewed candidate file. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet.",
         "operationId": "ListDatReplacementChanges",
         "parameters": [
           {
@@ -5560,7 +5560,7 @@
                     "type": "object",
                     "properties": {
                       "change": {
-                        "pattern": "^(?:Added|Removed|Changed)$",
+                        "pattern": "^(?:Added|Removed|Changed|NeedsReview|RemovedStored|RemovedLinked|Sha1Changed|LostMatches|NewMatches|MetadataOnly|OtherChecksumOnly)$",
                         "type": "string"
                       }
                     }
@@ -5606,6 +5606,129 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PageOfDatEntryChange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dats/{datId}/replacements/change-count/preview": {
+      "post": {
+        "tags": [
+          "Dats"
+        ],
+        "description": "Counts the reviewed changes matching the same filters as the change list, across all pages. The request resends the reviewed candidate file. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet.",
+        "operationId": "PreviewDatReplacementChangeCount",
+        "parameters": [
+          {
+            "name": "datId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "required": [
+                  "activeSha256",
+                  "candidateSha256"
+                ],
+                "type": "object",
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "$ref": "#/components/schemas/IFormFile"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "activeSha256": {
+                        "pattern": "^(?:[0-9a-fA-F]{64})?$",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "candidateSha256": {
+                        "maxLength": 64,
+                        "minLength": 64,
+                        "pattern": "^[0-9a-fA-F]{64}$",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "change": {
+                        "pattern": "^(?:Added|Removed|Changed|NeedsReview|RemovedStored|RemovedLinked|Sha1Changed|LostMatches|NewMatches|MetadataOnly|OtherChecksumOnly)$",
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "query": {
+                        "maxLength": 200,
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatChangeCount"
                 }
               }
             }
@@ -6617,7 +6740,7 @@
         "tags": [
           "Platforms"
         ],
-        "description": "Remove an alias from a platform",
+        "description": "Remove an installation-owned alias from its platform.",
         "operationId": "DeleteSystemAlias",
         "parameters": [
           {
@@ -6653,6 +6776,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6947,6 +7080,70 @@
       }
     },
     "/api/system-setup": {
+      "post": {
+        "tags": [
+          "SystemSetup"
+        ],
+        "description": "Create an installation-owned system and add it to the installation's Systems list in the same transaction.",
+        "operationId": "CreateManagedSystem",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateManagedSystemRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Location": {
+                "description": "The created member's address.",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemResource"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "tags": [
           "SystemSetup"
@@ -7011,6 +7208,171 @@
         }
       }
     },
+    "/api/system-setup/{systemKey}": {
+      "patch": {
+        "tags": [
+          "SystemSetup"
+        ],
+        "description": "Update permitted system facts and add name aliases atomically. By default, add the system to the Systems list. Pass enableForSetup=false to keep its membership as is. Use the system reference resource's current ETag.",
+        "operationId": "UpdateManagedSystemPresentation",
+        "parameters": [
+          {
+            "name": "systemKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "enableForSetup",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedSystemPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemResource"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "SystemSetup"
+        ],
+        "description": "System reference facts and optional hardware metadata read from the same database snapshot.",
+        "operationId": "GetManagedSystemDetails",
+        "parameters": [
+          {
+            "name": "systemKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedSystemSetupDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/system-setup/{systemKey}/enabled": {
       "put": {
         "tags": [
@@ -7050,6 +7412,50 @@
           },
           "204": {
             "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system-setup/name-aliases/preview": {
+      "post": {
+        "tags": [
+          "SystemSetup"
+        ],
+        "description": "Check up to 16 proposed name aliases for existing matches using the same case and whitespace normalization as DAT matching.",
+        "operationId": "PreviewSystemNameAliases",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewSystemNameAliasesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SystemNameAliasConflict"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
@@ -11279,7 +11685,7 @@
         "tags": [
           "DatSubscriptions"
         ],
-        "description": "A keyset page of the review's changed entries in ordinal name order, filtered by change kind and a case-insensitive name query. The cursor is bound to the reviewed pair and filters. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet. The saved candidate and installed document are held by the server, so one that fails validation is a 409 (DatReview.InvalidDocument or DatReview.Identity), not a 400.",
+        "description": "A keyset page of the review's changed entries in ordinal name order, filtered by change or impact and a case-insensitive name query. The cursor is bound to the reviewed pair and filters. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet. The saved candidate and installed document are held by the server, so one that fails validation is a 409 (DatReview.InvalidDocument or DatReview.Identity), not a 400.",
         "operationId": "ListDatSubscriptionChanges",
         "parameters": [
           {
@@ -11314,7 +11720,7 @@
             "name": "change",
             "in": "query",
             "schema": {
-              "pattern": "^(?:Added|Removed|Changed)$",
+              "pattern": "^(?:Added|Removed|Changed|NeedsReview|RemovedStored|RemovedLinked|Sha1Changed|LostMatches|NewMatches|MetadataOnly|OtherChecksumOnly)$",
               "type": "string"
             }
           },
@@ -11351,6 +11757,103 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PageOfDatEntryChange"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dat-subscriptions/{subscriptionId}/change-count": {
+      "get": {
+        "tags": [
+          "DatSubscriptions"
+        ],
+        "description": "Counts the reviewed changes matching the same filters as the change list, across all pages. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet. The saved candidate and installed document are held by the server, so one that fails validation is a 409 (DatReview.InvalidDocument or DatReview.Identity), not a 400.",
+        "operationId": "GetDatSubscriptionChangeCount",
+        "parameters": [
+          {
+            "name": "subscriptionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "activeSha256",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "pattern": "^(?:[0-9a-fA-F]{64})?$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "candidateSha256",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-fA-F]{64}$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "change",
+            "in": "query",
+            "schema": {
+              "pattern": "^(?:Added|Removed|Changed|NeedsReview|RemovedStored|RemovedLinked|Sha1Changed|LostMatches|NewMatches|MetadataOnly|OtherChecksumOnly)$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatChangeCount"
                 }
               }
             }
@@ -18810,6 +19313,80 @@
           }
         }
       },
+      "CreateManagedSystemRequest": {
+        "required": [
+          "key",
+          "name",
+          "compactLabel"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "compactLabel": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "icon": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "monochrome": {
+            "type": "boolean",
+            "default": false
+          },
+          "manufacturerKeys": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generation": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "nameAliases": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateSystem": {
         "required": [
           "key",
@@ -19012,6 +19589,9 @@
           "sourceStatus": {
             "$ref": "#/components/schemas/SourceLifecycleStatus"
           },
+          "hasSubscription": {
+            "type": "boolean"
+          },
           "sourceFile": {
             "oneOf": [
               {
@@ -19134,6 +19714,18 @@
           }
         }
       },
+      "DatChangeCount": {
+        "required": [
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "DatDisk": {
         "required": [
           "id",
@@ -19202,6 +19794,16 @@
           "filesChanged": {
             "type": "integer",
             "format": "int32"
+          },
+          "impact": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatEntryReviewImpact"
+              }
+            ]
           }
         }
       },
@@ -19240,6 +19842,78 @@
           },
           "candidateSha256": {
             "type": "string"
+          },
+          "impact": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatEntryReviewImpact"
+              }
+            ]
+          }
+        }
+      },
+      "DatEntryReviewImpact": {
+        "required": [
+          "storedRoms",
+          "lostRomMatches",
+          "newRomMatches",
+          "titleLink",
+          "titleLinkAtRisk",
+          "sha1ChangedFiles",
+          "metadataOnly",
+          "otherChecksumOnly",
+          "needsReview",
+          "titleId",
+          "titleOtherSourceLinks"
+        ],
+        "type": "object",
+        "properties": {
+          "storedRoms": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lostRomMatches": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "newRomMatches": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "titleLink": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "titleLinkAtRisk": {
+            "type": "boolean"
+          },
+          "sha1ChangedFiles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "metadataOnly": {
+            "type": "boolean"
+          },
+          "otherChecksumOnly": {
+            "type": "boolean"
+          },
+          "needsReview": {
+            "type": "boolean"
+          },
+          "titleId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "titleOtherSourceLinks": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -19295,6 +19969,39 @@
             "items": {
               "$ref": "#/components/schemas/DatFieldChange"
             }
+          },
+          "impact": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatFileReviewImpact"
+              }
+            ]
+          }
+        }
+      },
+      "DatFileReviewImpact": {
+        "required": [
+          "storedBefore",
+          "storedAfter",
+          "losesCatalogMatch",
+          "gainsCatalogMatch"
+        ],
+        "type": "object",
+        "properties": {
+          "storedBefore": {
+            "type": "boolean"
+          },
+          "storedAfter": {
+            "type": "boolean"
+          },
+          "losesCatalogMatch": {
+            "type": "boolean"
+          },
+          "gainsCatalogMatch": {
+            "type": "boolean"
           }
         }
       },
@@ -19475,6 +20182,73 @@
             "type": "integer",
             "format": "int32",
             "default": 0
+          },
+          "impact": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatReviewImpact"
+              }
+            ]
+          }
+        }
+      },
+      "DatReviewImpact": {
+        "required": [
+          "needsReviewEntries",
+          "removedWithStoredRoms",
+          "removedWithTitleLinks",
+          "lostRomMatches",
+          "newRomMatches",
+          "sha1ChangedEntries",
+          "sha1ChangedFiles",
+          "metadataOnlyEntries",
+          "otherChecksumOnlyEntries",
+          "diskChangedEntries"
+        ],
+        "type": "object",
+        "properties": {
+          "needsReviewEntries": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "removedWithStoredRoms": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "removedWithTitleLinks": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lostRomMatches": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "newRomMatches": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sha1ChangedEntries": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sha1ChangedFiles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "metadataOnlyEntries": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "otherChecksumOnlyEntries": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "diskChangedEntries": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -22450,6 +23224,120 @@
             "type": "integer",
             "format": "int32",
             "default": 0
+          },
+          "knownTitles": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          },
+          "lastDatImportedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ManagedSystemHardware": {
+        "required": [
+          "category",
+          "generation",
+          "releaseYear"
+        ],
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generation": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ManagedSystemPatch": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generation": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "manufacturerKeys": {
+            "maxItems": 16,
+            "uniqueItems": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nameAliases": {
+            "maxItems": 16,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ManagedSystemSetupDetails": {
+        "required": [
+          "system",
+          "hardware"
+        ],
+        "type": "object",
+        "properties": {
+          "system": {
+            "$ref": "#/components/schemas/SystemResource"
+          },
+          "hardware": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedSystemHardware"
+              }
+            ]
           }
         }
       },
@@ -24393,7 +25281,8 @@
         "required": [
           "id",
           "type",
-          "value"
+          "value",
+          "ownership"
         ],
         "type": "object",
         "properties": {
@@ -24410,6 +25299,9 @@
             ]
           },
           "value": {
+            "type": "string"
+          },
+          "ownership": {
             "type": "string"
           }
         }
@@ -24508,6 +25400,21 @@
             "type": "string"
           }
         }
+      },
+      "PreviewSystemNameAliasesRequest": {
+        "required": [
+          "nameAliases"
+        ],
+        "type": "object",
+        "properties": {
+          "nameAliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
       },
       "ProblemDetails": {
         "required": [
@@ -25943,14 +26850,36 @@
           }
         }
       },
-      "ServerInfo": {
+      "ServerBuild": {
         "required": [
-          "version"
+          "tag",
+          "revision"
         ],
         "type": "object",
         "properties": {
-          "version": {
+          "tag": {
             "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          }
+        }
+      },
+      "ServerInfo": {
+        "required": [
+          "release",
+          "build"
+        ],
+        "type": "object",
+        "properties": {
+          "release": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "build": {
+            "$ref": "#/components/schemas/ServerBuild"
           }
         }
       },
@@ -26560,6 +27489,25 @@
           "failedJobCount": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "SystemNameAliasConflict": {
+        "required": [
+          "alias",
+          "systemName",
+          "builtIn"
+        ],
+        "type": "object",
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "systemName": {
+            "type": "string"
+          },
+          "builtIn": {
+            "type": "boolean"
           }
         }
       },

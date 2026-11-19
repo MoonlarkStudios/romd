@@ -13,7 +13,7 @@ from qualify import argument_parser, image_map, qualify, validate_arguments, ver
 
 CASES = ('positive', 'portal-asset', 'player-startup')
 STATES = ('serverInstanceSha256', 'adminUserSha256', 'librarySha256', 'titleSha256', 'releaseSha256', 'contentSha256')
-CHECKS = ('adminProfile', 'adminCallback', 'adminAuthenticatedView', 'consumerProfile', 'consumerCallback',
+CHECKS = ('adminProfile', 'adminCallback', 'adminAuthenticatedView', 'adminDeploymentVersion', 'consumerProfile', 'consumerCallback',
           'consumerAuthenticatedView', 'playerHandshake', 'playerReady', 'playerGameStarted',
           'playerBodyPlaying', 'consumerPlaying')
 REPORTS = [f'{case}/{name}' for case in CASES for name in

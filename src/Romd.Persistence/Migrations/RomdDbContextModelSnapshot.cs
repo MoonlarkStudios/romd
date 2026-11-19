@@ -3244,6 +3244,16 @@ namespace Romd.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<string>("HardwareCategory")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("HardwareGeneration")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("HardwareReleaseYear")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("HasArtworkOverride")
                         .HasColumnType("boolean");
 

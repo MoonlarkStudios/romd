@@ -1,3 +1,4 @@
+using Romd.Domain.ReferenceData;
 using ErrorOr;
 using Microsoft.Extensions.Logging.Abstractions;
 using Romd.Admin.Application.Common.Persistence;
@@ -142,7 +143,7 @@ public sealed class AddPlatformAliasCommandHandlerTests
     {
         var order = new List<string>();
         var created = PlatformAlias.Rehydrate(21, 1, provider ? PlatformAliasType.ProviderMapping : PlatformAliasType.Name,
-            "19", "19", provider ? "igdb" : null, Now);
+            "19", "19", provider ? "igdb" : null, Now, ReferenceOwnership.Installation);
         var receipt = Substitute.For<IStagedPlatformAliasCreation>();
         receipt.ReadAfterFlush().Returns(_ => { order.Add("receipt"); return created; });
         _work.When(work => work.BeginTransactionAsync(Arg.Any<CancellationToken>())).Do(_ => order.Add("begin"));
@@ -184,7 +185,7 @@ public sealed class AddPlatformAliasCommandHandlerTests
     {
         var receipt = Substitute.For<IStagedPlatformAliasCreation>();
         receipt.ReadAfterFlush().Returns(PlatformAlias.Rehydrate(21, alias.PlatformId, alias.Type, alias.Value,
-            alias.NormalizedValue, alias.Provider, alias.CreatedAt));
+            alias.NormalizedValue, alias.Provider, alias.CreatedAt, alias.Ownership));
         return receipt;
     }
 
@@ -211,13 +212,27 @@ public sealed class RemovePlatformAliasCommandHandlerTests
     {
         _platformRepository.GetByIdAsync(1, Arg.Any<CancellationToken>())
             .Returns(Domain.Source.Platform.Platform.CreateNew("Some Platform", "some-platform", now: DateTimeOffset.UnixEpoch));
-        _aliasRepository.GetByIdAsync(9, Arg.Any<CancellationToken>())
-            .Returns(PlatformAlias.Rehydrate(9, 1, PlatformAliasType.Name, "SNES", "snes", null, DateTimeOffset.UtcNow));
+        _aliasRepository.RemoveInstallationOwnedAsync(1, 9, Arg.Any<CancellationToken>()).Returns(true);
 
         var result = await CreateHandler().HandleAsync(new RemovePlatformAliasCommand(1, 9));
 
         result.IsError.ShouldBeFalse();
-        await _aliasRepository.Received(1).RemoveAsync(9, Arg.Any<CancellationToken>());
+        await _aliasRepository.Received(1).RemoveInstallationOwnedAsync(1, 9, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(ReferenceOwnership.Romd)]
+    [InlineData(null)]
+    public async Task HandleAsync_ProtectedAliasOnPlatform_ReturnsConflict(ReferenceOwnership? ownership)
+    {
+        _platformRepository.GetByIdAsync(1, Arg.Any<CancellationToken>())
+            .Returns(Domain.Source.Platform.Platform.CreateNew("Some Platform", "some-platform", now: DateTimeOffset.UnixEpoch));
+        _aliasRepository.GetByIdAsync(9, Arg.Any<CancellationToken>())
+            .Returns(PlatformAlias.Rehydrate(9, 1, PlatformAliasType.Name, "SNES", "snes", null, DateTimeOffset.UtcNow, ownership));
+
+        var result = await CreateHandler().HandleAsync(new RemovePlatformAliasCommand(1, 9));
+
+        result.FirstError.Code.ShouldBe("Platform.AliasLocked");
     }
 
     [Fact]
@@ -226,12 +241,12 @@ public sealed class RemovePlatformAliasCommandHandlerTests
         _platformRepository.GetByIdAsync(1, Arg.Any<CancellationToken>())
             .Returns(Domain.Source.Platform.Platform.CreateNew("Some Platform", "some-platform", now: DateTimeOffset.UnixEpoch));
         _aliasRepository.GetByIdAsync(9, Arg.Any<CancellationToken>())
-            .Returns(PlatformAlias.Rehydrate(9, 2, PlatformAliasType.Name, "SNES", "snes", null, DateTimeOffset.UtcNow));
+            .Returns(PlatformAlias.Rehydrate(9, 2, PlatformAliasType.Name, "SNES", "snes", null, DateTimeOffset.UtcNow, ReferenceOwnership.Installation));
 
         var result = await CreateHandler().HandleAsync(new RemovePlatformAliasCommand(1, 9));
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Code.ShouldBe("Platform.AliasNotFound");
-        await _aliasRepository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _aliasRepository.Received(1).RemoveInstallationOwnedAsync(1, 9, Arg.Any<CancellationToken>());
     }
 }

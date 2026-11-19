@@ -1,4 +1,5 @@
 using ErrorOr;
+using Romd.Contracts.Management.Models;
 using Romd.Domain.ReferenceData;
 
 namespace Romd.Admin.Application.ReferenceData;
@@ -13,7 +14,9 @@ public interface ISystemReferenceRepository
 {
     Task<SystemReference?> GetAsync(string key, CancellationToken ct);
     Task<bool> KeyExistsAsync(string key, CancellationToken ct);
-    Task StageAsync(SystemReference system, CancellationToken ct);
+    Task StageAsync(SystemReference system, CancellationToken ct, bool enableForSetup = false);
+    Task<SystemNameAliasConflict[]> FindSetupNameAliasConflictsAsync(string[] normalizedNames, CancellationToken ct);
+    Task<ErrorOr<Success>> StageSetupAliasesAsync(int platformId, IReadOnlyList<string> names, CancellationToken ct);
     Task<bool> HasDependentsAsync(int id, CancellationToken ct);
     Task DeleteAsync(int id, CancellationToken ct);
     Task<bool> AssetExistsAsync(string hash, CancellationToken ct);

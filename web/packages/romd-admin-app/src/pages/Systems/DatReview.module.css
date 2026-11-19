@@ -1,0 +1,629 @@
+/* The dialog owns its viewport, so decisions are reachable at either breakpoint. */
+.dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+  padding: 0;
+}
+
+/* The theme's yellow light-variant text is near-white on dark; impact needs a legible amber. */
+.content,
+.pageContent,
+.footer {
+  --dat-review-warning: light-dark(var(--mantine-color-yellow-9), var(--mantine-color-yellow-4));
+}
+
+.content {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: 0 var(--mantine-spacing-lg) var(--mantine-spacing-lg);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* On the source page the document scrolls; the decision bar stays pinned to the viewport. */
+.pageReview {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--romd-portal-bg);
+}
+
+.pageContent {
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg) var(--mantine-spacing-lg);
+}
+
+.footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-lg);
+  padding-block-end: max(var(--mantine-spacing-sm), env(safe-area-inset-bottom));
+  border-block-start: 1px solid var(--romd-portal-border);
+  background: var(--romd-portal-bg);
+}
+
+.pageFooter {
+  position: sticky;
+  z-index: 2;
+  /* Clear the admin shell's fixed status bar so the decision is never covered. */
+  inset-block-end: var(--romd-admin-status-bar-height, 0px);
+  border-end-start-radius: var(--mantine-radius-md);
+  border-end-end-radius: var(--mantine-radius-md);
+}
+
+.footerNote {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.decisionActions {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+
+/* Programmatic focus moves context for assistive technology; it is not a keyboard target. */
+.focusTarget:focus {
+  outline: none;
+}
+
+.sourceHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.versionStrip {
+  display: grid;
+  grid-template-columns: minmax(0, auto) auto minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+}
+
+.version {
+  display: grid;
+  gap: 1px;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.incomingVersion .versionValue:first-of-type {
+  color: var(--mantine-primary-color-light-color);
+}
+
+.versionArrow {
+  color: var(--mantine-color-dimmed);
+}
+
+.versionScope {
+  justify-self: end;
+  text-align: end;
+}
+
+.versionValue,
+.fieldValue {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.verdict {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border: 1px solid var(--romd-portal-border);
+  border-inline-start-width: 4px;
+  border-radius: var(--mantine-radius-sm);
+  background: var(--romd-portal-surface);
+}
+
+.verdict[data-tone='review'] {
+  border-color: var(--dat-review-warning);
+  background: var(--mantine-color-yellow-light);
+}
+
+.verdict[data-tone='clear'] {
+  border-inline-start-color: var(--mantine-primary-color-light-color);
+}
+
+.verdictIcon {
+  margin-block-start: 2px;
+  color: var(--mantine-color-dimmed);
+}
+
+.verdict[data-tone='review'] .verdictIcon,
+.verdict[data-tone='review'] .verdictTitle {
+  color: var(--dat-review-warning);
+}
+
+.verdict[data-tone='clear'] .verdictIcon {
+  color: var(--mantine-primary-color-light-color);
+}
+
+.priorityText {
+  color: var(--dat-review-warning);
+}
+
+.disclosure {
+  font-size: var(--mantine-font-size-sm);
+  color: var(--mantine-color-text);
+}
+
+.disclosure > summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.footnotes {
+  max-inline-size: 60rem;
+}
+
+/* Rail, list, and entry share one bordered workspace on wide screens. */
+.inspector {
+  display: grid;
+  grid-template-columns: minmax(13rem, 15rem) minmax(16rem, 0.9fr) minmax(0, 1.2fr);
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-md);
+  overflow: clip;
+}
+
+.listPane[hidden],
+.detailPane[hidden] {
+  display: none;
+}
+
+.rail {
+  display: grid;
+  align-content: start;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-xs);
+  border-inline-end: 1px solid var(--romd-portal-border);
+  background: var(--romd-portal-surface);
+}
+
+.railGroup {
+  display: grid;
+  gap: 2px;
+}
+
+.railHeading {
+  composes: eyebrow from "../../components/Workspace/Workspace.module.css";
+  margin: 0;
+  padding: 0 var(--mantine-spacing-xs) 4px;
+}
+
+.railRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+  min-block-size: 2rem;
+  padding: 4px var(--mantine-spacing-xs);
+  border: 0;
+  border-inline-start: 3px solid transparent;
+  border-radius: var(--mantine-radius-sm);
+  background: transparent;
+  color: var(--mantine-color-text);
+  font: inherit;
+  font-size: var(--mantine-font-size-sm);
+  text-align: start;
+  cursor: pointer;
+}
+
+.railRow[data-nested] {
+  padding-inline-start: calc(var(--mantine-spacing-xs) + var(--mantine-spacing-md));
+  font-size: var(--mantine-font-size-xs);
+}
+
+.railRow:hover:not(:disabled),
+.railRow[aria-pressed='true'] {
+  background: var(--mantine-primary-color-light);
+}
+
+.railRow[aria-pressed='true'] {
+  border-inline-start-color: var(--mantine-primary-color-light-color);
+  font-weight: 600;
+}
+
+.railRow:disabled {
+  color: var(--mantine-color-dimmed);
+  cursor: default;
+}
+
+.railRow:focus-visible {
+  outline-offset: -2px;
+}
+
+.railRow[data-tone='review'] .railCount,
+.railRow[data-tone='review']:not([data-nested]) .railLabel {
+  color: var(--dat-review-warning);
+  font-weight: 600;
+}
+
+.railRow[data-tone='gain'] .railCount {
+  color: var(--mantine-primary-color-light-color);
+  font-weight: 600;
+}
+
+.railCount {
+  font-variant-numeric: tabular-nums;
+}
+
+.railChevron {
+  display: none;
+}
+
+.listPane,
+.detailPane {
+  min-inline-size: 0;
+}
+
+.listPane {
+  display: flex;
+  flex-direction: column;
+  border-inline-end: 1px solid var(--romd-portal-border);
+}
+
+.listControls {
+  display: grid;
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-sm);
+  border-block-end: 1px solid var(--romd-portal-border);
+}
+
+.listBody,
+.detailPane {
+  min-block-size: 0;
+  max-block-size: min(38rem, 68vh);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.listBody {
+  flex: 1 1 auto;
+}
+
+.detailPane {
+  padding: var(--mantine-spacing-md);
+}
+
+.detailEmpty {
+  max-inline-size: 26rem;
+}
+
+.changeList,
+.fileList,
+.hashList,
+.fieldList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.changeList > li + li {
+  border-block-start: 1px solid var(--romd-portal-border);
+}
+
+.entryButton {
+  display: grid;
+  width: 100%;
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-sm);
+  border: 0;
+  border-inline-start: 3px solid transparent;
+  background: transparent;
+  color: var(--mantine-color-text);
+  font: inherit;
+  line-height: var(--mantine-line-height-sm);
+  text-align: start;
+  cursor: pointer;
+}
+
+.setupEntryButton {
+  max-inline-size: 100%;
+  height: auto;
+  padding: var(--mantine-spacing-xs);
+}
+
+.entryLabel {
+  display: block;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.entryButton:hover,
+.entryButton[aria-pressed='true'] {
+  background: var(--mantine-primary-color-light);
+}
+
+.entryButton[aria-pressed='true'] {
+  border-inline-start-color: var(--mantine-primary-color-light-color);
+}
+
+.entryButton:focus-visible {
+  outline-offset: -2px;
+}
+
+.paging {
+  margin-block-start: auto;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  border-block-start: 1px solid var(--romd-portal-border);
+}
+
+.titleImpact {
+  display: grid;
+  gap: 2px;
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  border-inline-start: 3px solid var(--dat-review-warning);
+  border-radius: var(--mantine-radius-xs);
+  background: var(--mantine-color-yellow-light);
+}
+
+.entryNavigation {
+  padding-block-start: var(--mantine-spacing-xs);
+  border-block-start: 1px solid var(--romd-portal-border);
+}
+
+.fileList {
+  gap: var(--mantine-spacing-xs);
+}
+
+.fileCard {
+  min-width: 0;
+  padding: var(--mantine-spacing-sm);
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--romd-portal-surface);
+}
+
+.hashRow {
+  display: grid;
+  grid-template-columns: 2.8rem 4.9rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  padding-block: var(--mantine-spacing-xs);
+  border-block-start: 1px solid var(--romd-portal-border);
+}
+
+.hashValues {
+  display: flex;
+  gap: var(--mantine-spacing-xs);
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+}
+
+.hash {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: var(--mantine-font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) repeat(2, minmax(0, 1.6fr));
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-xs);
+  border-block-end: 1px solid var(--romd-portal-border);
+  overflow-wrap: anywhere;
+}
+
+/* Narrow screens step through summary → list → entry; each screen gets the full width. */
+@media (max-width: 64em) {
+  .inspector {
+    display: block;
+    border: 0;
+    overflow: visible;
+  }
+
+  .rail {
+    gap: var(--mantine-spacing-sm);
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .railGroup {
+    gap: 0;
+    border: 1px solid var(--romd-portal-border);
+    border-radius: var(--mantine-radius-sm);
+    background: var(--romd-portal-surface);
+    overflow: clip;
+  }
+
+  .railHeading {
+    padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm) 2px;
+  }
+
+  .railRow {
+    grid-template-columns: minmax(0, 1fr) auto 1rem;
+    min-block-size: 2.75rem;
+    padding-inline: var(--mantine-spacing-sm);
+    border-radius: 0;
+  }
+
+  .railRow + .railRow {
+    border-block-start: 1px solid var(--romd-portal-border);
+  }
+
+  .railRow[data-nested] {
+    padding-inline-start: calc(var(--mantine-spacing-sm) + var(--mantine-spacing-md));
+  }
+
+  .railChevron {
+    display: block;
+    color: var(--mantine-color-dimmed);
+  }
+
+  .listPane {
+    display: block;
+    border: 0;
+  }
+
+  .listControls {
+    position: sticky;
+    z-index: 1;
+    inset-block-start: 0;
+    padding-inline: 0;
+    background: var(--romd-portal-bg);
+  }
+
+  .listBody,
+  .detailPane {
+    max-block-size: none;
+    overflow: visible;
+  }
+
+  .detailPane {
+    padding: 0;
+  }
+}
+
+@media (max-width: 48em) {
+  .content {
+    padding-inline: var(--mantine-spacing-md);
+    scrollbar-gutter: auto;
+  }
+
+  /* The page already has a gutter; a second frame would only narrow long names. */
+  .pageReview {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .pageContent {
+    padding: 0 0 var(--mantine-spacing-md);
+  }
+
+  .pageFooter {
+    margin-inline: calc(var(--mantine-spacing-md) * -1);
+    border-radius: 0;
+  }
+
+  .footer {
+    display: grid;
+    padding-inline: var(--mantine-spacing-md);
+    gap: var(--mantine-spacing-xs);
+  }
+
+  .footerNote {
+    font-size: var(--mantine-font-size-xs);
+  }
+
+  .decisionActions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    margin: 0;
+  }
+
+  .decisionActions > :only-child {
+    grid-column: 1 / -1;
+  }
+
+  .decisionActions > button {
+    white-space: normal;
+  }
+
+  .versionStrip {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .versionScope {
+    grid-column: 1 / -1;
+    justify-self: start;
+    text-align: start;
+  }
+}
+
+@media (max-width: 36em) {
+  .fieldRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Sits at the end of the origin line, so the line reads origin first and actions last. */
+.headerActions {
+  order: 1;
+  margin-inline-start: auto;
+}
+
+.updateStatus {
+  --dat-review-warning: light-dark(var(--mantine-color-yellow-9), var(--mantine-color-yellow-4));
+
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--mantine-spacing-md);
+  align-items: start;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+}
+
+.updateStatusIcon {
+  display: inline-flex;
+  padding-block-start: 2px;
+  color: var(--mantine-color-dimmed);
+}
+
+.updateStatus[data-tone="clear"] .updateStatusIcon {
+  color: var(--mantine-color-teal-text);
+}
+
+.updateStatus[data-tone="review"] {
+  border-inline-start: 3px solid var(--dat-review-warning);
+}
+
+.updateStatus[data-tone="review"] .updateStatusIcon {
+  color: var(--dat-review-warning);
+}
+
+.updateStatusBody {
+  min-width: 0;
+}
+
+.updateStatusDetail {
+  display: grid;
+  gap: 2px;
+  margin-block-start: 4px;
+}
+
+.spin {
+  animation: dat-review-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+
+@keyframes dat-review-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 48em) {
+  .updateStatus {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: var(--mantine-spacing-md);
+  }
+
+  .updateStatus > :last-child:not(.updateStatusBody) {
+    grid-column: 1 / -1;
+  }
+}

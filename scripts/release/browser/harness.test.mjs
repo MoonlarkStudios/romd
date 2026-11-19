@@ -33,7 +33,8 @@ test('handshake and startup events alone cannot claim browser qualification', ()
   }
   assert.equal(diagnostic.checks.playerHandshake, true);
   assert.equal(diagnostic.result(), false);
-  for (const key of ['adminCallback', 'adminAuthenticatedView', 'consumerCallback', 'consumerAuthenticatedView', 'consumerPlaying', 'playerBodyPlaying']) {
+  for (const key of ['adminCallback', 'adminAuthenticatedView', 'adminDeploymentVersion', 'consumerCallback',
+    'consumerAuthenticatedView', 'consumerPlaying', 'playerBodyPlaying']) {
     diagnostic.checks[key] = true;
   }
   assert.equal(diagnostic.result(), true);
@@ -203,6 +204,8 @@ test('browser sign-in observes canonical admin and consumer self responses befor
   context.after(() => rm(work, { recursive: true, force: true }));
   const authenticatedPaths = [];
   const authenticatedControls = [];
+  let settingsOpened = false;
+  let deploymentVersionObserved = false;
   let wakeLockApproved = false;
   let count = 0;
   const newPage = () => {
@@ -214,8 +217,25 @@ test('browser sign-in observes canonical admin and consumer self responses befor
       removeListener: () => {},
       mainFrame: () => frame,
       goto: async () => {}, close: async () => {},
+      getByText: (text, options) => ({
+        waitFor: async () => {
+          assert.equal(origin, origins.admin);
+          assert.equal(settingsOpened, true);
+          assert.equal(text, 'Version v0.4.0');
+          assert.equal(options.exact, true);
+          deploymentVersionObserved = true;
+        },
+      }),
       getByRole: (role, options) => ({
-        click: async () => { navigated(frame); },
+        click: async () => {
+          if (role === 'link') {
+            assert.equal(origin, origins.admin);
+            assert.deepEqual(options, { name: 'Settings', exact: true });
+            settingsOpened = true;
+          } else {
+            navigated(frame);
+          }
+        },
         waitFor: async () => {
           assert.equal(role, 'button');
           assert.equal(options.name, origin === origins.admin ? 'User menu' : 'Account');
@@ -258,14 +278,17 @@ test('browser sign-in observes canonical admin and consumer self responses befor
   const passed = await qualifyBrowser({ adminOrigin: origins.admin, consumerOrigin: origins.consumer,
     playerOrigin: origins.player, evidenceDir: join(work, 'run'), hostAddress: '127.23.42.8',
     certificateSpki: 'a'.repeat(43) + '=', allowProvision: false,
+    expectedReleaseTag: 'v0.4.0',
     expectedState: { librarySha256: hash('library'), adminUserSha256: hash('admin') },
   }, { launch: async () => ({ version: () => 'fixture', newContext: async () => browserContext, close: async () => {} }) });
   assert.equal(passed, false, 'the fixture deliberately stops before real playback');
   assert.deepEqual(authenticatedPaths, [origins.admin + '/api/me', origins.consumer + '/api/me']);
   assert.deepEqual(authenticatedControls, [origins.admin, origins.consumer]);
+  assert.equal(deploymentVersionObserved, true);
   assert.equal(wakeLockApproved, true);
   const diagnostics = JSON.parse(await readFile(join(work, 'run/browser-diagnostics.json'), 'utf8'));
   assert.equal(diagnostics.checks.adminAuthenticatedView, true);
+  assert.equal(diagnostics.checks.adminDeploymentVersion, true);
   assert.equal(diagnostics.checks.consumerAuthenticatedView, true);
   assert.equal(diagnostics.records.at(-1).stage, 'isolated-player-startup');
 });

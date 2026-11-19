@@ -1,10 +1,20 @@
 import {
+  checkDatSubscription,
   createDatReplacement,
+  createDatSubscription,
+  deleteSystemAlias,
+  deleteSystemOverride,
   getAdminSystem,
   getDatSubscription,
+  getDatSubscriptionChange,
+  getDatSubscriptionChangeCount,
+  getDatSubscriptionPreview,
   getJob,
+  getManagedSystemDetails,
+  getSystemOverrides,
   listCatalogTitles,
   listDatCatalogs,
+  listDatSubscriptionChanges,
   listDatSubscriptions,
   listManagedSystems,
   listSourceEntries,
@@ -12,12 +22,14 @@ import {
   listSystemDats,
   previewArtworkCompletion,
   previewDatReplacement,
+  previewSystemNameAliases,
   queueArtworkCompletion,
   triggerSystemBulkEnrichment,
+  updateManagedSystemPresentation,
 } from '@romd/admin-api-client';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route, Routes } from 'react-router';
+import { parsePath, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { completePage } from '../../test/fixtures/referencePages';
 import { render } from '../../test/utils/render';
@@ -27,6 +39,12 @@ import { SystemHub } from './SystemHub';
 vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   getAdminSystem: vi.fn(),
+  deleteSystemAlias: vi.fn(),
+  deleteSystemOverride: vi.fn(),
+  getSystemOverrides: vi.fn(),
+  getManagedSystemDetails: vi.fn(),
+  updateManagedSystemPresentation: vi.fn(),
+  previewSystemNameAliases: vi.fn(),
   listSystemAliases: vi.fn(),
   listSystemDats: vi.fn(),
   listSourceEntries: vi.fn(),
@@ -36,6 +54,13 @@ vi.mock('@romd/admin-api-client', async () => ({
   getDatSubscription: vi.fn(),
   previewDatReplacement: vi.fn(),
   createDatReplacement: vi.fn(),
+  getDatSubscriptionPreview: vi.fn(),
+  listDatReplacementChanges: vi.fn(),
+  listDatSubscriptionChanges: vi.fn(),
+  getDatSubscriptionChange: vi.fn(),
+  getDatSubscriptionChangeCount: vi.fn(),
+  checkDatSubscription: vi.fn(),
+  createDatSubscription: vi.fn(),
   getJob: vi.fn(),
   listCatalogTitles: vi.fn(),
   getCatalogStats: vi.fn().mockResolvedValue({
@@ -49,8 +74,10 @@ vi.mock('@romd/admin-api-client', async () => ({
 }));
 const access = vi.hoisted(() => ({
   canManageSources: true,
+  canEditReferenceData: true,
   canManageTitles: false,
   canTriggerEnrichment: false,
+  role: 'Admin',
 }));
 vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: () => access,
@@ -64,6 +91,39 @@ const result = <T,>(data: T) =>
   ({
     data,
   }) as never;
+const builtInAlias = {
+  id: 'built-in-alias',
+  type: 'name',
+  value: 'PS1',
+  ownership: 'Romd',
+};
+const localAlias = {
+  id: 'local-alias',
+  type: 'name',
+  value: 'Portable disc reference',
+  ownership: 'Installation',
+};
+const playStationDetails = {
+  system: {
+    key: 'psx',
+    name: 'PlayStation',
+    compactLabel: 'PS1',
+    ownership: 'Romd',
+    revision: 'revision-at-open',
+    description: 'Sony home console.',
+    manufacturers: [
+      {
+        key: 'sony',
+        name: 'Sony',
+      },
+    ],
+  },
+  hardware: {
+    category: 'console',
+    generation: 5,
+    releaseYear: 1994,
+  },
+};
 const manual = {
   id: 'manual',
   sourceId: 'source2',
@@ -77,6 +137,7 @@ const manual = {
 };
 const redump = {
   ...manual,
+  hasSubscription: true,
   id: 'redump',
   sourceId: 'source1',
   name: 'Sony - PlayStation',
@@ -91,22 +152,36 @@ const sub = {
   name: 'Redump',
   state: 'UpdateAvailable',
 };
-function hub(url = '/systems/psx?tab=sources') {
+function CurrentUrl() {
+  const location = useLocation();
+  return <output data-testid="url">{`${location.pathname}${location.search}`}</output>;
+}
+function hub(url = '/systems/psx?tab=sources', systemsReturn?: string) {
   render(
-    <Routes>
-      <Route
-        path="/systems/:systemKey/sources/:sourceId"
-        element={<SourceWorkspace />}
-      />
-      <Route
-        path="/systems/:systemKey"
-        element={<SystemHub />}
-      />
-    </Routes>,
+    <>
+      <CurrentUrl />
+      <Routes>
+        <Route
+          path="/systems/:systemKey/sources/:sourceId"
+          element={<SourceWorkspace />}
+        />
+        <Route
+          path="/systems/:systemKey"
+          element={<SystemHub />}
+        />
+      </Routes>
+    </>,
     {
       routerOptions: {
         initialEntries: [
-          url,
+          systemsReturn
+            ? {
+                ...parsePath(url),
+                state: {
+                  systemsReturn,
+                },
+              }
+            : url,
         ],
       },
     },
@@ -114,11 +189,21 @@ function hub(url = '/systems/psx?tab=sources') {
 }
 beforeEach(() => {
   Object.assign(access, {
+    role: 'Admin',
+    canManageSources: true,
+    canEditReferenceData: true,
     canManageTitles: false,
     canTriggerEnrichment: false,
   });
   vi.resetAllMocks();
   vi.mocked(listCatalogTitles).mockResolvedValue(result(page([])));
+  vi.mocked(getManagedSystemDetails).mockResolvedValue(result(playStationDetails));
+  vi.mocked(getSystemOverrides).mockResolvedValue(
+    result({
+      hasDescription: false,
+    }),
+  );
+  vi.mocked(previewSystemNameAliases).mockResolvedValue(result([]));
   vi.mocked(getAdminSystem).mockResolvedValue(
     result({
       key: 'psx',
@@ -130,10 +215,7 @@ beforeEach(() => {
   vi.mocked(listSystemAliases).mockResolvedValue(
     result(
       page([
-        {
-          type: 'name',
-          value: 'PS1',
-        },
+        builtInAlias,
       ]),
     ),
   );
@@ -180,7 +262,15 @@ beforeEach(() => {
     }),
   );
 });
-it('lists mixed sources and does not eagerly request any entry pages', async () => {
+it('prioritizes a source ready for review without requesting entry pages', async () => {
+  vi.mocked(listSystemDats).mockResolvedValueOnce(
+    result(
+      page([
+        manual,
+        redump,
+      ]),
+    ),
+  );
   hub();
   const redumpRow = await screen.findByRole('article', {
     name: redump.name,
@@ -188,12 +278,13 @@ it('lists mixed sources and does not eagerly request any entry pages', async () 
   const manualRow = screen.getByRole('article', {
     name: manual.name,
   });
+  expect(screen.getAllByRole('article')[0]).toBe(redumpRow);
   expect(within(redumpRow).getByText('Subscription')).toBeInTheDocument();
   expect(
-    within(redumpRow).getByRole('button', {
+    within(redumpRow).getByRole('link', {
       name: 'Review update',
     }),
-  ).toBeInTheDocument();
+  ).toHaveAttribute('href', '/systems/psx/sources/source1?tab=updates');
   expect(within(manualRow).getByText('Manual updates')).toBeInTheDocument();
   expect(
     within(manualRow).getByRole('link', {
@@ -202,9 +293,478 @@ it('lists mixed sources and does not eagerly request any entry pages', async () 
   ).toBeInTheDocument();
   expect(screen.getByText('Catalog ready')).toBeInTheDocument();
   expect(listSourceEntries).not.toHaveBeenCalled();
+  expect(
+    within(manualRow).getByRole('link', {
+      name: 'Upload new version',
+    }),
+  ).toHaveAttribute('href', '/systems/psx/sources/source2?tab=updates');
 });
-it('defaults to tracked titles and keeps the all-title escape scoped to this system', async () => {
+it('connects a compatible subscription from the exact installed source row', async () => {
+  const catalogId = 'no-intro/psx/test';
+  vi.mocked(listDatCatalogs).mockResolvedValue(
+    result({
+      enabled: true,
+      message: null,
+      catalogs: [
+        {
+          catalogId,
+          name: manual.name,
+          systemId: 'psx',
+        },
+      ],
+    }),
+  );
+  const connected = {
+    ...sub,
+    id: 'connected',
+    catalogId,
+    activeDatId: manual.id,
+    state: 'UpToDate',
+    jobId: 'previous-job',
+  };
+  vi.mocked(createDatSubscription).mockImplementation(async () => {
+    vi.mocked(listDatSubscriptions).mockResolvedValue(
+      result([
+        sub,
+        connected,
+      ]),
+    );
+    vi.mocked(getDatSubscription).mockImplementation(async ({ path }) =>
+      result(path.subscriptionId === connected.id ? connected : sub),
+    );
+    return result(connected);
+  });
+  hub();
+  const row = await screen.findByRole('article', {
+    name: manual.name,
+  });
+  await userEvent.click(
+    await within(row).findByRole('button', {
+      name: 'Connect subscription',
+    }),
+  );
+  expect(createDatSubscription).toHaveBeenCalledExactlyOnceWith({
+    body: {
+      catalogId,
+      datId: manual.id,
+    },
+  });
+  expect(
+    await within(row).findByRole('button', {
+      name: 'Check for updates',
+    }),
+  ).toBeVisible();
+  expect(
+    within(row).queryByRole('link', {
+      name: /job/,
+    }),
+  ).not.toBeInTheDocument();
+});
+
+it('keeps manual replacement available when the subscription directory cannot be loaded', async () => {
+  vi.mocked(listDatCatalogs).mockResolvedValue(
+    result({
+      enabled: true,
+      message: 'The directory could not be verified.',
+      catalogs: [],
+    }),
+  );
+  hub();
+  expect(await screen.findByText(/Subscription directory unavailable/)).toBeVisible();
+  const manualRow = screen.getByRole('article', {
+    name: manual.name,
+  });
+  await userEvent.click(
+    within(manualRow).getByRole('link', {
+      name: 'Upload new version',
+    }),
+  );
+  expect(await screen.findByTestId('dat-upload-zone')).toBeVisible();
+});
+
+it('lets Managers replace a manual DAT without calling Admin subscription endpoints', async () => {
+  access.role = 'Manager';
+  hub();
+  const manualRow = await screen.findByRole('article', {
+    name: manual.name,
+  });
+  const subscribedRow = screen.getByRole('article', {
+    name: redump.name,
+  });
+  expect(within(subscribedRow).getByText('Subscription')).toBeVisible();
+  expect(
+    within(subscribedRow).queryByRole('link', {
+      name: 'Upload new version',
+    }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(
+    within(manualRow).getByRole('link', {
+      name: 'Upload new version',
+    }),
+  );
+  expect(await screen.findByTestId('dat-upload-zone')).toBeVisible();
+  expect(listDatCatalogs).not.toHaveBeenCalled();
+  expect(listDatSubscriptions).not.toHaveBeenCalled();
+});
+
+it('hides manual replacement from users below Manager on the direct Updates route', async () => {
+  access.role = 'Contributor';
+  access.canManageSources = false;
+  hub('/systems/psx/sources/source2?tab=updates');
+  expect(
+    await screen.findByRole('heading', {
+      name: 'Manual updates',
+    }),
+  ).toBeVisible();
+  expect(screen.queryByTestId('dat-upload-zone')).not.toBeInTheDocument();
+  expect(listDatSubscriptions).not.toHaveBeenCalled();
+});
+
+it('keeps the filtered Systems return destination when switching detail tabs', async () => {
+  const systemsReturn = '/systems?q=psx&attention=1&system=psx';
+  hub('/systems/psx?tab=sources', systemsReturn);
+  await userEvent.click(
+    await screen.findByRole('tab', {
+      name: 'Titles',
+    }),
+  );
+  expect(
+    screen.getByRole('link', {
+      name: 'All systems',
+    }),
+  ).toHaveAttribute('href', systemsReturn);
+});
+it('opens on Metadata and saves a new alias after resolving a cross-system conflict', async () => {
+  vi.mocked(previewSystemNameAliases).mockResolvedValueOnce(
+    result([
+      {
+        alias: 'GBA',
+        systemName: 'Game Boy Advance',
+        builtIn: true,
+      },
+    ]),
+  );
+  vi.mocked(updateManagedSystemPresentation).mockImplementation(async () => {
+    vi.mocked(listSystemAliases).mockResolvedValue(
+      result(
+        page([
+          builtInAlias,
+          localAlias,
+        ]),
+      ),
+    );
+    return result(playStationDetails.system);
+  });
+  const user = userEvent.setup();
   hub('/systems/psx');
+
+  expect(
+    await screen.findByRole('tab', {
+      name: 'Metadata',
+    }),
+  ).toHaveAttribute('aria-selected', 'true');
+  expect(
+    await screen.findByRole('textbox', {
+      name: 'System key',
+    }),
+  ).toHaveAttribute('readonly');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Manufacturers',
+    }),
+  ).toHaveValue('Sony');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Category',
+    }),
+  ).toHaveValue('Console');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Generation',
+    }),
+  ).toHaveValue('5');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Release year',
+    }),
+  ).toHaveValue('1994');
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Description',
+    }),
+  ).toHaveValue('Sony home console.');
+  const save = screen.getByRole('button', {
+    name: 'Save changes',
+  });
+  expect(save).toBeDisabled();
+  const aliases = screen.getByRole('combobox', {
+    name: 'Aliases',
+  });
+  await user.type(aliases, 'gBa{Enter}');
+  expect(
+    await screen.findByText('“GBA” is already a built-in alias for Game Boy Advance.'),
+  ).toBeVisible();
+  expect(save).toBeDisabled();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Remove alias gBa',
+    }),
+  );
+  await user.type(aliases, 'Portable disc reference{Enter}');
+  await waitFor(() => expect(save).toBeEnabled());
+  await user.click(save);
+  expect(await screen.findByText('System details saved.')).toBeVisible();
+  expect(screen.getByText('Portable disc reference')).toBeVisible();
+  expect(updateManagedSystemPresentation).toHaveBeenCalledExactlyOnceWith({
+    path: {
+      systemKey: 'psx',
+    },
+    query: {
+      enableForSetup: false,
+    },
+    headers: {
+      'If-Match': '"revision-at-open"',
+    },
+    body: {
+      nameAliases: [
+        'Portable disc reference',
+      ],
+    },
+  });
+});
+
+it('edits, clears, and restores the default description without discarding another field', async () => {
+  const original = playStationDetails.system;
+  vi.mocked(updateManagedSystemPresentation).mockImplementation(async ({ body }) => {
+    const updated = {
+      ...original,
+      ...body,
+      revision: body.description === null ? 'description-cleared' : 'description-edited',
+    };
+    vi.mocked(getManagedSystemDetails).mockResolvedValue(
+      result({
+        ...playStationDetails,
+        system: updated,
+      }),
+    );
+    vi.mocked(getSystemOverrides).mockResolvedValue(
+      result({
+        hasDescription: true,
+      }),
+    );
+    return result(updated);
+  });
+  vi.mocked(deleteSystemOverride).mockImplementation(async () => {
+    const restored = {
+      ...original,
+      revision: 'description-restored',
+    };
+    vi.mocked(getManagedSystemDetails).mockResolvedValue(
+      result({
+        ...playStationDetails,
+        system: restored,
+      }),
+    );
+    vi.mocked(getSystemOverrides).mockResolvedValue(
+      result({
+        hasDescription: false,
+      }),
+    );
+    return {
+      response: new Response(null, {
+        status: 204,
+        headers: {
+          ETag: '"description-restored"',
+        },
+      }),
+    } as Awaited<ReturnType<typeof deleteSystemOverride>>;
+  });
+  hub('/systems/psx');
+  const user = userEvent.setup();
+  const description = await screen.findByRole('textbox', {
+    name: 'Description',
+  });
+  const save = screen.getByRole('button', {
+    name: 'Save changes',
+  });
+  expect(description).toHaveValue(original.description);
+  expect(
+    screen.queryByRole('button', {
+      name: 'Restore default',
+    }),
+  ).not.toBeInTheDocument();
+
+  await user.clear(description);
+  await user.type(description, 'My PlayStation description.');
+  await user.click(save);
+  await screen.findByText('System details saved.');
+  expect(description).toHaveValue('My PlayStation description.');
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Clear description',
+    }),
+  );
+  expect(description).toHaveValue('');
+  await user.click(save);
+  await screen.findByText('System details saved.');
+  expect(updateManagedSystemPresentation).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      body: {
+        description: null,
+      },
+    }),
+  );
+  expect(description).toHaveValue('');
+
+  const name = screen.getByRole('textbox', {
+    name: 'Display name',
+  });
+  await user.clear(name);
+  await user.type(name, 'My PlayStation');
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Restore default',
+    }),
+  );
+  expect(await screen.findByText('Default description restored.')).toBeVisible();
+  expect(description).toHaveValue(original.description);
+  expect(name).toHaveValue('My PlayStation');
+  expect(deleteSystemOverride).toHaveBeenCalledExactlyOnceWith({
+    path: {
+      systemKey: 'psx',
+      field: 'description',
+    },
+    headers: {
+      'If-Match': '"description-cleared"',
+    },
+  });
+
+  await user.click(save);
+  await waitFor(() =>
+    expect(updateManagedSystemPresentation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        body: {
+          name: 'My PlayStation',
+        },
+        headers: {
+          'If-Match': '"description-restored"',
+        },
+      }),
+    ),
+  );
+  await screen.findByText('System details saved.');
+});
+
+it('removes a saved local alias and keeps protected aliases locked', async () => {
+  const unresolvedAlias = {
+    id: 'old-alias',
+    type: 'name',
+    value: 'Old name',
+    ownership: 'Unresolved',
+  };
+  vi.mocked(listSystemAliases).mockResolvedValue(
+    result(
+      page([
+        builtInAlias,
+        localAlias,
+        unresolvedAlias,
+      ]),
+    ),
+  );
+  vi.mocked(deleteSystemAlias).mockImplementation(async () => {
+    vi.mocked(listSystemAliases).mockResolvedValue(
+      result(
+        page([
+          builtInAlias,
+          unresolvedAlias,
+        ]),
+      ),
+    );
+    return result(undefined);
+  });
+  hub('/systems/psx');
+
+  const user = userEvent.setup();
+  const aliases = within(
+    await screen.findByRole('group', {
+      name: 'Aliases',
+    }),
+  );
+  const entry = aliases.getByRole('combobox', {
+    name: 'Aliases',
+  });
+  const remove = await aliases.findByRole('button', {
+    name: 'Remove alias Portable disc reference from this system',
+  });
+  expect(aliases.getByTitle('Built-in alias')).toHaveTextContent('PS1');
+  expect(aliases.getByTitle('Ownership unknown')).toHaveTextContent('Old name');
+  expect(
+    screen.getAllByRole('button', {
+      name: /Remove alias/,
+    }),
+  ).toEqual([
+    remove,
+  ]);
+
+  await user.type(entry, '{Backspace}');
+  expect(remove).toBeVisible();
+  expect(aliases.getByTitle('Ownership unknown')).toBeVisible();
+  expect(deleteSystemAlias).not.toHaveBeenCalled();
+
+  await user.click(remove);
+
+  expect(await screen.findByText('Alias removed.')).toBeVisible();
+  expect(screen.queryByText('Portable disc reference')).not.toBeInTheDocument();
+  expect(screen.getByTitle('Built-in alias')).toBeVisible();
+  expect(updateManagedSystemPresentation).not.toHaveBeenCalled();
+  expect(deleteSystemAlias).toHaveBeenCalledExactlyOnceWith({
+    path: {
+      systemKey: 'psx',
+      aliasId: 'local-alias',
+    },
+  });
+});
+
+it('shows metadata to users without reference edit permission', async () => {
+  access.canEditReferenceData = false;
+  vi.mocked(listSystemAliases).mockResolvedValue(
+    result(
+      page([
+        builtInAlias,
+        localAlias,
+      ]),
+    ),
+  );
+  hub('/systems/psx');
+
+  const name = await screen.findByRole('textbox', {
+    name: 'Display name',
+  });
+  expect(name).toHaveValue('PlayStation');
+  expect(name).toHaveAttribute('readonly');
+  expect(
+    screen.queryByRole('combobox', {
+      name: 'Aliases',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', {
+      name: 'Save changes',
+    }),
+  ).not.toBeInTheDocument();
+  expect(await screen.findByText('Portable disc reference')).toBeVisible();
+  expect(
+    screen.queryByRole('button', {
+      name: /Remove alias/,
+    }),
+  ).not.toBeInTheDocument();
+});
+
+it('defaults to tracked titles and keeps the all-title escape scoped to this system', async () => {
+  hub('/systems/psx?tab=titles');
   expect(
     await screen.findByRole('tab', {
       name: 'Titles',
@@ -246,7 +806,7 @@ it('defaults to tracked titles and keeps the all-title escape scoped to this sys
 });
 it.each([
   [
-    '/systems/psx',
+    '/systems/psx?tab=titles',
     'tracked',
   ],
   [
@@ -346,30 +906,72 @@ it('opens the current DAT through a stable source URL after replacement', async 
     ),
   );
 });
-it('keeps updates and settings addressable without fetching entries', async () => {
+it('opens old settings links on Updates and keeps the update method in the source menu', async () => {
+  vi.mocked(getDatSubscriptionPreview).mockReturnValue(new Promise(() => {}));
+  const user = userEvent.setup();
   hub('/systems/psx/sources/source1?tab=settings');
   expect(
-    await screen.findByRole('button', {
-      name: 'Switch to manual updates',
+    await screen.findByRole('tab', {
+      name: /Updates/,
+      selected: true,
     }),
   ).toBeInTheDocument();
   expect(
-    screen.queryByRole('button', {
-      name: 'Review update',
+    screen.queryByRole('tab', {
+      name: 'Settings',
     }),
   ).not.toBeInTheDocument();
-  expect(listSourceEntries).not.toHaveBeenCalled();
-  await userEvent.click(
-    screen.getByRole('tab', {
-      name: 'Updates',
+  await waitFor(() =>
+    expect(screen.getByTestId('url')).toHaveTextContent('/systems/psx/sources/source1?tab=updates'),
+  );
+  await user.click(
+    screen.getByRole('button', {
+      name: /^Actions for /,
     }),
   );
   expect(
-    await screen.findByRole('button', {
-      name: 'Review update',
+    await screen.findByRole('menuitem', {
+      name: 'Switch to manual updates',
     }),
   ).toBeInTheDocument();
+  expect(listDatCatalogs).not.toHaveBeenCalled();
   expect(listSourceEntries).not.toHaveBeenCalled();
+});
+it('says when a subscribed source has no new update and checks again on request', async () => {
+  const upToDate = {
+    ...sub,
+    state: 'UpToDate',
+    lastCheckedAt: new Date().toISOString(),
+    nextCheckAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
+  };
+  vi.mocked(listDatSubscriptions).mockResolvedValue(
+    result([
+      upToDate,
+    ]),
+  );
+  vi.mocked(getDatSubscription).mockResolvedValue(result(upToDate));
+  vi.mocked(checkDatSubscription).mockResolvedValue(result(upToDate) as never);
+  const user = userEvent.setup();
+  hub('/systems/psx/sources/source1?tab=updates');
+  const status = await screen.findByRole('region', {
+    name: 'Update status',
+  });
+  expect(within(status).getByText('No new updates')).toBeInTheDocument();
+  expect(
+    within(status).getByText(
+      new Date(upToDate.nextCheckAt).toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }),
+    ),
+  ).toHaveAttribute('datetime', upToDate.nextCheckAt);
+  await user.click(
+    within(status).getByRole('button', {
+      name: 'Check for updates',
+    }),
+  );
+  await waitFor(() => expect(checkDatSubscription).toHaveBeenCalled());
+  expect(getDatSubscriptionPreview).not.toHaveBeenCalled();
 });
 it('handles a removed source without falling back to an unrelated DAT', async () => {
   hub('/systems/psx/sources/missing');
@@ -395,12 +997,19 @@ it('shows first-source guidance independently of adding the system', async () =>
   vi.mocked(listSystemDats).mockResolvedValue(result(page([])));
   vi.mocked(listDatSubscriptions).mockResolvedValue(result([]));
   hub();
-  expect(await screen.findByText('No sources yet')).toBeInTheDocument();
+  expect(await screen.findByText('No DAT installed')).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Choose a source',
+      name: 'Add first DAT',
     }),
   ).toBeEnabled();
+});
+it('opens catalog setup from its direct link', async () => {
+  vi.mocked(listSystemDats).mockResolvedValue(result(page([])));
+  vi.mocked(listDatSubscriptions).mockResolvedValue(result([]));
+  hub('/systems/psx?tab=sources&setup=1');
+  expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  expect(listDatCatalogs).toHaveBeenCalled();
 });
 it('keeps a pending subscription visible before its first DAT exists', async () => {
   vi.mocked(listDatSubscriptions).mockResolvedValue(
@@ -420,14 +1029,27 @@ it('keeps a pending subscription visible before its first DAT exists', async () 
     }),
   );
   hub();
-  expect(await screen.findByText('No installed DAT')).toBeInTheDocument();
+  expect(await screen.findByText('No DAT installed')).toBeInTheDocument();
   expect(
     await screen.findByRole('button', {
-      name: 'Review source',
+      name: 'Review first DAT',
     }),
   ).toBeInTheDocument();
 });
-it('updates the chosen manual source only after a hash-bound review', async () => {
+it.each([
+  [
+    'Completed',
+    'Applied 4',
+  ],
+  [
+    'Cancelled',
+    'Update cancelled',
+  ],
+  [
+    'Failed',
+    'Update needs attention',
+  ],
+])('reports a %s manual replacement after the hash-bound review', async (phase, notice) => {
   vi.mocked(previewDatReplacement).mockResolvedValue(
     result({
       activeSha256: 'before',
@@ -458,7 +1080,7 @@ it('updates the chosen manual source only after a hash-bound review', async () =
   vi.mocked(getJob).mockResolvedValue(
     result({
       id: 'job',
-      phase: 'Completed',
+      phase,
       isTerminal: true,
       hasErrors: false,
     }),
@@ -483,8 +1105,11 @@ it('updates the chosen manual source only after a hash-bound review', async () =
       ],
     },
   });
-  const approve = await screen.findByRole('button', {
-    name: 'Apply reviewed update',
+  const review = await screen.findByRole('region', {
+    name: 'Review catalog update',
+  });
+  const approve = await within(review).findByRole('button', {
+    name: 'Apply uploaded DAT',
   });
   expect(createDatReplacement).not.toHaveBeenCalled();
   await user.click(approve);
@@ -502,4 +1127,191 @@ it('updates the chosen manual source only after a hash-bound review', async () =
       }),
     ),
   );
+  expect(await screen.findByText(notice)).toBeInTheDocument();
+  if (phase === 'Completed') expect(screen.getByText('1 added')).toBeInTheDocument();
+  else {
+    expect(screen.queryByText('Applied 4')).not.toBeInTheDocument();
+    expect(screen.queryByText('1 added')).not.toBeInTheDocument();
+  }
+  expect(
+    screen.queryByRole('region', {
+      name: 'Review catalog update',
+    }),
+  ).not.toBeInTheDocument();
+});
+it('shows a pending subscription update as the Updates tab itself', async () => {
+  vi.mocked(getDatSubscriptionPreview).mockResolvedValue(
+    result({
+      activeSha256: 'before',
+      candidateSha256: 'after',
+      activeVersion: '20261012-015604',
+      candidateVersion: '20261025-205653',
+      unchanged: false,
+      activeEntries: 1,
+      candidateEntries: 1,
+      entriesAdded: 0,
+      entriesRemoved: 0,
+      entriesChanged: 0,
+      filesAdded: 0,
+      filesRemoved: 0,
+      filesChanged: 0,
+      hashesChanged: 0,
+      activeBiosEntries: 0,
+      candidateBiosEntries: 0,
+      changes: [],
+      truncated: false,
+    }),
+  );
+  hub('/systems/psx/sources/source1?tab=updates&review=subscription');
+  expect(
+    await screen.findByRole('tab', {
+      name: 'Updates, update ready',
+    }),
+  ).toBeInTheDocument();
+  const review = await screen.findByRole('region', {
+    name: 'Review catalog update',
+  });
+  expect(await within(review).findByText('No supported entry changes')).toBeInTheDocument();
+  expect(
+    within(review).getByRole('button', {
+      name: /^Apply (25 Oct|Oct 25) update$/,
+    }),
+  ).toBeInTheDocument();
+  expect(
+    within(review).getByRole('button', {
+      name: 'Check again',
+    }),
+  ).toBeInTheDocument();
+  // The review is the tab; there is no separate page to close back to.
+  expect(
+    within(review).queryByRole('button', {
+      name: 'Decide later',
+    }),
+  ).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('url')).toHaveTextContent(/\?tab=updates$/));
+});
+it('restores the reviewed entry and filter from the URL and keeps them as the reader moves', async () => {
+  const impact = {
+    storedRoms: 0,
+    lostRomMatches: 0,
+    newRomMatches: 0,
+    titleLink: null,
+    titleLinkAtRisk: false,
+    sha1ChangedFiles: 0,
+    metadataOnly: false,
+    otherChecksumOnly: false,
+    needsReview: false,
+    titleId: null,
+    titleOtherSourceLinks: 0,
+  };
+  const removed = {
+    id: 'disc-b',
+    name: 'Disc B',
+    change: 'Removed',
+    filesAdded: 0,
+    filesRemoved: 1,
+    filesChanged: 0,
+    impact,
+  };
+  vi.mocked(getDatSubscriptionPreview).mockResolvedValue(
+    result({
+      activeSha256: 'before',
+      candidateSha256: 'after',
+      activeVersion: '1',
+      candidateVersion: '2',
+      unchanged: false,
+      activeEntries: 2,
+      candidateEntries: 1,
+      entriesAdded: 0,
+      entriesRemoved: 1,
+      entriesChanged: 0,
+      filesAdded: 0,
+      filesRemoved: 1,
+      filesChanged: 0,
+      hashesChanged: 0,
+      activeBiosEntries: 0,
+      candidateBiosEntries: 0,
+      changes: [],
+      truncated: false,
+    }),
+  );
+  vi.mocked(listDatSubscriptionChanges).mockResolvedValue(
+    result({
+      items: [
+        {
+          ...removed,
+          id: 'disc-a',
+          name: 'Disc A',
+        },
+      ],
+      nextCursor: 'second-page',
+      hasNextPage: true,
+    }),
+  );
+  vi.mocked(getDatSubscriptionChangeCount).mockResolvedValue(
+    result({
+      total: 2,
+    }),
+  );
+  vi.mocked(getDatSubscriptionChange).mockResolvedValue(
+    result({
+      activeSha256: 'before',
+      candidateSha256: 'after',
+      id: 'disc-b',
+      name: 'Disc B',
+      change: 'Removed',
+      fields: [],
+      impact,
+      files: {
+        items: [],
+        nextCursor: null,
+        hasNextPage: false,
+      },
+    }),
+  );
+  const user = userEvent.setup();
+  hub('/systems/psx/sources/source1?tab=updates&filter=removed&entry=disc-b');
+  const detail = await screen.findByRole('region', {
+    name: 'Entry changes',
+  });
+  expect(
+    await within(detail).findByRole('heading', {
+      name: 'Disc B',
+    }),
+  ).toBeInTheDocument();
+  expect(
+    await within(detail).findByRole('button', {
+      name: 'Next entry',
+    }),
+  ).toBeDisabled();
+  expect(
+    within(detail).getByRole('button', {
+      name: 'Previous entry',
+    }),
+  ).toBeDisabled();
+  expect(listDatSubscriptionChanges).toHaveBeenCalledWith(
+    expect.objectContaining({
+      query: expect.objectContaining({
+        change: 'Removed',
+      }),
+    }),
+  );
+  expect(
+    screen.getByRole('button', {
+      name: 'Removed 1',
+      pressed: true,
+    }),
+  ).toBeInTheDocument();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'All changes 1',
+    }),
+  );
+  await waitFor(() => expect(screen.getByTestId('url')).toHaveTextContent(/\?tab=updates$/));
+  await user.click(
+    screen.getByRole('tab', {
+      name: 'Entries',
+    }),
+  );
+  await waitFor(() => expect(screen.getByTestId('url')).toHaveTextContent(/\?tab=entries$/));
 });

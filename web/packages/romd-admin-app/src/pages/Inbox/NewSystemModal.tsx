@@ -1,12 +1,12 @@
 import { Anchor, Button, Group, Modal, Select, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { type Dat, listAdminCompanies } from '@romd/admin-api-client';
-import { useQuery } from '@tanstack/react-query';
+import type { Dat } from '@romd/admin-api-client';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAssignDatPlatform } from '../../hooks/api/useDats';
 import { useAddPlatformAlias, useCreatePlatform } from '../../hooks/api/usePlatformManagement';
-import { collectPages } from '../../utils/collectPages';
+import { useReferenceCompanies } from '../../hooks/api/useReferenceCompanies';
+import { suggestSystemKey } from '../../utils/systemKey';
 
 export interface NewSystemModalProps {
   /** The unrouted DAT that prompted system creation; null = closed */
@@ -14,16 +14,6 @@ export interface NewSystemModalProps {
   /** Whether to save the DAT header name as an alias after assignment */
   rememberAlias: boolean;
   onClose: () => void;
-}
-
-/** Derives a URL-safe short name from a display name. */
-export function deriveShortName(name: string): string {
-  return `local-${name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 44)
-    .replace(/-+$/g, '')}`;
 }
 
 /**
@@ -36,26 +26,7 @@ export function NewSystemModal({ target, rememberAlias, onClose }: NewSystemModa
   const [shortName, setShortName] = useState('');
   const [shortNameEdited, setShortNameEdited] = useState(false);
   const [manufacturer, setManufacturer] = useState<string | null>(null);
-  const companies = useQuery({
-    queryKey: [
-      'reference-companies',
-    ],
-    enabled: target !== null,
-    queryFn: async ({ signal }) =>
-      collectPages(async (cursor) => {
-        signal.throwIfAborted();
-        const response = await listAdminCompanies({
-          signal,
-          query: {
-            cursor,
-            limit: 100,
-          },
-          throwOnError: true,
-        });
-        signal.throwIfAborted();
-        return response.data;
-      }),
-  });
+  const companies = useReferenceCompanies(target !== null);
 
   const createMutation = useCreatePlatform();
   const assignMutation = useAssignDatPlatform();
@@ -68,7 +39,7 @@ export function NewSystemModal({ target, rememberAlias, onClose }: NewSystemModa
   useEffect(() => {
     if (target) {
       setName(target.name);
-      setShortName(deriveShortName(target.name));
+      setShortName(suggestSystemKey(target.name));
       setShortNameEdited(false);
       setManufacturer(null);
     }
@@ -79,7 +50,7 @@ export function NewSystemModal({ target, rememberAlias, onClose }: NewSystemModa
   const handleNameChange = (value: string) => {
     setName(value);
     if (!shortNameEdited) {
-      setShortName(deriveShortName(value));
+      setShortName(suggestSystemKey(value));
     }
   };
 

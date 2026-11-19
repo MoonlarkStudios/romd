@@ -33,6 +33,17 @@ public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCom
             var current = (await reader.GetAsync(command.Key, token))!;
             if (ReferenceEditRules.CheckVersion(current.Revision, command.IfMatch) is { } error)
                 return error;
+            if (!ReferenceEditRules.SetupAliases(command.NameAliases))
+                return ReferenceEditErrors.Invalid("Enter up to 16 name aliases of 200 characters or fewer.");
+            if (command.Hardware is { } changes)
+            {
+                if (resource.Metadata.Ownership == ReferenceOwnership.Romd)
+                    return ReferenceEditErrors.Invalid("Built-in hardware facts are owned by ROMD.");
+                var hardware = changes.Apply(resource.Hardware);
+                if (!hardware.IsValid)
+                    return ReferenceEditErrors.Invalid("Choose a system category, a generation from 1 to 99, and a four-digit release year, or leave those fields blank.");
+                resource = resource with { Hardware = hardware };
+            }
             var patch = command.Changes;
             if (patch.Name is not null && !ReferenceEditRules.Label(patch.Name, 200) || patch.Description?.Length > 2000)
                 return ReferenceEditErrors.Invalid("Invalid presentation facts.");
@@ -53,7 +64,13 @@ public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCom
             resource = resource.Metadata.Ownership == ReferenceOwnership.Romd
                 ? resource with { Overrides = resource.Overrides.Merge(patch) }
                 : resource with { Definition = patch.Apply(resource.Definition) };
-            await repository.StageAsync(resource, token);
+            if (command.NameAliases is { Count: > 0 } names)
+            {
+                var aliases = await repository.StageSetupAliasesAsync(resource.Id, names, token);
+                if (aliases.IsError)
+                    return aliases.Errors;
+            }
+            await repository.StageAsync(resource, token, command.EnableForSetup);
             await session.FlushAsync(token);
             return (await reader.GetAsync(command.Key, token))!;
         }, ct);

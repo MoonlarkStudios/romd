@@ -166,9 +166,11 @@ PSP observations without backfilling evidence. The additive
 `20261109000000_SaturnCdObservations` migration adds distinct Saturn fields while
 preserving PS1 observations and constraints. The additive
 `20261117000000_JobDispatchExpiryIndex` migration indexes expired execution
-claims for dispatch recovery. The additive `20261118194850_SignInMessage`
+claims for dispatch recovery. The additive
+`20261118000000_SystemHardwareMetadata` migration adds optional hardware facts for
+installation-owned systems. The additive `20261118194850_SignInMessage`
 migration seeds an empty server-wide web sign-in message. Current readiness is
-version 76.
+version 77.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

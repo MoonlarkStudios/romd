@@ -49,8 +49,20 @@ public sealed record CompanyOverrides(string? Name = null, string? Description =
         _ => throw new ArgumentOutOfRangeException(nameof(field))
     };
 }
+public sealed record SystemHardware(string? Category = null, int? Generation = null, int? ReleaseYear = null)
+{
+    public bool IsValid => (Category is null or "console" or "handheld" or "hybrid" or "computer" or "arcade" or "add-on" or "software" or "media-player" or "other")
+        && (Generation is null or >= 1 and <= 99) && (ReleaseYear is null or >= 1000 and <= 9999);
+}
+public sealed record SystemHardwareChanges(SystemHardware Values, bool HasCategory, bool HasGeneration, bool HasReleaseYear)
+{
+    public SystemHardware Apply(SystemHardware? current) => new(
+        HasCategory ? Values.Category : current?.Category,
+        HasGeneration ? Values.Generation : current?.Generation,
+        HasReleaseYear ? Values.ReleaseYear : current?.ReleaseYear);
+}
 public sealed record SystemReference(int Id, string Key, ReferenceMetadata Metadata, SystemDefinition Definition,
-    SystemOverrides Overrides, IReadOnlyList<string> ManufacturerKeys)
+    SystemOverrides Overrides, IReadOnlyList<string> ManufacturerKeys, SystemHardware? Hardware = null)
 {
     public SystemDefinition Effective => Overrides.Apply(Definition);
 }

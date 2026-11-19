@@ -1,4 +1,5 @@
 using ErrorOr;
+using Romd.Domain.Source.Platform;
 using Romd.Application.Common.Concurrency;
 
 namespace Romd.Admin.Application.ReferenceData;
@@ -11,4 +12,6 @@ internal static class ReferenceEditRules
     internal static bool Key(string? value) => value is { Length: > 6 and <= 50 } && value.StartsWith("local-", StringComparison.Ordinal)
         && System.Text.RegularExpressions.Regex.IsMatch(value, "^[a-z0-9]+(?:-[a-z0-9]+)*$");
     internal static bool Asset(string? value) => value is null || System.Text.RegularExpressions.Regex.IsMatch(value, "^[a-f0-9]{64}$");
+    internal static bool SetupAliases(IReadOnlyList<string>? names) => names is null
+        || names.Count <= 16 && names.All(name => Label(name, 200) && PlatformNameNormalizer.Normalize(name).Length is > 0 and <= 200);
 }

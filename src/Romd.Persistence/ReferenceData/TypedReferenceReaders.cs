@@ -17,6 +17,10 @@ namespace Romd.Persistence.ReferenceData;
 
 internal static partial class TypedReferenceMapping
 {
+    internal static SystemHardware? Hardware(PlatformEntity row) =>
+        row.HardwareCategory is null && row.HardwareGeneration is null && row.HardwareReleaseYear is null
+            ? null : new(row.HardwareCategory, row.HardwareGeneration, row.HardwareReleaseYear);
+
     internal static SystemDefinition Definition(PlatformEntity row) => new(row.BaseName!, row.BaseCompactLabel!, row.BaseDescription, row.BaseAssetHash, row.BaseMonochrome, row.Retired);
     internal static CompanyDefinition Definition(CompanyEntity row) => new(row.BaseName, row.BaseDescription, row.Retired);
     internal static SystemDefinition Effective(PlatformEntity row) => (row.ReferenceOverrides ?? new()).Apply(Definition(row));
@@ -78,7 +82,11 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
             NextCursor = more ? request.CursorFor(items[^1].Key) : null
         };
     }
-    public async Task<ReferenceResourceResult<SystemResource, ContractSystemOverrides>?> GetAsync(string key, CancellationToken ct)
+    public async Task<ReferenceResourceResult<SystemResource, ContractSystemOverrides>?> GetAsync(string key, CancellationToken ct) =>
+        (await GetWithHardwareAsync(key, ct))?.Reference;
+
+    internal async Task<(ReferenceResourceResult<SystemResource, ContractSystemOverrides> Reference, SystemHardware? Hardware)?> GetWithHardwareAsync(
+        string key, CancellationToken ct)
     {
         await using var snapshot = db.Database.CurrentTransaction is null
             ? await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct) : null;
@@ -86,7 +94,7 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
         var result = row is null ? null : (await ReadAsync([row], ct))[0];
         if (snapshot is not null)
             await snapshot.CommitAsync(ct);
-        return result;
+        return result is null ? null : (result, TypedReferenceMapping.Hardware(row!));
     }
     private async Task<IReadOnlyList<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>> ReadAsync(IReadOnlyList<PlatformEntity> rows, CancellationToken ct)
     {
@@ -101,7 +109,10 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
                 facts.Name, facts.CompactLabel, facts.Description, icon, facts.Retired, companies.GetValueOrDefault(row.Id) ?? [])
             { Revision = "" };
             var overrides = TypedReferenceMapping.Overrides(row.ReferenceOverrides ?? new());
-            var revision = TypedReferenceMapping.Revision(new { Resource = resource, Definition = TypedReferenceMapping.Definition(row), Overrides = overrides });
+            var definition = TypedReferenceMapping.Definition(row);
+            var revision = TypedReferenceMapping.Hardware(row) is { } hardware
+                ? TypedReferenceMapping.Revision(new { Resource = resource, Definition = definition, Overrides = overrides, Hardware = hardware })
+                : TypedReferenceMapping.Revision(new { Resource = resource, Definition = definition, Overrides = overrides });
             return new ReferenceResourceResult<SystemResource, ContractSystemOverrides>(resource with { Revision = revision }, overrides, revision);
         }).ToArray();
     }

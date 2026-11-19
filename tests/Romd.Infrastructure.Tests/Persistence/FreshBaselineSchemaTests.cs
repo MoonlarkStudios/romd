@@ -22,12 +22,14 @@ public sealed class FreshBaselineSchemaTests
         await using var db = database.CreateContext();
         (await db.Database.GetAppliedMigrationsAsync()).ShouldBe([
             "20261031050000_FreshMediaBaseline", "20261102000000_PspUmdObservations", "20261109000000_SaturnCdObservations",
-            "20261117000000_JobDispatchExpiryIndex", "20261118194850_SignInMessage"
+            "20261117000000_JobDispatchExpiryIndex",
+            "20261118000000_SystemHardwareMetadata",
+            "20261118194850_SignInMessage"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(76);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(76);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(77);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(77);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -66,11 +68,12 @@ public sealed class FreshBaselineSchemaTests
     {
         await using var database = PostgreSqlTestDatabase.CreateEmpty();
         await using var db = database.CreateContext();
-        await db.Database.GetService<IMigrator>().MigrateAsync("20261117000000_JobDispatchExpiryIndex");
+        await db.Database.GetService<IMigrator>().MigrateAsync("20261118000000_SystemHardwareMetadata");
 
         await database.ProvisionAsync();
 
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(77);
     }
 
     [Theory]
