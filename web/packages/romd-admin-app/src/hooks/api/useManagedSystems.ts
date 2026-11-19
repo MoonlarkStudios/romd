@@ -3,6 +3,7 @@ import {
   listDatCatalogs,
   listDatSubscriptions,
   listManagedSystems,
+  type ManagedSystem,
   previewSystemNameAliases,
   setSystemEnabled,
 } from '@romd/admin-api-client';
@@ -25,7 +26,12 @@ const bySystemName = new Intl.Collator(undefined, {
   numeric: true,
 });
 
-export function useManagedSystems(query = '', enabled = true) {
+const orderSystemsByName = (systems: ManagedSystem[]) =>
+  [
+    ...systems,
+  ].sort((a, b) => bySystemName.compare(a.name, b.name));
+
+export function useManagedSystems(query = '', { enabled = true, orderByName = !!query } = {}) {
   return useQuery({
     queryKey: query
       ? [
@@ -35,8 +41,9 @@ export function useManagedSystems(query = '', enabled = true) {
         ]
       : managedSystemKeys.all,
     enabled,
+    select: orderByName ? orderSystemsByName : undefined,
     queryFn: async ({ signal }) => {
-      const systems = await collectPages(async (cursor) => {
+      return collectPages(async (cursor) => {
         signal.throwIfAborted();
         const response = await listManagedSystems({
           signal,
@@ -51,7 +58,6 @@ export function useManagedSystems(query = '', enabled = true) {
           throw new Error('Your systems could not be loaded. Try again.');
         return response.data;
       });
-      return query ? systems.sort((a, b) => bySystemName.compare(a.name, b.name)) : systems;
     },
     refetchInterval: (query) =>
       query.state.data?.some((x) => x.enabled && x.state === 'Processing') ? 3000 : false,

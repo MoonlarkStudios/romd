@@ -22,7 +22,9 @@ export function SystemSetupPicker({
   disabled: boolean;
 }) {
   const [query] = useDebouncedValue(search.trim(), 180);
-  const choices = useManagedSystems(query);
+  const choices = useManagedSystems(query, {
+    orderByName: true,
+  });
   const icons = useSystemIcons();
   const searching = search.trim() !== query || choices.isPending;
   return (

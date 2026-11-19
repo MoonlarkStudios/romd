@@ -890,22 +890,31 @@ it.each([
   );
 });
 
-it('orders name and alias search matches by display name across server pages', async () => {
+it.each([
+  {
+    view: 'the initial picker',
+    search: '',
+  },
+  {
+    view: 'search results',
+    search: 'console',
+  },
+])('orders systems by display name across server pages in $view', async ({ search }) => {
   vi.mocked(listManagedSystems).mockImplementation(async (options) => {
-    if (options?.query?.query !== 'cube')
+    if (options?.query?.query !== (search || undefined))
       return result(
         completePage([
           psx,
         ]),
       );
-    if (options.query.cursor === 'next-page') {
+    if (options?.query?.cursor === 'next-page') {
       return result(
         completePage([
           {
             ...psx,
-            key: 'zzz',
-            shortName: 'zzz',
-            name: 'Alpha Cube',
+            key: '5200',
+            shortName: '5200',
+            name: 'Atari 5200',
           },
         ]),
       );
@@ -914,9 +923,9 @@ it('orders name and alias search matches by display name across server pages', a
       items: [
         {
           ...psx,
-          key: 'aaa',
-          shortName: 'aaa',
-          name: 'Zeta Cube',
+          key: '3ds',
+          shortName: '3ds',
+          name: 'Nintendo 3DS',
         },
       ],
       nextCursor: 'next-page',
@@ -925,9 +934,9 @@ it('orders name and alias search matches by display name across server pages', a
   });
   render(<AddSystemFlow onClose={vi.fn()} />);
 
-  await userEvent.type(screen.getByLabelText('Find a system'), 'cube');
+  if (search) await userEvent.type(screen.getByLabelText('Find a system'), search);
   await screen.findByRole('button', {
-    name: 'Choose Alpha Cube',
+    name: 'Choose Atari 5200',
   });
 
   const results = within(
@@ -937,10 +946,10 @@ it('orders name and alias search matches by display name across server pages', a
   );
   expect(results.getAllByRole('button')).toEqual([
     results.getByRole('button', {
-      name: 'Choose Alpha Cube',
+      name: 'Choose Atari 5200',
     }),
     results.getByRole('button', {
-      name: 'Choose Zeta Cube',
+      name: 'Choose Nintendo 3DS',
     }),
   ]);
 });

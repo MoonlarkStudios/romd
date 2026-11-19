@@ -53,7 +53,9 @@ export function Systems() {
   const attentionOnly = params.get('attention') === '1';
   const selectedKey = params.get('system');
   const systems = useManagedSystems();
-  const matches = useManagedSystems(searched, !!searched);
+  const matches = useManagedSystems(searched, {
+    enabled: !!searched,
+  });
   const subscriptions = useDatSubscriptions({
     pollApplying: true,
   });

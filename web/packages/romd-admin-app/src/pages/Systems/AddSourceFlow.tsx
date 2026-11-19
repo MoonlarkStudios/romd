@@ -215,7 +215,9 @@ export function AddSourceFlow({
   const [enabledKey, setEnabledKey] = useState<string>();
   const [restoreAfterReplacement, setRestoreAfterReplacement] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
-  const systems = useManagedSystems('', !!selected || startWithUpload);
+  const systems = useManagedSystems('', {
+    enabled: !!selected || startWithUpload,
+  });
   const catalogs = useDatCatalogs();
   const subscriptions = useDatSubscriptions();
   const enable = useSetSystemEnabled();
