@@ -553,6 +553,13 @@ export type DatCatalogSubscription = {
     automaticChecksPaused?: boolean;
 };
 
+export type DatChangesPage = {
+    items: Array<DatEntryChange>;
+    nextCursor: null | string;
+    hasNextPage: boolean;
+    total: number;
+};
+
 export type DatDisk = {
     id: string;
     gameId: string;
@@ -569,6 +576,7 @@ export type DatEntryChange = {
     filesAdded: number;
     filesRemoved: number;
     filesChanged: number;
+    impact?: null | DatEntryReviewImpact;
 };
 
 export type DatEntryChangeDetail = {
@@ -579,6 +587,19 @@ export type DatEntryChangeDetail = {
     files: PageOfDatFileChange;
     activeSha256: string;
     candidateSha256: string;
+    impact?: null | DatEntryReviewImpact;
+};
+
+export type DatEntryReviewImpact = {
+    storedRoms: number;
+    lostRomMatches: number;
+    newRomMatches: number;
+    titleLink: null | string;
+    titleLinkAtRisk: boolean;
+    sha1ChangedFiles: number;
+    metadataOnly: boolean;
+    otherChecksumOnly: boolean;
+    needsReview: boolean;
 };
 
 export type DatFieldChange = {
@@ -593,6 +614,14 @@ export type DatFileChange = {
     change: string;
     checksumsChanged: boolean;
     fields: Array<DatFieldChange>;
+    impact?: null | DatFileReviewImpact;
+};
+
+export type DatFileReviewImpact = {
+    storedBefore: boolean;
+    storedAfter: boolean;
+    losesCatalogMatch: boolean;
+    gainsCatalogMatch: boolean;
 };
 
 export type DatGame = {
@@ -632,6 +661,20 @@ export type DatReplacementPreview = {
     truncated: boolean;
     activeFiles?: number;
     candidateFiles?: number;
+    impact?: null | DatReviewImpact;
+};
+
+export type DatReviewImpact = {
+    needsReviewEntries: number;
+    removedWithStoredRoms: number;
+    removedWithTitleLinks: number;
+    lostRomMatches: number;
+    newRomMatches: number;
+    sha1ChangedEntries: number;
+    sha1ChangedFiles: number;
+    metadataOnlyEntries: number;
+    otherChecksumOnlyEntries: number;
+    diskChangedEntries: number;
 };
 
 export type DatRom = {
@@ -1580,12 +1623,6 @@ export type PageOfCompanyResource = {
 
 export type PageOfDat = {
     items: Array<Dat>;
-    nextCursor?: null | string;
-    hasNextPage: boolean;
-};
-
-export type PageOfDatEntryChange = {
-    items: Array<DatEntryChange>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -5607,7 +5644,7 @@ export type ListDatReplacementChangesResponses = {
     /**
      * OK
      */
-    200: PageOfDatEntryChange;
+    200: DatChangesPage;
 };
 
 export type ListDatReplacementChangesResponse = ListDatReplacementChangesResponses[keyof ListDatReplacementChangesResponses];
@@ -8551,7 +8588,7 @@ export type ListDatSubscriptionChangesResponses = {
     /**
      * OK
      */
-    200: PageOfDatEntryChange;
+    200: DatChangesPage;
 };
 
 export type ListDatSubscriptionChangesResponse = ListDatSubscriptionChangesResponses[keyof ListDatSubscriptionChangesResponses];

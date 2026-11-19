@@ -7,16 +7,20 @@ the review or reloading discards the preview. Saved subscriptions use the same v
 [subscription flow](dat-subscriptions.md). This manual-upload path keeps its
 candidate in the browser.
 
-The review opens with **Installed DAT** and **New DAT**. The change summary
-highlights removals and existing-file checksum changes. **View removed entries**
-and **View changed entries** open the corresponding filters. Expand a changed
-file to compare its previous and new values. The review stacks the comparison
-on phones and keeps the approval and cancel controls visible while you scroll.
+The review leads with the system, source, and installed-to-incoming version
+comparison. **Catalog impact** shows which stored ROMs are expected to gain or
+lose a match in this DAT and which removed entries have title links at risk.
+**Needs review** prioritizes entry removals with stored ROMs or at-risk title
+links, ROM match losses, and SHA-1 changes involving stored ROMs. The summary
+links open filtered results. File details label each checksum algorithm and
+show stored match evidence beside the change. The desktop review keeps the list
+and entry visible together. On phones, **Back** restores the filter and page,
+and the decision buttons stay visible.
 
 ## Review contract
 
-Preview reads the original CAS document and candidate without creating catalog,
-claim, storage, or job rows. It hashes exact document bytes and compares parsed
+Preview reads the original CAS document, candidate, and current ROM and title
+link evidence without creating catalog, claim, storage, or job rows. It hashes exact document bytes and compares parsed
 entries using ordinal entry names and file kind/name within each entry. Renames
 appear as removals/additions. Header ordering or formatting can change the
 original-document hash without changing the supported entry comparison.
@@ -29,8 +33,13 @@ to both exact reviewed document hashes and rejects a stale baseline or candidate
 Entry expansion shows metadata changes and paginated file details, with exact
 before/after strings including Int64 byte sizes. Ordering is ordinal and stable.
 Percentages use the current entry/file counts; first imports explicitly have no
-existing baseline. These are catalog entry/file counts, not unique
-titles or projected library impact. Unknown fields outside the parser's model
+existing baseline. Entry and expected-file counts describe the document.
+Projected stored ROM counts are distinct logical ROMs within this DAT. They use
+the installed rows' links and the incoming ROM rows' SHA-1 matches, so a hash
+that still appears elsewhere in the incoming DAT does not count as a loss.
+Counts reflect the time of the read. Other catalogs and disc/CHD matching can
+still provide coverage, and library projections refresh after activation.
+A vanished entry can lose its title link when no retained version references it. Unknown fields outside the parser's model
 are not included in semantic comparison. There is no automatic acceptance policy.
 
 Each original/candidate document is limited to 32 MiB, 100,000 entries, and
@@ -70,11 +79,10 @@ Manual replacement posts its retained file and page request as form fields to
 page request as query parameters from
 `GET /api/dat-subscriptions/{subscriptionId}/changes`. A page request carries
 `activeSha256`, `candidateSha256`, an optional `query` (up to 200 characters), an
-optional Added/Removed/Changed `change` filter, and an opaque `cursor` with a
-`limit` of at most 50. Pages are keyset pages (`items`, `nextCursor`,
-`hasNextPage`) in ordinal entry-name order, so the browser keeps the cursors it
-visited to page back; no total is returned, and the preview summary carries the
-counts. A cursor is bound to the reviewed hash pair and filters, and any other
+optional change or impact filter and an opaque `cursor` with a `limit` of at
+most 50. Pages are keyset pages (`items`, `nextCursor`, `hasNextPage`) in ordinal
+entry-name order and carry the total for the current filters. The browser keeps
+the cursors it visited to page back. A cursor is bound to the reviewed hash pair and filters, and any other
 pair or filter set rejects it as invalid input. Each entry has an opaque `id`;
 `…/changes/{entryId}` returns that entry's metadata changes with keyset pages of
 its changed files, and an unchanged or unknown entry is not found. The hash pair
@@ -91,6 +99,5 @@ a saved subscription reads the already retained local candidate.
 The parser's supported fields define the semantic comparison. Structural validity
 is not an automatic safety decision. A changed document with zero supported entry
 changes can reflect header metadata, formatting, or fields outside the comparison.
-Removals and existing-file checksum changes deserve review; applying the DAT does
-not delete stored ROM files. Disc/track counts do not claim unique titles or
-uncomputed owned-library impact.
+The preview highlights catalog match losses and title links affected by removals.
+ROMD keeps stored ROM files when applying a DAT.

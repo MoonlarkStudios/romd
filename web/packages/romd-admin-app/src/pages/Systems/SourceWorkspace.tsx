@@ -265,6 +265,8 @@ export function SourceWorkspace() {
                   ) : subscription ? (
                     <SourceSubscriptionActions
                       subscription={subscription}
+                      systemName={system.data?.name}
+                      provider={datProviderLabel(dat.type)}
                       onAccepted={accepted}
                     />
                   ) : (
@@ -363,6 +365,7 @@ export function SourceWorkspace() {
                 key={dat.id}
                 dat={dat}
                 file={file}
+                systemName={system.data?.name}
                 onClose={() => setFile(undefined)}
                 onAccepted={accepted}
               />

@@ -121,10 +121,10 @@ describe('DAT review', () => {
     const { onClose } = show();
     await screen.findByText('Explore all changes');
     expect(screen.queryByText(/first 50 changed entries/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Library impact is not calculated/)).toBeInTheDocument();
+    expect(screen.getByText(/ROMD keeps your stored ROM files/)).toBeVisible();
     await user.click(
       screen.getByRole('button', {
-        name: 'Cancel',
+        name: 'Discard upload',
       }),
     );
     expect(onClose).toHaveBeenCalled();
@@ -139,12 +139,24 @@ describe('DAT review', () => {
       filesRemoved: 3,
       entriesChanged: 1,
       hashesChanged: 1,
+      impact: {
+        needsReviewEntries: 2,
+        removedWithStoredRoms: 1,
+        removedWithTitleLinks: 1,
+        lostRomMatches: 2,
+        newRomMatches: 0,
+        sha1ChangedEntries: 1,
+        sha1ChangedFiles: 1,
+        metadataOnlyEntries: 0,
+        otherChecksumOnlyEntries: 0,
+        diskChangedEntries: 0,
+      },
     });
     show();
     const installed = await screen.findByText('Installed DAT');
-    const incoming = screen.getByText('New DAT');
+    const incoming = screen.getByText('Incoming DAT');
     const removals = screen.getByRole('button', {
-      name: 'View removed entries',
+      name: /2 removed/,
     });
     expect(
       installed.compareDocumentPosition(incoming) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -154,10 +166,10 @@ describe('DAT review', () => {
     ).toBeTruthy();
     expect(screen.getByText('installed-version')).toBeVisible();
     expect(screen.getByText('incoming-version')).toBeVisible();
-    expect(screen.getByText('1 file with checksum changes')).toBeVisible();
+    expect(screen.getByText('1 SHA-1 changed')).toBeVisible();
     expect(
       screen.getByRole('button', {
-        name: 'View changed entries',
+        name: /2 ROMs losing their catalog match/,
       }),
     ).toBeVisible();
   });
@@ -179,7 +191,7 @@ describe('DAT review', () => {
     await screen.findByText('Already up to date');
     expect(
       screen.queryByRole('button', {
-        name: 'Apply reviewed update',
+        name: 'Apply uploaded DAT',
       }),
     ).not.toBeInTheDocument();
   });
@@ -194,7 +206,7 @@ describe('DAT review', () => {
     await screen.findByText('Invalid checksum.');
     expect(
       screen.queryByRole('button', {
-        name: 'Apply reviewed update',
+        name: 'Apply uploaded DAT',
       }),
     ).not.toBeInTheDocument();
     respond(preview);
@@ -204,7 +216,7 @@ describe('DAT review', () => {
       }),
     );
     await screen.findByRole('button', {
-      name: 'Apply reviewed update',
+      name: 'Apply uploaded DAT',
     });
     expect(createDatReplacement).not.toHaveBeenCalled();
   });
@@ -218,14 +230,14 @@ describe('DAT review', () => {
     } as Awaited<ReturnType<typeof createDatReplacement>>);
     await user.click(
       await screen.findByRole('button', {
-        name: 'Apply reviewed update',
+        name: 'Apply uploaded DAT',
       }),
     );
     await screen.findByText('The active catalog changed.');
     await waitFor(() =>
       expect(
         screen.queryByRole('button', {
-          name: 'Apply reviewed update',
+          name: 'Apply uploaded DAT',
         }),
       ).not.toBeInTheDocument(),
     );
@@ -273,7 +285,7 @@ it('reviews a saved subscription update and approves its exact hashes without up
   );
   await user.click(
     screen.getByRole('button', {
-      name: 'Apply reviewed update',
+      name: 'Apply update',
     }),
   );
   expect(applyDatSubscription).toHaveBeenCalledWith({
@@ -314,12 +326,12 @@ it('reviews an initial catalog against an explicit empty baseline and submits ex
     </MantineProvider>,
   );
   expect(await screen.findByText('No installed document yet')).toBeInTheDocument();
-  expect(screen.getByText('Verified subscription catalog')).toBeInTheDocument();
+  expect(screen.getByText('Subscription')).toBeInTheDocument();
   expect(screen.queryByText(/PlayStation discs/)).not.toBeInTheDocument();
   expect(applyDatSubscription).not.toHaveBeenCalled();
   await user.click(
     screen.getByRole('button', {
-      name: 'Import reviewed catalog',
+      name: 'Import catalog',
     }),
   );
   await waitFor(() => expect(accepted).toHaveBeenCalled());

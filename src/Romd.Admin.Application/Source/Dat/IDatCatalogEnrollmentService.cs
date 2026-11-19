@@ -1,5 +1,4 @@
 using ErrorOr;
-using Romd.Application.Common.Pagination;
 
 namespace Romd.Admin.Application.Source.Dat;
 
@@ -20,6 +19,6 @@ public interface IDatCatalogEnrollmentService
     Task<ErrorOr<DatCatalogSubscription>> GetAsync(int id, CancellationToken ct);
 
     Task<ErrorOr<DatReplacementPreview>> PreviewAsync(int id, CancellationToken ct);
-    Task<ErrorOr<PagedList<DatEntryChange>>> ListChangesAsync(int id, DatChangePageRequest page, CancellationToken ct);
+    Task<ErrorOr<DatChangesPage>> ListChangesAsync(int id, DatChangePageRequest page, CancellationToken ct);
     Task<ErrorOr<DatEntryChangeDetail>> GetChangeAsync(int id, string entryName, DatChangePageRequest page, CancellationToken ct);
 }

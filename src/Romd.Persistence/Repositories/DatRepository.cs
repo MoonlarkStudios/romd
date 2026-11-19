@@ -789,6 +789,28 @@ public sealed class DatRepository : IDatRepository, ITitleSourceAssignmentStore
         return entity?.ToDomain();
     }
 
+    public async Task<IReadOnlyList<DatReviewRomLink>> GetReviewRomLinksAsync(int datId, CancellationToken ct) =>
+        await (from game in _context.DatGames
+               where game.DatFileId == datId
+               from expected in game.Roms
+               join stored in _context.RomFiles on expected.RomFileId equals (int?)stored.Id
+               select new DatReviewRomLink(game.Name, expected.Name, stored.Id, stored.Sha1))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DatReviewTitleLink>> GetReviewTitleLinksAsync(int datId, CancellationToken ct) =>
+        await (from game in _context.DatGames
+               where game.DatFileId == datId
+               join link in _context.TitleSourceLinks on game.SourceEntryId equals link.SourceEntryId
+               join title in _context.Titles on link.TitleId equals title.Id
+               select new DatReviewTitleLink(game.Name, title.Name,
+                   _context.DatGames.Any(other => other.DatFileId != datId && other.SourceEntryId == game.SourceEntryId)))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DatReviewStoredRom>> GetReviewStoredRomsAsync(Sha1[] candidateHashes, CancellationToken ct) =>
+        await _context.RomFiles.Where(rom => candidateHashes.Contains(rom.Sha1))
+            .Select(rom => new DatReviewStoredRom(rom.Id, rom.Sha1))
+            .ToListAsync(ct);
+
     public async Task<int> LinkDatRomsToRomFileAsync(Sha1 sha1, int romFileId,
         CancellationToken cancellationToken = default)
     {

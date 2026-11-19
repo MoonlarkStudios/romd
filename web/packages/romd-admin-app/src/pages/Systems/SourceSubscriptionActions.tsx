@@ -16,6 +16,8 @@ import { DatReplacementReviewModal } from './DatReplacementReviewModal';
 /** Status polling reads only this local subscription, never the remote publisher. */
 export function SourceSubscriptionActions({
   subscription,
+  systemName,
+  provider,
   onAccepted,
   manage = false,
   compact = false,
@@ -23,6 +25,8 @@ export function SourceSubscriptionActions({
   primaryOnly = false,
 }: {
   subscription: DatCatalogSubscription;
+  systemName?: string;
+  provider?: string;
   manage?: boolean;
   compact?: boolean;
   settingsOnly?: boolean;
@@ -297,6 +301,8 @@ export function SourceSubscriptionActions({
       {review && (
         <DatReplacementReviewModal
           subscription={current}
+          systemName={systemName}
+          provider={provider}
           onClose={() => setReview(false)}
           onAccepted={(result) => {
             setReview(false);

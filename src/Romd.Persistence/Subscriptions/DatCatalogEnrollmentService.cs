@@ -3,7 +3,6 @@ using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Storage.Files;
-using Romd.Application.Common.Pagination;
 using Romd.Domain.Source.Dat;
 using Romd.Persistence.Entities;
 
@@ -128,7 +127,7 @@ public sealed partial class DatCatalogEnrollmentService : IDatCatalogEnrollmentS
             return EnrollmentErrors.NotFound();
         return await ReviewAsync(row, ct);
     }
-    public async Task<ErrorOr<PagedList<DatEntryChange>>> ListChangesAsync(int id, DatChangePageRequest page, CancellationToken ct)
+    public async Task<ErrorOr<DatChangesPage>> ListChangesAsync(int id, DatChangePageRequest page, CancellationToken ct)
     {
         var row = await PinnedRowAsync(id, page, ct);
         if (row.IsError)
@@ -155,7 +154,7 @@ public sealed partial class DatCatalogEnrollmentService : IDatCatalogEnrollmentS
     private Task<ErrorOr<DatReplacementPreview>> ReviewAsync(DatSubscriptionEntity row, CancellationToken ct) =>
         ReadReviewAsync<DatReplacementPreview>(row, async (activeId, name, stream) =>
         {
-            var result = activeId is int id ? await _review.PreviewAsync(id, stream, ct) : await _review.PreviewInitialAsync(name, stream, ct);
+            var result = await _review.PreviewWithImpactAsync(activeId, name, stream, ct);
             if (!result.IsError && (result.Value.ActiveSha256 != row.ActiveSha256 || result.Value.CandidateSha256 != row.CandidateSha256))
                 return EnrollmentErrors.Stale();
             return result;

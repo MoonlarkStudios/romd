@@ -22,6 +22,8 @@ public sealed class DatChangePageRequestTests
     [InlineData("Added")]
     [InlineData("Removed")]
     [InlineData("Changed")]
+    [InlineData("NeedsReview")]
+    [InlineData("Sha1Changed")]
     [InlineData("")]
     [InlineData("added")]
     [InlineData("Renamed")]
@@ -123,16 +125,16 @@ public sealed class DatChangePageRequestTests
     {
         var page = Entries(query: "   ");
         page.Query.ShouldBeNull();
-        page.Matches("Anything", "Added").ShouldBeTrue();
+        page.Matches(new("Anything", "Added", 0, 0, 0)).ShouldBeTrue();
     }
 
     [Fact]
     public void Matches_FiltersByExactChangeAndCaseInsensitiveTrimmedQuery()
     {
         var page = Entries(change: "Changed", query: "  disc 1 ");
-        page.Matches("Game (Disc 1)", "Changed").ShouldBeTrue();
-        page.Matches("Game (Disc 1)", "Added").ShouldBeFalse();
-        page.Matches("Game (Disc 2)", "Changed").ShouldBeFalse();
+        page.Matches(new("Game (Disc 1)", "Changed", 0, 0, 0)).ShouldBeTrue();
+        page.Matches(new("Game (Disc 1)", "Added", 0, 0, 0)).ShouldBeFalse();
+        page.Matches(new("Game (Disc 2)", "Changed", 0, 0, 0)).ShouldBeFalse();
     }
 
     [Theory]

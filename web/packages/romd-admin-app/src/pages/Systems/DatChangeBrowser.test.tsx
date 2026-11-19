@@ -1,9 +1,9 @@
 import { MantineProvider } from '@mantine/core';
 import type {
+  DatChangesPage,
   DatEntryChange,
   DatEntryChangeDetail,
   DatReplacementPreview,
-  PageOfDatEntryChange,
 } from '@romd/admin-api-client';
 import {
   getDatSubscriptionChange,
@@ -22,9 +22,15 @@ vi.mock('@romd/admin-api-client', () => ({
   listDatReplacementChanges: vi.fn(),
   listDatSubscriptionChanges: vi.fn(),
 }));
-const preview = {
+const pins = {
   activeSha256: 'a'.repeat(64),
   candidateSha256: 'b'.repeat(64),
+};
+const preview = {
+  ...pins,
+  entriesAdded: 0,
+  entriesRemoved: 1,
+  entriesChanged: 1,
 } as DatReplacementPreview;
 const discA: DatEntryChange = {
   id: 'RGlzYyBB',
@@ -34,14 +40,15 @@ const discA: DatEntryChange = {
   filesRemoved: 0,
   filesChanged: 1,
 };
-const page: PageOfDatEntryChange = {
+const page: DatChangesPage = {
   items: [
     discA,
   ],
   nextCursor: 'next-page',
   hasNextPage: true,
+  total: 2,
 };
-function response(data: PageOfDatEntryChange) {
+function response(data: DatChangesPage) {
   return {
     data,
   } as Awaited<ReturnType<typeof listDatSubscriptionChanges>>;
@@ -87,14 +94,14 @@ it('pages forward by cursor and back through the visited pages, pinned to both f
   const user = userEvent.setup();
   show();
   await screen.findByRole('button', {
-    name: 'Disc A',
+    name: /^Disc A/,
   });
   expect(
     screen.getByRole('button', {
       name: 'Previous changes',
     }),
   ).toBeDisabled();
-  expect(screen.getByText('Page 1')).toBeInTheDocument();
+  expect(screen.getByText('1–1 of 2')).toBeInTheDocument();
   vi.mocked(listDatSubscriptionChanges).mockResolvedValue(
     response({
       items: [
@@ -106,6 +113,7 @@ it('pages forward by cursor and back through the visited pages, pinned to both f
       ],
       nextCursor: null,
       hasNextPage: false,
+      total: 2,
     }),
   );
   await user.click(
@@ -114,16 +122,16 @@ it('pages forward by cursor and back through the visited pages, pinned to both f
     }),
   );
   await screen.findByRole('button', {
-    name: 'Disc Z',
+    name: /^Disc Z/,
   });
-  expect(screen.getByText('Page 2')).toBeInTheDocument();
+  expect(screen.getByText('2–2 of 2')).toBeInTheDocument();
   expect(listDatSubscriptionChanges).toHaveBeenLastCalledWith(
     expect.objectContaining({
       path: {
         subscriptionId: 'sub1',
       },
       query: expect.objectContaining({
-        ...preview,
+        ...pins,
         cursor: 'next-page',
       }),
     }),
@@ -140,15 +148,15 @@ it('pages forward by cursor and back through the visited pages, pinned to both f
     }),
   );
   await screen.findByRole('button', {
-    name: 'Disc A',
+    name: /^Disc A/,
   });
-  expect(screen.getByText('Page 1')).toBeInTheDocument();
+  expect(screen.getByText('1–1 of 2')).toBeInTheDocument();
 });
 it('restarts from the first page when searching or choosing a change filter', async () => {
   const user = userEvent.setup();
   show();
   await screen.findByRole('button', {
-    name: 'Disc A',
+    name: /^Disc A/,
   });
   await user.click(
     screen.getByRole('button', {
@@ -174,7 +182,7 @@ it('restarts from the first page when searching or choosing a change filter', as
     expect(listDatSubscriptionChanges).toHaveBeenLastCalledWith(
       expect.objectContaining({
         query: {
-          ...preview,
+          ...pins,
           cursor: undefined,
           query: 'Disc',
           change: undefined,
@@ -182,17 +190,16 @@ it('restarts from the first page when searching or choosing a change filter', as
       }),
     ),
   );
-  await user.selectOptions(
-    screen.getByRole('combobox', {
-      name: 'Change type',
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Removed 1',
     }),
-    'Removed',
   );
   await waitFor(() =>
     expect(listDatSubscriptionChanges).toHaveBeenLastCalledWith(
       expect.objectContaining({
         query: {
-          ...preview,
+          ...pins,
           cursor: undefined,
           query: 'Disc',
           change: 'Removed',
@@ -205,7 +212,7 @@ it('opens the removed-entry filter from the summary and moves focus to the resul
   const user = userEvent.setup();
   show();
   await screen.findByRole('button', {
-    name: 'Disc A',
+    name: /^Disc A/,
   });
   await user.click(
     screen.getByRole('button', {
@@ -214,7 +221,7 @@ it('opens the removed-entry filter from the summary and moves focus to the resul
   );
   expect(
     screen.getByRole('heading', {
-      name: 'Explore all changes',
+      name: 'Removed',
     }),
   ).toHaveFocus();
   await waitFor(() =>
@@ -231,7 +238,7 @@ it('opens the removed-entry filter from the summary and moves focus to the resul
 it('opens one entry by its id with exact before and after file values', async () => {
   const user = userEvent.setup();
   const detail: DatEntryChangeDetail = {
-    ...preview,
+    ...pins,
     id: discA.id,
     name: discA.name,
     change: 'Changed',
@@ -262,13 +269,17 @@ it('opens one entry by its id with exact before and after file values', async ()
   show();
   await user.click(
     await screen.findByRole('button', {
-      name: 'Disc A',
+      name: /^Disc A/,
     }),
   );
-  expect(await screen.findByText('Checksum changed')).toBeVisible();
-  await user.click(screen.getByText('track.bin'));
-  expect(screen.getByText('9007199254740994')).toBeInTheDocument();
-  expect(screen.getByText('Changes in Disc A')).toBeInTheDocument();
+  expect(await screen.findByText('track.bin')).toBeVisible();
+  await user.click(screen.getByText('Full values'));
+  expect(screen.getByText('9007199254740994')).toBeVisible();
+  expect(
+    screen.getByRole('heading', {
+      name: 'Disc A',
+    }),
+  ).toBeVisible();
   expect(getDatSubscriptionChange).toHaveBeenLastCalledWith(
     expect.objectContaining({
       path: {
@@ -276,16 +287,16 @@ it('opens one entry by its id with exact before and after file values', async ()
         entryId: discA.id,
       },
       query: {
-        ...preview,
+        ...pins,
         cursor: undefined,
       },
     }),
   );
   expect(
-    screen.queryByRole('button', {
-      name: 'Next changes',
+    screen.getByRole('button', {
+      name: 'Next entry',
     }),
-  ).not.toBeInTheDocument();
+  ).toBeEnabled();
 });
 it('invalidates approval context only for a stale snapshot binding', async () => {
   const onStale = vi.fn();
@@ -302,7 +313,7 @@ it('invalidates approval context only for a stale snapshot binding', async () =>
   await waitFor(() => expect(onStale).toHaveBeenCalledWith('Candidate changed. Preview again.'));
   expect(
     screen.queryByRole('button', {
-      name: 'Disc A',
+      name: /^Disc A/,
     }),
   ).not.toBeInTheDocument();
 });
@@ -336,6 +347,7 @@ it('offers retry for network failure and explains empty filtered results', async
       items: [],
       nextCursor: null,
       hasNextPage: false,
+      total: 0,
     }),
   );
   await user.click(
@@ -362,7 +374,7 @@ it('resends a manual replacement file with each page request', async () => {
     file,
   });
   await screen.findByRole('button', {
-    name: 'Disc A',
+    name: /^Disc A/,
   });
   expect(listDatReplacementChanges).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -370,10 +382,106 @@ it('resends a manual replacement file with each page request', async () => {
         datId: 'dat1',
       },
       body: expect.objectContaining({
-        ...preview,
+        ...pins,
         file,
       }),
     }),
   );
   expect(listDatSubscriptionChanges).not.toHaveBeenCalled();
+});
+
+it('returns from an entry to the filtered mobile list after moving across a page boundary', async () => {
+  const user = userEvent.setup();
+  const mockMedia = vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    matches: query === '' || query === '(max-width: 64em)',
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+  try {
+    const discZ = {
+      ...discA,
+      id: 'RGlzYyBa',
+      name: 'Disc Z',
+    };
+    vi.mocked(listDatSubscriptionChanges).mockImplementation(async (request) =>
+      response(
+        request.query.cursor
+          ? {
+              items: [
+                discZ,
+              ],
+              nextCursor: null,
+              hasNextPage: false,
+              total: 2,
+            }
+          : page,
+      ),
+    );
+    vi.mocked(getDatSubscriptionChange).mockImplementation(async (request) => {
+      const entry = request.path.entryId === discA.id ? discA : discZ;
+      return {
+        data: {
+          ...pins,
+          id: entry.id,
+          name: entry.name,
+          change: entry.change,
+          fields: [],
+          files: {
+            items: [],
+            nextCursor: null,
+            hasNextPage: false,
+          },
+        },
+      } as Awaited<ReturnType<typeof getDatSubscriptionChange>>;
+    });
+    show();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'View removed entries',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: /^Disc A/,
+      }),
+    );
+    expect(
+      screen.getByRole('heading', {
+        name: 'Disc A',
+      }),
+    ).toHaveFocus();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Next entry',
+      }),
+    );
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Disc Z',
+      }),
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Back to removed',
+      }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: /^Disc Z/,
+      }),
+    ).toHaveFocus();
+    expect(screen.getByText('2–2 of 2')).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'Removed 1',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  } finally {
+    mockMedia.mockRestore();
+  }
 });

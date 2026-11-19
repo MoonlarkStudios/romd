@@ -78,6 +78,27 @@ public sealed partial class DatRepositoryTests : IDisposable
             .ToContract(keys).MatchedRomFileCount.ShouldBe(1);
     }
 
+
+    [Fact]
+    public async Task DatReviewReads_FindInstalledAndIncomingRomMatchesWithoutWriting()
+    {
+        using var db = CreateDb();
+        await SeedRomLinkDataAsync(db);
+        var repository = new DatRepository(db, TimeProvider.System);
+        await repository.LinkDatRomsToRomFileAsync(NewSha1(1), 1);
+        db.ChangeTracker.Clear();
+
+        var installed = await repository.GetReviewRomLinksAsync(1, default);
+        var incoming = await repository.GetReviewStoredRomsAsync([NewSha1(1), NewSha1(2)], default);
+        var titles = await repository.GetReviewTitleLinksAsync(1, default);
+
+        installed.Single().RomId.ShouldBe(1);
+        installed.Single().Sha1.ShouldBe(NewSha1(1));
+        incoming.ShouldBe([new DatReviewStoredRom(1, NewSha1(1))]);
+        titles.ShouldBeEmpty();
+        db.ChangeTracker.HasChanges().ShouldBeFalse();
+    }
+
     [Fact]
     public async Task LinkDatRomsToRomFileAsync_UnlinkedDatRom_UpdatesRomFileId()
     {

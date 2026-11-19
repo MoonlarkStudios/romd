@@ -710,7 +710,7 @@ export const previewDatReplacement = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * A keyset page of the review's changed entries in ordinal name order, filtered by change kind and a case-insensitive name query. The cursor is bound to the reviewed pair and filters. The request resends the reviewed candidate file. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet.
+ * A keyset page of the review's changed entries in ordinal name order, filtered by change or impact and a case-insensitive name query. Total counts entries matching the filters across all pages. The cursor is bound to the reviewed pair and filters. The request resends the reviewed candidate file. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet.
  */
 export const listDatReplacementChanges = <ThrowOnError extends boolean = false>(options: Options<ListDatReplacementChangesData, ThrowOnError>) => (options.client ?? client).post<ListDatReplacementChangesResponses, ListDatReplacementChangesErrors, ThrowOnError>({
     ...formDataBodySerializer,
@@ -1500,7 +1500,7 @@ export const getDatSubscriptionPreview = <ThrowOnError extends boolean = false>(
 });
 
 /**
- * A keyset page of the review's changed entries in ordinal name order, filtered by change kind and a case-insensitive name query. The cursor is bound to the reviewed pair and filters. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet. The saved candidate and installed document are held by the server, so one that fails validation is a 409 (DatReview.InvalidDocument or DatReview.Identity), not a 400.
+ * A keyset page of the review's changed entries in ordinal name order, filtered by change or impact and a case-insensitive name query. Total counts entries matching the filters across all pages. The cursor is bound to the reviewed pair and filters. activeSha256 and candidateSha256 are a snapshot binding of the reviewed document pair from the preview, not a precondition: a stale pair is a 409. activeSha256 is the empty string when no document is installed yet. The saved candidate and installed document are held by the server, so one that fails validation is a 409 (DatReview.InvalidDocument or DatReview.Identity), not a 400.
  */
 export const listDatSubscriptionChanges = <ThrowOnError extends boolean = false>(options: Options<ListDatSubscriptionChangesData, ThrowOnError>) => (options.client ?? client).get<ListDatSubscriptionChangesResponses, ListDatSubscriptionChangesErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

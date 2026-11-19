@@ -456,9 +456,14 @@ export function AddSourceFlow({
   }
 
   if (review) {
+    const provider = catalogs.data?.catalogs.find(
+      (catalog) => catalog.catalogId === review.catalogId,
+    )?.provider;
     return (
       <DatReplacementReviewModal
         subscription={review}
+        systemName={selected?.name}
+        provider={provider ? catalogProviderName(provider) : undefined}
         onClose={() => setReview(undefined)}
         onAccepted={trackImport}
       />
@@ -469,7 +474,14 @@ export function AddSourceFlow({
       <DatReplacementReviewModal
         dat={replacement}
         file={file}
-        onClose={() => setReplacement(undefined)}
+        systemName={selected?.name}
+        onClose={() => {
+          setReplacement(undefined);
+          setFile(undefined);
+          setInspection(undefined);
+          setError(undefined);
+          setStep(startWithUpload ? 'file' : 'source');
+        }}
         onAccepted={(result) => {
           trackImport(result);
           if (!enabled) {
@@ -972,7 +984,7 @@ export function AddSourceFlow({
                       <Button
                         key={dat.id}
                         classNames={{
-                          root: classesReview.entryButton,
+                          root: classesReview.setupEntryButton,
                           label: classesReview.entryLabel,
                         }}
                         onClick={() => setReplacement(dat)}
@@ -1013,7 +1025,7 @@ export function AddSourceFlow({
                   })
                 }
               >
-                {unregisteredCustom ? 'Add system and import DAT' : 'Add reviewed source'}
+                {unregisteredCustom ? 'Add system and import DAT' : 'Import catalog'}
               </Button>
             )}
             <Button

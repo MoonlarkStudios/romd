@@ -322,6 +322,8 @@ export function SourcesTab({ systemKey }: { systemKey: string }) {
                           <SourceSubscriptionActions
                             key={subscription.id}
                             subscription={subscription}
+                            systemName={system?.name}
+                            provider={provider}
                             compact
                             manage={!dat}
                             onAccepted={() => {}}

@@ -2,20 +2,24 @@ using System.Text.Json;
 using System.Xml;
 using ErrorOr;
 using Romd.Admin.Application.Source.Dat;
-using Romd.Application.Common.Pagination;
 
 namespace Romd.Infrastructure.Dats;
 
 public sealed partial class DatReplacementReview
 {
-    public async Task<ErrorOr<PagedList<DatEntryChange>>> ListChangesAsync(int? datId, string expectedName,
+    public async Task<ErrorOr<DatChangesPage>> ListChangesAsync(int? datId, string expectedName,
         Stream candidate, DatChangePageRequest page, CancellationToken ct)
     {
         var pair = await ReviewedPairAsync(datId, expectedName, candidate, page, ct);
         if (pair.IsError)
             return pair.Errors;
         var (before, after) = pair.Value;
-        return page.Page(EntryChanges(before, after, ct).Where(item => page.Matches(item.Name, item.Change)), item => item.Name);
+        var changed = EntryChanges(before, after, ct).ToArray();
+        var impact = await ReadImpactFactsAsync(datId, after, changed, ct);
+        var matching = changed.Select(item => AssessEntry(item, before, after, impact).Entry)
+            .Where(page.Matches).ToArray();
+        var result = page.Page(matching, item => item.Name);
+        return new DatChangesPage(result.Items, result.NextCursor, result.HasNextPage, matching.Length);
     }
 
     public async Task<ErrorOr<DatEntryChangeDetail>> GetEntryChangeAsync(int? datId, string expectedName,
@@ -30,8 +34,11 @@ public sealed partial class DatReplacementReview
         // The detail is a member of the change list, so an entry without a change is not found.
         if (EntryChange(entryName, old, next) is not { } change)
             return Error.NotFound("DatReview.Entry", "This entry has no change in the reviewed documents.");
+        var impact = await ReadImpactFactsAsync(datId, after, [change], ct);
+        var entry = AssessEntry(change, before, after, impact).Entry;
         return new DatEntryChangeDetail(entryName, change.Change, Fields(old?.Metadata, next?.Metadata),
-            page.Page(FileChanges(old, next, ct), file => $"{file.Kind}:{file.Name}"), before.Hash, after.Hash);
+            page.Page(FileChanges(entryName, old, next, impact, ct), file => $"{file.Kind}:{file.Name}"),
+            before.Hash, after.Hash, entry.Impact);
     }
 
     private async Task<ErrorOr<(Document Before, Document After)>> ReviewedPairAsync(int? datId, string expectedName,
@@ -49,10 +56,10 @@ public sealed partial class DatReplacementReview
         {
             try
             {
-                after = await ParseAsync(candidate, ct);
-                if (after.Name != expectedName)
-                    return Error.Validation("DatReview.Identity", "This document does not match the selected catalog.");
-                before = new([], "", expectedName, null, []);
+                var initial = await ReadInitialAsync(expectedName, candidate, ct);
+                if (initial.IsError)
+                    return initial.Errors;
+                (before, after) = initial.Value;
             }
             catch (Exception ex) when (ex is InvalidDocumentException or XmlException)
             {
@@ -65,7 +72,7 @@ public sealed partial class DatReplacementReview
     }
 
     // Files stream in ordinal kind:name key order, the order the file page cursor binds.
-    private static IEnumerable<DatFileChange> FileChanges(Entry? old, Entry? next, CancellationToken ct)
+    private static IEnumerable<DatFileChange> FileChanges(string entryName, Entry? old, Entry? next, ReviewMatchFacts impact, CancellationToken ct)
     {
         foreach (string key in (old?.Files.Keys ?? Enumerable.Empty<string>()).Union(next?.Files.Keys ?? Enumerable.Empty<string>()).Order(StringComparer.Ordinal))
         {
@@ -78,7 +85,8 @@ public sealed partial class DatReplacementReview
             string change = prior is null ? "Added" : current is null ? "Removed" : "Changed";
             int separator = key.IndexOf(':');
             yield return new(key[(separator + 1)..], key[..separator], change,
-                prior is not null && current is not null && prior.Hashes != current.Hashes, Fields(prior?.Content, current?.Content));
+                prior is not null && current is not null && prior.Hashes != current.Hashes,
+                Fields(prior?.Content, current?.Content, includeFileFacts: true), FileImpact(entryName, key, current, impact));
         }
     }
 
@@ -108,7 +116,7 @@ public sealed partial class DatReplacementReview
         return added + removed + changed > 0 || old.Metadata != next.Metadata ? new(name, "Changed", added, removed, changed) : null;
     }
 
-    private static IReadOnlyList<DatFieldChange> Fields(string? before, string? after)
+    private static IReadOnlyList<DatFieldChange> Fields(string? before, string? after, bool includeFileFacts = false)
     {
         // Values stay strings at the wire boundary, including full Int64 ROM sizes.
         static Dictionary<string, string?> Values(string? json)
@@ -122,7 +130,8 @@ public sealed partial class DatReplacementReview
         var old = Values(before);
         var next = Values(after);
         return old.Keys.Union(next.Keys).Order(StringComparer.Ordinal)
-            .Where(key => old.GetValueOrDefault(key) != next.GetValueOrDefault(key))
+            .Where(key => old.GetValueOrDefault(key) != next.GetValueOrDefault(key) ||
+                          (includeFileFacts && (key is "Sha1" or "Md5" or "Crc" or "Size") && old.GetValueOrDefault(key) is not null))
             .Select(key => new DatFieldChange(key, old.GetValueOrDefault(key), next.GetValueOrDefault(key))).ToArray();
     }
 }

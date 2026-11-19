@@ -677,7 +677,7 @@ it('unknown DAT asks for a system and reviews coverage before any import', async
   expect(await screen.findByText(/A DAT may cover only part/)).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Add reviewed source',
+      name: 'Import catalog',
     }),
   ).toBeEnabled();
   expect(importSystemDat).not.toHaveBeenCalled();
@@ -751,7 +751,7 @@ it('waits for catalog readiness after the upload job completes', async () => {
   });
   await user.click(
     await screen.findByRole('button', {
-      name: 'Add reviewed source',
+      name: 'Import catalog',
     }),
   );
   await waitFor(() => expect(getJob).toHaveBeenCalled());
@@ -1058,7 +1058,7 @@ it('preselects the sole verified DAT, then imports only after the explicit revie
 
   await user.click(subscribe);
   const apply = await screen.findByRole('button', {
-    name: 'Import reviewed catalog',
+    name: 'Import catalog',
   });
   expect(createDatSubscription).toHaveBeenCalledWith({
     body: {
@@ -1299,7 +1299,7 @@ it('previews an uploaded first DAT without adding the system and imports the rev
     },
   });
   const importButton = await screen.findByRole('button', {
-    name: 'Add reviewed source',
+    name: 'Import catalog',
   });
 
   expect(previewSystemDat).toHaveBeenCalledWith({
@@ -1402,7 +1402,7 @@ it('retries a reviewed custom DAT without recreating its system after a failed i
   expect(await screen.findByText('Import request failed.')).toBeVisible();
   await user.click(
     await screen.findByRole('button', {
-      name: 'Add reviewed source',
+      name: 'Import catalog',
     }),
   );
   expect(await screen.findByText('Processing your source')).toBeVisible();

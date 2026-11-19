@@ -124,7 +124,7 @@ public static class DatCatalogEnrollmentEndpoints
             return result.Match(value => Results.Ok(DatEndpoints.ChangesContract(value)), errors => errors.ToProblem());
         }).WithName("ListDatSubscriptionChanges")
             .WithDescription(DatEndpoints.ChangesDescription + " " + DatEndpoints.SnapshotBindingDescription + " " + ServerHeldDescription)
-            .Produces<Romd.Contracts.Common.Models.Page<Models.DatEntryChange>>()
+            .Produces<Models.DatChangesPage>()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict);
         group.MapGet("/{subscriptionId}/changes/{entryId}", async (Sqid subscriptionId, string entryId,
             [RegularExpression(DatReviewPins.ActivePattern)] string activeSha256,

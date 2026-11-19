@@ -1041,7 +1041,7 @@ it('updates the chosen manual source only after a hash-bound review', async () =
     },
   });
   const approve = await screen.findByRole('button', {
-    name: 'Apply reviewed update',
+    name: 'Apply uploaded DAT',
   });
   expect(createDatReplacement).not.toHaveBeenCalled();
   await user.click(approve);
