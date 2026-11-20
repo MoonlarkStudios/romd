@@ -13,7 +13,37 @@ import { server } from '../../test/msw/server';
 import { DraftGuardProvider } from '../Administration/DraftGuard';
 import type { ArtworkRole } from '../artworkPresentation';
 import { ArtworkPanel } from './ArtworkPanel';
+import { openManual } from './manualDocument';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
+
+/** pdf.js does not run under jsdom; a four-page manual stands in for the document it would open. */
+vi.mock('./manualDocument', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./manualDocument')>()),
+  openManual: vi.fn(async () => ({
+    promise: Promise.resolve({
+      numPages: 4,
+      getData: async () =>
+        new Uint8Array([
+          37,
+          80,
+          68,
+          70,
+        ]),
+      getPage: async () => ({
+        getViewport: ({ scale }: { scale: number }) => ({
+          width: 100 * scale,
+          height: 130 * scale,
+        }),
+        render: () => ({
+          promise: Promise.resolve(),
+          cancel: () => undefined,
+        }),
+        cleanup: () => true,
+      }),
+    }),
+    cancel: vi.fn(),
+  })),
+}));
 
 /** The title the page shows; uploads send its revision in If-Match. */
 const shownTitle = http.get('http://localhost/api/titles/title1', () =>
@@ -101,6 +131,7 @@ function renderPanel(
   value: TitleDetail = title,
   outcome: TitleEditorOutcome = {},
   initialRole: ArtworkRole | null = 'Backdrop',
+  tab: 'presentation' | 'library' = 'presentation',
 ) {
   const cache = new QueryClient({
     defaultOptions: {
@@ -112,7 +143,11 @@ function renderPanel(
   const element = (current: TitleDetail) => (
     <MantineProvider env="test">
       <QueryClientProvider client={cache}>
-        <MemoryRouter>
+        <MemoryRouter
+          initialEntries={[
+            tab === 'library' ? '/?artwork=library' : '/',
+          ]}
+        >
           <ArtworkPanel
             title={current}
             titleId="title1"
@@ -133,8 +168,8 @@ function renderPanel(
 async function discover() {
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole('radio', {
-      name: 'Poster',
+    await screen.findByRole('button', {
+      name: 'Edit poster',
     }),
   );
   await user.click(
@@ -293,109 +328,128 @@ describe('Artwork curation', () => {
     vi.unstubAllGlobals();
     sessionStorage.clear();
   });
-  it('offers roles and image sources as single-level radio groups with statuses and arrow keys', async () => {
-    renderPanel({
-      ...title,
-      artwork: [
-        {
-          role: 'Poster',
-          assetId: 'asset1',
-          contentVersion: null,
-          url: '/artwork/poster',
-          width: null,
-          height: null,
-          originalWidth: null,
-          originalHeight: null,
-          fit: 'Cover',
-          fallbackReason: 'None',
-          variants: [],
-        },
-      ],
+  it('opens on Presentation with each role as players see it, its state and one edit action', async () => {
+    renderPanel(
+      {
+        ...title,
+        artwork: [
+          {
+            role: 'Poster',
+            assetId: 'asset1',
+            contentVersion: null,
+            url: '/artwork/poster',
+            width: null,
+            height: null,
+            originalWidth: null,
+            originalHeight: null,
+            focalX: 20,
+            focalY: 80,
+            fit: 'Cover',
+            fallbackReason: 'None',
+            variants: [],
+          },
+        ],
+      },
+      {},
+      null,
+    );
+    expect(
+      screen.getByRole('tab', {
+        name: 'Presentation',
+      }),
+    ).toHaveAttribute('aria-selected', 'true');
+    const roles = screen.getByRole('group', {
+      name: 'Presentation roles',
     });
-    const roles = screen.getByRole('radiogroup', {
-      name: 'Artwork roles',
+    const canvas = screen.getByRole('region', {
+      name: 'Presentation canvas',
     });
-    expect(document.getElementById(roles.getAttribute('aria-labelledby') ?? '')).toHaveStyle({
-      display: 'none',
-    });
+    expect(roles.compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(
       within(roles)
-        .getAllByRole('radio')
-        .map((radio) => radio.getAttribute('aria-label')),
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label')),
     ).toEqual([
-      'All',
-      'Poster',
-      'Backdrop',
-      'Banner',
-      'Logo',
+      'Edit poster',
+      'Edit backdrop',
+      'Edit banner',
+      'Edit logo',
     ]);
-    const backdrop = within(roles).getByRole('radio', {
-      name: 'Backdrop',
+    const poster = await within(roles).findByRole('button', {
+      name: 'Edit poster',
+      description: 'Pinned',
     });
-    expect(backdrop).toHaveAttribute('aria-checked', 'true');
-    expect(backdrop).toHaveAttribute('tabindex', '0');
+    expect(poster.querySelector('img')).toHaveStyle({
+      objectFit: 'cover',
+      objectPosition: '20% 80%',
+    });
     expect(
-      within(roles).getByRole('radio', {
-        name: 'Logo',
+      within(roles).getByRole('button', {
+        name: 'Edit logo',
+        description: 'Missing',
       }),
-    ).toHaveAttribute('tabindex', '-1');
+    ).toBeEnabled();
     expect(
-      await within(roles).findByRole('radio', {
-        name: 'Poster',
-        description: 'Selected by you',
+      screen.queryByRole('region', {
+        name: / editor$/,
+      }),
+    ).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    const edit = within(roles).getByRole('button', {
+      name: 'Edit banner',
+    });
+    await user.click(edit);
+    expect(edit).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('region', {
+        name: 'Banner editor',
       }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     expect(
       screen.getByRole('radio', {
         name: 'Saved',
       }),
     ).toBeChecked();
-    act(() => backdrop.focus());
-    fireEvent.keyDown(backdrop, {
-      key: 'ArrowRight',
-      code: 'ArrowRight',
-    });
-    const banner = within(roles).getByRole('radio', {
-      name: 'Banner',
-    });
-    await waitFor(() => expect(banner).toHaveAttribute('aria-checked', 'true'));
-    expect(banner).toHaveFocus();
+    await user.keyboard('{Escape}');
     expect(
-      screen.getByRole('region', {
-        name: 'Compose banner',
+      screen.queryByRole('region', {
+        name: / editor$/,
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
+    expect(edit).toHaveFocus();
   });
 
-  it('opens the saved library by default and shows which roles are missing', async () => {
+  it('keeps the image library one tab away and returns to Presentation', async () => {
     renderPanel(title, {}, null);
-    const roles = screen.getByRole('radiogroup', {
-      name: 'Artwork roles',
-    });
-    expect(
-      within(roles).getByRole('radio', {
-        name: 'All',
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'Image library',
       }),
-    ).toHaveAttribute('aria-checked', 'true');
+    );
+    expect(await screen.findByText('The library is empty')).toBeInTheDocument();
     expect(
-      await within(roles).findByRole('radio', {
-        name: 'Logo',
+      screen.getByRole('button', {
+        name: 'Collect from providers',
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole('group', {
+        name: 'Presentation roles',
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'Presentation',
+      }),
+    );
+    expect(
+      await screen.findByRole('button', {
+        name: 'Edit logo',
         description: 'Missing',
       }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
-    expect(await screen.findByText('No saved artwork')).toBeInTheDocument();
-    const backdrop = within(roles).getByRole('radio', {
-      name: 'Backdrop',
-    });
-    await userEvent.click(backdrop);
-    expect(
-      screen.getByRole('complementary', {
-        name: 'Backdrop artwork',
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('No backdrop assigned')).toBeInTheDocument();
   });
 
   it('saves role and focal-point drafts from the selected image and retries only unfinished roles', async () => {
@@ -479,14 +533,15 @@ describe('Artwork curation', () => {
       },
       {},
       null,
+      'library',
     );
     const user = userEvent.setup();
     const preview = screen.getByRole('button', {
-      name: 'Preview Cover from igdb',
+      name: 'Preview cover from IGDB',
     });
     await user.click(preview);
     const editor = within(
-      screen.getByRole('complementary', {
+      screen.getByRole('dialog', {
         name: 'Cover',
       }),
     );
@@ -495,7 +550,7 @@ describe('Artwork curation', () => {
         name: 'Download',
       }),
     ).toHaveAttribute('href', '/media/cover1');
-    expect(preview).toHaveAttribute('aria-expanded', 'true');
+    expect(preview).toHaveAttribute('aria-haspopup', 'dialog');
     await waitFor(() =>
       expect(
         editor.getByRole('combobox', {
@@ -514,6 +569,17 @@ describe('Artwork curation', () => {
         name: 'Backdrop assignment',
       }),
       'Pinned',
+    );
+    await user.click(
+      editor.getByRole('combobox', {
+        name: 'Focal point role',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('option', {
+        name: 'Backdrop',
+        exact: true,
+      }),
     );
     const focal = editor.getByRole('slider', {
       name: 'Focal point',
@@ -542,13 +608,17 @@ describe('Artwork curation', () => {
       }),
     ).toHaveValue('Pinned');
     await user.click(save);
-    await screen.findByText('Artwork saved.');
+    await screen.findByText('Changes saved.');
     expect(poster).toHaveBeenCalledOnce();
     expect(backdrop).toHaveBeenCalledTimes(2);
 
     await user.keyboard('{Escape}');
-    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
-    expect(preview).toHaveFocus();
+    expect(
+      screen.queryByRole('dialog', {
+        name: 'Cover',
+      }),
+    ).not.toBeInTheDocument();
+    await waitFor(() => expect(preview).toHaveFocus());
   });
 
   it('clears an assigned role from the selected image and preserves the old selection on discard', async () => {
@@ -590,15 +660,16 @@ describe('Artwork curation', () => {
       },
       {},
       null,
+      'library',
     );
     const user = userEvent.setup();
     const preview = screen.getByRole('button', {
-      name: 'Preview Cover from user',
+      name: 'Preview cover from Your uploads',
     });
     expect(within(preview).getByText('Poster')).toBeInTheDocument();
     await user.click(preview);
     const editor = within(
-      screen.getByRole('complementary', {
+      screen.getByRole('dialog', {
         name: 'Cover',
       }),
     );
@@ -624,30 +695,37 @@ describe('Artwork curation', () => {
   });
 
   it('asks before Escape closes an image inspector with an unsaved draft', async () => {
-    const router = createMemoryRouter([
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/',
+          element: (
+            <DraftGuardProvider>
+              <ArtworkPanel
+                titleId="title1"
+                title={{
+                  ...title,
+                  media: [
+                    {
+                      id: 'cover1',
+                      type: 'Cover',
+                      url: '/media/cover1',
+                      sourceId: 'user',
+                      isPrimary: true,
+                    },
+                  ],
+                }}
+              />
+            </DraftGuardProvider>
+          ),
+        },
+      ],
       {
-        path: '/',
-        element: (
-          <DraftGuardProvider>
-            <ArtworkPanel
-              titleId="title1"
-              title={{
-                ...title,
-                media: [
-                  {
-                    id: 'cover1',
-                    type: 'Cover',
-                    url: '/media/cover1',
-                    sourceId: 'user',
-                    isPrimary: true,
-                  },
-                ],
-              }}
-            />
-          </DraftGuardProvider>
-        ),
+        initialEntries: [
+          '/?artwork=library',
+        ],
       },
-    ]);
+    );
     render(
       <MantineProvider env="test">
         <QueryClientProvider
@@ -667,11 +745,11 @@ describe('Artwork curation', () => {
     );
     const user = userEvent.setup();
     const preview = screen.getByRole('button', {
-      name: 'Preview Cover from user',
+      name: 'Preview cover from Your uploads',
     });
     await user.click(preview);
     const editor = within(
-      screen.getByRole('complementary', {
+      screen.getByRole('dialog', {
         name: 'Cover',
       }),
     );
@@ -693,17 +771,27 @@ describe('Artwork curation', () => {
       }),
     );
     expect(poster).toHaveValue('Pinned');
-    expect(router.state.location.search).toBe('?image=media-cover1');
+    expect(router.state.location.search).toBe('?artwork=library&image=media-cover1');
 
     await user.keyboard('{Escape}');
     await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', {
+      within(
+        await screen.findByRole('dialog', {
+          name: 'Discard unsaved changes?',
+        }),
+      ).getByRole('button', {
         name: 'Discard',
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('complementary')).not.toBeInTheDocument());
-    expect(router.state.location.search).toBe('');
-    expect(preview).toHaveFocus();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', {
+          name: 'Cover',
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(router.state.location.search).toBe('?artwork=library');
+    await waitFor(() => expect(preview).toHaveFocus());
   });
 
   it('shows wide SteamGridDB backdrops by default and applies only after crop review', async () => {
@@ -776,15 +864,20 @@ describe('Artwork curation', () => {
       }),
     ).toBeInTheDocument();
     await user.click(choice);
+    await user.click(
+      screen.getByRole('radio', {
+        name: 'Adjust crop',
+      }),
+    );
     expect(
       await screen.findByRole('slider', {
-        name: 'Horizontal focal point',
+        name: 'Focal point',
       }),
     ).toBeInTheDocument();
     expect(apply).not.toHaveBeenCalled();
     await user.click(
       screen.getByRole('button', {
-        name: 'Apply backdrop',
+        name: 'Save changes',
         exact: true,
       }),
     );
@@ -817,8 +910,8 @@ describe('Artwork curation', () => {
     renderPanel();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Poster',
+      await screen.findByRole('button', {
+        name: 'Edit poster',
       }),
     );
     await user.click(
@@ -843,7 +936,7 @@ describe('Artwork curation', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', {
-        name: 'View on IGDB',
+        name: 'Test Game',
       }),
     ).toBeInTheDocument();
     expect(
@@ -940,7 +1033,7 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: 'Apply backdrop',
+          name: 'Save changes',
         }),
       ).toBeEnabled(),
     );
@@ -950,7 +1043,11 @@ describe('Artwork curation', () => {
       }),
     );
     expect(
-      within(screen.getByTestId('artwork-composition-preview')).getByRole('figure', {
+      within(
+        screen.getByRole('region', {
+          name: 'Presentation canvas',
+        }),
+      ).getByRole('figure', {
         name: 'Mobile preview, 390 pixels wide',
       }),
     ).toBeInTheDocument();
@@ -969,8 +1066,8 @@ describe('Artwork curation', () => {
     const view = renderPanel();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Banner',
+      await screen.findByRole('button', {
+        name: 'Edit banner',
       }),
     );
     await user.click(
@@ -993,7 +1090,7 @@ describe('Artwork curation', () => {
       ),
     );
     await screen.findByRole('region', {
-      name: 'Compose banner',
+      name: 'Banner editor',
     });
     expect(screen.queryByLabelText('Image type')).not.toBeInTheDocument();
     await user.click(
@@ -1035,8 +1132,8 @@ describe('Artwork curation', () => {
     renderPanel();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Logo',
+      await screen.findByRole('button', {
+        name: 'Edit logo',
       }),
     );
     await user.click(
@@ -1061,13 +1158,13 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: 'Apply logo',
+          name: 'Save changes',
         }),
       ).toBeEnabled(),
     );
     await user.click(
       screen.getByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+        name: 'Save changes',
       }),
     );
 
@@ -1078,17 +1175,14 @@ describe('Artwork curation', () => {
     {
       role: 'Hero',
       label: 'banner',
-      name: 'Banner',
     },
     {
       role: 'Backdrop',
       label: 'backdrop',
-      name: 'Backdrop',
     },
   ])('assigns an existing cover to $label independently of its image type', async ({
     role,
     label,
-    name,
   }) => {
     const pin = vi.fn(async ({ request }: { request: Request }) => {
       expect(request.headers.get('If-Match')).toBe('"0"');
@@ -1116,12 +1210,16 @@ describe('Artwork curation', () => {
     });
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name,
+      await screen.findByRole('button', {
+        name: `Edit ${label}`,
       }),
     );
     await user.click(
-      within(screen.getByRole('complementary')).getByRole('button', {
+      within(
+        screen.getByRole('region', {
+          name: / editor$/,
+        }),
+      ).getByRole('button', {
         name: 'Actions for Cover cover1',
       }),
     );
@@ -1131,7 +1229,7 @@ describe('Artwork curation', () => {
       }),
     );
     await screen.findByRole('region', {
-      name: `Compose ${label}`,
+      name: new RegExp(`^${label} editor$`, 'i'),
     });
     expect(pin).not.toHaveBeenCalled();
     await user.click(
@@ -1149,25 +1247,20 @@ describe('Artwork curation', () => {
         name: 'Mobile preview, 390 pixels wide',
       }),
     ).toBeInTheDocument();
-    act(() =>
-      screen
-        .getByRole('slider', {
-          name: 'Horizontal focal point',
-        })
-        .focus(),
+    await user.click(
+      screen.getByRole('radio', {
+        name: 'Adjust crop',
+      }),
     );
-    await user.keyboard('{Home}');
-    act(() =>
-      screen
-        .getByRole('slider', {
-          name: 'Vertical focal point',
-        })
-        .focus(),
-    );
-    await user.keyboard('{End}');
+    const focal = await screen.findByRole('slider', {
+      name: 'Focal point',
+    });
+    act(() => focal.focus());
+    await user.keyboard('{Shift>}{ArrowLeft>5/}{ArrowDown>5/}{/Shift}');
+    expect(focal).toHaveAttribute('aria-valuetext', 'Horizontal 0%, vertical 100%');
     await user.click(
       screen.getByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+        name: 'Save changes',
       }),
     );
     await waitFor(() => expect(pin).toHaveBeenCalledOnce());
@@ -1175,7 +1268,7 @@ describe('Artwork curation', () => {
     expect(screen.queryByText('Primary')).not.toBeInTheDocument();
   });
 
-  it('saves a dragged and keyed focal point once through Apply', async () => {
+  it('saves a dragged and keyed focal point once through Save changes', async () => {
     const pin = vi.fn(async ({ request }: { request: Request }) => {
       expect(request.headers.get('If-Match')).toBe('"0"');
       expect(await request.json()).toEqual({
@@ -1213,18 +1306,27 @@ describe('Artwork curation', () => {
       });
       const user = userEvent.setup();
       await user.click(
-        await screen.findByRole('radio', {
-          name: 'Backdrop',
+        await screen.findByRole('button', {
+          name: 'Edit backdrop',
         }),
       );
       await user.click(
-        within(screen.getByRole('complementary')).getByRole('button', {
+        within(
+          screen.getByRole('region', {
+            name: / editor$/,
+          }),
+        ).getByRole('button', {
           name: 'Actions for Cover cover1',
         }),
       );
       await user.click(
         screen.getByRole('menuitem', {
           name: 'Use as backdrop',
+        }),
+      );
+      await user.click(
+        screen.getByRole('radio', {
+          name: 'Adjust crop',
         }),
       );
       const focal = await screen.findByRole('slider', {
@@ -1263,7 +1365,7 @@ describe('Artwork curation', () => {
       expect(pin).not.toHaveBeenCalled();
       await user.click(
         screen.getByRole('button', {
-          name: 'Apply backdrop',
+          name: 'Save changes',
         }),
       );
       await waitFor(() => expect(pin).toHaveBeenCalledOnce());
@@ -1318,20 +1420,20 @@ describe('Artwork curation', () => {
     );
     await user.click(
       await screen.findByRole('button', {
-        name: 'Apply backdrop',
+        name: 'Save changes',
         exact: true,
       }),
     );
     const composer = screen.getByRole('region', {
-      name: 'Compose backdrop',
+      name: 'Backdrop editor',
     });
     expect(
       await within(composer).findByText(
-        'The selection changed. Reload the latest artwork, then choose again.',
+        'The backdrop changed since you opened it. Reload the latest artwork, then choose again.',
       ),
     ).toBeInTheDocument();
     await user.click(
-      within(composer).getByRole('button', {
+      screen.getByRole('button', {
         name: 'Reload latest',
       }),
     );
@@ -1344,10 +1446,10 @@ describe('Artwork curation', () => {
         name: 'Keep editing',
       }),
     );
-    expect(within(composer).getByText('Unsaved preview')).toBeInTheDocument();
+    expect(within(composer).getByText('Draft · New image')).toBeInTheDocument();
     const readsBeforeReload = selectionReads;
     await user.click(
-      within(composer).getByRole('button', {
+      screen.getByRole('button', {
         name: 'Reload latest',
       }),
     );
@@ -1360,7 +1462,7 @@ describe('Artwork curation', () => {
         name: 'Reload latest',
       }),
     );
-    expect(await within(composer).findByText('Showing saved artwork')).toBeInTheDocument();
+    expect(within(composer).queryByText('Draft · New image')).not.toBeInTheDocument();
     expect(
       within(composer).queryByRole('button', {
         name: 'Reload latest',
@@ -1430,7 +1532,7 @@ describe('Artwork curation', () => {
     );
     await user.click(
       await screen.findByRole('button', {
-        name: 'Apply backdrop',
+        name: 'Save changes',
         exact: true,
       }),
     );
@@ -1464,12 +1566,16 @@ describe('Artwork curation', () => {
     });
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Banner',
+      await screen.findByRole('button', {
+        name: 'Edit banner',
       }),
     );
     await user.click(
-      within(screen.getByRole('complementary')).getByRole('button', {
+      within(
+        screen.getByRole('region', {
+          name: / editor$/,
+        }),
+      ).getByRole('button', {
         name: 'Actions for Cover cover1',
       }),
     );
@@ -1481,30 +1587,24 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: /^Apply (poster|backdrop|banner|logo)$/,
+          name: 'Save changes',
         }),
       ).toBeEnabled(),
     );
     await user.click(
       screen.getByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+        name: 'Save changes',
       }),
     );
     expect(
       await within(
         screen.getByRole('region', {
-          name: 'Compose banner',
+          name: 'Banner editor',
         }),
-      ).findByText(
-        'The selection changed. Discard this preview and choose again to review the latest artwork.',
-      ),
+      ).findByText(/The banner changed since you opened it/),
     ).toBeInTheDocument();
     expect(
-      within(
-        screen.getByRole('region', {
-          name: 'Compose banner',
-        }),
-      ).getByRole('button', {
+      screen.getByRole('button', {
         name: 'Reload latest',
       }),
     ).toBeInTheDocument();
@@ -1538,8 +1638,8 @@ describe('Artwork curation', () => {
     renderPanel();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Poster',
+      await screen.findByRole('button', {
+        name: 'Edit poster',
       }),
     );
     await user.click(
@@ -1555,13 +1655,13 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: /^Apply (poster|backdrop|banner|logo)$/,
+          name: 'Save changes',
         }),
       ).toBeEnabled(),
     );
     await user.click(
       screen.getByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+        name: 'Save changes',
       }),
     );
     await waitFor(() => expect(pin).toHaveBeenCalledOnce());
@@ -1587,8 +1687,8 @@ describe('Artwork curation', () => {
       }),
     ).not.toBeInTheDocument();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Banner',
+      await screen.findByRole('button', {
+        name: 'Edit banner',
       }),
     );
     await user.click(
@@ -1602,8 +1702,12 @@ describe('Artwork curation', () => {
       }),
     );
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Current',
+      await within(
+        screen.getByRole('region', {
+          name: 'Presentation canvas',
+        }),
+      ).findByRole('radio', {
+        name: 'Saved',
         exact: true,
       }),
     );
@@ -1613,13 +1717,11 @@ describe('Artwork curation', () => {
         exact: true,
       }),
     );
-    await waitFor(() =>
-      expect(
-        screen.getByRole('button', {
-          name: 'Apply banner',
-        }),
-      ).toBeDisabled(),
-    );
+    expect(
+      screen.queryByRole('button', {
+        name: 'Save changes',
+      }),
+    ).not.toBeInTheDocument();
     expect(pin).not.toHaveBeenCalled();
   });
   it('previews without applying and revokes temporary image URLs on close', async () => {
@@ -1636,7 +1738,7 @@ describe('Artwork curation', () => {
     await waitFor(() => expect(createUrl).toHaveBeenCalled());
     expect(
       await screen.findByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+        name: 'Save changes',
       }),
     ).toBeInTheDocument();
     expect(apply).not.toHaveBeenCalled();
@@ -1673,19 +1775,19 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: /^Apply (poster|backdrop|banner|logo)$/,
+          name: 'Save changes',
         }),
       ).toBeEnabled(),
     );
     await user.click(
       screen.getByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+        name: 'Save changes',
       }),
     );
     await screen.findByText('Temporary failure');
     await user.click(
       screen.getByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+        name: 'Save changes',
       }),
     );
     await waitFor(() => expect(requests).toHaveLength(2));
@@ -1710,23 +1812,33 @@ describe('Artwork curation', () => {
     server.use(http.put(`${titles}/artwork/Poster`, automatic));
     renderPanel();
     await userEvent.click(
-      await screen.findByRole('radio', {
-        name: 'Poster',
-      }),
-    );
-    await userEvent.click(
       await screen.findByRole('button', {
-        name: 'Poster actions',
+        name: 'Edit poster',
       }),
     );
-    const button = await screen.findByRole('menuitem', {
-      name: 'Return poster to automatic',
-    });
-    await waitFor(() => expect(button).toBeEnabled());
-    await userEvent.setup().click(button);
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Automatic',
+        exact: true,
+      }),
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Automatic',
+        exact: true,
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(automatic).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Save changes',
+      }),
+    );
     await waitFor(() => expect(automatic).toHaveBeenCalledOnce());
   });
-  it('confirms before leaving a role empty, and cancel leaves it unchanged', async () => {
+
+  it('stages an intentionally empty role, supports undo, and writes only on Save changes', async () => {
     const leave = vi.fn(async ({ request }: { request: Request }) => {
       expect(request.headers.get('If-Match')).toBe('"0"');
       expect(await request.json()).toEqual({
@@ -1737,47 +1849,252 @@ describe('Artwork curation', () => {
     server.use(http.put(`${titles}/artwork/Logo`, leave));
     renderPanel();
     const user = userEvent.setup();
-    const openConfirmation = async () => {
-      await user.click(
-        await screen.findByRole('button', {
-          name: 'Logo actions',
-        }),
-      );
-      await user.click(
-        await screen.findByRole('menuitem', {
-          name: 'Leave empty',
-        }),
-      );
-      return screen.findByRole('dialog', {
-        name: 'Leave logo empty?',
-      });
-    };
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Logo',
+      await screen.findByRole('button', {
+        name: 'Edit logo',
       }),
     );
-    const dialog = await openConfirmation();
-    expect(
-      within(dialog).getByText(
-        'The consumer app shows no logo for this title and automatic runs will not fill it. Use Return to automatic to undo.',
-      ),
-    ).toBeInTheDocument();
-    await user.click(
-      within(dialog).getByRole('button', {
-        name: 'Cancel',
-      }),
-    );
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    const empty = screen.getByRole('button', {
+      name: 'Intentionally empty',
+    });
+    await user.click(empty);
+    expect(empty).toHaveAttribute('aria-pressed', 'true');
     expect(leave).not.toHaveBeenCalled();
     await user.click(
-      within(await openConfirmation()).getByRole('button', {
-        name: 'Leave logo empty',
+      screen.getByRole('button', {
+        name: 'Undo logo change',
       }),
     );
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(leave).toHaveBeenCalledOnce();
+    expect(empty).toHaveAttribute('aria-pressed', 'false');
+    expect(
+      screen.queryByRole('button', {
+        name: 'Save changes',
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(empty);
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Save changes',
+      }),
+    );
+    await waitFor(() => expect(leave).toHaveBeenCalledOnce());
   });
+
+  it('requires pinning an automatic image before crop edits and preserves staged mode choices', async () => {
+    renderPanel({
+      ...title,
+      artwork: [
+        {
+          role: 'Backdrop',
+          assetId: 'current-backdrop',
+          url: '/artwork/current-backdrop',
+          contentVersion: null,
+          width: null,
+          height: null,
+          originalWidth: null,
+          originalHeight: null,
+          fit: 'Cover',
+          focalX: 30,
+          focalY: 70,
+          fallbackReason: 'None',
+          variants: [],
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    const editor = within(
+      await screen.findByRole('region', {
+        name: 'Backdrop editor',
+      }),
+    );
+    await user.click(
+      editor.getByRole('radio', {
+        name: 'Adjust crop',
+      }),
+    );
+    const pin = await editor.findByRole('button', {
+      name: 'Pin this image to adjust its crop',
+    });
+    expect(editor.queryByRole('slider')).not.toBeInTheDocument();
+    await waitFor(() => expect(pin).toBeEnabled());
+    await user.click(pin);
+    expect(editor.getByRole('slider')).toHaveAttribute(
+      'aria-valuetext',
+      'Horizontal 30%, vertical 70%',
+    );
+
+    const automatic = editor.getByRole('button', {
+      name: 'Automatic',
+      exact: true,
+    });
+    await user.click(automatic);
+    expect(automatic).toHaveAttribute('aria-pressed', 'true');
+    expect(editor.queryByRole('slider')).not.toBeInTheDocument();
+    expect(
+      editor.queryByRole('button', {
+        name: 'Pin this image to adjust its crop',
+      }),
+    ).not.toBeInTheDocument();
+
+    const empty = editor.getByRole('button', {
+      name: 'Intentionally empty',
+    });
+    await user.click(empty);
+    expect(empty).toHaveAttribute('aria-pressed', 'true');
+    expect(editor.queryByRole('slider')).not.toBeInTheDocument();
+    const canvas = within(
+      screen.getByRole('region', {
+        name: 'Presentation canvas',
+      }),
+    );
+    const canvasElement = screen.getByRole('region', {
+      name: 'Presentation canvas',
+    });
+    expect(canvasElement.querySelector('.romd-detail-backdrop img')).not.toBeInTheDocument();
+    await user.click(
+      canvas.getByRole('radio', {
+        name: 'Saved',
+      }),
+    );
+    expect(canvasElement.querySelector('.romd-detail-backdrop img')).toHaveAttribute(
+      'src',
+      '/artwork/current-backdrop',
+    );
+  });
+
+  it('saves multiple roles together and retries only the failed role', async () => {
+    let familyState = selections;
+    const poster = vi.fn(async ({ request }: { request: Request }) => {
+      expect(request.headers.get('If-Match')).toBe('"1"');
+      expect(await request.json()).toEqual({
+        mode: 'Automatic',
+      });
+      const current = written('Poster', 'Automatic', '2');
+      familyState = familyState.map((role) => (role.role === 'Poster' ? current : role));
+      return HttpResponse.json(current);
+    });
+    const logo = vi
+      .fn(async ({ request }: { request: Request }) => {
+        expect(request.headers.get('If-Match')).toBe('"0"');
+        expect(await request.json()).toEqual({
+          mode: 'Empty',
+        });
+        const current = written('Logo', 'Empty', '1');
+        familyState = familyState.map((role) => (role.role === 'Logo' ? current : role));
+        return HttpResponse.json(current);
+      })
+      .mockResolvedValueOnce(
+        HttpResponse.json(
+          {
+            detail: 'Temporary failure',
+          },
+          {
+            status: 503,
+          },
+        ),
+      );
+    server.use(
+      http.get(`${titles}/artwork`, () => HttpResponse.json(family(familyState))),
+      http.put(`${titles}/artwork/Poster`, poster),
+      http.put(`${titles}/artwork/Logo`, logo),
+    );
+    const cache = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+    const router = createMemoryRouter([
+      {
+        path: '/',
+        element: (
+          <DraftGuardProvider>
+            <ArtworkPanel
+              titleId="title1"
+              title={title}
+            />
+          </DraftGuardProvider>
+        ),
+      },
+    ]);
+    render(
+      <MantineProvider env="test">
+        <QueryClientProvider client={cache}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    const user = userEvent.setup();
+    const posterRole = await screen.findByRole('button', {
+      name: 'Edit poster',
+      description: 'Missing',
+    });
+    await user.click(posterRole);
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Automatic',
+        exact: true,
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Edit logo',
+        exact: true,
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Intentionally empty',
+      }),
+    );
+    const bar = within(
+      screen.getByRole('region', {
+        name: 'Unsaved presentation changes',
+      }),
+    );
+    const save = bar.getByRole('button', {
+      name: 'Save changes',
+    });
+    expect(bar.getByText(/2 unsaved changes/)).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'Image library',
+      }),
+    );
+    const leave = within(
+      await screen.findByRole('dialog', {
+        name: 'Discard unsaved changes?',
+      }),
+    );
+    await user.click(
+      leave.getByRole('button', {
+        name: 'Keep editing',
+      }),
+    );
+    expect(router.state.location.search).toBe('?image=role-Logo');
+    expect(poster).not.toHaveBeenCalled();
+    expect(logo).not.toHaveBeenCalled();
+    await user.click(save);
+    expect(
+      await screen.findByRole('button', {
+        name: 'Edit logo',
+        description: 'Needs attention',
+      }),
+    ).toBeInTheDocument();
+    expect(posterRole).toHaveAccessibleDescription('Missing · Saved');
+    expect(bar.getByText(/1 unsaved change: Logo/)).toBeInTheDocument();
+    await user.click(save);
+    expect(
+      await screen.findByRole('button', {
+        name: 'Edit logo',
+        description: 'Intentionally empty · Saved',
+      }),
+    ).toBeInTheDocument();
+    expect(poster).toHaveBeenCalledOnce();
+    expect(logo).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps the unsaved composition while browsing different capability filters', async () => {
     const filters: string[] = [];
     server.use(
@@ -1802,7 +2119,7 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: 'Apply poster',
+          name: 'Save changes',
         }),
       ).toBeEnabled(),
     );
@@ -1819,7 +2136,7 @@ describe('Artwork curation', () => {
     await waitFor(() => expect(filters).toContain('alternate'));
     expect(
       screen.getByRole('button', {
-        name: 'Apply poster',
+        name: 'Save changes',
       }),
     ).toBeEnabled();
   });
@@ -1878,8 +2195,8 @@ describe('Artwork curation', () => {
     renderPanel();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Logo',
+      await screen.findByRole('button', {
+        name: 'Edit logo',
       }),
     );
     await user.click(
@@ -1900,14 +2217,21 @@ describe('Artwork curation', () => {
 
     const composer = within(
       await screen.findByRole('region', {
-        name: 'Compose logo',
+        name: 'Logo editor',
       }),
     );
-    await user.click(composer.getByText('Inspect logo on light and dark backgrounds'));
-    expect(composer.getByText('Dark background')).toBeInTheDocument();
-    expect(composer.getByText('Light background')).toBeInTheDocument();
-    expect(
+    await user.click(
       composer.getByRole('radio', {
+        name: 'Preview logo',
+      }),
+    );
+    expect(composer.getByText('Logo on light and dark backgrounds')).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole('region', {
+          name: 'Presentation canvas',
+        }),
+      ).getByRole('radio', {
         name: 'Mobile',
       }),
     ).toBeInTheDocument();
@@ -1922,8 +2246,8 @@ describe('Artwork curation', () => {
     expect(queries.every((query) => query.get('role') === 'Logo')).toBe(true);
     expect(apply).not.toHaveBeenCalled();
     await user.click(
-      composer.getByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+      screen.getByRole('button', {
+        name: 'Save changes',
       }),
     );
     await screen.findByText('Temporary failure');
@@ -1967,8 +2291,8 @@ describe('Artwork curation', () => {
     renderPanel();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Logo',
+      await screen.findByRole('button', {
+        name: 'Edit logo',
       }),
     );
     await user.click(
@@ -1994,13 +2318,13 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: /^Apply (poster|backdrop|banner|logo)$/,
+          name: 'Save changes',
         }),
       ).toBeEnabled(),
     );
     await user.click(
       screen.getByRole('button', {
-        name: /^Apply (poster|backdrop|banner|logo)$/,
+        name: 'Save changes',
       }),
     );
     await waitFor(() => expect(pin).toHaveBeenCalledOnce());
@@ -2050,8 +2374,8 @@ describe('Artwork curation', () => {
     });
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Logo',
+      await screen.findByRole('button', {
+        name: 'Edit logo',
       }),
     );
     await user.click(
@@ -2088,7 +2412,11 @@ describe('Artwork curation', () => {
       }),
     );
     await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', {
+      within(
+        await screen.findByRole('dialog', {
+          name: 'Delete image?',
+        }),
+      ).getByRole('button', {
         name: 'Delete image',
       }),
     );
@@ -2136,8 +2464,8 @@ describe('Artwork curation', () => {
     renderPanel();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Logo',
+      await screen.findByRole('button', {
+        name: 'Edit logo',
       }),
     );
     await user.click(
@@ -2151,7 +2479,11 @@ describe('Artwork curation', () => {
       }),
     );
     await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', {
+      within(
+        await screen.findByRole('dialog', {
+          name: 'Delete image?',
+        }),
+      ).getByRole('button', {
         name: 'Delete image',
       }),
     );
@@ -2218,11 +2550,12 @@ describe('Artwork curation', () => {
       },
       {},
       null,
+      'library',
     );
     const user = userEvent.setup();
     await user.click(
       await screen.findByRole('button', {
-        name: 'Preview Cover from igdb',
+        name: 'Preview cover from IGDB',
       }),
     );
     await user.click(
@@ -2231,7 +2564,11 @@ describe('Artwork curation', () => {
       }),
     );
     await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', {
+      within(
+        await screen.findByRole('dialog', {
+          name: 'Delete image?',
+        }),
+      ).getByRole('button', {
         name: 'Delete image',
       }),
     );
@@ -2377,8 +2714,8 @@ describe('Artwork curation', () => {
     renderPanel();
     const user = userEvent.setup();
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Logo',
+      await screen.findByRole('button', {
+        name: 'Edit logo',
       }),
     );
     await user.click(
@@ -2393,7 +2730,11 @@ describe('Artwork curation', () => {
     );
     const reads = familyReads;
     await user.click(
-      within(await screen.findByRole('dialog')).getByRole('button', {
+      within(
+        await screen.findByRole('dialog', {
+          name: 'Delete image?',
+        }),
+      ).getByRole('button', {
         name: 'Delete image',
       }),
     );
@@ -2414,7 +2755,7 @@ describe('Artwork curation', () => {
     renderPanel();
     expect(
       screen.getByRole('region', {
-        name: 'Compose backdrop',
+        name: 'Backdrop editor',
       }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -2432,7 +2773,7 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: 'Apply poster',
+          name: 'Save changes',
         }),
       ).toBeEnabled(),
     );
@@ -2441,12 +2782,26 @@ describe('Artwork curation', () => {
         name: 'Mobile',
       }),
     ).toBeChecked();
-    expect(screen.getByText('Consumer library card at mobile size.')).toBeInTheDocument();
-    expect(
-      screen.getByRole('radio', {
-        name: 'Logo',
+    const canvas = within(
+      screen.getByRole('region', {
+        name: 'Presentation canvas',
       }),
-    ).toBeDisabled();
+    );
+    expect(
+      canvas.getByRole('figure', {
+        name: 'Mobile preview, 390 pixels wide',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      canvas.getByRole('radio', {
+        name: 'Game details',
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole('button', {
+        name: 'Edit logo',
+      }),
+    ).toBeEnabled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await user.click(
       screen.getByRole('button', {
@@ -2455,17 +2810,17 @@ describe('Artwork curation', () => {
     );
     expect(
       screen.getByRole('region', {
-        name: 'Compose poster',
+        name: 'Poster editor',
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', {
-        name: 'Apply poster',
+      screen.queryByRole('button', {
+        name: 'Save changes',
       }),
-    ).toBeDisabled();
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('radio', {
-        name: 'Logo',
+      screen.getByRole('button', {
+        name: 'Edit logo',
       }),
     ).toBeEnabled();
     expect(
@@ -2514,7 +2869,7 @@ describe('Artwork curation', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole('region', {
-        name: 'Compose backdrop',
+        name: 'Backdrop editor',
       }),
     ).toBeInTheDocument();
   });
@@ -2555,7 +2910,7 @@ describe('Artwork curation', () => {
     await waitFor(() =>
       expect(
         screen.getByRole('button', {
-          name: 'Backdrop actions',
+          name: 'Edit backdrop',
         }),
       ).toBeEnabled(),
     );
@@ -2564,5 +2919,598 @@ describe('Artwork curation', () => {
         name: 'Review backdrop',
       }),
     ).not.toBeInTheDocument();
+  });
+
+  it('replaces a banner in context, keeps the current one visible while importing, and recovers from a failed import', async () => {
+    const requestIds: string[] = [];
+    let phase = 'Running';
+    const apply = vi.fn(async ({ request }: { request: Request }) => {
+      const body = (await request.json()) as {
+        requestId: string;
+      };
+      requestIds.push(body.requestId);
+      return HttpResponse.json({
+        jobId: `banner-job-${requestIds.length}`,
+      });
+    });
+    server.use(
+      http.get(`${titles}/artwork-candidates`, () =>
+        HttpResponse.json({
+          items: [
+            {
+              ...candidate,
+              role: 'Hero',
+              width: 1920,
+              height: 620,
+            },
+          ],
+          hasNextPage: false,
+          nextCursor: null,
+        }),
+      ),
+      http.post(`${titles}/artwork/:role/apply`, apply),
+      http.get('http://localhost/api/jobs/:jobId', ({ params }) =>
+        HttpResponse.json({
+          id: params.jobId,
+          phase,
+          isTerminal: phase === 'Failed',
+          hasErrors: phase === 'Failed',
+        }),
+      ),
+    );
+    renderPanel(
+      {
+        ...title,
+        artwork: [
+          {
+            role: 'Hero',
+            assetId: null,
+            contentVersion: null,
+            url: '/artwork/current-banner',
+            width: null,
+            height: null,
+            originalWidth: null,
+            originalHeight: null,
+            fit: 'Cover',
+            fallbackReason: 'None',
+            variants: [],
+          },
+        ],
+      },
+      {},
+      null,
+    );
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Edit banner',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('radio', {
+        name: 'SteamGridDB',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Select artwork 7',
+      }),
+    );
+    expect(
+      await screen.findByRole('radio', {
+        name: 'Draft',
+      }),
+    ).toBeChecked();
+    await user.click(
+      within(
+        screen.getByRole('region', {
+          name: 'Presentation canvas',
+        }),
+      ).getByRole('radio', {
+        name: 'Saved',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Save changes',
+      }),
+    );
+    await waitFor(() => expect(apply).toHaveBeenCalledOnce());
+    const banner = await screen.findByRole('region', {
+      name: 'Banner editor',
+    });
+    const roleButton = await screen.findByRole('button', {
+      name: 'Edit banner',
+      description: 'Importing',
+    });
+    expect(
+      within(banner).getByRole('progressbar', {
+        name: 'Importing banner',
+      }),
+    ).toBeInTheDocument();
+    expect(roleButton.querySelector('img')).toHaveAttribute('src', '/artwork/current-banner');
+
+    phase = 'Failed';
+    const retry = await within(banner).findByRole(
+      'button',
+      {
+        name: 'Retry',
+        exact: true,
+      },
+      {
+        timeout: 4000,
+      },
+    );
+    expect(
+      await screen.findByRole('button', {
+        name: 'Edit banner',
+        description: 'Needs attention',
+      }),
+    ).toBe(roleButton);
+    expect(
+      within(banner).getByText('The banner import failed. The current image is unchanged.'),
+    ).toBeInTheDocument();
+    expect(roleButton.querySelector('img')).toHaveAttribute('src', '/artwork/current-banner');
+    await user.click(retry);
+    await waitFor(() => expect(apply).toHaveBeenCalledTimes(2));
+    expect(requestIds[1]).not.toBe(requestIds[0]);
+
+    await user.click(
+      await within(banner).findByRole(
+        'button',
+        {
+          name: 'Choose another',
+        },
+        {
+          timeout: 4000,
+        },
+      ),
+    );
+    expect(
+      screen.getByRole('region', {
+        name: 'Banner editor',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', {
+        name: 'SteamGridDB',
+      }),
+    ).toBeChecked();
+  }, 15_000);
+
+  it('saves a provider candidate to the library for later without changing the role', async () => {
+    const apply = vi.fn(() =>
+      HttpResponse.json({
+        jobId: 'unexpected',
+      }),
+    );
+    const imported = vi.fn(async ({ request }: { request: Request }) => {
+      expect(request.headers.get('If-Match')).toBe('"rev-1"');
+      expect(await request.json()).toEqual({
+        candidateReference: candidate.reference,
+      });
+      return HttpResponse.json(
+        {
+          id: 'media9',
+          type: 'Cover',
+          url: '/media/media9',
+          sourceId: 'gallery:steamgriddb',
+          isPrimary: false,
+          contentType: 'image/png',
+        },
+        {
+          status: 201,
+          headers: {
+            ETag: '"rev-2"',
+          },
+        },
+      );
+    });
+    server.use(
+      shownTitle,
+      http.post(`${titles}/artwork-candidates/:candidateId/import`, imported),
+      http.post(`${titles}/artwork/:role/apply`, apply),
+    );
+    renderPanel(title, {}, null);
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Edit poster',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('radio', {
+        name: 'SteamGridDB',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Select artwork 7',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Save to library',
+      }),
+    );
+    expect(
+      await screen.findByRole('button', {
+        name: 'Saved to library',
+      }),
+    ).toBeDisabled();
+    expect(imported).toHaveBeenCalledOnce();
+    expect(
+      screen.getByText('Saved to the image library. The poster is unchanged.'),
+    ).toBeInTheDocument();
+    // The preview stays open so the curator can still use it, or leave the poster as it is.
+    expect(
+      screen.getByRole('button', {
+        name: 'Save changes',
+      }),
+    ).toBeEnabled();
+    expect(apply).not.toHaveBeenCalled();
+  });
+
+  describe('image library', () => {
+    const releases = [
+      {
+        id: 'release-usa',
+        datId: 'dat1',
+        name: 'Test Game (USA)',
+        catalogReleaseId: 'cr-usa',
+        region: 'USA',
+        sources: [],
+      },
+      {
+        id: 'release-europe',
+        datId: 'dat1',
+        name: 'Test Game (Europe)',
+        catalogReleaseId: 'cr-europe',
+        region: 'Europe',
+        sources: [],
+      },
+    ];
+    const scan = (id: string, releaseId: string, region: string, isPreferred: boolean) => ({
+      id,
+      type: 'BoxFront',
+      sourceId: 'user',
+      url: `/media/${id}`,
+      isPrimary: false,
+      contentType: 'image/png',
+      catalogReleaseId: releaseId,
+      region,
+      isPreferred,
+    });
+    beforeEach(() => {
+      vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+        {} as CanvasRenderingContext2D,
+      );
+    });
+
+    it('steps through filtered images without replacing the grid and restores focus on close', async () => {
+      renderPanel(
+        {
+          ...title,
+          releases,
+          media: [
+            scan('usa-front', 'cr-usa', 'USA', true),
+            scan('usa-front-alt', 'cr-usa', 'USA', false),
+            scan('europe-front', 'cr-europe', 'Europe', true),
+          ],
+        },
+        {},
+        null,
+        'library',
+      );
+      const user = userEvent.setup();
+      const grid = screen.getByRole('group', {
+        name: 'Image library',
+      });
+      await user.selectOptions(
+        screen.getByRole('combobox', {
+          name: 'Release',
+        }),
+        'cr-usa',
+      );
+      const [first, second] = within(grid).getAllByRole('button');
+      await user.click(first);
+      const lightbox = within(
+        await screen.findByRole('dialog', {
+          name: 'Box front',
+        }),
+      );
+      expect(lightbox.getByText('1 of 2')).toBeInTheDocument();
+      expect(
+        lightbox.getByRole('button', {
+          name: 'Previous item',
+        }),
+      ).toBeDisabled();
+      await user.click(
+        lightbox.getByRole('button', {
+          name: 'Next item',
+        }),
+      );
+      expect(await screen.findByText('2 of 2')).toBeInTheDocument();
+      expect(within(grid).getAllByRole('button')).toEqual([
+        first,
+        second,
+      ]);
+      act(() =>
+        screen
+          .getByRole('button', {
+            name: 'Previous item',
+          })
+          .focus(),
+      );
+      await user.keyboard('{ArrowLeft}');
+      expect(await screen.findByText('1 of 2')).toBeInTheDocument();
+      act(() =>
+        screen
+          .getByRole('button', {
+            name: 'Close',
+            exact: true,
+          })
+          .focus(),
+      );
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(first).toHaveFocus());
+    });
+
+    it('keeps regional variants of one packaging type and prefers one scan per release', async () => {
+      const classify = vi.fn(async ({ request }: { request: Request }) => {
+        expect(request.headers.get('If-Match')).toBe('"rev-1"');
+        expect(await request.json()).toEqual({
+          classification: {
+            type: 'BoxFront',
+            catalogReleaseId: 'cr-europe',
+            region: 'Europe',
+            language: 'French',
+            isPreferred: true,
+          },
+        });
+        return HttpResponse.json(
+          writtenTitleFixture({
+            id: 'title1',
+            revision: 'rev-2',
+          }),
+          {
+            headers: {
+              ETag: '"rev-2"',
+            },
+          },
+        );
+      });
+      server.use(shownTitle, http.patch(`${titles}/media/europe-front`, classify));
+      renderPanel(
+        {
+          ...title,
+          releases,
+          media: [
+            scan('usa-front', 'cr-usa', 'USA', true),
+            scan('usa-front-alt', 'cr-usa', 'USA', false),
+            scan('europe-front', 'cr-europe', 'Europe', false),
+            {
+              id: 'shot1',
+              type: 'Screenshot',
+              sourceId: 'igdb',
+              url: '/media/shot1',
+              isPrimary: true,
+              contentType: 'image/png',
+            },
+          ],
+        },
+        {},
+        null,
+        'library',
+      );
+      const user = userEvent.setup();
+      const library = screen.getByRole('group', {
+        name: 'Image library',
+      });
+      expect(within(library).getAllByRole('button')).toHaveLength(4);
+      await user.selectOptions(
+        screen.getByRole('combobox', {
+          name: 'Type',
+        }),
+        'packaging',
+      );
+      expect(within(library).getAllByRole('button')).toHaveLength(3);
+      expect(within(library).getAllByText('Preferred')).toHaveLength(1);
+      await user.selectOptions(
+        screen.getByRole('combobox', {
+          name: 'Release',
+        }),
+        'cr-europe',
+      );
+      const europe = within(library).getByRole('button', {
+        name: 'Preview box front from Your uploads, Test Game (Europe) · Europe',
+      });
+      expect(within(library).getAllByRole('button')).toHaveLength(1);
+
+      await user.click(europe);
+      const inspector = within(
+        screen.getByRole('dialog', {
+          name: 'Box front',
+        }),
+      );
+      expect(inspector.queryByText('Role assignments')).not.toBeInTheDocument();
+      expect(
+        inspector.getByRole('combobox', {
+          name: 'Release',
+        }),
+      ).toHaveValue('cr-europe');
+      await user.type(
+        inspector.getByRole('textbox', {
+          name: 'Language',
+        }),
+        'French',
+      );
+      await user.click(
+        inspector.getByRole('switch', {
+          name: /Preferred box front for Test Game \(Europe\)/,
+        }),
+      );
+      await user.click(
+        inspector.getByRole('button', {
+          name: 'Save changes',
+        }),
+      );
+      await waitFor(() => expect(classify).toHaveBeenCalledOnce());
+      expect(await screen.findByText('Changes saved.')).toBeInTheDocument();
+    });
+
+    it('shows the server reason when a classification is refused', async () => {
+      server.use(
+        shownTitle,
+        http.patch(`${titles}/media/usa-front`, () =>
+          HttpResponse.json(
+            {
+              status: 400,
+              detail: 'The release does not belong to this title.',
+            },
+            {
+              status: 400,
+            },
+          ),
+        ),
+      );
+      renderPanel(
+        {
+          ...title,
+          releases,
+          media: [
+            scan('usa-front', 'cr-usa', 'USA', false),
+          ],
+        },
+        {},
+        null,
+        'library',
+      );
+      const user = userEvent.setup();
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Preview box front from Your uploads, Test Game (USA) · USA',
+        }),
+      );
+      const inspector = within(screen.getByRole('dialog'));
+      await user.selectOptions(
+        inspector.getByRole('combobox', {
+          name: 'Type',
+        }),
+        'BoxBack',
+      );
+      await user.click(
+        inspector.getByRole('button', {
+          name: 'Save changes',
+        }),
+      );
+      expect(await inspector.findByRole('alert')).toHaveTextContent(
+        'The release does not belong to this title.',
+      );
+      expect(
+        inspector.getByRole('combobox', {
+          name: 'Type',
+        }),
+      ).toHaveValue('BoxBack');
+    });
+
+    it('opens a manual from its single library entry and pages through it', async () => {
+      renderPanel(
+        {
+          ...title,
+          releases,
+          media: [
+            {
+              id: 'manual1',
+              type: 'Manual',
+              sourceId: 'user',
+              url: '/media/manual1',
+              isPrimary: true,
+              contentType: 'application/pdf',
+              catalogReleaseId: 'cr-usa',
+              region: 'USA',
+              language: 'English',
+            },
+          ],
+        },
+        {},
+        null,
+        'library',
+      );
+      const user = userEvent.setup();
+      const library = screen.getByRole('group', {
+        name: 'Image library',
+      });
+      const entry = within(library).getByRole('button', {
+        name: 'Preview manual from Your uploads, Test Game (USA) · USA · English',
+      });
+      expect(within(library).getAllByRole('button')).toHaveLength(1);
+      await user.click(entry);
+      const inspector = within(
+        screen.getByRole('dialog', {
+          name: 'Manual',
+        }),
+      );
+      expect(
+        await inspector.findByRole('img', {
+          name: 'Cover of manual',
+        }),
+      ).toBeInTheDocument();
+      expect(openManual).toHaveBeenCalledWith('title1', 'manual1', {
+        preview: true,
+      });
+      expect(inspector.queryByText('Role assignments')).not.toBeInTheDocument();
+      expect(
+        inspector.queryByRole('link', {
+          name: 'Download',
+        }),
+      ).not.toBeInTheDocument();
+      const open = inspector.getByRole('button', {
+        name: 'Open manual',
+      });
+      await user.click(open);
+      const viewer = within(
+        await screen.findByRole('dialog', {
+          name: /^Manual ·/,
+        }),
+      );
+      expect(await viewer.findByText('Page 1 of 4')).toBeInTheDocument();
+      await user.click(
+        viewer.getByRole('button', {
+          name: 'Next page',
+        }),
+      );
+      expect(viewer.getByText('Page 2 of 4')).toBeInTheDocument();
+      await user.keyboard('{ArrowRight}');
+      expect(viewer.getByText('Page 3 of 4')).toBeInTheDocument();
+      await user.click(
+        viewer.getByRole('radio', {
+          name: 'Spreads',
+        }),
+      );
+      expect(viewer.getByText('Pages 2–3 of 4')).toBeInTheDocument();
+      expect(
+        viewer.getAllByRole('img', {
+          name: /^Page \d$/,
+        }),
+      ).toHaveLength(2);
+      await user.click(
+        viewer.getByRole('button', {
+          name: 'Next page',
+        }),
+      );
+      expect(viewer.getByText('Page 4 of 4')).toBeInTheDocument();
+      await user.keyboard('{Home}');
+      expect(viewer.getByText('Page 1 of 4')).toBeInTheDocument();
+      await user.keyboard('{Escape}');
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('dialog', {
+            name: /^Manual ·/,
+          }),
+        ).not.toBeInTheDocument(),
+      );
+      await waitFor(() => expect(open).toHaveFocus());
+    });
   });
 });

@@ -4356,11 +4356,31 @@ namespace Romd.Persistence.Migrations
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("CatalogReleaseId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("FileId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsPreferred")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsPrimary")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ProviderAssetId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Region")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("SourceId")
                         .IsRequired()
@@ -4391,6 +4411,8 @@ namespace Romd.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CatalogReleaseId");
+
                     b.HasIndex("FileId");
 
                     b.HasIndex("TitleId");
@@ -4401,7 +4423,15 @@ namespace Romd.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("\"SourceId\" <> 'user' AND \"SourceId\" NOT LIKE 'gallery:%'");
 
-                    b.ToTable("TitleMedia", "romd");
+                    b.HasIndex("TitleId", "Type", "CatalogReleaseId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TitleMedia_PreferredPerRelease")
+                        .HasFilter("\"IsPreferred\" AND \"CatalogReleaseId\" IS NOT NULL");
+
+                    b.ToTable("TitleMedia", "romd", t =>
+                        {
+                            t.HasCheckConstraint("CK_TitleMedia_PreferredPackaging", "NOT \"IsPreferred\" OR \"Type\" IN ('BoxFront', 'BoxBack', 'BoxSpine', 'BoxFull', 'CartridgeFront', 'CartridgeBack', 'DiscLabel')");
+                        });
                 });
 
             modelBuilder.Entity("Romd.Persistence.Entities.TitleMetadataLayerEntity", b =>
@@ -5857,6 +5887,11 @@ namespace Romd.Persistence.Migrations
 
             modelBuilder.Entity("Romd.Persistence.Entities.TitleMediaEntity", b =>
                 {
+                    b.HasOne("Romd.Persistence.Entities.CatalogReleaseEntity", null)
+                        .WithMany()
+                        .HasForeignKey("CatalogReleaseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Romd.Persistence.Entities.FileEntityPersistence", null)
                         .WithMany()
                         .HasForeignKey("FileId")

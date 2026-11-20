@@ -38,6 +38,7 @@ import { workspaceActionProps } from '../Workspace/workspaceActions';
 import classes from './ArtworkWorkspace.module.css';
 import { BatchArtworkUpload, typeLabel } from './BatchArtworkUpload';
 import { CandidateImage } from './CandidateImage';
+import type { ReleaseOption } from './mediaLibrary';
 import { ProviderMatchPicker } from './ProviderMatches';
 
 function ProviderImages({
@@ -389,6 +390,14 @@ function ProviderImages({
             >
               View original
             </Anchor>
+            {candidate.region && (
+              <Text
+                size="xs"
+                c="dimmed"
+              >
+                Region: {candidate.region}
+              </Text>
+            )}
             {failures[candidate.providerAssetId] && (
               <Text
                 size="xs"
@@ -449,7 +458,9 @@ function ProviderImages({
           >
             {Object.keys(failures).length
               ? 'Retry selected images'
-              : `Add ${selected.length || ''} ${selected.length === 1 ? 'image' : 'images'}`}
+              : selected.length
+                ? `Save ${selected.length} to library`
+                : 'Save to library'}
           </Button>
         </Group>
         <Text
@@ -508,16 +519,20 @@ function ProviderImages({
 function AddArtworkContent({
   titleId,
   titleName,
+  initialMode,
+  releases,
   onBusyChange,
 }: {
   titleId: string;
   titleName: string;
+  initialMode: AddMediaMode;
+  releases?: ReleaseOption[];
   onBusyChange: (busy: boolean) => void;
 }) {
   const providers = useArtworkProviders();
   const linked = useArtworkProviders(titleId);
   const matches = useProviderMatches(titleId);
-  const [mode, setMode] = useState('providers');
+  const [mode, setMode] = useState<string>(initialMode);
   const [source, setSource] = useState<string | null>(null);
   const [type, setType] = useState('Screenshot');
   const [editing, setEditing] = useState<string | null>(null);
@@ -563,13 +578,14 @@ function AddArtworkContent({
             value="upload"
             disabled={busy}
           >
-            Upload images
+            Upload files
           </Tabs.Tab>
         </Tabs.List>
       </Tabs>
       <div hidden={mode !== 'upload'}>
         <BatchArtworkUpload
           titleId={titleId}
+          releases={releases}
           onBusyChange={reportBusy}
         />
       </div>
@@ -721,23 +737,30 @@ function AddArtworkContent({
   );
 }
 
+export type AddMediaMode = 'providers' | 'upload';
+
+/** Collects media into the title's library from linked providers or the curator's own files. */
 export function AddArtwork({
   opened,
   onClose,
   titleId,
   titleName,
+  initialMode = 'providers',
+  releases,
 }: {
   opened: boolean;
   onClose: () => void;
   titleId: string;
   titleName: string;
+  initialMode?: AddMediaMode;
+  releases?: ReleaseOption[];
 }) {
   const [busy, setBusy] = useState(false);
   return (
     <Modal
       opened={opened}
       onClose={() => !busy && onClose()}
-      title={`Add artwork · ${titleName}`}
+      title={`Add to library · ${titleName}`}
       size={1100}
       closeButtonProps={{
         disabled: busy,
@@ -750,6 +773,8 @@ export function AddArtwork({
         <AddArtworkContent
           titleId={titleId}
           titleName={titleName}
+          initialMode={initialMode}
+          releases={releases}
           onBusyChange={setBusy}
         />
       )}

@@ -11,31 +11,51 @@ import {
   Stack,
   Text,
 } from '@mantine/core';
-import { IconTrash, IconUpload } from '@tabler/icons-react';
+import { IconFileText, IconTrash, IconUpload } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { useUploadTitleMedia } from '../../hooks/api/useTitleActions';
+import {
+  isDocumentType,
+  mediaGroupOf,
+  mediaGroups,
+  mediaTypeLabel,
+  uploadableMediaTypes,
+} from '../mediaTypes';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
 import classes from './ArtworkWorkspace.module.css';
+import type { ReleaseOption } from './mediaLibrary';
 
-export const imageTypes = [
-  'Cover',
-  'Screenshot',
-  'Background',
-  'Banner',
-  'Logo',
-  'Box3d',
-  'TitleScreen',
+export const typeLabel = mediaTypeLabel;
+const imageContentTypes = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
 ];
-export const typeLabel = (type: string) =>
-  ({
-    Box3d: '3D box',
-    TitleScreen: 'Title screen',
-  })[type] ?? type;
+const maxImageBytes = 32 * 1024 * 1024;
+const maxManualBytes = 128 * 1024 * 1024;
+const isPdf = (file: File) => file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
+/** Grouped type choices: a PDF is always a manual, and an image is any image type. */
+function typeOptions(document: boolean) {
+  const types = uploadableMediaTypes.filter((type) => isDocumentType(type) === document);
+  return mediaGroups
+    .map((group) => ({
+      group: group.label,
+      items: types
+        .filter((type) => mediaGroupOf(type) === group.value)
+        .map((value) => ({
+          value,
+          label: typeLabel(value),
+        })),
+    }))
+    .filter((group) => group.items.length);
+}
 type UploadItem = {
   id: number;
   file: File;
-  url: string;
+  url?: string;
   type: string;
+  releaseId: string;
   status: 'ready' | 'uploading' | 'saved' | 'failed';
   progress?: number;
   error?: string;
@@ -43,14 +63,28 @@ type UploadItem = {
 
 export function BatchArtworkUpload({
   titleId,
+  releases = [],
   onBusyChange,
 }: {
   titleId: string;
+  /** The title's canonical releases; each file may be placed on one, or kept title-level. */
+  releases?: ReleaseOption[];
   onBusyChange?: (busy: boolean) => void;
 }) {
   const upload = useUploadTitleMedia();
   const [items, setItems] = useState<UploadItem[]>([]);
   const [defaultType, setDefaultType] = useState('Screenshot');
+  const [defaultRelease, setDefaultRelease] = useState('');
+  const releaseData = [
+    {
+      value: '',
+      label: 'Title-level',
+    },
+    ...releases.map((release) => ({
+      value: release.value,
+      label: release.label,
+    })),
+  ];
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState({
     completed: 0,
@@ -68,17 +102,14 @@ export function BatchArtworkUpload({
   );
   const add = (files: File[]) => {
     if (busy) return;
-    const valid = files.filter(
-      (file) =>
-        [
-          'image/jpeg',
-          'image/png',
-          'image/webp',
-        ].includes(file.type) && file.size <= 32 * 1024 * 1024,
+    const valid = files.filter((file) =>
+      isPdf(file)
+        ? file.size <= maxManualBytes
+        : imageContentTypes.includes(file.type) && file.size <= maxImageBytes,
     );
     setError(
       valid.length !== files.length
-        ? 'Some files were skipped. Choose JPEG, PNG, or WebP images up to 32 MB each.'
+        ? 'Some files were skipped. Choose JPEG, PNG, or WebP images up to 32 MB, or PDF manuals up to 128 MB.'
         : null,
     );
     setItems((previous) => [
@@ -94,13 +125,15 @@ export function BatchArtworkUpload({
             ),
         )
         .map((file) => {
-          const url = URL.createObjectURL(file);
-          urls.current.add(url);
+          const document = isPdf(file);
+          const url = document ? undefined : URL.createObjectURL(file);
+          if (url) urls.current.add(url);
           return {
             id: sequence.current++,
             file,
             url,
-            type: defaultType,
+            type: document ? 'Manual' : defaultType,
+            releaseId: defaultRelease,
             status: 'ready' as const,
           };
         }),
@@ -135,10 +168,13 @@ export function BatchArtworkUpload({
           error: undefined,
         });
         try {
+          const release = releases.find((value) => value.value === item.releaseId);
           await upload.mutateAsync({
             titleId,
             file: item.file,
             type: item.type.toLowerCase(),
+            releaseId: release?.value,
+            region: release?.region,
             onProgress: ({ loaded, total }) =>
               patch(item.id, {
                 progress: total > 0 ? Math.min(100, (loaded / total) * 100) : 0,
@@ -150,7 +186,7 @@ export function BatchArtworkUpload({
         } catch {
           patch(item.id, {
             status: 'failed',
-            error: 'Upload failed. Retry this image.',
+            error: 'Upload failed. Retry this file.',
           });
         } finally {
           setAttempt((value) => ({
@@ -168,7 +204,7 @@ export function BatchArtworkUpload({
   return (
     <Stack>
       <fieldset
-        aria-label="Upload images"
+        aria-label="Upload files"
         className={classes.dropzone}
         style={{
           margin: 0,
@@ -181,30 +217,36 @@ export function BatchArtworkUpload({
         }}
       >
         <Stack gap="xs">
-          <Text fw={600}>Drop your images here</Text>
+          <Text fw={600}>Drop images or manuals here</Text>
           <Text
             size="sm"
             c="dimmed"
           >
-            JPEG, PNG, or WebP · Up to 32 MB each. Images are added to the library; your poster,
-            hero, and logo stay as selected.
+            JPEG, PNG, or WebP up to 32 MB · PDF manuals up to 128 MB. Files are added to the
+            library; what players see stays as selected.
           </Text>
           <Group align="end">
             <NativeSelect
-              label="Type for new files"
-              data={imageTypes.map((value) => ({
-                value,
-                label: typeLabel(value),
-              }))}
+              label="Type for new images"
+              data={typeOptions(false)}
               value={defaultType}
               disabled={busy}
               onChange={(event) => setDefaultType(event.currentTarget.value)}
             />
+            {releases.length > 0 && (
+              <NativeSelect
+                label="Release for new files"
+                data={releaseData}
+                value={defaultRelease}
+                disabled={busy}
+                onChange={(event) => setDefaultRelease(event.currentTarget.value)}
+              />
+            )}
             <FileInput
               multiple
-              label="Choose images"
+              label="Choose files"
               placeholder="Browse files"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
               value={[]}
               onChange={add}
               disabled={busy}
@@ -214,22 +256,53 @@ export function BatchArtworkUpload({
               }}
             />
           </Group>
+          {pending.length > 1 && (
+            <Button
+              variant="subtle"
+              size="compact-sm"
+              w="fit-content"
+              disabled={busy}
+              onClick={() =>
+                setItems((previous) =>
+                  previous.map((item) =>
+                    item.status === 'saved'
+                      ? item
+                      : {
+                          ...item,
+                          type: isPdf(item.file) ? 'Manual' : defaultType,
+                          releaseId: defaultRelease,
+                        },
+                  ),
+                )
+              }
+            >
+              Apply these values to every file
+            </Button>
+          )}
         </Stack>
       </fieldset>
       {error && <Alert color="orange">{error}</Alert>}
       {items.map((item) => (
         <Group
           key={item.id}
-          wrap="nowrap"
+          wrap="wrap"
           align="center"
+          className={classes.uploadRow}
         >
-          <Image
-            src={item.url}
-            alt=""
-            w={64}
-            h={56}
-            fit="contain"
-          />
+          {item.url ? (
+            <Image
+              src={item.url}
+              alt=""
+              w={64}
+              h={56}
+              fit="contain"
+            />
+          ) : (
+            <IconFileText
+              size={40}
+              aria-hidden
+            />
+          )}
           <Stack
             gap={2}
             style={{
@@ -262,7 +335,7 @@ export function BatchArtworkUpload({
                   c="dimmed"
                 >
                   {item.progress === 100
-                    ? 'Saving image...'
+                    ? 'Saving...'
                     : `Uploading ${Math.floor(item.progress ?? 0)}%`}
                 </Text>
               </>
@@ -270,19 +343,30 @@ export function BatchArtworkUpload({
           </Stack>
           <NativeSelect
             aria-label={`Type for ${item.file.name}`}
-            data={imageTypes.map((value) => ({
-              value,
-              label: typeLabel(value),
-            }))}
+            data={typeOptions(isPdf(item.file))}
             value={item.type}
-            disabled={busy || item.status === 'saved'}
+            disabled={busy || item.status === 'saved' || isPdf(item.file)}
             onChange={(event) =>
               patch(item.id, {
                 type: event.currentTarget.value,
               })
             }
-            w={130}
+            w={150}
           />
+          {releases.length > 0 && (
+            <NativeSelect
+              aria-label={`Release for ${item.file.name}`}
+              data={releaseData}
+              value={item.releaseId}
+              disabled={busy || item.status === 'saved'}
+              onChange={(event) =>
+                patch(item.id, {
+                  releaseId: event.currentTarget.value,
+                })
+              }
+              w={180}
+            />
+          )}
           {item.status === 'saved' ? (
             <Badge color="green">Added</Badge>
           ) : (
@@ -292,8 +376,10 @@ export function BatchArtworkUpload({
               color="gray"
               disabled={busy}
               onClick={() => {
-                URL.revokeObjectURL(item.url);
-                urls.current.delete(item.url);
+                if (item.url) {
+                  URL.revokeObjectURL(item.url);
+                  urls.current.delete(item.url);
+                }
                 setItems((previous) => previous.filter((value) => value.id !== item.id));
               }}
             >
@@ -331,8 +417,8 @@ export function BatchArtworkUpload({
                 onClick={() => void save()}
               >
                 {items.some((item) => item.status === 'failed')
-                  ? 'Retry remaining images'
-                  : `Add ${pending.length} ${pending.length === 1 ? 'image' : 'images'}`}
+                  ? 'Retry remaining files'
+                  : `Add ${pending.length} ${pending.length === 1 ? 'file' : 'files'}`}
               </Button>
             </Group>
           </Stack>

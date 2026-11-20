@@ -124,6 +124,7 @@ function TitlePage({
           <TitleHero
             title={title}
             titleId={titleId}
+            compact={section === 'artwork'}
           />
           <TitleWorkbench
             key={titleId}

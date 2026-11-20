@@ -1,5 +1,3 @@
-import type { MediaType } from '@romd/admin-api-client';
-
 export const artworkRoles = [
   'Poster',
   'Backdrop',
@@ -42,32 +40,19 @@ export function isArtworkRole(value: string): value is ArtworkRole {
   return artworkRoles.some((role) => role === value);
 }
 
+export { isMediaType } from './mediaTypes';
+
 /**
- * The media types a candidate browse accepts, exactly as the contract names them. Keyed by the contract's
- * union, so a new media type fails type-checking until it is listed here.
+ * Where an image came from, as the curator should judge it. SteamGridDB images are fan-made custom art rather than
+ * publisher material, so the label says so wherever the source appears.
  */
-const mediaTypes = {
-  Cover: true,
-  Screenshot: true,
-  Banner: true,
-  Logo: true,
-  Background: true,
-  Video: true,
-  Box3d: true,
-  TitleScreen: true,
-} satisfies Record<MediaType, true>;
-
-export function isMediaType(value: string): value is MediaType {
-  return Object.hasOwn(mediaTypes, value);
-}
-
 export function artworkSourceLabel(source: string): string {
   const id = source.replace(/^gallery:/, '');
   return (
     {
       user: 'Your uploads',
       igdb: 'IGDB',
-      steamgriddb: 'SteamGridDB',
+      steamgriddb: 'SteamGridDB community art',
     }[id] ?? id
   );
 }

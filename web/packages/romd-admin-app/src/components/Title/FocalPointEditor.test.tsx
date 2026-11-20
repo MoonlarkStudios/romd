@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type FocalPoint, FocalPointEditor } from './FocalPointEditor';
+import { CropPreviews, cropRegion, type FocalPoint, FocalPointEditor } from './FocalPointEditor';
 
 class TestPointerEvent extends MouseEvent {
   readonly pointerId: number;
@@ -226,5 +226,120 @@ describe('FocalPointEditor', () => {
     });
     expect(onChange).not.toHaveBeenCalled();
     expect(onCommit).not.toHaveBeenCalled();
+  });
+});
+
+describe('consumer crop geometry', () => {
+  const point = {
+    focalX: 80,
+    focalY: 25,
+  };
+
+  it('matches object-position when cover fitting crops the horizontal or vertical axis', () => {
+    expect(cropRegion(2, 1, point)).toEqual({
+      left: 0.4,
+      top: 0,
+      width: 0.5,
+      height: 1,
+    });
+    expect(cropRegion(1, 2, point)).toEqual({
+      left: 0,
+      top: 0.125,
+      width: 1,
+      height: 0.5,
+    });
+    expect(cropRegion(2, 2, point)).toEqual({
+      left: 0,
+      top: 0,
+      width: 1,
+      height: 1,
+    });
+    expect(
+      cropRegion(2, 1, {
+        focalX: 100,
+        focalY: 0,
+      }).left,
+    ).toBe(0.5);
+    expect(
+      cropRegion(1, 2, {
+        focalX: 0,
+        focalY: 0,
+      }).top,
+    ).toBe(0);
+  });
+
+  it('preserves wide thumbnail proportions and displays only the selected outline', () => {
+    const frames = [
+      {
+        label: 'Desktop',
+        aspect: 5,
+      },
+      {
+        label: 'Mobile',
+        aspect: 1,
+      },
+    ];
+    const onFrameChange = vi.fn();
+    const view = (activeFrame: string) => (
+      <>
+        <FocalPointEditor
+          src="/hero.png"
+          value={point}
+          frames={frames}
+          activeFrame={activeFrame}
+          onChange={vi.fn()}
+          onCommit={vi.fn()}
+        />
+        <CropPreviews
+          src="/hero.png"
+          frames={frames}
+          value={point}
+          activeFrame={activeFrame}
+          onFrameChange={onFrameChange}
+        />
+      </>
+    );
+    const { rerender } = render(view('Desktop'));
+    const source = screen
+      .getByRole('slider', {
+        name: 'Focal point',
+      })
+      .querySelector('img');
+    if (!source) throw new Error('Missing focal image');
+    Object.defineProperties(source, {
+      naturalWidth: {
+        value: 200,
+      },
+      naturalHeight: {
+        value: 100,
+      },
+    });
+    fireEvent.load(source);
+    const desktop = screen.getByRole('button', {
+      name: 'Preview Desktop crop',
+    });
+    expect(desktop).toHaveAttribute('aria-pressed', 'true');
+    expect(desktop).toHaveStyle({
+      width: '144px',
+    });
+    expect(desktop.querySelector('span')).toHaveStyle({
+      aspectRatio: '5',
+    });
+    const mobile = screen.getByRole('button', {
+      name: 'Preview Mobile crop',
+    });
+    fireEvent.click(mobile);
+    expect(onFrameChange).toHaveBeenCalledWith('Mobile');
+    rerender(view('Mobile'));
+    expect(mobile).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      source.parentElement?.querySelector('[data-crop-frame="Desktop"]'),
+    ).not.toBeInTheDocument();
+    expect(source.parentElement?.querySelector('[data-crop-frame="Mobile"]')).toHaveStyle({
+      left: '40%',
+      top: '0%',
+      width: '50%',
+      height: '100%',
+    });
   });
 });

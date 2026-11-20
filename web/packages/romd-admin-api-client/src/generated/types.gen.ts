@@ -114,6 +114,7 @@ export type ArtworkCandidate = {
     sourcePageUrl: string;
     mediaType?: null | string;
     isSaved?: boolean;
+    region?: null | string;
 };
 
 export type ArtworkCompletionFilter = {
@@ -1412,7 +1413,7 @@ export type MediaReconciliationSubject = {
     id: string;
 };
 
-export type MediaType = 'Cover' | 'Screenshot' | 'Banner' | 'Logo' | 'Background' | 'Video' | 'Box3d' | 'TitleScreen';
+export type MediaType = 'Cover' | 'Screenshot' | 'Banner' | 'Logo' | 'Background' | 'Video' | 'Box3d' | 'TitleScreen' | 'BoxFront' | 'BoxBack' | 'BoxSpine' | 'BoxFull' | 'CartridgeFront' | 'CartridgeBack' | 'DiscLabel' | 'Manual';
 
 export type MergeTaxonomyRequest = {
     targetKey: string;
@@ -2531,6 +2532,14 @@ export type TitleFileRequirement = {
     romFileId?: null | string;
 };
 
+export type TitleMediaClassification = {
+    type: string;
+    catalogReleaseId?: null | string;
+    region?: null | string;
+    language?: null | string;
+    isPreferred?: boolean;
+};
+
 export type TitleMediaRef = {
     id: string;
     type: string;
@@ -2539,6 +2548,12 @@ export type TitleMediaRef = {
     attribution?: null | string;
     sourcePageUrl?: null | string;
     isPrimary: boolean;
+    contentType: string;
+    catalogReleaseId?: null | string;
+    region?: null | string;
+    language?: null | string;
+    isPreferred?: boolean;
+    providerAssetId?: null | string;
     file?: null | StoredFileRef;
 };
 
@@ -2679,7 +2694,8 @@ export type UpdateSteamGridDbSettingsRequest = {
 };
 
 export type UpdateTitleMediaRequest = {
-    isPrimary: boolean;
+    isPrimary?: null | boolean;
+    classification?: null | TitleMediaClassification;
 };
 
 export type UpdateTitleMetadataRequest = {
@@ -6929,6 +6945,9 @@ export type UploadTitleMediaData = {
     };
     query: {
         type: string;
+        releaseId?: string;
+        region?: string;
+        language?: string;
     };
     url: '/api/titles/{titleId}/media';
 };

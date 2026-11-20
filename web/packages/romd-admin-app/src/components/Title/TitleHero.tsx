@@ -32,7 +32,15 @@ import { TitleActionMenu } from './TitleActionMenu';
 import classes from './TitleDetail.module.css';
 import { titleSectionPath } from './titleSections';
 
-export function TitleHero({ title, titleId }: { title: TitleDetail; titleId: string }) {
+export function TitleHero({
+  title,
+  titleId,
+  compact = false,
+}: {
+  title: TitleDetail;
+  titleId: string;
+  compact?: boolean;
+}) {
   const [preview, setPreview] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const { canManageTitles } = usePermissions();
@@ -73,8 +81,9 @@ export function TitleHero({ title, titleId }: { title: TitleDetail; titleId: str
       <Box
         className={classes.hero}
         data-testid="title-header"
+        data-compact={compact || undefined}
       >
-        {hero?.url && (
+        {!compact && hero?.url && (
           <img
             className={classes.backdrop}
             src={hero.url}
@@ -84,7 +93,7 @@ export function TitleHero({ title, titleId }: { title: TitleDetail; titleId: str
             }}
           />
         )}
-        <div className={classes.heroShade} />
+        {!compact && <div className={classes.heroShade} />}
         <TitleIdentity
           title={title}
           platform={platform?.name}

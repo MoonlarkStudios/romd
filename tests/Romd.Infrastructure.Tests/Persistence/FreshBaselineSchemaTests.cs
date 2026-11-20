@@ -24,12 +24,13 @@ public sealed class FreshBaselineSchemaTests
             "20261031050000_FreshMediaBaseline", "20261102000000_PspUmdObservations", "20261109000000_SaturnCdObservations",
             "20261117000000_JobDispatchExpiryIndex",
             "20261118000000_SystemHardwareMetadata",
-            "20261118194850_SignInMessage"
+            "20261118194850_SignInMessage",
+            "20261120162632_MediaCollection"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(77);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(77);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(78);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(78);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -73,7 +74,30 @@ public sealed class FreshBaselineSchemaTests
         await database.ProvisionAsync();
 
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(77);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(78);
+    }
+
+    [Fact]
+    public async Task Provision_PreviousSchemaVersion_AddsMediaPlacementColumnsAndConstraints()
+    {
+        await using var database = PostgreSqlTestDatabase.CreateEmpty();
+        await using var db = database.CreateContext();
+        await db.Database.GetService<IMigrator>().MigrateAsync("20261118194850_SignInMessage");
+
+        await database.ProvisionAsync();
+
+        (await db.Database.SqlQueryRaw<string>("""
+            SELECT column_name AS "Value" FROM information_schema.columns
+            WHERE table_schema = 'romd' AND table_name = 'TitleMedia'
+              AND column_name IN ('CatalogReleaseId','Region','Language','IsPreferred','ProviderAssetId')
+            ORDER BY column_name
+            """).ToArrayAsync()).ShouldBe(["CatalogReleaseId", "IsPreferred", "Language", "ProviderAssetId", "Region"]);
+        (await db.Database.SqlQueryRaw<string>("""
+            SELECT conname::text AS "Value" FROM pg_constraint
+            WHERE conname IN ('CK_TitleMedia_PreferredPackaging', 'FK_TitleMedia_CatalogReleases_CatalogReleaseId')
+            ORDER BY conname
+            """).ToArrayAsync()).ShouldBe(["CK_TitleMedia_PreferredPackaging", "FK_TitleMedia_CatalogReleases_CatalogReleaseId"]);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(78);
     }
 
     [Theory]

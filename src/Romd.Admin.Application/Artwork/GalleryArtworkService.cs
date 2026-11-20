@@ -7,6 +7,7 @@ using Romd.Admin.Application.Common.Realtime;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Admin.Application.Titles;
 using Romd.Admin.Application.Titles.Commands.UploadTitleMedia;
+using Romd.Admin.Application.Titles.ReadModels;
 using Romd.Application.Common.Concurrency;
 using Romd.Application.Common.Ids;
 using Romd.Contracts.Management.Models;
@@ -71,7 +72,9 @@ public sealed class GalleryArtworkService(IArtworkBrowsingService browsing, IArt
                 var stored = publication.ReadAfterFlush();
                 var original = TitleMedia.CreateNew(titleId, type, stored.File.Id, $"gallery:{candidate.ProviderId}",
                     image.Value.ContentType, clock.GetUtcNow(), candidate.TrustedAssetUrl,
-                    attribution: candidate.Attribution, sourcePageUrl: candidate.SourcePageUrl);
+                    attribution: candidate.Attribution, sourcePageUrl: candidate.SourcePageUrl,
+                    placement: candidate.Region is null ? null : MediaPlacement.TryCreate(null, candidate.Region, null, false),
+                    providerAssetId: candidate.AssetId);
                 var appended = await mediaStore.AppendGalleryMediaStagedAsync(original, token);
                 // The download may have outlived a provider match change. Roll back the append in that case.
                 var current = await browsing.ValidateCandidateAsync(titleId, actor, reference, token);
@@ -82,17 +85,8 @@ public sealed class GalleryArtworkService(IArtworkBrowsingService browsing, IArt
                     await outbox.EnqueueAsync(AdminRealtimeEventTypes.StorageStatsChanged, token);
                 await unitOfWork.FlushAsync(token);
                 var media = (await titleMedia.ListAsync(titleId, token)).Single(item => item.FileId == stored.File.Id && item.Type == type && item.SourceId == original.SourceId);
-                return new UploadedTitleMedia(new TitleMediaRef
-                {
-                    Id = IdCoder.Encode(media.Id),
-                    Type = media.Type.ToString(),
-                    SourceId = media.SourceId,
-                    Attribution = media.Attribution,
-                    SourcePageUrl = media.SourcePageUrl,
-                    IsPrimary = media.IsPrimary,
-                    Url = $"/media/{IdCoder.Encode(media.Id)}"
-                },
-                    appended.TitleRevision.ToString(), appended.Added);
+                return new UploadedTitleMedia(TitleMediaMapping.ToRef(media), appended.TitleRevision.ToString(),
+                    appended.Added);
             }, logger, ct);
         }
         finally

@@ -1,22 +1,40 @@
 import {
+  ActionIcon,
   Alert,
+  Anchor,
   Button,
   Group,
   Image,
+  Modal,
   NativeSelect,
   Select,
   Stack,
+  Switch,
   Text,
+  TextInput,
   Title,
 } from '@mantine/core';
-import type { ArtworkMode, ArtworkSelectionState, ResolvedArtwork } from '@romd/admin-api-client';
+import { useMediaQuery } from '@mantine/hooks';
+import type {
+  ArtworkMode,
+  ArtworkSelectionState,
+  ResolvedArtwork,
+  TitleMediaClassification,
+} from '@romd/admin-api-client';
 import { replaceTitleArtworkRole } from '@romd/admin-api-client';
-import { IconDownload } from '@tabler/icons-react';
+import {
+  IconBook,
+  IconChevronLeft,
+  IconChevronRight,
+  IconDownload,
+  IconX,
+} from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { invalidateTitle } from '../../hooks/api/titleCache';
-import { ifMatch } from '../../hooks/api/titleConflict';
+import { ifMatch, TitleConflictError } from '../../hooks/api/titleConflict';
 import { storeArtwork } from '../../hooks/api/useArtwork';
+import { useClassifyTitleMedia } from '../../hooks/api/useTitleActions';
 import { formatBytes } from '../../utils/format';
 import { useDiscardEpoch, useDraft, useDraftGuard } from '../Administration/DraftGuard';
 import { ArtworkSurface } from '../ArtworkSurface';
@@ -27,13 +45,22 @@ import {
   artworkSourceLabel,
   isArtworkRole,
 } from '../artworkPresentation';
+import {
+  compatibleMediaTypes,
+  isDocumentType,
+  isPackagingType,
+  mediaTypeLabel,
+} from '../mediaTypes';
 import { EditorFooter } from '../Workspace/EditorFooter';
-import { InspectorPanel } from '../Workspace/InspectorPanel';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
 import classes from './ArtworkWorkspace.module.css';
 import { type ArtworkLibraryEntry, artworkTargetForRole } from './artworkLibrary';
 import { typeLabel } from './BatchArtworkUpload';
-import { type FocalPoint, FocalPointEditor } from './FocalPointEditor';
+import { CropPreviews, type FocalPoint, FocalPointEditor } from './FocalPointEditor';
+import { ManualCover, ManualViewer } from './ManualViewer';
+import { placementLabel, type ReleaseOption } from './mediaLibrary';
+import { CropFrames } from './presentation/PresentationCanvas';
+import type { ArtworkPreviewTitle } from './preview/ArtworkRolePreview';
 
 type RoleDraft = FocalPoint & {
   mode: ArtworkMode;
@@ -47,7 +74,18 @@ interface ArtworkImageInspectorProps {
   entry: ArtworkLibraryEntry;
   artwork: ResolvedArtwork[];
   selections?: ArtworkSelectionState[];
+  /** The title's canonical releases, offered as placements. */
+  releases?: ReleaseOption[];
   disabled: boolean;
+  /** The title the crop frames render, so they measure the consumer surfaces this image would sit in. */
+  title: ArtworkPreviewTitle;
+  /** Where this item sits in the filtered library, and how to step to its neighbours. */
+  position?: {
+    index: number;
+    total: number;
+  };
+  onPrevious?: () => void;
+  onNext?: () => void;
   onClose: () => void;
   onDelete: () => void;
   onSaved: () => void;
@@ -70,25 +108,66 @@ function ArtworkImageDraft({
   entry,
   artwork,
   selections,
+  releases = [],
   disabled,
+  title,
+  position,
+  onPrevious,
+  onNext,
   onClose,
   onDelete,
   onSaved,
   onSaving,
 }: ArtworkImageInspectorProps) {
+  const phone = useMediaQuery('(max-width: 36em)') ?? false;
   const cache = useQueryClient();
   const guard = useDraftGuard();
+  const classify = useClassifyTitleMedia();
   const [drafts, setDrafts] = useState<Drafts>({});
+  const [classification, setClassification] = useState<TitleMediaClassification>();
+  const [manualView, setManualView] = useState<'closed' | 'reading' | 'returned'>('closed');
   const [requestedFocalRole, setRequestedFocalRole] = useState<ArtworkRole>();
   const [livePoint, setLivePoint] = useState<FocalPoint>();
+  const [activeCrop, setActiveCrop] = useState<string>();
   const [saving, setSaving] = useState(false);
   const saveInFlight = useRef(false);
   const [error, setError] = useState<string>();
-  const roles = entry.asset
-    ? artworkRoles.filter((role) => role === entry.asset?.role)
-    : artworkRoles;
-  const dirty = Object.keys(drafts).length > 0;
+  const { media } = entry;
+  const document = isDocumentType(entry.name);
+  // Packaging scans and manuals are collected, not presented; the Presentation tab chooses what players see.
+  const presentable = !document && !isPackagingType(entry.name);
+  const roles = !presentable
+    ? []
+    : entry.asset
+      ? artworkRoles.filter((role) => role === entry.asset?.role)
+      : artworkRoles;
+  const savedClassification: TitleMediaClassification | undefined = media && {
+    type: media.type,
+    catalogReleaseId: media.catalogReleaseId ?? null,
+    region: media.region ?? null,
+    language: media.language ?? null,
+    isPreferred: media.isPreferred ?? false,
+  };
+  const proposed = classification ?? savedClassification;
+  const classificationDirty =
+    !!classification &&
+    !!savedClassification &&
+    JSON.stringify(normalizeClassification(classification)) !==
+      JSON.stringify(normalizeClassification(savedClassification));
+  const dirty = Object.keys(drafts).length > 0 || classificationDirty;
   useDraft(dirty, 'Your artwork changes have not been saved.');
+  // Uploads and gallery imports are the curator's own classification; enrichment media keeps the provider's type.
+  const curated = media?.sourceId === 'user' || !!media?.sourceId.startsWith('gallery:');
+  const changeClassification = (values: Partial<TitleMediaClassification>) => {
+    if (!proposed || locked) return;
+    setError(undefined);
+    const next = {
+      ...proposed,
+      ...values,
+    };
+    if (!isPackagingType(next.type)) next.isPreferred = false;
+    setClassification(next);
+  };
 
   const savedPoint = (role: ArtworkRole): FocalPoint => {
     const current = entry.roles.includes(role)
@@ -101,7 +180,7 @@ function ArtworkImageDraft({
   };
   const focalRoles = roles.filter(
     (role) =>
-      (role === 'Backdrop' || role === 'Hero') &&
+      (role === 'Backdrop' || role === 'Hero' || role === 'Poster') &&
       (drafts[role] ? drafts[role]?.mode === 'Pinned' : entry.roles.includes(role)),
   );
   const focalRole =
@@ -145,6 +224,29 @@ function ArtworkImageDraft({
     let failedRole: ArtworkRole | undefined;
     let message: string | undefined;
     let refreshNeeded = false;
+    if (classificationDirty && classification && media) {
+      try {
+        await classify.mutateAsync({
+          titleId,
+          mediaId: media.id,
+          classification: normalizeClassification(classification),
+        });
+        setClassification(undefined);
+      } catch (reason) {
+        setError(
+          reason instanceof TitleConflictError
+            ? 'The title changed while you were editing. It was reloaded; review the classification and save again.'
+            : reason instanceof Error
+              ? reason.message
+              : 'Could not save the classification.',
+        );
+        if (reason instanceof TitleConflictError) setClassification(undefined);
+        saveInFlight.current = false;
+        setSaving(false);
+        onSaving(false);
+        return;
+      }
+    }
     try {
       // The API versions roles independently. Record each accepted role so retry only sends untouched changes.
       for (const role of roles) {
@@ -211,6 +313,8 @@ function ArtworkImageDraft({
     }
   };
 
+  const releaseName = (id?: string | null) =>
+    id ? (releases.find((item) => item.value === id)?.label ?? 'this release') : 'the title';
   const size = entry.asset?.artwork ?? entry.retained?.[0]?.artwork;
   const dimensions =
     size?.originalWidth && size.originalHeight
@@ -220,206 +324,520 @@ function ArtworkImageDraft({
         : undefined;
   const detail = [
     artworkSourceLabel(entry.source),
+    media && placementLabel(media, releases),
     dimensions,
     entry.media?.file ? formatBytes(entry.media.file.sizeOnDiskBytes) : undefined,
   ]
     .filter(Boolean)
     .join(' · ');
 
-  return (
-    <InspectorPanel
-      id={id}
-      title={typeLabel(entry.name)}
-      onClose={onClose}
-      footer={
-        <EditorFooter
-          dirty={dirty}
-          standalone={false}
-          saving={saving}
-          disabled={disabled}
-          onDiscard={() => {
-            setDrafts({});
-            setError(undefined);
-            setLivePoint(undefined);
-          }}
-          onDelete={() => void guard.discardThen(onDelete)}
-          deleteLabel="Delete image"
-          onSave={() => void save()}
-        />
-      }
-    >
-      <Stack gap="md">
-        <ArtworkSurface background={entry.name === 'Logo' ? 'checkerboard' : 'dark'}>
-          <Image
-            src={entry.url || undefined}
-            alt={typeLabel(entry.name)}
-            className={classes.imagePreview}
-            fit="contain"
-          />
-        </ArtworkSurface>
-        <Group
-          justify="space-between"
-          gap="xs"
-        >
-          <Text
-            size="sm"
-            c="dimmed"
-          >
-            {detail}
-          </Text>
-          {entry.url && (
-            <Button
-              {...workspaceActionProps}
-              component="a"
-              href={entry.url}
-              download
-              variant="light"
-              size="compact-sm"
-              leftSection={<IconDownload size={16} />}
-            >
-              Download
-            </Button>
-          )}
-        </Group>
-        <Stack gap="xs">
-          <Title
-            order={4}
-            className={classes.heading}
-          >
-            Role assignments
-          </Title>
-          {roles.map((role) => {
-            const selection = selections?.find((item) => item.role === role);
-            const assigned = entry.roles.includes(role);
-            const roleLabel = artworkRoleLabel(role);
-            const current = selection?.pendingJobId
-              ? 'Artwork is processing'
-              : assigned
-                ? selection?.mode === 'Pinned'
-                  ? 'Selected by you'
-                  : 'Used automatically'
-                : artwork.some(
-                      (item) =>
-                        item.role === role && item.url && item.fallbackReason !== 'LegacyCover',
-                    )
-                  ? 'Uses another image'
-                  : selection?.mode === 'Empty'
-                    ? 'Left empty'
-                    : 'No image selected';
-            return (
-              <NativeSelect
-                key={role}
-                label={roleLabel}
-                aria-label={`${roleLabel} assignment`}
-                value={drafts[role]?.mode ?? ''}
-                description={
-                  drafts[role]?.mode === 'Empty'
-                    ? 'Automatic artwork runs will leave this role empty.'
-                    : undefined
-                }
-                disabled={!entry.url || !selection || locked}
-                onChange={(event) => {
-                  const { value } = event.currentTarget;
-                  if (
-                    value === '' ||
-                    value === 'Pinned' ||
-                    value === 'Empty' ||
-                    value === 'Automatic'
-                  )
-                    stage(role, value);
-                }}
-                data={[
-                  {
-                    value: '',
-                    label: current,
-                  },
-                  ...(assigned && selection?.mode === 'Pinned'
-                    ? []
-                    : [
-                        {
-                          value: 'Pinned',
-                          label: assigned ? 'Keep this image' : 'Use this image',
-                        },
-                      ]),
-                  ...(assigned
-                    ? [
-                        {
-                          value: 'Automatic',
-                          label: 'Return to automatic',
-                        },
-                        {
-                          value: 'Empty',
-                          label: 'Leave empty',
-                        },
-                      ]
-                    : []),
-                  ...(assigned && selection?.mode === 'Pinned' && drafts[role]?.mode === 'Pinned'
-                    ? [
-                        {
-                          value: 'Pinned',
-                          label: 'Keep this image and adjust focal point',
-                        },
-                      ]
-                    : []),
-                ]}
-              />
-            );
-          })}
-        </Stack>
-        {focalRole && focalPoint && entry.url && (
-          <Stack
-            gap="xs"
-            align="flex-start"
-          >
-            <Title
-              order={4}
-              className={classes.heading}
-            >
-              Focal point
-            </Title>
-            {focalRoles.length > 1 && (
-              <Select
-                aria-label="Focal point role"
-                value={focalRole}
-                allowDeselect={false}
-                onChange={(value) => {
-                  if (value && isArtworkRole(value)) {
-                    setRequestedFocalRole(value);
-                    setLivePoint(undefined);
-                  }
-                }}
-                data={focalRoles.map((role) => ({
-                  value: role,
-                  label: artworkRoleLabel(role),
-                }))}
-              />
-            )}
-            <FocalPointEditor
-              key={focalRole}
-              src={entry.url}
-              value={focalPoint}
-              maxHeight={180}
-              disabled={locked || !selections?.some((item) => item.role === focalRole)}
-              onChange={setLivePoint}
-              onCommit={(point) => stage(focalRole, 'Pinned', point)}
-            />
-            <Text
-              size="xs"
-              c="dimmed"
-            >
-              Drag or use the arrow keys to position the crop.
-            </Text>
-          </Stack>
-        )}
-        {error && (
-          <Alert
-            color="red"
-            role="alert"
-          >
-            {error}
-          </Alert>
-        )}
-      </Stack>
-    </InspectorPanel>
+  const footer = (
+    <EditorFooter
+      dirty={dirty}
+      standalone={false}
+      saving={saving}
+      disabled={disabled}
+      onDiscard={() => {
+        setDrafts({});
+        setClassification(undefined);
+        setError(undefined);
+        setLivePoint(undefined);
+      }}
+      onDelete={() => void guard.discardThen(onDelete)}
+      deleteLabel={document ? 'Delete manual' : 'Delete image'}
+      onSave={() => void save()}
+    />
   );
+  const step = (direction: -1 | 1) => {
+    if (direction < 0) onPrevious?.();
+    else onNext?.();
+  };
+  return (
+    <Modal.Root
+      opened
+      onClose={onClose}
+      fullScreen={phone}
+      size="min(96vw, 84rem)"
+      padding={0}
+      closeOnEscape={false}
+      trapFocus={manualView !== 'reading' && !disabled}
+      returnFocus={false}
+      classNames={{
+        content: classes.lightbox,
+      }}
+    >
+      <Modal.Overlay />
+      <Modal.Content>
+        <div className={classes.lightboxBody}>
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: arrow keys step through the library, as in a gallery. */}
+          <div
+            id={id}
+            className={classes.lightboxLayout}
+            onKeyDown={(event) => {
+              const target = event.target as HTMLElement;
+              // Portalled dialogs inside, such as the manual reader, bubble through React but handle their own keys.
+              if (event.defaultPrevented || !event.currentTarget.contains(target)) return;
+              if (event.key === 'Escape') {
+                event.stopPropagation();
+                onClose();
+                return;
+              }
+              if (
+                (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') ||
+                event.altKey ||
+                event.ctrlKey ||
+                event.metaKey ||
+                target.closest(
+                  'input, select, textarea, [role="slider"], [role="switch"], [role="radio"]',
+                )
+              )
+                return;
+              event.preventDefault();
+              step(event.key === 'ArrowLeft' ? -1 : 1);
+            }}
+          >
+            <header className={classes.lightboxHeader}>
+              <Modal.Title className={classes.heading}>{typeLabel(entry.name)}</Modal.Title>
+              <Group
+                gap={4}
+                wrap="nowrap"
+              >
+                {position && (
+                  <Text
+                    size="sm"
+                    c="dimmed"
+                    mr="xs"
+                  >
+                    {position.index + 1} of {position.total}
+                  </Text>
+                )}
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  aria-label="Previous item"
+                  data-inspector-direction="previous"
+                  disabled={!onPrevious || saving}
+                  onClick={() => step(-1)}
+                >
+                  <IconChevronLeft size={18} />
+                </ActionIcon>
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  aria-label="Next item"
+                  data-inspector-direction="next"
+                  disabled={!onNext || saving}
+                  onClick={() => step(1)}
+                >
+                  <IconChevronRight size={18} />
+                </ActionIcon>
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  aria-label="Close"
+                  onClick={onClose}
+                >
+                  <IconX size={18} />
+                </ActionIcon>
+              </Group>
+            </header>
+            <div className={classes.lightboxStage}>
+              {document && media ? (
+                <Stack
+                  gap="xs"
+                  align="center"
+                >
+                  <ManualCover
+                    titleId={titleId}
+                    mediaId={media.id}
+                    width={phone ? 200 : 320}
+                    label={`Cover of ${typeLabel(entry.name).toLowerCase()}`}
+                  />
+                  <Button
+                    {...workspaceActionProps}
+                    leftSection={<IconBook size={16} />}
+                    data-autofocus={manualView === 'returned' || undefined}
+                    onClick={() => setManualView('reading')}
+                  >
+                    Open manual
+                  </Button>
+                  <ManualViewer
+                    titleId={titleId}
+                    mediaId={media.id}
+                    title={`Manual · ${placementLabel(media, releases)}`}
+                    fileName={`manual-${media.id}.pdf`}
+                    opened={manualView === 'reading'}
+                    onClose={() => setManualView('returned')}
+                  />
+                </Stack>
+              ) : (
+                <ArtworkSurface background={entry.name === 'Logo' ? 'checkerboard' : 'dark'}>
+                  <Image
+                    src={entry.url || undefined}
+                    alt={typeLabel(entry.name)}
+                    className={classes.lightboxImage}
+                    fit="contain"
+                  />
+                </ArtworkSurface>
+              )}
+            </div>
+            <div className={classes.lightboxDetails}>
+              <Stack gap="md">
+                <Group
+                  justify="space-between"
+                  gap="xs"
+                >
+                  <Text
+                    size="sm"
+                    c="dimmed"
+                  >
+                    {detail}
+                  </Text>
+                  {entry.url && !document && (
+                    <Button
+                      {...workspaceActionProps}
+                      component="a"
+                      href={entry.url}
+                      download
+                      variant="light"
+                      size="compact-sm"
+                      leftSection={<IconDownload size={16} />}
+                    >
+                      Download
+                    </Button>
+                  )}
+                </Group>
+                {media && (
+                  <dl className={classes.facts}>
+                    <dt>Source</dt>
+                    <dd>
+                      {artworkSourceLabel(entry.source)}
+                      {media.providerAssetId ? ` · ${media.providerAssetId}` : ''}
+                    </dd>
+                    {media.attribution && (
+                      <>
+                        <dt>Attribution</dt>
+                        <dd>{media.attribution}</dd>
+                      </>
+                    )}
+                    {media.sourcePageUrl && (
+                      <>
+                        <dt>Original</dt>
+                        <dd>
+                          <Anchor
+                            size="sm"
+                            href={media.sourcePageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            View original
+                          </Anchor>
+                        </dd>
+                      </>
+                    )}
+                    <dt>Region</dt>
+                    <dd>{media.region ?? 'Not recorded'}</dd>
+                    <dt>Language</dt>
+                    <dd>{media.language ?? 'Not recorded'}</dd>
+                  </dl>
+                )}
+                {proposed && (
+                  <Stack gap="xs">
+                    <Title
+                      order={4}
+                      className={classes.heading}
+                    >
+                      Classification
+                    </Title>
+                    <NativeSelect
+                      label="Type"
+                      value={proposed.type}
+                      disabled={locked || !curated}
+                      description={
+                        curated
+                          ? undefined
+                          : 'Media from metadata enrichment keeps its provider type.'
+                      }
+                      data={compatibleMediaTypes(proposed.type).map((value) => ({
+                        value,
+                        label: mediaTypeLabel(value),
+                      }))}
+                      onChange={(event) =>
+                        changeClassification({
+                          type: event.currentTarget.value,
+                        })
+                      }
+                    />
+                    <NativeSelect
+                      label="Release"
+                      value={proposed.catalogReleaseId ?? ''}
+                      disabled={locked}
+                      data={[
+                        {
+                          value: '',
+                          label: 'Title-level (any release)',
+                        },
+                        ...releases.map((release) => ({
+                          value: release.value,
+                          label: release.label,
+                        })),
+                      ]}
+                      onChange={(event) => {
+                        const releaseId = event.currentTarget.value || null;
+                        const release = releases.find((item) => item.value === releaseId);
+                        changeClassification({
+                          catalogReleaseId: releaseId,
+                          // A release names its region; fill it when the item has none yet.
+                          region: proposed.region || release?.region || null,
+                        });
+                      }}
+                    />
+                    <Group
+                      grow
+                      gap="xs"
+                    >
+                      <TextInput
+                        label="Region"
+                        maxLength={100}
+                        value={proposed.region ?? ''}
+                        disabled={locked}
+                        onChange={(event) =>
+                          changeClassification({
+                            region: event.currentTarget.value,
+                          })
+                        }
+                      />
+                      <TextInput
+                        label="Language"
+                        maxLength={100}
+                        value={proposed.language ?? ''}
+                        disabled={locked}
+                        onChange={(event) =>
+                          changeClassification({
+                            language: event.currentTarget.value,
+                          })
+                        }
+                      />
+                    </Group>
+                    {isPackagingType(proposed.type) && (
+                      <Switch
+                        label={`Preferred ${mediaTypeLabel(proposed.type).toLowerCase()} for ${releaseName(proposed.catalogReleaseId)}`}
+                        description="Alternatives stay in the library. Choosing this one replaces the current preference."
+                        checked={proposed.isPreferred ?? false}
+                        disabled={locked}
+                        onChange={(event) =>
+                          changeClassification({
+                            isPreferred: event.currentTarget.checked,
+                          })
+                        }
+                      />
+                    )}
+                  </Stack>
+                )}
+                {roles.length > 0 && (
+                  <Stack gap="xs">
+                    <Title
+                      order={4}
+                      className={classes.heading}
+                    >
+                      Role assignments
+                    </Title>
+                    {roles.map((role) => {
+                      const selection = selections?.find((item) => item.role === role);
+                      const assigned = entry.roles.includes(role);
+                      const roleLabel = artworkRoleLabel(role);
+                      const current = selection?.pendingJobId
+                        ? 'Artwork is processing'
+                        : assigned
+                          ? selection?.mode === 'Pinned'
+                            ? 'Selected by you'
+                            : 'Used automatically'
+                          : artwork.some(
+                                (item) =>
+                                  item.role === role &&
+                                  item.url &&
+                                  item.fallbackReason !== 'LegacyCover',
+                              )
+                            ? 'Uses another image'
+                            : selection?.mode === 'Empty'
+                              ? 'Left empty'
+                              : 'No image selected';
+                      return (
+                        <NativeSelect
+                          key={role}
+                          label={roleLabel}
+                          aria-label={`${roleLabel} assignment`}
+                          value={drafts[role]?.mode ?? ''}
+                          description={
+                            drafts[role]?.mode === 'Empty'
+                              ? 'Automatic artwork runs will leave this role empty.'
+                              : undefined
+                          }
+                          disabled={!entry.url || !selection || locked}
+                          onChange={(event) => {
+                            const { value } = event.currentTarget;
+                            if (
+                              value === '' ||
+                              value === 'Pinned' ||
+                              value === 'Empty' ||
+                              value === 'Automatic'
+                            )
+                              stage(role, value);
+                          }}
+                          data={[
+                            {
+                              value: '',
+                              label: current,
+                            },
+                            ...(assigned && selection?.mode === 'Pinned'
+                              ? []
+                              : [
+                                  {
+                                    value: 'Pinned',
+                                    label: assigned ? 'Keep this image' : 'Use this image',
+                                  },
+                                ]),
+                            ...(assigned
+                              ? [
+                                  {
+                                    value: 'Automatic',
+                                    label: 'Return to automatic',
+                                  },
+                                  {
+                                    value: 'Empty',
+                                    label: 'Leave empty',
+                                  },
+                                ]
+                              : []),
+                            ...(assigned &&
+                            selection?.mode === 'Pinned' &&
+                            drafts[role]?.mode === 'Pinned'
+                              ? [
+                                  {
+                                    value: 'Pinned',
+                                    label: 'Keep this image and adjust focal point',
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
+                      );
+                    })}
+                  </Stack>
+                )}
+                {focalRole && focalPoint && entry.url && (
+                  <Stack
+                    gap="xs"
+                    align="flex-start"
+                  >
+                    <Title
+                      order={4}
+                      className={classes.heading}
+                    >
+                      Focal point
+                    </Title>
+                    {focalRoles.length > 1 && (
+                      <Select
+                        aria-label="Focal point role"
+                        value={focalRole}
+                        allowDeselect={false}
+                        onChange={(value) => {
+                          if (value && isArtworkRole(value)) {
+                            setRequestedFocalRole(value);
+                            setLivePoint(undefined);
+                          }
+                        }}
+                        data={focalRoles.map((role) => ({
+                          value: role,
+                          label: artworkRoleLabel(role),
+                        }))}
+                      />
+                    )}
+                    <CropFrames
+                      title={{
+                        ...title,
+                        artwork: [
+                          ...(title.artwork ?? []).filter((item) => item.role !== focalRole),
+                          {
+                            role: focalRole,
+                            assetId: null,
+                            contentVersion: null,
+                            width: null,
+                            height: null,
+                            originalWidth: null,
+                            originalHeight: null,
+                            url: entry.url,
+                            focalX: focalPoint.focalX,
+                            focalY: focalPoint.focalY,
+                            fit: 'Cover',
+                            fallbackReason: 'None',
+                            variants: [],
+                          },
+                        ],
+                      }}
+                      role={focalRole}
+                    >
+                      {(frames) => (
+                        <Stack
+                          gap="xs"
+                          align="flex-start"
+                        >
+                          <FocalPointEditor
+                            key={focalRole}
+                            src={entry.url}
+                            value={focalPoint}
+                            frames={frames}
+                            activeFrame={activeCrop}
+                            maxHeight={240}
+                            disabled={
+                              locked || !selections?.some((item) => item.role === focalRole)
+                            }
+                            onChange={setLivePoint}
+                            onCommit={(point) => stage(focalRole, 'Pinned', point)}
+                          />
+                          <CropPreviews
+                            src={entry.url}
+                            frames={frames}
+                            value={focalPoint}
+                            activeFrame={activeCrop}
+                            onFrameChange={setActiveCrop}
+                          />
+                          <Text
+                            size="xs"
+                            c="dimmed"
+                          >
+                            Click or drag to place the focal point; arrow keys move it.
+                          </Text>
+                        </Stack>
+                      )}
+                    </CropFrames>
+                  </Stack>
+                )}
+                {error && (
+                  <Alert
+                    color="red"
+                    role="alert"
+                  >
+                    {error}
+                  </Alert>
+                )}
+              </Stack>
+              <div className={classes.lightboxFooter}>{footer}</div>
+            </div>
+          </div>
+        </div>
+      </Modal.Content>
+    </Modal.Root>
+  );
+}
+
+/** Trims text and sends blank fields as absent, as the server stores them. */
+function normalizeClassification(value: TitleMediaClassification): TitleMediaClassification {
+  return {
+    type: value.type,
+    catalogReleaseId: value.catalogReleaseId || null,
+    region: value.region?.trim() || null,
+    language: value.language?.trim() || null,
+    isPreferred: value.isPreferred ?? false,
+  };
 }

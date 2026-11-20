@@ -5,6 +5,7 @@ using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.Export;
 using Romd.Admin.Application.Export.Queries.GetArchiveFormats;
 using Romd.Admin.Application.Titles;
+using Romd.Admin.Application.Titles.Commands.ClassifyTitleMedia;
 using Romd.Admin.Application.Titles.Commands.DeleteTitleMedia;
 using Romd.Admin.Application.Titles.Commands.MergeTitles;
 using Romd.Admin.Application.Titles.Commands.MoveGame;
@@ -16,6 +17,7 @@ using Romd.Admin.Application.Titles.Commands.TriggerTitleEnrichment;
 using Romd.Admin.Application.Titles.Commands.UpdateUserMetadata;
 using Romd.Admin.Application.Titles.Commands.UploadTitleMedia;
 using Romd.Admin.Application.Titles.Queries.GetTitleSourceReferences;
+using Romd.Admin.Application.Titles.Queries.OpenTitleMedia;
 using Romd.Admin.Application.Titles.ReadModels;
 using Romd.Application.Common.Concurrency;
 using Romd.Application.Common.Content;
@@ -109,15 +111,16 @@ public static class TitleEndpoints
         // Media curation endpoints
         group.MapPost("{titleId}/media", UploadMedia)
             .WithName("UploadTitleMedia")
-            .WithDescription("Upload custom media for a title. User uploads become the primary for their type.")
+            .WithDescription("Upload custom media for a title, optionally placed on one of its canonical releases with a region and language. Images are static JPEG, PNG or WebP up to 32 MiB; a Manual is one unencrypted PDF up to 128 MiB. An upload becomes primary only when its type has none.")
             .DisableAntiforgery()
             .Accepts<IFormFile>("multipart/form-data")
             .ProducesCreated<Models.TitleMediaRef>()
             .Produces<Models.TitleMediaRef>()
             .ConditionalWrite()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
-            // Admin artwork uploads allow 32 MiB images, above the server default body limit.
-            .WithMetadata(new RequestSizeLimitAttribute(34 * 1024 * 1024))
+            // 32 MiB images and 128 MiB manuals, above the server default body limit. The handler bounds each type.
+            .WithMetadata(new RequestSizeLimitAttribute(ManualDocument.MaxBytes + 2 * 1024 * 1024))
+            .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = ManualDocument.MaxBytes + 2 * 1024 * 1024 })
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
         group.MapGet("{titleId}/media", ListMedia)
@@ -133,15 +136,16 @@ public static class TitleEndpoints
 
         group.MapGet("{titleId}/media/{mediaId}", GetMedia)
             .WithName("GetTitleMedia")
-            .WithDescription("Get one media asset of a title")
+            .WithDescription("Get one media asset of a title. A manual's PDF is its alternate representation: request it with Accept: application/pdf.")
             .Produces<Models.TitleMediaRef>()
+            .WithDocumentRepresentation()
             .ETagOnlyRead()
             .ProducesProblems(StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
 
         group.MapPatch("{titleId}/media/{mediaId}", UpdateMedia)
             .WithName("UpdateTitleMedia")
-            .WithDescription("Make a media item the primary for its type with { \"isPrimary\": true }")
+            .WithDescription("Make a media item the primary for its type with { \"isPrimary\": true }, or replace its classification (type, release, region, language and packaging preference) with { \"classification\": { ... } }")
             .Produces<Models.TitleDetail>()
             .ConditionalWrite()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict)
@@ -359,15 +363,22 @@ public static class TitleEndpoints
         string type,
         HttpContext context,
         ICommandHandler<UploadTitleMediaCommand, UploadedTitleMedia> handler,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Sqid? releaseId = null,
+        string? region = null,
+        string? language = null)
     {
-        // Parse the media type
-        if (!Enum.TryParse<MediaType>(type, true, out var mediaType))
+        if (!TryParseMediaType(type, out var mediaType))
         {
             return ProblemResults.ValidationProblem(
                 "Titles.InvalidMediaType",
                 "type",
-                $"'{type}' is not a valid media type. Accepted values: Cover, Screenshot, Banner, Logo, Background, Video, Box3d, TitleScreen.");
+                $"'{type}' is not a valid media type. Accepted values: {string.Join(", ", Enum.GetNames<MediaType>())}.");
+        }
+
+        if (MediaPlacement.TryCreate(releaseId?.Value, region, language, false) is not { } placement)
+        {
+            return new[] { CatalogErrors.InvalidMediaPlacement() }.ToProblem();
         }
 
         var ifMatch = Preconditions.IfMatch(context, PreconditionArea);
@@ -384,7 +395,8 @@ public static class TitleEndpoints
             mediaType,
             stream,
             file.FileName,
-            ifMatch.Value);
+            ifMatch.Value,
+            placement);
 
         var result = await handler.HandleAsync(command, cancellationToken);
 
@@ -427,9 +439,13 @@ public static class TitleEndpoints
     private static async Task<IResult> GetMedia(Sqid titleId,
         Sqid mediaId,
         ITitleDetailReader titleDetails,
+        IQueryHandler<OpenTitleMediaQuery, TitleMediaContent> openMedia,
         HttpContext context,
         CancellationToken cancellationToken)
     {
+        if (AcceptsDocument(context.Request))
+            return await ServeDocumentAsync(titleId, mediaId, openMedia, context, cancellationToken);
+
         string? cursor = mediaId.Value > 1 ? Romd.Application.Common.Pagination.KeysetCursor.Encode(
             new Romd.Application.Common.Pagination.IntegerPosition(mediaId.Value - 1),
             Romd.Application.Common.Pagination.KeysetCursor.Fingerprint("admin.title.media", titleId.Value, "id:asc")) : null;
@@ -441,32 +457,113 @@ public static class TitleEndpoints
             : ErrorOrResultExtensions.ToProblem([CatalogErrors.MediaNotFound()]);
     }
 
-    private static Models.TitleMediaRef ToMediaRef(TitleMediaData media) => new()
+    private static Models.TitleMediaRef ToMediaRef(TitleMediaData media) => TitleMediaMapping.ToRef(media);
+
+    /// <summary>Media type names are case-insensitive names only; numeric spellings never select a type.</summary>
+    private static bool TryParseMediaType(string? value, out MediaType type)
     {
-        Id = IdCoder.Encode(media.Id),
-        Type = media.Type,
-        Url = $"/media/{IdCoder.Encode(media.Id)}",
-        SourceId = media.SourceId,
-        Attribution = media.Attribution,
-        SourcePageUrl = media.SourcePageUrl,
-        File = Romd.Admin.Application.Storage.StoredFileRefMapping.ToStoredFileRef(media.SizeBytes, media.SizeOnDiskBytes, media.IsCompressed),
-        IsPrimary = media.IsPrimary
-    };
+        type = default;
+        return !string.IsNullOrWhiteSpace(value) && char.IsAsciiLetter(value[0]) && !value.Contains(',') &&
+               Enum.TryParse(value, true, out type) && Enum.IsDefined(type);
+    }
+
+    /// <summary>Documents the manual's PDF as a second content type of the media item's 200 response.</summary>
+    private static RouteHandlerBuilder WithDocumentRepresentation(this RouteHandlerBuilder builder) =>
+        builder.AddOpenApiOperationTransformer((operation, _, _) =>
+        {
+            if (operation.Responses?.TryGetValue("200", out var ok) == true && ok.Content is { } content)
+                content[ManualDocument.ContentType] = new Microsoft.OpenApi.OpenApiMediaType
+                {
+                    Schema = new Microsoft.OpenApi.OpenApiSchema
+                    {
+                        Type = Microsoft.OpenApi.JsonSchemaType.String,
+                        Format = "binary"
+                    }
+                };
+            return Task.CompletedTask;
+        });
+
+    /// <summary>The PDF representation is chosen only when the client asks for it ahead of JSON.</summary>
+    private static bool AcceptsDocument(HttpRequest request)
+    {
+        var accepted = request.GetTypedHeaders().Accept;
+        var pdf = accepted.Where(value => value.MediaType.Equals(ManualDocument.ContentType, StringComparison.OrdinalIgnoreCase))
+            .Select(value => value.Quality ?? 1).DefaultIfEmpty(0).Max();
+        var json = accepted.Where(value => value.MediaType.Equals("application/json", StringComparison.OrdinalIgnoreCase))
+            .Select(value => value.Quality ?? 1).DefaultIfEmpty(0).Max();
+        return pdf > 0 && pdf >= json;
+    }
+
+    /// <summary>
+    ///     A manual's bytes, for authenticated document viewers. The response is an attachment that browsers never render
+    ///     in the portal's origin, never sniffed and sandboxed; viewers read the bytes and render pages without scripts.
+    /// </summary>
+    private static async Task<IResult> ServeDocumentAsync(Sqid titleId, Sqid mediaId,
+        IQueryHandler<OpenTitleMediaQuery, TitleMediaContent> openMedia, HttpContext context, CancellationToken ct)
+    {
+        var opened = await openMedia.HandleAsync(new OpenTitleMediaQuery(mediaId.Value, titleId.Value), ct);
+        if (opened.IsError)
+            return opened.Errors.ToProblem();
+        var media = opened.Value;
+        try
+        {
+            context.Response.Headers.CacheControl = "private, no-cache";
+            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            context.Response.Headers.ContentSecurityPolicy = "sandbox; default-src 'none'";
+            context.Response.Headers.Vary = "Accept";
+            return Results.File(media.Content, ManualDocument.ContentType, $"manual-{mediaId}.pdf",
+                enableRangeProcessing: true);
+        }
+        catch
+        {
+            await media.Content.DisposeAsync();
+            throw;
+        }
+    }
 
     private static Task<IResult> UpdateMedia(Sqid titleId,
         Sqid mediaId,
         UpdateTitleMediaRequest request,
         HttpContext context,
         ICommandHandler<SetPrimaryMediaCommand, Models.TitleDetail> handler,
-        CancellationToken cancellationToken) =>
-        request.IsPrimary
+        ICommandHandler<ClassifyTitleMediaCommand, Models.TitleDetail> classify,
+        CancellationToken cancellationToken)
+    {
+        if (request.Classification is { } classification)
+        {
+            if (request.IsPrimary is not null)
+                return Task.FromResult(ProblemResults.ValidationProblem("Titles.InvalidMediaUpdate", "isPrimary",
+                    "Send either isPrimary or classification, not both."));
+            var failures = new Dictionary<string, string[]>();
+            if (!TryParseMediaType(classification.Type, out var type))
+                failures["classification.type"] = [$"Use one of {string.Join(", ", Enum.GetNames<MediaType>())}."];
+            int? releaseId = null;
+            if (classification.CatalogReleaseId is { } encoded)
+            {
+                if (IdCoder.TryDecode(encoded, out int decoded))
+                    releaseId = decoded;
+                else
+                    failures["classification.catalogReleaseId"] = ["Use a catalog release id from this title's releases."];
+            }
+            var placement = MediaPlacement.TryCreate(releaseId, classification.Region, classification.Language,
+                classification.IsPreferred);
+            if (placement is null && !failures.ContainsKey("classification.catalogReleaseId"))
+                failures["classification"] = [$"Region and language are plain text of at most {MediaPlacement.MaxTextLength} characters."];
+            if (failures.Count > 0)
+                return Task.FromResult(ProblemResults.ValidationProblem("Titles.InvalidMediaUpdate", failures));
+            return WriteAsync(context, titleId, ifMatch => classify.HandleAsync(
+                new ClassifyTitleMediaCommand(titleId, mediaId, type, placement!, ifMatch), cancellationToken));
+        }
+
+        return request.IsPrimary == true
             ? WriteAsync(context, titleId, ifMatch => handler.HandleAsync(
                 new SetPrimaryMediaCommand(titleId, mediaId, ifMatch),
                 cancellationToken))
             : Task.FromResult(ProblemResults.ValidationProblem(
                 "Titles.InvalidMediaUpdate",
                 "isPrimary",
-                "Only { \"isPrimary\": true } is supported: make another item primary instead of clearing one."));
+                "Send { \"isPrimary\": true } or a classification: make another item primary instead of clearing one."));
+    }
 
     private static Task<IResult> DeleteMedia(Sqid titleId,
         Sqid mediaId,

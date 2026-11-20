@@ -62,6 +62,12 @@ public sealed partial class TitleDetailReader
                               Attribution = media.Attribution,
                               SourcePageUrl = media.SourcePageUrl,
                               IsPrimary = media.IsPrimary,
+                              ContentType = media.ContentType,
+                              CatalogReleaseId = media.CatalogReleaseId,
+                              Region = media.Region,
+                              Language = media.Language,
+                              IsPreferred = media.IsPreferred,
+                              ProviderAssetId = media.ProviderAssetId,
                               SizeBytes = file == null ? null : file.Size,
                               SizeOnDiskBytes = file == null ? null : file.SizeOnDisk,
                               IsCompressed = file == null ? null : file.IsCompressed

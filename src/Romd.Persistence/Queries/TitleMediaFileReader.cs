@@ -9,6 +9,6 @@ public sealed class TitleMediaFileReader(RomdDbContext db) : ITitleMediaFileRead
         db.TitleMedia
             .AsNoTracking()
             .Where(media => media.Id == mediaId)
-            .Select(media => new TitleMediaFile(media.FileId, media.ContentType))
+            .Select(media => new TitleMediaFile(media.FileId, media.ContentType, media.TitleId, media.Type))
             .FirstOrDefaultAsync(ct);
 }

@@ -16,9 +16,11 @@ public interface IArtworkBrowsingService
 
 /// <summary>A browsed candidate; <see cref="CandidateId" /> is its stable identity, <see cref="ArtworkCandidateIds" />.</summary>
 public sealed record ArtworkCandidatePreview(string Reference, string CandidateId, string ProviderAssetId, int Width, int Height,
-    string? Style, string? Attribution, ArtworkRole Role, string SourcePageUrl, MediaType? MediaType = null, bool IsSaved = false);
+    string? Style, string? Attribution, ArtworkRole Role, string SourcePageUrl, MediaType? MediaType = null, bool IsSaved = false,
+    string? Region = null);
 public sealed record ArtworkBrowsingCapabilities(ArtworkProviderCapabilities Provider, bool IsAvailable);
 public sealed record ArtworkCandidatePage(IReadOnlyList<ArtworkCandidatePreview> Items, string? NextCursor);
 public sealed record TrustedArtworkCandidate(string ProviderId, string GameId, string AssetId, ArtworkRole Role,
-    string TrustedAssetUrl, string TrustedPreviewUrl, string? Attribution, string SourcePageUrl, MediaType? MediaType = null);
+    string TrustedAssetUrl, string TrustedPreviewUrl, string? Attribution, string SourcePageUrl, MediaType? MediaType = null,
+    string? Region = null);
 public sealed record ArtworkPreviewImage(byte[] Bytes, string ContentType);

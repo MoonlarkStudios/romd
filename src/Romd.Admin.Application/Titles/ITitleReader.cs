@@ -18,6 +18,12 @@ public interface ITitleReader
     /// </summary>
     Task<Guid?> GetRevisionAsync(int titleId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    ///     Whether a canonical catalog release currently belongs to the title. Media writes call it under the title
+    ///     lock, so the answer holds for their transaction.
+    /// </summary>
+    Task<bool> HasCatalogReleaseAsync(int titleId, int catalogReleaseId, CancellationToken cancellationToken = default);
+
     /// <summary>Reads a bounded platform-title page after applying the request's library and payload scope.</summary>
     Task<PagedList<TitleSummary>> ListByPlatformAsync(
         PlatformTitlePageRequest request,

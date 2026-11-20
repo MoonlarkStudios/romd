@@ -15,7 +15,9 @@ namespace Romd.Admin.Application.Titles.Commands.UploadTitleMedia;
 
 /// <summary>
 ///     Command to upload a custom media file for a title.
-///     User uploads are retained as alternatives; role assignment is a separate operation.
+///     User uploads are retained as alternatives; role assignment is a separate operation. Images must be static
+///     JPEG, PNG or WebP of at most 32 MiB; manuals must pass <see cref="ManualDocument" />. Uploads are never
+///     preferred: preference is a separate classification change.
 ///     <paramref name="IfMatch" /> is the title revision the curator read.
 /// </summary>
 public sealed record UploadTitleMediaCommand(
@@ -23,7 +25,8 @@ public sealed record UploadTitleMediaCommand(
     MediaType Type,
     Stream Content,
     string FileName,
-    RevisionPrecondition IfMatch
+    RevisionPrecondition IfMatch,
+    MediaPlacement? Placement = null
 ) : ICommand<UploadedTitleMedia>;
 
 /// <summary>
@@ -39,6 +42,7 @@ public sealed record UploadedTitleMedia(TitleMediaRef Media, string TitleRevisio
 /// </summary>
 public sealed class UploadTitleMediaCommandHandler : ICommandHandler<UploadTitleMediaCommand, UploadedTitleMedia>
 {
+    private const long MaxImageBytes = 32L * 1024 * 1024;
     private readonly TimeProvider _clock;
     private readonly IFileStorageService _fileStorage;
     private readonly ILogger<UploadTitleMediaCommandHandler> _logger;
@@ -87,8 +91,23 @@ public sealed class UploadTitleMediaCommandHandler : ICommandHandler<UploadTitle
         IStagedFile? staged = null;
         try
         {
+            var placement = (command.Placement ?? MediaPlacement.TitleLevel) with { IsPreferred = false };
             tempFile = await _tempFileFactory.CreateAsync(command.Content, ct);
-            string contentType = await DetectContentTypeAsync(tempFile, ct);
+            string contentType;
+            if (MediaTypes.IsDocument(command.Type))
+            {
+                await using var document = tempFile.OpenRead();
+                if (!await ManualDocument.IsAcceptableAsync(document, tempFile.FileSize, ct))
+                    return CatalogErrors.InvalidManual();
+                contentType = ManualDocument.ContentType;
+            }
+            else
+            {
+                contentType = await DetectContentTypeAsync(tempFile, ct);
+                if (tempFile.FileSize > MaxImageBytes || contentType is not ("image/jpeg" or "image/png" or "image/webp"))
+                    return CatalogErrors.InvalidMediaContent();
+            }
+
             staged = await _fileStorage.StageAsync(tempFile, ct);
             var result = await _unitOfWork.ExecuteInTransactionAsync<UploadedTitleMedia>(async token =>
             {
@@ -105,6 +124,10 @@ public sealed class UploadTitleMediaCommandHandler : ICommandHandler<UploadTitle
                     return CatalogErrors.TitlePreconditionFailed();
                 }
 
+                if (placement.CatalogReleaseId is { } releaseId &&
+                    !await _titleReader.HasCatalogReleaseAsync(command.TitleId, releaseId, token))
+                    return CatalogErrors.MediaReleaseNotFound();
+
                 var publication = await _fileStorage.PublishStagedAsync(staged, token);
                 if (publication.RequiresFlush)
                     await _unitOfWork.FlushAsync(token);
@@ -114,7 +137,7 @@ public sealed class UploadTitleMediaCommandHandler : ICommandHandler<UploadTitle
                     command.Type,
                     storeResult.File.Id,
                     "user",
-                    contentType, _clock.GetUtcNow());
+                    contentType, _clock.GetUtcNow(), placement: placement);
                 var appended = await _mediaStore.AddUserMediaStagedAsync(media, token);
                 if (appended.Added)
                 {
@@ -123,14 +146,8 @@ public sealed class UploadTitleMediaCommandHandler : ICommandHandler<UploadTitle
                 await _unitOfWork.FlushAsync(token);
                 var savedMedia = (await _titleMedia.ListAsync(command.TitleId, token)).Where(item => item.SourceId == "user" && item.Type == command.Type && item.FileId == media.FileId)
                     .MaxBy(item => item.Id)!;
-                return new UploadedTitleMedia(new TitleMediaRef
-                {
-                    Id = IdCoder.Encode(savedMedia.Id),
-                    Type = savedMedia.Type.ToString(),
-                    Url = $"/media/{IdCoder.Encode(savedMedia.Id)}",
-                    SourceId = savedMedia.SourceId,
-                    IsPrimary = savedMedia.IsPrimary
-                }, appended.TitleRevision.ToString(), appended.Added);
+                return new UploadedTitleMedia(TitleMediaMapping.ToRef(savedMedia), appended.TitleRevision.ToString(),
+                    appended.Added);
             }, _logger, ct);
 
             if (!result.IsError)

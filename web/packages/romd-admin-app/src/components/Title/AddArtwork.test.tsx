@@ -274,7 +274,7 @@ describe('Add artwork', () => {
     );
     await user.click(
       screen.getByRole('button', {
-        name: 'Add 2 images',
+        name: 'Save 2 to library',
       }),
     );
     await screen.findByText('Provider unavailable');
@@ -342,7 +342,7 @@ describe('Add artwork', () => {
     );
     await user.click(
       screen.getByRole('button', {
-        name: 'Add 2 images',
+        name: 'Save 2 to library',
       }),
     );
     await screen.findByText(
@@ -400,7 +400,7 @@ describe('Add artwork', () => {
     const user = userEvent.setup();
     await user.click(
       screen.getByRole('tab', {
-        name: 'Upload images',
+        name: 'Upload files',
       }),
     );
     const input = document.querySelector<HTMLInputElement>('input[type="file"]');
@@ -428,14 +428,14 @@ describe('Add artwork', () => {
     await user.selectOptions(screen.getByLabelText('Type for logo.png'), 'Logo');
     await user.click(
       screen.getByRole('button', {
-        name: 'Add 2 images',
+        name: 'Add 2 files',
       }),
     );
-    await screen.findByText('Upload failed. Retry this image.');
+    await screen.findByText('Upload failed. Retry this file.');
     fail = false;
     await user.click(
       screen.getByRole('button', {
-        name: 'Retry remaining images',
+        name: 'Retry remaining files',
       }),
     );
     expect(
@@ -657,7 +657,7 @@ describe('Add artwork', () => {
     );
     await user.click(
       screen.getByRole('button', {
-        name: 'Add 1 image',
+        name: 'Save 1 to library',
       }),
     );
     await waitFor(() => expect(imported).toHaveBeenCalledOnce());

@@ -447,6 +447,43 @@ public sealed class Title
         }
     }
 
+    /// <summary>
+    ///     Replaces one item's type and placement. A preferred item displaces the previous preference of its type and
+    ///     release. A type change moves the item out of its old type's primary choice, promoting the earliest
+    ///     remaining item, and makes it primary of the new type only when that type has none.
+    /// </summary>
+    public MediaReclassification ReclassifyMedia(int mediaId, MediaType type, MediaPlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        var media = GetMediaById(mediaId);
+        if (media is null)
+            return MediaReclassification.NotFound;
+        if (!Enum.IsDefined(type))
+            return MediaReclassification.InvalidType;
+        if (type != media.Type && (!media.IsCurated ||
+                MediaTypes.IsDocument(type) != MediaTypes.IsDocument(media.Type)))
+            return MediaReclassification.TypeLocked;
+        if (placement.IsPreferred && !MediaTypes.IsPackaging(type))
+            return MediaReclassification.PreferenceNotSupported;
+
+        var previousType = media.Type;
+        media.Reclassify(type, placement);
+        if (placement.IsPreferred)
+            foreach (var other in _media.Where(other => !ReferenceEquals(other, media) && other.IsPreferred &&
+                         other.Type == type && other.CatalogReleaseId == placement.CatalogReleaseId))
+                other.ClearPreference();
+        if (previousType != type)
+        {
+            var wasPrimary = media.IsPrimary;
+            media.SetPrimary(!_media.Any(other => !ReferenceEquals(other, media) && other.Type == type && other.IsPrimary));
+            if (wasPrimary)
+                _media.Where(other => other.Type == previousType).OrderBy(other => other.CreatedAt)
+                    .ThenBy(other => other.Id).FirstOrDefault()?.SetPrimary(true);
+        }
+
+        return MediaReclassification.Changed;
+    }
+
     #endregion
 
     #region Metadata Layer Management
@@ -647,21 +684,12 @@ public sealed class Title
         // 3. Merge media (source fills gaps only, respecting unique constraint)
         foreach (var sourceMedia in source.Media.Where(media => !Unlinked(media.SourceId)))
         {
-            var existing = sourceMedia.SourceId == "user"
-                ? _media.FirstOrDefault(media => media.Type == sourceMedia.Type && media.SourceId == "user" && media.FileId == sourceMedia.FileId)
+            // Curated collections hold many items per type and source; enrichment holds one per type and source.
+            var existing = sourceMedia.IsCurated
+                ? _media.FirstOrDefault(media => media.Type == sourceMedia.Type && media.SourceId == sourceMedia.SourceId && media.FileId == sourceMedia.FileId)
                 : GetMediaByTypeAndSource(sourceMedia.Type, sourceMedia.SourceId);
             if (existing is null)
-            {
-                var media = TitleMedia.CreateNew(
-                    Id,
-                    sourceMedia.Type,
-                    sourceMedia.FileId,
-                    sourceMedia.SourceId,
-                    sourceMedia.ContentType,
-                    times.CreatedAt,
-                    sourceMedia.SourceUrl);
-                _media.Add(media);
-            }
+                _media.Add(sourceMedia.CopyToTitle(Id, times.CreatedAt));
         }
 
         // 4. Recalculate effective states
@@ -682,4 +710,15 @@ public sealed class Title
     }
 
     #endregion
+}
+
+/// <summary>The outcome of <see cref="Title.ReclassifyMedia" />.</summary>
+public enum MediaReclassification
+{
+    Changed,
+    NotFound,
+    InvalidType,
+    /// <summary>Enrichment-owned media keeps its provider type, and images and documents never exchange types.</summary>
+    TypeLocked,
+    PreferenceNotSupported
 }

@@ -27,7 +27,8 @@ The server uses PostgreSQL 18. The current application schema starts with
 `20261031050000_FreshMediaBaseline` and includes the additive
 `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
 `20261117000000_JobDispatchExpiryIndex`, `20261118000000_SystemHardwareMetadata`,
-and `20261118194850_SignInMessage` migrations (readiness version 77).
+`20261118194850_SignInMessage` and `20261120162632_MediaCollection` migrations
+(readiness version 78).
 The Saturn migration adds distinct nullable observations without backfilling
 or rewriting existing PS1 evidence.
 Earlier migration chains, unversioned populated databases and baseline downgrades

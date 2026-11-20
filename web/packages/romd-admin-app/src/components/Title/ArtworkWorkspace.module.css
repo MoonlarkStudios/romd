@@ -21,23 +21,18 @@
 }
 .workspace[data-density='compact'] { --artwork-role-padding: var(--mantine-spacing-xs); }
 
-.roleStrip { display: flex; flex-wrap: wrap; gap: var(--mantine-spacing-xs); }
-.roleButton {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--mantine-spacing-xs);
-  padding: var(--mantine-spacing-xs) var(--artwork-role-padding);
-  line-height: 1;
-  min-width: 0;
-  border: 1px solid var(--mantine-color-default-border);
-  border-radius: var(--mantine-radius-sm);
+.libraryToolbar { flex-wrap: wrap; }
+.libraryToolbar > * { min-width: 160px; }
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px var(--mantine-spacing-sm);
+  margin: 0;
+  font-size: var(--mantine-font-size-sm);
 }
-.roleButton[aria-checked='true'] {
-  border-color: var(--mantine-primary-color-filled);
-  background: var(--mantine-primary-color-light);
-}
-.roleButton:disabled { cursor: default; }
+.facts dt { color: var(--mantine-color-dimmed); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.uploadRow > :nth-child(2) { flex: 1 1 160px; }
 
 .galleryGrid {
   display: grid;
@@ -70,7 +65,6 @@
 .galleryCardButton:disabled { cursor: default; }
 .cardDetails { padding: var(--mantine-spacing-xs); min-width: 0; width: 100%; }
 .thumbnail { aspect-ratio: 1 / 1; }
-.imagePreview { max-height: 320px; }
 .sourceLabel { overflow-wrap: anywhere; }
 .emptyGrid {
   padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
@@ -78,16 +72,281 @@
   border-radius: var(--mantine-radius-sm);
 }
 
-.roleButton:focus-visible, .galleryCardButton:focus-visible {
+.galleryCardButton:focus-visible, .manualStage:focus-visible {
   outline: 2px solid var(--romd-admin-focus);
   outline-offset: 3px;
 }
-.composition { min-width: 0; scroll-margin: var(--mantine-spacing-md); }
-.sourcePicker { max-width: 100%; overflow-x: auto; }
-.editor { min-width: 0; }
-.editorBody { min-width: 0; padding-bottom: var(--mantine-spacing-md); }
+
+/* Manuals keep their page proportions; the stage scrolls when a page is taller than the dialog. */
+.manualBody { padding-bottom: var(--mantine-spacing-md); }
+.manualToolbar { position: sticky; top: 0; z-index: 2; background: var(--mantine-color-body); padding-block: 4px; }
+.manualStage {
+  display: flex;
+  justify-content: center;
+  min-height: 240px;
+  max-height: calc(100dvh - 220px);
+  overflow: auto;
+  padding: var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-default);
+}
+.manualPage { display: block; max-width: 100%; box-shadow: var(--mantine-shadow-sm); background: white; }
+.manualPlaceholder { width: 100%; height: 100%; min-height: 96px; color: var(--mantine-color-dimmed); }
+.thumbnail:has(> .manualPage), .thumbnail:has(> .manualPlaceholder) { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.thumbnail > .manualPage { max-height: 100%; object-fit: contain; }
+
+/* Presentation roles stay above the preview and editor at every width. */
+.studio { min-width: 0; }
+.presentationLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--mantine-spacing-md);
+}
+@container artwork-editor (min-width: 880px) {
+  .presentationLayout[data-editing] { grid-template-columns: minmax(0, 1.7fr) minmax(19rem, 1fr); }
+  .presentationLayout[data-editing] .canvas {
+    position: sticky;
+    top: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-sm));
+  }
+}
+.canvas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-sm);
+  min-width: 0;
+}
+.canvasToolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mantine-spacing-xs); }
+.canvasToolbar > :last-child { margin-inline-start: auto; }
+.canvasStage {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  padding: var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-md);
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--mantine-color-text) 9%, transparent) 1px, transparent 0) 0 0 / 16px 16px,
+    var(--mantine-color-default);
+}
+/* The device keeps its breakpoint while the stage hugs the rendered surface. */
+.canvasFrame {
+  position: relative;
+  width: min(100%, var(--frame-width));
+  border-radius: var(--mantine-radius-sm);
+  overflow: hidden;
+  box-shadow: var(--mantine-shadow-md);
+}
+.canvasFrame[data-device='mobile'] { max-width: 16rem; }
+.hotspots { position: absolute; inset: 0; pointer-events: none; }
+.hotspot {
+  position: absolute;
+  pointer-events: auto;
+  border-radius: 6px;
+  outline: 1px dashed color-mix(in srgb, white 35%, transparent);
+  outline-offset: -1px;
+  transition: outline-color 120ms ease, background-color 120ms ease;
+}
+.hotspot:hover, .hotspot:focus-visible {
+  outline: 2px solid var(--mantine-color-white);
+  background: color-mix(in srgb, var(--mantine-primary-color-filled) 14%, transparent);
+}
+.hotspot:focus-visible { box-shadow: 0 0 0 4px var(--romd-admin-focus); }
+.hotspot[data-selected] {
+  outline: 3px solid var(--mantine-primary-color-filled);
+  background: color-mix(in srgb, var(--mantine-primary-color-filled) 10%, transparent);
+}
+.hotspot[data-staged]:not([data-selected]) { outline: 2px solid var(--mantine-color-blue-4); }
+.hotspot:disabled { cursor: default; }
+.hotspotLabel {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 12px);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font: 600 12px/18px var(--mantine-font-family);
+  color: var(--mantine-color-white);
+  background: color-mix(in srgb, black 72%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: .85;
+}
+.hotspot:hover .hotspotLabel, .hotspot:focus-visible .hotspotLabel, .hotspot[data-selected] .hotspotLabel { opacity: 1; }
+.hotspotState { font-weight: 500; opacity: .8; }
+.hotspot[data-staged] .hotspotState { color: var(--mantine-color-blue-2); opacity: 1; }
+
+.roleStrip {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--mantine-spacing-xs);
+}
+.roleChip {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-body);
+}
+.roleChip[data-selected] { border-color: var(--mantine-primary-color-filled); background: var(--mantine-primary-color-light); }
+.roleChip:focus-visible { outline: 2px solid var(--romd-admin-focus); outline-offset: 2px; }
+.roleChip:disabled { cursor: default; opacity: .7; }
+.roleChipThumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--mantine-color-dark-6);
+}
+.roleChipThumb[data-role='Logo'] { background: repeating-conic-gradient(#d0d0d0 0 25%, #f4f4f4 0 50%) 0 0 / 10px 10px; }
+.roleChipThumb img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.roleChipBadge { max-width: 100%; height: auto; min-height: var(--badge-height); white-space: normal; text-align: left; }
+.roleChipBadge > span { white-space: normal; overflow-wrap: anywhere; }
+.roleChipText { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+
+/* Off-screen consumer frames that only measure crop proportions. */
+.cropProbe {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  width: 1200px;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.tray {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mantine-spacing-sm);
+  min-width: 0;
+  padding: var(--mantine-spacing-md);
+  border: 1px solid var(--mantine-color-default-border);
+  border-top: 3px solid var(--mantine-primary-color-filled);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+  scroll-margin-block-start: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md));
+}
+.tray:focus { outline: none; }
+.trayHeader { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--mantine-spacing-xs); }
+.traySources { min-width: 0; }
+.traySources > :first-child { max-width: 100%; overflow-x: auto; }
+.cropOutline {
+  position: absolute;
+  border: 2px solid var(--mantine-color-white);
+  box-sizing: border-box;
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--mantine-color-black) 45%, transparent);
+  pointer-events: none;
+}
+.cropPreviews { margin: 0; border: 0; padding: 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--mantine-spacing-xs); }
+.cropPreview {
+  display: grid;
+  gap: 4px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 4px;
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-default);
+  color: var(--mantine-color-text);
+  font: inherit;
+  font-size: var(--mantine-font-size-xs);
+  cursor: pointer;
+}
+.cropPreview[aria-pressed='true'] { border-color: var(--mantine-primary-color-filled); background: var(--mantine-primary-color-light); }
+.cropPreview:focus-visible { outline: 2px solid var(--romd-admin-focus); outline-offset: 2px; }
+.cropPreviewImage { position: relative; display: block; overflow: hidden; border-radius: var(--mantine-radius-xs); }
+.cropPreviewImage > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+.saveBar {
+  position: sticky;
+  bottom: var(--romd-admin-status-bar-height, 0px);
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border: 1px solid var(--mantine-primary-color-filled);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+  box-shadow: var(--mantine-shadow-lg);
+}
+.saveBarSummary { min-width: 0; flex: 1 1 16rem; overflow-wrap: anywhere; }
+
+/* Image library lightbox: the image leads, its facts and classification sit beside it. */
+.lightbox { overflow: hidden; }
+.lightboxBody { padding: 0; height: 100%; }
+.lightboxLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: 'header header' 'stage details';
+  height: min(88dvh, 60rem);
+  min-height: 0;
+}
+.lightboxHeader {
+  grid-area: header;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+.lightboxStage {
+  grid-area: stage;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: var(--mantine-spacing-md);
+  background: var(--mantine-color-dark-8);
+  overflow: auto;
+}
+.lightboxStage > * { max-width: 100%; max-height: 100%; }
+.lightboxImage { max-height: calc(min(88dvh, 60rem) - 120px); }
+.lightboxDetails {
+  grid-area: details;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--mantine-color-default-border);
+}
+.lightboxDetails > :first-child { flex: 1; min-height: 0; overflow: auto; padding: var(--mantine-spacing-md); }
+.lightboxFooter { padding: var(--mantine-spacing-sm) var(--mantine-spacing-md); border-top: 1px solid var(--mantine-color-default-border); }
+
+@media (max-width: 48em) {
+  .lightboxLayout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: 'header' 'stage' 'details';
+    height: 100dvh;
+  }
+  .lightboxStage { max-height: 42dvh; }
+  .lightboxImage { max-height: calc(42dvh - 32px); }
+  .lightboxDetails { border-left: 0; border-top: 1px solid var(--mantine-color-default-border); }
+}
 
 @container artwork-editor (max-width: 600px) {
-  .workspace > * { --artwork-role-padding: var(--mantine-spacing-xs); }
+  .canvasToolbar > :last-child { margin-inline-start: 0; }
+  .canvasStage { padding: 6px; }
+  .roleStrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .roleChipThumb { width: 32px; height: 32px; }
+  .roleChip { min-height: 44px; }
+  .tray { padding: var(--mantine-spacing-sm); }
   .header { align-items: flex-start; flex-wrap: wrap; }
 }

@@ -39,7 +39,9 @@ public sealed class UploadRequestLimitTests(UploadRequestLimitTests.KestrelFixtu
             .ToDictionary(route => route.Name, route => route.Limit!.MaxRequestBodySize);
 
         raised.Where(route => route.Value != FileRouteLimit).Select(route => route.Key)
-            .ShouldBe(["Upload", "UploadRom"], ignoreOrder: true);
+            .ShouldBe(["Upload", "UploadRom", "UploadTitleMedia"], ignoreOrder: true);
+        // Title media accepts 128 MiB PDF manuals plus multipart overhead; the handler bounds images to 32 MiB.
+        raised["UploadTitleMedia"].ShouldBe(130L * 1024 * 1024);
         raised["Upload"].ShouldBe(64L * 1024 * 1024 * 1024 + 2 * 1024 * 1024);
         raised["UploadRom"].ShouldBe(64L * 1024 * 1024 * 1024 + 2 * 1024 * 1024);
         raised.Keys.ShouldContain("UploadDat");
@@ -50,7 +52,6 @@ public sealed class UploadRequestLimitTests(UploadRequestLimitTests.KestrelFixtu
         fixture.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .Select(endpoint => endpoint.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName)
             .ShouldNotContain("ReplaceDat");
-        raised.Keys.ShouldContain("UploadTitleMedia");
     }
 
     [Fact]

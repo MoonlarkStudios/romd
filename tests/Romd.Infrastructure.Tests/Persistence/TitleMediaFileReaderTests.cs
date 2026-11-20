@@ -71,7 +71,7 @@ public sealed class TitleMediaFileReaderTests : IDisposable
         await db.SaveChangesAsync();
         var reader = new TitleMediaFileReader(db);
 
-        (await reader.FindAsync(5, CancellationToken.None)).ShouldBe(new TitleMediaFile(9, "image/webp"));
+        (await reader.FindAsync(5, CancellationToken.None)).ShouldBe(new TitleMediaFile(9, "image/webp", TitleId: 1, Type: "Cover"));
         (await reader.FindAsync(6, CancellationToken.None)).ShouldBeNull();
     }
 }

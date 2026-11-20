@@ -298,6 +298,35 @@ public sealed class TitleRepository
         }
     }
 
+    public async Task ReclassifyMediaStagedAsync(Title title, CancellationToken cancellationToken = default)
+    {
+        await TrackSnapshotAsync(title, cancellationToken);
+        var persisted = await _context.TitleMedia
+            .AsTracking()
+            .Where(media => media.TitleId == title.Id)
+            .ToListAsync(cancellationToken);
+        var snapshot = title.Media.Where(media => media.Id > 0).ToDictionary(media => media.Id);
+        if (persisted.Count != snapshot.Count || persisted.Any(media => !snapshot.ContainsKey(media.Id)))
+            throw StaleChildren(title.Id);
+        // Clear displaced preferences before the tracked updates flush in an unspecified order, so the per-release
+        // unique index never sees two preferred rows at once.
+        var cleared = persisted.Where(media => media.IsPreferred && !snapshot[media.Id].IsPreferred)
+            .Select(media => media.Id).ToArray();
+        if (cleared.Length > 0)
+            await _context.TitleMedia.Where(media => cleared.Contains(media.Id))
+                .ExecuteUpdateAsync(setters => setters.SetProperty(media => media.IsPreferred, false), cancellationToken);
+        foreach (var media in persisted)
+        {
+            var current = snapshot[media.Id];
+            media.Type = current.Type.ToString();
+            media.IsPrimary = current.IsPrimary;
+            media.CatalogReleaseId = current.CatalogReleaseId;
+            media.Region = current.Region;
+            media.Language = current.Language;
+            media.IsPreferred = current.IsPreferred;
+        }
+    }
+
     public async Task UpdatePrimaryMediaStagedAsync(Title title, MediaType type,
         CancellationToken cancellationToken = default)
     {

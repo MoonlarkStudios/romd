@@ -1,3 +1,4 @@
+using Romd.Domain.Catalog;
 using Microsoft.EntityFrameworkCore;
 using Romd.Application.Common.Pagination;
 using Romd.Consumer.Application.Browse.ReadModels;
@@ -27,7 +28,8 @@ public sealed partial class ConsumerBrowseRepository
             value => value.Id > 0 && !string.IsNullOrEmpty(value.Type));
         if (decoded.IsError)
             return new ConsumerLibraryProjectionResult<PagedList<ConsumerMediaData>>.Rejected(decoded.FirstError);
-        var query = context.TitleMedia.AsNoTracking().Where(item => item.TitleId == titleId);
+        var query = context.TitleMedia.AsNoTracking().Where(item => item.TitleId == titleId &&
+            MediaTypes.ConsumerVisibleNames.Contains(item.Type));
         if (decoded.Value is { } position)
             query = query.Where(item => item.Type.CompareTo(position.Type) > 0 || item.Type == position.Type
                 && (position.IsPrimary && !item.IsPrimary || item.IsPrimary == position.IsPrimary && item.Id > position.Id));

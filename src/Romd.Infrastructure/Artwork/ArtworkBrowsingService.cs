@@ -83,13 +83,13 @@ public sealed class ArtworkBrowsingService : IArtworkBrowsingService
         {
             var trusted = new TrustedArtworkCandidate(providerId, candidate.ProviderGameId, candidate.ProviderAssetId,
                 candidate.Role, candidate.AssetUrl.AbsoluteUri, candidate.PreviewUrl.AbsoluteUri,
-                candidate.Attribution, candidate.SourcePageUrl, candidate.MediaType);
+                candidate.Attribution, candidate.SourcePageUrl, candidate.MediaType, candidate.Region);
             var reference = _candidateProtector.Protect(JsonSerializer.Serialize(
                 new CandidatePayload(titleId, adminUserId, expires, trusted, revision)));
             return new ArtworkCandidatePreview(reference, ArtworkCandidateIds.Of(trusted.TrustedAssetUrl),
                 candidate.ProviderAssetId, candidate.Width,
                 candidate.Height, candidate.Style, candidate.Attribution, candidate.Role, candidate.SourcePageUrl, candidate.MediaType,
-                mediaSourceUrls.Contains(candidate.AssetUrl.AbsoluteUri));
+                mediaSourceUrls.Contains(candidate.AssetUrl.AbsoluteUri), candidate.Region);
         }).ToArray();
         var nextCursor = result.Value.NextPage is { } next
             ? _cursorProtector.Protect(JsonSerializer.Serialize(new CursorPayload(titleId, adminUserId, expires, fingerprint, next)))

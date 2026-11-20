@@ -17,6 +17,8 @@ type Drafts = ReadonlyMap<string, string>;
 export interface DraftGuard {
   hasDraft: boolean;
   discardThen: (task: () => unknown) => Promise<boolean>;
+  /** Allows a synchronous URL update for a control that keeps the same draft mounted. */
+  navigateWithinEditor: (navigate: () => void) => void;
 }
 
 interface DraftRegistry extends DraftGuard {
@@ -27,6 +29,7 @@ interface DraftRegistry extends DraftGuard {
 const DraftGuardContext = createContext<DraftRegistry | null>(null);
 const unguarded: DraftGuard = {
   hasDraft: false,
+  navigateWithinEditor: (navigate) => navigate(),
   discardThen: async (task) => {
     await task();
     return true;
@@ -145,6 +148,16 @@ function RouterDraftGuard({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const navigateWithinEditor = useCallback((navigate: () => void) => {
+    const pass = Symbol('navigation within an editor');
+    passes.current = new Set(passes.current).add(pass);
+    try {
+      navigate();
+    } finally {
+      passes.current = withoutPass(passes.current, pass);
+    }
+  }, []);
+
   const discardThen = useCallback(async (task: () => unknown) => {
     if (live.current.size === 0) {
       await task();
@@ -188,12 +201,14 @@ function RouterDraftGuard({ children }: { children: ReactNode }) {
     () => ({
       hasDraft,
       discardThen,
+      navigateWithinEditor,
       register,
       discardEpoch,
     }),
     [
       hasDraft,
       discardThen,
+      navigateWithinEditor,
       register,
       discardEpoch,
     ],

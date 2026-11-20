@@ -11,4 +11,7 @@ public sealed record TitleMediaSummary(
     string? SourceUrl,
     string? Attribution,
     string? SourcePageUrl,
-    bool IsPrimary);
+    bool IsPrimary,
+    string ContentType = "image/jpeg",
+    MediaPlacement? Placement = null,
+    string? ProviderAssetId = null);

@@ -1,13 +1,43 @@
-import { type KeyboardEvent, type PointerEvent, useRef } from 'react';
+import { type KeyboardEvent, type PointerEvent, useRef, useState } from 'react';
+import classes from './ArtworkWorkspace.module.css';
 
 export interface FocalPoint {
   focalX: number;
   focalY: number;
 }
 
+/** A consumer frame the image is cropped to, such as the desktop game details backdrop, by its width/height ratio. */
+export interface CropFrame {
+  label: string;
+  aspect: number;
+}
+
+/** The part of an image (as fractions of its width and height) a cover-fit frame shows at a focal point. */
+export function cropRegion(imageAspect: number, frameAspect: number, point: FocalPoint) {
+  if (imageAspect > frameAspect) {
+    const width = frameAspect / imageAspect;
+    return {
+      left: (1 - width) * (point.focalX / 100),
+      top: 0,
+      width,
+      height: 1,
+    };
+  }
+  const height = imageAspect / frameAspect;
+  return {
+    left: 0,
+    top: (1 - height) * (point.focalY / 100),
+    width: 1,
+    height,
+  };
+}
+
 export interface FocalPointEditorProps {
   src: string;
   value: FocalPoint;
+  /** Consumer frames to outline over the image; the area outside `activeFrame` is dimmed. */
+  frames?: readonly CropFrame[];
+  activeFrame?: string;
   /** Every intermediate point while dragging or pressing arrow keys. */
   onChange: (value: FocalPoint) => void;
   /** The settled point, once per drag or key press sequence, so callers save once. */
@@ -61,7 +91,12 @@ export function FocalPointEditor({
   onCommit,
   disabled = false,
   maxHeight,
+  frames = [],
+  activeFrame,
 }: FocalPointEditorProps) {
+  const [imageAspect, setImageAspect] = useState(0);
+  const frame = frames.find((item) => item.label === activeFrame) ?? frames[0];
+  const region = frame && imageAspect > 0 ? cropRegion(imageAspect, frame.aspect, value) : null;
   const dragged = useRef<FocalPoint | null>(null);
   const keyed = useRef<FocalPoint | null>(null);
   const drag = (event: PointerEvent<HTMLDivElement>) => {
@@ -102,6 +137,7 @@ export function FocalPointEditor({
         position: 'relative',
         display: 'inline-block',
         maxWidth: '100%',
+        overflow: 'hidden',
         lineHeight: 0,
         touchAction: 'none',
         userSelect: 'none',
@@ -128,12 +164,29 @@ export function FocalPointEditor({
         src={src}
         alt=""
         draggable={false}
+        onLoad={(event) => {
+          const { naturalWidth, naturalHeight } = event.currentTarget;
+          setImageAspect(naturalWidth > 0 && naturalHeight > 0 ? naturalWidth / naturalHeight : 0);
+        }}
         style={{
           display: 'block',
           maxWidth: '100%',
           maxHeight,
         }}
       />
+      {frame && region && (
+        <span
+          aria-hidden="true"
+          data-crop-frame={frame.label}
+          className={classes.cropOutline}
+          style={{
+            left: `${region.left * 100}%`,
+            top: `${region.top * 100}%`,
+            width: `${region.width * 100}%`,
+            height: `${region.height * 100}%`,
+          }}
+        />
+      )}
       <span
         aria-hidden="true"
         style={{
@@ -148,8 +201,63 @@ export function FocalPointEditor({
           boxShadow:
             '0 0 0 1px var(--mantine-color-black), inset 0 0 0 1px var(--mantine-color-black)',
           pointerEvents: 'none',
+          zIndex: 2,
         }}
       />
     </div>
+  );
+}
+
+/** Select a consumer crop without changing the focal point. */
+export function CropPreviews({
+  src,
+  frames,
+  value,
+  activeFrame,
+  onFrameChange,
+}: {
+  src: string;
+  frames: readonly CropFrame[];
+  value: FocalPoint;
+  activeFrame?: string;
+  onFrameChange: (label: string) => void;
+}) {
+  if (!frames.length) return null;
+  const selected = frames.find((frame) => frame.label === activeFrame) ?? frames[0];
+  return (
+    <fieldset
+      className={classes.cropPreviews}
+      aria-label="Crop previews"
+    >
+      {frames.map((frame) => (
+        <button
+          key={frame.label}
+          type="button"
+          className={classes.cropPreview}
+          style={{
+            width: Math.max(56, Math.min(144, Math.round(56 * frame.aspect))),
+          }}
+          aria-label={`Preview ${frame.label} crop`}
+          aria-pressed={frame === selected}
+          onClick={() => onFrameChange(frame.label)}
+        >
+          <span
+            className={classes.cropPreviewImage}
+            style={{
+              aspectRatio: frame.aspect,
+            }}
+          >
+            <img
+              src={src}
+              alt=""
+              style={{
+                objectPosition: `${value.focalX}% ${value.focalY}%`,
+              }}
+            />
+          </span>
+          <span>{frame.label}</span>
+        </button>
+      ))}
+    </fieldset>
   );
 }
