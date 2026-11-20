@@ -15,8 +15,6 @@ import { useDiscardEpoch } from '../Administration/DraftGuard';
 import { artworkRoles } from '../artworkPresentation';
 import { EnrichmentLauncher } from '../Enrichment/EnrichmentLauncher';
 import { SectionTabs } from '../Workspace/SectionTabs';
-import { useInspectorSize } from '../Workspace/useInspectorSelection';
-import workspace from '../Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
 import { ArtworkPanel } from './ArtworkPanel';
 import {
@@ -55,7 +53,6 @@ export function TitleWorkbench({
   const titleId = title.id;
   const { canManageTitles } = usePermissions();
   const assessment = useEnrichmentAssessment(canManageTitles ? titleId : undefined);
-  const { ref, wide } = useInspectorSize(970);
   const [params] = useSearchParams();
   const { key, state, hash } = useLocation();
   const epoch = useDiscardEpoch();
@@ -67,7 +64,6 @@ export function TitleWorkbench({
     params.get('field') ||
     (requirement?.startsWith('Metadata:') ? requirement.slice(9) : undefined);
   const showMatch = params.get('match') === '1';
-  const compactRail = !wide || section !== 'metadata';
   const outstanding = assessment.data ? outstandingCount(assessment.data.requirements) : 0;
 
   const status = (
@@ -77,7 +73,7 @@ export function TitleWorkbench({
           key={titleId}
           assessment={assessment.data}
           currentKey={requirement}
-          heading={!compactRail}
+          heading={false}
           navigationState={state}
           onRefresh={() => void assessment.refetch()}
         />
@@ -127,10 +123,7 @@ export function TitleWorkbench({
   );
 
   return (
-    <Stack
-      gap="md"
-      ref={ref}
-    >
+    <Stack gap="md">
       <SectionTabs
         label="Title sections"
         current={section}
@@ -163,79 +156,70 @@ export function TitleWorkbench({
           };
         })}
       />
-      <div
-        className={classes.composition}
-        data-rail={(canManageTitles && !compactRail) || undefined}
-      >
-        {canManageTitles && (
-          <aside
-            id="title-status"
-            aria-label="Title status"
-            className={classes.status}
-          >
-            {compactRail ? (
-              <details
-                className={classes.summary}
-                key={`${section}:${requirement ?? ''}:${hash}`}
-                open={!!requirement || hash === '#title-status' || undefined}
-              >
-                <summary>
-                  <Group
-                    component="span"
-                    gap="xs"
-                    display="inline-flex"
-                  >
-                    <Text
-                      component="span"
-                      fw={600}
-                      size="sm"
-                    >
-                      Enrichment status
-                    </Text>
-                    {assessment.data && <TitleStatusChips flags={assessment.data} />}
-                    {outstanding > 0 && (
-                      <Badge
-                        variant="light"
-                        color="gray"
-                        size="sm"
-                      >
-                        {outstandingLabel(outstanding)}
-                      </Badge>
-                    )}
-                  </Group>
-                </summary>
-                <div className={classes.statusBody}>{status}</div>
-              </details>
-            ) : (
-              <div className={workspace.panel}>{status}</div>
-            )}
-          </aside>
-        )}
-        <section
-          className={classes.section}
-          aria-label={titleSectionLabels[section]}
+      {canManageTitles && (
+        <aside
+          id="title-status"
+          aria-label="Title status"
+          className={classes.status}
         >
-          {section === 'metadata' ? (
-            <MetadataPanel
-              title={title}
-              titleId={titleId}
-              initialField={requestedField}
-              fieldRequestKey={key}
-              initialProviderId={showMatch && row ? requirementProviderId(row) : undefined}
-              providerRequestKey={showMatch ? key : undefined}
-            />
-          ) : section === 'artwork' ? (
-            <ArtworkPanel
-              key={`${titleId}:${role ?? ''}:${epoch}`}
-              title={title}
-              titleId={titleId}
-              initialRole={role}
-            />
-          ) : (
-            children
-          )}
-        </section>
-      </div>
+          <details
+            className={classes.summary}
+            key={`${section}:${requirement ?? ''}:${hash}`}
+            open={!!requirement || hash === '#title-status' || undefined}
+          >
+            <summary>
+              <Group
+                component="span"
+                gap="xs"
+                display="inline-flex"
+              >
+                <Text
+                  component="span"
+                  fw={600}
+                  size="sm"
+                >
+                  Enrichment status
+                </Text>
+                {assessment.data && <TitleStatusChips flags={assessment.data} />}
+                {outstanding > 0 && (
+                  <Badge
+                    variant="light"
+                    color="gray"
+                    size="sm"
+                  >
+                    {outstandingLabel(outstanding)}
+                  </Badge>
+                )}
+              </Group>
+            </summary>
+            <div className={classes.statusBody}>{status}</div>
+          </details>
+        </aside>
+      )}
+      <section
+        className={classes.section}
+        aria-label={titleSectionLabels[section]}
+      >
+        {section === 'metadata' ? (
+          <MetadataPanel
+            title={title}
+            titleId={titleId}
+            initialField={requestedField}
+            fieldRequestKey={key}
+            initialProviderId={showMatch && row ? requirementProviderId(row) : undefined}
+            providerRequestKey={showMatch ? key : undefined}
+          />
+        ) : section === 'artwork' ? (
+          <ArtworkPanel
+            key={`${titleId}:${role ?? ''}:${epoch}`}
+            title={title}
+            titleId={titleId}
+            initialRole={role}
+          />
+        ) : (
+          children
+        )}
+      </section>
       {canManageTitles && (
         <EnrichmentLauncher
           opened={launching}

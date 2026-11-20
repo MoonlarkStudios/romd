@@ -503,6 +503,7 @@ describe('TitleDetail', () => {
   });
 
   it('opens Metadata at the canonical title URL', async () => {
+    const user = userEvent.setup();
     renderTitleDetail();
     expect(
       await screen.findByRole('heading', {
@@ -511,11 +512,25 @@ describe('TitleDetail', () => {
     ).toBeInTheDocument();
     expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata');
     expect(titleSection('Metadata')).toHaveAttribute('aria-current', 'page');
+    const status = screen.getByRole('complementary', {
+      name: 'Title status',
+    });
+    const metadata = screen.getByRole('form', {
+      name: 'Title metadata',
+    });
     expect(
-      screen.getByRole('complementary', {
-        name: 'Title status',
+      status.compareDocumentPosition(metadata) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    const summary = within(status).getByText('Enrichment status');
+    const disclosure = summary.closest('details');
+    expect(disclosure).not.toHaveAttribute('open');
+    await user.click(summary);
+    expect(disclosure).toHaveAttribute('open');
+    expect(
+      within(status).getByRole('button', {
+        name: 'Enrich title',
       }),
-    ).toBeInTheDocument();
+    ).toBeVisible();
     expect(
       await screen.findByRole('textbox', {
         name: 'Description',
@@ -580,7 +595,7 @@ describe('TitleDetail', () => {
     expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata');
   });
 
-  it('shows the current assessment in the status rail', async () => {
+  it('shows the current assessment in the status summary', async () => {
     renderTitleDetail('', undefined, 'artwork');
     const rail = await screen.findByRole('complementary', {
       name: 'Title status',
@@ -797,7 +812,7 @@ describe('TitleDetail', () => {
     expect(titleSection('Releases 1')).toHaveAttribute('aria-current', 'page');
   });
 
-  it('opens the status rail from the legacy Enrichment link', async () => {
+  it('opens the status summary from the legacy Enrichment link', async () => {
     renderTitleDetail('?editor=enrichment');
     expect(
       await screen.findByRole('button', {

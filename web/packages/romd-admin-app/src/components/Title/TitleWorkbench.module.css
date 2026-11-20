@@ -1,29 +1,9 @@
-.composition {
-  display: grid;
-  gap: var(--mantine-spacing-md);
-  min-inline-size: 0;
-}
-
-.composition[data-rail] {
-  align-items: start;
-  grid-template-columns: minmax(0, 1fr) 19rem;
-  grid-template-areas: "section status";
-}
-
 .status, .section {
   min-inline-size: 0;
 }
 
-.composition[data-rail] .status {
-  grid-area: status;
-  position: sticky;
-  inset-block-start: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md));
-  max-block-size: calc(100dvh - var(--app-shell-header-offset, 0px) - var(--romd-admin-status-bar-height, 0px) - 2 * var(--mantine-spacing-md));
-  overflow-y: auto;
-}
-
-.composition[data-rail] .section {
-  grid-area: section;
+.status {
+  scroll-margin-block-start: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md));
 }
 
 .summary {

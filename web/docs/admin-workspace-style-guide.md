@@ -95,8 +95,8 @@ their app’s resolver.
   Catalog or Systems opens full details on a narrow workspace. Title section
   inspectors stack below the list, with focus moved into the opened inspector.
 - Compose title identity and progress with `TitleIdentity`, `RequirementList`
-  and `LinkedCountList`. The Title page shows its status as a rail alongside
-  Metadata or a disclosure above sections that have their own inspector.
+  and `LinkedCountList`. Show Enrichment status as a collapsible summary above
+  the active Title section.
   Use `SourceMarker` and `EditorFooter` for provenance and drafts. Register
   dirty editors with the Admin draft guard.
 - Catalog's Needs review badge shows the global outstanding review count. The
