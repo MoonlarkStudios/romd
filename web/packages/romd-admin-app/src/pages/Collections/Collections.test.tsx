@@ -1,6 +1,6 @@
 import { MantineProvider } from '@mantine/core';
 import type { CollectionSummary, SystemResource } from '@romd/admin-api-client';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -208,6 +208,7 @@ describe('Collections', () => {
             id: 't1',
             name: 'Chrono Trigger',
             platformName: 'SNES',
+            coverUrl: '/artwork/chrono-trigger/poster/preview',
           },
         ],
         nextCursor: null,
@@ -328,20 +329,19 @@ describe('Collections', () => {
       }),
     );
     await userEvent.click(
-      await screen.findByRole('combobox', {
-        name: 'Libraries',
-      }),
-    );
-    await userEvent.click(
-      await screen.findByRole('option', {
+      await screen.findByRole('checkbox', {
         name: 'First library',
-        hidden: true,
       }),
     );
+    await userEvent.type(
+      screen.getByRole('textbox', {
+        name: 'Find libraries',
+      }),
+      'Second',
+    );
     await userEvent.click(
-      await screen.findByRole('option', {
+      await screen.findByRole('checkbox', {
         name: 'Second library',
-        hidden: true,
       }),
     );
     await userEvent.click(
@@ -491,8 +491,21 @@ describe('Collections', () => {
     expect(screen.queryByText('A shared, ordered selection of games.')).not.toBeInTheDocument();
   });
 
-  it('loads a collection detail with its ordered items when selected', async () => {
+  it('loads the ordered collection with the resolved poster beside its game', async () => {
     const user = userEvent.setup();
+    mockGetCollectionDetail.mockResolvedValue({
+      data: collectionPage({
+        ...rpgDetail,
+        items: [
+          {
+            ...rpgDetail.items[0],
+            coverUrl: '/media/chrono-trigger-legacy',
+            posterUrl: '/artwork/chrono-trigger/poster/current',
+          },
+          rpgDetail.items[1],
+        ],
+      }),
+    });
     render(
       <Routes>
         <Route
@@ -515,6 +528,10 @@ describe('Collections', () => {
     expect(await screen.findByText('Chrono Trigger')).toBeInTheDocument();
     expect(screen.getByText('Final Fantasy VI')).toBeInTheDocument();
     expect(screen.getByText('A classic')).toBeInTheDocument();
+    const poster = screen.getByAltText('');
+    expect(poster).toHaveAttribute('src', '/artwork/chrono-trigger/poster/current');
+    fireEvent.error(poster);
+    expect(poster).not.toBeInTheDocument();
   });
 
   it('renders a system collection read-only (no edit or add controls)', async () => {
@@ -680,6 +697,7 @@ describe('Collections', () => {
       sortOrder: 2,
       note: null,
       coverUrl: null,
+      posterUrl: '/artwork/earthbound/poster/current',
       addedAt: '2026-10-21T00:00:00Z',
     };
     mockSearchCatalog.mockResolvedValue({
@@ -689,6 +707,13 @@ describe('Collections', () => {
             id: 't3',
             name: 'EarthBound',
             systemKey: 'snes',
+            coverUrl: '/media/earthbound-legacy-cover',
+            artwork: [
+              {
+                role: 'Poster',
+                url: '/artwork/earthbound/poster/current',
+              },
+            ],
           },
           {
             id: 't4',
@@ -741,11 +766,16 @@ describe('Collections', () => {
         },
       },
     );
-    await userEvent.click(
-      await screen.findByRole('checkbox', {
-        name: /^Select EarthBound ·/,
-      }),
-    );
+    const earthBound = await screen.findByRole('checkbox', {
+      name: /^Select EarthBound ·/,
+    });
+    const cover = screen
+      .getAllByAltText('')
+      .find((image) => image.getAttribute('src') === '/artwork/earthbound/poster/current');
+    if (!cover) throw new Error('Expected a catalog cover before simulating an image load failure');
+    fireEvent.error(cover);
+    expect(cover).not.toBeInTheDocument();
+    await userEvent.click(earthBound);
     await userEvent.click(
       screen.getByRole('checkbox', {
         name: /^Select Secret of Mana ·/,
@@ -757,6 +787,7 @@ describe('Collections', () => {
       }),
     );
     expect(await screen.findByText(/Added 1 of 2 games/)).toBeInTheDocument();
+    expect(screen.getByAltText('')).toHaveAttribute('src', acceptedItem.posterUrl);
     expect(
       screen.getByRole('checkbox', {
         name: /^Select Secret of Mana ·/,
@@ -869,6 +900,10 @@ describe('Collections', () => {
         }),
       }),
     );
+    const cover = await screen.findByAltText('');
+    expect(cover).toHaveAttribute('src', '/artwork/chrono-trigger/poster/preview');
+    fireEvent.error(cover);
+    expect(cover).not.toBeInTheDocument();
     await userEvent.click(
       screen.getByLabelText('Investigate a game', {
         selector: 'input',

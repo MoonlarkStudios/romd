@@ -79,6 +79,9 @@ public sealed record CollectionItemReadModel(
     int? CoverMediaId,
     string? Note,
     int SortOrder,
-    DateTimeOffset AddedAt);
+    DateTimeOffset AddedAt)
+{
+    public string? PosterUrl { get; init; }
+}
 
 public sealed record CollectionItemPosition(int SortOrder, int TitleId);

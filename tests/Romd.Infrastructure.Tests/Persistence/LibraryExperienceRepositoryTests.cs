@@ -13,6 +13,8 @@ using Romd.Application.Common.Pagination;
 using Romd.Consumer.Application.Browse;
 using Romd.Consumer.Application.Collections;
 using Romd.Consumer.Application.Libraries;
+using Romd.Domain.Catalog;
+using Romd.Domain.Hashing;
 using Romd.Domain.Libraries;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
@@ -119,6 +121,99 @@ public sealed partial class LibraryExperienceRepositoryTests : IAsyncLifetime
         var page = await new LibraryExperienceRepository(context).GetPreviewAsync(seed.Second, seed.Collection, firstTitleId, 0, default);
         page.Items.Select(t => t.Name).ShouldBe(["First Game"]);
         page.NextCursor.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task CollectionPreviewAndItems_UseTheSameResolvedPoster()
+    {
+        var seed = await SeedAsync();
+        await SetAsync(seed.Second, [(seed.Collection, true)]);
+        await using var context = CreateContext();
+        var titles = await context.Titles.ToDictionaryAsync(title => title.Name, title => title.Id);
+        int firstTitle = titles["First Game"];
+        int secondTitle = titles["Second Game"];
+        var now = DateTimeOffset.UtcNow;
+        context.Files.Add(new FileEntityPersistence
+        {
+            Id = 1,
+            Sha256 = Sha256.FromBytes(new byte[Sha256.ByteLength]),
+            Size = 1,
+            SizeOnDisk = 1,
+            CreatedAt = now
+        });
+        foreach (int titleId in new[] { firstTitle, secondTitle })
+        {
+            context.TitleMedia.Add(new TitleMediaEntity
+            {
+                TitleId = titleId,
+                Type = "Cover",
+                FileId = 1,
+                SourceId = "igdb",
+                IsPrimary = true,
+                ContentType = "image/png",
+                CreatedAt = now
+            });
+        }
+
+        context.ArtworkAssets.Add(new ArtworkAssetEntity
+        {
+            Id = 10,
+            TitleId = firstTitle,
+            Role = ArtworkRole.Poster,
+            SourceId = "steamgriddb",
+            ProviderGameId = "game",
+            ProviderAssetId = "poster",
+            OriginalFileId = 1,
+            ContentVersion = "original",
+            ContentType = "image/png",
+            Width = 600,
+            Height = 900,
+            IsEligible = true,
+            CreatedAt = now,
+            Variants = [new ArtworkVariantEntity { AssetId = 10, Name = "poster", FileId = 1, ContentVersion = "v1", ContentType = "image/png", Width = 600, Height = 900 }]
+        });
+        context.ArtworkSelections.Add(new ArtworkSelectionEntity
+        {
+            TitleId = firstTitle,
+            Role = ArtworkRole.Poster,
+            Mode = ArtworkSelectionMode.Pinned,
+            PinnedAssetId = 10,
+            Revision = 1
+        });
+        await context.SaveChangesAsync();
+
+        var repository = new LibraryExperienceRepository(context);
+        var page = (await repository.GetPreviewPageAsync(seed.Second, seed.Collection, null, 10, default)).Value;
+        page.Items.Select(item => item.Name).ShouldBe(["Second Game", "First Game"]);
+        page.Items[0].CoverUrl.ShouldStartWith("/media/");
+        page.Items[1].CoverUrl.ShouldBe($"/artwork/{IdCoder.Encode(10)}/poster/v1");
+
+        var collections = new CollectionRepository(context, new ConsumerReleaseSelector());
+        var firstPage = (await collections.GetItemPageAsync(seed.Collection, null, 1, default)).Value;
+        var firstItem = firstPage.Items.Single();
+        firstItem.TitleId.ShouldBe(secondTitle);
+        firstItem.PosterUrl.ShouldBe(page.Items[0].CoverUrl);
+        firstPage.HasNextPage.ShouldBeTrue();
+        firstPage.NextCursor.ShouldNotBeNull();
+        var nextPage = (await collections.GetItemPageAsync(seed.Collection, firstPage.NextCursor, 1, default)).Value;
+        nextPage.Items.Single().PosterUrl.ShouldBe(page.Items[1].CoverUrl);
+        nextPage.HasNextPage.ShouldBeFalse();
+        var item = await collections.GetItemDetailAsync(seed.Collection, firstTitle, default);
+        item.ShouldNotBeNull();
+        item.PosterUrl.ShouldBe(page.Items[1].CoverUrl);
+        item.CoverMediaId.ShouldNotBeNull();
+        var items = await collections.GetItemDetailsAsync(seed.Collection);
+        items.Select(entry => entry.PosterUrl).ShouldBe(page.Items.Select(entry => entry.CoverUrl));
+
+        await context.ArtworkSelections.Where(selection => selection.TitleId == firstTitle)
+            .ExecuteUpdateAsync(update => update.SetProperty(selection => selection.Mode, ArtworkSelectionMode.Empty)
+                .SetProperty(selection => selection.PinnedAssetId, (int?)null));
+        var updated = (await repository.GetPreviewPageAsync(seed.Second, seed.Collection, null, 10, default)).Value;
+        updated.Items[1].CoverUrl.ShouldBeNull();
+        var updatedItem = await collections.GetItemDetailAsync(seed.Collection, firstTitle, default);
+        updatedItem.ShouldNotBeNull();
+        updatedItem.PosterUrl.ShouldBeNull();
+        updatedItem.CoverMediaId.ShouldBe(item.CoverMediaId);
     }
 
     [Fact]

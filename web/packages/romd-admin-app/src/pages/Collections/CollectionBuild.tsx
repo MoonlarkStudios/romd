@@ -15,7 +15,7 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import type { CatalogTitle } from '@romd/admin-api-client';
-import { IconDeviceGamepad2, IconPlus, IconSearch } from '@tabler/icons-react';
+import { IconPlus, IconSearch } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { catalogGameLabel } from '../../components/catalogGameLabel';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
@@ -28,6 +28,7 @@ import {
   useUpdateCollectionItemNote,
 } from '../../hooks/api/useCollectionManagement';
 import { usePlatforms } from '../../hooks/api/usePlatforms';
+import { CollectionGameCover } from './CollectionGameCover';
 import { CollectionItemRow } from './CollectionItemRow';
 import classes from './Collections.module.css';
 
@@ -60,9 +61,11 @@ export function CollectionBuild({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const platforms = usePlatforms();
+  const query = debounced.trim();
   const catalog = useCatalogSearch(
     {
-      query: debounced || undefined,
+      query: query || undefined,
+      sortBy: query ? 'relevance' : undefined,
       systemKey: collection.systemKey ?? platform ?? undefined,
       localFilesOnly,
     },
@@ -208,17 +211,14 @@ export function CollectionBuild({
         {canEdit && (
           <div className={`${classes.panel} ${panel === 'collection' ? classes.mobileHidden : ''}`}>
             <Stack gap="md">
-              <div>
-                <Title
-                  order={2}
-                  className={classes.sectionHeading}
-                >
-                  Find games
-                </Title>
-              </div>
+              <Title
+                order={2}
+                className={classes.sectionHeading}
+              >
+                Find games
+              </Title>
               <TextInput
                 label="Search catalog"
-                placeholder="Find games by name"
                 value={search}
                 onChange={(e) => setSearch(e.currentTarget.value)}
                 leftSection={<IconSearch size={16} />}
@@ -336,18 +336,10 @@ export function CollectionBuild({
                             );
                           }}
                         />
-                        {title.coverUrl ? (
-                          <img
-                            className={classes.art}
-                            src={title.coverUrl}
-                            alt=""
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span className={classes.art}>
-                            <IconDeviceGamepad2 size={20} />
-                          </span>
-                        )}
+                        <CollectionGameCover
+                          className={classes.gameCover}
+                          url={title.artwork?.find((artwork) => artwork.role === 'Poster')?.url}
+                        />
                         <label
                           htmlFor={`collection-game-${title.id}`}
                           className={classes.catalogGameLabel}
@@ -362,14 +354,8 @@ export function CollectionBuild({
                             size="xs"
                             c="dimmed"
                           >
-                            {system}
-                          </Text>
-                          <Text
-                            id={`collection-game-status-${title.id}`}
-                            size="xs"
-                            c="dimmed"
-                          >
-                            {availability}
+                            {system} ·{' '}
+                            <span id={`collection-game-status-${title.id}`}>{availability}</span>
                           </Text>
                           {existing.has(title.id) && (
                             <Badge
@@ -407,23 +393,12 @@ export function CollectionBuild({
             justify="space-between"
             mb="lg"
           >
-            <div>
-              <Title
-                order={2}
-                className={classes.sectionHeading}
-              >
-                The collection
-              </Title>
-              <Text
-                c="dimmed"
-                size="sm"
-                mt="xs"
-              >
-                {canEdit
-                  ? 'Set the sequence and add a note about what makes each game belong.'
-                  : 'This selection is managed by the system.'}
-              </Text>
-            </div>
+            <Title
+              order={2}
+              className={classes.sectionHeading}
+            >
+              The collection
+            </Title>
             <Group gap="sm">
               <Badge color="teal">
                 {items.length} {items.length === 1 ? 'game' : 'games'}
@@ -446,7 +421,7 @@ export function CollectionBuild({
               c="dimmed"
               py="xl"
             >
-              Choose games from the catalog to begin.
+              {canEdit ? 'Add games from Find games.' : 'No games in this collection.'}
             </Text>
           ) : (
             <Stack gap="sm">

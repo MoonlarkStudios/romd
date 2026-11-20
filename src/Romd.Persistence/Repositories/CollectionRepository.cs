@@ -1,4 +1,5 @@
 using ErrorOr;
+using Romd.Application.Common.Artwork;
 using Romd.Application.Common.Pagination;
 using Romd.Application.Common.Validation;
 using Romd.Application.Common.Systems;
@@ -8,6 +9,7 @@ using Romd.Consumer.Application.Browse;
 using Romd.Consumer.Application.Browse.ReadModels;
 using Romd.Consumer.Application.Collections;
 using Romd.Consumer.Application.Libraries;
+using Romd.Domain.Catalog;
 using Romd.Domain.Collections;
 using Romd.Domain.Libraries;
 using Romd.Persistence.Entities;
@@ -56,21 +58,42 @@ public sealed partial class CollectionRepository(
         var query = context.CollectionItems.AsNoTracking().Where(i => i.CollectionId == collectionId);
         if (decoded.Value is { } position)
             query = query.Where(i => i.SortOrder > position.SortOrder || i.SortOrder == position.SortOrder && i.TitleId > position.TitleId);
-        var page = await query
-            .Join(context.Titles, item => item.TitleId, title => title.Id, (item, title) => new { Item = item, Title = title })
-            .OrderBy(row => row.Item.SortOrder).ThenBy(row => row.Item.TitleId).Take(limit + 1)
-            .Select(row => new CollectionItemReadModel(row.Item.TitleId, row.Title.Name, row.Title.PlatformId,
-                row.Title.Media.Where(media => media.Type == "Cover" && media.IsPrimary).Select(media => (int?)media.Id).FirstOrDefault(),
-                row.Item.Note, row.Item.SortOrder, row.Item.AddedAt))
-            .ToListAsync(ct);
-        return new PagedList<CollectionItemReadModel>(page.Take(limit).ToArray(), page.Count > limit ? KeysetCursor.Encode(new CollectionItemPosition(page[limit - 1].SortOrder, page[limit - 1].TitleId), fingerprint) : null, page.Count > limit);
+        var page = await ItemDetails(query, take: limit + 1).ToListAsync(ct);
+        var items = await WithPostersAsync(page.Take(limit).ToArray(), ct);
+        return new PagedList<CollectionItemReadModel>(items, page.Count > limit ? KeysetCursor.Encode(new CollectionItemPosition(page[limit - 1].SortOrder, page[limit - 1].TitleId), fingerprint) : null, page.Count > limit);
     }
 
-    public Task<CollectionItemReadModel?> GetItemDetailAsync(int collectionId, int titleId, CancellationToken ct) =>
-        ItemDetails(context.CollectionItems.AsNoTracking().Where(i => i.CollectionId == collectionId && i.TitleId == titleId)).SingleOrDefaultAsync(ct);
+    public async Task<CollectionItemReadModel?> GetItemDetailAsync(int collectionId, int titleId, CancellationToken ct)
+    {
+        var item = await ItemDetails(context.CollectionItems.AsNoTracking()
+            .Where(i => i.CollectionId == collectionId && i.TitleId == titleId)).SingleOrDefaultAsync(ct);
+        return item is null ? null : (await WithPostersAsync([item], ct)).Single();
+    }
+
     public Task<int> CountItemsAsync(int collectionId, CancellationToken ct) => context.CollectionItems.CountAsync(i => i.CollectionId == collectionId, ct);
-    private IQueryable<CollectionItemReadModel> ItemDetails(IQueryable<CollectionItemEntity> query) =>
-        query.Join(context.Titles, i => i.TitleId, t => t.Id, (i, t) => new CollectionItemReadModel(i.TitleId, t.Name, t.PlatformId, t.Media.Where(m => m.Type == "Cover" && m.IsPrimary).Select(m => (int?)m.Id).FirstOrDefault(), i.Note, i.SortOrder, i.AddedAt));
+
+    private IQueryable<CollectionItemReadModel> ItemDetails(IQueryable<CollectionItemEntity> query, int? take = null)
+    {
+        var rows = query
+            .Join(context.Titles, item => item.TitleId, title => title.Id, (item, title) => new { Item = item, Title = title })
+            .OrderBy(row => row.Item.SortOrder).ThenBy(row => row.Item.TitleId);
+        return (take is { } count ? rows.Take(count) : rows)
+            .Select(row => new CollectionItemReadModel(row.Item.TitleId, row.Title.Name, row.Title.PlatformId,
+                row.Title.Media.Where(media => media.Type == "Cover" && media.IsPrimary).Select(media => (int?)media.Id).FirstOrDefault(),
+                row.Item.Note, row.Item.SortOrder, row.Item.AddedAt));
+    }
+
+    private async Task<CollectionItemReadModel[]> WithPostersAsync(
+        IReadOnlyCollection<CollectionItemReadModel> items, CancellationToken ct)
+    {
+        var artwork = await new ArtworkReader(context).ResolveAsync(items.Select(item => item.TitleId).ToArray(), ct);
+        return items.Select(item => item with
+        {
+            PosterUrl = artwork.GetValueOrDefault(item.TitleId)?
+                .FirstOrDefault(resolution => resolution.Role == ArtworkRole.Poster)?.ToContract().Url
+        }).ToArray();
+    }
+
     private sealed record CollectionPosition(int Order, string Name, int Id);
 
     public async Task<Collection?> GetByIdAsync(int id, CancellationToken ct = default)
@@ -121,27 +144,9 @@ public sealed partial class CollectionRepository(
         int collectionId,
         CancellationToken ct = default)
     {
-        return await context.CollectionItems
-            .AsNoTracking()
-            .Where(i => i.CollectionId == collectionId)
-            .Join(
-                context.Titles,
-                i => i.TitleId,
-                t => t.Id,
-                (i, t) => new { Item = i, Title = t })
-            .OrderBy(x => x.Item.SortOrder)
-            .Select(x => new CollectionItemReadModel(
-                x.Item.TitleId,
-                x.Title.Name,
-                x.Title.PlatformId,
-                x.Title.Media
-                    .Where(m => m.Type == "Cover" && m.IsPrimary)
-                    .Select(m => (int?)m.Id)
-                    .FirstOrDefault(),
-                x.Item.Note,
-                x.Item.SortOrder,
-                x.Item.AddedAt))
+        var items = await ItemDetails(context.CollectionItems.AsNoTracking().Where(i => i.CollectionId == collectionId))
             .ToListAsync(ct);
+        return await WithPostersAsync(items, ct);
     }
 
     public Task<ConsumerLibraryReadResult<ConsumerCollectionReadModel>> GetCollectionByIdAsync(

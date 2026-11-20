@@ -195,7 +195,6 @@ export function CollectionFormModal({
               <Stack gap="md">
                 <Textarea
                   label="Description"
-                  placeholder="Optional — what ties these titles together?"
                   autosize
                   minRows={2}
                   maxRows={5}
@@ -205,7 +204,7 @@ export function CollectionFormModal({
 
                 <Select
                   label="Platform"
-                  description="Optional — scope this collection to a single system."
+                  description="Limits which games can be added."
                   placeholder="All platforms"
                   data={platformOptions}
                   value={systemKey}

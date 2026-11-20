@@ -370,6 +370,7 @@ export type CollectionItem = {
     titleName: string;
     systemKey: string;
     coverUrl?: null | string;
+    posterUrl?: null | string;
     note?: null | string;
     sortOrder?: number;
     addedAt?: string;

@@ -4,8 +4,10 @@ using Romd.Contracts.Common.Models;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Libraries;
+using Romd.Application.Common.Artwork;
 using Romd.Application.Common.Ids;
 using Romd.Contracts.Management.Libraries;
+using Romd.Domain.Catalog;
 using Romd.Persistence.Entities;
 
 namespace Romd.Persistence.Repositories;
@@ -108,16 +110,20 @@ public sealed partial class LibraryExperienceRepository(RomdDbContext context) :
         });
         var rows = await ordered.Where(x => x.SortOrder > afterOrder || (x.SortOrder == afterOrder && x.Title.Id > afterId))
             .OrderBy(x => x.SortOrder).ThenBy(x => x.Title.Id)
-            .Select(x => new
-            {
-                x.Title.Id,
-                x.Title.Name,
-                x.SortOrder,
-                PlatformName = context.Platforms.Where(p => p.Id == x.Title.PlatformId).Select(p => p.Name).First(),
-                Cover = x.Title.Media.Where(m => m.Type == "Cover" && m.IsPrimary).Select(m => (int?)m.Id).FirstOrDefault()
-            }).Take(49).ToListAsync(ct);
-        return new LibraryPreview(rows.Take(48).Select(t => new LibraryPreviewTitle(IdCoder.Encode(t.Id), t.Name,
-            t.PlatformName, t.Cover is int cover ? $"/media/{IdCoder.Encode(cover)}" : null)).ToList(),
+            .Select(x => new PreviewRow(x.Title.Id, x.Title.Name, x.SortOrder,
+                context.Platforms.Where(p => p.Id == x.Title.PlatformId).Select(p => p.Name).First()))
+            .Take(49).ToListAsync(ct);
+        return new LibraryPreview(await ResolvePreviewTitlesAsync(rows.Take(48).ToArray(), ct),
             rows.Count > 48 ? $"{rows[47].SortOrder}:{IdCoder.Encode(rows[47].Id)}" : null);
     }
+
+    private async Task<LibraryPreviewTitle[]> ResolvePreviewTitlesAsync(PreviewRow[] page, CancellationToken ct)
+    {
+        var artwork = await new ArtworkReader(context).ResolveAsync(page.Select(row => row.Id).ToArray(), ct);
+        return page.Select(row => new LibraryPreviewTitle(IdCoder.Encode(row.Id), row.Name, row.PlatformName,
+            artwork.GetValueOrDefault(row.Id)?.FirstOrDefault(item => item.Role == ArtworkRole.Poster)?.ToContract().Url))
+            .ToArray();
+    }
+
+    private sealed record PreviewRow(int Id, string Name, int SortOrder, string PlatformName);
 }
