@@ -156,10 +156,10 @@ describe('Catalog', () => {
     expect(await screen.findByText('Super Mario World')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('All systems')).toBeInTheDocument();
     expect(
-      screen.getByRole('tab', {
+      screen.getByRole('link', {
         name: 'Tracked titles',
       }),
-    ).toHaveAttribute('aria-selected', 'true');
+    ).toHaveAttribute('aria-current', 'page');
     expect(mockSearchCatalog).toHaveBeenCalledWith(
       expect.objectContaining({
         query: expect.objectContaining({
@@ -382,10 +382,10 @@ describe('Catalog', () => {
 
     expect(await screen.findByText('Super Mario World')).toBeInTheDocument();
     expect(
-      screen.getByRole('tab', {
+      screen.getByRole('link', {
         name: 'Tracked titles',
       }),
-    ).toHaveAttribute('aria-selected', 'true');
+    ).toHaveAttribute('aria-current', 'page');
     expect(screen.queryByPlaceholderText('Tracked')).not.toBeInTheDocument();
     expect(mockSearchCatalog).toHaveBeenCalledWith(
       expect.objectContaining({

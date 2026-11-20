@@ -62,7 +62,13 @@ export function UntrackConfirmation({
   );
 }
 
-export function CatalogTrackingAction({ title }: { title: CatalogTitle }) {
+export function CatalogTrackingAction({
+  title,
+  expanded = false,
+}: {
+  title: Pick<CatalogTitle, 'id' | 'name' | 'isTracked'>;
+  expanded?: boolean;
+}) {
   const mutation = useSetTitleTracking();
   const [confirm, setConfirm] = useState(false);
   const [menuOpened, setMenuOpened] = useState(false);
@@ -78,7 +84,16 @@ export function CatalogTrackingAction({ title }: { title: CatalogTitle }) {
     );
   return (
     <>
-      {title.isTracked ? (
+      {title.isTracked && expanded ? (
+        <Button
+          variant="default"
+          size="compact-sm"
+          leftSection={<IconBookmarkOff size={15} />}
+          onClick={() => setConfirm(true)}
+        >
+          Untrack
+        </Button>
+      ) : title.isTracked ? (
         <Menu
           withinPortal
           opened={menuOpened && !confirm}
@@ -109,8 +124,8 @@ export function CatalogTrackingAction({ title }: { title: CatalogTitle }) {
       ) : (
         <Button
           {...workspaceActionProps}
-          size="compact-xs"
-          variant="subtle"
+          size={expanded ? 'compact-sm' : 'compact-xs'}
+          variant={expanded ? 'default' : 'subtle'}
           leftSection={<IconBookmark size={14} />}
           aria-label={`Track ${title.name}`}
           loading={mutation.isPending}

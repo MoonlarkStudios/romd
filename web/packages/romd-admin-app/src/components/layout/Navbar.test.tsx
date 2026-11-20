@@ -59,7 +59,6 @@ it('groups the admin workflow in the requested order and keeps ROM import select
     'ROMs3',
     'Disc descriptors',
     'Catalog',
-    'Enrichment',
     'Collections',
     'Libraries',
     'Jobs',
@@ -177,7 +176,7 @@ it('shows Reference data but not Users or Libraries to managers', () => {
   ).not.toBeInTheDocument();
 });
 it.each([
-  'Enrichment',
+  'Catalog',
   'Systems',
   'ROMs',
   'Diagnostics',

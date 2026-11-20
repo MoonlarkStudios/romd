@@ -40,6 +40,7 @@ export function TitleStatusChips({
   return (
     <>
       <Group
+        component="span"
         gap={6}
         role="group"
         aria-label={label}

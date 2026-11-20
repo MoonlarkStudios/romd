@@ -6,14 +6,14 @@ import { HttpResponse, http } from 'msw';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { useEnrichmentRun } from '../../components/Enrichment/useEnrichmentRun';
+import { type ArtworkRunJob, useEnrichmentRun } from '../../components/Enrichment/useEnrichmentRun';
 import { useImportSession } from '../../pages/Import/useImportSession';
 import { server } from '../../test/msw/server';
 import { downloadExportFile } from './useExport';
 import { useArchiveJob } from './useJobActions';
 import { useJobHistory } from './useJobHistory';
 import { useJobItems } from './useJobItems';
-import { jobKeys, useJobs } from './useJobs';
+import { jobKeys, useJob, useJobs } from './useJobs';
 
 vi.mock('@romd/delivery', () => ({
   startBrowserDownload: vi.fn(),
@@ -325,14 +325,25 @@ it('keeps polling when only page two contains active import work', async () => {
   });
 });
 
-it('composes the canonical artwork job with a separate summary that job cache updates cannot erase', async () => {
-  const job = {
-    ...first,
+function useRunFromCanonicalJob(initial: ArtworkRunJob) {
+  const { data = initial } = useJob(initial.id);
+  return useEnrichmentRun(data.jobType === 'artwork-completion' ? data : initial);
+}
+
+it('loads one canonical artwork job and keeps summary facts when that job changes', async () => {
+  const job: ArtworkRunJob = {
+    id: first.id,
+    correlationId: batchId,
     jobType: 'artwork-completion',
+    phase: 'Completed',
+    sourceFilename: 'Enrichment run',
+    progressPercent: 100,
+    errors: [],
+    isTerminal: true,
     mode: null,
     total: 2,
     processed: 2,
-  } as Job;
+  };
   const summary = {
     roles: [],
     review: 2,
@@ -340,29 +351,41 @@ it('composes the canonical artwork job with a separate summary that job cache up
     unfinished: 0,
     working: 0,
   };
+  const jobReads = vi.fn();
   server.use(
-    http.get('http://localhost/api/jobs/:jobId', () => HttpResponse.json(job)),
+    http.get('http://localhost/api/jobs/:jobId', () => {
+      jobReads();
+      return HttpResponse.json(job);
+    }),
     http.get('http://localhost/api/jobs/:jobId/artwork-summary', () => HttpResponse.json(summary)),
   );
   const { cache, wrapper } = harness();
-  const { result } = renderHook(() => useEnrichmentRun(first.id), {
+  const { result } = renderHook(() => useRunFromCanonicalJob(job), {
     wrapper,
   });
-  await waitFor(() =>
+  await waitFor(() => {
+    expect(jobReads).toHaveBeenCalledOnce();
     expect(result.current.data).toMatchObject({
       jobId: first.id,
       mode: null,
       review: 2,
       failed: 1,
-    }),
-  );
+      processed: 2,
+    });
+  });
   act(() =>
     cache.setQueryData(jobKeys.detail(first.id), {
       ...job,
       processed: 1,
     }),
   );
-  expect(result.current.data?.review).toBe(2);
+  await waitFor(() =>
+    expect(result.current.data).toMatchObject({
+      processed: 1,
+      review: 2,
+    }),
+  );
+  expect(jobReads).toHaveBeenCalledOnce();
 });
 
 it('uses the typed item feed query', async () => {

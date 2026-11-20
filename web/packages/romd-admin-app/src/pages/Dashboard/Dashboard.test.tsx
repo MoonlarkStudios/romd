@@ -162,7 +162,7 @@ it('uses bounded outcome queries and excludes administrator data for other roles
       }),
     );
 });
-it('shows the four current enrichment counts linked to their workspace views, apart from the tracked total', async () => {
+it('shows the four current enrichment counts linked to their review queue states, apart from the tracked total', async () => {
   render(<Dashboard />);
   const views = [
     [
@@ -190,7 +190,7 @@ it('shows the four current enrichment counts linked to their workspace views, ap
     const link = await screen.findByRole('link', {
       name: label,
     });
-    expect(link).toHaveAttribute('href', `/enrichment?view=${view}`);
+    expect(link).toHaveAttribute('href', `/catalog?view=review&state=${view}`);
     expect(link.nextElementSibling).toHaveTextContent(count);
   }
   expect(screen.getByText('1,204 tracked titles')).toBeInTheDocument();

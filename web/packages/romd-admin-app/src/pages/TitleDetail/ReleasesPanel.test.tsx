@@ -1,10 +1,16 @@
-import type { TitleRelease } from '@romd/admin-api-client';
+import { listAdminDiscSets } from '@romd/admin-api-client';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TitleReleaseView } from '../../hooks/api/useTitleDetail';
 import { render } from '../../test/utils/render';
 import { ReleasesPanel, releaseOwnership, releaseRegions } from './ReleasesPanel';
+
+vi.mock('@romd/admin-api-client', async (original) => ({
+  ...(await original<typeof import('@romd/admin-api-client')>()),
+  listAdminDiscSets: vi.fn(),
+}));
 
 vi.mock('../../hooks/api/useTitleDetail', () => ({
   useTitleSourceReferences: () => ({
@@ -29,16 +35,18 @@ vi.mock('../../hooks/api/useTitleActions', () => ({
     isPending: false,
   }),
 }));
+const hasRole = vi.fn();
 vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: () => ({
     canManageTitles: true,
+    hasRole,
   }),
 }));
 function Location() {
   return <output aria-label="URL">{useLocation().search}</output>;
 }
 
-const releases: TitleRelease[] = [
+const releases: TitleReleaseView[] = [
   {
     id: 'us',
     catalogReleaseId: 'canonical-us',
@@ -61,22 +69,26 @@ const releases: TitleRelease[] = [
     datId: 'main',
     name: 'European release',
     region: 'Europe',
+    sources: [],
   },
   {
     id: 'us2',
     datId: 'main',
     name: 'US revision',
     region: 'USA',
+    sources: [],
     files: [
       {
         id: 'file',
         name: 'disc',
         isOwned: true,
+        romFileId: 'rom',
       },
       {
         id: 'file2',
         name: 'disc2',
         isOwned: false,
+        sha1: 'ab'.repeat(20),
       },
     ],
   },
@@ -86,6 +98,8 @@ describe('ReleasesPanel', () => {
   beforeEach(() => {
     localStorage.clear();
     mutate.mockClear();
+    hasRole.mockReset().mockReturnValue(false);
+    vi.mocked(listAdminDiscSets).mockReset();
   });
 
   it('reveals a linked release alongside matches and explains a filter exception', async () => {
@@ -109,6 +123,11 @@ describe('ReleasesPanel', () => {
       }),
     ).toHaveAttribute('aria-expanded', 'true');
     expect(await screen.findByText('Linked release is outside your filters')).toBeVisible();
+    expect(
+      screen.getByRole('complementary', {
+        name: 'Shared release',
+      }),
+    ).toBeVisible();
     expect(
       screen.getByRole('button', {
         name: 'European release',
@@ -178,7 +197,7 @@ describe('ReleasesPanel', () => {
     expect(screen.getByText('Showing 1 of 3 releases')).toBeInTheDocument();
     await user.click(
       screen.getByRole('button', {
-        name: 'Sources for Shared release',
+        name: 'Shared release',
       }),
     );
     expect(
@@ -189,7 +208,7 @@ describe('ReleasesPanel', () => {
     expect(screen.getByText('Original entry')).toBeInTheDocument();
     expect(
       within(
-        screen.getByRole('dialog', {
+        screen.getByRole('complementary', {
           name: 'Shared release',
           exact: true,
         }),
@@ -222,26 +241,32 @@ describe('ReleasesPanel', () => {
     expect(screen.getByText('Showing 3 of 3 releases')).toBeInTheDocument();
   });
 
-  it('retains dormant catalog sources when there are no releases', async () => {
+  it('clears a stale deep link while keeping the rest of the URL', async () => {
     const user = userEvent.setup();
     render(
-      <ReleasesPanel
-        titleId="title"
-        releases={[]}
-      />,
+      <>
+        <ReleasesPanel
+          titleId="title"
+          releases={releases}
+        />
+        <Location />
+      </>,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/titles/title/releases?release=gone&releaseRegion=USA',
+          ],
+        },
+      },
     );
-    expect(screen.getByText('No releases found for this title.')).toBeInTheDocument();
+    expect(screen.getByText('This release is unavailable')).toBeVisible();
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
     await user.click(
       screen.getByRole('button', {
-        name: 'Sources (1)',
+        name: 'Dismiss linked release',
       }),
     );
-    expect(
-      await screen.findByRole('link', {
-        name: 'Secondary DAT',
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Disabled')).toBeInTheDocument();
+    expect(screen.getByLabelText('URL')).toHaveTextContent('?releaseRegion=USA');
   });
 
   it('normalizes US aliases and distinguishes partial ownership', () => {
@@ -267,7 +292,6 @@ describe('ReleasesPanel', () => {
         preference={{
           isTracked: true,
           preferredCatalogReleaseId: 'canonical-eu',
-          preferredReleaseName: 'European release',
           releaseRegionPriority: [
             'EUROPE',
             'USA',
@@ -277,10 +301,19 @@ describe('ReleasesPanel', () => {
     );
     expect(screen.getByText('Preferred · Automatic')).toBeVisible();
     expect(screen.getAllByRole('row')[1]).toHaveTextContent('European release');
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Use as preferred',
+      }),
+    ).not.toBeInTheDocument();
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Set as preferred: European release',
+        name: 'European release',
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use as preferred',
       }),
     );
     expect(mutate).toHaveBeenCalledWith(
@@ -305,19 +338,14 @@ describe('ReleasesPanel', () => {
         }}
       />,
     );
-    expect(
-      screen.queryByRole('button', {
-        name: 'Use automatic preference',
-      }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', {
-        name: 'Unpin release: Shared release',
-      }),
-    ).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Unpin release: Shared release',
+        name: 'Shared release',
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Use automatic preference',
       }),
     );
     expect(mutate).toHaveBeenCalledWith(
@@ -330,36 +358,7 @@ describe('ReleasesPanel', () => {
     );
   });
 
-  it('allows unpinning the current pin and disables releases without canonical IDs', () => {
-    render(
-      <ReleasesPanel
-        titleId="title"
-        releases={releases}
-        preference={{
-          pinnedCatalogReleaseId: 'canonical-us',
-          preferredCatalogReleaseId: 'canonical-us',
-        }}
-      />,
-    );
-    expect(
-      screen.getByRole('button', {
-        name: 'Unpin release: Shared release',
-      }),
-    ).toBeEnabled();
-    expect(
-      screen.getByRole('button', {
-        name: 'Set as preferred: US revision',
-      }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole('button', {
-        name: 'Set as preferred: European release',
-      }),
-    ).toBeEnabled();
-    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
-  });
-
-  it('expands a nested file table without changing preference', async () => {
+  it('disables pinning if the release has no canonical ID', async () => {
     render(
       <ReleasesPanel
         titleId="title"
@@ -369,18 +368,172 @@ describe('ReleasesPanel', () => {
     await userEvent.click(
       screen.getByRole('button', {
         name: 'US revision',
-        exact: true,
       }),
     );
     expect(
       screen.getByRole('button', {
-        name: 'US revision',
-        exact: true,
+        name: 'Use as preferred',
       }),
-    ).toHaveAttribute('aria-expanded', 'true');
-    await waitFor(() => expect(screen.getByText('disc2')).toBeVisible());
-    expect(screen.getAllByRole('table')).toHaveLength(2);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    ).toBeDisabled();
+  });
+
+  it('keeps release files, copyable hashes and downloads in the inspector', async () => {
+    const user = userEvent.setup();
+    render(
+      <ReleasesPanel
+        titleId="title"
+        releases={releases}
+      />,
+    );
+    const row = screen.getByRole('button', {
+      name: 'US revision',
+    });
+    await user.click(row);
+    expect(row).toHaveAttribute('aria-expanded', 'true');
+    const inspector = screen.getByRole('complementary', {
+      name: 'US revision',
+    });
+    expect(await within(inspector).findByText('disc2')).toBeVisible();
+    expect(
+      within(inspector).getByRole('link', {
+        name: 'disc',
+      }),
+    ).toHaveAttribute('href', '/roms/rom?tab=all');
+    expect(
+      within(inspector).getByRole('button', {
+        name: 'Download for disc',
+      }),
+    ).toBeEnabled();
+    await user.click(within(inspector).getByLabelText('Hashes for disc2'));
+    expect(
+      within(inspector).getByRole('button', {
+        name: 'Copy SHA-1',
+      }),
+    ).toBeInTheDocument();
+    expect(within(inspector).getByText('ab'.repeat(20))).toBeVisible();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(row).toHaveFocus());
+    expect(row).toHaveAttribute('aria-expanded', 'false');
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('moves between visible release rows with the arrow keys', async () => {
+    const user = userEvent.setup();
+    render(
+      <ReleasesPanel
+        titleId="title"
+        releases={releases}
+      />,
+    );
+    const first = screen.getByRole('button', {
+      name: 'Shared release',
+    });
+    const next = screen.getByRole('button', {
+      name: 'European release',
+    });
+    first.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(next).toHaveFocus();
+    expect(next.closest('tr')).toHaveAttribute('aria-current', 'true');
+    expect(
+      screen.getByRole('complementary', {
+        name: 'European release',
+      }),
+    ).toBeVisible();
+  });
+
+  it('keeps disc sets and their API private to administrators', async () => {
+    render(
+      <ReleasesPanel
+        titleId="title"
+        releases={releases}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Shared release',
+      }),
+    );
+    expect(screen.queryByText('Disc sets')).not.toBeInTheDocument();
+    expect(listAdminDiscSets).not.toHaveBeenCalled();
+  });
+
+  it('shows the effective disc membership by canonical release ID and opens its decision editor', async () => {
+    const user = userEvent.setup();
+    hasRole.mockReturnValue(true);
+    const proposal = {
+      name: 'Automatic name',
+      expectedDiscCount: 2,
+      members: [],
+      reviewReasons: [],
+      ruleVersion: 'v1',
+    };
+    vi.mocked(listAdminDiscSets).mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: 'set',
+            catalogSourceId: 'source',
+            revision: '1',
+            systemKey: 'snes',
+            decision: 'corrected',
+            decidedBy: null,
+            decidedAt: null,
+            reason: null,
+            proposal,
+            correction: {
+              ...proposal,
+              name: 'Corrected disc set',
+              members: [
+                {
+                  entryKey: 'source-disc',
+                  name: 'Disc 2',
+                  releaseId: 'canonical-us',
+                  ordinal: 2,
+                  issue: null,
+                },
+              ],
+            },
+          },
+        ],
+        nextCursor: null,
+        hasNextPage: false,
+      },
+      error: undefined,
+      request: new Request('http://localhost'),
+      response: new Response(),
+    });
+    render(
+      <ReleasesPanel
+        titleId="title"
+        releases={releases}
+      />,
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Shared release',
+      }),
+    );
+    const inspector = screen.getByRole('complementary', {
+      name: 'Shared release',
+    });
+    const review = await within(inspector).findByRole('button', {
+      name: 'Review disc set Corrected disc set',
+    });
+    expect(within(inspector).getByText('Disc 2 of 2')).toBeVisible();
+    await user.click(review);
+    const sets = screen.getByRole('region', {
+      name: 'Disc sets',
+    });
+    const control = within(sets).getByRole('button', {
+      name: /Corrected disc set/,
+    });
+    expect(control).toHaveFocus();
+    expect(control).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      await within(sets).findByRole('button', {
+        name: 'Correct membership and order',
+      }),
+    ).toBeVisible();
   });
 });

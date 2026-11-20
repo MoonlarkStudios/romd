@@ -193,7 +193,7 @@ describe('Catalog tracking affordance', () => {
     expect(selectAll).not.toBeChecked();
   });
 
-  it('keeps enrichment launchers out of the catalog, including selection actions', async () => {
+  it('offers enrichment for the selected titles and their current filters', async () => {
     renderCatalog('/catalog?genre=platformer');
     await screen.findByText('Super Mario World');
     await userEvent.click(
@@ -201,16 +201,13 @@ describe('Catalog tracking affordance', () => {
         name: 'Select Super Mario World',
       }),
     );
-    expect(
-      screen.queryByRole('button', {
-        name: /enrich|fill.*artwork/i,
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Enrich titles',
       }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', {
-        name: 'Enrichment workspace',
-      }),
-    ).not.toBeInTheDocument();
+    );
+    const launcher = await screen.findByRole('dialog');
+    expect(launcher).toHaveTextContent('Selected titles (1)');
   });
 
   it('tracks a single title from the catalog card toggle', async () => {
@@ -393,7 +390,7 @@ describe('Catalog tracking affordance', () => {
     );
     expect(screen.getByText('1 selected')).toBeInTheDocument();
     await user.click(
-      screen.getByRole('tab', {
+      screen.getByRole('link', {
         name: 'All titles',
       }),
     );

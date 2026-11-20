@@ -12,7 +12,6 @@ import { titleDetailKeys, useTitleDetail } from '../../hooks/api/useTitleDetail'
 import { assessmentFixture, writtenTitleFixture } from '../../test/msw/fixtures/enrichment';
 import { server } from '../../test/msw/server';
 import { MetadataPanel } from './MetadataPanel';
-import { TitleNameEditor } from './TitleNameEditor';
 
 vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: () => ({
@@ -69,6 +68,11 @@ beforeEach(() => {
   assessmentAvailable = true;
   saves.length = 0;
   server.use(
+    http.get(`${api}/systems/dreamcast`, () =>
+      HttpResponse.json({
+        name: 'Sega Dreamcast',
+      }),
+    ),
     http.get(`${api}/titles/t1/enrichment-assessment`, () =>
       assessmentAvailable
         ? HttpResponse.json(
@@ -190,25 +194,13 @@ function renderWith(element: ReactNode) {
   );
   return cache;
 }
-/** Hosts the metadata panel like the workbench, with the live title and its revision. */
+/** Hosts the metadata form with the live title and its revision. */
 function MetadataPanelHost() {
   const detail = useTitleDetail('t1');
   return detail.data ? (
     <MetadataPanel
       title={detail.data}
       titleId="t1"
-    />
-  ) : null;
-}
-/** Hosts the rename like the title hero, with the live title name. */
-function NameEditorHost() {
-  const detail = useTitleDetail('t1');
-  return detail.data ? (
-    <TitleNameEditor
-      titleId="t1"
-      name={detail.data.name}
-      onClose={vi.fn()}
-      onSavingChange={vi.fn()}
     />
   ) : null;
 }
@@ -223,34 +215,23 @@ const assessmentLoaded = (cache: QueryClient) =>
     ).toBe(assessmentAvailable ? 'success' : 'error'),
   );
 async function draftPublisher(user: ReturnType<typeof userEvent.setup>, value: string) {
-  await user.click(
-    await screen.findByRole('button', {
-      name: /^Publisher:/,
-    }),
-  );
-  const inspector = await screen.findByRole('dialog', {
-    name: 'Edit Publisher',
+  const form = await screen.findByRole('form', {
+    name: 'Title metadata',
   });
-  await user.click(
-    within(inspector).getByRole('radio', {
-      name: 'Custom',
-      exact: true,
-    }),
-  );
-  const input = within(inspector).getByRole('textbox', {
-    name: 'Publisher user override',
+  const input = within(form).getByRole('textbox', {
+    name: 'Publisher',
   });
   await user.clear(input);
   await user.type(input, value);
-  return inspector;
+  return form;
 }
 
-describe('metadata field inspector conflicts', () => {
+describe('metadata draft conflicts', () => {
   it('keeps the draft on a conflict and reloads the latest values only after confirmation', async () => {
     const user = userEvent.setup();
     const cache = renderWith(<MetadataPanelHost />);
     await assessmentLoaded(cache);
-    const inspector = await draftPublisher(user, 'My publisher');
+    const form = await draftPublisher(user, 'My publisher');
     otherCuratorChange();
     await act(async () => {
       await cache.invalidateQueries({
@@ -258,18 +239,18 @@ describe('metadata field inspector conflicts', () => {
       });
     });
     expect(
-      within(inspector).getByRole('textbox', {
-        name: 'Publisher user override',
+      within(form).getByRole('textbox', {
+        name: 'Publisher',
       }),
     ).toHaveValue('My publisher');
 
     await user.click(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Save changes',
       }),
     );
     expect(
-      await within(inspector).findByText('This title changed since you started editing.'),
+      await within(form).findByText('This title changed since you started editing.'),
     ).toBeInTheDocument();
     expect(saves).toEqual([
       expect.objectContaining({
@@ -278,52 +259,52 @@ describe('metadata field inspector conflicts', () => {
       }),
     ]);
     expect(
-      within(inspector).getByRole('textbox', {
-        name: 'Publisher user override',
+      within(form).getByRole('textbox', {
+        name: 'Publisher',
       }),
     ).toHaveValue('My publisher');
     expect(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Save changes',
       }),
     ).toBeDisabled();
 
     await user.click(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Reload latest',
       }),
     );
     expect(
-      within(inspector).getByText('Reloading discards your unsaved publisher changes.'),
+      within(form).getByText('Reloading discards your unsaved metadata changes.'),
     ).toBeInTheDocument();
     await user.click(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Keep editing',
       }),
     );
     expect(
-      within(inspector).getByRole('textbox', {
-        name: 'Publisher user override',
+      within(form).getByRole('textbox', {
+        name: 'Publisher',
       }),
     ).toHaveValue('My publisher');
     await user.click(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Reload latest',
       }),
     );
     await user.click(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Reload latest',
       }),
     );
 
-    const reopened = await screen.findByRole('dialog', {
-      name: 'Edit Publisher',
+    const reopened = await screen.findByRole('form', {
+      name: 'Title metadata',
     });
     await waitFor(() =>
       expect(
         within(reopened).getByRole('textbox', {
-          name: 'Publisher user override',
+          name: 'Publisher',
         }),
       ).toHaveValue('Other curator'),
     );
@@ -331,7 +312,7 @@ describe('metadata field inspector conflicts', () => {
       within(reopened).queryByText('This title changed since you started editing.'),
     ).not.toBeInTheDocument();
     const input = within(reopened).getByRole('textbox', {
-      name: 'Publisher user override',
+      name: 'Publisher',
     });
     await user.clear(input);
     await user.type(input, 'Final publisher');
@@ -342,10 +323,10 @@ describe('metadata field inspector conflicts', () => {
     );
     await waitFor(() =>
       expect(
-        screen.queryByRole('dialog', {
-          name: 'Edit Publisher',
+        screen.getByRole('button', {
+          name: 'Save changes',
         }),
-      ).not.toBeInTheDocument(),
+      ).toBeDisabled(),
     );
     expect(saves[1]).toEqual(
       expect.objectContaining({
@@ -367,10 +348,10 @@ describe('metadata field inspector conflicts', () => {
     );
     await waitFor(() =>
       expect(
-        screen.queryByRole('dialog', {
-          name: 'Edit Publisher',
+        screen.getByRole('button', {
+          name: 'Save changes',
         }),
-      ).not.toBeInTheDocument(),
+      ).toBeDisabled(),
     );
     const second = await draftPublisher(user, 'Second');
     await user.click(
@@ -380,10 +361,10 @@ describe('metadata field inspector conflicts', () => {
     );
     await waitFor(() =>
       expect(
-        screen.queryByRole('dialog', {
-          name: 'Edit Publisher',
+        screen.getByRole('button', {
+          name: 'Save changes',
         }),
-      ).not.toBeInTheDocument(),
+      ).toBeDisabled(),
     );
     expect(saves).toEqual([
       expect.objectContaining({
@@ -448,27 +429,27 @@ describe('metadata field inspector conflicts', () => {
     const user = userEvent.setup();
     const cache = renderWith(<MetadataPanelHost />);
     await assessmentLoaded(cache);
-    const inspector = await draftPublisher(user, 'Mine');
+    const form = await draftPublisher(user, 'Mine');
 
     // The override clear applies; the custom value fails.
     await user.click(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Save changes',
       }),
     );
-    expect(await within(inspector).findByText(/Could not finish saving/)).toBeInTheDocument();
+    expect(await within(form).findByText(/Some changes were saved/)).toBeInTheDocument();
     await user.click(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Save changes',
       }),
     );
 
     await waitFor(() =>
       expect(
-        screen.queryByRole('dialog', {
-          name: 'Edit Publisher',
+        screen.getByRole('button', {
+          name: 'Save changes',
         }),
-      ).not.toBeInTheDocument(),
+      ).toBeDisabled(),
     );
     expect(saves).toEqual([
       expect.objectContaining({
@@ -483,18 +464,18 @@ describe('metadata field inspector conflicts', () => {
     const user = userEvent.setup();
     const cache = renderWith(<MetadataPanelHost />);
     await assessmentLoaded(cache);
-    const inspector = await draftPublisher(user, 'Unchecked');
+    const form = await draftPublisher(user, 'Unchecked');
     await user.click(
-      within(inspector).getByRole('button', {
+      within(form).getByRole('button', {
         name: 'Save changes',
       }),
     );
     await waitFor(() =>
       expect(
-        screen.queryByRole('dialog', {
-          name: 'Edit Publisher',
+        screen.getByRole('button', {
+          name: 'Save changes',
         }),
-      ).not.toBeInTheDocument(),
+      ).toBeDisabled(),
     );
     expect(saves).toHaveLength(1);
     expect(saves[0]).toMatchObject({
@@ -505,10 +486,91 @@ describe('metadata field inspector conflicts', () => {
   });
 });
 
+it('shows provider IDs with their exact match links and the catalog sources for the title', async () => {
+  server.use(
+    http.get(`${api}/titles/t1/enrichment`, () =>
+      HttpResponse.json({
+        titleId: 't1',
+        name: titleName,
+        enrichmentStatus: 'Completed',
+        layers: [],
+        externalIds: [
+          {
+            provider: 'igdb',
+            externalId: '42',
+            isConfirmed: true,
+          },
+          {
+            provider: 'steamgriddb',
+            externalId: '99',
+            isConfirmed: false,
+          },
+        ],
+      }),
+    ),
+    http.get(`${api}/titles/t1/provider-matches`, () =>
+      HttpResponse.json([
+        {
+          providerId: 'igdb',
+          providerName: 'IGDB',
+          game: {
+            id: '42',
+            url: 'https://www.igdb.com/games/test-game',
+          },
+        },
+        {
+          providerId: 'steamgriddb',
+          providerName: 'SteamGridDB',
+          game: {
+            id: '100',
+            url: 'https://www.steamgriddb.com/game/100',
+          },
+        },
+      ]),
+    ),
+    http.get(`${api}/titles/t1/source-references`, () =>
+      HttpResponse.json({
+        items: [
+          {
+            catalogSourceId: 's1',
+            kind: 'Dat',
+            name: 'Dreamcast catalog',
+            status: 'Active',
+            entryCount: 1,
+            datId: 'dat1',
+            systemKey: 'dreamcast',
+            hasActiveDefinition: true,
+          },
+        ],
+        nextCursor: null,
+        hasNextPage: false,
+      }),
+    ),
+  );
+  renderWith(<MetadataPanelHost />);
+  const providerLink = await screen.findByRole('link', {
+    name: /Open IGDB ID 42/,
+  });
+  expect(providerLink).toHaveAttribute('href', 'https://www.igdb.com/games/test-game');
+  expect(providerLink).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(screen.getByText('Confirmed')).toBeInTheDocument();
+  expect(screen.getByText('Unconfirmed')).toBeInTheDocument();
+  expect(
+    screen.queryByRole('link', {
+      name: /ID 99/,
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    await screen.findByRole('link', {
+      name: 'Dreamcast catalog',
+    }),
+  ).toHaveAttribute('href', '/systems/dreamcast?dat=dat1&sourceTitle=t1');
+});
+
 describe('title name conflicts', () => {
   it('keeps the rename on a conflict and resets it to the latest name only after confirmation', async () => {
     const user = userEvent.setup();
-    const cache = renderWith(<NameEditorHost />);
+    const cache = renderWith(<MetadataPanelHost />);
     await assessmentLoaded(cache);
     const input = await screen.findByRole('textbox', {
       name: 'Title name',
@@ -548,7 +610,9 @@ describe('title name conflicts', () => {
         name: 'Reload latest',
       }),
     );
-    expect(screen.getByText('Reloading discards your unsaved title name.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Reloading discards your unsaved metadata changes.'),
+    ).toBeInTheDocument();
     await user.click(
       screen.getByRole('button', {
         name: 'Reload latest',

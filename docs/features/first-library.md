@@ -55,10 +55,11 @@ Configure the providers you want under **Integrations**. IGDB supplies game
 metadata and artwork; SteamGridDB supplies additional artwork. Provider setup is
 optional: you can inspect imported files and manage your library without it.
 
-Open **Enrichment** to review tracked titles, resolve uncertain provider matches
-and complete missing metadata or artwork. Review suggested identities before
-accepting them. A title's own workspace also lets you edit its description and
-curate its retained artwork.
+Open **Catalog → Needs review** to resolve uncertain provider matches and complete
+missing metadata or artwork. Review suggested identities before accepting them.
+Open a title to edit its description in **Metadata** or curate images in
+**Artwork**. **Releases** shows the files and hashes for each release, and
+**Ratings** shows the title's official age ratings.
 
 Use [artwork completion](unified-artwork-completion.md) and
 [artwork curation](artwork-curation.md) for the detailed workflow.

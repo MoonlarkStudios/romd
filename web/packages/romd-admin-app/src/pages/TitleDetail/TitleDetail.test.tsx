@@ -5,13 +5,13 @@ import type {
   TitleEnrichmentStateResponse,
 } from '@romd/admin-api-client';
 import { focusManager } from '@tanstack/react-query';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route, Routes, useLocation } from 'react-router';
+import { Route, Routes, useLocation, useNavigate } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthContextValue } from '../../contexts/AuthContext';
 import { installReferenceCatalog } from '../../test/fixtures/referenceCatalog';
-import { writtenTitleFixture } from '../../test/msw/fixtures/enrichment';
+import { unsatisfied, writtenTitleFixture } from '../../test/msw/fixtures/enrichment';
 import { render } from '../../test/utils/render';
 import { finalPage } from '../../test/workspacePages';
 import type { AssembledReferenceCatalog } from '../../utils/referenceCatalog';
@@ -64,14 +64,15 @@ vi.mock('@romd/admin-api-client', async () => {
     getTitleEnrichmentAssessment: vi.fn(),
     getAdminCatalogSnapshot: vi.fn(),
     getTitle: vi.fn(),
+    getTitleArtwork: vi.fn(),
+    listArtworkProviders: vi.fn(),
+    listTitleArtworkAssets: vi.fn(),
     getTitleEnrichmentState: vi.fn(),
     listTitleSourceReferences: vi.fn(),
     mergeTitles: vi.fn(),
     moveGame: vi.fn(),
     listCatalogTitles: vi.fn(),
     updateTitleEnrichment: vi.fn(),
-    deleteTitleContentRating: vi.fn(),
-    replaceTitleContentRating: vi.fn(),
     replaceTitleTracking: vi.fn(),
     triggerTitleEnrichment: vi.fn(),
     updateTitle: vi.fn(),
@@ -80,17 +81,18 @@ vi.mock('@romd/admin-api-client', async () => {
 
 import {
   confirmTitleProviderMatch,
-  deleteTitleContentRating,
   getAdminCatalogSnapshot,
   getCatalogFilters,
   getTitle,
+  getTitleArtwork,
   getTitleEnrichmentAssessment,
   getTitleEnrichmentState,
+  listArtworkProviders,
   listCatalogTitles,
+  listTitleArtworkAssets,
   listTitleProviderMatches,
   listTitleSourceReferences,
   mergeTitles,
-  replaceTitleContentRating,
   replaceTitleTracking,
   triggerTitleEnrichment,
   updateTitle,
@@ -105,8 +107,6 @@ const mockGetTitleSourceReferences = listTitleSourceReferences as ReturnType<typ
 const mockMergeTitles = mergeTitles as ReturnType<typeof vi.fn>;
 const mockSearchCatalog = listCatalogTitles as ReturnType<typeof vi.fn>;
 const mockUpdateTitleEnrichment = updateTitleEnrichment as ReturnType<typeof vi.fn>;
-const mockDeleteTitleContentRating = deleteTitleContentRating as ReturnType<typeof vi.fn>;
-const mockReplaceTitleContentRating = replaceTitleContentRating as ReturnType<typeof vi.fn>;
 const mockSetTitleTracking = replaceTitleTracking as ReturnType<typeof vi.fn>;
 const mockTriggerTitleEnrichment = triggerTitleEnrichment as ReturnType<typeof vi.fn>;
 const mockUpdateTitle = updateTitle as ReturnType<typeof vi.fn>;
@@ -280,8 +280,45 @@ const referenceCatalog: Partial<AssembledReferenceCatalog> = {
 };
 
 function LocationProbe() {
-  const location = useLocation();
-  return <output aria-label="Location">{location.search}</output>;
+  const { pathname, search, hash } = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      <output aria-label="Location">
+        {pathname}
+        {search}
+        {hash}
+      </output>
+      <button
+        type="button"
+        onClick={() => void navigate(-1)}
+      >
+        Previous location
+      </button>
+      <button
+        type="button"
+        onClick={() => void navigate(1)}
+      >
+        Next location
+      </button>
+    </>
+  );
+}
+
+function titleSection(name: string) {
+  return within(
+    screen.getByRole('navigation', {
+      name: 'Title sections',
+    }),
+  ).getByRole('link', {
+    name,
+  });
+}
+
+function locationProbe() {
+  return screen.getByRole('status', {
+    name: 'Location',
+  });
 }
 
 // The reference catalog snapshot, which feeds the re-rate picker, is read only for a signed-in user.
@@ -302,11 +339,11 @@ const signedInAuth: AuthContextValue = {
   logout: async () => {},
 };
 
-function renderTitleDetail(search = '', catalogReturnTo?: string) {
+function renderTitleDetail(search = '', catalogReturnTo?: string, section?: string) {
   return render(
     <Routes>
       <Route
-        path="/titles/:titleId"
+        path="/titles/:titleId/:section?"
         element={
           <>
             <TitleDetail />
@@ -324,7 +361,7 @@ function renderTitleDetail(search = '', catalogReturnTo?: string) {
       routerOptions: {
         initialEntries: [
           {
-            pathname: '/titles/title-1',
+            pathname: section ? `/titles/title-1/${section}` : '/titles/title-1',
             search,
             state: {
               catalogReturnTo,
@@ -343,6 +380,21 @@ describe('TitleDetail', () => {
       data: title,
       error: undefined,
     });
+    vi.mocked(getTitleArtwork).mockResolvedValue({
+      data: {
+        revision: 'artwork-revision',
+        roles: [],
+      },
+      error: undefined,
+    } as Awaited<ReturnType<typeof getTitleArtwork>>);
+    vi.mocked(listArtworkProviders).mockResolvedValue({
+      data: [],
+      error: undefined,
+    } as Awaited<ReturnType<typeof listArtworkProviders>>);
+    vi.mocked(listTitleArtworkAssets).mockResolvedValue({
+      data: finalPage([]),
+      error: undefined,
+    } as Awaited<ReturnType<typeof listTitleArtworkAssets>>);
     mockGetCatalogFilters.mockResolvedValue({
       data: {
         genres: [
@@ -386,6 +438,9 @@ describe('TitleDetail', () => {
           name: 'No-Intro SNES',
           status: 'Active',
           entryCount: 1,
+          datId: 'dat-1',
+          systemKey: 'plat-1',
+          hasActiveDefinition: true,
         },
       ]),
       error: undefined,
@@ -395,14 +450,6 @@ describe('TitleDetail', () => {
       data: assessment,
       error: undefined,
     } as Awaited<ReturnType<typeof getTitleEnrichmentAssessment>>);
-    mockReplaceTitleContentRating.mockResolvedValue({
-      data: title,
-      error: undefined,
-    });
-    mockDeleteTitleContentRating.mockResolvedValue({
-      data: title,
-      error: undefined,
-    });
     mockUpdateTitle.mockResolvedValue({
       data: title,
       error: undefined,
@@ -455,103 +502,103 @@ describe('TitleDetail', () => {
     vi.resetAllMocks();
   });
 
-  it('defaults to Metadata with enrichment details confined to their tab', async () => {
+  it('opens Metadata at the canonical title URL', async () => {
     renderTitleDetail();
-
     expect(
       await screen.findByRole('heading', {
         name: 'Super Mario World',
       }),
     ).toBeInTheDocument();
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata');
+    expect(titleSection('Metadata')).toHaveAttribute('aria-current', 'page');
     expect(
-      screen.getByRole('tab', {
-        name: 'Metadata',
-      }),
-    ).toHaveAttribute('aria-selected', 'true');
-    expect(
-      screen.getByRole('tab', {
-        name: /Enrichment/,
+      screen.getByRole('complementary', {
+        name: 'Title status',
       }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', {
-        name: 'Open enrichment workspace',
+      await screen.findByRole('textbox', {
+        name: 'Description',
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveValue(title.description);
     expect(
-      screen.queryByRole('tab', {
-        name: 'Curation',
+      screen.queryByRole('dialog', {
+        name: 'Change provider match',
       }),
-    ).not.toBeInTheDocument();
-    expect(
-      await screen.findByRole('button', {
-        name: /genre: rpg/i,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Provider matches')).not.toBeInTheDocument();
-    expect(listTitleProviderMatches).not.toHaveBeenCalled();
+    ).toBeNull();
   });
 
-  it('keeps the banner stable and preserves the catalog return URL across sections', async () => {
+  it('preserves the hero and Catalog return URL across sections and browser history', async () => {
     const user = userEvent.setup();
-    renderTitleDetail('', '/catalog?q=mario&system=snes');
+    const catalogReturn = '/catalog?q=mario&system=snes&title=title-1';
+    renderTitleDetail('', catalogReturn);
     const hero = await screen.findByTestId('title-header');
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'View enrichment details',
-      }),
-    );
-    expect(
-      screen.getByRole('tab', {
-        name: /Enrichment/,
-      }),
-    ).toHaveAttribute('aria-selected', 'true');
-    expect(
-      await screen.findByRole('link', {
-        name: 'Open enrichment workspace',
-      }),
-    ).toHaveAttribute('href', '/enrichment?title=title-1');
-    for (const name of [
-      'Artwork',
-      'Releases 1',
-      'Ratings 1',
-      'Metadata',
+    for (const [name, path] of [
+      [
+        'Artwork',
+        'artwork',
+      ],
+      [
+        'Releases 1',
+        'releases',
+      ],
+      [
+        'Ratings 1',
+        'ratings',
+      ],
+      [
+        'Metadata',
+        'metadata',
+      ],
     ]) {
-      await user.click(
-        screen.getByRole('tab', {
-          name,
-        }),
-      );
+      await user.click(titleSection(name));
+      expect(locationProbe()).toHaveTextContent(`/titles/title-1/${path}`);
+      expect(titleSection(name)).toHaveAttribute('aria-current', 'page');
       expect(screen.getByTestId('title-header')).toBe(hero);
-      expect(hero).not.toHaveAttribute('data-compact');
       expect(
         screen.getByRole('link', {
           name: 'Catalog',
         }),
-      ).toHaveAttribute('href', '/catalog?q=mario&system=snes');
+      ).toHaveAttribute('href', catalogReturn);
       expect(
-        screen.queryByRole('link', {
-          name: 'Open enrichment workspace',
+        screen.getByRole('complementary', {
+          name: 'Title status',
         }),
-      ).not.toBeInTheDocument();
+      ).toBeInTheDocument();
     }
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Previous location',
+      }),
+    );
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/ratings');
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Next location',
+      }),
+    );
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata');
   });
 
-  it('shows the current enrichment status chips in the hero', async () => {
-    renderTitleDetail();
-
-    const status = await screen.findByRole('group', {
+  it('shows the current assessment in the status rail', async () => {
+    renderTitleDetail('', undefined, 'artwork');
+    const rail = await screen.findByRole('complementary', {
+      name: 'Title status',
+    });
+    const groups = await within(rail).findAllByRole('group', {
       name: 'Enrichment status',
     });
-    expect(
-      within(status)
-        .getAllByText(/./)
-        .map((chip) => chip.textContent),
-    ).toEqual([
-      'Needs review',
-      'Blocked',
-      'Processing',
-    ]);
+    for (const group of groups) {
+      expect(
+        within(group)
+          .getAllByText(/./)
+          .map((chip) => chip.textContent),
+      ).toEqual([
+        'Needs review',
+        'Blocked',
+        'Processing',
+      ]);
+    }
     expect(getTitleEnrichmentAssessment).toHaveBeenCalledWith(
       expect.objectContaining({
         path: {
@@ -561,16 +608,13 @@ describe('TitleDetail', () => {
     );
   });
 
-  it('opens provider matches from the Match tab link', async () => {
+  it('opens the match picker from the legacy match link', async () => {
     renderTitleDetail('?tab=match');
-
-    expect(
-      await screen.findByRole('tab', {
-        name: /Enrichment/,
-      }),
-    ).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText('Provider matches')).toBeInTheDocument();
-    expect(await screen.findByText('#12345')).toBeInTheDocument();
+    const picker = await screen.findByRole('dialog', {
+      name: 'Change provider match',
+    });
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata?match=1');
+    expect(await within(picker).findByText('#12345')).toBeInTheDocument();
   });
 
   it.each([
@@ -590,172 +634,155 @@ describe('TitleDetail', () => {
       'ratings',
       'Ratings 1',
     ],
-  ])('keeps the ?tab=%s link working', async (tab, label) => {
-    renderTitleDetail(`?tab=${tab}`);
-
+  ])('normalizes the old tab link for %s', async (section, label) => {
+    renderTitleDetail(`?tab=${section}`);
     expect(
-      await screen.findByRole('tab', {
-        name: label,
-      }),
-    ).toHaveAttribute('aria-selected', 'true');
-  });
-
-  it('rewrites old tab links to the editor param, preserving other params', async () => {
-    renderTitleDetail('?tab=releases&release=game-1');
-
-    expect(
-      await screen.findByRole('tab', {
-        name: 'Releases 1',
-      }),
-    ).toHaveAttribute('aria-selected', 'true');
-    expect(
-      screen.getByRole('status', {
-        name: 'Location',
-      }),
-    ).toHaveTextContent('?release=game-1&editor=releases');
-  });
-
-  it('shows status chips in the compact artwork header', async () => {
-    renderTitleDetail('?editor=artwork');
-
-    expect(
-      await screen.findByRole('tab', {
-        name: 'Artwork',
-      }),
-    ).toHaveAttribute('aria-selected', 'true');
-    const status = await screen.findByRole('group', {
-      name: 'Enrichment status',
-    });
-    expect(
-      within(status)
-        .getAllByText(/./)
-        .map((chip) => chip.textContent),
-    ).toEqual([
-      'Needs review',
-      'Blocked',
-      'Processing',
-    ]);
-  });
-
-  it('falls back to Metadata for unknown tabs', async () => {
-    renderTitleDetail('?tab=bogus');
-
-    expect(
-      await screen.findByRole('tab', {
-        name: 'Metadata',
-      }),
-    ).toHaveAttribute('aria-selected', 'true');
-    expect(
-      await screen.findByRole('button', {
-        name: /genre: rpg/i,
+      await screen.findByRole('heading', {
+        name: 'Super Mario World',
       }),
     ).toBeInTheDocument();
+    expect(locationProbe()).toHaveTextContent(`/titles/title-1/${section}`);
+    expect(locationProbe().textContent).not.toContain('?tab=');
+    expect(titleSection(label)).toHaveAttribute('aria-current', 'page');
   });
 
-  it('hides the Match tab from roles that cannot manage titles', async () => {
+  it.each([
+    [
+      'metadata',
+      'Metadata',
+    ],
+    [
+      'artwork',
+      'Artwork',
+    ],
+    [
+      'releases',
+      'Releases 1',
+    ],
+    [
+      'ratings',
+      'Ratings 1',
+    ],
+  ])('normalizes the old editor link for %s', async (section, label) => {
+    renderTitleDetail(`?editor=${section}`);
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Super Mario World',
+      }),
+    ).toBeInTheDocument();
+    expect(locationProbe()).toHaveTextContent(`/titles/title-1/${section}`);
+    expect(locationProbe().textContent).not.toContain('?editor=');
+    expect(titleSection(label)).toHaveAttribute('aria-current', 'page');
+  });
+
+  it.each([
+    [
+      '?tab=releases&release=game-1',
+    ],
+    [
+      '?editor=releases&release=game-1',
+    ],
+  ])('preserves the release inspector selection when redirecting %s', async (search) => {
+    renderTitleDetail(search);
+    expect(
+      await screen.findByRole('complementary', {
+        name: 'Super Mario World (USA)',
+      }),
+    ).toBeInTheDocument();
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/releases?release=game-1');
+    expect(titleSection('Releases 1')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens role review from a legacy Artwork link', async () => {
+    renderTitleDetail('?editor=artwork&role=Logo');
+    const editor = await screen.findByRole('complementary', {
+      name: 'Logo artwork',
+    });
+    expect(editor).toBeInTheDocument();
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/artwork?role=Logo');
+    expect(titleSection('Artwork')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('redirects the old Discs path to the Releases disc-sets anchor', async () => {
+    renderTitleDetail('', undefined, 'discs');
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Super Mario World',
+      }),
+    ).toBeInTheDocument();
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/releases#disc-sets');
+    expect(titleSection('Releases 1')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('opens the status rail from the legacy Enrichment link', async () => {
+    renderTitleDetail('?editor=enrichment');
+    expect(
+      await screen.findByRole('button', {
+        name: 'Change match',
+      }),
+    ).toBeInTheDocument();
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata#title-status');
+    expect(titleSection('Metadata')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('focuses the field and highlights its requirement on a Catalog deep link', async () => {
+    vi.mocked(getTitleEnrichmentAssessment).mockResolvedValue({
+      data: {
+        ...assessment,
+        requirements: [
+          unsatisfied('Metadata:Genre', 'NeedsReview', 'ProviderSuppressed', [
+            'ReviewMetadata',
+          ]),
+        ],
+      },
+      error: undefined,
+    } as Awaited<ReturnType<typeof getTitleEnrichmentAssessment>>);
+    renderTitleDetail('?requirement=Metadata%3AGenre', undefined, 'metadata');
+
+    const rail = await screen.findByRole('complementary', {
+      name: 'Title status',
+    });
+    const requirement = await within(rail).findByRole('link', {
+      name: 'Genre',
+    });
+    expect(requirement.closest('li')).toHaveAttribute('data-current', 'true');
+    expect(await screen.findByLabelText('Genre')).toHaveFocus();
+  });
+
+  it('falls back to Metadata for an unknown section', async () => {
+    renderTitleDetail('', undefined, 'bogus');
+    expect(
+      await screen.findByRole('textbox', {
+        name: 'Description',
+      }),
+    ).toHaveValue(title.description);
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata');
+    expect(titleSection('Metadata')).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('withholds the match picker and assessment query from read-only users', async () => {
     permissions.canManageTitles = false;
     renderTitleDetail('?tab=match');
-
     expect(
-      await screen.findByRole('tab', {
-        name: 'Metadata',
+      await screen.findByRole('heading', {
+        name: 'Super Mario World',
       }),
-    ).toHaveAttribute('aria-selected', 'true');
+    ).toBeInTheDocument();
+    expect(titleSection('Metadata')).toHaveAttribute('aria-current', 'page');
     expect(
-      screen.queryByRole('tab', {
-        name: 'Match',
+      screen.queryByRole('dialog', {
+        name: 'Change provider match',
       }),
-    ).not.toBeInTheDocument();
-    expect(listTitleProviderMatches).not.toHaveBeenCalled();
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Change match',
+      }),
+    ).toBeNull();
     expect(getTitleEnrichmentAssessment).not.toHaveBeenCalled();
   });
 
-  it('stages source selection until Save changes', async () => {
-    const user = userEvent.setup();
-    renderTitleDetail();
-    await user.click(
-      await screen.findByRole('button', {
-        name: /genre: rpg/i,
-      }),
-    );
-    await user.click(
-      await screen.findByRole('radio', {
-        name: 'Choose source',
-      }),
-    );
-    await user.click(
-      await screen.findByRole('radio', {
-        name: 'Select IGDB for Genre',
-      }),
-    );
-    expect(mockUpdateTitleEnrichment).not.toHaveBeenCalled();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save changes',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateTitleEnrichment).toHaveBeenCalledWith({
-        path: {
-          titleId: 'title-1',
-        },
-        headers: {
-          'If-Match': '"title-revision-1"',
-        },
-        body: {
-          overrides: {
-            Genre: 'igdb',
-          },
-        },
-      }),
-    );
-  });
-
-  it('discards draft changes only after confirming cancellation', async () => {
-    const user = userEvent.setup();
-    renderTitleDetail();
-    await user.click(
-      await screen.findByRole('button', {
-        name: /genre: rpg/i,
-      }),
-    );
-    await user.click(
-      await screen.findByRole('radio', {
-        name: 'Custom',
-        exact: true,
-      }),
-    );
-    fireEvent.change(screen.getByLabelText('Genre user override'), {
-      target: {
-        value: 'Action',
-      },
-    });
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Cancel',
-      }),
-    );
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'Discard',
-      }),
-    );
-    expect(mockUpdateTitle).not.toHaveBeenCalled();
-    expect(mockUpdateTitleEnrichment).not.toHaveBeenCalled();
-    await user.click(
-      await screen.findByRole('button', {
-        name: /genre: rpg/i,
-      }),
-    );
-    expect(
-      await screen.findByRole('radio', {
-        name: 'Automatic',
-        exact: true,
-      }),
-    ).toBeChecked();
-  });
-
-  it('saves a custom value as a patch of that field alone', async () => {
+  it('clears a locked source and chains its accepted revision when writing the edited field alone', async () => {
     const user = userEvent.setup();
     mockGetTitleEnrichmentState.mockResolvedValue({
       data: {
@@ -773,23 +800,6 @@ describe('TitleDetail', () => {
       },
       error: undefined,
     });
-    renderTitleDetail();
-    await user.click(
-      await screen.findByRole('button', {
-        name: /genre: rpg/i,
-      }),
-    );
-    await user.click(
-      await screen.findByRole('radio', {
-        name: 'Custom',
-        exact: true,
-      }),
-    );
-    fireEvent.change(screen.getByLabelText('Genre user override'), {
-      target: {
-        value: 'Action',
-      },
-    });
     mockUpdateTitleEnrichment.mockResolvedValueOnce({
       data: {
         ...title,
@@ -798,12 +808,23 @@ describe('TitleDetail', () => {
       error: undefined,
       response: new Response(),
     });
+    renderTitleDetail();
+    await screen.findByRole('button', {
+      name: 'Genre source: IGDB · Locked',
+    });
+    await user.click(screen.getByLabelText('Genre'));
+    await user.click(
+      await screen.findByRole('option', {
+        name: /^Action\b/,
+      }),
+    );
     expect(mockUpdateTitle).not.toHaveBeenCalled();
     await user.click(
       screen.getByRole('button', {
         name: 'Save changes',
       }),
     );
+
     await waitFor(() =>
       expect(mockUpdateTitle).toHaveBeenCalledWith({
         path: {
@@ -817,7 +838,6 @@ describe('TitleDetail', () => {
         },
       }),
     );
-    // The save's first write sends the revision the draft started from; the second chains that write's ETag.
     expect(mockUpdateTitleEnrichment).toHaveBeenCalledWith({
       path: {
         titleId: 'title-1',
@@ -833,72 +853,7 @@ describe('TitleDetail', () => {
     });
   });
 
-  it('returns to automatic only after saving', async () => {
-    const user = userEvent.setup();
-    mockGetTitleEnrichmentState.mockResolvedValue({
-      data: {
-        ...enrichmentState,
-        fieldSourceOverrides: {
-          Genre: 'igdb',
-        },
-        layers: [
-          {
-            ...userLayer,
-            genre: 'Action',
-            publisher: 'My publisher',
-          },
-          igdbLayer,
-        ],
-      },
-      error: undefined,
-    });
-    renderTitleDetail();
-    await user.click(
-      await screen.findByRole('button', {
-        name: /genre: rpg/i,
-      }),
-    );
-    await user.click(
-      await screen.findByRole('radio', {
-        name: 'Automatic',
-        exact: true,
-      }),
-    );
-    expect(mockUpdateTitleEnrichment).not.toHaveBeenCalled();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save changes',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateTitleEnrichment).toHaveBeenCalledWith({
-        path: {
-          titleId: 'title-1',
-        },
-        headers: {
-          'If-Match': '"title-revision-1"',
-        },
-        body: {
-          overrides: {
-            Genre: '',
-          },
-        },
-      }),
-    );
-    expect(mockUpdateTitle).toHaveBeenCalledWith({
-      path: {
-        titleId: 'title-1',
-      },
-      headers: {
-        'If-Match': '"title-revision-1"',
-      },
-      body: {
-        genre: null,
-      },
-    });
-  });
-
-  it('keeps the draft open when saving fails', async () => {
+  it('preserves a staged source when its save fails', async () => {
     const user = userEvent.setup();
     mockUpdateTitleEnrichment.mockResolvedValueOnce({
       error: {
@@ -909,116 +864,55 @@ describe('TitleDetail', () => {
       }),
     });
     renderTitleDetail();
+
     await user.click(
       await screen.findByRole('button', {
-        name: /genre: rpg/i,
+        name: 'Genre source: IGDB',
       }),
     );
     await user.click(
-      await screen.findByRole('radio', {
-        name: 'Choose source',
-      }),
-    );
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save changes',
-      }),
-    );
-    expect(await screen.findByText(/Could not finish saving/)).toBeInTheDocument();
-    expect(
       screen.getByRole('radio', {
-        name: 'Select IGDB for Genre',
+        name: 'Use IGDB',
       }),
-    ).toHaveAttribute('aria-checked', 'true');
+    );
+    await user.keyboard('{Escape}');
+    const save = screen.getByRole('button', {
+      name: 'Save changes',
+    });
+    await user.click(save);
+
+    expect(await screen.findByText('Could not save your draft. Try again.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'Genre source: IGDB · Locked',
+      }),
+    ).toBeInTheDocument();
+    expect(save).toBeEnabled();
   });
 
-  it('preserves explicit choices when applying a provider', async () => {
+  it('routes the hero name action to the focused Metadata field and patches the name alone', async () => {
     const user = userEvent.setup();
-    mockGetTitleEnrichmentState.mockResolvedValue({
-      data: {
-        ...enrichmentState,
-        layers: [
-          {
-            ...userLayer,
-            genre: 'Action',
-          },
-          igdbLayer,
-        ],
-        fieldSourceOverrides: {
-          Rating: 'igdb',
-        },
-      },
-      error: undefined,
-    });
-    renderTitleDetail();
+    renderTitleDetail('', undefined, 'artwork');
     await user.click(
-      await screen.findByRole('button', {
-        name: 'Metadata actions',
-      }),
-    );
-    await user.click(
-      await screen.findByRole('menuitem', {
-        name: 'Apply from provider',
-      }),
-    );
-    expect(await screen.findAllByText('Keep existing')).toHaveLength(2);
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'Apply to 5 fields',
-      }),
-    );
-    await waitFor(() =>
-      expect(mockUpdateTitleEnrichment).toHaveBeenCalledWith({
-        path: {
-          titleId: 'title-1',
-        },
-        headers: {
-          'If-Match': '"title-revision-1"',
-        },
-        body: {
-          overrides: {
-            Description: 'igdb',
-            ReleaseDate: 'igdb',
-            Publisher: 'igdb',
-            Developer: 'igdb',
-            Players: 'igdb',
-          },
-        },
-      }),
-    );
-  });
-
-  it('renames a title with a patch of the name alone', async () => {
-    const user = userEvent.setup();
-    mockGetTitleEnrichmentState.mockResolvedValue({
-      data: {
-        ...enrichmentState,
-        layers: [
-          {
-            ...userLayer,
-            genre: 'Action',
-            rating: 88,
-          },
-          igdbLayer,
-        ],
-      },
-      error: undefined,
-    });
-    renderTitleDetail();
-    await user.click(
-      await screen.findByRole('button', {
+      await screen.findByRole('link', {
         name: 'Edit title name',
       }),
     );
-    await user.clear(await screen.findByLabelText('Title name'));
-    await user.type(screen.getByLabelText('Title name'), 'Mario World');
+    expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata?field=Name');
+
+    const name = await screen.findByRole('textbox', {
+      name: 'Title name',
+    });
+    expect(name).toHaveFocus();
+    await user.clear(name);
+    await user.type(name, 'Mario World');
     await user.click(
       screen.getByRole('button', {
         name: 'Save changes',
       }),
     );
 
-    await waitFor(() => {
+    await waitFor(() =>
       expect(mockUpdateTitle).toHaveBeenCalledWith({
         path: {
           titleId: 'title-1',
@@ -1029,27 +923,28 @@ describe('TitleDetail', () => {
         body: {
           name: 'Mario World',
         },
-      });
-    });
-  });
-
-  it('confirms external IDs from the Match tab', async () => {
-    const user = userEvent.setup();
-    renderTitleDetail();
-
-    await user.click(
-      await screen.findByRole('tab', {
-        name: /Enrichment/,
       }),
     );
-    await screen.findByText('Provider matches');
+  });
+
+  it('confirms an external ID from Change match in the status rail', async () => {
+    const user = userEvent.setup();
+    renderTitleDetail('?editor=enrichment');
     await user.click(
       await screen.findByRole('button', {
+        name: 'Change match',
+      }),
+    );
+    const picker = await screen.findByRole('dialog', {
+      name: 'Change provider match',
+    });
+    await user.click(
+      await within(picker).findByRole('button', {
         name: 'Confirm match',
       }),
     );
 
-    await waitFor(() => {
+    await waitFor(() =>
       expect(confirmTitleProviderMatch).toHaveBeenCalledWith({
         path: {
           titleId: 'title-1',
@@ -1058,139 +953,69 @@ describe('TitleDetail', () => {
         headers: {
           'If-Match': '"revision"',
         },
-      });
+      }),
+    );
+  });
+
+  it('loads active rating categories from the published catalog in age order', async () => {
+    const user = userEvent.setup();
+    renderTitleDetail('', undefined, 'ratings');
+    const table = await screen.findByRole('table', {
+      name: 'Age ratings',
     });
-  });
-
-  it('shows per-board content ratings with provenance on the Ratings tab', async () => {
-    const user = userEvent.setup();
-    renderTitleDetail();
-
+    expect(within(table).getByText('All ages')).toBeInTheDocument();
     await user.click(
-      await screen.findByRole('tab', {
-        name: /Ratings/,
+      within(table).getByRole('button', {
+        name: 'ESRB rating',
       }),
     );
-
-    // Effective ESRB rating with its source and classification.
-    expect(await screen.findByText('All ages')).toBeInTheDocument();
-    // Official mark rendered via the icon registry (hero strip + panel summary row).
-    expect(screen.getAllByAltText('ESRB Everyone').length).toBeGreaterThan(0);
-    // The board catalog loads independently of the title's effective ratings.
-    expect(await screen.findByLabelText('ESRB user override')).toHaveValue('');
-    // A board with no rating is still listed for managers so it can be set.
-    expect(screen.getByLabelText('PEGI user override')).toBeInTheDocument();
-  });
-
-  it('offers each board its catalog categories youngest first, pending last and retired hidden', async () => {
-    const user = userEvent.setup();
-    renderTitleDetail();
-
-    await user.click(
-      await screen.findByRole('tab', {
-        name: /Ratings/,
-      }),
-    );
-
-    const options = (label: string) =>
-      within(screen.getByLabelText(label))
+    const editor = await screen.findByRole('complementary', {
+      name: 'ESRB rating',
+    });
+    const optionValues = (select: HTMLElement) =>
+      within(select)
         .getAllByRole('option')
         .map((option) => option.getAttribute('value'));
-    await waitFor(() =>
-      expect(options('ESRB user override')).toEqual([
-        '',
-        'E',
-        'E10+',
-        'T',
-        'M',
-        'RP',
-      ]),
+    expect(
+      optionValues(
+        await within(editor).findByRole('combobox', {
+          name: 'Age rating',
+        }),
+      ),
+    ).toEqual([
+      '',
+      'E',
+      'E10+',
+      'T',
+      'M',
+      'RP',
+    ]);
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Add rating',
+      }),
     );
-    expect(options('PEGI user override')).toEqual([
+    const add = await screen.findByRole('complementary', {
+      name: 'Add age rating',
+    });
+    await user.selectOptions(
+      within(add).getByRole('combobox', {
+        name: 'Rating board',
+      }),
+      'Pegi',
+    );
+    expect(
+      optionValues(
+        within(add).getByRole('combobox', {
+          name: 'Age rating',
+        }),
+      ),
+    ).toEqual([
       '',
       'PEGI 3',
       'PEGI 12',
     ]);
-  });
-
-  it('saves a user content rating override from the Ratings tab', async () => {
-    const user = userEvent.setup();
-    renderTitleDetail();
-
-    await user.click(
-      await screen.findByRole('tab', {
-        name: /Ratings/,
-      }),
-    );
-    fireEvent.change(await screen.findByLabelText('ESRB user override'), {
-      target: {
-        value: 'E10+',
-      },
-    });
-
-    await waitFor(() => {
-      expect(mockReplaceTitleContentRating).toHaveBeenCalledWith({
-        path: {
-          titleId: 'title-1',
-          board: 'Esrb',
-        },
-        headers: {
-          'If-Match': '"title-revision-1"',
-        },
-        body: {
-          code: 'E10+',
-        },
-      });
-    });
-  });
-
-  it('clears a user content rating override from the Ratings tab', async () => {
-    const user = userEvent.setup();
-    mockGetTitle.mockResolvedValue({
-      data: {
-        ...title,
-        contentRatings: [
-          {
-            board: 'Esrb',
-            code: 'E10+',
-            designation: 'Rated',
-            minimumAge: '10',
-            sourceId: 'user',
-            externalRatingId: null,
-            descriptors: [],
-            synopsis: null,
-          },
-        ],
-      },
-      error: undefined,
-    });
-    renderTitleDetail();
-
-    await user.click(
-      await screen.findByRole('tab', {
-        name: /Ratings/,
-      }),
-    );
-    const select = await screen.findByLabelText('ESRB user override');
-    expect(select).toHaveValue('E10+');
-
-    fireEvent.change(select, {
-      target: {
-        value: '',
-      },
-    });
-
-    await waitFor(() => {
-      expect(mockDeleteTitleContentRating).toHaveBeenCalledWith({
-        path: {
-          titleId: 'title-1',
-          board: 'Esrb',
-        },
-        headers: {
-          'If-Match': '"title-revision-1"',
-        },
-      });
-    });
   });
 
   it('tracks an untracked title from the hero toggle', async () => {
@@ -1251,37 +1076,48 @@ describe('TitleDetail', () => {
     });
   });
 
-  it('shows backing sources within the Releases workspace', async () => {
-    const user = userEvent.setup();
+  it('shows backing catalog sources and linked provider IDs in Metadata', async () => {
+    vi.mocked(listTitleProviderMatches).mockResolvedValue({
+      data: [
+        {
+          providerId: 'igdb',
+          providerName: 'IGDB',
+          isAvailable: true,
+          capabilities: [
+            'metadata',
+          ],
+          revision: 'revision',
+          state: 'AutoMatched',
+          externalId: '12345',
+          metadataNeedsRefresh: false,
+          game: {
+            id: '12345',
+            name: 'Super Mario World',
+            url: 'https://www.igdb.com/games/super-mario-world',
+          },
+        },
+      ],
+      error: undefined,
+    } as Awaited<ReturnType<typeof listTitleProviderMatches>>);
     renderTitleDetail();
 
-    await screen.findByRole('heading', {
-      name: 'Super Mario World',
-    });
-
-    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual([
-      'Metadata',
-      'Artwork',
-      'Releases1',
-      'Discs',
-      'Ratings1',
-      'Enrichment',
-    ]);
-
-    await user.click(
-      screen.getByRole('tab', {
-        name: 'Releases 1',
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Identifiers and sources',
       }),
-    );
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'Sources (1)',
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('link', {
+        name: 'No-Intro SNES',
       }),
-    );
-
-    expect(await screen.findByText('No-Intro SNES')).toBeInTheDocument();
+    ).toHaveAttribute('href', '/systems/plat-1?dat=dat-1&sourceTitle=title-1');
     expect(screen.getByText('1 entries')).toBeInTheDocument();
+    expect(screen.getByText('Unconfirmed')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('link', {
+        name: /Open IGDB ID 12345/,
+      }),
+    ).toHaveAttribute('href', 'https://www.igdb.com/games/super-mario-world');
     expect(mockGetTitleSourceReferences).toHaveBeenCalledWith({
       path: {
         titleId: 'title-1',

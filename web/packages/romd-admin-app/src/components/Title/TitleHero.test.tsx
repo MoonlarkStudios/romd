@@ -1,14 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { MantineProvider } from '@mantine/core';
-import type { ArchiveFormat, EnrichmentAssessment, TitleDetail } from '@romd/admin-api-client';
+import type { ArchiveFormat } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { enrichmentWorkspaceKeys } from '../../hooks/api/enrichmentWorkspaceCache';
+import type { TitleDetailView } from '../../hooks/api/useTitleDetail';
 import { finalPage } from '../../test/workspacePages';
-import classes from './TitleDetail.module.css';
 import { TitleHero } from './TitleHero';
 
 const permissions = vi.hoisted(() => ({
@@ -21,7 +19,6 @@ vi.mock('../../hooks/usePermissions', () => ({
 vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   getAdminSystem: vi.fn(),
-  getTitleEnrichmentAssessment: vi.fn(),
   listTitleSourceReferences: vi.fn(),
   createDownloadTicket: vi.fn(),
 }));
@@ -32,18 +29,14 @@ vi.mock('@romd/delivery', () => ({
 import {
   createDownloadTicket,
   getAdminSystem,
-  getTitleEnrichmentAssessment,
   listTitleSourceReferences,
 } from '@romd/admin-api-client';
 import { startBrowserDownload } from '@romd/delivery';
 
-type AssessmentResult = Awaited<ReturnType<typeof getTitleEnrichmentAssessment>>;
-type Flags = Pick<
-  EnrichmentAssessment,
-  'needsReview' | 'hasOperationalBlocker' | 'hasActiveWork' | 'canEnrichAutomatically'
->;
-
-const title: TitleDetail = {
+const title: TitleDetailView = {
+  revision: 'title-1',
+  releases: [],
+  media: [],
   id: 'chrono',
   systemKey: 'snes',
   name: 'Chrono Trigger',
@@ -64,40 +57,20 @@ const chd: ArchiveFormat = {
   label: 'CHD',
 };
 /** A title with a complete release, offering the archive formats the server lists. */
-const ownedTitle = (archiveFormats: ArchiveFormat[]) => ({
+const ownedTitle = (archiveFormats: ArchiveFormat[]): TitleDetailView => ({
   ...title,
   archiveFormats,
   releases: [
     {
       id: 'release',
+      datId: 'catalog',
+      name: 'Chrono Trigger',
+      sources: [],
       isComplete: true,
     },
   ],
 });
-const noFlags: Flags = {
-  needsReview: false,
-  hasOperationalBlocker: false,
-  hasActiveWork: false,
-  canEnrichAutomatically: false,
-};
-const assessment = (flags: Partial<Flags>): EnrichmentAssessment => ({
-  titleId: 'chrono',
-  titleName: 'Chrono Trigger',
-  platformName: 'Super Nintendo',
-  revision: 'revision',
-  ...noFlags,
-  ...flags,
-  requirements: [],
-  acceptedOmissions: [],
-});
-const resolved = (data: EnrichmentAssessment) =>
-  ({
-    data,
-    error: undefined,
-    response: new Response(),
-  }) as AssessmentResult;
-
-function renderHero(props: { compact?: boolean; title?: TitleDetail } = {}) {
+function renderHero(props: { title?: TitleDetailView } = {}) {
   const client = new QueryClient({
     defaultOptions: {
       queries: {
@@ -122,16 +95,7 @@ function renderHero(props: { compact?: boolean; title?: TitleDetail } = {}) {
   return client;
 }
 
-const chipLabels = async () =>
-  within(
-    await screen.findByRole('group', {
-      name: 'Enrichment status',
-    }),
-  )
-    .getAllByText(/./)
-    .map((chip) => chip.textContent);
-
-describe('TitleHero status chips', () => {
+describe('Title hero', () => {
   beforeEach(() => {
     permissions.canManageTitles = true;
     vi.mocked(getAdminSystem).mockResolvedValue({
@@ -146,204 +110,35 @@ describe('TitleHero status chips', () => {
       error: undefined,
       response: new Response(),
     } as Awaited<ReturnType<typeof listTitleSourceReferences>>);
-    vi.mocked(getTitleEnrichmentAssessment).mockReset();
   });
 
-  it.each<
-    [
-      string,
-      Partial<Flags>,
-      string[],
-    ]
-  >([
-    [
-      'scenario 8.1 mixed states',
-      {
-        needsReview: true,
-        hasOperationalBlocker: true,
-        hasActiveWork: true,
-      },
-      [
-        'Needs review',
-        'Blocked',
-        'Processing',
-      ],
-    ],
-    [
-      'every flag',
-      {
-        needsReview: true,
-        hasOperationalBlocker: true,
-        hasActiveWork: true,
-        canEnrichAutomatically: true,
-      },
-      [
-        'Needs review',
-        'Blocked',
-        'Processing',
-        'Automatic',
-      ],
-    ],
-    [
-      'blocked with automatic work',
-      {
-        canEnrichAutomatically: true,
-        hasOperationalBlocker: true,
-      },
-      [
-        'Blocked',
-        'Automatic',
-      ],
-    ],
-    [
-      'needs review only',
-      {
-        needsReview: true,
-      },
-      [
-        'Needs review',
-      ],
-    ],
-    [
-      'blocked only',
-      {
-        hasOperationalBlocker: true,
-      },
-      [
-        'Blocked',
-      ],
-    ],
-    [
-      'processing only',
-      {
-        hasActiveWork: true,
-      },
-      [
-        'Processing',
-      ],
-    ],
-    [
-      'automatic only',
-      {
-        canEnrichAutomatically: true,
-      },
-      [
-        'Automatic',
-      ],
-    ],
-    [
-      'scenario 8.2 only optional assets missing',
-      {},
-      [
-        'Settled',
-      ],
-    ],
-  ])('renders %s in the fixed chip order', async (_name, flags, expected) => {
-    vi.mocked(getTitleEnrichmentAssessment).mockResolvedValue(resolved(assessment(flags)));
+  it('shows the title identity and opens the Name field in Metadata', () => {
     renderHero();
-    expect(await chipLabels()).toEqual(expected);
-    expect(getTitleEnrichmentAssessment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        path: {
-          titleId: 'chrono',
-        },
-      }),
-    );
-  });
-
-  it('keeps status visible in the compact header while dropping descriptive details', async () => {
-    vi.mocked(getTitleEnrichmentAssessment).mockResolvedValue(
-      resolved(
-        assessment({
-          needsReview: true,
-        }),
-      ),
-    );
-    renderHero({
-      compact: true,
-    });
-    expect(await chipLabels()).toEqual([
-      'Needs review',
-    ]);
-    expect(screen.queryByText('Role-playing (RPG)')).not.toBeInTheDocument();
-    expect(screen.queryByText('1995')).not.toBeInTheDocument();
-  });
-
-  it('renders no status while the assessment is loading', async () => {
-    vi.mocked(getTitleEnrichmentAssessment).mockReturnValue(
-      new Promise<AssessmentResult>(() => undefined),
-    );
-    const client = renderHero();
     expect(
-      await screen.findByRole('heading', {
+      screen.getByRole('heading', {
         name: 'Chrono Trigger',
       }),
-    ).toBeInTheDocument();
-    await waitFor(() => expect(getTitleEnrichmentAssessment).toHaveBeenCalled());
-    expect(client.getQueryState(enrichmentWorkspaceKeys.title('chrono'))?.status).toBe('pending');
+    ).toBeVisible();
+    expect(screen.getByText('1995')).toBeVisible();
+    expect(screen.getByText('Role-playing (RPG)')).toBeVisible();
     expect(
-      screen.queryByRole('group', {
-        name: 'Enrichment status',
+      screen.getByRole('link', {
+        name: 'Edit title name',
       }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText('Settled')).not.toBeInTheDocument();
+    ).toHaveAttribute('href', '/titles/chrono/metadata?field=Name');
   });
 
-  it('renders no status when the assessment fails to load', async () => {
-    vi.mocked(getTitleEnrichmentAssessment).mockResolvedValue({
-      data: undefined,
-      error: {},
-      response: new Response(null, {
-        status: 500,
-      }),
-    } as AssessmentResult);
-    const client = renderHero();
-    expect(
-      await screen.findByRole('heading', {
-        name: 'Chrono Trigger',
-      }),
-    ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(client.getQueryState(enrichmentWorkspaceKeys.title('chrono'))?.status).toBe('error'),
-    );
-    expect(
-      screen.queryByRole('group', {
-        name: 'Enrichment status',
-      }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText('Settled')).not.toBeInTheDocument();
-  });
-
-  it('adapts to its column through a named container instead of the viewport', async () => {
-    const heroStyles = readFileSync(`${import.meta.dirname}/TitleDetail.module.css`, 'utf8');
-    renderHero();
-    expect(await screen.findByTestId('title-header')).toHaveClass(classes.hero);
-    expect(heroStyles).not.toMatch(/@media/);
-    expect(heroStyles).toMatch(/\.hero \{ container: title-hero \/ inline-size;/);
-    const narrow = heroStyles.slice(
-      heroStyles.indexOf('@container title-hero (max-width: 600px) {'),
-    );
-    for (const selector of [
-      '.identity',
-      '.poster',
-      '.title',
-      '.heroShade',
-    ])
-      expect(narrow).toContain(`${selector} {`);
-  });
-
-  it('does not fetch the Manager-only assessment for other roles', async () => {
+  it('keeps the title identity visible without curation access', () => {
     permissions.canManageTitles = false;
     renderHero();
     expect(
-      await screen.findByRole('heading', {
+      screen.getByRole('heading', {
         name: 'Chrono Trigger',
       }),
-    ).toBeInTheDocument();
-    expect(getTitleEnrichmentAssessment).not.toHaveBeenCalled();
+    ).toBeVisible();
     expect(
-      screen.queryByRole('group', {
-        name: 'Enrichment status',
+      screen.queryByRole('link', {
+        name: 'Edit title name',
       }),
     ).not.toBeInTheDocument();
   });

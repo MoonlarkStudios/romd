@@ -1,22 +1,9 @@
-import {
-  Alert,
-  Anchor,
-  Badge,
-  Button,
-  CloseButton,
-  Group,
-  Skeleton,
-  Stack,
-  Text,
-  UnstyledButton,
-} from '@mantine/core';
+import { Alert, Anchor, Badge, Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
 import type { ArtworkCompletionItem } from '@romd/admin-api-client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router';
-import { invalidateEnrichmentWorkspace } from '../../hooks/api/enrichmentWorkspaceCache';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { enrichmentWorkspaceCountsQuery } from '../../hooks/api/useEnrichmentWorkspace';
-import { useCancelJob } from '../../hooks/api/useJobActions';
 import { useDraftGuard } from '../Administration/DraftGuard';
 import { TitleStatusChips } from '../Title/TitleStatusChips';
 import workspace from '../Workspace/Workspace.module.css';
@@ -30,49 +17,37 @@ import {
   runHeading,
 } from './runPresentation';
 import {
+  type ArtworkRunJob,
   type RunRetryStatus,
   useEnrichmentRun,
   useEnrichmentRunItems,
   useRetryEnrichmentRun,
 } from './useEnrichmentRun';
 
-export interface RunPanelProps {
-  jobId: string;
-  /** The host removes `activity` from the URL. */
-  onDismiss: () => void;
-  /** Opens the title in the workbench; the host keeps `activity`. */
-  onOpenTitle: (titleId: string) => void;
-  /** A retry queued a continuation run; the host points `activity` at it. */
-  onRunChange: (jobId: string) => void;
-}
-
 const completionLabels: Partial<Record<string, string>> = {
   Working: 'In progress',
   Unfinished: 'Unfinished',
 };
 
-function RunItem({
-  item,
-  onOpenTitle,
-}: {
-  item: ArtworkCompletionItem;
-  onOpenTitle: (titleId: string) => void;
-}) {
+function RunItem({ item }: { item: ArtworkCompletionItem }) {
+  const search = new URLSearchParams({
+    view: 'review',
+    title: item.titleId,
+  });
   return (
     <Stack
       gap={4}
       py="xs"
     >
       <Group gap="xs">
-        <UnstyledButton onClick={() => onOpenTitle(item.titleId)}>
-          <Text
-            size="sm"
-            fw={600}
-            c="teal"
-          >
-            {item.titleName}
-          </Text>
-        </UnstyledButton>
+        <Anchor
+          component={Link}
+          to={`/catalog?${search}`}
+          size="sm"
+          fw={600}
+        >
+          {item.titleName}
+        </Anchor>
         {completionLabels[item.completion] && (
           <Badge
             size="xs"
@@ -113,13 +88,7 @@ function RunItem({
   );
 }
 
-function ReviewList({
-  jobId,
-  onOpenTitle,
-}: {
-  jobId: string;
-  onOpenTitle: (titleId: string) => void;
-}) {
+function ReviewList({ jobId }: { jobId: string }) {
   const items = useEnrichmentRunItems(jobId, 'Review');
   if (items.isPending) return <Skeleton height={60} />;
   if (items.isError)
@@ -142,7 +111,6 @@ function ReviewList({
           <RunItem
             key={item.titleId}
             item={item}
-            onOpenTitle={onOpenTitle}
           />
         ))
       ) : (
@@ -169,47 +137,51 @@ function ReviewList({
 }
 
 /** Execution history and current review needs of one run, reported on separate lines. */
-export function RunPanel({ jobId, onDismiss, onOpenTitle, onRunChange }: RunPanelProps) {
-  const cache = useQueryClient();
-  const run = useEnrichmentRun(jobId);
-  // The global link shares the workspace's counts entry but never polls it; counts cost about 1.8 s at 10k titles.
+export function RunPanel({ job }: { job: ArtworkRunJob }) {
+  const jobId = job.id;
+  const { state } = useLocation();
+  const navigate = useNavigate();
+  const run = useEnrichmentRun(job);
+  // Reuse the Catalog queue counts and let the run's cheaper checks poll independently.
   const counts = useQuery({
     ...enrichmentWorkspaceCountsQuery(''),
     staleTime: 60_000,
   });
   const { discardThen } = useDraftGuard();
   const retry = useRetryEnrichmentRun(jobId);
-  const cancel = useCancelJob();
-  const [reviewOpenFor, setReviewOpenFor] = useState<string | null>(null);
-  const reviewOpen = reviewOpenFor === jobId;
-  // An open draft is confirmed before anything is queued; after Discard the run switch navigates once.
-  // Failures are shown from the mutation's own state.
+  const [reviewOpen, setReviewOpen] = useState(false);
   const startRetry = (status: RunRetryStatus) =>
-    void discardThen(async () => onRunChange(await retry.mutateAsync(status))).catch(
-      () => undefined,
-    );
-  const cancelRun = () =>
-    cancel.mutate(jobId, {
-      onSuccess: () => void invalidateEnrichmentWorkspace(cache),
-    });
-  const data = run.data;
-  const active = !!data && isRunActive(data.phase);
+    void discardThen(async () => {
+      const retryId = await retry.mutateAsync(status);
+      navigate(`/jobs/${encodeURIComponent(retryId)}`, {
+        state,
+      });
+    }).catch(() => undefined);
+  const active = isRunActive(job.phase);
+
   return (
     <section
       className={workspace.panel}
       aria-label="Enrichment run"
     >
       <Stack gap="xs">
-        <Group
-          justify="space-between"
-          wrap="nowrap"
+        <Title
+          order={2}
+          className={workspace.sectionHeading}
         >
-          <Text fw={600}>{data ? runHeading(data) : 'This run'}</Text>
-          <CloseButton
-            aria-label="Dismiss run"
-            onClick={onDismiss}
-          />
-        </Group>
+          {runHeading({
+            mode: job.mode,
+            total: Number(job.total ?? 0),
+          })}
+        </Title>
+        <Text size="sm">
+          {executionLine({
+            phase: job.phase,
+            total: Number(job.total ?? 0),
+            processed: Number(job.processed ?? 0),
+            nextAttemptAt: job.nextAttemptAt ?? null,
+          })}
+        </Text>
         {run.isPending ? (
           <Skeleton height={40} />
         ) : run.isError ? (
@@ -224,7 +196,6 @@ export function RunPanel({ jobId, onDismiss, onOpenTitle, onRunChange }: RunPane
           </Alert>
         ) : (
           <>
-            <Text size="sm">{executionLine(run.data)}</Text>
             <Text
               size="sm"
               c="dimmed"
@@ -239,7 +210,7 @@ export function RunPanel({ jobId, onDismiss, onOpenTitle, onRunChange }: RunPane
                     size="xs"
                     variant="light"
                     aria-expanded={reviewOpen}
-                    onClick={() => setReviewOpenFor(reviewOpen ? null : jobId)}
+                    onClick={() => setReviewOpen(!reviewOpen)}
                   >
                     Review {run.data.review.toLocaleString()} in this run
                   </Button>
@@ -268,34 +239,17 @@ export function RunPanel({ jobId, onDismiss, onOpenTitle, onRunChange }: RunPane
                     Retry {run.data.unfinished.toLocaleString()} unfinished
                   </Button>
                 )}
-                {active && (
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    color="red"
-                    loading={cancel.isPending}
-                    onClick={cancelRun}
-                  >
-                    Cancel run
-                  </Button>
-                )}
               </Group>
               <Anchor
                 component={Link}
-                to="/enrichment?view=NeedsReview"
+                to="/catalog?view=review"
                 size="sm"
               >
                 {globalReviewLabel(counts.data?.needsReview)}
               </Anchor>
             </Group>
             {retry.isError && <Alert color="red">{retry.error.message}</Alert>}
-            {cancel.isError && <Alert color="red">Could not cancel this run. Try again.</Alert>}
-            {reviewOpen && run.data.review > 0 && (
-              <ReviewList
-                jobId={jobId}
-                onOpenTitle={onOpenTitle}
-              />
-            )}
+            {reviewOpen && run.data.review > 0 && <ReviewList jobId={jobId} />}
           </>
         )}
       </Stack>

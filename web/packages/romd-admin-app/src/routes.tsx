@@ -2,6 +2,7 @@ import { lazy } from 'react';
 import { Navigate, type RouteObject } from 'react-router';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppLayout } from './components/layout/AppLayout';
+import { LegacyEnrichmentRedirect } from './pages/Catalog/catalogReviewNavigation';
 
 const Account = lazy(() =>
   import('./pages/Account').then((module) => ({
@@ -51,11 +52,6 @@ const DiscLayouts = lazy(() =>
 const Diagnostics = lazy(() =>
   import('./pages/Diagnostics/index').then((module) => ({
     default: module.Diagnostics,
-  })),
-);
-const EnrichmentWorkspace = lazy(() =>
-  import('./pages/Enrichment/EnrichmentWorkspace').then((module) => ({
-    default: module.EnrichmentWorkspace,
   })),
 );
 const Integrations = lazy(() =>
@@ -249,7 +245,7 @@ export const routes: RouteObject[] = [
               'Admin',
             ]}
           >
-            <EnrichmentWorkspace />
+            <LegacyEnrichmentRedirect />
           </ProtectedRoute>
         ),
       },
@@ -262,7 +258,7 @@ export const routes: RouteObject[] = [
               'Admin',
             ]}
           >
-            <EnrichmentWorkspace />
+            <LegacyEnrichmentRedirect />
           </ProtectedRoute>
         ),
       },
@@ -275,7 +271,7 @@ export const routes: RouteObject[] = [
               'Admin',
             ]}
           >
-            <EnrichmentWorkspace />
+            <LegacyEnrichmentRedirect />
           </ProtectedRoute>
         ),
       },
@@ -288,7 +284,7 @@ export const routes: RouteObject[] = [
         element: <CollectionWorkspace />,
       },
       {
-        path: 'titles/:titleId',
+        path: 'titles/:titleId/:section?',
         element: <TitleDetail />,
       },
       {

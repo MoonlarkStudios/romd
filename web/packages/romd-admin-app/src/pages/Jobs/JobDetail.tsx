@@ -12,10 +12,14 @@ import {
   Title,
 } from '@mantine/core';
 import { IconArrowLeft } from '@tabler/icons-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router';
+import { RunPanel } from '../../components/Enrichment/RunPanel';
+import { enrichmentRunKeys } from '../../components/Enrichment/useEnrichmentRun';
 import { JobRow } from '../../components/Jobs/JobRows';
 import { getJobTitle, mediaReconciliationOutcome } from '../../components/Jobs/jobTypeRegistry';
 import workspace from '../../components/Workspace/Workspace.module.css';
+import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useJob } from '../../hooks/api/useJobs';
 import { useJobOperations } from '../../hooks/useJobOperations';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -28,9 +32,18 @@ export function JobDetail() {
       ? location.state.historyUrl
       : '/jobs';
   const query = useJob(jobId);
+  const cache = useQueryClient();
   const operations = useJobOperations();
   const { hasRole } = usePermissions();
   const job = query.data;
+  const run = job?.jobType === 'artwork-completion' && hasRole('Manager') ? job : undefined;
+  const refresh = () => {
+    void query.refetch();
+    if (run)
+      void cache.invalidateQueries({
+        queryKey: enrichmentRunKeys.run(run.id),
+      });
+  };
   return (
     <Stack
       className={workspace.page}
@@ -60,10 +73,10 @@ export function JobDetail() {
           {job ? getJobTitle(job) : 'Job details'}
         </Title>
         <Button
+          {...workspaceActionProps}
           variant="light"
-          color="teal"
           loading={query.isFetching}
-          onClick={() => void query.refetch()}
+          onClick={refresh}
         >
           Refresh
         </Button>
@@ -94,6 +107,12 @@ export function JobDetail() {
               job={job}
               {...operations}
             />
+            {run && (
+              <RunPanel
+                job={run}
+                key={run.id}
+              />
+            )}
             <Stack
               className={workspace.panel}
               gap="sm"
@@ -202,14 +221,6 @@ export function JobDetail() {
                 </Text>
               )}
               <Group>
-                {job.jobType === 'artwork-completion' && (
-                  <Anchor
-                    component={Link}
-                    to={`/enrichment/${job.id}`}
-                  >
-                    Open this run
-                  </Anchor>
-                )}
                 {job.jobType === 'media-reconciliation' && (
                   <Anchor
                     component={Link}

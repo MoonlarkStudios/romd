@@ -65,14 +65,12 @@ export function ReleaseDownloadButton({
     }
   };
   return (
-    <Group
-      gap="xs"
-      wrap="nowrap"
-    >
+    <Group gap="xs">
       {formats.length > 1 && (
         <NativeSelect
           aria-label={`ZIP format for ${name}`}
           size="xs"
+          maw="100%"
           value={format}
           disabled={pending || !available.length || !releaseId}
           onChange={(event) => {
@@ -95,7 +93,7 @@ export function ReleaseDownloadButton({
           <Button
             {...workspaceActionProps}
             size="xs"
-            variant="subtle"
+            variant="filled"
             leftSection={<IconDownload size={14} />}
             aria-label={`${label} for ${name}`}
             disabled={!available.length || !releaseId}

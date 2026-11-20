@@ -1,6 +1,5 @@
 import {
   type ArtworkCompletionSummary,
-  getJob,
   getJobArtworkSummary,
   type Job,
   listJobArtworkItems,
@@ -25,7 +24,7 @@ import { jobKeys } from '../../hooks/api/useJobs';
 import { createRequestId } from '../../utils/requestId';
 import { isRunActive } from './runPresentation';
 
-type ArtworkOperation = Extract<
+export type ArtworkRunJob = Extract<
   Job,
   {
     jobType?: 'artwork-completion';
@@ -34,7 +33,7 @@ type ArtworkOperation = Extract<
 
 /** The UI combines cheap execution state with the separately loaded review summary. */
 export type EnrichmentRun = ArtworkCompletionSummary &
-  Pick<ArtworkOperation, 'phase' | 'mode'> & {
+  Pick<ArtworkRunJob, 'phase' | 'mode'> & {
     jobId: string;
     total: number;
     processed: number;
@@ -99,24 +98,15 @@ async function refreshActiveRun(cache: QueryClient, jobId: string): Promise<void
   );
 }
 
-/** The run's execution and counts; refreshed with its open lists every five seconds while execution is active. */
-export function useEnrichmentRun(jobId: string) {
+/** Execution comes from the host's canonical job; summary facts and open lists refresh on their own cadence. */
+export function useEnrichmentRun(job: ArtworkRunJob) {
   const cache = useQueryClient();
+  const jobId = job.id;
+  const active = isRunActive(job.phase);
+  const previouslyActive = useRef(active);
   const query = useQuery({
     queryKey: enrichmentRunKeys.run(jobId),
     queryFn: async ({ signal }) => {
-      const result = await getJob({
-        path: {
-          jobId,
-        },
-        signal,
-      });
-      if (result.error || !result.data || result.data.jobType !== 'artwork-completion')
-        throw new Error(
-          result.response?.status === 404
-            ? 'This run is no longer available.'
-            : 'Could not load this run.',
-        );
       const summary = await getJobArtworkSummary({
         path: {
           jobId,
@@ -127,22 +117,26 @@ export function useEnrichmentRun(jobId: string) {
         throw new Error(
           summary.response?.status === 404
             ? 'This run is no longer available.'
-            : 'Could not load this run.',
+            : 'Could not load the results for this run.',
         );
-      return {
-        ...summary.data,
-        jobId: result.data.id,
-        phase: result.data.phase,
-        mode: result.data.mode,
-        total: Number(result.data.total ?? 0),
-        processed: Number(result.data.processed ?? 0),
-        nextAttemptAt: result.data.nextAttemptAt ?? null,
-        createdAt: result.data.createdAt ?? null,
-      } satisfies EnrichmentRun;
+      return summary.data;
     },
+    select: (summary): EnrichmentRun => ({
+      ...summary,
+      jobId,
+      phase: job.phase,
+      mode: job.mode,
+      total: Number(job.total ?? 0),
+      processed: Number(job.processed ?? 0),
+      nextAttemptAt: job.nextAttemptAt ?? null,
+      createdAt: job.createdAt ?? null,
+    }),
   });
-  const active = !!query.data && isRunActive(query.data.phase);
+
   useEffect(() => {
+    const finished = previouslyActive.current && !active;
+    previouslyActive.current = active;
+    if (finished) void refreshActiveRun(cache, jobId);
     if (!active) return;
     const timer = setInterval(() => {
       void refreshActiveRun(cache, jobId);
@@ -153,6 +147,7 @@ export function useEnrichmentRun(jobId: string) {
     cache,
     jobId,
   ]);
+
   return query;
 }
 
@@ -212,11 +207,11 @@ export function useRetryEnrichmentRun(jobId: string) {
       requestIds.current.delete(key);
       return result.data.jobId;
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       void cache.invalidateQueries({
         queryKey: jobKeys.all,
       });
-      await invalidateEnrichmentWorkspace(cache);
+      void invalidateEnrichmentWorkspace(cache);
     },
     // A rejected retry means the run's counts are out of date; refresh them so the offered retries match.
     onError: (error) =>

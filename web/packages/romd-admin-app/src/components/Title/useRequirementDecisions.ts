@@ -28,9 +28,8 @@ export type ConfirmedAction = (typeof confirmedActions)[number];
 
 interface Confirmation {
   copy: (row: EnrichmentRequirement) => DecisionConfirmationCopy;
-  /** Called when the confirmation opens, so the revision the write sends is already read when the curator confirms. */
-  prepare?: () => void;
-  apply: (row: EnrichmentRequirement) => Promise<unknown>;
+  /** Capture the revision at opening, even when the curator confirms after a background refresh. */
+  prepare: (row: EnrichmentRequirement) => () => Promise<unknown>;
 }
 
 /**
@@ -64,8 +63,6 @@ export function useRequirementDecisions(assessment: EnrichmentAssessment) {
   // Every artwork decision sends the role revision the title shows, so the decisions observe the roles from
   // mount: they are in the cache before any click, and a title refresh keeps them current.
   useQuery(artworkSelectionsQuery(titleId));
-  // A confirmation reads what an empty cache lacks when it opens, never again when the curator confirms.
-  const prepareMatches = () => void cache.ensureQueryData(providerMatchesQuery(titleId));
   const automatic = useMutation({
     mutationFn: async (role: string) => {
       const selection = await shownRole(role);
@@ -96,39 +93,42 @@ export function useRequirementDecisions(assessment: EnrichmentAssessment) {
   const confirmations: Record<ConfirmedAction, Confirmation> = {
     AcceptOmission: {
       copy: (row) => acceptOmissionConfirmation(row.subject),
-      apply: (row) => setOmission(row.subject, true),
+      prepare: (row) => () => setOmission(row.subject, true),
     },
     ContinueWithoutProvider: {
       copy: (row) => continueWithoutProviderConfirmation(requirementProviderId(row) ?? row.subject),
-      prepare: prepareMatches,
-      apply: async (row) => {
-        // The match as the title's surfaces show it; only an empty cache fetches, since a precondition compared
-        // with a just-fetched revision would hide changes the curator never saw.
-        const match = (await cache.ensureQueryData(providerMatchesQuery(titleId))).find(
-          (item) => item.providerId === requirementProviderId(row),
-        );
-        if (!match?.isAvailable)
-          throw new Error(
-            'This provider is not available. Check provider settings, then try again.',
+      prepare: (row) => {
+        const shown = cache.ensureQueryData(providerMatchesQuery(titleId)).catch(() => undefined);
+        return async () => {
+          const match = (await shown)?.find(
+            (item) => item.providerId === requirementProviderId(row),
           );
-        await providerDecision.mutateAsync({
-          row: match,
-          unlink: true,
-        });
+          if (!match?.isAvailable)
+            throw new Error(
+              'This provider is not available. Check provider settings, then try again.',
+            );
+          await providerDecision.mutateAsync({
+            row: match,
+            unlink: true,
+          });
+        };
       },
     },
     LeaveEmpty: {
       copy: (row) => leaveEmptyConfirmation(row.subject),
-      apply: async ({ subject }) => {
-        const selection = await shownRole(subject);
-        if (!selection || !isArtworkRole(subject))
-          throw new Error(
-            'This artwork role is not available. Refresh the decision, then try again.',
-          );
-        await leaveEmpty.mutateAsync({
-          role: subject,
-          revision: selection.revision,
-        });
+      prepare: ({ subject }) => {
+        const shown = shownRole(subject).catch(() => undefined);
+        return async () => {
+          const selection = await shown;
+          if (!selection || !isArtworkRole(subject))
+            throw new Error(
+              'This artwork role is not available. Refresh the decision, then try again.',
+            );
+          await leaveEmpty.mutateAsync({
+            role: subject,
+            revision: selection.revision,
+          });
+        };
       },
     },
   };

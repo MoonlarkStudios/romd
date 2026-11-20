@@ -23,9 +23,9 @@ untracked before processing are skipped for tracked scopes.
 Recent runs come from `GET /api/jobs?jobType=artwork-completion`. The canonical
 job is cheap; durable result pages use `/api/jobs/{jobId}/artwork-items`, and
 expensive role aggregates use `/api/jobs/{jobId}/artwork-summary`.
-`/enrichment?activity=<id>` opens saved results in another browser; **Jobs → Open
-this run** also links to them. Legacy `/catalog?artworkJob=<id>` links redirect to
-Enrichment. Results support keyset pagination,
+Open the job in Jobs to see its saved results. Legacy
+`/enrichment?activity=<id>`, `/enrichment/<id>`, and
+`/catalog?artworkJob=<id>` links redirect to the job. Results support keyset pagination,
 match/image review, cancellation, and retries. Retrying unresolved titles also
 includes work not reached before cancellation. Retry scopes preserve tracking
 requirements. Confirming a provider match accepts a durable follow-up in the
@@ -152,23 +152,19 @@ remain Admin-only. Consumer/console resolved-artwork contracts are unchanged.
 api clients: admin - completion scopes/history/results and provider identity
 review evidence; generated with `pnpm api:update`. Consumer generation unchanged.
 
-## Permanent enrichment workspace
+## Catalog review queue
 
-`/enrichment` is a standing workspace for tracked titles, independent of any run.
-The default view contains actual decisions: ambiguous provider associations,
-artwork choices, and core metadata that remains absent after discovery. Automatic,
-processing, and blocked views expose the other kinds of outstanding work. A title
-can need a decision while another requirement is processing; those facts are not
-collapsed into one mutually exclusive status. Completed requirements disappear
-from the queue when their current facts change. The selected editor remains open
-so a curator can see the result and deliberately advance.
+Catalog's **Needs review** view lists decisions on tracked titles independently
+of any run. Use its state filter to see automatic work, processing titles or
+blocked requirements. A title can need review while another requirement is
+processing. A selected title stays visible until the curator moves on, even
+after its last requirement leaves the queue.
 
-Workspace and title actions launch durable execution and return to this workspace.
-Automatic scope is resolved on the server from current eligibility. The launcher
-offers only the scopes available at its entry point. Jobs retain
-execution history, cancellation, retry, and dispatch ownership; they no longer own
-whether a title is complete. Legacy task links retain their activity context and
-selected title in the permanent workspace.
+Catalog and Title actions launch durable execution and open the accepted job.
+The server resolves automatic scope from current eligibility. The launcher
+offers the scopes available at its entry point. Jobs own execution history,
+cancellation, retry, and dispatch. Old enrichment queue and title links open
+the corresponding Catalog view.
 
 `EnrichmentAssessmentPolicy` classifies requirement facts in the domain layer.
 The persistence query evaluates current provider trust, effective metadata,
@@ -210,18 +206,13 @@ requirements are omitted from the issue list. Queue presentation selects issues
 by state, while action availability controls the offered operations. This is an
 admin contract; it does not persist another assessment status.
 
-The review pane reuses the provider evidence picker, metadata editor, and artwork
-editor. Its primary content addresses the selected decision. Consumer preview is
-a secondary disclosure outside artwork review. Navigation preserves the selected
-title and protects unsaved edits; successful mutations invalidate the assessment
-and catalog queries. Selected assessments refresh every 30 seconds while idle and
-every 3 seconds while processing. Pagination checks the current query fetch state
-and does not cancel a background cursor-chain refresh. Pending Next navigation
-cannot overwrite a newer user selection. A failed background title-detail refresh
-keeps cached content and mounted drafts, with a retry notice.
-
-The workspace uses the existing scheduler and providers; consumer contracts
-remain separate.
+The Catalog inspector handles quick decisions and opens the matching Title
+section for candidate comparisons or manual editing. Title keeps the status and
+outstanding requirements visible across its sections. The draft guard protects
+unsaved edits, and successful mutations refresh the assessment, counts, and
+catalog. Selected assessments refresh every 30 seconds while idle and every 3
+seconds while processing. Pagination leaves cursor-chain refreshes in progress
+alone, and pending page requests cannot overwrite a newer selection.
 
 api clients: admin - canonical workspace, omission mutation, and catalog
 assessment contracts; regenerated with `pnpm api:update`.

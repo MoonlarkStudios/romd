@@ -1,50 +1,59 @@
 import {
-  ActionIcon,
   Alert,
   Badge,
   Button,
   Group,
-  Menu,
   Modal,
-  NativeSelect,
   NumberInput,
-  SegmentedControl,
+  Radio,
   Select,
-  Slider,
   Stack,
   Text,
   Textarea,
   TextInput,
-  UnstyledButton,
+  Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import type {
-  MetadataLayer,
-  TitleEnrichmentStateResponse,
-  UpdateTitleMetadataRequest,
-} from '@romd/admin-api-client';
-import {
-  IconCheck,
-  IconChevronRight,
-  IconDatabase,
-  IconDeviceFloppy,
-  IconDots,
-} from '@tabler/icons-react';
+import type { MetadataLayer } from '@romd/admin-api-client';
+import { IconDatabase } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { invalidateTitle } from '../../hooks/api/titleCache';
 import { TitleConflictError } from '../../hooks/api/titleConflict';
 import { useCatalogFilterFacets } from '../../hooks/api/useLibraryManagement';
+import { usePlatform } from '../../hooks/api/usePlatforms';
 import { useUpdateTitleMetadata } from '../../hooks/api/useTitleActions';
 import type { TitleDetailView as TitleDetail } from '../../hooks/api/useTitleDetail';
 import { useSetFieldOverrides, useTitleEnrichment } from '../../hooks/api/useTitleEnrichment';
 import { usePermissions } from '../../hooks/usePermissions';
-import { useDiscardEpoch } from '../Administration/DraftGuard';
-import { UnsavedChanges } from '../Administration/UnsavedChanges';
+import { DraftGuardProvider, useDiscardEpoch, useDraft } from '../Administration/DraftGuard';
+import { EditorFooter } from '../Workspace/EditorFooter';
+import { SourceMarker } from '../Workspace/SourceMarker';
+import workspace from '../Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
+import { MetadataIdentifiers } from './MetadataIdentifiers';
 import layout from './MetadataPanel.module.css';
+import {
+  BASE_GENRE_TAXONOMY,
+  buildTaxonomyOptions,
+  buildWrites,
+  type Draft,
+  displayValue,
+  emptyLayers,
+  type FieldEdit,
+  fieldSource,
+  findLayer,
+  layerValue,
+  METADATA_FIELDS,
+  type MetadataFieldDefinition,
+  markerText,
+  type Option,
+  previewValue,
+  sameSource,
+  sourceLabel,
+  sourceOptions,
+} from './metadataDraft';
 import { TitleConflictAlert } from './TitleConflictAlert';
-import classes from './TitleDetail.module.css';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
 
 interface MetadataPanelProps extends TitleEditorOutcome {
@@ -54,1173 +63,174 @@ interface MetadataPanelProps extends TitleEditorOutcome {
   titleId: string;
 }
 
-type MetadataFieldKey =
-  | 'description'
-  | 'genre'
-  | 'releaseDate'
-  | 'publisher'
-  | 'developer'
-  | 'players'
-  | 'rating';
-
-type MetadataFieldKind = 'text' | 'textarea' | 'date' | 'genre' | 'players' | 'rating';
-
-interface MetadataFieldDefinition {
-  key: MetadataFieldKey;
-  overrideKey: string;
-  label: string;
-  kind: MetadataFieldKind;
-}
-
-const METADATA_FIELDS: MetadataFieldDefinition[] = [
-  {
-    key: 'description',
-    overrideKey: 'Description',
-    label: 'Description',
-    kind: 'textarea',
-  },
-  {
-    key: 'genre',
-    overrideKey: 'Genre',
-    label: 'Genre',
-    kind: 'genre',
-  },
-  {
-    key: 'releaseDate',
-    overrideKey: 'ReleaseDate',
-    label: 'Release Date',
-    kind: 'date',
-  },
-  {
-    key: 'publisher',
-    overrideKey: 'Publisher',
-    label: 'Publisher',
-    kind: 'text',
-  },
-  {
-    key: 'developer',
-    overrideKey: 'Developer',
-    label: 'Developer',
-    kind: 'text',
-  },
-  {
-    key: 'players',
-    overrideKey: 'Players',
-    label: 'Players',
-    kind: 'players',
-  },
-  {
-    key: 'rating',
-    overrideKey: 'Rating',
-    label: 'Rating',
-    kind: 'rating',
-  },
-];
-
-interface Option {
-  value: string;
-  label: string;
-}
-
-interface MetadataTaxonomy {
-  genreOptions: Option[];
-}
-
-const BASE_GENRE_TAXONOMY: Option[] = [
-  {
-    value: 'Action',
-    label: 'Action',
-  },
-  {
-    value: 'Adventure',
-    label: 'Adventure',
-  },
-  {
-    value: 'Arcade',
-    label: 'Arcade',
-  },
-  {
-    value: 'Fighting',
-    label: 'Fighting',
-  },
-  {
-    value: 'Hack and slash/Beat em up',
-    label: 'Hack and slash / Beat em up',
-  },
-  {
-    value: 'Music',
-    label: 'Music',
-  },
-  {
-    value: 'Pinball',
-    label: 'Pinball',
-  },
-  {
-    value: 'Platform',
-    label: 'Platform',
-  },
-  {
-    value: 'Platformer',
-    label: 'Platformer',
-  },
-  {
-    value: 'Point-and-click',
-    label: 'Point-and-click',
-  },
-  {
-    value: 'Puzzle',
-    label: 'Puzzle',
-  },
-  {
-    value: 'Quiz/Trivia',
-    label: 'Quiz / Trivia',
-  },
-  {
-    value: 'Racing',
-    label: 'Racing',
-  },
-  {
-    value: 'Real Time Strategy (RTS)',
-    label: 'Real Time Strategy (RTS)',
-  },
-  {
-    value: 'Role-playing (RPG)',
-    label: 'Role-playing (RPG)',
-  },
-  {
-    value: 'RPG',
-    label: 'RPG',
-  },
-  {
-    value: 'Shooter',
-    label: 'Shooter',
-  },
-  {
-    value: 'Simulator',
-    label: 'Simulator',
-  },
-  {
-    value: 'Sport',
-    label: 'Sport',
-  },
-  {
-    value: 'Strategy',
-    label: 'Strategy',
-  },
-  {
-    value: 'Tactical',
-    label: 'Tactical',
-  },
-  {
-    value: 'Turn-based strategy (TBS)',
-    label: 'Turn-based strategy (TBS)',
-  },
-  {
-    value: 'Visual Novel',
-    label: 'Visual Novel',
-  },
-];
-
-function formatCount(value: number | null | undefined): string {
-  return (value ?? 0).toLocaleString();
-}
-
-function addOption(options: Map<string, Option>, option: Option): void {
-  const value = option.value.trim();
-  if (!value) return;
-
-  options.set(value, {
-    value,
-    label: option.label,
-  });
-}
-
-function addMissingOption(options: Map<string, Option>, value: string | null): void {
-  const trimmed = value?.trim();
-  if (!trimmed || options.has(trimmed)) return;
-
-  options.set(trimmed, {
-    value: trimmed,
-    label: trimmed,
-  });
-}
-
-function buildTaxonomyOptions(
-  baseOptions: Option[],
-  facets:
-    | {
-        value: string;
-        count: number;
-      }[]
-    | undefined,
-  activeValues: (string | null)[],
-): Option[] {
-  const options = new Map<string, Option>();
-
-  for (const option of baseOptions) {
-    addOption(options, option);
-  }
-
-  for (const facet of facets ?? []) {
-    addOption(options, {
-      value: facet.value,
-      label: `${facet.value} (${formatCount(facet.count)})`,
-    });
-  }
-
-  for (const value of activeValues) {
-    addMissingOption(options, value);
-  }
-
-  return Array.from(options.values());
-}
-
-function getTitleValue(title: TitleDetail, field: MetadataFieldDefinition): string | null {
-  const value = title[field.key];
-  return value === null || value === undefined || value === '' ? null : String(value);
-}
-
-function getLayerValue(
-  layer: MetadataLayer | null | undefined,
-  field: MetadataFieldDefinition,
-): string | null {
-  if (!layer) return null;
-  const value = layer[field.key];
-  return value === null || value === undefined || value === '' ? null : String(value);
-}
-
-function buildTitleFieldPatch(
-  field: MetadataFieldDefinition,
-  value: string | null,
-): Pick<UpdateTitleMetadataRequest, MetadataFieldKey> {
-  switch (field.key) {
-    case 'description':
-      return {
-        description: value,
-      };
-    case 'genre':
-      return {
-        genre: value,
-      };
-    case 'releaseDate':
-      return {
-        releaseDate: value,
-      };
-    case 'publisher':
-      return {
-        publisher: value,
-      };
-    case 'developer':
-      return {
-        developer: value,
-      };
-    case 'players':
-      return {
-        players: toNullableNumber(value),
-      };
-    case 'rating':
-      return {
-        rating: toNullableNumber(value),
-      };
-  }
-}
-
-function getMetadataMapValue(
-  map: Record<string, string> | null | undefined,
-  field: MetadataFieldDefinition,
-): string | null {
-  return map?.[field.overrideKey] ?? map?.[field.key] ?? null;
-}
-
-function isSameSource(left: string | null | undefined, right: string): boolean {
-  return left?.toLowerCase() === right.toLowerCase();
-}
-
-function getUserLayer(layers: MetadataLayer[]): MetadataLayer | undefined {
-  return layers.find((layer) => layer.sourceId.toLowerCase() === 'user');
-}
-
-function getLayerBySource(layers: MetadataLayer[], sourceId: string): MetadataLayer | undefined {
-  return layers.find((layer) => isSameSource(layer.sourceId, sourceId));
-}
-
-function formatSourceLabel(sourceId: string): string {
-  if (sourceId.toLowerCase() === 'user') return 'User';
-  if (sourceId.toLowerCase() === 'igdb') return 'IGDB';
-  return sourceId;
-}
-
-function getSourceColor(sourceId: string | null | undefined): string {
-  if (sourceId?.toLowerCase() === 'user') return 'green';
-  if (sourceId?.toLowerCase() === 'igdb') return 'violet';
-  return sourceId ? 'blue' : 'gray';
-}
-
-function normalizedInputValue(value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizedBoundedNumber(value: string, min: number, max: number): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return null;
-
-  return String(Math.min(max, Math.max(min, Math.round(parsed))));
-}
-
-function normalizedFieldValue(field: MetadataFieldDefinition, value: string): string | null {
-  if (field.kind === 'rating') return normalizedBoundedNumber(value, 1, 100);
-  if (field.kind === 'players') return normalizedBoundedNumber(value, 1, 16);
-
-  return normalizedInputValue(value);
-}
-
-function toNullableNumber(value: string | number | null | undefined): number | null {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function numberInputValue(value: string): number | '' {
-  if (value === '') return '';
-
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) ? numberValue : '';
-}
-
-function numberValueToString(value: string | number): string {
-  return value === '' ? '' : String(value);
-}
-
-function formatFieldValue(field: MetadataFieldDefinition, value: string | null): string {
-  if (!value) return '-';
-
-  if (field.key === 'rating') {
-    const rating = Number(value);
-    const formatted = Number.isFinite(rating)
-      ? new Intl.NumberFormat(undefined, {
-          maximumFractionDigits: 1,
-        }).format(rating)
-      : value;
-
-    return `${formatted}/100`;
-  }
-
-  return value;
-}
-
-function sourceHasFieldValue(layer: MetadataLayer, field: MetadataFieldDefinition): boolean {
-  return getLayerValue(layer, field) !== null;
-}
-
-function getAutomaticCascadePreview(
-  layers: MetadataLayer[],
-  field: MetadataFieldDefinition,
-  activeSource: string | null,
-): {
-  value: string | null;
-  source: string | null;
-} {
-  const userLayer = getUserLayer(layers);
-  const userValue = getLayerValue(userLayer, field);
-  if (userValue !== null) {
-    return {
-      value: userValue,
-      source: userLayer?.sourceId ?? 'user',
-    };
-  }
-
-  const activeLayer = activeSource ? getLayerBySource(layers, activeSource) : undefined;
-  const activeValue = getLayerValue(activeLayer, field);
-  if (activeValue !== null) {
-    return {
-      value: activeValue,
-      source: activeLayer?.sourceId ?? activeSource,
-    };
-  }
-
-  const firstLayerWithValue = layers.find((layer) => sourceHasFieldValue(layer, field));
-  return {
-    value: getLayerValue(firstLayerWithValue, field),
-    source: firstLayerWithValue?.sourceId ?? null,
-  };
-}
-
-function getSourceSelectionPreview(
-  layers: MetadataLayer[],
-  field: MetadataFieldDefinition,
-  sourceOverride: string,
-  activeSource: string | null,
-): {
-  value: string | null;
-  source: string | null;
-} {
-  if (!sourceOverride) {
-    return getAutomaticCascadePreview(layers, field, activeSource);
-  }
-
-  const layer = getLayerBySource(layers, sourceOverride);
-  return {
-    value: getLayerValue(layer, field),
-    source: layer?.sourceId ?? sourceOverride,
-  };
-}
-
-function buildFieldProvenancePatch(
-  field: MetadataFieldDefinition,
-  source: string | null,
-): Record<string, string | null> {
-  return {
-    [field.overrideKey]: source,
-    [field.key]: source,
-  };
-}
-
-interface MetadataValueInputProps {
-  field: MetadataFieldDefinition;
-  value: string;
-  onChange: (value: string) => void;
-  taxonomy: MetadataTaxonomy;
-  label?: string;
-  ariaLabel?: string;
-  preferNativeSelect?: boolean;
-}
-
-function MetadataValueInput({
+function MetadataInput({
   field,
   value,
+  id,
   onChange,
-  taxonomy,
-  label,
-  ariaLabel,
-  preferNativeSelect = false,
-}: MetadataValueInputProps) {
+  genreOptions,
+  readOnly,
+  error,
+  placeholder,
+}: {
+  field: MetadataFieldDefinition;
+  value: string;
+  id: string;
+  onChange: (value: string) => void;
+  genreOptions: Option[];
+  readOnly: boolean;
+  error?: string;
+  placeholder?: string;
+}) {
   const commonProps = {
-    label,
-    'aria-label': ariaLabel,
+    id,
+    readOnly,
+    error,
+    placeholder,
   };
-
-  if (field.kind === 'textarea') {
-    return (
-      <Textarea
-        {...commonProps}
-        minRows={3}
-        maxRows={6}
-        autosize
-        value={value}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      />
-    );
-  }
-
-  if (field.kind === 'genre') {
-    if (preferNativeSelect) {
+  switch (field.kind) {
+    case 'textarea':
       return (
-        <NativeSelect
+        <Textarea
           {...commonProps}
-          data={[
-            {
-              value: '',
-              label: 'No user override',
-            },
-            ...taxonomy.genreOptions,
-          ]}
+          minRows={3}
+          maxRows={9}
+          autosize
           value={value}
           onChange={(event) => onChange(event.currentTarget.value)}
         />
       );
-    }
-
-    return (
-      <Select
-        {...commonProps}
-        data={taxonomy.genreOptions}
-        value={value || null}
-        onChange={(nextValue) => onChange(nextValue ?? '')}
-        searchable
-        clearable
-        comboboxProps={{
-          withinPortal: false,
-        }}
-        nothingFoundMessage="No genre in taxonomy"
-      />
-    );
-  }
-
-  if (field.kind === 'date') {
-    return (
-      <TextInput
-        {...commonProps}
-        type="date"
-        value={value}
-        onChange={(event) => onChange(event.currentTarget.value)}
-      />
-    );
-  }
-
-  if (field.kind === 'players') {
-    return (
-      <NumberInput
-        {...commonProps}
-        value={numberInputValue(value)}
-        min={1}
-        max={16}
-        allowDecimal={false}
-        allowNegative={false}
-        clampBehavior="strict"
-        onChange={(nextValue) => onChange(numberValueToString(nextValue))}
-      />
-    );
-  }
-
-  if (field.kind === 'rating') {
-    const ratingValue = numberInputValue(value);
-    const sliderValue = ratingValue === '' ? 50 : ratingValue;
-
-    return (
-      <Stack gap={6}>
+    case 'genre':
+      return (
+        <Select
+          {...commonProps}
+          data={genreOptions}
+          value={value || null}
+          onChange={(next) => onChange(next ?? '')}
+          searchable
+          nothingFoundMessage="No genre in taxonomy"
+        />
+      );
+    case 'players':
+    case 'rating':
+      return (
         <NumberInput
           {...commonProps}
-          value={ratingValue}
+          value={value}
           min={1}
-          max={100}
-          allowDecimal={false}
+          max={field.kind === 'players' ? 16 : 100}
+          allowDecimal={field.kind === 'rating'}
           allowNegative={false}
           clampBehavior="strict"
-          description="1-100"
-          onChange={(nextValue) => onChange(numberValueToString(nextValue))}
+          onChange={(next) => onChange(displayValue(next))}
+          suffix={field.kind === 'rating' ? ' / 100' : undefined}
         />
-        <Slider
-          aria-label={`${label ?? ariaLabel ?? field.label} range`}
-          min={1}
-          max={100}
-          value={sliderValue}
-          onChange={(nextValue) => onChange(String(nextValue))}
-          marks={[
-            {
-              value: 1,
-              label: '1',
-            },
-            {
-              value: 50,
-              label: '50',
-            },
-            {
-              value: 100,
-              label: '100',
-            },
-          ]}
+      );
+    default:
+      return (
+        <TextInput
+          {...commonProps}
+          type={field.kind === 'date' ? 'date' : 'text'}
+          required={field.key === 'name'}
+          value={value}
+          onChange={(event) => onChange(event.currentTarget.value)}
         />
-      </Stack>
-    );
+      );
   }
-
-  return (
-    <TextInput
-      {...commonProps}
-      value={value}
-      onChange={(event) => onChange(event.currentTarget.value)}
-    />
-  );
 }
 
-interface MetadataFieldProps {
-  title: TitleDetail;
-  titleId: string;
-  field: MetadataFieldDefinition;
-  enrichmentState?: TitleEnrichmentStateResponse;
-  canManageTitles: boolean;
-  taxonomy: MetadataTaxonomy;
-  opened: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-  onResolved?: () => void;
-  onDismissed?: () => void;
-  /** Restarts the inspector clean; the panel bumps it after reloading the latest title, so the restart reads fresh values. */
-  session: number;
-  onReloaded: () => void;
-}
-
-function MetadataField({
-  title,
-  titleId,
+function SourceChoices({
   field,
-  enrichmentState,
-  canManageTitles,
-  taxonomy,
-  opened,
-  onOpen,
-  onClose,
-  onResolved,
-  onDismissed,
-  session,
-  onReloaded,
-}: MetadataFieldProps) {
-  const [busy, setBusy] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [discardOpened, setDiscardOpened] = useState(false);
-  const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    if (opened) setSaved(false);
-  }, [
-    opened,
-  ]);
-  const closeEditor = () => {
-    setDiscardOpened(false);
-    setDirty(false);
-    onClose();
-  };
-  const dismiss = () => {
-    closeEditor();
-    onDismissed?.();
-  };
-  const finishSave = () => {
-    setSaved(true);
-    closeEditor();
-    onResolved?.();
-  };
-  const requestClose = () => {
-    if (busy) return;
-    if (dirty) setDiscardOpened(true);
-    else dismiss();
-  };
-  const value = getTitleValue(title, field);
-  const provenance =
-    getMetadataMapValue(enrichmentState?.fieldProvenance, field) ??
-    getMetadataMapValue(title.fieldProvenance, field);
-  const isDescription = field.key === 'description';
-  const isInteractive = canManageTitles && enrichmentState !== undefined;
-
-  const fieldContent = (
-    <Stack gap={4}>
-      <Group
-        gap="xs"
-        justify="space-between"
-        wrap="nowrap"
+  edit,
+  layers,
+  override,
+  onChange,
+}: {
+  field: MetadataFieldDefinition;
+  edit?: FieldEdit;
+  layers: MetadataLayer[];
+  override?: string;
+  onChange: (edit?: FieldEdit) => void;
+}) {
+  const options = sourceOptions(layers, field);
+  const selection =
+    edit?.kind === 'automatic'
+      ? 'automatic'
+      : edit?.kind === 'source'
+        ? edit.sourceId
+        : !edit && override && options.some((layer) => sameSource(layer.sourceId, override))
+          ? override
+          : '';
+  return (
+    <Stack gap="sm">
+      <Radio.Group
+        label={`${field.label} source`}
+        value={selection}
+        onChange={(next) =>
+          onChange(
+            next === 'automatic'
+              ? {
+                  kind: 'automatic',
+                }
+              : {
+                  kind: 'source',
+                  sourceId: next,
+                },
+          )
+        }
       >
-        <Group
-          gap="xs"
-          wrap="nowrap"
+        <Stack
+          gap="sm"
+          mt="xs"
         >
-          <Text
-            size="xs"
-            c="dimmed"
-            tt="uppercase"
-            fw={600}
-          >
-            {field.label}
-          </Text>
-          {provenance && (
-            <Badge
-              size="xs"
-              variant="dot"
-              color={getSourceColor(provenance)}
-            >
-              {formatSourceLabel(provenance)}
-            </Badge>
-          )}
-        </Group>
-        {isInteractive && (
-          <IconChevronRight
-            size={14}
-            color="var(--mantine-color-dimmed)"
+          <Radio
+            value="automatic"
+            label="Use source automatically"
+            description="Follow system preferences and remove the edited value."
           />
-        )}
-      </Group>
-      <Text
-        size="sm"
-        c={value ? undefined : 'dimmed'}
-        lineClamp={isDescription ? 4 : 2}
-        style={
-          isDescription
-            ? {
-                maxWidth: '65ch',
-                lineHeight: 1.6,
-              }
-            : undefined
-        }
-      >
-        {formatFieldValue(field, value)}
-      </Text>
-      <Text
-        size="xs"
-        c="dimmed"
-      >
-        {getMetadataMapValue(enrichmentState?.fieldSourceOverrides, field)
-          ? 'Selected source'
-          : provenance?.toLowerCase() === 'user'
-            ? 'Custom value'
-            : 'Automatic'}
-      </Text>
-    </Stack>
-  );
-
-  if (!isInteractive) {
-    return fieldContent;
-  }
-
-  return (
-    <>
-      <UnstyledButton
-        aria-label={`${field.label}: ${value ?? 'No value'}`}
-        aria-expanded={opened}
-        aria-haspopup="dialog"
-        className={`${classes.field} ${layout.field}`}
-        onClick={onOpen}
-      >
-        {fieldContent}
-      </UnstyledButton>
-      {/* After a managed save the workbench moves focus to the next open requirement instead. */}
-      <Modal
-        opened={opened}
-        onClose={requestClose}
-        title={`Edit ${field.label}`}
-        size="lg"
-        returnFocus={!(saved && onResolved)}
-        closeOnEscape={!busy && !discardOpened}
-        closeOnClickOutside={!busy && !discardOpened}
-        closeButtonProps={{
-          'aria-label': `Close ${field.label} inspector`,
-          disabled: busy,
-        }}
-      >
-        <FieldCascadeInspector
-          key={`${opened ? 'open' : 'closed'}:${session}`}
-          onSavingChange={setBusy}
-          onDirtyChange={setDirty}
-          onRequestClose={requestClose}
-          title={title}
-          titleId={titleId}
-          field={field}
-          enrichmentState={enrichmentState}
-          activeSource={provenance}
-          taxonomy={taxonomy}
-          onClose={finishSave}
-          onReloaded={onReloaded}
-        />
-      </Modal>
-      <Modal
-        opened={discardOpened}
-        onClose={() => setDiscardOpened(false)}
-        title="Discard unsaved changes?"
-        centered
-      >
-        <Stack>
-          <Text>Your metadata draft has not been saved.</Text>
-          <Group justify="flex-end">
-            <Button
-              variant="default"
-              onClick={() => setDiscardOpened(false)}
-            >
-              Keep editing
-            </Button>
-            <Button
-              color="red"
-              onClick={dismiss}
-            >
-              Discard
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
-  );
-}
-
-interface FieldCascadeInspectorProps {
-  onSavingChange: (saving: boolean) => void;
-  onDirtyChange: (dirty: boolean) => void;
-  onRequestClose: () => void;
-  title: TitleDetail;
-  titleId: string;
-  field: MetadataFieldDefinition;
-  enrichmentState: TitleEnrichmentStateResponse;
-  activeSource: string | null;
-  taxonomy: MetadataTaxonomy;
-  onClose: () => void;
-  /** The latest title was reloaded after a conflict; the editor restarts clean. */
-  onReloaded: () => void;
-}
-
-function FieldCascadeInspector({
-  onSavingChange,
-  onDirtyChange,
-  onRequestClose,
-  title,
-  titleId,
-  field,
-  enrichmentState,
-  activeSource,
-  taxonomy,
-  onClose,
-  onReloaded,
-}: FieldCascadeInspectorProps) {
-  const active = useRef(true);
-  useEffect(() => {
-    active.current = true;
-    return () => {
-      active.current = false;
-    };
-  }, []);
-  const cache = useQueryClient();
-  const updateMetadata = useUpdateTitleMetadata();
-  const setOverrides = useSetFieldOverrides();
-  const layers = enrichmentState.layers ?? [];
-  const userLayerValue = getLayerValue(getUserLayer(layers), field);
-  const currentOverride = getMetadataMapValue(enrichmentState.fieldSourceOverrides, field) ?? '';
-  type Mode = 'automatic' | 'source' | 'custom';
-  const initialMode: Mode =
-    isSameSource(currentOverride, 'user') || (!currentOverride && userLayerValue !== null)
-      ? 'custom'
-      : currentOverride
-        ? 'source'
-        : 'automatic';
-  const [mode, setMode] = useState<Mode>(initialMode);
-  const [userValue, setUserValue] = useState(userLayerValue ?? '');
-  const providers = layers.filter(
-    (layer) => !isSameSource(layer.sourceId, 'user') && sourceHasFieldValue(layer, field),
-  );
-  const [selectedSource, setSelectedSource] = useState(
-    currentOverride || activeSource || providers[0]?.sourceId || '',
-  );
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const dirty =
-    mode !== initialMode ||
-    (mode === 'source' && selectedSource !== currentOverride) ||
-    (mode === 'custom' && normalizedFieldValue(field, userValue) !== userLayerValue);
-  useEffect(
-    () => onDirtyChange(dirty),
-    [
-      dirty,
-      onDirtyChange,
-    ],
-  );
-  // The draft is checked against the title revision it started from; until the first edit it follows refreshes.
-  const [baseRevision, setBaseRevision] = useState(title.revision);
-  if (!dirty && baseRevision !== title.revision) setBaseRevision(title.revision);
-  const [conflicted, setConflicted] = useState(false);
-  const valid =
-    mode === 'automatic' ||
-    (mode === 'custom'
-      ? normalizedFieldValue(field, userValue) !== null
-      : providers.some((layer) => layer.sourceId === selectedSource));
-
-  const handleSave = async () => {
-    if (saving || !valid) return;
-    setSaving(true);
-    onSavingChange(true);
-    setError(null);
-    // Every write of the save sends the ETag the previous one returned, starting from the draft's base.
-    let revision = baseRevision;
-    const chain = (written: { revision: string }) => {
-      revision = written.revision;
-    };
-    try {
-      if (mode === 'custom') {
-        if (currentOverride && !isSameSource(currentOverride, 'user')) {
-          chain(
-            await setOverrides.mutateAsync({
-              titleId,
-              overrides: {
-                [field.overrideKey]: '',
-              },
-              revision,
-            }),
-          );
-        }
-        await updateMetadata.mutateAsync({
-          titleId,
-          revision,
-          metadata: buildTitleFieldPatch(field, normalizedFieldValue(field, userValue)),
-        });
-      } else if (mode === 'automatic') {
-        if (userLayerValue !== null) {
-          chain(
-            await updateMetadata.mutateAsync({
-              titleId,
-              revision,
-              metadata: buildTitleFieldPatch(field, null),
-            }),
-          );
-        }
-        await setOverrides.mutateAsync({
-          titleId,
-          overrides: {
-            [field.overrideKey]: '',
-          },
-          revision,
-        });
-      } else {
-        const preview = getSourceSelectionPreview(layers, field, selectedSource, activeSource);
-        await setOverrides.mutateAsync({
-          titleId,
-          revision,
-          overrides: {
-            [field.overrideKey]: selectedSource,
-          },
-          optimisticTitle: buildTitleFieldPatch(field, preview.value),
-          optimisticFieldProvenance: buildFieldProvenancePatch(field, preview.source),
-          optimisticFieldSourceOverrides: {
-            [field.overrideKey]: selectedSource,
-            [field.key]: null,
-          },
-        });
-      }
-      notifications.show({
-        title: 'Metadata updated',
-        message: `${field.label} selection saved.`,
-        color: 'green',
-      });
-      if (active.current) onClose();
-    } catch (reason) {
-      if (!active.current) return;
-      if (reason instanceof TitleConflictError) setConflicted(true);
-      else {
-        // A retry continues from the save's last applied write, not against the curator's own first write.
-        setBaseRevision(revision);
-        setError(
-          'Could not finish saving. Some changes may have been applied. Your draft is still here; retry to complete it.',
-        );
-      }
-    } finally {
-      if (active.current) {
-        setSaving(false);
-        onSavingChange(false);
-      }
-    }
-  };
-
-  return (
-    <div className={classes.editor}>
-      <UnsavedChanges
-        dirty={dirty}
-        description="Your metadata draft has not been saved."
-      />
-      <div className={classes.editorBody}>
-        <SegmentedControl
-          fullWidth
-          aria-label="Selection mode"
-          value={mode}
-          disabled={saving}
-          onChange={(value) => setMode(value as Mode)}
-          data={[
-            {
-              value: 'automatic',
-              label: 'Automatic',
-            },
-            {
-              value: 'source',
-              label: 'Choose source',
-            },
-            {
-              value: 'custom',
-              label: 'Custom',
-            },
-          ]}
-        />
-        {mode === 'automatic' && (
-          <Stack
-            gap="sm"
-            mt="md"
-          >
-            <Group gap="xs">
-              <IconCheck size={16} />
-              <Text
-                size="sm"
-                fw={600}
-              >
-                Automatic
-                {initialMode === 'automatic' && activeSource
-                  ? ` · ${formatSourceLabel(activeSource)}`
-                  : ''}
-              </Text>
-            </Group>
-            {initialMode === 'automatic' ? (
-              <Text
-                size="sm"
-                className={classes.value}
-              >
-                {formatFieldValue(field, getTitleValue(title, field))}
-              </Text>
-            ) : (
-              <Text
-                size="sm"
-                c="dimmed"
-              >
-                Use system preferences. Saving removes this field's custom value and source
-                selection.
-              </Text>
-            )}
-          </Stack>
-        )}
-        {mode === 'source' && (
-          <Stack
-            gap="sm"
-            mt="md"
-            role="radiogroup"
-            aria-label={`${field.label} source`}
-          >
-            {providers.map((layer) => {
-              const selected = layer.sourceId === selectedSource;
-              return (
-                <UnstyledButton
-                  key={layer.sourceId}
-                  role="radio"
-                  aria-checked={selected}
-                  aria-label={`Select ${formatSourceLabel(layer.sourceId)} for ${field.label}`}
-                  disabled={saving}
-                  onClick={() => setSelectedSource(layer.sourceId)}
-                  onKeyDown={(event) => {
-                    const keys = [
-                      'ArrowDown',
-                      'ArrowRight',
-                      'ArrowUp',
-                      'ArrowLeft',
-                      'Home',
-                      'End',
-                    ];
-                    if (!keys.includes(event.key)) return;
-                    event.preventDefault();
-                    const index = providers.indexOf(layer);
-                    const next =
-                      event.key === 'Home'
-                        ? 0
-                        : event.key === 'End'
-                          ? providers.length - 1
-                          : (index +
-                              (event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1) +
-                              providers.length) %
-                            providers.length;
-                    setSelectedSource(providers[next].sourceId);
-                    const options =
-                      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
-                        '[role="radio"]',
-                      );
-                    options?.[next]?.focus();
-                  }}
-                  className={classes.sourceOption}
-                  data-selected={selected || undefined}
+          {options.map((layer) => (
+            <Radio
+              key={layer.sourceId}
+              value={layer.sourceId}
+              label={`Use ${sourceLabel(layer.sourceId)}`}
+              description={
+                <Text
+                  size="xs"
+                  lineClamp={3}
                 >
-                  <Group
-                    justify="space-between"
-                    wrap="nowrap"
-                    mb="xs"
-                  >
-                    <Text
-                      fw={600}
-                      size="sm"
-                    >
-                      {formatSourceLabel(layer.sourceId)}
-                    </Text>
-                    <Group
-                      gap={6}
-                      wrap="nowrap"
-                      style={{
-                        flexShrink: 0,
-                      }}
-                    >
-                      {selected && (
-                        <>
-                          <IconCheck size={16} />
-                          <Text size="xs">Selected</Text>
-                        </>
-                      )}
-                    </Group>
-                  </Group>
-                  <Text
-                    size="sm"
-                    className={classes.value}
-                  >
-                    {formatFieldValue(field, getLayerValue(layer, field))}
-                  </Text>
-                </UnstyledButton>
-              );
-            })}
-            {providers.length === 0 && (
-              <Text
-                size="sm"
-                c="dimmed"
-              >
-                No source values available.
-              </Text>
-            )}
-          </Stack>
-        )}
-        {mode === 'custom' && (
-          <Stack mt="md">
-            <fieldset
-              disabled={saving}
-              style={{
-                border: 0,
-                margin: 0,
-                padding: 0,
-                minWidth: 0,
-              }}
-            >
-              <MetadataValueInput
-                field={field}
-                value={userValue}
-                onChange={setUserValue}
-                taxonomy={taxonomy}
-                label="Custom value"
-                ariaLabel={`${field.label} user override`}
-                preferNativeSelect
-              />
-            </fieldset>
-          </Stack>
-        )}
-        {error && (
-          <Alert
-            color="red"
-            mt="md"
-          >
-            {error}
-          </Alert>
-        )}
-        {conflicted && (
-          <TitleConflictAlert
-            draftLabel={`${field.label.toLowerCase()} changes`}
-            onReload={async () => {
-              await invalidateTitle(cache, titleId);
-              if (active.current) onReloaded();
-            }}
-          />
-        )}
-      </div>
-      <Group
-        className={classes.editorFooter}
-        justify="flex-end"
-      >
-        <Button
-          variant="subtle"
-          color="gray"
-          onClick={onRequestClose}
-          disabled={saving}
-        >
-          Cancel
-        </Button>
+                  {layerValue(layer, field)}
+                </Text>
+              }
+            />
+          ))}
+        </Stack>
+      </Radio.Group>
+      {edit && (
         <Button
           {...workspaceActionProps}
-          leftSection={<IconDeviceFloppy size={16} />}
-          onClick={handleSave}
-          loading={saving}
-          disabled={!dirty || !valid || conflicted}
+          variant="subtle"
+          size="compact-sm"
+          onClick={() => onChange()}
         >
-          Save changes
+          Restore saved field
         </Button>
-      </Group>
-    </div>
+      )}
+    </Stack>
   );
 }
 
-/**
- * Panel displaying and editing title metadata with inline cascade inspection.
- */
-export function MetadataPanel({
+export function MetadataPanel(props: MetadataPanelProps) {
+  return (
+    <DraftGuardProvider>
+      <MetadataForm
+        key={props.titleId}
+        {...props}
+      />
+    </DraftGuardProvider>
+  );
+}
+
+function MetadataForm({
   title,
   titleId,
   initialField,
@@ -1229,223 +239,399 @@ export function MetadataPanel({
   onResolved,
   onDismissed,
 }: MetadataPanelProps) {
+  const cache = useQueryClient();
   const { canManageTitles } = usePermissions();
-  const [openFieldKey, setOpenFieldKey] = useState<MetadataFieldKey | null>(null);
-  const [inspectorSession, setInspectorSession] = useState(0);
-  const restartInspector = () => setInspectorSession((session) => session + 1);
-  // Discarding closes the inspector, so a navigation that keeps this panel mounted cannot leave its draft behind.
+  const enrichment = useTitleEnrichment(canManageTitles ? titleId : undefined);
+  const state = enrichment.data;
+  const layers = state?.layers ?? emptyLayers;
+  const { data: platform } = usePlatform(title.systemKey);
+  const { data: catalogFilters } = useCatalogFilterFacets();
+  const update = useUpdateTitleMetadata();
+  const setOverrides = useSetFieldOverrides();
+  const formId = useId();
   const discardEpoch = useDiscardEpoch();
-  const [handledDiscard, setHandledDiscard] = useState(discardEpoch);
-  if (handledDiscard !== discardEpoch) {
-    setHandledDiscard(discardEpoch);
-    setOpenFieldKey(null);
-  }
-  const applyProvider = useSetFieldOverrides();
+  const handledDiscard = useRef(discardEpoch);
+  const active = useRef(true);
+  const draftSession = useRef(0);
+  const [draft, setDraft] = useState<Draft>();
+  const [saving, setSaving] = useState(false);
+  const [problem, setProblem] = useState<'conflict' | 'partial-conflict' | 'partial' | 'failure'>();
   const [providerPreview, setProviderPreview] = useState(false);
   const [providerId, setProviderId] = useState<string | null>(null);
-  const { data: catalogFilters } = useCatalogFilterFacets();
-  const { data: enrichmentState } = useTitleEnrichment(canManageTitles ? titleId : undefined);
-  const openedInitialField = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!initialField) {
-      if (openedInitialField.current !== null) setOpenFieldKey(null);
-      openedInitialField.current = null;
-      return;
-    }
-    const target = `${titleId}:${initialField.toLowerCase()}:${fieldRequestKey ?? ''}`;
-    if (!canManageTitles || !enrichmentState || openedInitialField.current === target) return;
-    openedInitialField.current = target;
-    const field = METADATA_FIELDS.find(
-      (candidate) => candidate.key.toLowerCase() === initialField.toLowerCase(),
-    );
-    if (field) setOpenFieldKey(field.key);
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (handledDiscard.current === discardEpoch) return;
+    handledDiscard.current = discardEpoch;
+    draftSession.current += 1;
+    setDraft(undefined);
+    setProblem(undefined);
+    setProviderPreview(false);
   }, [
-    canManageTitles,
-    enrichmentState,
-    initialField,
-    fieldRequestKey,
-    titleId,
+    discardEpoch,
   ]);
-  const enrichmentLayers = enrichmentState?.layers ?? [];
-  const providers = enrichmentLayers.filter((layer) => layer.sourceType === 'Provider');
-  const selectedProvider = providers.find((layer) => layer.sourceId === providerId) ?? providers[0];
-  const previewFields = METADATA_FIELDS.map((field) => ({
-    field,
-    next: getLayerValue(selectedProvider, field),
-    preserved:
-      !!getMetadataMapValue(enrichmentState?.fieldSourceOverrides, field) ||
-      getLayerValue(getUserLayer(enrichmentLayers), field) !== null,
-  }));
-  const eligibleFields = previewFields.filter((item) => !item.preserved && item.next !== null);
-  const handleApplyProvider = async () => {
-    if (!selectedProvider || eligibleFields.length === 0) return;
+
+  const requestedField = METADATA_FIELDS.find(
+    (field) => field.key.toLowerCase() === initialField?.toLowerCase(),
+  );
+  const requestedId = requestedField ? `${formId}-${requestedField.key}` : undefined;
+  const inputRequest = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const request = requestedId
+      ? JSON.stringify([
+          requestedId,
+          fieldRequestKey,
+        ])
+      : undefined;
+    if (request === inputRequest.current) return;
+    inputRequest.current = request;
+    if (requestedId) document.getElementById(requestedId)?.focus();
+  }, [
+    requestedId,
+    fieldRequestKey,
+  ]);
+
+  const dirty = !!draft;
+  useDraft(dirty, 'Your metadata draft has not been saved.');
+  const invalidField = METADATA_FIELDS.find((field) => {
+    const edit = draft?.edits[field.key];
+    return edit?.kind === 'edited' && !edit.value.trim();
+  });
+  const hasSourceEdits = METADATA_FIELDS.some(
+    (field) => field.overrideKey && draft?.edits[field.key],
+  );
+  const canSave =
+    canManageTitles &&
+    (!hasSourceEdits || !!state) &&
+    !!draft &&
+    !saving &&
+    !invalidField &&
+    problem !== 'conflict' &&
+    problem !== 'partial-conflict';
+
+  const discard = () => {
+    draftSession.current += 1;
+    setDraft(undefined);
+    setProblem(undefined);
+    onDismissed?.();
+  };
+
+  const editField = (field: MetadataFieldDefinition, edit?: FieldEdit) => {
+    const removesDraft =
+      !edit ||
+      (edit.kind === 'edited' && edit.value === displayValue(title[field.key])) ||
+      (edit.kind === 'source' &&
+        sameSource(fieldSource(state?.fieldSourceOverrides, field), edit.sourceId)) ||
+      (edit.kind === 'automatic' &&
+        !fieldSource(state?.fieldSourceOverrides, field) &&
+        !layerValue(findLayer(layers, 'user'), field));
+    setDraft((current) => {
+      const edits = {
+        ...current?.edits,
+      };
+      if (removesDraft) delete edits[field.key];
+      else edits[field.key] = edit;
+      return Object.keys(edits).length > 0
+        ? {
+            edits,
+            revision: current?.revision ?? title.revision,
+            applied: current?.applied,
+          }
+        : undefined;
+    });
+    if (!draft?.applied && problem === 'failure') setProblem(undefined);
+  };
+
+  const save = async () => {
+    if (!canSave || !draft) return;
+    const session = draftSession.current;
+    setSaving(true);
+    setProblem(undefined);
+    const remaining = [
+      ...(draft.remaining ?? buildWrites(draft.edits, state)),
+    ];
+    let revision = draft.revision;
+    let applied = draft.applied ?? 0;
     try {
-      await applyProvider.mutateAsync({
-        titleId,
-        revision: title.revision,
-        overrides: Object.fromEntries(
-          eligibleFields.map(({ field }) => [
-            field.overrideKey,
-            selectedProvider.sourceId,
-          ]),
-        ),
-        optimisticTitle: Object.assign(
-          {},
-          ...eligibleFields.map(({ field, next }) => buildTitleFieldPatch(field, next)),
-        ),
-        optimisticFieldProvenance: Object.fromEntries(
-          eligibleFields.map(({ field }) => [
-            field.overrideKey,
-            selectedProvider.sourceId,
-          ]),
-        ),
-        optimisticFieldSourceOverrides: Object.fromEntries(
-          eligibleFields.map(({ field }) => [
-            field.overrideKey,
-            selectedProvider.sourceId,
-          ]),
-        ),
+      while (remaining.length) {
+        const step = remaining[0];
+        const accepted =
+          step.kind === 'metadata'
+            ? await update.mutateAsync({
+                titleId,
+                revision,
+                metadata: step.body,
+              })
+            : await setOverrides.mutateAsync({
+                titleId,
+                revision,
+                overrides: step.body,
+              });
+        revision = accepted.revision;
+        applied += 1;
+        remaining.shift();
+      }
+      if (active.current && session === draftSession.current) {
+        setDraft(undefined);
+        onResolved?.();
+        notifications.show({
+          title: 'Metadata saved',
+          message: draft.edits.name?.kind === 'edited' ? draft.edits.name.value.trim() : title.name,
+          color: 'green',
+        });
+      }
+    } catch (reason) {
+      if (!active.current || session !== draftSession.current) return;
+      const conflicted = reason instanceof TitleConflictError;
+      setProblem(
+        conflicted ? (applied ? 'partial-conflict' : 'conflict') : applied ? 'partial' : 'failure',
+      );
+      setDraft({
+        ...draft,
+        revision,
+        remaining,
+        applied,
       });
-      setProviderPreview(false);
-      notifications.show({
-        title: 'Source applied',
-        message: `${eligibleFields.length} fields now use ${formatSourceLabel(selectedProvider.sourceId)}.`,
-        color: 'green',
-      });
-    } catch {
-      notifications.show({
-        title: 'Update failed',
-        message: 'Could not apply this provider. Your preview is still open.',
-        color: 'red',
-      });
+    } finally {
+      if (active.current) setSaving(false);
     }
   };
-  const taxonomy = useMemo<MetadataTaxonomy>(() => {
-    const genreField = METADATA_FIELDS[1];
 
-    return {
-      genreOptions: buildTaxonomyOptions(BASE_GENRE_TAXONOMY, catalogFilters?.genres, [
-        getTitleValue(title, genreField),
-        ...enrichmentLayers.map((layer) => getLayerValue(layer, genreField)),
-      ]),
-    };
-  }, [
-    catalogFilters?.genres,
-    enrichmentLayers,
-    title,
+  const genreOptions = buildTaxonomyOptions(BASE_GENRE_TAXONOMY, catalogFilters?.genres, [
+    title.genre ?? null,
+    ...layers.map((layer) => layer.genre ?? null),
   ]);
 
-  return (
-    <div
-      className={layout.panel}
-      data-density={density}
-    >
-      <Group justify="space-between">
-        <Text fw={600}>Title metadata</Text>
-        {canManageTitles && providers.length > 0 && (
-          <Menu position="bottom-end">
-            <Menu.Target>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                aria-label="Metadata actions"
-              >
-                <IconDots size={18} />
-              </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item
-                leftSection={<IconDatabase size={16} />}
-                onClick={() => setProviderPreview(true)}
-              >
-                Apply from provider
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-        )}
-      </Group>
-      <div className={layout.fields}>
-        <div className={layout.wide}>
-          <MetadataField
-            key={`description:${fieldRequestKey ?? ''}`}
-            title={title}
-            titleId={titleId}
-            field={METADATA_FIELDS[0]}
-            enrichmentState={enrichmentState}
-            canManageTitles={canManageTitles}
-            taxonomy={taxonomy}
-            opened={openFieldKey === METADATA_FIELDS[0].key}
-            onResolved={onResolved}
-            onDismissed={onDismissed}
-            session={inspectorSession}
-            onReloaded={restartInspector}
-            onOpen={() => setOpenFieldKey(METADATA_FIELDS[0].key)}
-            onClose={() =>
-              setOpenFieldKey((currentKey) =>
-                currentKey === METADATA_FIELDS[0].key ? null : currentKey,
-              )
-            }
-          />
-        </div>
-        {METADATA_FIELDS.slice(1).map((field) => (
-          <div key={`${field.key}:${fieldRequestKey ?? ''}`}>
-            <MetadataField
-              title={title}
-              titleId={titleId}
-              field={field}
-              enrichmentState={enrichmentState}
-              canManageTitles={canManageTitles}
-              taxonomy={taxonomy}
-              opened={openFieldKey === field.key}
-              onResolved={onResolved}
-              onDismissed={onDismissed}
-              session={inspectorSession}
-              onReloaded={restartInspector}
-              onOpen={() => setOpenFieldKey(field.key)}
-              onClose={() =>
-                setOpenFieldKey((currentKey) => (currentKey === field.key ? null : currentKey))
-              }
-            />
-          </div>
-        ))}
-        {title.lastEnrichedAt && (
-          <Text
-            size="xs"
-            c="dimmed"
-            className={layout.wide}
-          >
-            Last enriched: {new Date(title.lastEnrichedAt).toLocaleDateString()}
-          </Text>
-        )}
-      </div>
+  const providers = layers.filter((layer) => layer.sourceType === 'Provider');
+  const provider = providers.find((layer) => layer.sourceId === providerId) ?? providers[0];
+  const providerPreviewFields = METADATA_FIELDS.filter((field) => field.overrideKey).map(
+    (field) => ({
+      field,
+      value: layerValue(provider, field),
+      preserved:
+        !!draft?.edits[field.key] ||
+        !!fieldSource(state?.fieldSourceOverrides, field) ||
+        !!layerValue(findLayer(layers, 'user'), field),
+    }),
+  );
+  const providerFields = providerPreviewFields.filter(
+    ({ value, preserved }) => value && !preserved,
+  );
+  const addProvider = () => {
+    if (!provider || providerFields.length === 0) return;
+    const fromProvider = Object.fromEntries(
+      providerFields.map(({ field }) => [
+        field.key,
+        {
+          kind: 'source',
+          sourceId: provider.sourceId,
+        },
+      ]),
+    );
+    setDraft((current) => ({
+      edits: {
+        ...current?.edits,
+        ...fromProvider,
+      },
+      revision: current?.revision ?? title.revision,
+      applied: current?.applied,
+    }));
+    setProviderPreview(false);
+  };
 
+  return (
+    <Stack gap="md">
+      <form
+        aria-label="Title metadata"
+        className={`${workspace.panel} ${layout.panel}`}
+        data-density={density}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <Group justify="space-between">
+          <Title
+            order={2}
+            className={workspace.sectionHeading}
+          >
+            Title metadata
+          </Title>
+          {canManageTitles && providers.length > 0 && (
+            <Button
+              {...workspaceActionProps}
+              variant="default"
+              leftSection={<IconDatabase size={16} />}
+              disabled={saving}
+              onClick={() => setProviderPreview(true)}
+            >
+              Apply provider values
+            </Button>
+          )}
+        </Group>
+        {canManageTitles && enrichment.isError && (
+          <Alert
+            color="yellow"
+            title="Metadata sources could not be loaded"
+          >
+            <Button
+              variant="subtle"
+              size="compact-sm"
+              onClick={() => void enrichment.refetch()}
+            >
+              Retry sources
+            </Button>
+          </Alert>
+        )}
+        <fieldset
+          className={layout.fields}
+          disabled={saving}
+        >
+          {METADATA_FIELDS.map((field) => {
+            const id = `${formId}-${field.key}`;
+            const edit = draft?.edits[field.key];
+            const override = fieldSource(state?.fieldSourceOverrides, field);
+            const provenance =
+              fieldSource(state?.fieldProvenance, field) ??
+              fieldSource(title.fieldProvenance, field);
+            const value = previewValue(title, field, edit, layers, !!override, provenance);
+            return (
+              <Fragment key={field.key}>
+                <div
+                  className={`${layout.field} ${field.kind === 'textarea' ? layout.wide : ''}`}
+                  data-highlighted={field.key === requestedField?.key || undefined}
+                >
+                  <Group
+                    justify="space-between"
+                    gap="xs"
+                    className={layout.fieldHeading}
+                  >
+                    <Text
+                      component="label"
+                      htmlFor={id}
+                      size="sm"
+                      fw={600}
+                    >
+                      {field.label}
+                    </Text>
+                    <SourceMarker
+                      label={field.label}
+                      value={markerText(field, edit, provenance, override)}
+                      disabled={saving}
+                    >
+                      {canManageTitles && state && field.overrideKey && (
+                        <SourceChoices
+                          field={field}
+                          edit={edit}
+                          layers={layers}
+                          override={override}
+                          onChange={(next) => editField(field, next)}
+                        />
+                      )}
+                    </SourceMarker>
+                  </Group>
+                  <MetadataInput
+                    field={field}
+                    value={value}
+                    id={id}
+                    onChange={(next) =>
+                      editField(field, {
+                        kind: 'edited',
+                        value: next,
+                      })
+                    }
+                    readOnly={!canManageTitles || (!!field.overrideKey && !state) || saving}
+                    genreOptions={genreOptions}
+                    error={
+                      invalidField?.key === field.key
+                        ? field.key === 'name'
+                          ? 'Enter a title name.'
+                          : 'Enter a value or choose a source.'
+                        : undefined
+                    }
+                    placeholder={
+                      edit?.kind === 'automatic' && !value ? 'Resolved on save' : undefined
+                    }
+                  />
+                </div>
+                {field.key === 'name' && (
+                  <div className={layout.platform}>
+                    <TextInput
+                      label="Platform"
+                      value={platform?.name ?? title.systemKey}
+                      readOnly
+                    />
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
+        </fieldset>
+        {problem === 'failure' && <Alert color="red">Could not save your draft. Try again.</Alert>}
+        {problem === 'partial' && (
+          <Alert color="yellow">
+            Some changes were saved. Your draft still contains the remaining changes. Save again to
+            finish.
+          </Alert>
+        )}
+        {(problem === 'conflict' || problem === 'partial-conflict') && (
+          <>
+            {problem === 'partial-conflict' && (
+              <Alert color="yellow">Some changes were saved before the conflict.</Alert>
+            )}
+            <TitleConflictAlert
+              draftLabel="metadata changes"
+              onReload={async () => {
+                await invalidateTitle(cache, titleId);
+                if (active.current) discard();
+              }}
+            />
+          </>
+        )}
+        {canManageTitles && (
+          <EditorFooter
+            dirty={dirty}
+            saving={saving}
+            disabled={!canSave}
+            onSave={() => void save()}
+            onDiscard={discard}
+          />
+        )}
+      </form>
+      <MetadataIdentifiers
+        titleId={titleId}
+        externalIds={state?.externalIds}
+      />
       <Modal
         opened={providerPreview}
-        onClose={() => !applyProvider.isPending && setProviderPreview(false)}
-        title="Apply from provider"
-        size="lg"
+        onClose={() => setProviderPreview(false)}
+        title="Apply provider values"
       >
         <Stack>
           <Select
             label="Provider"
-            value={selectedProvider?.sourceId ?? null}
+            value={provider?.sourceId ?? null}
             onChange={setProviderId}
-            disabled={applyProvider.isPending}
             data={providers.map((layer) => ({
               value: layer.sourceId,
-              label: formatSourceLabel(layer.sourceId),
+              label: sourceLabel(layer.sourceId),
             }))}
           />
           <Text
             size="sm"
             c="dimmed"
           >
-            Existing custom values and selected sources will be kept.
+            Adds available values to your draft and keeps edited fields and locked sources.
           </Text>
-          {previewFields.map(({ field, next, preserved }) => (
+          {providerPreviewFields.map(({ field, value, preserved }) => (
             <div
               key={field.key}
-              className={classes.candidate}
+              className={layout.providerField}
             >
               <Group justify="space-between">
                 <Text
@@ -1454,44 +640,29 @@ export function MetadataPanel({
                 >
                   {field.label}
                 </Text>
-                <Badge
-                  color={preserved || next === null ? 'gray' : undefined}
-                  variant="light"
-                >
-                  {preserved ? 'Keep existing' : next !== null ? 'Use provider' : 'Unavailable'}
+                <Badge variant="default">
+                  {preserved ? 'Keep existing' : value ? 'Use provider' : 'Unavailable'}
                 </Badge>
               </Group>
-              <Text
-                size="sm"
-                c="dimmed"
-                mt="xs"
-              >
-                {formatFieldValue(field, getTitleValue(title, field))}
-              </Text>
-              {!preserved && next !== null && (
+              {!preserved && value && (
                 <Text
                   size="sm"
-                  mt="xs"
-                  style={{
-                    overflowWrap: 'anywhere',
-                  }}
+                  lineClamp={3}
                 >
-                  {formatFieldValue(field, next)}
+                  {value}
                 </Text>
               )}
             </div>
           ))}
           <Button
             {...workspaceActionProps}
-            onClick={handleApplyProvider}
-            loading={applyProvider.isPending}
-            disabled={eligibleFields.length === 0}
-            leftSection={<IconCheck size={16} />}
+            onClick={addProvider}
+            disabled={providerFields.length === 0}
           >
-            Apply to {eligibleFields.length} fields
+            Add to draft ({providerFields.length})
           </Button>
         </Stack>
       </Modal>
-    </div>
+    </Stack>
   );
 }

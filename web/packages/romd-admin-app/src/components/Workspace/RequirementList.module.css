@@ -1,0 +1,47 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.requirement, .sectionLink {
+  border-block-start: 1px solid var(--romd-portal-border);
+}
+
+.requirement {
+  display: grid;
+  gap: 4px;
+  padding: var(--mantine-spacing-xs);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.requirement[data-current] {
+  background: var(--mantine-primary-color-light);
+  box-shadow: inset 2px 0 var(--romd-admin-focus);
+}
+
+.requirementLink, .sectionLink {
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  text-decoration: none;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.requirementLink {
+  font-weight: 600;
+}
+
+.sectionLink {
+  padding-block: var(--mantine-spacing-xs);
+}
+
+.requirementLink span, .sectionLink span:first-of-type {
+  flex: 1;
+}
+
+.requirementLink:hover, .sectionLink:hover {
+  color: var(--mantine-color-anchor);
+}

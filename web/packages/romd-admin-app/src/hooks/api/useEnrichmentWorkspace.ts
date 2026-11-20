@@ -44,7 +44,7 @@ export function useEnrichmentWorkspace(
         signal,
       });
       if (result.error || !result.data)
-        throw new Error('Could not load the enrichment workspace. Your choices are still saved.');
+        throw new Error('Could not load the review queue. Your choices are still saved.');
       if (
         !Object.hasOwn(result.data, 'nextCursor') ||
         result.data.hasNextPage !== (typeof result.data.nextCursor === 'string') ||
@@ -99,9 +99,10 @@ export const enrichmentWorkspaceCountsQuery = (search: string) =>
     },
   });
 
-export function useEnrichmentWorkspaceCounts(search: string) {
+export function useEnrichmentWorkspaceCounts(search: string, enabled = true) {
   return useQuery({
     ...enrichmentWorkspaceCountsQuery(search),
+    enabled,
     staleTime: 15_000,
     refetchInterval: 30_000,
   });

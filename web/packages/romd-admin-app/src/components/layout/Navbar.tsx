@@ -11,7 +11,6 @@ import {
   IconListCheck,
   IconPlugConnected,
   IconSettings,
-  IconSparkles,
   IconStackBack,
   IconUsers,
   IconWorld,
@@ -84,15 +83,6 @@ export function Navbar({ onNavigate }: { onNavigate?: () => void }) {
           icon: IconBook,
           path: '/catalog',
         },
-        ...(canManageTitles
-          ? [
-              {
-                label: 'Enrichment',
-                icon: IconSparkles,
-                path: '/enrichment',
-              },
-            ]
-          : []),
         ...(canUploadRoms
           ? [
               {

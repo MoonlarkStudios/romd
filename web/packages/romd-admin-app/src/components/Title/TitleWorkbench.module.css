@@ -1,56 +1,65 @@
-/* The workbench is the size container for its header, checklist and editors. Density tiers are custom properties: the
-   host's `data-density` picks one (compact beside the queue, comfortable on the title page), and a narrow workbench
-   falls back to compact whatever the host asked for. */
-.workbench {
-  container: title-workbench / inline-size; min-width: 0; display: flex; flex-direction: column; gap: var(--workbench-gap);
-  --workbench-gap: var(--mantine-spacing-lg); --checklist-group-gap: var(--mantine-spacing-lg);
-  --checklist-row-padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm); --checklist-satisfied-row-padding: 4px var(--mantine-spacing-sm);
-}
-.workbench[data-density='compact'] {
-  --workbench-gap: var(--mantine-spacing-md); --checklist-group-gap: var(--mantine-spacing-md);
-  --checklist-row-padding: 6px var(--mantine-spacing-xs); --checklist-satisfied-row-padding: 2px var(--mantine-spacing-xs);
-}
-@container title-workbench (max-width: 36em) {
-  .workbench > * {
-    --checklist-group-gap: var(--mantine-spacing-md);
-    --checklist-row-padding: 6px var(--mantine-spacing-xs); --checklist-satisfied-row-padding: 2px var(--mantine-spacing-xs);
-  }
+.composition {
+  display: grid;
+  gap: var(--mantine-spacing-md);
+  min-inline-size: 0;
 }
 
-/* The workspace header lays out for its own width: Next title moves under the identity when the header is narrow. */
-.header { container: workbench-header / inline-size; display: flex; flex-direction: column; gap: 4px; }
-.headerBar { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--mantine-spacing-md); }
-.identity { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 auto; }
-.navigation { flex-shrink: 0; }
-@container workbench-header (max-width: 30em) { .headerBar { flex-direction: column; } }
-.heading:focus { outline: 2px solid var(--romd-admin-focus); outline-offset: 2px; }
+.composition[data-rail] {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  grid-template-areas: "section status";
+}
 
-/* The checklist is its own size container: groups stack when it is narrow, then Identity and Metadata share a column
-   beside Artwork, then each group takes a column. Reading order stays Identity, Metadata, Artwork. */
-.requirements { container: requirement-checklist / inline-size; min-width: 0; }
-.groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--checklist-group-gap); align-items: start; }
-@container requirement-checklist (min-width: 900px) {
-  .groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .group[data-kind='Artwork'] { grid-column: 2; grid-row: 1 / span 2; }
+.status, .section {
+  min-inline-size: 0;
 }
-@container requirement-checklist (min-width: 1200px) {
-  .groups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .group[data-kind='Artwork'] { grid-column: auto; grid-row: auto; }
+
+.composition[data-rail] .status {
+  grid-area: status;
+  position: sticky;
+  inset-block-start: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md));
+  max-block-size: calc(100dvh - var(--app-shell-header-offset, 0px) - var(--romd-admin-status-bar-height, 0px) - 2 * var(--mantine-spacing-md));
+  overflow-y: auto;
 }
-.group { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.groupHeading:global(.romd-card-title) { color: var(--mantine-color-text); }
-.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.row { padding: var(--checklist-row-padding); border-left: 3px solid transparent; border-radius: var(--mantine-radius-sm); }
-.row[data-current] { border-left-color: var(--mantine-primary-color-filled); background: var(--mantine-primary-color-light); }
-.row:focus { outline: 2px solid var(--romd-admin-focus); outline-offset: 2px; }
-.rowLine { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--mantine-spacing-xs); }
-.rowText { display: flex; align-items: flex-start; gap: var(--mantine-spacing-xs); min-width: 0; flex: 1 1 260px; }
-.rowActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mantine-spacing-xs); }
-/* Satisfied rows stay complete but recede: subdued copy and small text actions on one line where the copy fits. Longer
-   copy wraps beside the actions rather than being cut off, because touch devices have no tooltip to reveal it. */
-.row[data-satisfied] { padding: var(--checklist-satisfied-row-padding); }
-.row[data-satisfied] .rowLine { flex-wrap: nowrap; align-items: flex-start; }
-.row[data-satisfied] .rowText { flex: 1 1 auto; }
-.row[data-satisfied] .rowActions { flex-wrap: nowrap; flex-shrink: 0; gap: 2px; }
-/* The check sits on the first line of the copy beside it. */
-.stateIcon { flex-shrink: 0; margin-top: calc((var(--mantine-line-height-sm) * var(--mantine-font-size-sm) - 16px) / 2); color: var(--mantine-color-success); }
+
+.composition[data-rail] .section {
+  grid-area: section;
+}
+
+.summary {
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-default);
+}
+
+.summary summary {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  list-style: none;
+  cursor: pointer;
+}
+
+.summary summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary summary::before {
+  content: '';
+  inline-size: 0.45rem;
+  block-size: 0.45rem;
+  flex: 0 0 auto;
+  border-block-end: 1.5px solid currentColor;
+  border-inline-end: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.summary[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.statusBody {
+  padding: var(--mantine-spacing-md);
+  border-block-start: 1px solid var(--romd-portal-border);
+}
