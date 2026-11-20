@@ -48,7 +48,7 @@ import { LibraryCollections } from './LibraryCollections';
 import { LibraryGames } from './LibraryGames';
 import { LibraryPreview } from './LibraryPreview';
 import { LibraryRules } from './LibraryRules';
-import { awaitsFirstPublication, needsLibraryRefresh } from './libraryRefresh';
+import { awaitsFirstPublication, needsLibraryRefresh, publicationStatus } from './libraryRefresh';
 
 const tabs = [
   'overview',
@@ -245,6 +245,12 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
       </Alert>
     );
   const library = query.data;
+  const status = publicationStatus(library);
+  const publishLabel = !library.lastMaterializedAt
+    ? 'Publish library'
+    : needsLibraryRefresh(library)
+      ? 'Publish changes'
+      : 'Republish library';
   const rows = attachments.data ?? [];
   // The server lists original first. A refreshed library can stop offering the chosen format; the export then
   // falls back to that first choice.
@@ -340,12 +346,13 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
             </Button>
             <Button
               {...workspaceActionProps}
+              variant={needsLibraryRefresh(library) ? 'filled' : 'light'}
               leftSection={<IconRefresh size={17} />}
               loading={refreshing}
               disabled={dirty || library.configurationState !== 'Valid'}
               onClick={() => rebuild.mutate(libraryId)}
             >
-              {refreshing ? 'Refreshing library' : 'Refresh library'}
+              {refreshing ? 'Publishing library…' : publishLabel}
             </Button>
             <Button
               variant="light"
@@ -429,17 +436,15 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
           {library.configurationError ?? 'Review and save the library rules to restore access.'}
         </Alert>
       )}
-      {needsLibraryRefresh(library) && (
+      {library.configurationState === 'Valid' && (refreshing || status) && (
         <Alert
           color={refreshing ? 'blue' : 'yellow'}
           mb="lg"
-          title={refreshing ? 'Refreshing library' : 'Updates available'}
+          title={refreshing ? 'Publishing library…' : status}
         >
           {!library.lastMaterializedAt
-            ? 'Refresh this library to publish its contents and enable consumer access.'
-            : library.needsMaterialization
-              ? 'Some changes affect which games consumers can see or play. Consumers keep the published library until you refresh.'
-              : 'Consumers can continue using the published library. Refresh when you are ready to publish the latest changes.'}
+            ? 'Review the games in this draft, then publish it to make them available to its audience.'
+            : 'Your audience keeps the published library until these changes are published.'}
         </Alert>
       )}
       {rebuild.isError && (
@@ -486,22 +491,24 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
                 size="sm"
                 c="dimmed"
               >
-                Releases in library
+                Published library
               </Text>
               <Text
                 className={classes.stat}
                 mt="sm"
               >
-                {library.itemCount.toLocaleString()}
+                {library.publishedGameCount != null
+                  ? `${library.publishedGameCount.toLocaleString()} ${library.publishedGameCount === 1 ? 'game' : 'games'}`
+                  : 'Not published'}
               </Text>
               <Text
                 c="dimmed"
                 size="sm"
                 mt="sm"
               >
-                {library.configuration?.titleSelectionMode === 'IncludeOnly'
-                  ? 'Handpicked for this audience'
-                  : 'Selected by your library rules'}
+                {library.lastMaterializedAt
+                  ? `${library.itemCount.toLocaleString()} ${library.itemCount === 1 ? 'release' : 'releases'}`
+                  : 'Publish the draft to see game and release counts.'}
               </Text>
             </div>
             <div className={classes.overviewStat}>
@@ -620,16 +627,12 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
               c="dimmed"
             >
               {library.lastMaterializedAt
-                ? `Library results updated ${new Date(library.lastMaterializedAt).toLocaleString()}`
-                : 'Not published yet. Refresh to publish this library.'}
+                ? `Published ${new Date(library.lastMaterializedAt).toLocaleString()}`
+                : 'This draft has never been published.'}
             </Text>
-            {(library.configurationState !== 'Valid' || needsLibraryRefresh(library)) && (
+            {(refreshing || status) && (
               <Badge color={library.configurationState !== 'Valid' ? 'red' : 'yellow'}>
-                {library.configurationState !== 'Valid'
-                  ? 'Needs attention'
-                  : refreshing
-                    ? 'Refreshing'
-                    : 'Updates available'}
+                {refreshing ? 'Publishing' : status}
               </Badge>
             )}
           </Group>

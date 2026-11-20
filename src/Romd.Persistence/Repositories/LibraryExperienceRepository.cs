@@ -12,6 +12,21 @@ namespace Romd.Persistence.Repositories;
 
 public sealed partial class LibraryExperienceRepository(RomdDbContext context) : ILibraryExperienceRepository
 {
+    public async Task<IReadOnlyDictionary<int, int>> GetPublishedGameCountsAsync(
+        IReadOnlyList<int> libraryIds, CancellationToken ct)
+    {
+        if (libraryIds.Count == 0)
+        {
+            return new Dictionary<int, int>();
+        }
+
+        return await context.MaterializedLibraryTitles
+            .Where(title => title.IsOwned && libraryIds.Contains(title.LibraryId))
+            .GroupBy(title => title.LibraryId)
+            .Select(group => new { LibraryId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.LibraryId, group => group.Count, ct);
+    }
+
     public async Task<IReadOnlyDictionary<int, IReadOnlyList<string>>> GetCollectionIdsByLibraryAsync(CancellationToken ct, IReadOnlyList<int>? libraryIds = null)
     {
         var rows = await context.LibraryCollections.Where(a => libraryIds == null || libraryIds.Contains(a.LibraryId)).OrderBy(a => a.SortOrder).ThenBy(a => a.CollectionId)

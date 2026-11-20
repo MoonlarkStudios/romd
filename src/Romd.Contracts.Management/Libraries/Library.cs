@@ -15,6 +15,8 @@ public sealed record Library
     public required bool NeedsMaterialization { get; init; }
     public DateTimeOffset? LastMaterializedAt { get; init; }
     public required int ItemCount { get; init; }
+    /// <summary>Distinct games with owned releases in the published library. Null for unpublished or invalid libraries.</summary>
+    public int? PublishedGameCount { get; init; }
 
     /// <summary>
     ///     The formats this library's export can be requested in: original, then the stored format of each of its systems.

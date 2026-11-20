@@ -6,7 +6,11 @@ import { CurationHelp } from '../../components/Workspace/CurationHelp';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useCollection, useDeleteCollection } from '../../hooks/api/useCollectionManagement';
 import { usePermissions } from '../../hooks/usePermissions';
-import { CollectionAudiences, useCollectionPlacements } from './CollectionAudiences';
+import {
+  CollectionAttachmentDialog,
+  CollectionAudiences,
+  useCollectionPlacements,
+} from './CollectionAudiences';
 import { CollectionBuild } from './CollectionBuild';
 import { CollectionFormModal } from './CollectionFormModal';
 import { CollectionPreview } from './CollectionPreview';
@@ -29,6 +33,7 @@ export function CollectionWorkspace() {
       : 'build';
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [attaching, setAttaching] = useState(false);
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
   const previousResetKey = useRef(collectionId);
@@ -37,6 +42,7 @@ export function CollectionWorkspace() {
     previousResetKey.current = collectionId;
     setEditing(false);
     setDeleting(false);
+    setAttaching(false);
     setBusy(false);
   }, [
     collectionId,
@@ -258,6 +264,7 @@ export function CollectionWorkspace() {
           collection={detail}
           canEdit={canEdit}
           onBusyChange={setBusy}
+          onAttach={permissions.canManageUsers ? () => setAttaching(true) : undefined}
         />
       )}
       {tab === 'audiences' && (
@@ -269,6 +276,14 @@ export function CollectionWorkspace() {
         <CollectionPreview
           key={collectionId}
           collection={detail}
+        />
+      )}
+      {permissions.canManageUsers && (
+        <CollectionAttachmentDialog
+          key={`attach-${collectionId}`}
+          collectionId={collectionId}
+          opened={attaching}
+          onClose={() => setAttaching(false)}
         />
       )}
       <CollectionFormModal

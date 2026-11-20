@@ -1208,6 +1208,7 @@ export type Library = {
     needsMaterialization: boolean;
     lastMaterializedAt?: null | string;
     itemCount: number;
+    publishedGameCount?: null | number;
     exportFormats: Array<ArchiveFormat>;
     createdAt: string;
     updatedAt?: null | string;
@@ -8356,6 +8357,7 @@ export type ListCatalogTitlesData = {
         enrichment?: Array<string>;
         artworkStatus?: 'Poster' | 'Backdrop' | 'Logo' | 'Hero' | 'NeedsMatch';
         tracked?: 'all' | 'tracked' | 'untracked';
+        localFilesOnly?: boolean;
         sortBy?: 'name' | 'rating' | 'relevance';
         cursor?: string;
         limit?: number;
@@ -8394,6 +8396,7 @@ export type GetCatalogStatsData = {
         enrichment?: Array<string>;
         artworkStatus?: 'Poster' | 'Backdrop' | 'Logo' | 'Hero' | 'NeedsMatch';
         tracked?: 'all' | 'tracked' | 'untracked';
+        localFilesOnly?: boolean;
     };
     url: '/api/catalog/stats';
 };

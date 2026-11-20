@@ -257,6 +257,124 @@ describe('Collections', () => {
     });
   });
 
+  it('attaches from Build and keeps only failed libraries selected for retry', async () => {
+    const places: {
+      libraryId: string;
+      name: string;
+      isFeatured: boolean;
+    }[] = [];
+    vi.mocked(listCollectionLibraryPlacements).mockImplementation(
+      async () =>
+        ({
+          data: finalPage(places.slice()),
+        }) as never,
+    );
+    vi.mocked(listLibraries).mockResolvedValue({
+      data: finalPage([
+        {
+          id: 'first',
+          name: 'First library',
+        },
+        {
+          id: 'second',
+          name: 'Second library',
+        },
+      ]),
+    } as never);
+    vi.mocked(listLibraryAttachments).mockResolvedValue({
+      data: [
+        {
+          collectionId: 'existing',
+          isFeatured: false,
+        },
+      ],
+    } as never);
+    const accepted = {
+      data: undefined,
+    } as never;
+    vi.mocked(replaceLibraryAttachments).mockImplementation(async ({ path }) => {
+      if (path.libraryId === 'second')
+        return {
+          error: {
+            detail: 'Try again later.',
+          },
+        } as never;
+      places.push({
+        libraryId: 'first',
+        name: 'First library',
+        isFeatured: true,
+      });
+      return accepted;
+    });
+
+    render(
+      <Routes>
+        <Route
+          path="/collections/:collectionId"
+          element={<CollectionWorkspace />}
+        />
+      </Routes>,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/collections/rpgs',
+          ],
+        },
+      },
+    );
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Add to libraries',
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole('combobox', {
+        name: 'Libraries',
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole('option', {
+        name: 'First library',
+        hidden: true,
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole('option', {
+        name: 'Second library',
+        hidden: true,
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Add to 2 libraries',
+      }),
+    );
+
+    expect(await screen.findByText('Second library · Try again later.')).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'Add to 1 library',
+      }),
+    ).toBeEnabled();
+    expect(replaceLibraryAttachments).toHaveBeenCalledWith({
+      path: {
+        libraryId: 'first',
+      },
+      body: {
+        collections: [
+          {
+            collectionId: 'existing',
+            isFeatured: false,
+          },
+          {
+            collectionId: 'rpgs',
+            isFeatured: true,
+          },
+        ],
+      },
+    });
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -625,33 +743,33 @@ describe('Collections', () => {
     );
     await userEvent.click(
       await screen.findByRole('checkbox', {
-        name: 'Select EarthBound',
+        name: /^Select EarthBound ·/,
       }),
     );
     await userEvent.click(
       screen.getByRole('checkbox', {
-        name: 'Select Secret of Mana',
+        name: /^Select Secret of Mana ·/,
       }),
     );
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Add 2 selected games',
+        name: 'Add 2 games',
       }),
     );
     expect(await screen.findByText(/Added 1 of 2 games/)).toBeInTheDocument();
     expect(
       screen.getByRole('checkbox', {
-        name: 'Select Secret of Mana',
+        name: /^Select Secret of Mana ·/,
       }),
     ).toBeChecked();
     expect(
       screen.getByRole('checkbox', {
-        name: 'Select EarthBound',
+        name: /^Select EarthBound ·/,
       }),
     ).toBeDisabled();
     expect(
       screen.getByRole('button', {
-        name: 'Add 1 selected games',
+        name: 'Add 1 game',
       }),
     ).toBeEnabled();
   });
@@ -857,7 +975,7 @@ describe('Collections', () => {
     expect(await screen.findByText('Chrono Trigger')).toBeInTheDocument();
     expect(
       screen.getByText(
-        'This preview shows the published library. Changes appear after the library is refreshed.',
+        'This preview shows the published library. Pending changes appear after publication.',
       ),
     ).toBeInTheDocument();
   });
@@ -894,7 +1012,7 @@ describe('Collections', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
-        name: 'Refresh the library',
+        name: 'Publish the library',
       }),
     ).toHaveAttribute('href', '/libraries/kids');
     expect(listLibraryPreviewTitles).not.toHaveBeenCalled();

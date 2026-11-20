@@ -61,12 +61,13 @@ public static class CatalogEndpoints
         string[]? enrichment = null,
         [ClosedValues("Poster", "Backdrop", "Logo", "Hero", "NeedsMatch")] string? artworkStatus = null,
         [ClosedValues("all", "tracked", "untracked")] string? tracked = null,
+        bool localFilesOnly = false,
         [ClosedValues("name", "rating", "relevance")] string? sortBy = null,
         string? cursor = null,
         [Range(1, MaxLimit)] int limit = 50,
         CancellationToken cancellationToken = default)
 
-        => ReadCatalog(referenceCatalog, searchRepository, currentUser, query, systemKey, genre, releaseCompleteness, releaseReview, enrichmentStatus, enrichment, artworkStatus, tracked, sortBy, cursor, limit, cancellationToken, false);
+        => ReadCatalog(referenceCatalog, searchRepository, currentUser, query, systemKey, genre, releaseCompleteness, releaseReview, enrichmentStatus, enrichment, artworkStatus, tracked, localFilesOnly, sortBy, cursor, limit, cancellationToken, false);
 
     private static Task<IResult> CountCatalog([FromServices] IReferenceCatalogService referenceCatalog,
         ISearchRepository searchRepository, ICurrentUser currentUser,
@@ -74,10 +75,10 @@ public static class CatalogEndpoints
         [ClosedValues("all", "complete", "partial", "none")] string? releaseCompleteness = null, [ClosedValues("all", "missing", "upgrades")] string? releaseReview = null,
         [ClosedValues("None", "Pending", "Completed", "Failed", "NotFound", "LowConfidence")] string? enrichmentStatus = null, string[]? enrichment = null,
         [ClosedValues("Poster", "Backdrop", "Logo", "Hero", "NeedsMatch")] string? artworkStatus = null, [ClosedValues("all", "tracked", "untracked")] string? tracked = null,
-        CancellationToken cancellationToken = default)
+        bool localFilesOnly = false, CancellationToken cancellationToken = default)
         => ReadCatalog(referenceCatalog, searchRepository, currentUser, query, systemKey, genre,
             releaseCompleteness, releaseReview, enrichmentStatus, enrichment, artworkStatus, tracked,
-            null, null, 50, cancellationToken, true);
+            localFilesOnly, null, null, 50, cancellationToken, true);
 
     private static async Task<IResult> ReadCatalog([FromServices] IReferenceCatalogService referenceCatalog,
         ISearchRepository searchRepository,
@@ -91,6 +92,7 @@ public static class CatalogEndpoints
         string[]? enrichment = null,
         [ClosedValues("Poster", "Backdrop", "Logo", "Hero", "NeedsMatch")] string? artworkStatus = null,
         [ClosedValues("all", "tracked", "untracked")] string? tracked = null,
+        bool localFilesOnly = false,
         [ClosedValues("name", "rating", "relevance")] string? sortBy = null,
         string? cursor = null,
         int limit = 50,
@@ -177,7 +179,8 @@ public static class CatalogEndpoints
             Genre: genre,
             ReleaseCompleteness: releaseCompletenessFilter,
             EnrichmentStatus: enrichmentStatus,
-            Tracked: trackedFilter, ArtworkStatus: artworkStatus, Enrichment: enrichmentFlags, ReleaseReview: review);
+            Tracked: trackedFilter, ArtworkStatus: artworkStatus, Enrichment: enrichmentFlags, ReleaseReview: review,
+            LocalFilesOnly: localFilesOnly);
 
         // Resolve library ID for user (Contributors+ bypass filtering)
         int? libraryId = currentUser.HasRole(RomdRoleType.Contributor) ? null : currentUser.LibraryId;

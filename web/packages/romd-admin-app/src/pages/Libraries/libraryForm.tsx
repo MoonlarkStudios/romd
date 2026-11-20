@@ -168,16 +168,19 @@ export function TitleOverridePicker({
   value,
   onChange,
   excludeIds = [],
+  localFirst,
+  withinPortal,
 }: {
   label: string;
-  description: string;
+  description?: string;
   emptyMessage?: string;
   value: string[];
   onChange: (ids: string[]) => void;
   excludeIds?: string[];
+  localFirst?: boolean;
+  withinPortal?: boolean;
 }) {
   const [knownTitles, setKnownTitles] = useState<Map<string, string>>(new Map());
-  const [searchKey, setSearchKey] = useState(0);
   const titleLabels = useTitleLabelMap(value);
   const queryClient = useQueryClient();
 
@@ -201,7 +204,6 @@ export function TitleOverridePicker({
       ...value,
       titleId,
     ]);
-    setSearchKey((current) => current + 1);
   };
 
   const handleRemove = (titleId: string) => {
@@ -211,22 +213,26 @@ export function TitleOverridePicker({
   return (
     <Stack gap="xs">
       <TitleSearchSelect
-        key={searchKey}
         value={null}
         onChange={handleAdd}
         label={label}
-        placeholder="Search titles to add"
+        placeholder="Search by game name"
+        clearAfterSelect
+        localFirst={localFirst}
+        withinPortal={withinPortal}
         excludeIds={[
           ...excludeIds,
           ...value,
         ]}
       />
-      <Text
-        size="xs"
-        c="dimmed"
-      >
-        {description}
-      </Text>
+      {description && (
+        <Text
+          size="xs"
+          c="dimmed"
+        >
+          {description}
+        </Text>
+      )}
       {value.length > 0 ? (
         <Group gap="xs">
           {value.map((titleId) => (

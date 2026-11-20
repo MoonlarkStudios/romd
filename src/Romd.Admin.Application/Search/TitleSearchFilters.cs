@@ -18,7 +18,8 @@ public sealed record TitleSearchFilters(
     TrackedFilter Tracked = TrackedFilter.All,
     string? ArtworkStatus = null,
     IReadOnlyCollection<EnrichmentFlagFilter>? Enrichment = null,
-    Romd.Admin.Application.TrackedCollection.TrackedCollectionView? ReleaseReview = null);
+    Romd.Admin.Application.TrackedCollection.TrackedCollectionView? ReleaseReview = null,
+    bool LocalFilesOnly = false);
 
 /// <summary>
 ///     Current enrichment assessment flags for catalog search, in chip order. Flags combine with AND.

@@ -10,6 +10,7 @@ public interface ILibraryExperienceRepository
     Task<ErrorOr<Page<LibraryPreviewTitle>>> GetPreviewPageAsync(int libraryId, int? collectionId, string? cursor, int limit, CancellationToken ct);
 
     Task<IReadOnlyDictionary<int, IReadOnlyList<string>>> GetCollectionIdsByLibraryAsync(CancellationToken ct, IReadOnlyList<int>? libraryIds = null);
+    Task<IReadOnlyDictionary<int, int>> GetPublishedGameCountsAsync(IReadOnlyList<int> libraryIds, CancellationToken ct);
     Task<IReadOnlyList<CollectionLibraryPlacement>> GetCollectionPlacementsAsync(int collectionId, CancellationToken ct);
     Task<IReadOnlyList<LibraryAttachment>> GetAttachmentsAsync(int libraryId, CancellationToken ct);
     /// <summary>Stages a replacement inside the caller-owned transaction. The caller commits.</summary>

@@ -20,7 +20,8 @@ namespace Romd.Admin.Application.Libraries;
 
 public static class LibraryMapping
 {
-    public static ContractLibrary ToContract(this Library library, SystemKeys systemKeys, RomDeliveryPolicy deliveryPolicy) =>
+    public static ContractLibrary ToContract(this Library library, SystemKeys systemKeys, RomDeliveryPolicy deliveryPolicy,
+        int? publishedGameCount = null) =>
         new()
         {
             Id = IdCoder.Encode(library.Id),
@@ -32,6 +33,7 @@ public static class LibraryMapping
             NeedsMaterialization = library.NeedsMaterialization,
             LastMaterializedAt = library.LastMaterializedAt,
             ItemCount = library.ItemCount,
+            PublishedGameCount = publishedGameCount,
             ExportFormats = ArchiveFormatMapping.ToContract(
                 ExportArchivePlanner.StoredFormats(ExportSystems(library, systemKeys, deliveryPolicy), deliveryPolicy),
                 deliveryPolicy.Formats),

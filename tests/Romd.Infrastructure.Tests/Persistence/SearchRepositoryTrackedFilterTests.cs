@@ -94,6 +94,21 @@ public sealed class SearchRepositoryTrackedFilterTests : IDisposable
     }
 
     [Fact]
+    public async Task SearchTitlesAsync_LocalFilesOnly_FiltersRowsAndCountBeforePaging()
+    {
+        using var db = CreateDb();
+        var repository = new SearchRepository(db);
+        var filters = new TitleSearchFilters(LocalFilesOnly: true);
+
+        var result = await repository.SearchTitlesAsync(null, filters, TitleSortField.Name, null, 1, null,
+            includeTotal: true);
+
+        result.Value.Items.Select(item => item.Id).ShouldBe([1]);
+        result.Value.TotalCount.ShouldBe(1);
+        result.Value.HasNextPage.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task GetCatalogFiltersAsync_RunsConcurrentAggregatesOnSharedContext_WithoutThrowing()
     {
         // GetCatalogFiltersAsync issues eight aggregations sequentially over one DbContext (the

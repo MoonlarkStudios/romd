@@ -313,10 +313,10 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
         string fingerprint = SearchCursors.TitlesFingerprint(query, filters, sortField, libraryId);
 
         bool useSearch = !string.IsNullOrWhiteSpace(query);
-        string? tsQuery = useSearch ? SearchQuery.ToTsQueryText(query!) : null;
+        string? tsQuery = useSearch ? SearchQuery.ToTsQueryText(query!, allowOmittedPossessive: true) : null;
 
         var baseQuery = useSearch
-            ? SearchQuery.MatchTitles(context.Titles.AsNoTracking(), query!)
+            ? SearchQuery.MatchTitleQuery(context.Titles.AsNoTracking(), tsQuery)
             : context.Titles.AsNoTracking();
 
         // Apply filters (platform, genre, local payload)
@@ -384,7 +384,10 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
     internal IQueryable<TitleEntity> ScopeTitles(string? query, TitleSearchFilters filters, EnrichmentProviderAvailability? availability = null)
     {
         var titles = ApplyTitleFilters(
-            string.IsNullOrWhiteSpace(query) ? context.Titles : SearchQuery.MatchTitles(context.Titles, query), filters, availability);
+            string.IsNullOrWhiteSpace(query)
+                ? context.Titles
+                : SearchQuery.MatchTitles(context.Titles, query, allowOmittedPossessive: true),
+            filters, availability);
         if (filters.ReleaseCompleteness == ReleaseCompletenessFilter.All)
             return titles;
         // Operation scopes must select the same DAT-release buckets as catalog pages. Reuse
@@ -408,6 +411,11 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
         if (!string.IsNullOrWhiteSpace(filters.Genre))
         {
             query = query.Where(t => t.Genre == filters.Genre);
+        }
+
+        if (filters.LocalFilesOnly)
+        {
+            query = query.Where(t => t.HasLocalPayload);
         }
 
         // Tracked state is durable intent represented by row existence, not a Title column.

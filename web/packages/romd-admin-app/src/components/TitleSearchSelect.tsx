@@ -1,9 +1,21 @@
-import { Badge, Combobox, Group, Loader, Text, TextInput, useCombobox } from '@mantine/core';
+import {
+  Combobox,
+  Group,
+  Loader,
+  ScrollArea,
+  Stack,
+  Switch,
+  Text,
+  TextInput,
+  useCombobox,
+} from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import type { CatalogTitle } from '@romd/admin-api-client';
 import { IconSearch } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useCatalogSearch } from '../hooks/api/useCatalogSearch';
+import { usePlatforms } from '../hooks/api/usePlatforms';
+import { catalogGameLabel } from './catalogGameLabel';
 
 interface TitleSearchSelectProps {
   /** Current selected title ID */
@@ -20,6 +32,10 @@ interface TitleSearchSelectProps {
   error?: string;
   /** Whether the input is disabled */
   disabled?: boolean;
+  /** Keep the field ready to add another game after accepting a result. */
+  clearAfterSelect?: boolean;
+  localFirst?: boolean;
+  withinPortal?: boolean;
 }
 
 /**
@@ -33,6 +49,9 @@ export function TitleSearchSelect({
   excludeIds = [],
   error,
   disabled,
+  clearAfterSelect = false,
+  localFirst = false,
+  withinPortal,
 }: TitleSearchSelectProps) {
   const combobox = useCombobox({
     onDropdownClose: () => combobox.resetSelectedOption(),
@@ -41,118 +60,160 @@ export function TitleSearchSelect({
   const [search, setSearch] = useState('');
   const [debouncedSearch] = useDebouncedValue(search, 300);
   const [selectedTitle, setSelectedTitle] = useState<CatalogTitle | null>(null);
-
-  const { data, isLoading } = useCatalogSearch(
+  const [localFilesOnly, setLocalFilesOnly] = useState(localFirst);
+  const systems = usePlatforms();
+  const query = debouncedSearch.trim();
+  const canSearch = (text: string) => text.length >= 2 || (localFilesOnly && text.length === 0);
+  const searching = canSearch(query);
+  const catalog = useCatalogSearch(
     {
-      query: debouncedSearch || undefined,
+      query: query || undefined,
+      sortBy: query ? 'relevance' : undefined,
+      localFilesOnly,
     },
     {
-      enabled: debouncedSearch.length >= 2,
+      enabled: searching && combobox.dropdownOpened,
     },
   );
 
-  const titles =
-    data?.pages.flatMap((p) => p.items).filter((t) => !excludeIds.includes(t.id)) ?? [];
+  const waiting =
+    canSearch(search.trim()) &&
+    (search.trim() !== query || catalog.isLoading || catalog.isPlaceholderData);
+  const showResults = searching && search.trim() === query && !waiting && !catalog.isError;
+  const titles = showResults
+    ? (catalog.data?.pages.flatMap((p) => p.items).filter((t) => !excludeIds.includes(t.id)) ?? [])
+    : [];
 
   const handleSelect = (title: CatalogTitle) => {
-    setSelectedTitle(title);
-    setSearch(title.name);
+    setSelectedTitle(clearAfterSelect ? null : title);
+    setSearch(clearAfterSelect ? '' : title.name);
     onChange(title.id, title);
     combobox.closeDropdown();
   };
 
-  const options = titles.map((title) => (
-    <Combobox.Option
-      key={title.id}
-      value={title.id}
-    >
-      <Group
-        gap="sm"
-        wrap="nowrap"
+  const options = titles.map((title) => {
+    const { system, availability } = catalogGameLabel(title, systems.data);
+    return (
+      <Combobox.Option
+        key={title.id}
+        value={title.id}
+        aria-label={`${title.name}, ${system}, ${availability}`}
       >
         <Text
           size="sm"
-          truncate
-          style={{
-            flex: 1,
-          }}
+          fw={600}
         >
           {title.name}
         </Text>
-        {title.genre && (
-          <Badge
-            size="xs"
-            variant="light"
-            color="gray"
-          >
-            {title.genre}
-          </Badge>
-        )}
-      </Group>
-    </Combobox.Option>
-  ));
+        <Text
+          size="xs"
+          c="dimmed"
+        >
+          {system} · {availability}
+        </Text>
+      </Combobox.Option>
+    );
+  });
 
   return (
-    <Combobox
-      store={combobox}
-      onOptionSubmit={(val) => {
-        const title = titles.find((t) => t.id === val);
-        if (title) {
-          handleSelect(title);
-        }
-      }}
-    >
-      <Combobox.Target>
-        <TextInput
-          label={label}
-          placeholder={placeholder}
-          value={search}
-          onChange={(event) => {
-            setSearch(event.currentTarget.value);
-            if (selectedTitle && event.currentTarget.value !== selectedTitle.name) {
-              setSelectedTitle(null);
-              onChange(null, null);
-            }
-            combobox.openDropdown();
-            combobox.updateSelectedOptionIndex();
-          }}
-          onClick={() => combobox.openDropdown()}
-          onFocus={() => combobox.openDropdown()}
-          onBlur={() => {
-            combobox.closeDropdown();
-            if (!selectedTitle) {
-              setSearch('');
-            }
-          }}
-          leftSection={<IconSearch size={16} />}
-          rightSection={isLoading ? <Loader size={16} /> : null}
-          error={error}
-          disabled={disabled}
-        />
-      </Combobox.Target>
+    <Stack gap="xs">
+      <Combobox
+        store={combobox}
+        withinPortal={withinPortal}
+        onOptionSubmit={(val) => {
+          if (val === 'more-results') {
+            if (!catalog.isFetchingNextPage) void catalog.fetchNextPage();
+            return;
+          }
+          const title = titles.find((t) => t.id === val);
+          if (title) {
+            handleSelect(title);
+          }
+        }}
+      >
+        <Combobox.Target>
+          <TextInput
+            label={label}
+            placeholder={placeholder}
+            value={search}
+            onChange={(event) => {
+              setSearch(event.currentTarget.value);
+              if (selectedTitle && event.currentTarget.value !== selectedTitle.name) {
+                setSelectedTitle(null);
+                onChange(null, null);
+              }
+              combobox.openDropdown();
+              combobox.resetSelectedOption();
+            }}
+            onClick={() => combobox.openDropdown()}
+            onFocus={() => combobox.openDropdown()}
+            onBlur={() => {
+              combobox.closeDropdown();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && combobox.dropdownOpened) event.preventDefault();
+            }}
+            leftSection={<IconSearch size={16} />}
+            rightSection={waiting ? <Loader size={16} /> : null}
+            error={error}
+            disabled={disabled}
+          />
+        </Combobox.Target>
 
-      <Combobox.Dropdown>
-        <Combobox.Options>
-          {isLoading && (
-            <Combobox.Empty>
-              <Group
-                gap="xs"
-                justify="center"
+        <Combobox.Dropdown>
+          <Combobox.Options aria-label={label ? `${label} results` : 'Game search results'}>
+            {waiting && (
+              <Combobox.Empty>
+                <Group
+                  gap="xs"
+                  justify="center"
+                >
+                  <Loader size={14} />
+                  <Text size="sm">Searching games…</Text>
+                </Group>
+              </Combobox.Empty>
+            )}
+            {!canSearch(search.trim()) && (
+              <Combobox.Empty>Enter at least two characters to find a game.</Combobox.Empty>
+            )}
+            {!waiting && canSearch(search.trim()) && catalog.isError && (
+              <Combobox.Empty>Search is unavailable. Edit your search to try again.</Combobox.Empty>
+            )}
+            {showResults && !catalog.hasNextPage && options.length === 0 && (
+              <Combobox.Empty>
+                {localFilesOnly
+                  ? 'No local games match. Turn off “Local files only” to search the catalog.'
+                  : 'No matching games.'}
+              </Combobox.Empty>
+            )}
+            {showResults && (options.length > 0 || catalog.hasNextPage) && (
+              <ScrollArea.Autosize
+                mah={280}
+                type="auto"
               >
-                <Loader size={14} />
-                <Text size="sm">Searching...</Text>
-              </Group>
-            </Combobox.Empty>
-          )}
-          {!isLoading && debouncedSearch.length < 2 && (
-            <Combobox.Empty>Type at least 2 characters to search</Combobox.Empty>
-          )}
-          {!isLoading && debouncedSearch.length >= 2 && options.length === 0 && (
-            <Combobox.Empty>No titles found</Combobox.Empty>
-          )}
-          {options}
-        </Combobox.Options>
-      </Combobox.Dropdown>
-    </Combobox>
+                {options}
+                {catalog.hasNextPage && (
+                  <Combobox.Option
+                    value="more-results"
+                    disabled={catalog.isFetchingNextPage}
+                  >
+                    {catalog.isFetchingNextPage ? 'Loading more games…' : 'More games'}
+                  </Combobox.Option>
+                )}
+              </ScrollArea.Autosize>
+            )}
+          </Combobox.Options>
+        </Combobox.Dropdown>
+      </Combobox>
+      {localFirst && (
+        <Switch
+          label="Local files only"
+          size="xs"
+          disabled={disabled}
+          checked={localFilesOnly}
+          onChange={(event) => setLocalFilesOnly(event.currentTarget.checked)}
+        />
+      )}
+    </Stack>
   );
 }

@@ -23,6 +23,7 @@ export interface CatalogSearchParams {
   artworkStatus?: string;
   releaseCompleteness?: string;
   releaseReview?: string;
+  localFilesOnly?: boolean;
   tracked?: string;
   sortBy?: string;
 }
@@ -84,6 +85,7 @@ function catalogFilterQuery(params: CatalogSearchParams) {
   if (params.query) query.query = params.query;
   if (params.systemKey) query.systemKey = params.systemKey;
   if (params.genre) query.genre = params.genre;
+  if (params.localFilesOnly) query.localFilesOnly = true;
   if (params.artworkStatus)
     query.artworkStatus = closed(params.artworkStatus, [
       'Poster',

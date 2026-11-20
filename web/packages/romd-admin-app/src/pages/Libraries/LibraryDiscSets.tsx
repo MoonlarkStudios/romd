@@ -62,7 +62,7 @@ export function LibraryDiscSets({
       </Text>
       <Text size="sm">
         {value.length} selected sets. Each member remains subject to this Library’s rules. Save
-        these choices, then refresh the Library to publish its ordered membership.
+        these choices, then publish the library to update its ordered membership.
       </Text>
       <Button
         variant="light"

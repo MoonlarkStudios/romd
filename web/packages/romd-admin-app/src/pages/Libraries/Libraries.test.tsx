@@ -56,6 +56,7 @@ import {
   getCatalogFilters,
   getTitle,
   listAdminSystems,
+  listCatalogTitles,
   listCollections,
   listDats,
   listLibraries,
@@ -78,6 +79,7 @@ const library: Library = {
   isDefault: false,
   needsMaterialization: false,
   itemCount: 12,
+  publishedGameCount: 3,
   exportFormats: [
     {
       format: 'original',
@@ -650,6 +652,7 @@ describe('audience libraries', () => {
       </MantineProvider>,
     );
     expect(await screen.findByText('1 library')).toBeInTheDocument();
+    expect(screen.getByText('3 games · 12 releases')).toBeInTheDocument();
     expect(screen.getByText('1 collection')).toBeInTheDocument();
     expect(screen.queryByText(/A library defines/)).not.toBeInTheDocument();
     await userEvent.click(
@@ -660,9 +663,25 @@ describe('audience libraries', () => {
     await waitFor(() => expect(screen.getByText(/A library defines/)).toBeVisible());
   });
 
-  it('creates an empty handpicked library and opens title selection', async () => {
+  it('selects a game by availability and system before creating a handpicked draft', async () => {
     vi.mocked(createLibrary).mockResolvedValue({
       data: library,
+    } as never);
+    vi.mocked(listCatalogTitles).mockResolvedValue({
+      data: finalPage([
+        {
+          id: 'zelda-nes',
+          name: 'The Legend of Zelda',
+          systemKey: 'nes',
+          hasLocalPayload: true,
+        },
+        {
+          id: 'zelda-snes',
+          name: 'The Legend of Zelda',
+          systemKey: 'snes',
+          hasLocalPayload: false,
+        },
+      ]),
     } as never);
     const router = createMemoryRouter(
       [
@@ -707,19 +726,20 @@ describe('audience libraries', () => {
       'Kids',
     );
     await userEvent.click(
-      screen.getByLabelText('Initial titles', {
-        selector: 'input',
+      screen.getByRole('radio', {
+        name: /Handpick games/,
       }),
     );
-    await userEvent.click(
-      await screen.findByRole('option', {
-        name: 'None - choose titles individually',
-        hidden: true,
+    await userEvent.type(
+      screen.getByRole('textbox', {
+        name: 'Find games',
       }),
+      'Legend of Zelda',
     );
+    await userEvent.click(await screen.findByLabelText('The Legend of Zelda, nes, Local files'));
     await userEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', {
-        name: 'Create library',
+        name: 'Create draft',
       }),
     );
     await waitFor(() => expect(router.state.location.pathname).toBe('/libraries/kids'));
@@ -729,7 +749,9 @@ describe('audience libraries', () => {
         body: expect.objectContaining({
           configuration: expect.objectContaining({
             titleSelectionMode: 'IncludeOnly',
-            includeTitleIds: [],
+            includeTitleIds: [
+              'zelda-nes',
+            ],
           }),
         }),
       }),
@@ -789,7 +811,7 @@ describe('audience libraries', () => {
     );
     await userEvent.click(
       within(await screen.findByRole('dialog')).getByRole('button', {
-        name: 'Create library',
+        name: 'Create draft',
       }),
     );
     await waitFor(() =>
@@ -1488,15 +1510,13 @@ it('keeps published previews available after uploads and refreshes only on reque
     </MantineProvider>,
   );
 
-  expect(await screen.findByText('Updates available')).toBeInTheDocument();
-  expect(
-    screen.getByText(/Consumers can continue using the published library/),
-  ).toBeInTheDocument();
+  expect(await screen.findByText('Unpublished changes')).toBeInTheDocument();
+  expect(screen.getByText(/Your audience keeps the published library/)).toBeInTheDocument();
   expect(await screen.findByText('Through their eyes')).toBeInTheDocument();
   expect(materializeLibrary).not.toHaveBeenCalled();
   await userEvent.click(
     screen.getByRole('button', {
-      name: 'Refresh library',
+      name: 'Publish changes',
     }),
   );
   await waitFor(() =>
@@ -1543,11 +1563,7 @@ it('keeps the published preview while access-narrowing changes wait for an expli
     </MantineProvider>,
   );
 
-  expect(
-    await screen.findByText(
-      /Some changes affect which games consumers can see or play\. Consumers keep the published library until you refresh\./,
-    ),
-  ).toBeInTheDocument();
+  expect(await screen.findByText(/Your audience keeps the published library/)).toBeInTheDocument();
   expect(await screen.findByText('Through their eyes')).toBeInTheDocument();
   expect(materializeLibrary).not.toHaveBeenCalled();
 });
@@ -1589,13 +1605,9 @@ it('never describes a withdrawn publication as the published library', async () 
   );
 
   expect(
-    await screen.findByText(
-      /Refresh this library to publish its contents and enable consumer access/,
-    ),
+    await screen.findByText(/Review the games in this draft, then publish it/),
   ).toBeInTheDocument();
-  expect(
-    screen.queryByText(/Consumers can continue using the published library/),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByText(/Your audience keeps the published library/)).not.toBeInTheDocument();
 });
 
 it('requires a first refresh before a new library is published', async () => {
@@ -1635,9 +1647,7 @@ it('requires a first refresh before a new library is published', async () => {
   );
 
   expect(
-    await screen.findByText(
-      /Refresh this library to publish its contents and enable consumer access/,
-    ),
+    await screen.findByText(/Review the games in this draft, then publish it/),
   ).toBeInTheDocument();
   expect(screen.queryByText('Through their eyes')).not.toBeInTheDocument();
   expect(materializeLibrary).not.toHaveBeenCalled();

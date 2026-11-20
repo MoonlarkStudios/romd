@@ -8,14 +8,16 @@ import {
   SegmentedControl,
   Select,
   Stack,
+  Switch,
   Text,
   TextInput,
   Title,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import type { CatalogTitle } from '@romd/admin-api-client';
-import { IconDeviceGamepad2, IconSearch } from '@tabler/icons-react';
+import { IconDeviceGamepad2, IconPlus, IconSearch } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
+import { catalogGameLabel } from '../../components/catalogGameLabel';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useCatalogSearch } from '../../hooks/api/useCatalogSearch';
 import type { CollectionDetailView as CollectionDetail } from '../../hooks/api/useCollectionManagement';
@@ -33,15 +35,18 @@ export function CollectionBuild({
   collection,
   canEdit,
   onBusyChange,
+  onAttach,
 }: {
   collection: CollectionDetail;
   canEdit: boolean;
   onBusyChange: (busy: boolean) => void;
+  onAttach?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [debounced] = useDebouncedValue(search, 300);
   const [platform, setPlatform] = useState<string | null>(null);
-  const [panel, setPanel] = useState('collection');
+  const [localFilesOnly, setLocalFilesOnly] = useState(true);
+  const [panel, setPanel] = useState(collection.items.length ? 'collection' : 'catalog');
   const [selected, setSelected] = useState<CatalogTitle[]>([]);
   const [accepted, setAccepted] = useState<{
     collectionId: string;
@@ -59,6 +64,7 @@ export function CollectionBuild({
     {
       query: debounced || undefined,
       systemKey: collection.systemKey ?? platform ?? undefined,
+      localFilesOnly,
     },
     {
       enabled: canEdit,
@@ -164,20 +170,14 @@ export function CollectionBuild({
   }
   return (
     <Stack gap="lg">
-      <Group justify="space-between">
+      {(busy || message) && (
         <Text
           size="sm"
-          c="dimmed"
-        >
-          Changes save as you go. Adding several games saves each game individually.
-        </Text>
-        <Text
-          size="sm"
-          aria-live="polite"
+          role="status"
         >
           {busy ? 'Saving…' : message}
         </Text>
-      </Group>
+      )}
       {error && (
         <Alert
           color="red"
@@ -213,16 +213,8 @@ export function CollectionBuild({
                   order={2}
                   className={classes.sectionHeading}
                 >
-                  Find their next favorite
+                  Find games
                 </Title>
-                <Text
-                  c="dimmed"
-                  size="sm"
-                  mt="xs"
-                >
-                  Choose up to 24 games at a time. Library policies decide which ones each audience
-                  sees.
-                </Text>
               </div>
               <TextInput
                 label="Search catalog"
@@ -255,6 +247,12 @@ export function CollectionBuild({
                   }))}
                 />
               )}
+              <Switch
+                label="Local files only"
+                size="sm"
+                checked={localFilesOnly}
+                onChange={(event) => setLocalFilesOnly(event.currentTarget.checked)}
+              />
               <Group justify="space-between">
                 <Text size="sm">{choices.length} selected</Text>
                 <Button
@@ -279,7 +277,9 @@ export function CollectionBuild({
                 disabled={choices.length === 0 || !canEdit}
                 onClick={addSelected}
               >
-                Add {choices.length || ''} selected games
+                {choices.length
+                  ? `Add ${choices.length} ${choices.length === 1 ? 'game' : 'games'}`
+                  : 'Add selected games'}
               </Button>
               <div className={classes.results}>
                 {catalog.isError ? (
@@ -292,7 +292,7 @@ export function CollectionBuild({
                       Retry
                     </Button>
                   </Alert>
-                ) : catalog.isPending || debounced !== search ? (
+                ) : catalog.isPending || catalog.isPlaceholderData || debounced !== search ? (
                   <Group p="md">
                     <Loader size="sm" />
                     <Text size="sm">Searching games…</Text>
@@ -302,78 +302,88 @@ export function CollectionBuild({
                     c="dimmed"
                     py="lg"
                   >
-                    No games match this search.
+                    {localFilesOnly
+                      ? 'No local games match. Turn off “Local files only” to search the catalog.'
+                      : 'No games match this search.'}
                   </Text>
                 ) : (
-                  titles.map((title) => (
-                    <div
-                      key={title.id}
-                      className={classes.catalogRow}
-                    >
-                      <Checkbox
-                        aria-label={`Select ${title.name}`}
-                        checked={existing.has(title.id) || choices.some((t) => t.id === title.id)}
-                        disabled={
-                          busy ||
-                          existing.has(title.id) ||
-                          (choices.length >= 24 && !choices.some((t) => t.id === title.id))
-                        }
-                        onChange={(e) => {
-                          const checked = e.currentTarget.checked;
-                          setSelected((current) =>
-                            checked
-                              ? [
-                                  ...current.filter((t) => t.id !== title.id),
-                                  title,
-                                ]
-                              : current.filter((t) => t.id !== title.id),
-                          );
-                        }}
-                      />
-                      {title.coverUrl ? (
-                        <img
-                          className={classes.art}
-                          src={title.coverUrl}
-                          alt=""
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span className={classes.art}>
-                          <IconDeviceGamepad2 size={20} />
-                        </span>
-                      )}
+                  titles.map((title) => {
+                    const { system, availability } = catalogGameLabel(title, platforms.data);
+                    return (
                       <div
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                        }}
+                        key={title.id}
+                        className={classes.catalogRow}
                       >
-                        <Text
-                          fw={550}
-                          size="sm"
-                        >
-                          {title.name}
-                        </Text>
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                        >
-                          {platforms.data?.find((p) => p.key === title.systemKey)?.name ??
-                            'Catalog game'}
-                          {title.genre ? ` · ${title.genre}` : ''}
-                        </Text>
-                        {existing.has(title.id) && (
-                          <Badge
-                            color="gray"
-                            size="xs"
-                            mt={4}
-                          >
-                            In collection
-                          </Badge>
+                        <Checkbox
+                          id={`collection-game-${title.id}`}
+                          aria-label={`Select ${title.name} · ${system}`}
+                          aria-describedby={`collection-game-status-${title.id}`}
+                          checked={existing.has(title.id) || choices.some((t) => t.id === title.id)}
+                          disabled={
+                            busy ||
+                            existing.has(title.id) ||
+                            (choices.length >= 24 && !choices.some((t) => t.id === title.id))
+                          }
+                          onChange={(e) => {
+                            const checked = e.currentTarget.checked;
+                            setSelected((current) =>
+                              checked
+                                ? [
+                                    ...current.filter((t) => t.id !== title.id),
+                                    title,
+                                  ]
+                                : current.filter((t) => t.id !== title.id),
+                            );
+                          }}
+                        />
+                        {title.coverUrl ? (
+                          <img
+                            className={classes.art}
+                            src={title.coverUrl}
+                            alt=""
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className={classes.art}>
+                            <IconDeviceGamepad2 size={20} />
+                          </span>
                         )}
+                        <label
+                          htmlFor={`collection-game-${title.id}`}
+                          className={classes.catalogGameLabel}
+                        >
+                          <Text
+                            fw={550}
+                            size="sm"
+                          >
+                            {title.name}
+                          </Text>
+                          <Text
+                            size="xs"
+                            c="dimmed"
+                          >
+                            {system}
+                          </Text>
+                          <Text
+                            id={`collection-game-status-${title.id}`}
+                            size="xs"
+                            c="dimmed"
+                          >
+                            {availability}
+                          </Text>
+                          {existing.has(title.id) && (
+                            <Badge
+                              color="gray"
+                              size="xs"
+                              mt={4}
+                            >
+                              In collection
+                            </Badge>
+                          )}
+                        </label>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
                 {catalog.hasNextPage && (
                   <Button
@@ -414,7 +424,22 @@ export function CollectionBuild({
                   : 'This selection is managed by the system.'}
               </Text>
             </div>
-            <Badge color="teal">{items.length} games</Badge>
+            <Group gap="sm">
+              <Badge color="teal">
+                {items.length} {items.length === 1 ? 'game' : 'games'}
+              </Badge>
+              {onAttach && (
+                <Button
+                  variant="light"
+                  {...workspaceActionProps}
+                  disabled={busy}
+                  onClick={onAttach}
+                  leftSection={<IconPlus size={17} />}
+                >
+                  Add to libraries
+                </Button>
+              )}
+            </Group>
           </Group>
           {items.length === 0 ? (
             <Text

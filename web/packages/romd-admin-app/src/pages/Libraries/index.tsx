@@ -4,26 +4,37 @@ import {
   Button,
   Group,
   Modal,
+  MultiSelect,
+  Radio,
   Select,
+  SimpleGrid,
   Skeleton,
   Stack,
   Text,
   TextInput,
   Title,
 } from '@mantine/core';
-import { IconArrowRight, IconPlus, IconSearch } from '@tabler/icons-react';
+import {
+  IconAdjustmentsHorizontal,
+  IconArrowRight,
+  IconListCheck,
+  IconPlus,
+  IconSearch,
+} from '@tabler/icons-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { CurationHelp } from '../../components/Workspace/CurationHelp';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useCreateLibrary, useLibraries } from '../../hooks/api/useLibraryManagement';
+import { usePlatforms } from '../../hooks/api/usePlatforms';
 import classes from './Libraries.module.css';
+import { TitleOverridePicker } from './libraryForm';
 import {
   defaultLibraryConfiguration,
   type MaxMinimumAgeValue,
   maxMinimumAgeOptions,
 } from './libraryOptions';
-import { needsLibraryRefresh } from './libraryRefresh';
+import { publicationStatus } from './libraryRefresh';
 
 export function Libraries() {
   const libraries = useLibraries();
@@ -34,6 +45,9 @@ export function Libraries() {
   const [name, setName] = useState('');
   const [ratingAge, setRatingAge] = useState<MaxMinimumAgeValue>('18');
   const [selection, setSelection] = useState<'Rules' | 'IncludeOnly'>('Rules');
+  const [systems, setSystems] = useState<string[]>([]);
+  const [games, setGames] = useState<string[]>([]);
+  const platforms = usePlatforms();
   const filtered = (libraries.data ?? []).filter((l) =>
     l.name.toLowerCase().includes(search.toLowerCase()),
   );
@@ -61,6 +75,8 @@ export function Libraries() {
               setName('');
               setRatingAge('18');
               setSelection('Rules');
+              setSystems([]);
+              setGames([]);
               create.reset();
               setOpened(true);
             }}
@@ -152,14 +168,12 @@ export function Libraries() {
                         Default library
                       </Badge>
                     )}
-                    {(library.configurationState !== 'Valid' || needsLibraryRefresh(library)) && (
+                    {publicationStatus(library) && (
                       <Badge
                         color={library.configurationState !== 'Valid' ? 'red' : 'yellow'}
                         variant="light"
                       >
-                        {library.configurationState !== 'Valid'
-                          ? 'Needs attention'
-                          : 'Updates available'}
+                        {publicationStatus(library)}
                       </Badge>
                     )}
                   </Group>
@@ -185,8 +199,9 @@ export function Libraries() {
                 </Text>
                 <Stack gap={2}>
                   <Text size="sm">
-                    {library.itemCount.toLocaleString()}{' '}
-                    {library.itemCount === 1 ? 'release' : 'releases'}
+                    {library.publishedGameCount != null
+                      ? `${library.publishedGameCount.toLocaleString()} ${library.publishedGameCount === 1 ? 'game' : 'games'} · ${library.itemCount.toLocaleString()} ${library.itemCount === 1 ? 'release' : 'releases'}`
+                      : 'Not published'}
                   </Text>
                   <Text
                     size="xs"
@@ -208,8 +223,11 @@ export function Libraries() {
       )}
       <Modal
         opened={opened}
-        onClose={() => setOpened(false)}
+        onClose={() => {
+          if (!create.isPending) setOpened(false);
+        }}
         title="New library"
+        size="lg"
         radius="lg"
         centered
       >
@@ -222,6 +240,8 @@ export function Libraries() {
                 configuration: {
                   ...defaultLibraryConfiguration,
                   titleSelectionMode: selection,
+                  allowedSystemKeys: selection === 'Rules' ? systems : [],
+                  includeTitleIds: selection === 'IncludeOnly' ? games : [],
                   contentRatingPolicy: {
                     ...defaultLibraryConfiguration.contentRatingPolicy,
                     maxMinimumAge: ratingAge === 'none' ? null : Number(ratingAge),
@@ -242,49 +262,134 @@ export function Libraries() {
               value={name}
               onChange={(e) => setName(e.currentTarget.value)}
             />
-            <Select
-              label="Initial titles"
-              data={[
-                {
-                  value: 'Rules',
-                  label: 'Owned titles matching the rating policy',
-                },
-                {
-                  value: 'IncludeOnly',
-                  label: 'None - choose titles individually',
-                },
-              ]}
+            <Radio.Group
+              label="How should games be selected?"
+              name="library-selection-mode"
               value={selection}
-              allowDeselect={false}
-              onChange={(value) => {
-                if (value === 'Rules' || value === 'IncludeOnly') setSelection(value);
-              }}
-            />
+              onChange={(value) => setSelection(value === 'IncludeOnly' ? 'IncludeOnly' : 'Rules')}
+            >
+              <SimpleGrid
+                cols={{
+                  base: 1,
+                  xs: 2,
+                }}
+                spacing="sm"
+                mt="xs"
+              >
+                <Radio.Card
+                  value="Rules"
+                  className={classes.selectionCard}
+                >
+                  <Group
+                    gap="xs"
+                    wrap="nowrap"
+                  >
+                    <IconAdjustmentsHorizontal
+                      size={18}
+                      aria-hidden="true"
+                    />
+                    <Text
+                      size="sm"
+                      fw={650}
+                    >
+                      Select with rules
+                    </Text>
+                    <Radio.Indicator ml="auto" />
+                  </Group>
+                  <Text
+                    c="dimmed"
+                    size="xs"
+                  >
+                    Include matching games as your catalog grows.
+                  </Text>
+                </Radio.Card>
+                <Radio.Card
+                  value="IncludeOnly"
+                  className={classes.selectionCard}
+                >
+                  <Group
+                    gap="xs"
+                    wrap="nowrap"
+                  >
+                    <IconListCheck
+                      size={18}
+                      aria-hidden="true"
+                    />
+                    <Text
+                      size="sm"
+                      fw={650}
+                    >
+                      Handpick games
+                    </Text>
+                    <Radio.Indicator ml="auto" />
+                  </Group>
+                  <Text
+                    c="dimmed"
+                    size="xs"
+                  >
+                    Include the specific games you choose.
+                  </Text>
+                </Radio.Card>
+              </SimpleGrid>
+            </Radio.Group>
+            {selection === 'Rules' ? (
+              <MultiSelect
+                label="Systems"
+                placeholder="All systems"
+                searchable
+                clearable
+                comboboxProps={{
+                  withinPortal: false,
+                }}
+                value={systems}
+                onChange={setSystems}
+                data={(platforms.data ?? []).map((platform) => ({
+                  value: platform.key,
+                  label: platform.name,
+                }))}
+              />
+            ) : (
+              <TitleOverridePicker
+                label="Find games"
+                localFirst
+                withinPortal={false}
+                emptyMessage="Choose your first game, or add games later."
+                value={games}
+                onChange={setGames}
+              />
+            )}
             <Select
               label="Maximum content-rating age"
-              description="Strictest available rating across boards, including ESRB."
+              description="Applies to both selection modes. Unrated games are held for review."
               data={maxMinimumAgeOptions}
+              comboboxProps={{
+                withinPortal: false,
+              }}
               value={ratingAge}
               allowDeselect={false}
               onChange={(value) => {
                 if (value) setRatingAge(value as MaxMinimumAgeValue);
               }}
             />
-            <Text
-              size="xs"
-              c="dimmed"
-            >
-              No collections attached. Unrated titles are hidden pending review.
-            </Text>
             {create.isError && <Alert color="red">{create.error.message}</Alert>}
-            <Button
-              type="submit"
-              {...workspaceActionProps}
-              disabled={!name.trim()}
-              loading={create.isPending}
-            >
-              Create library
-            </Button>
+            <Group justify="flex-end">
+              <Button
+                variant="subtle"
+                color="gray"
+                disabled={create.isPending}
+                onClick={() => setOpened(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                {...workspaceActionProps}
+                disabled={!name.trim()}
+                loading={create.isPending}
+              >
+                Create draft
+              </Button>
+            </Group>
           </Stack>
         </form>
       </Modal>

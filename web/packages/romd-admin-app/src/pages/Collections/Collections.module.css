@@ -19,6 +19,7 @@
 .panel { composes: panel from "../../components/Workspace/Workspace.module.css"; }
 .results { max-height: 650px; overflow-y: auto; scrollbar-gutter: stable; }
 .catalogRow { display: flex; align-items: center; gap: 14px; padding: 14px 2px; border-bottom: 1px solid var(--mantine-color-default-border); }
+.catalogGameLabel { flex: 1; min-width: 0; cursor: pointer; }
 .shared { border-bottom: 1px solid var(--mantine-color-default-border); padding: 8px 0 16px; }
 .previewGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px; }
 .previewArt { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; background: var(--mantine-color-default-hover); display: grid; place-items: center; }

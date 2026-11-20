@@ -103,7 +103,7 @@ export function CollectionPreview({ collection }: { collection: CollectionDetail
             component={Link}
             to={`/libraries/${audience.libraryId}`}
           >
-            Refresh the library
+            Publish the library
           </Text>{' '}
           to preview what its members will see.
         </Alert>
@@ -124,8 +124,7 @@ export function CollectionPreview({ collection }: { collection: CollectionDetail
               size="sm"
               c="dimmed"
             >
-              This preview shows the published library. Changes appear after the library is
-              refreshed.
+              This preview shows the published library. Pending changes appear after publication.
             </Text>
           )}
           <AudienceGames

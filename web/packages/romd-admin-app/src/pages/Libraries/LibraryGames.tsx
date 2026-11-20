@@ -145,21 +145,20 @@ function DraftResults({
       className={classes.resultsPanel}
     >
       <div>
-        <Text className={classes.eyebrow}>Before you save</Text>
         <Title
           order={2}
           className={classes.sectionHeading}
           mt="xs"
         >
-          See what changes
+          Game eligibility
         </Title>
         <Text
           size="sm"
           c="dimmed"
           mt="xs"
         >
-          Draft and saved rules evaluated against the same catalog snapshot. Save your rules, then
-          refresh the library to publish changes for your audience.
+          Compare your current edits with the saved settings. Save your edits, then publish the
+          library to update what its audience can see.
         </Text>
       </div>
       <div

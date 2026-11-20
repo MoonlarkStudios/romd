@@ -92,7 +92,7 @@ export function LibraryRules({
           setSaved(JSON.stringify(form));
           notifications.show({
             title: 'Library saved',
-            message: 'Refresh the library when you are ready to publish these changes.',
+            message: 'Publish the library when you are ready to share these changes.',
             color: 'green',
           });
         } catch {
@@ -108,6 +108,108 @@ export function LibraryRules({
           <Alert color="yellow">
             This library’s saved rules need repair. Saving replaces them with the rules shown here.
           </Alert>
+        )}
+        {section === 'games' && (
+          <>
+            <div>
+              <Title
+                order={2}
+                className={classes.sectionHeading}
+              >
+                Choose their games
+              </Title>
+              <Text
+                c="dimmed"
+                mt="xs"
+              >
+                Build a growing library with rules, or choose every game yourself.
+              </Text>
+            </div>
+            <SegmentedControl
+              fullWidth
+              value={form.titleSelectionMode}
+              onChange={(value) =>
+                set('titleSelectionMode', value === 'IncludeOnly' ? 'IncludeOnly' : 'Rules')
+              }
+              data={[
+                {
+                  value: 'Rules',
+                  label: 'Select with rules',
+                },
+                {
+                  value: 'IncludeOnly',
+                  label: 'Handpick games',
+                },
+              ]}
+            />
+            <Switch
+              label="Include untracked titles"
+              description="Off by default: only tracked titles qualify, including handpicked games. Turn on to also consider untracked titles under these rules."
+              checked={form.includeUntrackedTitles}
+              onChange={(e) => set('includeUntrackedTitles', e.currentTarget.checked)}
+            />
+            {form.titleSelectionMode === 'Rules' ? (
+              <>
+                <MultiSelect
+                  label="Systems"
+                  description="Leave empty to include every system."
+                  placeholder="All systems"
+                  searchable
+                  data={(platforms.data ?? []).map((p) => ({
+                    value: p.key,
+                    label: p.name,
+                  }))}
+                  value={form.allowedSystemKeys}
+                  onChange={(value) => set('allowedSystemKeys', value)}
+                />
+                <MultiSelect
+                  label="Genres"
+                  description="Leave empty to include every genre."
+                  placeholder="All genres"
+                  searchable
+                  data={(facets.data?.genres ?? []).map((g) => ({
+                    value: g.value,
+                    label: g.value,
+                  }))}
+                  value={form.allowedGenres}
+                  onChange={(value) => set('allowedGenres', value)}
+                />
+                <Select
+                  label="When a genre is unknown"
+                  data={unknownMetadataPolicyOptions}
+                  value={form.unknownGenrePolicy}
+                  allowDeselect={false}
+                  onChange={(value) => {
+                    if (value) set('unknownGenrePolicy', value as UnknownMetadataPolicyValue);
+                  }}
+                />
+                <Divider />
+                <TitleOverridePicker
+                  label="Include specific games"
+                  description="Bypass genre rules for these games. Tracking, content-rating limits, and system scope still apply."
+                  emptyMessage="No additional games selected."
+                  value={form.includeTitleIds}
+                  onChange={(value) => set('includeTitleIds', value)}
+                />
+                <TitleOverridePicker
+                  label="Exclude specific games"
+                  description="Keep these titles out of this audience’s library."
+                  emptyMessage="No games excluded."
+                  value={form.excludeTitleIds}
+                  onChange={(value) => set('excludeTitleIds', value)}
+                />
+              </>
+            ) : (
+              <TitleOverridePicker
+                label="Handpicked games"
+                localFirst
+                description="Only these games are included. Tracking and content-rating limits still apply."
+                emptyMessage="Choose a game to begin. An empty selection creates an empty library."
+                value={form.includeTitleIds}
+                onChange={(value) => set('includeTitleIds', value)}
+              />
+            )}
+          </>
         )}
         {section === 'games' && (
           <>
@@ -242,103 +344,6 @@ export function LibraryRules({
         )}
         {section === 'games' && (
           <>
-            <div>
-              <Title
-                order={2}
-                className={classes.sectionHeading}
-              >
-                Choose their games
-              </Title>
-              <Text
-                c="dimmed"
-                mt="xs"
-              >
-                Build a growing library with rules, or choose every game yourself.
-              </Text>
-            </div>
-            <SegmentedControl
-              fullWidth
-              value={form.titleSelectionMode}
-              onChange={(value) =>
-                set('titleSelectionMode', value === 'IncludeOnly' ? 'IncludeOnly' : 'Rules')
-              }
-              data={[
-                {
-                  value: 'Rules',
-                  label: 'Select with rules',
-                },
-                {
-                  value: 'IncludeOnly',
-                  label: 'Handpick games',
-                },
-              ]}
-            />
-            <Switch
-              label="Include untracked titles"
-              description="Off by default: only tracked titles qualify, including handpicked games. Turn on to also consider untracked titles under these rules."
-              checked={form.includeUntrackedTitles}
-              onChange={(e) => set('includeUntrackedTitles', e.currentTarget.checked)}
-            />
-            {form.titleSelectionMode === 'Rules' ? (
-              <>
-                <MultiSelect
-                  label="Systems"
-                  description="Leave empty to include every system."
-                  placeholder="All systems"
-                  searchable
-                  data={(platforms.data ?? []).map((p) => ({
-                    value: p.key,
-                    label: p.name,
-                  }))}
-                  value={form.allowedSystemKeys}
-                  onChange={(value) => set('allowedSystemKeys', value)}
-                />
-                <MultiSelect
-                  label="Genres"
-                  description="Leave empty to include every genre."
-                  placeholder="All genres"
-                  searchable
-                  data={(facets.data?.genres ?? []).map((g) => ({
-                    value: g.value,
-                    label: g.value,
-                  }))}
-                  value={form.allowedGenres}
-                  onChange={(value) => set('allowedGenres', value)}
-                />
-                <Select
-                  label="When a genre is unknown"
-                  data={unknownMetadataPolicyOptions}
-                  value={form.unknownGenrePolicy}
-                  allowDeselect={false}
-                  onChange={(value) => {
-                    if (value) set('unknownGenrePolicy', value as UnknownMetadataPolicyValue);
-                  }}
-                />
-                <Divider />
-                <TitleOverridePicker
-                  label="Include specific games"
-                  description="Bypass genre rules for these games. Tracking, content-rating limits, and system scope still apply."
-                  emptyMessage="No additional games selected."
-                  value={form.includeTitleIds}
-                  onChange={(value) => set('includeTitleIds', value)}
-                />
-                <TitleOverridePicker
-                  label="Exclude specific games"
-                  description="Keep these titles out of this audience’s library."
-                  emptyMessage="No games excluded."
-                  value={form.excludeTitleIds}
-                  onChange={(value) => set('excludeTitleIds', value)}
-                />
-              </>
-            ) : (
-              <TitleOverridePicker
-                label="Handpicked games"
-                description="Only these games are included. Tracking and content-rating limits still apply."
-                emptyMessage="Choose a game to begin. An empty selection creates an empty library."
-                value={form.includeTitleIds}
-                onChange={(value) => set('includeTitleIds', value)}
-              />
-            )}
             <Switch
               label="Include missing games"
               description="Allow games you do not own to appear where the client supports missing games. Collection shelves show owned games."

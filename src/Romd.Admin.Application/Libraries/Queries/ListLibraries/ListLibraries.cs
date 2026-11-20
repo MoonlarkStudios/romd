@@ -22,10 +22,16 @@ public sealed class ListLibrariesQueryHandler(IReferenceCatalogService reference
             return result.Errors;
         var libraries = result.Value.Items;
         var collections = await experienceRepository.GetCollectionIdsByLibraryAsync(ct, libraries.Select(l => l.Id).ToArray());
+        var publishedIds = libraries.Where(library => library.HasValidConfiguration && library.LastMaterializedAt.HasValue)
+            .Select(library => library.Id).ToHashSet();
+        var gameCounts = publishedIds.Count > 0
+            ? await experienceRepository.GetPublishedGameCountsAsync(publishedIds.ToArray(), ct)
+            : null;
         var systemKeys = await referenceCatalog.GetSystemKeysAsync(ct);
         return new Page<Library>
         {
-            Items = libraries.Select(library => library.ToContract(systemKeys, deliveryPolicy) with
+            Items = libraries.Select(library => library.ToContract(systemKeys, deliveryPolicy,
+                publishedIds.Contains(library.Id) ? gameCounts!.GetValueOrDefault(library.Id) : null) with
             {
                 CollectionIds = collections.GetValueOrDefault(library.Id) ?? []
             }).ToArray(),

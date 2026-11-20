@@ -37,7 +37,7 @@ public static class SearchCursors
             Normalize(filters), libraryId, sort, "name:asc/year:desc-null-last/rank:desc,id:asc");
 
     public static string TitlesFingerprint(string? query, TitleSearchFilters filters, TitleSortField sort, int? libraryId) =>
-        KeysetCursor.Fingerprint("admin.catalog.v1", !string.IsNullOrWhiteSpace(query), SearchTextNormalizer.Normalize(query),
+        KeysetCursor.Fingerprint("admin.catalog.v2", !string.IsNullOrWhiteSpace(query), SearchTextNormalizer.Normalize(query),
             Normalize(filters), libraryId, sort, "name:asc/rating:desc-null-last/rank:desc,id:asc");
 
     public static string EncodeGames(CompositeCursor position, string fingerprint) => KeysetCursor.Encode(
