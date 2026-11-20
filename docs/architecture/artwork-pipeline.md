@@ -349,6 +349,38 @@ that prefix in persistence, merge, or rematerialization code. UI labels display
 the provider's readable name. Ordinary uploads retain source `user`.
 
 
+## Media collection
+
+Title media can sit on one of the title's canonical releases (`CatalogReleaseId`,
+set to null when the release is deleted) or stay title-level, and records an
+optional region and language (trimmed, at most 100 characters, no control
+characters) and the provider asset ID. Packaging types (`BoxFront` through
+`DiscLabel`) may be preferred: the database allows preference only on packaging
+and keeps one preferred row per title, type and release; title-level uniqueness
+is enforced by the aggregate under the title lock. A preference displaces the
+previous one in the same write. Merges carry curated media with its facts but
+drop preference.
+
+`PATCH /api/titles/{titleId}/media/{mediaId}` with `{ "classification": … }`
+replaces type, release, region, language and preference under the title's
+`If-Match`. Only `user` and `gallery:*` media can change type, never between an
+image type and `Manual`. Moving the primary item of a type promotes the earliest
+remaining one. Uploads take `releaseId`, `region` and `language` query
+parameters; the release must belong to the title.
+
+A `Manual` is a structurally validated PDF (header, `startxref`, `%%EOF`, at most
+128 MiB, no `/Encrypt`, `/JavaScript` or `/Launch`). The anonymous `/media/{id}`
+lane never serves documents. The admin resource
+`GET /api/titles/{titleId}/media/{mediaId}` returns the PDF as its alternate
+representation for `Accept: application/pdf`, with range support, `nosniff`, a
+sandboxing content security policy and private revalidation. The admin viewer
+loads pdf.js on demand, sends the bearer token on its range requests, and keeps
+scripting and XFA off; the build publishes pdf.js decoders, CMaps and standard
+fonts under `/pdfjs/`, without its scripting engine.
+
+Consumer lists and media delivery expose only the original eight media types, so
+packaging and manuals add no consumer or console contract.
+
 ## Schema and validation
 
 The current fresh application baseline installs artwork selections, assets,

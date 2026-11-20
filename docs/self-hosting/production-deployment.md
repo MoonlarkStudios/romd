@@ -548,9 +548,11 @@ environment variables is not an account-recovery mechanism.
 The current schema starts at `20261031050000_FreshMediaBaseline` with the
 additive `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
 `20261117000000_JobDispatchExpiryIndex`, `20261118000000_SystemHardwareMetadata`,
-and `20261118194850_SignInMessage` migrations (readiness version 77).
+`20261118194850_SignInMessage` and `20261120162632_MediaCollection` migrations
+(readiness version 78).
 The Saturn migration preserves PS1 observations and adds distinct Saturn fields.
-The sign-in message starts blank.
+The sign-in message starts blank. Existing title media stays title-level and
+unpreferred after the media collection migration.
 Deploy matching hosts worker-first so APIs observe the new readiness version.
 There is no upgrade from the retired pre-baseline migration chain. Use new empty
 database/data volumes for that starting point and keep the previous installation
