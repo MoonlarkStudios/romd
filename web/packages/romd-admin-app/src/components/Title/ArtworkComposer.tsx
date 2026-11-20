@@ -48,6 +48,8 @@ export function ArtworkComposer({
   onCancel,
   onSave,
   onReloadLatest,
+  onSaveToLibrary,
+  savedToLibrary = false,
 }: {
   title: TitleDetail;
   role: ArtworkRole;
@@ -58,6 +60,9 @@ export function ArtworkComposer({
   onCancel: () => void;
   onSave: (draft: ArtworkDraft) => void;
   onReloadLatest?: () => void;
+  /** Offered for a provider candidate: keeps it in the image library without changing the role. */
+  onSaveToLibrary?: (draft: ArtworkDraft) => void;
+  savedToLibrary?: boolean;
 }) {
   const [settling, setSettling] = useState<FocalPoint | null>(null);
   const focalX = settling?.focalX ?? draft?.focalX ?? 50;
@@ -125,7 +130,10 @@ export function ArtworkComposer({
       <div className={classes.editor}>
         <div className={classes.editorBody}>
           <Stack gap="md">
-            <Group justify="space-between">
+            <Group
+              justify="space-between"
+              className={classes.composerCompare}
+            >
               {draft ? (
                 <SegmentedControl
                   aria-label="Artwork comparison"
@@ -138,7 +146,7 @@ export function ArtworkComposer({
                     },
                     {
                       value: 'preview',
-                      label: 'Preview',
+                      label: 'Proposed',
                     },
                   ]}
                 />
@@ -294,7 +302,10 @@ export function ArtworkComposer({
             )}
           </Stack>
         </div>
-        <div aria-live="polite">
+        <div
+          aria-live="polite"
+          className={classes.composerActions}
+        >
           {error && (
             <Alert
               color="red"
@@ -315,12 +326,24 @@ export function ArtworkComposer({
               )}
             </Alert>
           )}
-          <Text
-            size="sm"
+          <Group
+            justify="space-between"
+            gap="xs"
             mb="xs"
           >
-            {draft ? 'Unsaved preview' : 'Showing saved artwork'}
-          </Text>
+            <Text size="sm">{draft ? 'Unsaved preview' : 'Showing saved artwork'}</Text>
+            {draft?.candidate && onSaveToLibrary && (
+              <Button
+                {...workspaceActionProps}
+                variant="subtle"
+                size="compact-sm"
+                disabled={busy || savedToLibrary || draft.candidate.isSaved}
+                onClick={() => onSaveToLibrary(draft)}
+              >
+                {savedToLibrary || draft.candidate.isSaved ? 'Saved to library' : 'Save to library'}
+              </Button>
+            )}
+          </Group>
           <EditorFooter
             dirty={draft !== null}
             saving={busy}
@@ -331,7 +354,7 @@ export function ArtworkComposer({
             onSave={() => {
               if (draft) onSave(draft);
             }}
-            saveLabel={`Apply ${artworkRoleLabel(role).toLowerCase()}`}
+            saveLabel={`Use this ${artworkRoleLabel(role).toLowerCase()}`}
           />
         </div>
       </div>

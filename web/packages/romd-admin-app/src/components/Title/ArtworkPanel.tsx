@@ -10,12 +10,13 @@ import {
   Loader,
   Menu,
   Modal,
-  Radio,
+  NativeSelect,
   SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
   Switch,
+  Tabs,
   Text,
   Title,
   UnstyledButton,
@@ -24,17 +25,25 @@ import type { ArtworkCandidate, ArtworkProvider, TitleProviderMatch } from '@rom
 import {
   applyArtworkCandidate,
   deleteTitleArtworkAsset,
+  importGalleryArtwork,
   listTitleArtworkCandidates,
   previewArtworkCandidate,
   replaceHiddenArtworkCandidate,
   replaceTitleArtworkRole,
 } from '@romd/admin-api-client';
-import { IconDotsVertical, IconPhoto, IconPlus } from '@tabler/icons-react';
+import { IconDotsVertical, IconPhoto, IconPlus, IconUpload } from '@tabler/icons-react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState } from 'react';
+import { useLocation, useSearchParams } from 'react-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { invalidateTitle } from '../../hooks/api/titleCache';
-import { ifMatch, TitleConflictError } from '../../hooks/api/titleConflict';
+import {
+  ifMatch,
+  revisionFromETag,
+  shownTitleRevision,
+  storeTitleRevision,
+  TitleConflictError,
+} from '../../hooks/api/titleConflict';
 import {
   artworkKeys,
   storeArtwork,
@@ -59,11 +68,13 @@ import {
   isArtworkRole,
   type ArtworkRole as Role,
 } from '../artworkPresentation';
+import { isDocumentType } from '../mediaTypes';
 import { InspectorLayout } from '../Workspace/InspectorLayout';
 import { InspectorPanel } from '../Workspace/InspectorPanel';
 import { useInspectorSelection, useInspectorSize } from '../Workspace/useInspectorSelection';
+import workspaceClasses from '../Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
-import { AddArtwork } from './AddArtwork';
+import { AddArtwork, type AddMediaMode } from './AddArtwork';
 import { ArtworkAcquisition } from './ArtworkAcquisition';
 import { ArtworkComposer, type ArtworkDraft } from './ArtworkComposer';
 import { ArtworkImageInspector } from './ArtworkImageInspector';
@@ -74,7 +85,21 @@ import { typeLabel } from './BatchArtworkUpload';
 import { CandidateImage } from './CandidateImage';
 import { DecisionConfirmation } from './DecisionConfirmation';
 import { leaveEmptyConfirmation } from './enrichmentPresentation';
+import { ManualCover } from './ManualViewer';
 import { MediaGallery } from './MediaGallery';
+import {
+  type LibraryReleaseFilter,
+  type LibraryTypeFilter,
+  libraryTypeOptions,
+  matchesLibraryFilter,
+  placementLabel,
+  releaseOptions,
+} from './mediaLibrary';
+import {
+  PresentationRoleCard,
+  rolePresentationState,
+  roleStateLabel,
+} from './PresentationRoleCard';
 import { ProviderMatchPicker } from './ProviderMatches';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
 
@@ -402,8 +427,20 @@ function ArtworkPanelContent({
     role: Role;
     source: string;
   }>();
-  const [filter, setFilter] = useState<Role | undefined>(initialRole);
-  const [adding, setAdding] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const libraryRequested = params.get('artwork') === 'library';
+  const [typeFilter, setTypeFilter] = useState<LibraryTypeFilter>('all');
+  const [releaseFilter, setReleaseFilter] = useState<LibraryReleaseFilter>('all');
+  const [adding, setAdding] = useState<AddMediaMode | null>(null);
+  /** The last provider candidate queued for a role, kept so a failed import can be retried as it was chosen. */
+  const [lastImport, setLastImport] = useState<{
+    role: Role;
+    draft: ArtworkDraft;
+    source: string;
+    jobId: string;
+  } | null>(null);
+  const [libraryCandidates, setLibraryCandidates] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState<ArtworkDraft | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editingMatch, setEditingMatch] = useState<TitleProviderMatch | null>(null);
@@ -430,16 +467,20 @@ function ArtworkPanelContent({
   const [busyRole, setBusyRole] = useState<Role | null>(null);
   const [imageSaving, setImageSaving] = useState(false);
   const entries = artworkLibraryEntries(title.media ?? [], saved.data ?? [], title.artwork ?? []);
-  const cards = filter ? entries.filter((entry) => entry.roles.includes(filter)) : entries;
+  const releases = releaseOptions(title.releases ?? []);
+  const cards = entries.filter((entry) => matchesLibraryFilter(entry, typeFilter, releaseFilter));
+  const roleKeys = [
+    ...(initialRole
+      ? [
+          initialRole,
+        ]
+      : []),
+    ...artworkRoles.filter((item) => item !== initialRole),
+  ].map((item) => `role-${item}`);
   const selection = useInspectorSelection({
     param: 'image',
-    ids: initialRole
-      ? [
-          `role-${initialRole}`,
-          ...cards.map((entry) => entry.key),
-        ]
-      : cards.map((entry) => entry.key),
-    defaultFirst: !!initialRole,
+    ids: libraryRequested ? cards.map((entry) => entry.key) : roleKeys,
+    defaultFirst: !!initialRole && !libraryRequested,
     allowUnlisted: true,
     panelId,
     canChange: () => busyRole === null && !imageSaving,
@@ -447,15 +488,11 @@ function ArtworkPanelContent({
   });
   const roleKey = selection.selectedId?.startsWith('role-') ? selection.selectedId.slice(5) : '';
   const inspectedRole = isArtworkRole(roleKey) ? roleKey : undefined;
-  useEffect(() => {
-    if (inspectedRole) setFilter(inspectedRole);
-  }, [
-    inspectedRole,
-  ]);
-  const role = inspectedRole ?? filter ?? 'Backdrop';
+  const role = inspectedRole ?? initialRole ?? 'Backdrop';
   const mode = sourceChoice?.role === role ? sourceChoice.source : 'saved';
   const providers = useArtworkProviders(titleId, role);
   const selectedEntry = entries.find((entry) => entry.key === selection.selectedId);
+  const libraryView = libraryRequested || !!selectedEntry;
   const [error, setError] = useState<string | null>(null);
   const [conflicted, setConflicted] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -542,7 +579,7 @@ function ArtworkPanelContent({
     });
     return true;
   };
-  const assign = async (proposed: ArtworkDraft) => {
+  const assign = async (proposed: ArtworkDraft, source = mode) => {
     const { role: selectedRole, target } = proposed;
     if (busyRole) return false;
     setBusyRole(selectedRole);
@@ -586,6 +623,12 @@ function ArtworkPanelContent({
           return false;
         }
         setAcceptedJob(response.data.jobId);
+        setLastImport({
+          role: selectedRole,
+          draft: proposed,
+          source,
+          jobId: response.data.jobId,
+        });
       } else {
         let mediaId = target?.mediaId;
         if (proposed.file) {
@@ -678,6 +721,74 @@ function ArtworkPanelContent({
       onResolved?.();
     } catch {
       setError('Could not keep this choice. Try again.');
+    } finally {
+      setBusyRole(null);
+    }
+  };
+  /** Queues the failed candidate again under the role's current revision; a fresh request ID makes it a new job. */
+  const retryImport = () => {
+    if (!lastImport || busyRole) return;
+    const current = selections?.find((item) => item.role === lastImport.role);
+    if (!current) return;
+    // The failed request's ID names a finished job; retrying under it would only report that failure again.
+    request.current = null;
+    void assign(
+      {
+        ...lastImport.draft,
+        revision: current.revision,
+      },
+      lastImport.source,
+    );
+  };
+  /** Keeps a provider candidate in the image library for later; the role it was previewed for is unchanged. */
+  const saveToLibrary = async (proposed: ArtworkDraft) => {
+    const { candidate } = proposed;
+    if (!candidate || busyRole) return;
+    setBusyRole(proposed.role);
+    setError(null);
+    try {
+      const response = await importGalleryArtwork({
+        path: {
+          titleId,
+          candidateId: candidate.candidateId,
+        },
+        headers: ifMatch(await shownTitleRevision(cache, titleId)),
+        body: {
+          candidateReference: candidate.reference,
+        },
+      });
+      if (response.response?.status === 412) {
+        setError('The title changed since you opened it. It was reloaded; save the image again.');
+        await refresh();
+        return;
+      }
+      if (response.error || !response.data) {
+        setError(response.error?.detail ?? 'Could not save this image to the library.');
+        return;
+      }
+      await storeTitleRevision(
+        cache,
+        titleId,
+        revisionFromETag(response.response?.headers.get('ETag')),
+      );
+      setLibraryCandidates(
+        (previous) =>
+          new Set([
+            ...previous,
+            candidate.reference,
+          ]),
+      );
+      setNotice(
+        `Saved to the image library. The ${artworkRoleLabel(proposed.role).toLowerCase()} is unchanged.`,
+      );
+      await Promise.all([
+        refresh(),
+        cache.invalidateQueries({
+          queryKey: artworkKeys.candidates(titleId),
+        }),
+      ]);
+    } catch {
+      setError('Could not save this image to the library. Try again.');
     } finally {
       setBusyRole(null);
     }
@@ -839,21 +950,32 @@ function ArtworkPanelContent({
     discardEpoch,
   ]);
 
-  const chooseRole = (next?: Role, source = 'saved', trigger?: HTMLElement) => {
+  const chooseRole = (next: Role, source = 'saved', trigger?: HTMLElement) => {
     if (busyRole || imageSaving || draft) return;
-    if (next) {
-      setSourceChoice({
-        role: next,
-        source,
-      });
-      selection.select(`role-${next}`, trigger);
-    } else {
-      setSourceChoice(undefined);
-      setFilter(undefined);
-      if (inspectedRole) selection.close();
-    }
+    setSourceChoice({
+      role: next,
+      source,
+    });
+    selection.select(`role-${next}`, trigger);
     setError(null);
     setNotice(null);
+  };
+  /** Switches between Presentation and the Image library in one history entry, closing any open inspector. */
+  const changeView = (next: string | null) => {
+    if ((next === 'library') === libraryView || busyRole || imageSaving) return;
+    guard.discardThen(() => {
+      const updated = new URLSearchParams(params);
+      updated.delete('image');
+      if (next === 'library') updated.set('artwork', 'library');
+      else updated.delete('artwork');
+      setParams(updated, {
+        replace: true,
+        state: location.state,
+        preventScrollReset: true,
+      });
+      setError(null);
+      setNotice(null);
+    });
   };
   const protectedRoles =
     selections
@@ -867,16 +989,21 @@ function ArtworkPanelContent({
   const currentSelection = selections?.find((item) => item.role === role);
   const currentAsset = saved.data?.find((item) => item.id === currentArtwork?.assetId);
   const locked = busyRole !== null || imageSaving || draft !== null;
-  const status = (itemRole: Role) => {
-    const state = selections?.find((item) => item.role === itemRole);
-    const image = title.artwork?.find((item) => item.role === itemRole);
-    if (!state) return artwork.isError ? 'Unavailable' : 'Loading';
-    if (state.pendingJobId) return 'Saving…';
-    if (state.mode === 'Empty') return 'Left empty';
-    if (image?.fallbackReason === 'LegacyCover') return 'Cover fallback';
-    if (!image?.url) return 'Missing';
-    return state.mode === 'Pinned' ? 'Selected by you' : 'Automatic';
-  };
+  const importRunning = !!pendingJob && !job.data?.isTerminal;
+  const failedImportRole =
+    lastImport && lastImport.jobId === pendingJob && job.data?.phase === 'Failed'
+      ? lastImport.role
+      : undefined;
+  const roleState = (itemRole: Role) =>
+    rolePresentationState(
+      selections?.find((item) => item.role === itemRole),
+      title.artwork?.find((item) => item.role === itemRole),
+      {
+        failedToLoad: artwork.isError,
+        importing: importRunning && lastImport?.role === itemRole,
+      },
+    );
+  const status = (itemRole: Role) => roleStateLabel(roleState(itemRole));
   const roleInspector = inspectedRole && (
     <InspectorPanel
       id={panelId}
@@ -898,6 +1025,8 @@ function ArtworkPanelContent({
           }}
           onSave={(value) => void assign(value)}
           onReloadLatest={conflicted ? requestReloadLatest : undefined}
+          onSaveToLibrary={(value) => void saveToLibrary(value)}
+          savedToLibrary={!!draft?.candidate && libraryCandidates.has(draft.candidate.reference)}
         />
         <Group justify="space-between">
           <Text
@@ -1156,7 +1285,14 @@ function ArtworkPanelContent({
                     key={item.providerId}
                     variant="light"
                     disabled={locked || !item.isAvailable}
-                    onClick={() => setEditingMatch(item)}
+                    onClick={() => {
+                      // Once matched, the editor returns to this provider's candidates.
+                      setSourceChoice({
+                        role,
+                        source: item.providerId,
+                      });
+                      setEditingMatch(item);
+                    }}
                   >
                     Match {item.providerName}
                   </Button>
@@ -1172,6 +1308,27 @@ function ArtworkPanelContent({
       </Stack>
     </InspectorPanel>
   );
+
+  const imageInspector = selectedEntry && (
+    <ArtworkImageInspector
+      key={selectedEntry.key}
+      id={panelId}
+      titleId={titleId}
+      entry={selectedEntry}
+      artwork={title.artwork ?? []}
+      selections={selections}
+      releases={releases}
+      disabled={busyRole !== null}
+      onClose={selection.close}
+      onDelete={() => requestDelete(selectedEntry.target, selectedEntry.roles)}
+      onSaving={setImageSaving}
+      onSaved={() => {
+        setNotice('Changes saved.');
+        onResolved?.();
+      }}
+    />
+  );
+  const filtered = typeFilter !== 'all' || releaseFilter !== 'all';
 
   return (
     <Stack
@@ -1192,27 +1349,56 @@ function ArtworkPanelContent({
             size="sm"
             c="dimmed"
           >
-            {filledRoles.length} of {artworkRoles.length} roles filled
+            {libraryView
+              ? `${entries.length} ${entries.length === 1 ? 'item' : 'items'} in the library`
+              : `${filledRoles.length} of ${artworkRoles.length} roles filled`}
           </Text>
         </div>
-        <Button
-          {...workspaceActionProps}
-          leftSection={<IconPlus size={16} />}
-          disabled={locked}
-          onClick={() => setAdding(true)}
-        >
-          Add artwork
-        </Button>
+        {libraryView && (
+          <Group gap="xs">
+            <Button
+              {...workspaceActionProps}
+              variant="light"
+              leftSection={<IconUpload size={16} />}
+              disabled={locked}
+              onClick={() => setAdding('upload')}
+            >
+              Upload files
+            </Button>
+            <Button
+              {...workspaceActionProps}
+              leftSection={<IconPlus size={16} />}
+              disabled={locked}
+              onClick={() => setAdding('providers')}
+            >
+              Collect from providers
+            </Button>
+          </Group>
+        )}
       </div>
-      <ArtworkAcquisition
-        titleId={titleId}
-        resolvedRoles={[
-          ...filledRoles,
-          ...protectedRoles,
-        ]}
-        disabled={locked}
-        onReviewBackdrop={() => chooseRole('Backdrop', 'igdb')}
-      />
+      <Tabs
+        value={libraryView ? 'library' : 'presentation'}
+        onChange={changeView}
+        classNames={{
+          list: workspaceClasses.tabsList,
+          tab: workspaceClasses.tab,
+        }}
+      >
+        <Tabs.List>
+          <Tabs.Tab
+            value="presentation"
+            disabled={locked}
+          >
+            Presentation
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="library"
+            disabled={locked}
+          >
+            Image library
+          </Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
       {artwork.isError && (
         <Alert color="red">
           Could not load selection state.{' '}
@@ -1232,236 +1418,276 @@ function ArtworkPanelContent({
           {notice}
         </Text>
       )}
-      {jobStatus && (
-        <Alert
-          color={jobStatus.color}
-          title={jobStatus.title}
-        >
-          {jobStatus.message}
-          <Anchor
-            href={`/jobs/${pendingJob}`}
-            ml="xs"
+      {!libraryView && (
+        <>
+          <ArtworkAcquisition
+            titleId={titleId}
+            resolvedRoles={[
+              ...filledRoles,
+              ...protectedRoles,
+            ]}
+            disabled={locked}
+            onReviewBackdrop={() => chooseRole('Backdrop', 'igdb')}
+          />
+          {jobStatus && !failedImportRole && (
+            <Alert
+              color={jobStatus.color}
+              title={jobStatus.title}
+            >
+              {jobStatus.message}
+              <Anchor
+                href={`/jobs/${pendingJob}`}
+                ml="xs"
+              >
+                View job
+              </Anchor>
+            </Alert>
+          )}
+          {error && !inspectedRole && !deleting && (
+            <Alert
+              color="red"
+              role="alert"
+            >
+              {error}
+            </Alert>
+          )}
+          <InspectorLayout
+            wide={wide}
+            narrow="stack"
+            width="27rem"
+            inspector={roleInspector || undefined}
           >
-            View job
-          </Anchor>
-        </Alert>
+            <section
+              aria-label="Presentation roles"
+              className={classes.roleGrid}
+            >
+              {artworkRoles.map((itemRole) => {
+                const image = title.artwork?.find((item) => item.role === itemRole);
+                const asset = saved.data?.find((item) => item.id === image?.assetId);
+                return (
+                  <PresentationRoleCard
+                    key={itemRole}
+                    role={itemRole}
+                    artwork={image}
+                    state={roleState(itemRole)}
+                    source={asset ? artworkSourceLabel(asset.sourceId) : undefined}
+                    selected={inspectedRole === itemRole}
+                    panelId={panelId}
+                    disabled={locked || !selections}
+                    failed={failedImportRole === itemRole}
+                    manual={
+                      selections?.find((item) => item.role === itemRole)?.mode !== 'Automatic' &&
+                      !!selections
+                    }
+                    onEdit={(trigger) => chooseRole(itemRole, 'saved', trigger)}
+                    onAutomatic={() => void automatic(itemRole)}
+                    onRetry={retryImport}
+                    onChooseAnother={(trigger) => {
+                      setLastImport(null);
+                      chooseRole(itemRole, lastImport?.source ?? 'saved', trigger);
+                    }}
+                  />
+                );
+              })}
+            </section>
+          </InspectorLayout>
+        </>
       )}
-      <Radio.Group
-        label="Artwork roles"
-        styles={{
-          label: {
-            display: 'none',
-          },
-        }}
-        value={inspectedRole ?? filter ?? 'all'}
-        onChange={(value) => {
-          chooseRole(isArtworkRole(value) ? value : undefined);
-        }}
-      >
-        <div className={classes.roleStrip}>
-          <div>
-            <Radio.Card
-              className={classes.roleButton}
-              withBorder={false}
-              aria-label="All"
-              id={`${statusId}-filter-all`}
-              value="all"
-              tabIndex={!(filter || inspectedRole) ? 0 : -1}
-              disabled={locked}
+      {libraryView && (
+        <InspectorLayout
+          wide={wide}
+          narrow="stack"
+          width="25rem"
+          inspector={imageInspector || undefined}
+        >
+          <Stack gap="sm">
+            <Group
+              gap="sm"
+              align="end"
+              className={classes.libraryToolbar}
             >
-              <Text
-                size="sm"
-                className="romd-card-title"
-              >
-                All
-              </Text>
-            </Radio.Card>
-          </div>
-          {artworkRoles.map((itemRole) => (
-            <div
-              key={itemRole}
-              data-inspector-row={`role-${itemRole}`}
-            >
-              <Radio.Card
-                data-inspector-trigger
-                value={itemRole}
-                id={`${statusId}-filter-${itemRole}`}
-                className={classes.roleButton}
-                withBorder={false}
-                aria-label={artworkRoleLabel(itemRole)}
-                aria-describedby={`${statusId}-${itemRole}`}
-                tabIndex={(inspectedRole ?? filter) === itemRole ? 0 : -1}
+              <NativeSelect
+                label="Type"
+                value={typeFilter}
                 disabled={locked}
+                data={libraryTypeOptions(entries)}
+                onChange={(event) => setTypeFilter(event.currentTarget.value)}
+              />
+              <NativeSelect
+                label="Release"
+                value={releaseFilter}
+                disabled={locked}
+                data={[
+                  {
+                    value: 'all',
+                    label: 'All releases',
+                  },
+                  {
+                    value: 'title',
+                    label: 'Title-level',
+                  },
+                  ...releases.map((release) => ({
+                    value: release.value,
+                    label: release.label,
+                  })),
+                ]}
+                onChange={(event) => setReleaseFilter(event.currentTarget.value)}
+              />
+              {filtered && (
+                <Button
+                  variant="subtle"
+                  size="compact-sm"
+                  disabled={locked}
+                  onClick={() => {
+                    setTypeFilter('all');
+                    setReleaseFilter('all');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
+            </Group>
+            {saved.isLoading && !entries.length && (
+              <Loader
+                size="sm"
+                aria-label="Loading saved artwork"
+              />
+            )}
+            {saved.isError && (
+              <Alert color="red">
+                Could not load the complete artwork library.{' '}
+                <Button
+                  variant="subtle"
+                  onClick={() => void saved.refetch()}
+                >
+                  Retry
+                </Button>
+              </Alert>
+            )}
+            {!cards.length && !saved.isLoading && !saved.isError && (
+              <Stack
+                gap="xs"
+                align="center"
+                ta="center"
+                className={classes.emptyGrid}
               >
+                <IconPhoto size={24} />
                 <Text
                   size="sm"
                   className="romd-card-title"
                 >
-                  {artworkRoleLabel(itemRole)}
+                  {filtered ? 'Nothing matches these filters' : 'The library is empty'}
                 </Text>
                 <Text
-                  id={`${statusId}-${itemRole}`}
-                  size="xs"
+                  size="sm"
                   c="dimmed"
                 >
-                  {status(itemRole)}
+                  {filtered
+                    ? 'Choose another type or release.'
+                    : 'Collect images from a provider, or upload scans and manuals.'}
                 </Text>
-              </Radio.Card>
-            </div>
-          ))}
-        </div>
-      </Radio.Group>
-      <InspectorLayout
-        wide={wide}
-        narrow="stack"
-        width="25rem"
-        inspector={
-          selectedEntry ? (
-            <ArtworkImageInspector
-              key={selectedEntry.key}
-              id={panelId}
-              titleId={titleId}
-              entry={selectedEntry}
-              artwork={title.artwork ?? []}
-              selections={selections}
-              disabled={busyRole !== null}
-              onClose={selection.close}
-              onDelete={() => requestDelete(selectedEntry.target, selectedEntry.roles)}
-              onSaving={setImageSaving}
-              onSaved={() => {
-                setNotice('Artwork saved.');
-                onResolved?.();
-              }}
-            />
-          ) : (
-            roleInspector || undefined
-          )
-        }
-      >
-        <Stack gap="sm">
-          {filter && !inspectedRole && (
-            <Button
-              {...workspaceActionProps}
-              variant="light"
-              size="compact-sm"
-              w="fit-content"
-              disabled={locked}
-              onClick={(event) => chooseRole(filter, 'saved', event.currentTarget)}
-            >
-              Manage {artworkRoleLabel(filter).toLowerCase()}
-            </Button>
-          )}
-          {saved.isLoading && !entries.length && (
-            <Loader
-              size="sm"
-              aria-label="Loading saved artwork"
-            />
-          )}
-          {saved.isError && (
-            <Alert color="red">
-              Could not load the complete artwork library.{' '}
-              <Button
-                variant="subtle"
-                onClick={() => void saved.refetch()}
+              </Stack>
+            )}
+            {cards.length > 0 && (
+              <fieldset
+                className={classes.galleryGrid}
+                aria-label="Image library"
+                onKeyDown={selection.onListKeyDown}
               >
-                Retry
-              </Button>
-            </Alert>
-          )}
-          {!cards.length && !saved.isLoading && !saved.isError && (
-            <Stack
-              gap="xs"
-              align="center"
-              ta="center"
-              className={classes.emptyGrid}
-            >
-              <IconPhoto size={24} />
-              <Text
-                size="sm"
-                className="romd-card-title"
-              >
-                {filter
-                  ? `No ${artworkRoleLabel(filter).toLowerCase()} assigned`
-                  : 'No saved artwork'}
-              </Text>
-              <Text
-                size="sm"
-                c="dimmed"
-              >
-                {filter
-                  ? 'Choose a saved image, browse candidates, or upload one.'
-                  : 'Add images from a provider or upload your own.'}
-              </Text>
-            </Stack>
-          )}
-          {cards.length > 0 && (
-            <fieldset
-              className={classes.galleryGrid}
-              aria-label="Saved artwork"
-              onKeyDown={selection.onListKeyDown}
-            >
-              {cards.map((entry) => (
-                <div
-                  key={entry.key}
-                  className={classes.galleryCard}
-                  {...selection.rowProps(entry.key)}
-                >
-                  <UnstyledButton
-                    data-inspector-trigger
-                    className={classes.galleryCardButton}
-                    aria-controls={selection.selectedId === entry.key ? panelId : undefined}
-                    aria-expanded={selection.selectedId === entry.key}
-                    aria-label={`Preview ${entry.name} from ${entry.source}`}
-                    disabled={locked}
-                    onClick={(event) => selection.select(entry.key, event.currentTarget)}
-                  >
-                    <ArtworkSurface background={entry.name === 'Logo' ? 'checkerboard' : 'dark'}>
-                      <Image
-                        className={classes.thumbnail}
-                        src={entry.url || undefined}
-                        alt=""
-                        loading="lazy"
-                        fit="contain"
-                      />
-                    </ArtworkSurface>
-                    <Stack
-                      className={classes.cardDetails}
-                      gap={4}
+                {cards.map((entry) => {
+                  const document = isDocumentType(entry.name);
+                  const placement = placementLabel(entry.media, releases);
+                  return (
+                    <div
+                      key={entry.key}
+                      className={classes.galleryCard}
+                      {...selection.rowProps(entry.key)}
                     >
-                      <Text
-                        size="sm"
-                        className="romd-card-title"
+                      <UnstyledButton
+                        data-inspector-trigger
+                        className={classes.galleryCardButton}
+                        aria-controls={selection.selectedId === entry.key ? panelId : undefined}
+                        aria-expanded={selection.selectedId === entry.key}
+                        aria-label={`Preview ${typeLabel(entry.name).toLowerCase()} from ${artworkSourceLabel(entry.source)}${entry.media?.catalogReleaseId || entry.media?.region ? `, ${placement}` : ''}`}
+                        disabled={locked}
+                        onClick={(event) => selection.select(entry.key, event.currentTarget)}
                       >
-                        {typeLabel(entry.name)}
-                      </Text>
-                      <Text
-                        size="xs"
-                        c="dimmed"
-                        className={classes.sourceLabel}
-                      >
-                        {artworkSourceLabel(entry.source)}
-                      </Text>
-                      {entry.roles.length > 0 && (
-                        <Group gap={4}>
-                          {entry.roles.map((role) => (
-                            <Badge
-                              key={role}
-                              size="xs"
-                              variant="light"
-                            >
-                              {artworkRoleLabel(role)}
-                            </Badge>
-                          ))}
-                        </Group>
-                      )}
-                    </Stack>
-                  </UnstyledButton>
-                </div>
-              ))}
-            </fieldset>
-          )}
-        </Stack>
-      </InspectorLayout>
+                        <ArtworkSurface
+                          background={entry.name === 'Logo' ? 'checkerboard' : 'dark'}
+                        >
+                          {document && entry.media ? (
+                            <div className={classes.thumbnail}>
+                              <ManualCover
+                                titleId={titleId}
+                                mediaId={entry.media.id}
+                                width={96}
+                                label="Manual cover"
+                              />
+                            </div>
+                          ) : (
+                            <Image
+                              className={classes.thumbnail}
+                              src={entry.url || undefined}
+                              alt=""
+                              loading="lazy"
+                              fit="contain"
+                            />
+                          )}
+                        </ArtworkSurface>
+                        <Stack
+                          className={classes.cardDetails}
+                          gap={4}
+                        >
+                          <Text
+                            size="sm"
+                            className="romd-card-title"
+                          >
+                            {typeLabel(entry.name)}
+                          </Text>
+                          <Text
+                            size="xs"
+                            c="dimmed"
+                            className={classes.sourceLabel}
+                          >
+                            {[
+                              artworkSourceLabel(entry.source),
+                              entry.media && placement,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </Text>
+                          {(entry.roles.length > 0 || entry.media?.isPreferred) && (
+                            <Group gap={4}>
+                              {entry.media?.isPreferred && (
+                                <Badge
+                                  size="xs"
+                                  variant="light"
+                                  color="grape"
+                                >
+                                  Preferred
+                                </Badge>
+                              )}
+                              {entry.roles.map((itemRole) => (
+                                <Badge
+                                  key={itemRole}
+                                  size="xs"
+                                  variant="light"
+                                >
+                                  {artworkRoleLabel(itemRole)}
+                                </Badge>
+                              ))}
+                            </Group>
+                          )}
+                        </Stack>
+                      </UnstyledButton>
+                    </div>
+                  );
+                })}
+              </fieldset>
+            )}
+          </Stack>
+        </InspectorLayout>
+      )}
       <Modal
         opened={deleting !== null}
         onClose={() => {
@@ -1535,10 +1761,13 @@ function ArtworkPanelContent({
         onConfirmed={() => setLeavingEmpty(null)}
       />
       <AddArtwork
-        opened={adding}
-        onClose={() => setAdding(false)}
+        key={adding ?? 'closed'}
+        opened={adding !== null}
+        onClose={() => setAdding(null)}
         titleId={titleId}
         titleName={title.name}
+        initialMode={adding ?? 'providers'}
+        releases={releases}
       />
       {editingMatch && (
         <ProviderMatchPicker

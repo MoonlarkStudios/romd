@@ -21,23 +21,42 @@
 }
 .workspace[data-density='compact'] { --artwork-role-padding: var(--mantine-spacing-xs); }
 
-.roleStrip { display: flex; flex-wrap: wrap; gap: var(--mantine-spacing-xs); }
-.roleButton {
+.roleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: var(--mantine-spacing-sm);
+  min-width: 0;
+}
+.roleCard {
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--mantine-spacing-xs);
-  padding: var(--mantine-spacing-xs) var(--artwork-role-padding);
-  line-height: 1;
+  flex-direction: column;
   min-width: 0;
   border: 1px solid var(--mantine-color-default-border);
   border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-body);
+  overflow: hidden;
 }
-.roleButton[aria-checked='true'] {
+.roleCard[aria-current='true'] {
   border-color: var(--mantine-primary-color-filled);
   background: var(--mantine-primary-color-light);
 }
-.roleButton:disabled { cursor: default; }
+/* The crop consumer surfaces reserve for the role, so the curator sees what players see. */
+.roleCrop { position: relative; width: 100%; max-height: 260px; margin-inline: auto; overflow: hidden; }
+.roleCrop img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.roleCardBody { flex: 1; padding: var(--artwork-role-padding); }
+
+.libraryToolbar { flex-wrap: wrap; }
+.libraryToolbar > * { min-width: 160px; }
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px var(--mantine-spacing-sm);
+  margin: 0;
+  font-size: var(--mantine-font-size-sm);
+}
+.facts dt { color: var(--mantine-color-dimmed); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.uploadRow > :nth-child(2) { flex: 1 1 160px; }
 
 .galleryGrid {
   display: grid;
@@ -78,7 +97,7 @@
   border-radius: var(--mantine-radius-sm);
 }
 
-.roleButton:focus-visible, .galleryCardButton:focus-visible {
+.galleryCardButton:focus-visible, .manualStage:focus-visible {
   outline: 2px solid var(--romd-admin-focus);
   outline-offset: 3px;
 }
@@ -87,7 +106,36 @@
 .editor { min-width: 0; }
 .editorBody { min-width: 0; padding-bottom: var(--mantine-spacing-md); }
 
+/* Manuals keep their page proportions; the stage scrolls when a page is taller than the dialog. */
+.manualBody { padding-bottom: var(--mantine-spacing-md); }
+.manualToolbar { position: sticky; top: 0; z-index: 2; background: var(--mantine-color-body); padding-block: 4px; }
+.manualStage {
+  display: flex;
+  justify-content: center;
+  min-height: 240px;
+  max-height: calc(100dvh - 220px);
+  overflow: auto;
+  padding: var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-sm);
+  background: var(--mantine-color-default);
+}
+.manualPage { display: block; max-width: 100%; box-shadow: var(--mantine-shadow-sm); background: white; }
+.manualPlaceholder { width: 100%; height: 100%; min-height: 96px; color: var(--mantine-color-dimmed); }
+.thumbnail:has(> .manualPage), .thumbnail:has(> .manualPlaceholder) { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.thumbnail > .manualPage { max-height: 100%; object-fit: contain; }
+
+.composerCompare, .composerActions { background: var(--mantine-color-body); }
+
 @container artwork-editor (max-width: 600px) {
+  /* On a phone the editor stacks under the roles; comparison and commit stay in reach while it scrolls. */
+  .composerCompare { position: sticky; top: 0; z-index: 3; padding-block: var(--mantine-spacing-xs); }
+  .composerActions {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    padding-block: var(--mantine-spacing-xs);
+    border-top: 1px solid var(--mantine-color-default-border);
+  }
   .workspace > * { --artwork-role-padding: var(--mantine-spacing-xs); }
   .header { align-items: flex-start; flex-wrap: wrap; }
 }

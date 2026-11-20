@@ -29,6 +29,7 @@
     "fflate": "^0.8.3",
     "mantine-datatable": "^9.4.0",
     "oidc-client-ts": "^3.5.0",
+    "pdfjs-dist": "6.5.438",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^7.18.4"

@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { pdfjsAssets } from '../../config/pdfjsAssets';
 import { portalTheme } from '../../config/portalTheme';
 import { vendorChunks } from '../../config/vendorChunks';
 
@@ -9,6 +10,7 @@ export default defineConfig({
   plugins: [
     portalTheme('admin'),
     react(),
+    pdfjsAssets(),
   ],
   server: {
     port: 5137,

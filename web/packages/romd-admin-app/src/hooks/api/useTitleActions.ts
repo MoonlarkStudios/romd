@@ -1,5 +1,6 @@
 import type {
   TitleDetail,
+  TitleMediaClassification,
   TitleMediaRef,
   UpdateTitleMetadataRequest,
 } from '@romd/admin-api-client';
@@ -207,12 +208,25 @@ export function useUpdateTitleMetadata() {
   });
 }
 
-interface UploadMediaParams {
+/** Where an item sits in the title's collection: a canonical release, or title-level when absent. */
+export interface MediaPlacementParams {
+  releaseId?: string | null;
+  region?: string | null;
+  language?: string | null;
+}
+
+interface UploadMediaParams extends MediaPlacementParams {
   titleId: string;
   file: File;
   type: string;
   onProgress?: (progress: UploadProgress) => void;
 }
+
+const placementQuery = ({ releaseId, region, language }: MediaPlacementParams) => ({
+  releaseId: releaseId || undefined,
+  region: region?.trim() || undefined,
+  language: language?.trim() || undefined,
+});
 
 /**
  * Hook to upload media for a title, guarded by the revision of the title the page shows. Each upload records
@@ -222,7 +236,7 @@ export function useUploadTitleMedia() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ titleId, file, type, onProgress }: UploadMediaParams) => {
+    mutationFn: async ({ titleId, file, type, onProgress, ...placement }: UploadMediaParams) => {
       const headers = ifMatch(await shownTitleRevision(queryClient, titleId));
       if (onProgress) {
         let etag: string | null = null;
@@ -232,6 +246,7 @@ export function useUploadTitleMedia() {
           {
             query: {
               type,
+              ...placementQuery(placement),
             },
             headers,
             onProgress,
@@ -253,6 +268,7 @@ export function useUploadTitleMedia() {
         },
         query: {
           type,
+          ...placementQuery(placement),
         },
         headers,
         body: {
@@ -317,6 +333,47 @@ export function useSetPrimaryMedia() {
           'enrichment-workspace',
         ],
       });
+    },
+  });
+}
+
+interface ClassifyMediaParams {
+  titleId: string;
+  mediaId: string;
+  classification: TitleMediaClassification;
+}
+
+/**
+ * Replaces a media item's type, release, region, language and packaging preference under the title's revision.
+ * Choosing a preferred scan for a release releases the previous one in the same write.
+ */
+export function useClassifyTitleMedia() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ titleId, mediaId, classification }: ClassifyMediaParams) => {
+      const result = await updateTitleMedia({
+        path: {
+          titleId,
+          mediaId,
+        },
+        headers: ifMatch(await shownTitleRevision(queryClient, titleId)),
+        body: {
+          classification,
+        },
+      });
+      // The server's reason names the refused field (an unrelated release, a locked type), so it is kept.
+      if (result.error && result.response?.status !== 412)
+        throw new Error(result.error.detail ?? 'Could not save the classification.');
+      return titleWriteResult<TitleDetail>(result, 'Could not save the classification.');
+    },
+    onError: (error, { titleId }) =>
+      reloadAfterConflict(queryClient, error, [
+        titleId,
+      ]),
+    onSuccess: async (data, { titleId }) => {
+      await cacheAcceptedTitle(queryClient, data);
+      void invalidateTitle(queryClient, titleId);
     },
   });
 }
