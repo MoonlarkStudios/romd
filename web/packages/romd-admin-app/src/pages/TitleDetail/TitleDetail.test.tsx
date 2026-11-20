@@ -793,8 +793,8 @@ describe('TitleDetail', () => {
 
   it('opens role review from a legacy Artwork link', async () => {
     renderTitleDetail('?editor=artwork&role=Logo');
-    const editor = await screen.findByRole('complementary', {
-      name: 'Logo artwork',
+    const editor = await screen.findByRole('region', {
+      name: 'Logo editor',
     });
     expect(editor).toBeInTheDocument();
     expect(locationProbe()).toHaveTextContent('/titles/title-1/artwork?role=Logo');

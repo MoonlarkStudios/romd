@@ -22,23 +22,23 @@
 
 .identity[data-size='hero'] {
   position: relative;
-  padding: var(--mantine-spacing-lg);
+  padding: var(--title-hero-padding, var(--mantine-spacing-lg));
   gap: var(--mantine-spacing-lg);
   max-inline-size: 49rem;
 }
 
 .identity[data-size='hero'] .poster {
-  flex-basis: 7rem;
+  flex-basis: var(--title-hero-poster-width, 7rem);
 }
 
 @container title-hero (max-width: 600px) {
   .identity[data-size='hero'] {
-    padding: var(--mantine-spacing-md);
+    padding: var(--title-hero-padding, var(--mantine-spacing-md));
     gap: var(--mantine-spacing-md);
   }
 
   .identity[data-size='hero'] .poster {
-    flex-basis: 5.5rem;
+    flex-basis: var(--title-hero-poster-width, 5.5rem);
   }
 
   .title {

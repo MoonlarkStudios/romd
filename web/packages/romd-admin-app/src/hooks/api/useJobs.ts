@@ -17,17 +17,11 @@ export function useJobs() {
   });
 }
 
-export function useJob(
-  jobId: string | undefined,
-  options?: {
-    pollingInterval?: number;
-  },
-) {
-  const { pollingInterval = 2000 } = options ?? {};
-
-  return useQuery({
+/** One job's detail, polled until it is terminal; shared by `useJob` and callers that watch several jobs. */
+export function jobQueryOptions(jobId: string | undefined, pollingInterval = 2000) {
+  return {
     queryKey: jobKeys.detail(jobId ?? ''),
-    queryFn: async ({ signal }) => {
+    queryFn: async ({ signal }: { signal: AbortSignal }) => {
       if (!jobId) throw new Error('Job ID is required');
       const response = await getJob({
         signal,
@@ -41,12 +35,19 @@ export function useJob(
       return response.data;
     },
     enabled: !!jobId,
-    refetchInterval: (query) => {
-      const data = query.state.data as Job | undefined;
-      if (data?.isTerminal) {
-        return false;
-      }
-      return pollingInterval;
-    },
-  });
+    refetchInterval: (query: {
+      state: {
+        data?: Job;
+      };
+    }) => (query.state.data?.isTerminal ? false : pollingInterval),
+  };
+}
+
+export function useJob(
+  jobId: string | undefined,
+  options?: {
+    pollingInterval?: number;
+  },
+) {
+  return useQuery(jobQueryOptions(jobId, options?.pollingInterval));
 }

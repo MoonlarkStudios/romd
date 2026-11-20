@@ -30,11 +30,13 @@ export function ArtworkAcquisition({
   onReviewBackdrop,
   resolvedRoles = [],
   disabled = false,
+  complete = false,
 }: {
   titleId: string;
   onReviewBackdrop?: () => void;
   resolvedRoles?: string[];
   disabled?: boolean;
+  complete?: boolean;
 }) {
   const query = useArtworkAcquisition(titleId);
   const fill = useFillMissingArtwork();
@@ -84,6 +86,7 @@ export function ArtworkAcquisition({
         <Group>
           <Button
             {...workspaceActionProps}
+            variant={complete ? 'subtle' : 'filled'}
             leftSection={<IconPhotoPlus size={16} />}
             loading={fill.isPending}
             disabled={disabled || !!query.data?.activeJobId || query.isLoading || query.isError}

@@ -4,7 +4,7 @@ import { compatibleMediaTypes, isPackagingType } from '../mediaTypes';
 import type { ArtworkLibraryEntry } from './artworkLibrary';
 import { spreadPages, stepPage } from './manualDocument';
 import { matchesLibraryFilter, placementLabel, releaseOptions } from './mediaLibrary';
-import { rolePresentationState } from './PresentationRoleCard';
+import { rolePresentationState } from './presentation/presentationModel';
 
 const media = (name: string, catalogReleaseId: string | null = null): TitleMediaRef => ({
   id: name,

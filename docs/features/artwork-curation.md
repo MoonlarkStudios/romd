@@ -12,26 +12,38 @@ The title's **Artwork** section has two tabs. **Presentation** chooses what
 players see; **Image library** collects and classifies everything retained for
 the title.
 
-Presentation shows Poster, Backdrop, Banner and Logo in the crops consumer
-surfaces use, with each role's state: **Pinned**, **Automatic**, **Fallback**
-(the poster falls back to the title cover), **Intentionally empty** or
-**Missing**. Each role has one **Edit** action and, when you chose it,
-**Use automatically**. The editor puts saved images, each linked provider that
-supports the role, and **Upload** in one source picker; after you resolve a
-provider match it returns to that provider. Compare **Current** and **Proposed**
-at desktop, tablet and mobile sizes and set the focal point where the role
-supports one. **Use this banner** (or the role's equivalent) commits the image
-and its crop together; **Save to library** keeps a provider candidate for later
-without changing the role. On a phone the comparison and commit controls stay
-in reach while the editor scrolls.
+**Presentation** shows the Poster, Backdrop, Banner and Logo roles above a
+preview of the consumer library card, home spotlight or game details. Switch
+between Desktop, Tablet and Mobile. Select a role from the strip or click it
+in the preview. The editor opens beside the preview on wide screens and below
+it on narrow screens.
 
-A provider choice imports in the background. The role keeps showing its current
-image with progress until the replacement is ready. If the import fails, the role
-offers **Retry** (a new request for the same candidate) and **Choose another**.
-Leaving with unsaved changes prompts you to discard them.
+Choose **Automatic** to let ROMD select an image, pin a specific image, or
+choose **Intentionally empty** to keep automatic runs from filling the role.
+**Replace image** offers saved images, linked providers that support the role,
+and **Upload**. After resolving a provider match, the picker returns to that
+provider. **Save to library** keeps a provider candidate for later without
+assigning it to a role.
 
-Backdrop, logo, and poster detail previews use the shared consumer game-detail
-composition. Library poster previews use the consumer poster surface.
+Use **Adjust crop** for a pinned poster, backdrop or banner. If ROMD chose the
+current image automatically, choose **Pin this image to adjust its crop** first.
+Click or drag on the source image, or move the focal point with the arrow keys.
+Select a crop thumbnail to see its outline and corresponding consumer preview.
+The logo can be inspected against light and dark backgrounds.
+
+The canvas previews staged changes immediately. Use **Saved** and **Draft**
+to compare, undo one role in its editor, or discard the whole draft. **Save
+changes** submits the edited roles together. Resetting a role to Automatic
+shows the current image until the server resolves the new selection.
+If a role changed while you were editing, **Reload latest** refreshes it after
+confirmation and discards that role's draft. Leaving with a draft prompts you
+to discard it.
+
+Provider choices import in the background. The role shows **Importing** and
+players keep seeing its previous image until the replacement is ready. **Needs
+attention** marks a failed save or import. A failed import offers **Retry** for
+the same candidate or **Choose another**. After a partial save, the roles that
+succeeded stay saved and the failed edits remain available to retry.
 
 ## Choose a presentation role
 
@@ -39,7 +51,7 @@ composition. Library poster previews use the consumer poster surface.
 | --- | --- | --- |
 | Poster | Library card | 2:3, typically 600×900 |
 | Backdrop | Game-detail background | 16:9, typically 1920×1080 or larger |
-| Banner (`Hero` in the API) | Wide header | 96:31, typically 1920×620 |
+| Banner (`Hero` in the API) | Home spotlight | 96:31, typically 1920×620 |
 | Logo | Transparent title art | Natural proportions |
 | Screenshot | Gameplay gallery | Original proportions |
 
@@ -57,7 +69,7 @@ are banners, rather than automatic backdrops.
 Enable **Review backdrops** under **Settings** to require a choice before a
 suggested backdrop is downloaded and selected. **Review backdrop** opens suitable
 landscape candidates. Inspect desktop/mobile previews, set the focal point and
-apply your choice. You can disable the landscape filter for a deliberate exception.
+save your choice. You can disable the landscape filter for a deliberate exception.
 Pins, existing eligible artwork and pending manual choices are preserved.
 
 If a backdrop is absent or cannot load, game details use the poster composition.
@@ -69,9 +81,11 @@ replacement is ready.
 
 Managers and admins collect media in **Image library**. Filter it by type
 (presentation art, packaging, gameplay, manuals, or one type) and by release
-(a canonical release, or title-level media). The inspector shows the source,
-attribution, region and language, and edits the classification: type, release,
-region, language and, for packaging, the preferred scan.
+(a canonical release, or title-level media). Open an item in the lightbox to
+see the image alongside its source, attribution and classification. The previous
+and next buttons and the Left and Right arrow keys browse the filtered library.
+Escape closes the lightbox and returns focus to its library entry. The lightbox
+also supports assigning roles, adjusting crops, and editing classification.
 
 - **Collect from providers** browses linked providers and **Save to library**
   retains the selected images. Provider matching is available in the dialog.

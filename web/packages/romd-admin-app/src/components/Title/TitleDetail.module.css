@@ -6,3 +6,8 @@
 @container title-hero (max-width: 600px) {
   .heroShade { background: color-mix(in srgb, var(--mantine-color-default) 88%, transparent); }
 }
+
+.hero[data-compact] {
+  --title-hero-padding: var(--mantine-spacing-xs) var(--mantine-spacing-md);
+  --title-hero-poster-width: 3.5rem;
+}

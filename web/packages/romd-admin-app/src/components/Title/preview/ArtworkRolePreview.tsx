@@ -20,6 +20,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { usePlatform } from '../../../hooks/api/usePlatforms';
 import { ArtworkFrame } from '../../ArtworkFrame';
 import type { ArtworkRole } from '../../artworkPresentation';
+import type { PresentationSurface } from '../presentation/presentationModel';
 import { ratingPresentation } from '../ratingPresentation';
 
 export type ArtworkPreviewTitle = Pick<
@@ -368,5 +369,132 @@ export function ArtworkRolePreview({
         </details>
       )}
     </Stack>
+  );
+}
+
+/** The library rail: this title's card among neutral placeholders, at the card width the device would use. */
+function LibraryRailPreview({
+  title,
+  device,
+}: {
+  title: ArtworkPreviewTitle;
+  device: PreviewDevice;
+}) {
+  const width = posterCardWidth(device);
+  const card = (content: ReactNode, key: string) => (
+    <div
+      key={key}
+      style={{
+        flex: `0 0 ${width}px`,
+        width,
+      }}
+    >
+      <div
+        style={{
+          borderRadius: 8,
+          overflow: 'hidden',
+        }}
+      >
+        {content}
+      </div>
+    </div>
+  );
+  return (
+    <ConsumerPresentation>
+      <div
+        className="romd-preview-library"
+        style={{
+          padding: device === 'mobile' ? 16 : 32,
+          background: 'var(--romd-bg)',
+        }}
+      >
+        <Text
+          className="romd-metadata"
+          mb="sm"
+        >
+          Library
+        </Text>
+        <div
+          style={{
+            display: 'flex',
+            gap: device === 'mobile' ? 12 : 20,
+            overflow: 'hidden',
+          }}
+        >
+          {card(
+            <GamePosterSurface>
+              <PreviewImage
+                title={title}
+                artworkRole="Poster"
+                style={{
+                  aspectRatio: 'var(--romd-poster-aspect, 3 / 4)',
+                }}
+                fallback={<Text ta="center">{title.name}</Text>}
+              />
+            </GamePosterSurface>,
+            'title',
+          )}
+          {[
+            1,
+            2,
+            3,
+            4,
+            5,
+          ].map((index) =>
+            card(
+              <div
+                style={{
+                  aspectRatio: 'var(--romd-poster-aspect, 3 / 4)',
+                  background: 'color-mix(in srgb, var(--mantine-color-dark-4) 55%, var(--romd-bg))',
+                }}
+              />,
+              `placeholder-${index}`,
+            ),
+          )}
+        </div>
+        <Text
+          size="sm"
+          fw={500}
+          mt="xs"
+          style={{
+            width,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {title.name}
+        </Text>
+      </div>
+    </ConsumerPresentation>
+  );
+}
+
+/** One consumer surface as players see it at a device's real width; the presentation canvas lays these out. */
+export function SurfacePreview({
+  title,
+  surface,
+  device,
+}: {
+  title: ArtworkPreviewTitle;
+  surface: PresentationSurface;
+  device: PreviewDevice;
+}) {
+  const metadata = usePreviewMetadata(title);
+  if (surface === 'library')
+    return (
+      <LibraryRailPreview
+        title={title}
+        device={device}
+      />
+    );
+  return surface === 'spotlight' ? (
+    <SpotlightPreview
+      title={title}
+      metadata={metadata}
+    />
+  ) : (
+    <DetailsPreview
+      title={title}
+      metadata={metadata}
+    />
   );
 }
