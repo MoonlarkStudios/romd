@@ -1,14 +1,49 @@
-import { Stack, Tabs, Title } from '@mantine/core';
-import { useSearchParams } from 'react-router';
+import { Alert, Button, Stack, Title } from '@mantine/core';
+import { Navigate, useLocation, useSearchParams } from 'react-router';
+import { SectionTabs } from '../../components/Workspace/SectionTabs';
 import workspace from '../../components/Workspace/Workspace.module.css';
+import { useEnrichmentWorkspaceCounts } from '../../hooks/api/useEnrichmentWorkspace';
+import { usePermissions } from '../../hooks/usePermissions';
+import { CatalogReview } from './CatalogReview';
 import { TitlesLens } from './TitlesLens';
 
 export function Catalog() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const { state } = useLocation();
+  const { canManageTitles } = usePermissions();
+  const counts = useEnrichmentWorkspaceCounts('', canManageTitles);
+  const request = params.get('view');
   const view =
-    params.get('view') === 'all' || (!params.has('view') && params.get('tracked') === 'untracked')
-      ? 'all'
-      : 'tracked';
+    request === 'review' && canManageTitles
+      ? 'review'
+      : request === 'all' || (!request && params.get('tracked') === 'untracked')
+        ? 'all'
+        : 'tracked';
+
+  const changeView = (id: string) => {
+    const next = new URLSearchParams(params);
+    next.set('view', id);
+    for (const key of [
+      'tracked',
+      'title',
+      'requirement',
+      'role',
+    ])
+      next.delete(key);
+    if (id !== 'review') next.delete('state');
+    return {
+      search: `?${next}`,
+    };
+  };
+
+  if (request === 'review' && !canManageTitles)
+    return (
+      <Navigate
+        to="/catalog"
+        replace
+      />
+    );
+
   return (
     <div className={workspace.page}>
       <Stack gap="md">
@@ -20,46 +55,70 @@ export function Catalog() {
             Catalog
           </Title>
         </div>
-        <Tabs
-          value={view}
-          onChange={(value) => {
-            if (!value) return;
-            setParams((previous) => {
-              const next = new URLSearchParams(previous);
-              next.set('view', value);
-              next.delete('tracked');
-              return next;
-            });
-          }}
-          keepMounted={false}
-          color="teal"
-          classNames={{
-            list: workspace.tabsList,
-            tab: workspace.tab,
-          }}
-        >
-          <Tabs.List>
-            <Tabs.Tab value="tracked">Tracked titles</Tabs.Tab>
-            <Tabs.Tab value="all">All titles</Tabs.Tab>
-          </Tabs.List>
-          <Tabs.Panel
-            value="tracked"
-            pt="md"
+        <SectionTabs
+          label="Catalog views"
+          current={view}
+          state={state}
+          items={[
+            ...(canManageTitles
+              ? [
+                  {
+                    id: 'review',
+                    label: 'Needs review',
+                    to: changeView('review'),
+                    count: counts.data?.needsReview,
+                  },
+                ]
+              : []),
+            {
+              id: 'tracked',
+              label: 'Tracked titles',
+              to: changeView('tracked'),
+            },
+            {
+              id: 'all',
+              label: 'All titles',
+              to: changeView('all'),
+            },
+          ].map((item) => ({
+            ...item,
+            to:
+              item.id === view
+                ? {
+                    search: `?${params}`,
+                  }
+                : item.to,
+          }))}
+        />
+        {view === 'review' && counts.isError && (
+          <Alert
+            color="yellow"
+            title={counts.data ? 'Review count may be out of date' : 'Review count unavailable'}
           >
-            <TitlesLens
-              showHeader={false}
-              lockedFilters={{
-                tracked: 'tracked',
-              }}
-            />
-          </Tabs.Panel>
-          <Tabs.Panel
-            value="all"
-            pt="md"
-          >
-            <TitlesLens showHeader={false} />
-          </Tabs.Panel>
-        </Tabs>
+            <Button
+              variant="subtle"
+              size="compact-sm"
+              onClick={() => void counts.refetch()}
+            >
+              Retry count
+            </Button>
+          </Alert>
+        )}
+        {view === 'review' ? (
+          <CatalogReview />
+        ) : (
+          <TitlesLens
+            key={view}
+            showHeader={false}
+            lockedFilters={
+              view === 'tracked'
+                ? {
+                    tracked: 'tracked',
+                  }
+                : undefined
+            }
+          />
+        )}
       </Stack>
     </div>
   );

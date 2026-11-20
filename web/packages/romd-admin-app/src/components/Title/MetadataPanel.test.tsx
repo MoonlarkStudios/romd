@@ -1,33 +1,27 @@
-import { readFileSync } from 'node:fs';
 import { MantineProvider } from '@mantine/core';
-import type { TitleDetail, TitleEnrichmentStateResponse } from '@romd/admin-api-client';
+import type { TitleEnrichmentStateResponse } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
-import {
-  createMemoryRouter,
-  Outlet,
-  RouterProvider,
-  useLocation,
-  useSearchParams,
-} from 'react-router';
+import { createMemoryRouter, Link, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DraftGuardProvider } from '../Administration/DraftGuard';
+import type { TitleDetailView } from '../../hooks/api/useTitleDetail';
 import { MetadataPanel } from './MetadataPanel';
-import layout from './MetadataPanel.module.css';
-import type { TitleEditorOutcome } from './titleWorkbenchModel';
 
 const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   overrides: vi.fn(),
+  sources: vi.fn(),
   enrichment: {} as TitleEnrichmentStateResponse,
+  canManageTitles: true,
 }));
+
 vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: () => ({
-    canManageTitles: true,
+    canManageTitles: mocks.canManageTitles,
   }),
 }));
+
 vi.mock('../../hooks/api/useLibraryManagement', () => ({
   useCatalogFilterFacets: () => ({
     data: {
@@ -35,662 +29,469 @@ vi.mock('../../hooks/api/useLibraryManagement', () => ({
     },
   }),
 }));
+
+vi.mock('../../hooks/api/usePlatforms', () => ({
+  usePlatform: () => ({
+    data: {
+      name: 'Sega Dreamcast',
+    },
+  }),
+}));
+
+vi.mock('../../hooks/api/useProviderMatches', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../hooks/api/useProviderMatches')>()),
+  useProviderMatches: () => ({
+    data: [],
+  }),
+}));
+
 vi.mock('../../hooks/api/useTitleActions', () => ({
   useUpdateTitleMetadata: () => ({
     mutateAsync: mocks.update,
   }),
 }));
+
 vi.mock('../../hooks/api/useTitleEnrichment', () => ({
-  useTitleEnrichment: () => ({
-    data: mocks.enrichment,
+  useTitleEnrichment: (id?: string) => ({
+    data: id ? mocks.enrichment : undefined,
   }),
   useSetFieldOverrides: () => ({
     mutateAsync: mocks.overrides,
   }),
 }));
-const title: TitleDetail = {
+
+vi.mock('../../hooks/api/useTitleDetail', () => ({
+  useTitleSourceReferences: (titleId: string) => {
+    mocks.sources(titleId);
+    return {
+      data: [],
+    };
+  },
+}));
+
+const title: TitleDetailView = {
   id: 'title1',
+  revision: 'rev-1',
   name: 'Test Game',
   systemKey: 'dreamcast',
+  enrichmentStatus: 'Completed',
   publisher: 'Sega',
+  developer: 'Capcom',
+  releases: [],
+  media: [],
 };
-function renderPanel(initialField?: string, outcome: TitleEditorOutcome = {}) {
-  const cache = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: false,
-      },
-    },
-  });
+
+function renderPanel(initialField?: string) {
   const router = createMemoryRouter([
     {
       path: '/',
       element: (
-        <MetadataPanel
-          title={title}
-          titleId={title.id}
-          initialField={initialField}
-          {...outcome}
-        />
+        <>
+          <MetadataPanel
+            title={title}
+            titleId={title.id}
+            initialField={initialField}
+          />
+          <Link to="/away">Next section</Link>
+          <Link to="?field=description">Another field</Link>
+        </>
       ),
     },
     {
       path: '/away',
-      element: <h1>Other page</h1>,
+      element: <h1>Other section</h1>,
     },
   ]);
   render(
     <MantineProvider env="test">
-      <QueryClientProvider client={cache}>
+      <QueryClientProvider client={new QueryClient()}>
         <RouterProvider router={router} />
       </QueryClientProvider>
     </MantineProvider>,
   );
   return router;
 }
-async function draft() {
-  const user = userEvent.setup();
-  await user.click(
-    screen.getByRole('button', {
-      name: 'Publisher: Sega',
-    }),
-  );
-  await user.click(
-    screen.getByRole('radio', {
-      name: 'Custom',
-      exact: true,
-    }),
-  );
-  await user.type(
-    screen.getByRole('textbox', {
-      name: 'Publisher user override',
-    }),
-    'My publisher',
-  );
-  return user;
+
+function publisher() {
+  return screen.getByRole('textbox', {
+    name: 'Publisher',
+  });
 }
 
-describe('Metadata draft safety', () => {
+function saveChanges() {
+  return screen.getByRole('button', {
+    name: 'Save changes',
+  });
+}
+
+async function changePublisher(user: ReturnType<typeof userEvent.setup>, value: string) {
+  await user.clear(publisher());
+  await user.type(publisher(), value);
+}
+
+describe('Metadata form', () => {
   beforeEach(() => {
-    mocks.update.mockReset().mockResolvedValue(undefined);
-    mocks.overrides.mockReset().mockResolvedValue(undefined);
+    mocks.update.mockReset().mockResolvedValue({
+      revision: 'rev-2',
+    });
+    mocks.overrides.mockReset().mockResolvedValue({
+      revision: 'rev-2',
+    });
+    mocks.sources.mockReset();
+    mocks.canManageTitles = true;
     mocks.enrichment = {
-      titleId: 'title1',
-      layers: [],
+      titleId: title.id,
+      revision: title.revision,
+      name: title.name,
+      enrichmentStatus: 'Completed',
       fieldProvenance: {
         Publisher: 'igdb',
+        Developer: 'user',
       },
+      layers: [
+        {
+          sourceId: 'igdb',
+          sourceType: 'Provider',
+          publisher: 'Sega',
+          developer: 'Sega AM2',
+        },
+        {
+          sourceId: 'user',
+          sourceType: 'User',
+          developer: 'Capcom',
+        },
+      ],
+      externalIds: [],
     };
   });
-  it.each([
-    'Escape',
-    'close button',
-    'Cancel',
-    'backdrop',
-  ])('protects dirty drafts dismissed with %s', async (method) => {
+
+  it('batches edited fields and the title name into one revision-checked write', async () => {
+    const user = userEvent.setup();
     renderPanel();
-    const user = await draft();
-    if (method === 'Escape') await user.keyboard('{Escape}');
-    else if (method === 'close button')
-      await user.click(
-        screen.getByRole('button', {
-          name: 'Close Publisher inspector',
-        }),
-      );
-    else if (method === 'Cancel')
-      await user.click(
-        screen.getByRole('button', {
-          name: 'Cancel',
-        }),
-      );
-    else {
-      const overlay = document.querySelector('.mantine-Modal-overlay');
-      expect(overlay).not.toBeNull();
-      fireEvent.click(overlay as Element);
-    }
-    expect(
-      screen.getByRole('dialog', {
-        name: 'Discard unsaved changes?',
-      }),
-    ).toBeInTheDocument();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Keep editing',
-      }),
-    );
     expect(
       screen.getByRole('textbox', {
-        name: 'Publisher user override',
+        name: 'Platform',
       }),
-    ).toHaveValue('My publisher');
+    ).toHaveAttribute('readonly');
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Platform',
+      }),
+    ).toHaveValue('Sega Dreamcast');
+    expect(mocks.sources).toHaveBeenCalledWith('title1');
+    expect(saveChanges()).toBeDisabled();
+
+    await changePublisher(user, 'My publisher');
+    const name = screen.getByRole('textbox', {
+      name: 'Title name',
+    });
+    await user.clear(name);
+    await user.type(name, 'Updated name');
+    expect(
+      screen.getByRole('button', {
+        name: 'Publisher source: Edited',
+      }),
+    ).toBeInTheDocument();
+    await user.click(saveChanges());
+
+    await waitFor(() => expect(saveChanges()).toBeDisabled());
+    expect(mocks.update).toHaveBeenCalledExactlyOnceWith({
+      titleId: title.id,
+      revision: 'rev-1',
+      metadata: {
+        name: 'Updated name',
+        publisher: 'My publisher',
+      },
+    });
+    expect(mocks.overrides).not.toHaveBeenCalled();
+  });
+
+  it('previews a locked source selected with the keyboard and saves it using the existing override contract', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const marker = screen.getByRole('button', {
+      name: 'Developer source: Edited',
+    });
+    marker.focus();
+    await user.keyboard('{Enter}');
+    const source = screen.getByRole('radio', {
+      name: 'Use IGDB',
+    });
+    source.focus();
+    await user.keyboard(' ');
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Developer',
+      }),
+    ).toHaveValue('Sega AM2');
+    await user.keyboard('{Escape}');
+    expect(marker).toHaveFocus();
+    expect(marker).toHaveAccessibleName('Developer source: IGDB · Locked');
+    await user.click(saveChanges());
+
+    await waitFor(() => expect(saveChanges()).toBeDisabled());
+    expect(mocks.overrides).toHaveBeenCalledExactlyOnceWith({
+      titleId: title.id,
+      revision: 'rev-1',
+      overrides: {
+        Developer: 'igdb',
+      },
+    });
     expect(mocks.update).not.toHaveBeenCalled();
   });
-  it('discards only after confirmation and opens a clean editor next time', async () => {
+
+  it('removes a saved edit and its lock when returning a field to automatic resolution', async () => {
+    const user = userEvent.setup();
+    mocks.enrichment.fieldSourceOverrides = {
+      Developer: 'user',
+    };
     renderPanel();
-    const user = await draft();
     await user.click(
       screen.getByRole('button', {
-        name: 'Cancel',
-      }),
-    );
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Discard',
-      }),
-    );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Publisher: Sega',
+        name: 'Developer source: Edited',
       }),
     );
     await user.click(
       screen.getByRole('radio', {
-        name: 'Custom',
-        exact: true,
+        name: 'Use source automatically',
       }),
     );
     expect(
       screen.getByRole('textbox', {
-        name: 'Publisher user override',
+        name: 'Developer',
       }),
-    ).toHaveValue('');
-  });
-  it('dismisses an unchanged editor without confirmation', async () => {
-    renderPanel();
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Publisher: Sega',
-      }),
-    );
+    ).toHaveAttribute('placeholder', 'Resolved on save');
     await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-  it('keeps saving drafts open and closes successfully saved drafts without a discard prompt', async () => {
-    let finish: () => void = () => {};
-    mocks.update.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          finish = resolve;
-        }),
-    );
-    renderPanel();
-    const user = await draft();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save changes',
-      }),
-    );
-    expect(
-      screen.getByRole('button', {
-        name: 'Cancel',
-      }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole('button', {
-        name: 'Close Publisher inspector',
-      }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole('textbox', {
-        name: 'Publisher user override',
-      }),
-    ).toBeDisabled();
-    await user.keyboard('{Escape}');
-    expect(
-      screen.getByRole('dialog', {
-        name: 'Edit Publisher',
-      }),
-    ).toBeInTheDocument();
-    await act(async () => finish());
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(mocks.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        titleId: 'title1',
-        metadata: expect.objectContaining({
-          publisher: 'My publisher',
-        }),
-      }),
-    );
-  });
-  it('preserves the draft after a save failure', async () => {
-    mocks.update.mockRejectedValue(new Error('Unavailable'));
-    renderPanel();
-    const user = await draft();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save changes',
-      }),
-    );
-    expect(await screen.findByRole('alert')).toHaveTextContent('Your draft is still here');
-    expect(
-      screen.getByRole('textbox', {
-        name: 'Publisher user override',
-      }),
-    ).toHaveValue('My publisher');
-    await user.keyboard('{Escape}');
-    expect(
-      screen.getByRole('dialog', {
-        name: 'Discard unsaved changes?',
-      }),
-    ).toBeInTheDocument();
-  });
-  it('tells the workbench which field drafts were saved and which were dismissed', async () => {
-    const onResolved = vi.fn();
-    const onDismissed = vi.fn();
-    renderPanel(undefined, {
-      onResolved,
-      onDismissed,
-    });
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Publisher: Sega',
-      }),
-    );
-    await user.keyboard('{Escape}');
-    expect(onDismissed).toHaveBeenCalledTimes(1);
-    await draft();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Cancel',
-      }),
-    );
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Discard',
-      }),
-    );
-    expect(onDismissed).toHaveBeenCalledTimes(2);
-    await draft();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Save changes',
-      }),
-    );
-    await waitFor(() => expect(onResolved).toHaveBeenCalledOnce());
-    expect(onDismissed).toHaveBeenCalledTimes(2);
-  });
-  it('closes the inspector and drops its draft when a navigation that keeps the panel mounted is discarded', async () => {
-    const cache = new QueryClient({
-      defaultOptions: {
-        queries: {
-          retry: false,
-        },
+    await user.click(saveChanges());
+
+    await waitFor(() => expect(saveChanges()).toBeDisabled());
+    expect(mocks.update).toHaveBeenCalledExactlyOnceWith({
+      titleId: title.id,
+      revision: 'rev-1',
+      metadata: {
+        developer: null,
       },
     });
-    const router = createMemoryRouter([
-      {
-        element: (
-          <DraftGuardProvider>
-            <Outlet />
-          </DraftGuardProvider>
-        ),
-        children: [
-          {
-            path: '/',
-            element: (
-              <MetadataPanel
-                title={title}
-                titleId={title.id}
-              />
-            ),
-          },
-        ],
+    expect(mocks.overrides).toHaveBeenCalledExactlyOnceWith({
+      titleId: title.id,
+      revision: 'rev-2',
+      overrides: {
+        Developer: '',
       },
-    ]);
-    render(
-      <MantineProvider env="test">
-        <QueryClientProvider client={cache}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
-      </MantineProvider>,
-    );
-    await draft();
-    await act(async () => {
-      await router.navigate('/?view=All');
     });
-    await userEvent.click(
+  });
+
+  it('restores the saved value without writing when reverting the current draft', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await changePublisher(user, 'My publisher');
+    await user.click(
       screen.getByRole('button', {
-        name: 'Discard',
+        name: 'Publisher source: Edited',
       }),
     );
-    await waitFor(() => expect(router.state.location.search).toBe('?view=All'));
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('dialog', {
-          name: 'Edit Publisher',
-        }),
-      ).not.toBeInTheDocument(),
-    );
-    await act(async () => {
-      await router.navigate('/?view=Blocked');
-    });
-    expect(router.state.location.search).toBe('?view=Blocked');
-    expect(
-      screen.queryByRole('dialog', {
-        name: 'Discard unsaved changes?',
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Restore saved field',
       }),
-    ).not.toBeInTheDocument();
+    );
+    expect(publisher()).toHaveValue('Sega');
+    expect(saveChanges()).toBeDisabled();
     expect(mocks.update).not.toHaveBeenCalled();
   });
-  it('continues protecting dirty drafts during route navigation', async () => {
-    const router = renderPanel();
-    const user = await draft();
-    await act(async () => {
-      await router.navigate('/away');
-    });
+
+  it('keeps a draft when route navigation is canceled, then discards it on confirmed navigation', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await changePublisher(user, 'My publisher');
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Next section',
+      }),
+    );
+    expect(await screen.findByText('Your metadata draft has not been saved.')).toBeInTheDocument();
     await user.click(
       screen.getByRole('button', {
         name: 'Keep editing',
       }),
     );
-    expect(
-      screen.getByRole('textbox', {
-        name: 'Publisher user override',
+    expect(publisher()).toHaveValue('My publisher');
+
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Next section',
       }),
-    ).toHaveValue('My publisher');
-    await act(async () => {
-      await router.navigate('/away');
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: 'Discard unsaved changes?',
     });
     await user.click(
-      screen.getByRole('button', {
+      within(dialog).getByRole('button', {
         name: 'Discard',
       }),
     );
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Other section',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('drops a draft after confirmed navigation that leaves the metadata section mounted', async () => {
+    const user = userEvent.setup();
+    const router = renderPanel();
+    await changePublisher(user, 'My publisher');
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Another field',
+      }),
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: 'Discard unsaved changes?',
+    });
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Discard',
+      }),
+    );
+    await waitFor(() => expect(router.state.location.search).toBe('?field=description'));
+    expect(publisher()).toHaveValue('Sega');
+    expect(saveChanges()).toBeDisabled();
+  });
+
+  it('keeps the form protected during a save and prompts no longer once it succeeds', async () => {
+    let finish = (_data: { revision: string }) => {};
+    mocks.update.mockImplementationOnce(
+      () =>
+        new Promise<{
+          revision: string;
+        }>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderPanel();
+    await changePublisher(user, 'My publisher');
+    await user.click(saveChanges());
+    expect(publisher()).toBeDisabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'Discard',
+      }),
+    ).toBeDisabled();
+    await act(async () =>
+      finish({
+        revision: 'rev-2',
+      }),
+    );
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Next section',
+      }),
+    );
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Other section',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('ignores a late write failure from a draft the curator already discarded', async () => {
+    let fail = (_reason: Error) => {};
+    mocks.update.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = reject;
+        }),
+    );
+    const user = userEvent.setup();
+    const router = renderPanel();
+    await changePublisher(user, 'My publisher');
+    await user.click(saveChanges());
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Another field',
+      }),
+    );
+    const dialog = screen.getByRole('dialog', {
+      name: 'Discard unsaved changes?',
+    });
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Discard',
+      }),
+    );
+    await waitFor(() => expect(router.state.location.search).toBe('?field=description'));
+    await act(async () => fail(new Error('Write failed')));
+    expect(publisher()).toHaveValue('Sega');
+    expect(saveChanges()).toBeDisabled();
+    expect(screen.queryByText(/Could not save your draft/)).not.toBeInTheDocument();
+  });
+
+  it('adds provider values to the same draft and keeps fields the curator already edited', async () => {
+    const user = userEvent.setup();
+    mocks.enrichment.layers[0].genre = 'Action';
+    renderPanel();
+    await changePublisher(user, 'My publisher');
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Apply provider values',
+      }),
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Add to draft (1)',
+      }),
+    );
+    expect(publisher()).toHaveValue('My publisher');
+    expect(
+      screen.getByRole('button', {
+        name: 'Genre source: IGDB · Locked',
+      }),
+    ).toBeInTheDocument();
+    await user.click(saveChanges());
+
+    await waitFor(() => expect(saveChanges()).toBeDisabled());
+    expect(mocks.update).toHaveBeenCalledExactlyOnceWith({
+      titleId: title.id,
+      revision: 'rev-1',
+      metadata: {
+        publisher: 'My publisher',
+      },
+    });
+    expect(mocks.overrides).toHaveBeenCalledExactlyOnceWith({
+      titleId: title.id,
+      revision: 'rev-2',
+      overrides: {
+        Genre: 'igdb',
+      },
+    });
+  });
+
+  it('focuses the input specified by a requirement deep link', () => {
+    renderPanel('publisher');
+    expect(publisher()).toHaveFocus();
+    expect(publisher().closest('[data-highlighted]')).toBeInTheDocument();
+  });
+
+  it('shows metadata values and identifiers to read-only users', () => {
+    mocks.canManageTitles = false;
+    renderPanel();
+    expect(publisher()).toHaveAttribute('readonly');
     expect(
       screen.getByRole('heading', {
-        name: 'Other page',
-      }),
-    ).toBeInTheDocument();
-  });
-  it('opens the requested requirement once and stays closed after dismissal', async () => {
-    renderPanel('Publisher');
-    const user = userEvent.setup();
-    expect(
-      screen.getByRole('dialog', {
-        name: 'Edit Publisher',
-      }),
-    ).toBeInTheDocument();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Cancel',
-      }),
-    );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Developer: No value',
-      }),
-    );
-    expect(
-      await screen.findByRole('dialog', {
-        name: 'Edit Developer',
-      }),
-    ).toBeInTheDocument();
-  });
-  it('preserves refreshes and canceled history navigation, then opens the accepted history target', async () => {
-    const router = renderHistory([
-      '/?field=Developer',
-      '/?field=Publisher',
-    ]);
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole('radio', {
-        name: 'Custom',
-        exact: true,
-      }),
-    );
-    await user.type(
-      screen.getByRole('textbox', {
-        name: 'Publisher user override',
-      }),
-      'Keep this draft',
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Refresh assessment',
-        hidden: true,
-      }),
-    );
-    expect(
-      screen.getByRole('textbox', {
-        name: 'Publisher user override',
-      }),
-    ).toHaveValue('Keep this draft');
-    await act(async () => {
-      await router.navigate(-1);
-    });
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Keep editing',
-      }),
-    );
-    expect(router.state.location.search).toBe('?field=Publisher');
-    expect(
-      screen.getByRole('textbox', {
-        name: 'Publisher user override',
-      }),
-    ).toHaveValue('Keep this draft');
-    await act(async () => {
-      await router.navigate(-1);
-    });
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Discard',
-      }),
-    );
-    expect(
-      await screen.findByRole('dialog', {
-        name: 'Edit Developer',
-      }),
-    ).toBeInTheDocument();
-    await act(async () => {
-      await router.navigate(1);
-    });
-    expect(
-      screen.getByRole('dialog', {
-        name: 'Edit Publisher',
+        name: 'Identifiers and sources',
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('radio', {
-        name: 'Automatic',
-        exact: true,
-      }),
-    ).toBeChecked();
-    await act(async () => {
-      await router.navigate('/');
-    });
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    await act(async () => {
-      await router.navigate('/?field=Publisher');
-    });
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Cancel',
-      }),
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Refresh assessment',
-      }),
-    );
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('does not let an old save close a new editor session for the same field', async () => {
-    let finish: () => void = () => {};
-    mocks.update.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          finish = resolve;
-        }),
-    );
-    const router = renderHistory([
-      '/?field=Publisher&request=earlier',
-      '/?field=Publisher',
-    ]);
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole('radio', {
-        name: 'Custom',
-        exact: true,
-      }),
-    );
-    await user.type(
-      screen.getByRole('textbox', {
-        name: 'Publisher user override',
-      }),
-      'Saving draft',
-    );
-    await user.click(
-      screen.getByRole('button', {
+      screen.queryByRole('button', {
         name: 'Save changes',
       }),
-    );
-    await act(async () => {
-      await router.navigate(-1);
-    });
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Discard',
-      }),
-    );
-    await waitFor(() =>
-      expect(router.state.location.search).toBe('?field=Publisher&request=earlier'),
-    );
-    await waitFor(() =>
-      expect(
-        screen.getByRole('radio', {
-          name: 'Automatic',
-          exact: true,
-        }),
-      ).toBeChecked(),
-    );
-    await act(async () => finish());
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('dialog', {
-        name: 'Edit Publisher',
+      screen.queryByRole('button', {
+        name: /^Publisher source:/,
       }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', {
-        name: 'Cancel',
-      }),
-    ).toBeEnabled();
+    ).not.toBeInTheDocument();
   });
 });
-
-describe('Metadata editor layout', () => {
-  beforeEach(() => {
-    mocks.enrichment = {
-      titleId: 'title1',
-      layers: [],
-      fieldProvenance: {
-        Publisher: 'igdb',
-      },
-    };
-  });
-  it.each([
-    'comfortable',
-    'compact',
-  ] as const)('marks the %s host density on its own size container', (density) => {
-    renderPanel(undefined, {
-      density,
-    });
-    const publisher = screen.getByRole('button', {
-      name: 'Publisher: Sega',
-    });
-    expect(publisher.closest('[data-density]')).toHaveAttribute('data-density', density);
-    expect(publisher).toHaveClass(layout.field);
-    expect(publisher.closest(`.${layout.fields}`)).not.toBeNull();
-    expect(
-      screen.getByRole('button', {
-        name: /^Description:/,
-      }).parentElement,
-    ).toHaveClass(layout.wide);
-  });
-  it('lays out columns by its own width and tiers field spacing through custom properties', () => {
-    const styles = readFileSync(`${import.meta.dirname}/MetadataPanel.module.css`, 'utf8');
-    expect(styles).not.toMatch(/@media/);
-    expect(styles).toMatch(/\.panel \{\s*container: metadata-editor \/ inline-size;/);
-    const compact = styles.slice(styles.indexOf(".panel[data-density='compact'] {"));
-    const forced = styles.slice(styles.indexOf('@container metadata-editor (max-width: 30em) {'));
-    for (const tier of [
-      compact,
-      forced,
-    ]) {
-      expect(tier).toMatch(
-        /--metadata-field-gap: var\(--mantine-spacing-xs\);[^}]*--metadata-field-min-height: 0;/,
-      );
-    }
-    expect(styles).toContain(
-      '.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--metadata-field-gap); }',
-    );
-    expect(styles).toContain(
-      '@container metadata-editor (max-width: 32em) { .fields { grid-template-columns: minmax(0, 1fr); } }',
-    );
-    expect(styles).toContain(
-      '.field { padding: var(--metadata-field-padding); min-height: var(--metadata-field-min-height); }',
-    );
-    // The shared title stylesheet no longer sizes the field button, so the density tier alone decides it.
-    const fieldStyle = readFileSync(`${import.meta.dirname}/TitleDetail.module.css`, 'utf8').match(
-      /\.field \{[^}]*\}/,
-    )?.[0];
-    expect(fieldStyle).toContain('width: 100%');
-    expect(fieldStyle).toContain('background: var(--romd-admin-field)');
-    expect(fieldStyle).not.toMatch(/padding|min-height/);
-  });
-});
-
-function renderHistory(initialEntries: string[]) {
-  function Workspace() {
-    const [, refresh] = useState(0);
-    const location = useLocation();
-    const [search] = useSearchParams();
-    return (
-      <>
-        <button
-          type="button"
-          onClick={() => {
-            mocks.enrichment = {
-              ...mocks.enrichment,
-            };
-            refresh((value) => value + 1);
-          }}
-        >
-          Refresh assessment
-        </button>
-        <MetadataPanel
-          title={title}
-          titleId="title1"
-          initialField={search.get('field') ?? undefined}
-          fieldRequestKey={location.key}
-        />
-      </>
-    );
-  }
-  const cache = new QueryClient();
-  const router = createMemoryRouter(
-    [
-      {
-        path: '/',
-        element: <Workspace />,
-      },
-    ],
-    {
-      initialEntries,
-      initialIndex: initialEntries.length - 1,
-    },
-  );
-  render(
-    <MantineProvider env="test">
-      <QueryClientProvider client={cache}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    </MantineProvider>,
-  );
-  return router;
-}

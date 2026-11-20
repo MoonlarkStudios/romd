@@ -194,7 +194,12 @@ it('uses links and local summaries without fetching source details in a narrow w
   const row = within(table).getByRole('row', {
     name: /PlayStation/,
   });
-  expect(within(row).getByText('Ready')).toBeInTheDocument();
+  expect(
+    within(row).getByRole('cell', {
+      name: 'Ready',
+      exact: true,
+    }),
+  ).toBeInTheDocument();
   expect(await within(row).findByText('Manual updates')).toBeInTheDocument();
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   expect(listSystemDats).not.toHaveBeenCalled();
@@ -255,11 +260,7 @@ it('keeps known title and DAT counts visible in compact rows', async () => {
   const table = await screen.findByRole('table', {
     name: 'Systems',
   });
-  expect(
-    within(table).queryByRole('columnheader', {
-      name: 'Last DAT import',
-    }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   const row = within(table).getByRole('row', {
     name: /PlayStation/,
   });
@@ -279,7 +280,12 @@ it('keeps catalog readiness separate from subscription warnings and filters them
     name: /PlayStation/,
   });
   expect(await within(row).findByText('Update to review')).toBeInTheDocument();
-  expect(within(row).getByText('Ready')).toBeInTheDocument();
+  expect(
+    within(row).getByRole('cell', {
+      name: 'Ready',
+      exact: true,
+    }),
+  ).toBeInTheDocument();
   await userEvent.click(
     screen.getByRole('checkbox', {
       name: /Needs attention/,
@@ -602,3 +608,67 @@ it('offers both an intentional empty state and a file-first upload entry', async
   );
   expect(screen.getByText('Upload setup')).toBeInTheDocument();
 });
+
+it('keeps the default selection local, restores row focus on close, and walks the preview by keyboard', async () => {
+  workspace.width = 1000;
+  const user = userEvent.setup();
+  render(
+    <>
+      <Systems />
+      <SystemSelectionLocation />
+    </>,
+    {
+      auth: admin,
+      routerOptions: {
+        initialEntries: [
+          '/systems?q=',
+        ],
+      },
+    },
+  );
+  expect(
+    await screen.findByRole('complementary', {
+      name: 'PlayStation',
+    }),
+  ).toBeVisible();
+  expect(screen.getByTestId('system-selection')).toHaveTextContent('?q=');
+  const playStation = screen.getByRole('button', {
+    name: 'Preview PlayStation in sidebar',
+  });
+  const gameBoy = screen.getByRole('button', {
+    name: 'Preview Game Boy Advance in sidebar',
+  });
+  playStation.focus();
+  await user.keyboard('{ArrowDown}');
+  expect(gameBoy).toHaveFocus();
+  expect(gameBoy.closest('tr')).toHaveAttribute('aria-current', 'true');
+  expect(screen.getByTestId('system-selection')).toHaveTextContent('system=gba');
+  await user.keyboard('{Escape}');
+  expect(gameBoy).toHaveFocus();
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  expect(screen.getByTestId('system-selection')).not.toHaveTextContent('system=');
+  await user.keyboard('{Enter}');
+  const panel = await screen.findByRole('complementary', {
+    name: 'Game Boy Advance',
+  });
+  await user.click(
+    within(panel).getByRole('button', {
+      name: 'Preview previous item',
+    }),
+  );
+  expect(
+    await screen.findByRole('complementary', {
+      name: 'PlayStation',
+    }),
+  ).toBeVisible();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Close inspector',
+    }),
+  );
+  expect(playStation).toHaveFocus();
+});
+
+function SystemSelectionLocation() {
+  return <output data-testid="system-selection">{useLocation().search}</output>;
+}

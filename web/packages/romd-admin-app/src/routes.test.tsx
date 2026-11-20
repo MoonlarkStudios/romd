@@ -80,3 +80,61 @@ it('loads a page on direct navigation through its lazy route', async () => {
   ).toBeInTheDocument();
   expect(screen.getByRole('navigation')).toBeInTheDocument();
 });
+
+it.each([
+  [
+    '/enrichment',
+    '/catalog?view=review',
+  ],
+  [
+    '/enrichment?view=Blocked&title=game-1&q=halo',
+    '/catalog?view=review&state=Blocked&title=game-1&q=halo',
+  ],
+  [
+    '/enrichment?view=Automatic',
+    '/catalog?view=review&state=Automatic',
+  ],
+  [
+    '/enrichment?view=Processing',
+    '/catalog?view=review&state=Processing',
+  ],
+  [
+    '/enrichment/titles/game-1?view=All&issue=Artwork%3APoster',
+    '/catalog?view=review&state=All&title=game-1&requirement=Artwork%3APoster',
+  ],
+  [
+    '/enrichment/run-1',
+    '/jobs/run-1',
+  ],
+  [
+    '/enrichment?activity=run-1&title=game-1',
+    '/jobs/run-1',
+  ],
+])('redirects %s to %s', async (from, to) => {
+  const source =
+    routes
+      .find((route) => route.path === '/')
+      ?.children?.filter((route) => route.path?.startsWith('enrichment')) ?? [];
+  const router = createMemoryRouter(
+    [
+      ...source,
+      {
+        path: '/catalog',
+        element: <h1>Catalog</h1>,
+      },
+      {
+        path: '/jobs/:jobId',
+        element: <h1>Job</h1>,
+      },
+    ],
+    {
+      initialEntries: [
+        from,
+      ],
+    },
+  );
+  render(<RouterProvider router={router} />);
+  expect(await screen.findByRole('heading')).toBeVisible();
+  expect(router.state.location.pathname + router.state.location.search).toBe(to);
+  expect(router.state.historyAction).toBe('REPLACE');
+});

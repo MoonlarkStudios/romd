@@ -15,6 +15,7 @@ import { IconRestore } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import type { TitleDetailView as TitleDetail } from '../../hooks/api/useTitleDetail';
 import { artworkRoleLabel } from '../artworkPresentation';
+import { EditorFooter } from '../Workspace/EditorFooter';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
 import classes from './ArtworkWorkspace.module.css';
 import { type FocalPoint, FocalPointEditor } from './FocalPointEditor';
@@ -70,21 +71,14 @@ export function ArtworkComposer({
   useEffect(() => {
     setComparison('preview');
     const composition = previewRef.current;
-    const inspector = composition?.nextElementSibling;
-    // When the editor container stacks the inspector below the composition, bring a newly chosen preview into view.
-    if (
-      draftIdentity &&
-      composition &&
-      inspector &&
-      inspector.getBoundingClientRect().top > composition.getBoundingClientRect().bottom
-    ) {
-      composition.focus({
-        preventScroll: true,
-      });
-      composition.scrollIntoView({
-        block: 'start',
-      });
-    }
+    // Candidate browsing can put the preview above the visible part of the inspector.
+    if (!draftIdentity || !composition) return;
+    composition.focus({
+      preventScroll: true,
+    });
+    composition.scrollIntoView?.({
+      block: 'nearest',
+    });
   }, [
     draftIdentity,
   ]);
@@ -300,10 +294,7 @@ export function ArtworkComposer({
             )}
           </Stack>
         </div>
-        <div
-          className={classes.editorFooter}
-          aria-live="polite"
-        >
+        <div aria-live="polite">
           {error && (
             <Alert
               color="red"
@@ -324,29 +315,24 @@ export function ArtworkComposer({
               )}
             </Alert>
           )}
-          <Group justify="space-between">
-            <Text size="sm">{draft ? 'Unsaved preview' : 'Showing saved artwork'}</Text>
-            <Group gap="xs">
-              <Button
-                variant="default"
-                disabled={busy || !draft}
-                onClick={() => {
-                  onCancel();
-                  setComparison('preview');
-                }}
-              >
-                Discard
-              </Button>
-              <Button
-                {...workspaceActionProps}
-                loading={busy}
-                disabled={!draft}
-                onClick={() => draft && onSave(draft)}
-              >
-                Apply {artworkRoleLabel(role).toLowerCase()}
-              </Button>
-            </Group>
-          </Group>
+          <Text
+            size="sm"
+            mb="xs"
+          >
+            {draft ? 'Unsaved preview' : 'Showing saved artwork'}
+          </Text>
+          <EditorFooter
+            dirty={draft !== null}
+            saving={busy}
+            onDiscard={() => {
+              onCancel();
+              setComparison('preview');
+            }}
+            onSave={() => {
+              if (draft) onSave(draft);
+            }}
+            saveLabel={`Apply ${artworkRoleLabel(role).toLowerCase()}`}
+          />
         </div>
       </div>
     </section>

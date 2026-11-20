@@ -1,0 +1,126 @@
+.layout {
+  --inspector-width: 20rem;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0px);
+  align-items: start;
+  column-gap: 0;
+  min-inline-size: 0;
+  transition:
+    grid-template-columns var(--romd-duration-screen) var(--romd-ease-emphasized),
+    column-gap var(--romd-duration-screen) var(--romd-ease-emphasized);
+}
+
+.layout[data-open] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--inspector-width));
+  column-gap: var(--mantine-spacing-md);
+}
+
+.list {
+  container: inspector-list / inline-size;
+  min-inline-size: 0;
+}
+
+.column {
+  min-inline-size: 0;
+  overflow: clip;
+  opacity: 0;
+  transition: opacity var(--romd-duration-screen) var(--romd-ease-emphasized);
+}
+
+.layout[data-open] .column {
+  opacity: 1;
+}
+
+.content {
+  inline-size: var(--inspector-width);
+  transform: translateX(12px);
+  transition: transform var(--romd-duration-screen) var(--romd-ease-emphasized);
+}
+
+.layout[data-open] .content {
+  transform: translateX(0);
+}
+
+.column .panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-inline-size: 0;
+  scroll-margin-block-start: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md));
+}
+
+.header, .footer {
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+}
+
+.header {
+  display: flex;
+  gap: var(--mantine-spacing-xs);
+  align-items: center;
+  border-block-end: 1px solid var(--romd-portal-border);
+}
+
+.title {
+  flex: 1;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.body {
+  min-block-size: 0;
+  padding: var(--mantine-spacing-md);
+}
+
+.footer {
+  border-block-start: 1px solid var(--romd-portal-border);
+}
+
+@media (min-height: 640px) {
+  .layout:not([data-inspector-stacked]) .column {
+    position: sticky;
+    top: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md));
+  }
+
+  .layout:not([data-inspector-stacked]) .panel {
+    max-block-size: max(
+      20rem,
+      calc(100dvh - var(--inspector-start-offset, var(--app-shell-header-offset, 0px))
+        - var(--romd-admin-status-bar-height, 0px) - var(--mantine-spacing-md))
+    );
+  }
+
+  .layout:not([data-inspector-stacked]) .body {
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Long directories update their grid tracks once and animate just the preview. */
+.layout[data-snap-width] {
+  transition: none;
+}
+
+.layout[data-snap-width]:not([data-inspector-stacked]) .column {
+  inline-size: var(--inspector-width);
+  justify-self: end;
+}
+
+.layout[data-inspector-stacked] {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: var(--mantine-spacing-md);
+}
+
+.layout[data-inspector-stacked]:not([data-open]) .column {
+  display: none;
+}
+
+.layout[data-inspector-stacked] .content {
+  inline-size: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layout, .column, .content {
+    transition: none;
+  }
+}

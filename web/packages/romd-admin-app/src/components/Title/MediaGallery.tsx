@@ -33,25 +33,22 @@ import { formatBytes } from '../../utils/format';
 import { ArtworkSurface } from '../ArtworkSurface';
 import {
   type ArtworkRole,
-  artworkPresentation,
   artworkRoleLabel,
   artworkRoles,
   artworkSourceLabel,
   isArtworkRole,
 } from '../artworkPresentation';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
+import {
+  artworkLibraryEntries,
+  artworkTargetForRole,
+  type SavedArtworkTarget,
+} from './artworkLibrary';
 import { typeLabel } from './BatchArtworkUpload';
 
 export type { ArtworkRole } from '../artworkPresentation';
-export type SavedArtworkTarget =
-  | {
-      assetId: string;
-      mediaId?: never;
-    }
-  | {
-      mediaId: string;
-      assetId?: never;
-    };
+export type { SavedArtworkTarget } from './artworkLibrary';
+
 const mediaTypes = [
   'Cover',
   'Screenshot',
@@ -163,43 +160,7 @@ export function MediaGallery({
     url: string;
     name: string;
   } | null>(null);
-  const entries = [
-    ...media.map((item) => ({
-      key: `media-${item.id}`,
-      name: item.type,
-      source: item.sourceId.replace('gallery:', ''),
-      url: item.url,
-      target: {
-        mediaId: item.id,
-      } as SavedArtworkTarget,
-      media: item,
-      asset: undefined as SavedArtwork | undefined,
-      roles: artworkRoles.filter((itemRole) =>
-        artwork.some(
-          (art) =>
-            art.role === itemRole &&
-            (art.url === item.url ||
-              saved.some((asset) => asset.id === art.assetId && asset.mediaIds.includes(item.id))),
-        ),
-      ),
-    })),
-    ...saved
-      .filter((asset) => !asset.mediaIds.some((id) => media.some((item) => item.id === id)))
-      .map((asset) => ({
-        key: `asset-${asset.id}`,
-        name: isArtworkRole(asset.role) ? artworkPresentation[asset.role].mediaType : asset.role,
-        source: asset.sourceId.replace('gallery:', ''),
-        url: asset.artwork.url ?? '',
-        target: {
-          assetId: asset.id,
-        } as SavedArtworkTarget,
-        media: undefined as TitleMediaRef | undefined,
-        asset,
-        roles: artworkRoles.filter((itemRole) =>
-          artwork.some((art) => art.role === itemRole && art.assetId === asset.id),
-        ),
-      })),
-  ];
+  const entries = artworkLibraryEntries(media, saved, artwork);
   const visible = entries.filter(
     (entry) =>
       (!type || entry.name === type) &&
@@ -289,21 +250,7 @@ export function MediaGallery({
                 aria-label={`Preview ${entry.name} from ${entry.source}`}
                 onClick={() => {
                   if (inlineSelection && role && onAssign) {
-                    const retained =
-                      entry.media &&
-                      saved.find(
-                        (asset) =>
-                          asset.role === role && asset.mediaIds.includes(entry.media?.id ?? ''),
-                      );
-                    void onAssign(
-                      role,
-                      retained
-                        ? {
-                            assetId: retained.id,
-                          }
-                        : entry.target,
-                      entry.url,
-                    );
+                    void onAssign(role, artworkTargetForRole(entry, role), entry.url);
                   } else
                     setPreview({
                       url: entry.url,
@@ -388,20 +335,9 @@ export function MediaGallery({
                               )
                             }
                             onClick={() => {
-                              const retained =
-                                entry.media &&
-                                saved.find(
-                                  (asset) =>
-                                    asset.role === itemRole &&
-                                    asset.mediaIds.includes(entry.media?.id ?? ''),
-                                );
                               void onAssign(
                                 itemRole,
-                                retained
-                                  ? {
-                                      assetId: retained.id,
-                                    }
-                                  : entry.target,
+                                artworkTargetForRole(entry, itemRole),
                                 entry.url,
                               );
                             }}
@@ -461,21 +397,7 @@ export function MediaGallery({
                   mt="xs"
                   disabled={busy}
                   onClick={() => {
-                    const retained =
-                      entry.media &&
-                      saved.find(
-                        (asset) =>
-                          asset.role === role && asset.mediaIds.includes(entry.media?.id ?? ''),
-                      );
-                    void onAssign(
-                      role,
-                      retained
-                        ? {
-                            assetId: retained.id,
-                          }
-                        : entry.target,
-                      entry.url,
-                    );
+                    void onAssign(role, artworkTargetForRole(entry, role), entry.url);
                   }}
                 >
                   Select image

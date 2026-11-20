@@ -168,9 +168,9 @@ function LaunchForm({
       seedJob(result.data);
       return result.data.jobId;
     },
-    onSuccess: async (jobId) => {
-      await invalidateEnrichmentWorkspace(cache);
-      navigate(`/enrichment?view=Processing&activity=${encodeURIComponent(jobId)}`);
+    onSuccess: (jobId) => {
+      void invalidateEnrichmentWorkspace(cache);
+      navigate(`/jobs/${encodeURIComponent(jobId)}`);
       onClose();
     },
   });

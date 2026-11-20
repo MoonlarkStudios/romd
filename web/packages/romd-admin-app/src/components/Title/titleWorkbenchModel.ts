@@ -1,7 +1,8 @@
 import type { EnrichmentAssessment, EnrichmentRequirement } from '@romd/admin-api-client';
 import { type ArtworkRole, artworkRoles } from '../artworkPresentation';
 import { isOutstanding, outstandingRequirements } from './enrichmentPresentation';
-import type { TitleEditor } from './useTitleEditorParams';
+
+type TitleEditor = 'match' | 'metadata' | 'artwork';
 
 export const workbenchViews = [
   'NeedsReview',

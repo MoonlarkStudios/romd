@@ -8,19 +8,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
-import { useState } from 'react';
 import {
   createMemoryRouter,
   MemoryRouter,
   Outlet,
+  Route,
   RouterProvider,
-  useSearchParams,
+  Routes,
+  useLocation,
+  useParams,
 } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useJob } from '../../hooks/api/useJobs';
+import { useJobOperations } from '../../hooks/useJobOperations';
 import { artworkJobFixture } from '../../test/fixtures/artworkRun';
 import { server } from '../../test/msw/server';
 import { DraftGuardProvider } from '../Administration/DraftGuard';
 import { UnsavedChanges } from '../Administration/UnsavedChanges';
+import { JobActions } from '../Jobs/JobActions';
 import { RunPanel } from './RunPanel';
 import { type EnrichmentRun, RUN_POLL_INTERVAL } from './useEnrichmentRun';
 
@@ -46,10 +51,16 @@ const runDto = (over: Partial<EnrichmentRun>): EnrichmentRun => ({
   ...over,
 });
 
+vi.mock('../../hooks/usePermissions', () => ({
+  usePermissions: () => ({
+    hasRole: () => true,
+  }),
+}));
+
 interface ServerState {
   runs: Map<string, EnrichmentRun>;
   items: Map<string, ArtworkCompletionItem[]>;
-  runReads: string[];
+  summaryReads: string[];
   itemReads: string[];
   queued: ArtworkCompletionRequest[];
   cancelled: string[];
@@ -57,8 +68,8 @@ interface ServerState {
   /** Status answered when `retry` creates no run. */
   retryFailure: number;
   /** Holds a run read open until the returned promise settles. */
-  holdRunRead: () => Promise<void> | undefined;
-  runSignals: AbortSignal[];
+  holdSummaryRead: () => Promise<void> | undefined;
+  summarySignals: AbortSignal[];
   countReads: number;
   /** The run a queued retry creates; none answers 500. */
   retry: (request: ArtworkCompletionRequest) => EnrichmentRun | undefined;
@@ -67,14 +78,14 @@ interface ServerState {
 const state: ServerState = {
   runs: new Map(),
   items: new Map(),
-  runReads: [],
+  summaryReads: [],
   itemReads: [],
   queued: [],
   cancelled: [],
   pageSize: 50,
   retryFailure: 500,
-  holdRunRead: () => undefined,
-  runSignals: [],
+  holdSummaryRead: () => undefined,
+  summarySignals: [],
   countReads: 0,
   retry: () => undefined,
   cancel: () => {},
@@ -84,14 +95,14 @@ beforeEach(() => {
   Object.assign(state, {
     runs: new Map(),
     items: new Map(),
-    runReads: [],
+    summaryReads: [],
     itemReads: [],
     queued: [],
     cancelled: [],
     pageSize: 50,
     retryFailure: 500,
-    holdRunRead: () => undefined,
-    runSignals: [],
+    holdSummaryRead: () => undefined,
+    summarySignals: [],
     countReads: 0,
     retry: () => undefined,
     cancel: () => {},
@@ -100,11 +111,8 @@ beforeEach(() => {
     baseUrl: 'http://localhost',
   });
   server.use(
-    http.get('http://localhost/api/jobs/:jobId', async ({ params, request }) => {
+    http.get('http://localhost/api/jobs/:jobId', ({ params }) => {
       const jobId = String(params.jobId);
-      state.runReads.push(jobId);
-      state.runSignals.push(request.signal);
-      await state.holdRunRead();
       const run = state.runs.get(jobId);
       return run
         ? HttpResponse.json(artworkJobFixture(run))
@@ -112,8 +120,12 @@ beforeEach(() => {
             status: 404,
           });
     }),
-    http.get('http://localhost/api/jobs/:jobId/artwork-summary', ({ params }) => {
-      const run = state.runs.get(String(params.jobId));
+    http.get('http://localhost/api/jobs/:jobId/artwork-summary', async ({ params, request }) => {
+      const jobId = String(params.jobId);
+      state.summaryReads.push(jobId);
+      state.summarySignals.push(request.signal);
+      await state.holdSummaryRead();
+      const run = state.runs.get(jobId);
       return run
         ? HttpResponse.json({
             roles: run.roles,
@@ -180,30 +192,38 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function Host({
-  initialJobId,
-  onDismiss = () => {},
-  onOpenTitle = () => {},
-}: {
-  initialJobId: string;
-  onDismiss?: () => void;
-  onOpenTitle?: (titleId: string) => void;
-}) {
-  const [jobId, setJobId] = useState(initialJobId);
+function Destination() {
+  const location = useLocation();
+  return (
+    <output data-testid="destination">
+      {location.pathname}
+      {location.search}
+    </output>
+  );
+}
+
+function RoutedRun() {
+  const { jobId } = useParams();
+  const { data: job } = useJob(jobId, {
+    pollingInterval: RUN_POLL_INTERVAL,
+  });
+  const operations = useJobOperations();
+  if (job?.jobType !== 'artwork-completion') return null;
   return (
     <>
-      <output data-testid="activity">{jobId}</output>
+      <JobActions
+        job={job}
+        {...operations}
+      />
       <RunPanel
-        jobId={jobId}
-        onDismiss={onDismiss}
-        onOpenTitle={onOpenTitle}
-        onRunChange={setJobId}
+        job={job}
+        key={job.id}
       />
     </>
   );
 }
 
-function renderPanel(props: Parameters<typeof Host>[0]) {
+function renderPanel({ initialJobId }: { initialJobId: string }) {
   const cache = new QueryClient({
     defaultOptions: {
       queries: {
@@ -214,8 +234,22 @@ function renderPanel(props: Parameters<typeof Host>[0]) {
   render(
     <MantineProvider env="test">
       <QueryClientProvider client={cache}>
-        <MemoryRouter>
-          <Host {...props} />
+        <MemoryRouter
+          initialEntries={[
+            `/jobs/${initialJobId}`,
+          ]}
+        >
+          <Destination />
+          <Routes>
+            <Route
+              path="/jobs/:jobId"
+              element={<RoutedRun />}
+            />
+            <Route
+              path="/catalog"
+              element={null}
+            />
+          </Routes>
         </MemoryRouter>
       </QueryClientProvider>
     </MantineProvider>,
@@ -294,17 +328,14 @@ describe('execution line', () => {
       initialJobId: 'run',
     });
     expect(await screen.findByText(line)).toBeInTheDocument();
-    expect(screen.getByText('2 need review now · 1 failed · 3 unfinished')).toBeInTheDocument();
+    expect(
+      await screen.findByText('2 need review now · 1 failed · 3 unfinished'),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
         name: 'Review 2 in this run',
       }),
     ).toBeInTheDocument();
-    expect(
-      !!screen.queryByRole('button', {
-        name: 'Cancel run',
-      }),
-    ).toBe(active);
     expect(
       !!screen.queryByRole('button', {
         name: 'Retry 1 failed',
@@ -334,11 +365,17 @@ describe('execution line', () => {
       initialJobId: 'run',
     });
     expect(await screen.findByText('Paused · next attempt at 14:32')).toBeInTheDocument();
-    expect(
+    const user = fakeTimerUser();
+    await user.click(
       screen.getByRole('button', {
-        name: 'Cancel run',
+        name: /^Actions for/,
       }),
-    ).toBeInTheDocument();
+    );
+    expect(
+      await screen.findByRole('menuitem', {
+        name: 'Cancel',
+      }),
+    ).toBeEnabled();
   });
 });
 
@@ -359,23 +396,30 @@ describe('polling', () => {
       initialJobId: 'run',
     });
     expect(await screen.findByText('Running · 3 of 12 processed')).toBeInTheDocument();
+    expect(
+      await screen.findByText('0 need review now · 0 failed · 0 unfinished'),
+    ).toBeInTheDocument();
     state.runs.set(
       'run',
       runDto({
         phase: 'Completed',
         total: 12,
         processed: 12,
+        review: 4,
       }),
     );
     await act(() => vi.advanceTimersByTimeAsync(3000));
-    expect(state.runReads).toEqual([
+    expect(state.summaryReads).toEqual([
       'run',
     ]);
     await act(() => vi.advanceTimersByTimeAsync(2000));
     expect(await screen.findByText('Finished · 12 of 12 processed')).toBeInTheDocument();
-    const reads = state.runReads.length;
+    expect(
+      await screen.findByText('4 need review now · 0 failed · 0 unfinished'),
+    ).toBeInTheDocument();
+    const reads = state.summaryReads.length;
     await act(() => vi.advanceTimersByTimeAsync(RUN_POLL_INTERVAL * 10));
-    expect(state.runReads).toHaveLength(reads);
+    expect(state.summaryReads).toHaveLength(reads);
   });
 
   it('reloads the counts and the open review list together on each refresh', async () => {
@@ -438,7 +482,7 @@ describe('polling', () => {
       }),
     ).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Secret of Mana')).toBeInTheDocument();
-    expect(state.runReads).toEqual([
+    expect(state.summaryReads).toEqual([
       'run',
       'run',
     ]);
@@ -464,8 +508,11 @@ describe('polling', () => {
       initialJobId: 'run',
     });
     expect(await screen.findByText('Running · 3 of 12 processed')).toBeInTheDocument();
+    expect(
+      await screen.findByText('0 need review now · 0 failed · 0 unfinished'),
+    ).toBeInTheDocument();
     let release = () => {};
-    state.holdRunRead = () =>
+    state.holdSummaryRead = () =>
       new Promise<void>((resolve) => {
         release = resolve;
       });
@@ -475,19 +522,22 @@ describe('polling', () => {
         phase: 'Enriching',
         total: 12,
         processed: 9,
+        review: 4,
       }),
     );
     await poll();
-    await waitFor(() => expect(state.runReads).toHaveLength(2));
+    await waitFor(() => expect(state.summaryReads).toHaveLength(2));
     await poll();
     await poll();
-    expect(state.runReads).toHaveLength(2);
-    expect(state.runSignals[1].aborted).toBe(false);
-    state.holdRunRead = () => undefined;
+    expect(state.summaryReads).toHaveLength(2);
+    expect(state.summarySignals[1].aborted).toBe(false);
+    state.holdSummaryRead = () => undefined;
     await act(async () => {
       release();
     });
-    expect(await screen.findByText('Running · 9 of 12 processed')).toBeInTheDocument();
+    expect(
+      await screen.findByText('4 need review now · 0 failed · 0 unfinished'),
+    ).toBeInTheDocument();
   });
 
   it('refreshes only page one of an open list on each tick', async () => {
@@ -561,7 +611,7 @@ describe('polling', () => {
       }),
     ).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(65_000));
-    expect(state.runReads.length).toBeGreaterThan(10);
+    expect(state.summaryReads.length).toBeGreaterThan(10);
     expect(state.countReads).toBe(1);
   });
 
@@ -582,16 +632,18 @@ describe('polling', () => {
     expect(
       await screen.findByText('Finished with errors · 240 of 240 processed'),
     ).toBeInTheDocument();
+    expect(
+      await screen.findByText('0 need review now · 2 failed · 0 unfinished'),
+    ).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(RUN_POLL_INTERVAL * 10));
-    expect(state.runReads).toEqual([
+    expect(state.summaryReads).toEqual([
       'run',
     ]);
   });
 });
 
 describe('review list', () => {
-  it('lists current review needs with recorded history and opens a title without leaving the run', async () => {
-    const onOpenTitle = vi.fn();
+  it('lists current review needs with recorded history and opens the title in Catalog', async () => {
     state.runs.set(
       'run',
       runDto({
@@ -640,7 +692,6 @@ describe('review list', () => {
     const user = userEvent.setup();
     renderPanel({
       initialJobId: 'run',
-      onOpenTitle,
     });
     await user.click(
       await screen.findByRole('button', {
@@ -676,13 +727,12 @@ describe('review list', () => {
     expect(state.itemReads).toEqual([
       'run:Review',
     ]);
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Chrono Trigger',
-      }),
-    );
-    expect(onOpenTitle).toHaveBeenCalledWith('t1');
-    expect(screen.getByTestId('activity')).toHaveTextContent('run');
+    const titleLink = screen.getByRole('link', {
+      name: 'Chrono Trigger',
+    });
+    expect(titleLink).toHaveAttribute('href', '/catalog?view=review&title=t1');
+    await user.click(titleLink);
+    expect(screen.getByTestId('destination')).toHaveTextContent('/catalog?view=review&title=t1');
   });
 });
 
@@ -755,7 +805,7 @@ describe('refresh sources', () => {
         ],
       }),
     );
-    expect(state.runReads).toEqual([
+    expect(state.summaryReads).toEqual([
       'run',
       'run',
     ]);
@@ -766,9 +816,8 @@ describe('refresh sources', () => {
   });
 });
 
-describe('links and dismissal', () => {
-  it('labels the review queue as global and dismisses the panel', async () => {
-    const onDismiss = vi.fn();
+describe('Catalog links and retry', () => {
+  it('links to the global Catalog review queue', async () => {
     state.runs.set(
       'run',
       runDto({
@@ -777,19 +826,14 @@ describe('links and dismissal', () => {
     );
     renderPanel({
       initialJobId: 'run',
-      onDismiss,
     });
     const global = await screen.findByRole('link', {
       name: 'Global queue: 61 need review →',
     });
-    expect(global).toHaveAttribute('href', '/enrichment?view=NeedsReview');
+    expect(global).toHaveAttribute('href', '/catalog?view=review');
     expect(screen.getByText('3 need review now · 0 failed · 0 unfinished')).toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole('button', {
-        name: 'Dismiss run',
-      }),
-    );
-    expect(onDismiss).toHaveBeenCalledOnce();
+    await userEvent.click(global);
+    expect(screen.getByTestId('destination')).toHaveTextContent('/catalog?view=review');
   });
 
   it('keeps the panel on the run and refreshes its counts when the API rejects a retry', async () => {
@@ -831,8 +875,8 @@ describe('links and dismissal', () => {
       ).not.toBeInTheDocument(),
     );
     expect(screen.getByText('0 need review now · 0 failed · 0 unfinished')).toBeInTheDocument();
-    expect(screen.getByTestId('activity')).toHaveTextContent('run');
-    expect(state.runReads).toEqual([
+    expect(screen.getByTestId('destination')).toHaveTextContent('/jobs/run');
+    expect(state.summaryReads).toEqual([
       'run',
       'run',
     ]);
@@ -870,31 +914,20 @@ describe('links and dismissal', () => {
         name: 'Retry 2 failed',
       }),
     );
-    await waitFor(() => expect(screen.getByTestId('activity')).toHaveTextContent('retry'));
+    await waitFor(() => expect(screen.getByTestId('destination')).toHaveTextContent('/jobs/retry'));
     expect(state.queued[1].requestId).toBe(state.queued[0].requestId);
   });
 });
 
-/** A host that keeps the run in the URL, as the workspace does, beside an unsaved draft. */
 function DraftHost() {
-  const [params, setParams] = useSearchParams();
   return (
     <>
       <UnsavedChanges
         dirty
         description="Your description edit is not saved."
       />
-      <output data-testid="activity">{params.get('activity')}</output>
-      <RunPanel
-        jobId={params.get('activity') ?? ''}
-        onDismiss={() => {}}
-        onOpenTitle={() => {}}
-        onRunChange={(jobId) =>
-          setParams({
-            activity: jobId,
-          })
-        }
-      />
+      <Destination />
+      <RoutedRun />
     </>
   );
 }
@@ -917,7 +950,7 @@ function renderWithDraft() {
         ),
         children: [
           {
-            path: '/',
+            path: '/jobs/:jobId',
             element: <DraftHost />,
           },
         ],
@@ -925,7 +958,7 @@ function renderWithDraft() {
     ],
     {
       initialEntries: [
-        '/?activity=run',
+        '/jobs/run',
       ],
     },
   );
@@ -974,7 +1007,7 @@ describe('open drafts', () => {
       expect(screen.queryByText('Discard unsaved changes?')).not.toBeInTheDocument(),
     );
     expect(state.queued).toHaveLength(0);
-    expect(screen.getByTestId('activity')).toHaveTextContent('run');
+    expect(screen.getByTestId('destination')).toHaveTextContent('/jobs/run');
   });
 
   it('after Discard queues the retry once and switches the run without asking again', async () => {
@@ -989,7 +1022,7 @@ describe('open drafts', () => {
         name: 'Discard',
       }),
     );
-    await waitFor(() => expect(screen.getByTestId('activity')).toHaveTextContent('retry'));
+    await waitFor(() => expect(screen.getByTestId('destination')).toHaveTextContent('/jobs/retry'));
     expect(await screen.findByText('This run · Enrich 2 titles')).toBeInTheDocument();
     expect(state.queued).toHaveLength(1);
     expect(screen.queryByText('Discard unsaved changes?')).not.toBeInTheDocument();
@@ -1049,7 +1082,9 @@ it('follows plan scenario 8.3 from a finished run through a cancelled retry to r
 
   expect(await screen.findByText('This run · Enrich 240 titles')).toBeInTheDocument();
   expect(screen.getByText('Finished with errors · 240 of 240 processed')).toBeInTheDocument();
-  expect(screen.getByText('28 need review now · 12 failed · 0 unfinished')).toBeInTheDocument();
+  expect(
+    await screen.findByText('28 need review now · 12 failed · 0 unfinished'),
+  ).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
       name: 'Review 28 in this run',
@@ -1071,7 +1106,9 @@ it('follows plan scenario 8.3 from a finished run through a cancelled retry to r
       name: 'Retry 12 failed',
     }),
   );
-  await waitFor(() => expect(screen.getByTestId('activity')).toHaveTextContent('retry-failed'));
+  await waitFor(() =>
+    expect(screen.getByTestId('destination')).toHaveTextContent('/jobs/retry-failed'),
+  );
   expect(state.queued[0]).toEqual({
     requestId: expect.any(String),
     scope: 'Retry',
@@ -1095,26 +1132,30 @@ it('follows plan scenario 8.3 from a finished run through a cancelled retry to r
 
   await user.click(
     screen.getByRole('button', {
-      name: 'Cancel run',
+      name: /^Actions for/,
+    }),
+  );
+  await user.click(
+    await screen.findByRole('menuitem', {
+      name: 'Cancel',
     }),
   );
   expect(await screen.findByText('Cancelled · 5 of 12 processed')).toBeInTheDocument();
   expect(state.cancelled).toEqual([
     'retry-failed',
   ]);
-  expect(screen.getByText('1 needs review now · 0 failed · 7 unfinished')).toBeInTheDocument();
   expect(
-    screen.queryByRole('button', {
-      name: 'Cancel run',
-    }),
-  ).not.toBeInTheDocument();
+    await screen.findByText('1 needs review now · 0 failed · 7 unfinished'),
+  ).toBeInTheDocument();
 
   await user.click(
     screen.getByRole('button', {
       name: 'Retry 7 unfinished',
     }),
   );
-  await waitFor(() => expect(screen.getByTestId('activity')).toHaveTextContent('retry-unfinished'));
+  await waitFor(() =>
+    expect(screen.getByTestId('destination')).toHaveTextContent('/jobs/retry-unfinished'),
+  );
   expect(state.queued[1]).toEqual({
     requestId: expect.any(String),
     scope: 'Retry',

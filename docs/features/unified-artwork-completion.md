@@ -3,9 +3,9 @@
 ## Enrichment workflow
 
 Configure provider connections under **Integrations** and artwork automation
-under **Settings**. Open **Enrichment** to review tracked titles, then choose a
-view: **Needs review**, **Can enrich automatically**, **Processing**, **Blocked**
-or **All tracked titles**. A title can appear in more than one view when its
+under **Settings**. Open **Catalog → Needs review** to review tracked titles.
+Use the queue state filter to see automatic work, processing titles, blockers or
+all tracked titles. A title can appear in more than one state when its
 requirements need different kinds of attention.
 
 Choose **Enrich titles** to start a run. **What to enrich** offers **Metadata
@@ -21,15 +21,20 @@ an exact provider game ID or URL when the suggestions are insufficient. Confirmi
 a match queues durable follow-up work. Wait for it to finish before checking the
 resulting cover. Existing artwork and explicit curation choices are preserved.
 
-The **Match**, **Metadata** and **Artwork** editors share the title workspace.
-Use [artwork curation](artwork-curation.md) to choose or upload a particular image.
-Unsaved edits stay protected when changing titles; a completed save allows a
-waiting navigation to continue.
+In the desktop review queue, use Up and Down to preview nearby titles and Enter
+to review the current requirement. Escape closes the preview. A resolved title
+stays in place until you move on. The inspector handles quick decisions and links
+to the Title page for candidate comparisons and edits. On a narrow screen the
+title opens directly.
+
+The Title page's enrichment status includes **Change match**. Use **Metadata**
+to edit fields and choose sources, and [Artwork](artwork-curation.md) to compare,
+choose or upload images. Unsaved edits require a discard decision when you leave.
 
 ## Follow a run
 
 All-tracked and filtered scopes include matching titles beyond the loaded browser
-page. Follow accepted work in **Jobs** or the workspace's recent runs. Results
+page. Open the job in **Jobs** to follow accepted work. Results
 show individual title/role outcomes; a title can still need a match decision while
 another requirement is processing. Cancellation leaves already published work
 intact. Retry unresolved titles when the underlying problem is fixed.

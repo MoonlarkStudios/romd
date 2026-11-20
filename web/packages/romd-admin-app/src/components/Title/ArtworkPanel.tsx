@@ -2,10 +2,11 @@ import {
   ActionIcon,
   Alert,
   Anchor,
-  Box,
+  Badge,
   Button,
   FileInput,
   Group,
+  Image,
   Loader,
   Menu,
   Modal,
@@ -28,7 +29,7 @@ import {
   replaceHiddenArtworkCandidate,
   replaceTitleArtworkRole,
 } from '@romd/admin-api-client';
-import { IconDotsVertical } from '@tabler/icons-react';
+import { IconDotsVertical, IconPhoto, IconPlus } from '@tabler/icons-react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -47,8 +48,8 @@ import { useProviderMatches } from '../../hooks/api/useProviderMatches';
 import { useDeleteTitleMedia, useUploadTitleMedia } from '../../hooks/api/useTitleActions';
 import type { TitleDetailView as TitleDetail } from '../../hooks/api/useTitleDetail';
 import { createRequestId } from '../../utils/requestId';
-import { UnsavedChanges } from '../Administration/UnsavedChanges';
-import { ArtworkFrame } from '../ArtworkFrame';
+import { useDiscardEpoch, useDraft, useDraftGuard } from '../Administration/DraftGuard';
+import { ArtworkSurface } from '../ArtworkSurface';
 import {
   artworkPresentation,
   artworkRoleLabel,
@@ -58,15 +59,22 @@ import {
   isArtworkRole,
   type ArtworkRole as Role,
 } from '../artworkPresentation';
+import { InspectorLayout } from '../Workspace/InspectorLayout';
+import { InspectorPanel } from '../Workspace/InspectorPanel';
+import { useInspectorSelection, useInspectorSize } from '../Workspace/useInspectorSelection';
+import { workspaceActionProps } from '../Workspace/workspaceActions';
 import { AddArtwork } from './AddArtwork';
 import { ArtworkAcquisition } from './ArtworkAcquisition';
 import { ArtworkComposer, type ArtworkDraft } from './ArtworkComposer';
+import { ArtworkImageInspector } from './ArtworkImageInspector';
 import classes from './ArtworkWorkspace.module.css';
 import { artworkJobStatus } from './artworkJobStatus';
+import { artworkLibraryEntries, type SavedArtworkTarget } from './artworkLibrary';
+import { typeLabel } from './BatchArtworkUpload';
 import { CandidateImage } from './CandidateImage';
 import { DecisionConfirmation } from './DecisionConfirmation';
 import { leaveEmptyConfirmation } from './enrichmentPresentation';
-import { MediaGallery, type SavedArtworkTarget } from './MediaGallery';
+import { MediaGallery } from './MediaGallery';
 import { ProviderMatchPicker } from './ProviderMatches';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
 
@@ -370,13 +378,18 @@ type ArtworkPanelProps = {
 function ArtworkPanelContent({
   titleId,
   title,
-  initialRole = 'Backdrop',
+  initialRole,
   density = 'comfortable',
   onResolved,
   onDismissed,
 }: ArtworkPanelProps) {
   const cache = useQueryClient();
   const statusId = useId();
+  const panelId = `${statusId}-artwork-inspector`;
+  const { ref: layoutRef, wide } = useInspectorSize(750);
+  const guard = useDraftGuard();
+  const discardEpoch = useDiscardEpoch();
+  const lastDiscardEpoch = useRef(discardEpoch);
   const artwork = useArtworkSelections(titleId);
   const selections = artwork.data?.roles;
   const saved = useSavedArtwork(titleId);
@@ -385,17 +398,18 @@ function ArtworkPanelContent({
     target: SavedArtworkTarget;
     roles: Role[];
   } | null>(null);
-  const [mode, setMode] = useState('saved');
+  const [sourceChoice, setSourceChoice] = useState<{
+    role: Role;
+    source: string;
+  }>();
+  const [filter, setFilter] = useState<Role | undefined>(initialRole);
   const [adding, setAdding] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
   const [draft, setDraft] = useState<ArtworkDraft | null>(null);
-  const [role, setRole] = useState<Role>(initialRole);
   const [notice, setNotice] = useState<string | null>(null);
   const [editingMatch, setEditingMatch] = useState<TitleProviderMatch | null>(null);
   const [leavingEmpty, setLeavingEmpty] = useState<Role | null>(null);
   const leaveRoleEmpty = useLeaveArtworkEmpty(titleId);
   const matches = useProviderMatches(titleId);
-  const providers = useArtworkProviders(titleId, role ?? undefined);
   const upload = useUploadTitleMedia();
   const request = useRef<{
     key: string;
@@ -414,6 +428,34 @@ function ArtworkPanelContent({
   );
   const [acceptedJob, setAcceptedJob] = useState<string>();
   const [busyRole, setBusyRole] = useState<Role | null>(null);
+  const [imageSaving, setImageSaving] = useState(false);
+  const entries = artworkLibraryEntries(title.media ?? [], saved.data ?? [], title.artwork ?? []);
+  const cards = filter ? entries.filter((entry) => entry.roles.includes(filter)) : entries;
+  const selection = useInspectorSelection({
+    param: 'image',
+    ids: initialRole
+      ? [
+          `role-${initialRole}`,
+          ...cards.map((entry) => entry.key),
+        ]
+      : cards.map((entry) => entry.key),
+    defaultFirst: !!initialRole,
+    allowUnlisted: true,
+    panelId,
+    canChange: () => busyRole === null && !imageSaving,
+    beforeChange: (action) => void guard.discardThen(action),
+  });
+  const roleKey = selection.selectedId?.startsWith('role-') ? selection.selectedId.slice(5) : '';
+  const inspectedRole = isArtworkRole(roleKey) ? roleKey : undefined;
+  useEffect(() => {
+    if (inspectedRole) setFilter(inspectedRole);
+  }, [
+    inspectedRole,
+  ]);
+  const role = inspectedRole ?? filter ?? 'Backdrop';
+  const mode = sourceChoice?.role === role ? sourceChoice.source : 'saved';
+  const providers = useArtworkProviders(titleId, role);
+  const selectedEntry = entries.find((entry) => entry.key === selection.selectedId);
   const [error, setError] = useState<string | null>(null);
   const [conflicted, setConflicted] = useState(false);
   const [reloading, setReloading] = useState(false);
@@ -490,7 +532,6 @@ function ArtworkPanelContent({
     releasePreview();
     setError(null);
     setNotice(null);
-    setRole(selectedRole);
     setDraft({
       role: selectedRole,
       target,
@@ -784,10 +825,33 @@ function ArtworkPanelContent({
     if (draft) setReloading(true);
     else void reloadLatest();
   };
-  const chooseRole = (next: Role, source = 'saved') => {
-    if (busyRole || draft) return;
-    setRole(next);
-    setMode(source);
+  useDraft(draft !== null || busyRole !== null, 'Your preview has not been applied.');
+
+  useEffect(() => {
+    if (lastDiscardEpoch.current === discardEpoch) return;
+    lastDiscardEpoch.current = discardEpoch;
+    if (temporaryUrl.current) URL.revokeObjectURL(temporaryUrl.current);
+    temporaryUrl.current = null;
+    setDraft(null);
+    setError(null);
+    setConflicted(false);
+  }, [
+    discardEpoch,
+  ]);
+
+  const chooseRole = (next?: Role, source = 'saved', trigger?: HTMLElement) => {
+    if (busyRole || imageSaving || draft) return;
+    if (next) {
+      setSourceChoice({
+        role: next,
+        source,
+      });
+      selection.select(`role-${next}`, trigger);
+    } else {
+      setSourceChoice(undefined);
+      setFilter(undefined);
+      if (inspectedRole) selection.close();
+    }
     setError(null);
     setNotice(null);
   };
@@ -802,26 +866,320 @@ function ArtworkPanelContent({
   const currentArtwork = title.artwork?.find((item) => item.role === role);
   const currentSelection = selections?.find((item) => item.role === role);
   const currentAsset = saved.data?.find((item) => item.id === currentArtwork?.assetId);
-  const locked = busyRole !== null || draft !== null;
+  const locked = busyRole !== null || imageSaving || draft !== null;
   const status = (itemRole: Role) => {
     const state = selections?.find((item) => item.role === itemRole);
     const image = title.artwork?.find((item) => item.role === itemRole);
-    if (!state) return 'Loading';
+    if (!state) return artwork.isError ? 'Unavailable' : 'Loading';
     if (state.pendingJobId) return 'Saving…';
     if (state.mode === 'Empty') return 'Left empty';
     if (image?.fallbackReason === 'LegacyCover') return 'Cover fallback';
     if (!image?.url) return 'Missing';
     return state.mode === 'Pinned' ? 'Selected by you' : 'Automatic';
   };
+  const roleInspector = inspectedRole && (
+    <InspectorPanel
+      id={panelId}
+      title={`${artworkRoleLabel(role)} artwork`}
+      onClose={selection.close}
+    >
+      <Stack gap="md">
+        <ArtworkComposer
+          key={role}
+          title={title}
+          role={role}
+          draft={draft}
+          onChange={setDraft}
+          busy={busyRole !== null}
+          error={error}
+          onCancel={() => {
+            discard();
+            onDismissed?.();
+          }}
+          onSave={(value) => void assign(value)}
+          onReloadLatest={conflicted ? requestReloadLatest : undefined}
+        />
+        <Group justify="space-between">
+          <Text
+            size="sm"
+            c="dimmed"
+          >
+            {status(role)}
+            {currentAsset ? ` · ${artworkSourceLabel(currentAsset.sourceId)}` : ''}
+          </Text>
+          <Menu withinPortal>
+            <Menu.Target>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label={`${artworkRoleLabel(role)} actions`}
+                disabled={!currentSelection || locked}
+              >
+                <IconDotsVertical size={18} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {(role === 'Hero' || role === 'Backdrop') && currentArtwork?.assetId && (
+                <Menu.Item
+                  onClick={() => {
+                    if (currentArtwork.assetId)
+                      void beginDraft(
+                        role,
+                        {
+                          assetId: currentArtwork.assetId,
+                        },
+                        currentArtwork.url ?? undefined,
+                      );
+                  }}
+                >
+                  Adjust focal point
+                </Menu.Item>
+              )}
+              {currentArtwork?.assetId && currentSelection?.mode === 'Automatic' && (
+                <Menu.Item
+                  onClick={() => {
+                    if (currentArtwork.assetId) void keep(role, currentArtwork.assetId);
+                  }}
+                >
+                  Keep this choice
+                </Menu.Item>
+              )}
+              {currentArtwork?.assetId && (
+                <Menu.Item
+                  color="red"
+                  onClick={() => {
+                    if (currentArtwork.assetId)
+                      requestDelete(
+                        {
+                          assetId: currentArtwork.assetId,
+                        },
+                        [
+                          role,
+                        ],
+                      );
+                  }}
+                >
+                  Delete image
+                </Menu.Item>
+              )}
+              {currentSelection?.mode !== 'Empty' && (
+                <Menu.Item onClick={() => setLeavingEmpty(role)}>Leave empty</Menu.Item>
+              )}
+              <Menu.Item
+                disabled={!currentSelection?.pendingJobId && currentSelection?.mode === 'Automatic'}
+                onClick={() => void automatic(role)}
+              >
+                Return {artworkRoleLabel(role).toLowerCase()} to automatic
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
+        <div className={classes.sourcePicker}>
+          <SegmentedControl
+            aria-label="Image source"
+            size="xs"
+            value={mode}
+            onChange={(source) =>
+              setSourceChoice({
+                role,
+                source,
+              })
+            }
+            disabled={busyRole !== null}
+            data={[
+              {
+                value: 'saved',
+                label: 'Saved',
+              },
+              ...(providers.data
+                ?.filter(
+                  (item) =>
+                    item.isAvailable && item.roles.some((capability) => capability.role === role),
+                )
+                .map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                })) ?? []),
+              {
+                value: 'custom',
+                label: 'Upload',
+              },
+            ]}
+          />
+        </div>
+        {mode === 'saved' && (
+          <>
+            {saved.isLoading && (
+              <Loader
+                size="sm"
+                aria-label="Loading saved artwork"
+              />
+            )}
+            {saved.isError && (
+              <Alert color="red">
+                Could not load saved artwork.{' '}
+                <Button onClick={() => void saved.refetch()}>Retry</Button>
+              </Alert>
+            )}
+            <MediaGallery
+              onDelete={requestDelete}
+              key={role}
+              titleId={titleId}
+              media={title.media ?? []}
+              saved={saved.data ?? []}
+              artwork={title.artwork ?? []}
+              role={role}
+              inlineSelection
+              onAssign={beginDraft}
+              busy={busyRole !== null || !selections}
+            />
+          </>
+        )}
+        {mode === 'custom' && (
+          <FileInput
+            key={`${role}:${draft?.url ?? 'empty'}`}
+            label={`${artworkRoleLabel(role)} image`}
+            placeholder="Select image"
+            accept="image/jpeg,image/png,image/webp"
+            disabled={busyRole !== null}
+            onChange={(file) => {
+              const selection = selections?.find((item) => item.role === role);
+              if (!file || !selection) return;
+              if (
+                ![
+                  'image/jpeg',
+                  'image/png',
+                  'image/webp',
+                ].includes(file.type) ||
+                file.size > 32 * 1024 * 1024
+              ) {
+                setError('Choose a JPEG, PNG, or WebP image under 32 MB.');
+                return;
+              }
+              releasePreview();
+              temporaryUrl.current = URL.createObjectURL(file);
+              uploaded.current = null;
+              setDraft({
+                role,
+                file,
+                url: temporaryUrl.current,
+                revision: selection.revision,
+                focalX: 50,
+                focalY: 50,
+              });
+              setError(null);
+              setNotice(null);
+            }}
+          />
+        )}
+        {providers.isError && (
+          <Alert color="red">
+            Could not load providers.{' '}
+            <Button onClick={() => void providers.refetch()}>Retry</Button>
+          </Alert>
+        )}
+        {provider?.gameId && (
+          <Stack>
+            <div>
+              <Text
+                size="xs"
+                c="dimmed"
+              >
+                Artwork matched to
+              </Text>
+              <Group justify="space-between">
+                <Anchor
+                  href={provider.gameUrl ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {provider.gameName ?? provider.name}
+                </Anchor>
+                {matches.data?.find((item) => item.providerId === provider.id) && (
+                  <Button
+                    variant="subtle"
+                    size="compact-xs"
+                    disabled={locked}
+                    onClick={() => {
+                      const match = matches.data?.find((item) => item.providerId === provider.id);
+                      if (match) setEditingMatch(match);
+                    }}
+                  >
+                    Change match
+                  </Button>
+                )}
+              </Group>
+            </div>
+            <CandidateBrowser
+              key={`${role}:${provider.id}:${provider.gameId}`}
+              titleId={titleId}
+              title={title}
+              role={role}
+              provider={provider}
+              gameId={provider.gameId}
+              selectedReference={draft?.candidate?.reference}
+              disabled={busyRole !== null}
+              allowHide={!draft}
+              onChoose={beginCandidate}
+            />
+            {draft?.candidate && (
+              <Text size="xs">
+                {draft.candidate.attribution && `By ${draft.candidate.attribution} · `}
+                <Anchor
+                  href={draft.candidate.sourcePageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View on {provider.name}
+                </Anchor>
+              </Text>
+            )}
+          </Stack>
+        )}
+        {!providers.isPending &&
+          !providers.isError &&
+          !providers.data?.some(
+            (item) => item.isAvailable && item.roles.some((capability) => capability.role === role),
+          ) && (
+            <Stack gap="xs">
+              <Text
+                size="sm"
+                c="dimmed"
+              >
+                No linked provider is available for this role. Choose a saved image, upload one, or
+                review a provider match.
+              </Text>
+              {matches.data
+                ?.filter((item) => item.capabilities.includes('artwork'))
+                .map((item) => (
+                  <Button
+                    key={item.providerId}
+                    variant="light"
+                    disabled={locked || !item.isAvailable}
+                    onClick={() => setEditingMatch(item)}
+                  >
+                    Match {item.providerName}
+                  </Button>
+                ))}
+              <Anchor
+                size="sm"
+                href="/settings"
+              >
+                Provider settings
+              </Anchor>
+            </Stack>
+          )}
+      </Stack>
+    </InspectorPanel>
+  );
+
   return (
     <Stack
       className={classes.workspace}
       data-density={density}
+      ref={layoutRef}
+      gap="md"
     >
-      <UnsavedChanges
-        dirty={draft !== null || busyRole !== null}
-        description="Your saved artwork will stay as it is. An image already submitted may still finish saving."
-      />
       <div className={classes.header}>
         <div>
           <Title
@@ -834,18 +1192,16 @@ function ArtworkPanelContent({
             size="sm"
             c="dimmed"
           >
-            {filledRoles.length} of 4 roles filled
-            {protectedRoles.includes('Backdrop') || filledRoles.includes('Backdrop')
-              ? ''
-              : ' · Backdrop missing'}
+            {filledRoles.length} of {artworkRoles.length} roles filled
           </Text>
         </div>
         <Button
-          variant="subtle"
+          {...workspaceActionProps}
+          leftSection={<IconPlus size={16} />}
           disabled={locked}
           onClick={() => setAdding(true)}
         >
-          Add to library
+          Add artwork
         </Button>
       </div>
       <ArtworkAcquisition
@@ -860,7 +1216,12 @@ function ArtworkPanelContent({
       {artwork.isError && (
         <Alert color="red">
           Could not load selection state.{' '}
-          <Button onClick={() => void artwork.refetch()}>Retry</Button>
+          <Button
+            variant="subtle"
+            onClick={() => void artwork.refetch()}
+          >
+            Retry
+          </Button>
         </Alert>
       )}
       {notice && (
@@ -885,7 +1246,6 @@ function ArtworkPanelContent({
           </Anchor>
         </Alert>
       )}
-      {/* One level of choice inside the Artwork tab: roles are a radio group, and each option carries its status. */}
       <Radio.Group
         label="Artwork roles"
         styles={{
@@ -893,379 +1253,215 @@ function ArtworkPanelContent({
             display: 'none',
           },
         }}
-        value={role}
+        value={inspectedRole ?? filter ?? 'all'}
         onChange={(value) => {
-          if (isArtworkRole(value)) chooseRole(value);
+          chooseRole(isArtworkRole(value) ? value : undefined);
         }}
       >
         <div className={classes.roleStrip}>
-          {artworkRoles.map((itemRole) => {
-            const artwork = title.artwork?.find((item) => item.role === itemRole);
-            return (
+          <div>
+            <Radio.Card
+              className={classes.roleButton}
+              withBorder={false}
+              aria-label="All"
+              id={`${statusId}-filter-all`}
+              value="all"
+              tabIndex={!(filter || inspectedRole) ? 0 : -1}
+              disabled={locked}
+            >
+              <Text
+                size="sm"
+                className="romd-card-title"
+              >
+                All
+              </Text>
+            </Radio.Card>
+          </div>
+          {artworkRoles.map((itemRole) => (
+            <div
+              key={itemRole}
+              data-inspector-row={`role-${itemRole}`}
+            >
               <Radio.Card
-                key={itemRole}
+                data-inspector-trigger
                 value={itemRole}
+                id={`${statusId}-filter-${itemRole}`}
                 className={classes.roleButton}
                 withBorder={false}
                 aria-label={artworkRoleLabel(itemRole)}
                 aria-describedby={`${statusId}-${itemRole}`}
-                tabIndex={role === itemRole ? 0 : -1}
-                data-autofocus={role === itemRole || undefined}
+                tabIndex={(inspectedRole ?? filter) === itemRole ? 0 : -1}
                 disabled={locked}
               >
-                <Box className={classes.roleThumbnail}>
-                  <ArtworkFrame
-                    artworkRole={itemRole}
-                    src={artwork?.url}
-                    title={title.name}
-                    fit={artwork?.fit === 'Contain' ? 'Contain' : 'Cover'}
-                  />
-                </Box>
-                <Stack gap={2}>
-                  <Text
-                    size="sm"
-                    fw={600}
-                  >
-                    {artworkRoleLabel(itemRole)}
-                  </Text>
-                  <Text
-                    id={`${statusId}-${itemRole}`}
-                    size="xs"
-                    c="dimmed"
-                  >
-                    {status(itemRole)}
-                  </Text>
-                </Stack>
-              </Radio.Card>
-            );
-          })}
-        </div>
-      </Radio.Group>
-      {draft && (
-        <Text
-          size="xs"
-          c="dimmed"
-        >
-          Apply or discard this preview before editing another role. Choosing another image replaces
-          only the preview.
-        </Text>
-      )}
-      <div className={classes.editorLayout}>
-        <ArtworkComposer
-          key={role}
-          title={title}
-          role={role}
-          draft={draft}
-          onChange={setDraft}
-          busy={busyRole !== null}
-          error={error}
-          onCancel={() => {
-            discard();
-            onDismissed?.();
-          }}
-          onSave={(value) => void assign(value)}
-          onReloadLatest={conflicted ? requestReloadLatest : undefined}
-        />
-        <aside
-          className={classes.inspector}
-          aria-label={`${artworkRoleLabel(role)} images`}
-        >
-          <Group justify="space-between">
-            <Title
-              order={4}
-              className={classes.heading}
-            >
-              {artworkRoleLabel(role)}
-            </Title>
-            <Menu withinPortal>
-              <Menu.Target>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  aria-label={`${artworkRoleLabel(role)} actions`}
-                  disabled={!currentSelection || locked}
-                >
-                  <IconDotsVertical size={18} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                {(role === 'Hero' || role === 'Backdrop') && currentArtwork?.assetId && (
-                  <Menu.Item
-                    onClick={() => {
-                      if (currentArtwork.assetId)
-                        void beginDraft(
-                          role,
-                          {
-                            assetId: currentArtwork.assetId,
-                          },
-                          currentArtwork.url ?? undefined,
-                        );
-                    }}
-                  >
-                    Adjust focal point
-                  </Menu.Item>
-                )}
-                {currentArtwork?.assetId && currentSelection?.mode === 'Automatic' && (
-                  <Menu.Item
-                    onClick={() => {
-                      if (currentArtwork.assetId) void keep(role, currentArtwork.assetId);
-                    }}
-                  >
-                    Keep this choice
-                  </Menu.Item>
-                )}
-                {currentArtwork?.assetId && (
-                  <Menu.Item
-                    color="red"
-                    onClick={() => {
-                      if (currentArtwork.assetId)
-                        requestDelete(
-                          {
-                            assetId: currentArtwork.assetId,
-                          },
-                          [
-                            role,
-                          ],
-                        );
-                    }}
-                  >
-                    Delete image
-                  </Menu.Item>
-                )}
-                {currentSelection?.mode !== 'Empty' && (
-                  <Menu.Item onClick={() => setLeavingEmpty(role)}>Leave empty</Menu.Item>
-                )}
-                <Menu.Item
-                  disabled={
-                    !currentSelection?.pendingJobId && currentSelection?.mode === 'Automatic'
-                  }
-                  onClick={() => void automatic(role)}
-                >
-                  Return {artworkRoleLabel(role).toLowerCase()} to automatic
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
-          <Text
-            size="sm"
-            c="dimmed"
-          >
-            {status(role)}
-            {currentAsset ? ` · ${artworkSourceLabel(currentAsset.sourceId)}` : ''}
-          </Text>
-          <div className={classes.sourcePicker}>
-            <SegmentedControl
-              aria-label="Image source"
-              size="xs"
-              value={mode}
-              onChange={setMode}
-              disabled={busyRole !== null}
-              data={[
-                {
-                  value: 'saved',
-                  label: 'Saved',
-                },
-                ...(providers.data
-                  ?.filter(
-                    (item) =>
-                      item.isAvailable && item.roles.some((capability) => capability.role === role),
-                  )
-                  .map((item) => ({
-                    value: item.id,
-                    label: item.name,
-                  })) ?? []),
-                {
-                  value: 'custom',
-                  label: 'Upload',
-                },
-              ]}
-            />
-          </div>
-          {mode === 'saved' && (
-            <>
-              {saved.isLoading && (
-                <Loader
-                  size="sm"
-                  aria-label="Loading saved artwork"
-                />
-              )}
-              {saved.isError && (
-                <Alert color="red">
-                  Could not load saved artwork.{' '}
-                  <Button onClick={() => void saved.refetch()}>Retry</Button>
-                </Alert>
-              )}
-              <MediaGallery
-                onDelete={requestDelete}
-                key={role}
-                titleId={titleId}
-                media={title.media ?? []}
-                saved={saved.data ?? []}
-                artwork={title.artwork ?? []}
-                role={role}
-                inlineSelection
-                onAssign={beginDraft}
-                busy={busyRole !== null || !selections}
-              />
-            </>
-          )}
-          {mode === 'custom' && (
-            <FileInput
-              key={`${role}:${draft?.url ?? 'empty'}`}
-              label={`${artworkRoleLabel(role)} image`}
-              placeholder="Select image"
-              accept="image/jpeg,image/png,image/webp"
-              disabled={busyRole !== null}
-              onChange={(file) => {
-                const selection = selections?.find((item) => item.role === role);
-                if (!file || !selection) return;
-                if (
-                  ![
-                    'image/jpeg',
-                    'image/png',
-                    'image/webp',
-                  ].includes(file.type) ||
-                  file.size > 32 * 1024 * 1024
-                ) {
-                  setError('Choose a JPEG, PNG, or WebP image under 32 MB.');
-                  return;
-                }
-                releasePreview();
-                temporaryUrl.current = URL.createObjectURL(file);
-                uploaded.current = null;
-                setDraft({
-                  role,
-                  file,
-                  url: temporaryUrl.current,
-                  revision: selection.revision,
-                  focalX: 50,
-                  focalY: 50,
-                });
-                setError(null);
-                setNotice(null);
-              }}
-            />
-          )}
-          {providers.isError && (
-            <Alert color="red">
-              Could not load providers.{' '}
-              <Button onClick={() => void providers.refetch()}>Retry</Button>
-            </Alert>
-          )}
-          {provider?.gameId && (
-            <Stack>
-              <div>
                 <Text
+                  size="sm"
+                  className="romd-card-title"
+                >
+                  {artworkRoleLabel(itemRole)}
+                </Text>
+                <Text
+                  id={`${statusId}-${itemRole}`}
                   size="xs"
                   c="dimmed"
                 >
-                  Artwork matched to
+                  {status(itemRole)}
                 </Text>
-                <Group justify="space-between">
-                  <Anchor
-                    href={provider.gameUrl ?? undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {provider.gameName ?? provider.name}
-                  </Anchor>
-                  {matches.data?.find((item) => item.providerId === provider.id) && (
-                    <Button
-                      variant="subtle"
-                      size="compact-xs"
-                      disabled={locked}
-                      onClick={() => {
-                        const match = matches.data?.find((item) => item.providerId === provider.id);
-                        if (match) setEditingMatch(match);
-                      }}
-                    >
-                      Change match
-                    </Button>
-                  )}
-                </Group>
-              </div>
-              <CandidateBrowser
-                key={`${role}:${provider.id}:${provider.gameId}`}
-                titleId={titleId}
-                title={title}
-                role={role}
-                provider={provider}
-                gameId={provider.gameId}
-                selectedReference={draft?.candidate?.reference}
-                disabled={busyRole !== null}
-                allowHide={!draft}
-                onChoose={beginCandidate}
-              />
-              {draft?.candidate && (
-                <Text size="xs">
-                  {draft.candidate.attribution && `By ${draft.candidate.attribution} · `}
-                  <Anchor
-                    href={draft.candidate.sourcePageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View on {provider.name}
-                  </Anchor>
-                </Text>
-              )}
+              </Radio.Card>
+            </div>
+          ))}
+        </div>
+      </Radio.Group>
+      <InspectorLayout
+        wide={wide}
+        narrow="stack"
+        width="25rem"
+        inspector={
+          selectedEntry ? (
+            <ArtworkImageInspector
+              key={selectedEntry.key}
+              id={panelId}
+              titleId={titleId}
+              entry={selectedEntry}
+              artwork={title.artwork ?? []}
+              selections={selections}
+              disabled={busyRole !== null}
+              onClose={selection.close}
+              onDelete={() => requestDelete(selectedEntry.target, selectedEntry.roles)}
+              onSaving={setImageSaving}
+              onSaved={() => {
+                setNotice('Artwork saved.');
+                onResolved?.();
+              }}
+            />
+          ) : (
+            roleInspector || undefined
+          )
+        }
+      >
+        <Stack gap="sm">
+          {filter && !inspectedRole && (
+            <Button
+              {...workspaceActionProps}
+              variant="light"
+              size="compact-sm"
+              w="fit-content"
+              disabled={locked}
+              onClick={(event) => chooseRole(filter, 'saved', event.currentTarget)}
+            >
+              Manage {artworkRoleLabel(filter).toLowerCase()}
+            </Button>
+          )}
+          {saved.isLoading && !entries.length && (
+            <Loader
+              size="sm"
+              aria-label="Loading saved artwork"
+            />
+          )}
+          {saved.isError && (
+            <Alert color="red">
+              Could not load the complete artwork library.{' '}
+              <Button
+                variant="subtle"
+                onClick={() => void saved.refetch()}
+              >
+                Retry
+              </Button>
+            </Alert>
+          )}
+          {!cards.length && !saved.isLoading && !saved.isError && (
+            <Stack
+              gap="xs"
+              align="center"
+              ta="center"
+              className={classes.emptyGrid}
+            >
+              <IconPhoto size={24} />
+              <Text
+                size="sm"
+                className="romd-card-title"
+              >
+                {filter
+                  ? `No ${artworkRoleLabel(filter).toLowerCase()} assigned`
+                  : 'No saved artwork'}
+              </Text>
+              <Text
+                size="sm"
+                c="dimmed"
+              >
+                {filter
+                  ? 'Choose a saved image, browse candidates, or upload one.'
+                  : 'Add images from a provider or upload your own.'}
+              </Text>
             </Stack>
           )}
-          {!providers.isPending &&
-            !providers.isError &&
-            !providers.data?.some(
-              (item) =>
-                item.isAvailable && item.roles.some((capability) => capability.role === role),
-            ) && (
-              <Stack gap="xs">
-                <Text
-                  size="sm"
-                  c="dimmed"
+          {cards.length > 0 && (
+            <fieldset
+              className={classes.galleryGrid}
+              aria-label="Saved artwork"
+              onKeyDown={selection.onListKeyDown}
+            >
+              {cards.map((entry) => (
+                <div
+                  key={entry.key}
+                  className={classes.galleryCard}
+                  {...selection.rowProps(entry.key)}
                 >
-                  No linked provider is available for this role. Choose a saved image, upload one,
-                  or review a provider match.
-                </Text>
-                {matches.data
-                  ?.filter((item) => item.capabilities.includes('artwork'))
-                  .map((item) => (
-                    <Button
-                      key={item.providerId}
-                      variant="light"
-                      disabled={locked || !item.isAvailable}
-                      onClick={() => setEditingMatch(item)}
+                  <UnstyledButton
+                    data-inspector-trigger
+                    className={classes.galleryCardButton}
+                    aria-controls={selection.selectedId === entry.key ? panelId : undefined}
+                    aria-expanded={selection.selectedId === entry.key}
+                    aria-label={`Preview ${entry.name} from ${entry.source}`}
+                    disabled={locked}
+                    onClick={(event) => selection.select(entry.key, event.currentTarget)}
+                  >
+                    <ArtworkSurface background={entry.name === 'Logo' ? 'checkerboard' : 'dark'}>
+                      <Image
+                        className={classes.thumbnail}
+                        src={entry.url || undefined}
+                        alt=""
+                        loading="lazy"
+                        fit="contain"
+                      />
+                    </ArtworkSurface>
+                    <Stack
+                      className={classes.cardDetails}
+                      gap={4}
                     >
-                      Match {item.providerName}
-                    </Button>
-                  ))}
-                <Anchor
-                  size="sm"
-                  href="/settings"
-                >
-                  Provider settings
-                </Anchor>
-              </Stack>
-            )}
-        </aside>
-      </div>
-      <details
-        className={classes.library}
-        onToggle={(event) => setLibraryOpen(event.currentTarget.open)}
-      >
-        <summary>Saved artwork library</summary>
-        {libraryOpen && (
-          <Stack mt="md">
-            <MediaGallery
-              onDelete={requestDelete}
-              titleId={titleId}
-              media={title.media ?? []}
-              saved={saved.data ?? []}
-              artwork={title.artwork ?? []}
-              onAssign={beginDraft}
-              busy={locked || !selections}
-              onAdd={() => setAdding(true)}
-            />
-          </Stack>
-        )}
-      </details>
+                      <Text
+                        size="sm"
+                        className="romd-card-title"
+                      >
+                        {typeLabel(entry.name)}
+                      </Text>
+                      <Text
+                        size="xs"
+                        c="dimmed"
+                        className={classes.sourceLabel}
+                      >
+                        {artworkSourceLabel(entry.source)}
+                      </Text>
+                      {entry.roles.length > 0 && (
+                        <Group gap={4}>
+                          {entry.roles.map((role) => (
+                            <Badge
+                              key={role}
+                              size="xs"
+                              variant="light"
+                            >
+                              {artworkRoleLabel(role)}
+                            </Badge>
+                          ))}
+                        </Group>
+                      )}
+                    </Stack>
+                  </UnstyledButton>
+                </div>
+              ))}
+            </fieldset>
+          )}
+        </Stack>
+      </InspectorLayout>
       <Modal
         opened={deleting !== null}
         onClose={() => {

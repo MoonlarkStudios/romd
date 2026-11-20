@@ -5,6 +5,8 @@ import 'mantine-datatable/styles.css';
 import '@mantine/notifications/styles.css';
 import '@mantine/dropzone/styles.css';
 import '@mantine/spotlight/styles.css';
+import '@romd/foundation/variables.css';
+import '@romd/foundation/typography.css';
 import '@romd/foundation/brand.css';
 import '@romd/foundation/auth.css';
 

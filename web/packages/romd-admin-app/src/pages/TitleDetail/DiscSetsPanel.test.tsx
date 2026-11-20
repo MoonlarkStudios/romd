@@ -6,22 +6,18 @@ import {
 } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { libraryManagementKeys } from '../../hooks/api/useLibraryManagement';
 import { render } from '../../test/utils/render';
 import { LibraryDiscSets } from '../Libraries/LibraryDiscSets';
-import { DiscSetsPanel } from './DiscSetsPanel';
+import { DiscSetsPanel, useTitleDiscSets } from './DiscSetsPanel';
 
 vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   listAdminDiscSets: vi.fn(),
   updateAdminDiscSet: vi.fn(),
   getLibraryDiscSetOptions: vi.fn(),
-}));
-vi.mock('../../hooks/usePermissions', () => ({
-  usePermissions: () => ({
-    hasRole: () => true,
-  }),
 }));
 const page = <T,>(items: T[]) => ({
   items,
@@ -61,6 +57,29 @@ const set: DiscSet = {
     ],
   },
 };
+function DiscSetsFixture() {
+  const [selectedId, onSelect] = useState<string | null>(null);
+  const query = useTitleDiscSets('title', true);
+  return (
+    <DiscSetsPanel
+      query={query}
+      selectedId={selectedId}
+      onSelect={onSelect}
+    />
+  );
+}
+
+async function openSet() {
+  fireEvent.click(
+    await screen.findByRole('button', {
+      name: /Game \(USA\)/,
+    }),
+  );
+  await screen.findByRole('textbox', {
+    name: 'Decision reason',
+  });
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(listAdminDiscSets).mockResolvedValue({
@@ -90,7 +109,7 @@ describe('DiscSetsPanel', () => {
       request: new Request('http://localhost'),
       response: new Response(),
     });
-    render(<DiscSetsPanel titleId="title" />);
+    render(<DiscSetsFixture />);
     expect(await screen.findByText(/Expected: unknown/)).toBeInTheDocument();
     expect(listAdminDiscSets).toHaveBeenNthCalledWith(
       2,
@@ -157,7 +176,7 @@ describe('DiscSetsPanel', () => {
           ]}
           onChange={change}
         />
-        <DiscSetsPanel titleId="title" />
+        <DiscSetsFixture />
       </QueryClientProvider>,
     );
     fireEvent.click(
@@ -166,6 +185,7 @@ describe('DiscSetsPanel', () => {
       }),
     );
     await waitFor(() => expect(getLibraryDiscSetOptions).toHaveBeenCalledTimes(1));
+    await openSet();
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Accept proposal',
@@ -187,8 +207,9 @@ describe('DiscSetsPanel', () => {
   });
 
   it('shows unknown total and accepts a proposal with its revision', async () => {
-    render(<DiscSetsPanel titleId="title" />);
+    render(<DiscSetsFixture />);
     expect(await screen.findByText(/Expected: unknown/)).toBeInTheDocument();
+    await openSet();
     fireEvent.click(
       screen.getByRole('button', {
         name: 'Accept proposal',
@@ -209,7 +230,8 @@ describe('DiscSetsPanel', () => {
     );
   });
   it('persists reordered membership as a correction', async () => {
-    render(<DiscSetsPanel titleId="title" />);
+    render(<DiscSetsFixture />);
+    await openSet();
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Correct membership and order',
@@ -262,7 +284,8 @@ describe('DiscSetsPanel', () => {
       request: new Request('http://localhost'),
       response: new Response(),
     });
-    render(<DiscSetsPanel titleId="title" />);
+    render(<DiscSetsFixture />);
+    await openSet();
     expect(await screen.findByText('Duplicate disc number')).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
@@ -270,6 +293,44 @@ describe('DiscSetsPanel', () => {
       }),
     ).toBeDisabled();
   });
+  it('keeps an in-progress correction when the set is collapsed', async () => {
+    render(<DiscSetsFixture />);
+    await openSet();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Correct membership and order',
+      }),
+    );
+    fireEvent.change(
+      screen.getByRole('textbox', {
+        name: 'Set name',
+      }),
+      {
+        target: {
+          value: 'Draft set name',
+        },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Game \(USA\)/,
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('textbox', {
+          name: 'Set name',
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    await openSet();
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Set name',
+      }),
+    ).toHaveValue('Draft set name');
+  });
+
   it('reports stale correction conflicts without discarding the editor', async () => {
     vi.mocked(updateAdminDiscSet).mockResolvedValue({
       data: undefined,
@@ -281,7 +342,8 @@ describe('DiscSetsPanel', () => {
         status: 412,
       }),
     });
-    render(<DiscSetsPanel titleId="title" />);
+    render(<DiscSetsFixture />);
+    await openSet();
     fireEvent.click(
       await screen.findByRole('button', {
         name: 'Reject set',

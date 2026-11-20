@@ -4,6 +4,7 @@ import {
   Anchor,
   Badge,
   Button,
+  Code,
   Group,
   Image,
   Menu,
@@ -14,10 +15,12 @@ import {
   Stack,
   Text,
   TextInput,
+  Title,
   Tooltip,
 } from '@mantine/core';
 import {
   listTitleProviderMatches,
+  type ProviderExternalId,
   type ProviderGame,
   replaceTitleProviderMatch,
   type TitleProviderMatch,
@@ -30,12 +33,14 @@ import { invalidateTitle, providerMatchKeys } from '../../hooks/api/titleCache';
 import { ifMatch } from '../../hooks/api/titleConflict';
 import { useProviderGameLookup } from '../../hooks/api/useProviderGameLookup';
 import {
+  ProviderMatchConflictError,
   storeProviderMatch,
   useProviderMatchDecision,
   useProviderMatches,
 } from '../../hooks/api/useProviderMatches';
 import { UnsavedChanges } from '../Administration/UnsavedChanges';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
+import { sourceLabel } from './metadataDraft';
 import classes from './ProviderMatches.module.css';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
 
@@ -115,6 +120,41 @@ function GamePreview({ game, showDetails = true }: { game: ProviderGame; showDet
         )}
       </Stack>
     </Group>
+  );
+}
+
+function ProviderIdentifier({
+  provider,
+  id,
+  game,
+}: {
+  provider: string;
+  id: string;
+  game?: ProviderGame | null;
+}) {
+  const record = game?.id === id ? game : undefined;
+  return record?.url?.startsWith('https://') ? (
+    <Anchor
+      href={record.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      size="sm"
+      aria-label={`Open ${provider} ID ${id}, ${record.name} (opens in a new tab)`}
+    >
+      <Group
+        component="span"
+        gap={4}
+        wrap="nowrap"
+      >
+        <Code>{id}</Code>
+        <IconExternalLink
+          size={14}
+          aria-hidden
+        />
+      </Group>
+    </Anchor>
+  ) : (
+    <Code>{id}</Code>
   );
 }
 
@@ -276,7 +316,7 @@ function ProviderMatchPickerContent({
           wrap="nowrap"
         >
           <TextInput
-            data-autofocus={inline || undefined}
+            data-autofocus
             disabled={busy}
             label={mode === 'search' ? 'Game name' : 'Provider ID or page URL'}
             value={text}
@@ -550,20 +590,28 @@ function ProviderMatchPickerContent({
 export function ProviderMatches({
   titleId,
   titleName,
+  externalIds,
   inline = false,
   initialProviderId,
   providerRequestKey,
+  disabled = false,
   density = 'comfortable',
   onResolved,
   onDismissed,
 }: {
   titleId: string;
   titleName: string;
+  externalIds?: readonly ProviderExternalId[];
   inline?: boolean;
   initialProviderId?: string;
   providerRequestKey?: string;
+  disabled?: boolean;
 } & TitleEditorOutcome) {
   const query = useProviderMatches(titleId);
+  // Enabled providers report the current link, even when enrichment still has a cached ID.
+  const savedIds = externalIds?.filter(
+    (id) => !query.data?.some((row) => row.providerId.toLowerCase() === id.provider.toLowerCase()),
+  );
   const [editing, setEditing] = useState<TitleProviderMatch | null>(null);
   const [unlinking, setUnlinking] = useState<TitleProviderMatch | null>(null);
   const openedRequest = useRef<string | null>(null);
@@ -572,6 +620,7 @@ export function ProviderMatches({
       openedRequest.current = null;
       return;
     }
+    if (disabled) return;
     const request = `${titleId}:${initialProviderId}:${providerRequestKey ?? ''}`;
     if (openedRequest.current === request) return;
     if (editing?.providerId === initialProviderId) {
@@ -585,6 +634,7 @@ export function ProviderMatches({
     }
   }, [
     initialProviderId,
+    disabled,
     providerRequestKey,
     titleId,
     query.data,
@@ -609,6 +659,11 @@ export function ProviderMatches({
     if (saved) onResolved?.();
     else onDismissed?.();
   };
+  const closeUnlink = () => {
+    if (mutation.isPending) return;
+    setUnlinking(null);
+    mutation.reset();
+  };
   if (inline && editing)
     return (
       <ProviderMatchPicker
@@ -626,7 +681,12 @@ export function ProviderMatches({
       data-density={density}
     >
       <Group justify="space-between">
-        <Text fw={600}>Provider matches</Text>
+        <Title
+          order={3}
+          className={`romd-card-title ${classes.subheading}`}
+        >
+          External sources
+        </Title>
         <Button
           size="compact-xs"
           variant="subtle"
@@ -641,183 +701,198 @@ export function ProviderMatches({
       </Group>
       {query.isPending && <Skeleton height={72} />}
       {query.isError && <Alert color="red">{query.error.message}</Alert>}
-      {mutation.isError && <Alert color="red">{mutation.error.message}</Alert>}
+      {mutation.isError && !unlinking && <Alert color="red">{mutation.error.message}</Alert>}
       {query.data?.length === 0 && (
         <Text
           size="sm"
           c="dimmed"
         >
-          No providers enabled.
+          No external providers are enabled for linking.
         </Text>
       )}
-      {query.data?.map((row) => (
-        <Group
-          key={row.providerId}
-          className={classes.match}
-          justify="space-between"
-          align="center"
-        >
-          <Stack
-            gap={6}
-            style={{
-              flex: '1 1 220px',
-              minWidth: 0,
-            }}
+      {query.data?.map((row) => {
+        const canContinueWithout =
+          !row.externalId &&
+          [
+            'NeedsMatch',
+            'NeedsReview',
+            'NoMatchFound',
+          ].includes(row.state);
+        return (
+          <Group
+            key={row.providerId}
+            className={classes.match}
+            role="group"
+            aria-label={row.providerName}
+            justify="space-between"
+            align="center"
           >
-            <Group gap="xs">
-              <Text
-                fw={500}
-                size="sm"
-              >
-                {row.providerName}
-              </Text>
-              <Badge
-                size="xs"
-                variant="light"
-                color={row.state === 'Confirmed' ? 'green' : 'gray'}
-              >
-                {(
-                  {
-                    AutoMatched: 'Auto-matched',
-                    NeedsMatch: 'Needs match',
-                    NeedsReview: 'Needs review',
-                    NoMatchFound: 'No match found',
-                  } as Record<string, string>
-                )[row.state] ?? row.state}
-              </Badge>
-            </Group>
-            {row.game ? (
-              <GamePreview game={row.game} />
-            ) : (
-              row.externalId && (
+            <Stack
+              gap={6}
+              className={classes.matchBody}
+            >
+              <Group gap="xs">
                 <Text
+                  fw={500}
                   size="sm"
-                  ff="monospace"
                 >
-                  #{row.externalId}
+                  {row.providerName}
                 </Text>
-              )
-            )}
-            {!row.isAvailable && (
-              <Text
-                size="xs"
-                c="dimmed"
-              >
-                Provider configuration required
-              </Text>
-            )}
-            {row.evidence && (
-              <Text
-                size="xs"
-                c="dimmed"
-              >
-                {row.evidence}
-              </Text>
-            )}
-            {row.lastError && (
-              <Text
-                size="xs"
-                c="dimmed"
-              >
-                {row.lastError}
-              </Text>
-            )}
-            {row.metadataNeedsRefresh && (
-              <Text
-                size="xs"
-                c="orange"
-              >
-                Metadata retained from a previous match
-              </Text>
-            )}
-            {!row.externalId &&
-              [
-                'NeedsMatch',
-                'NeedsReview',
-                'NoMatchFound',
-              ].includes(row.state) && (
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={row.state === 'Confirmed' ? 'green' : 'gray'}
+                >
+                  {(
+                    {
+                      AutoMatched: 'Auto-matched',
+                      NeedsMatch: 'Needs match',
+                      NeedsReview: 'Needs review',
+                      NoMatchFound: 'No match found',
+                    } as Record<string, string>
+                  )[row.state] ?? row.state}
+                </Badge>
+              </Group>
+              {row.externalId && (
+                <Group gap="xs">
+                  <ProviderIdentifier
+                    provider={row.providerName}
+                    id={row.externalId}
+                    game={row.game}
+                  />
+                  {row.game?.id === row.externalId && (
+                    <Text
+                      size="sm"
+                      c="dimmed"
+                      className={classes.recordName}
+                    >
+                      {row.game.name}
+                    </Text>
+                  )}
+                </Group>
+              )}
+              {!row.isAvailable && (
                 <Text
                   size="xs"
                   c="dimmed"
                 >
-                  You can continue without this provider. Automatic matching will stay off until you
-                  choose a match.
+                  Provider configuration required
                 </Text>
               )}
-            {row.state === 'Unlinked' && (
-              <Text
-                size="xs"
-                c="dimmed"
-              >
-                Automatic matching is off. Find a match to use this provider again.
-              </Text>
-            )}
-          </Stack>
-          <Group
-            gap="xs"
-            justify="end"
-          >
-            <Button
-              size="compact-sm"
-              variant="subtle"
-              disabled={!row.isAvailable}
-              onClick={() => setEditing(row)}
+              {row.evidence && (
+                <Text
+                  size="xs"
+                  c="dimmed"
+                >
+                  {row.evidence}
+                </Text>
+              )}
+              {row.lastError && (
+                <Text
+                  size="xs"
+                  c="dimmed"
+                >
+                  {row.lastError}
+                </Text>
+              )}
+              {row.metadataNeedsRefresh && (
+                <Text
+                  size="xs"
+                  c="orange"
+                >
+                  Metadata retained from a previous match
+                </Text>
+              )}
+              {row.state === 'Unlinked' && (
+                <Text
+                  size="xs"
+                  c="dimmed"
+                >
+                  Automatic matching is off.
+                </Text>
+              )}
+            </Stack>
+            <Group
+              gap="xs"
+              justify="end"
             >
-              {row.externalId ? 'Change' : 'Find match'}
-            </Button>
-            {!row.externalId &&
-              [
-                'NeedsMatch',
-                'NeedsReview',
-                'NoMatchFound',
-              ].includes(row.state) && (
+              <Button
+                {...workspaceActionProps}
+                size="compact-sm"
+                variant={row.externalId ? 'subtle' : 'light'}
+                disabled={disabled || mutation.isPending || !row.isAvailable}
+                onClick={() => setEditing(row)}
+              >
+                {row.state === 'NeedsReview'
+                  ? 'Review match'
+                  : row.externalId
+                    ? 'Change match'
+                    : 'Link source'}
+              </Button>
+              {row.externalId && row.state !== 'Confirmed' && row.state !== 'NeedsReview' && (
                 <Button
                   size="compact-sm"
-                  variant="default"
                   loading={
                     mutation.isPending && mutation.variables?.row.providerId === row.providerId
                   }
-                  disabled={mutation.isPending || !row.isAvailable}
-                  onClick={() => decide(row, true)}
+                  disabled={disabled || mutation.isPending || !row.isAvailable}
+                  onClick={() => decide(row, false)}
                 >
-                  Continue without this provider
+                  Confirm match
                 </Button>
               )}
-            {row.externalId && row.state !== 'Confirmed' && row.state !== 'NeedsReview' && (
-              <Button
-                size="compact-sm"
-                loading={
-                  mutation.isPending && mutation.variables?.row.providerId === row.providerId
-                }
-                disabled={mutation.isPending || !row.isAvailable}
-                onClick={() => decide(row, false)}
-              >
-                Confirm match
-              </Button>
-            )}
-            {row.externalId && (
-              <Menu>
-                <Menu.Target>
-                  <ActionIcon
-                    variant="subtle"
-                    aria-label={`${row.providerName} match actions`}
-                  >
-                    <IconDots size={18} />
-                  </ActionIcon>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Item
-                    color="red"
-                    leftSection={<IconUnlink size={16} />}
-                    disabled={!row.isAvailable}
-                    onClick={() => setUnlinking(row)}
-                  >
-                    Unlink
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
-            )}
+              {(row.externalId || canContinueWithout) && (
+                <Menu>
+                  <Menu.Target>
+                    <ActionIcon
+                      variant="subtle"
+                      aria-label={`${row.providerName} match actions`}
+                      disabled={disabled || mutation.isPending || !row.isAvailable}
+                    >
+                      <IconDots size={18} />
+                    </ActionIcon>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item
+                      color={row.externalId ? 'red' : undefined}
+                      leftSection={<IconUnlink size={16} />}
+                      onClick={() => {
+                        mutation.reset();
+                        setUnlinking(row);
+                      }}
+                    >
+                      {row.externalId ? 'Unlink' : 'Continue without this provider'}
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              )}
+            </Group>
           </Group>
+        );
+      })}
+      {savedIds?.map((entry) => (
+        <Group
+          key={`${entry.provider}:${entry.externalId}`}
+          className={classes.match}
+          gap="xs"
+        >
+          <Text
+            fw={500}
+            size="sm"
+          >
+            {sourceLabel(entry.provider)}
+          </Text>
+          <ProviderIdentifier
+            provider={sourceLabel(entry.provider)}
+            id={entry.externalId}
+          />
+          <Badge
+            size="xs"
+            variant="light"
+            color={entry.isConfirmed ? 'green' : 'gray'}
+          >
+            {entry.isConfirmed ? 'Confirmed' : 'Unconfirmed'}
+          </Badge>
         </Group>
       ))}
       {editing && (
@@ -831,22 +906,41 @@ export function ProviderMatches({
       )}
       <Modal
         opened={!!unlinking}
-        onClose={() => setUnlinking(null)}
-        title={`Unlink ${unlinking?.providerName ?? ''}`}
+        onClose={closeUnlink}
+        closeOnEscape={!mutation.isPending}
+        closeOnClickOutside={!mutation.isPending}
+        withCloseButton={!mutation.isPending}
+        title={
+          unlinking?.externalId
+            ? `Unlink ${unlinking.providerName}`
+            : `Continue without ${unlinking?.providerName}?`
+        }
         size="sm"
       >
         <Stack>
           <Text size="sm">
-            Retained metadata and artwork will remain. Automatic matching for this provider will
-            stay off until you choose another match.
+            {unlinking?.externalId && 'ROMD retains metadata and artwork from the current match. '}
+            Automatic matching for this provider will stay off until you link a source.
           </Text>
-          <Button
-            color="red"
-            loading={mutation.isPending}
-            onClick={() => unlinking && decide(unlinking, true, () => setUnlinking(null))}
-          >
-            Unlink match
-          </Button>
+          {mutation.isError && <Alert color="red">{mutation.error.message}</Alert>}
+          <Group justify="end">
+            <Button
+              variant="default"
+              disabled={mutation.isPending}
+              onClick={closeUnlink}
+            >
+              Cancel
+            </Button>
+            <Button
+              {...workspaceActionProps}
+              color={unlinking?.externalId ? 'red' : undefined}
+              loading={mutation.isPending}
+              disabled={disabled || mutation.error instanceof ProviderMatchConflictError}
+              onClick={() => unlinking && decide(unlinking, true, () => setUnlinking(null))}
+            >
+              {unlinking?.externalId ? 'Unlink match' : 'Continue without provider'}
+            </Button>
+          </Group>
         </Stack>
       </Modal>
     </div>

@@ -59,7 +59,8 @@ commit, job-relative names locate candidates; exact content identities and
 fingerprints establish associations. Import order and similar filenames do not.
 A descriptor-only upload can later bind stored catalog-matched content explicitly.
 
-In **Disc descriptors** under Sources & Files, or the title's Discs link, inspect
+In **Disc descriptors** under Sources & Files, or from **Disc sets** in a title's
+Releases section, inspect
 pending/accepted/rejected/detached/stale layouts. Confirm an exact release and
 every required dependency by path, hash and length. Required catalog companions
 must be satisfied; arbitrary uncataloged sidecars are not admitted. Confirmation

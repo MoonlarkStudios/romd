@@ -65,7 +65,7 @@ function Destination() {
   const location = useLocation();
   return (
     <div>
-      Workspace: {location.pathname}
+      Job: {location.pathname}
       {location.search}
     </div>
   );
@@ -90,7 +90,7 @@ function renderLauncher(launcher: ReactElement) {
               element={null}
             />
             <Route
-              path="/enrichment"
+              path="/jobs/:jobId"
               element={<Destination />}
             />
           </Routes>
@@ -112,7 +112,7 @@ const scopeOptions = () =>
     })
     .map((option) => option.textContent);
 
-it('previews the selection, then opens the new run in the workspace after queueing', async () => {
+it('previews the selection, then opens the new job after queueing', async () => {
   const onClose = vi.fn();
   renderLauncher(
     <EnrichmentLauncher
@@ -133,9 +133,7 @@ it('previews the selection, then opens the new run in the workspace after queuei
       name: 'Start filling missing artwork',
     }),
   );
-  expect(
-    await screen.findByText('Workspace: /enrichment?view=Processing&activity=run-1'),
-  ).toBeInTheDocument();
+  expect(await screen.findByText('Job: /jobs/run-1')).toBeInTheDocument();
   expect(queued[0]).toMatchObject({
     scope: 'Selected',
     mode: 'Artwork',
@@ -309,9 +307,7 @@ it('launches one title without offering a scope', async () => {
       name: 'Start enrichment',
     }),
   );
-  expect(
-    await screen.findByText('Workspace: /enrichment?view=Processing&activity=run-1'),
-  ).toBeInTheDocument();
+  expect(await screen.findByText('Job: /jobs/run-1')).toBeInTheDocument();
   expect(queued[0]).toEqual({
     requestId: expect.any(String),
     scope: 'Selected',
@@ -359,9 +355,7 @@ it('retries a failed start with the same request id', async () => {
       name: 'Start enrichment',
     }),
   );
-  expect(
-    await screen.findByText('Workspace: /enrichment?view=Processing&activity=run-retried'),
-  ).toBeInTheDocument();
+  expect(await screen.findByText('Job: /jobs/run-retried')).toBeInTheDocument();
   expect(queued[1].requestId).toBe(queued[0].requestId);
 });
 
@@ -402,9 +396,7 @@ it('starts a new request each time a mounted launcher is opened', async () => {
         name: 'Start enrichment',
       }),
     );
-    expect(
-      await screen.findByText(`Workspace: /enrichment?view=Processing&activity=${run}`),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(`Job: /jobs/${run}`)).toBeInTheDocument();
     await waitFor(() =>
       expect(
         screen.queryByRole('button', {
@@ -446,7 +438,7 @@ function renderWithDraft(launcher: ReactElement) {
           ),
         },
         {
-          path: '/enrichment',
+          path: '/jobs/:jobId',
           element: <Destination />,
         },
       ],
@@ -512,9 +504,7 @@ it('after Discard queues once and opens the run without asking again', async () 
       name: 'Discard',
     }),
   );
-  expect(
-    await screen.findByText('Workspace: /enrichment?view=Processing&activity=run-1'),
-  ).toBeInTheDocument();
+  expect(await screen.findByText('Job: /jobs/run-1')).toBeInTheDocument();
   expect(queued).toHaveLength(1);
   expect(screen.queryByText('Discard unsaved changes?')).not.toBeInTheDocument();
 });

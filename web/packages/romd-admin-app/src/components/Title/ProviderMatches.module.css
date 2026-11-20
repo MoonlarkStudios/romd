@@ -34,5 +34,12 @@
   gap: var(--matches-gap);
 }
 .matches[data-density='compact'] { --matches-gap: var(--mantine-spacing-xs); --matches-row-padding: var(--mantine-spacing-xs); }
+.subheading:global(.romd-card-title) { color: var(--mantine-color-text); }
 .match { padding-block: var(--matches-row-padding); border-bottom: 1px solid var(--mantine-color-default-border); }
+.match:last-child { border-bottom: 0; }
+.matchBody { flex: 1 1 12rem; min-inline-size: 0; }
+.recordName { overflow-wrap: anywhere; min-inline-size: 0; }
 @container provider-matches (max-width: 30em) { .match { padding-block: var(--mantine-spacing-xs); } }
+@container provider-matches (max-width: 30em) {
+  .matchBody { flex-basis: 8.5rem; }
+}

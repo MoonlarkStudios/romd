@@ -1,15 +1,17 @@
-import { readFileSync } from 'node:fs';
 import { MantineProvider } from '@mantine/core';
 import { client } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TitleDetailView as TitleDetail } from '../../hooks/api/useTitleDetail';
 import { titleDetailKeys } from '../../hooks/api/useTitleDetail';
 import { writtenTitleFixture, writtenTitleViewFixture } from '../../test/msw/fixtures/enrichment';
 import { server } from '../../test/msw/server';
+import { DraftGuardProvider } from '../Administration/DraftGuard';
+import type { ArtworkRole } from '../artworkPresentation';
 import { ArtworkPanel } from './ArtworkPanel';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
 
@@ -95,7 +97,11 @@ const candidate = {
 };
 const createUrl = vi.fn(() => 'blob:artwork-preview');
 const revokeUrl = vi.fn();
-function renderPanel(value: TitleDetail = title, outcome: TitleEditorOutcome = {}) {
+function renderPanel(
+  value: TitleDetail = title,
+  outcome: TitleEditorOutcome = {},
+  initialRole: ArtworkRole | null = 'Backdrop',
+) {
   const cache = new QueryClient({
     defaultOptions: {
       queries: {
@@ -106,11 +112,14 @@ function renderPanel(value: TitleDetail = title, outcome: TitleEditorOutcome = {
   const element = (current: TitleDetail) => (
     <MantineProvider env="test">
       <QueryClientProvider client={cache}>
-        <ArtworkPanel
-          title={current}
-          titleId="title1"
-          {...outcome}
-        />
+        <MemoryRouter>
+          <ArtworkPanel
+            title={current}
+            titleId="title1"
+            initialRole={initialRole ?? undefined}
+            {...outcome}
+          />
+        </MemoryRouter>
       </QueryClientProvider>
     </MantineProvider>
   );
@@ -314,6 +323,7 @@ describe('Artwork curation', () => {
         .getAllByRole('radio')
         .map((radio) => radio.getAttribute('aria-label')),
     ).toEqual([
+      'All',
       'Poster',
       'Backdrop',
       'Banner',
@@ -358,45 +368,342 @@ describe('Artwork curation', () => {
     ).toBeInTheDocument();
   });
 
-  it('marks the host density on the editor container and tiers spacing through custom properties', () => {
-    const { unmount } = renderPanel();
-    expect(
-      screen
-        .getByRole('radiogroup', {
-          name: 'Artwork roles',
-        })
-        .closest('[data-density]'),
-    ).toHaveAttribute('data-density', 'comfortable');
-    unmount();
-    renderPanel(title, {
-      density: 'compact',
+  it('opens the saved library by default and shows which roles are missing', async () => {
+    renderPanel(title, {}, null);
+    const roles = screen.getByRole('radiogroup', {
+      name: 'Artwork roles',
     });
     expect(
-      screen
-        .getByRole('radiogroup', {
-          name: 'Artwork roles',
-        })
-        .closest('[data-density]'),
-    ).toHaveAttribute('data-density', 'compact');
-    const styles = readFileSync(`${import.meta.dirname}/ArtworkWorkspace.module.css`, 'utf8');
-    expect(styles).not.toMatch(/@media/);
-    expect(styles).toMatch(/\.workspace \{\s*container: artwork-editor \/ inline-size;/);
-    const compact = styles.slice(styles.indexOf(".workspace[data-density='compact'] {"));
-    const forced = styles.slice(styles.indexOf('@container artwork-editor (max-width: 600px) {'));
-    for (const tier of [
-      compact,
-      forced,
-    ]) {
-      expect(tier).toMatch(
-        /--artwork-role-columns: 2;[^}]*--artwork-panel-padding: var\(--mantine-spacing-sm\);/,
-      );
-    }
-    expect(styles).toContain(
-      'grid-template-columns: repeat(var(--artwork-role-columns), minmax(0, 1fr))',
+      within(roles).getByRole('radio', {
+        name: 'All',
+      }),
+    ).toHaveAttribute('aria-checked', 'true');
+    expect(
+      await within(roles).findByRole('radio', {
+        name: 'Logo',
+        description: 'Missing',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(await screen.findByText('No saved artwork')).toBeInTheDocument();
+    const backdrop = within(roles).getByRole('radio', {
+      name: 'Backdrop',
+    });
+    await userEvent.click(backdrop);
+    expect(
+      screen.getByRole('complementary', {
+        name: 'Backdrop artwork',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('No backdrop assigned')).toBeInTheDocument();
+  });
+
+  it('saves role and focal-point drafts from the selected image and retries only unfinished roles', async () => {
+    let familyState = selections;
+    const poster = vi.fn(async ({ request }: { request: Request }) => {
+      expect(request.headers.get('If-Match')).toBe('"1"');
+      expect(await request.json()).toEqual({
+        mode: 'Pinned',
+        assetId: 'retained-cover',
+        mediaId: null,
+        focalX: 50,
+        focalY: 50,
+      });
+      const next = {
+        ...written('Poster', 'Pinned', '2'),
+        pinnedAssetId: 'retained-cover',
+      };
+      familyState = familyState.map((role) => (role.role === 'Poster' ? next : role));
+      return HttpResponse.json(next);
+    });
+    const backdrop = vi
+      .fn<({ request }: { request: Request }) => Promise<Response>>()
+      .mockResolvedValueOnce(
+        HttpResponse.json(
+          {
+            detail: 'Temporary failure',
+          },
+          {
+            status: 503,
+          },
+        ),
+      )
+      .mockImplementation(async ({ request }) => {
+        expect(request.headers.get('If-Match')).toBe('"0"');
+        expect(await request.json()).toEqual({
+          mode: 'Pinned',
+          assetId: null,
+          mediaId: 'cover1',
+          focalX: 51,
+          focalY: 60,
+        });
+        return HttpResponse.json(written('Backdrop', 'Pinned', '1'));
+      });
+    server.use(
+      http.get(`${titles}/artwork`, () => HttpResponse.json(family(familyState))),
+      http.get(`${titles}/artwork-assets`, () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'retained-cover',
+              role: 'Poster',
+              sourceId: 'igdb',
+              mediaIds: [
+                'cover1',
+              ],
+              artwork: {
+                role: 'Poster',
+                url: '/artwork/retained-cover',
+              },
+            },
+          ],
+          nextCursor: null,
+          hasNextPage: false,
+        }),
+      ),
+      http.put(`${titles}/artwork/Poster`, poster),
+      http.put(`${titles}/artwork/Backdrop`, backdrop),
     );
-    expect(styles).toContain(
-      '@container artwork-editor (max-width: 1000px) { .editorLayout { grid-template-columns: minmax(0, 1fr); }',
+    renderPanel(
+      {
+        ...title,
+        media: [
+          {
+            id: 'cover1',
+            type: 'Cover',
+            sourceId: 'igdb',
+            url: '/media/cover1',
+            isPrimary: true,
+          },
+        ],
+      },
+      {},
+      null,
     );
+    const user = userEvent.setup();
+    const preview = screen.getByRole('button', {
+      name: 'Preview Cover from igdb',
+    });
+    await user.click(preview);
+    const editor = within(
+      screen.getByRole('complementary', {
+        name: 'Cover',
+      }),
+    );
+    expect(
+      editor.getByRole('link', {
+        name: 'Download',
+      }),
+    ).toHaveAttribute('href', '/media/cover1');
+    expect(preview).toHaveAttribute('aria-expanded', 'true');
+    await waitFor(() =>
+      expect(
+        editor.getByRole('combobox', {
+          name: 'Poster assignment',
+        }),
+      ).toBeEnabled(),
+    );
+    await user.selectOptions(
+      editor.getByRole('combobox', {
+        name: 'Poster assignment',
+      }),
+      'Pinned',
+    );
+    await user.selectOptions(
+      editor.getByRole('combobox', {
+        name: 'Backdrop assignment',
+      }),
+      'Pinned',
+    );
+    const focal = editor.getByRole('slider', {
+      name: 'Focal point',
+    });
+    act(() => focal.focus());
+    await user.keyboard('{ArrowRight}{Shift>}{ArrowDown}{/Shift}');
+    expect(focal).toHaveAttribute('aria-valuetext', 'Horizontal 51%, vertical 60%');
+    expect(poster).not.toHaveBeenCalled();
+    expect(backdrop).not.toHaveBeenCalled();
+
+    const save = editor.getByRole('button', {
+      name: 'Save changes',
+    });
+    await user.click(save);
+    expect(await editor.findByRole('alert')).toHaveTextContent(
+      '1 role was saved. Backdrop: Temporary failure',
+    );
+    expect(
+      editor.getByRole('combobox', {
+        name: 'Poster assignment',
+      }),
+    ).toHaveValue('');
+    expect(
+      editor.getByRole('combobox', {
+        name: 'Backdrop assignment',
+      }),
+    ).toHaveValue('Pinned');
+    await user.click(save);
+    await screen.findByText('Artwork saved.');
+    expect(poster).toHaveBeenCalledOnce();
+    expect(backdrop).toHaveBeenCalledTimes(2);
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+    expect(preview).toHaveFocus();
+  });
+
+  it('clears an assigned role from the selected image and preserves the old selection on discard', async () => {
+    const clear = vi.fn(async ({ request }: { request: Request }) => {
+      expect(request.headers.get('If-Match')).toBe('"1"');
+      expect(await request.json()).toEqual({
+        mode: 'Empty',
+      });
+      return HttpResponse.json(written('Poster', 'Empty', '2'));
+    });
+    server.use(http.put(`${titles}/artwork/Poster`, clear));
+    renderPanel(
+      {
+        ...title,
+        media: [
+          {
+            id: 'cover1',
+            type: 'Cover',
+            url: '/media/cover1',
+            sourceId: 'user',
+            isPrimary: true,
+          },
+        ],
+        artwork: [
+          {
+            role: 'Poster',
+            url: '/media/cover1',
+            assetId: null,
+            contentVersion: null,
+            width: null,
+            height: null,
+            originalWidth: null,
+            originalHeight: null,
+            fit: 'Cover',
+            fallbackReason: 'None',
+            variants: [],
+          },
+        ],
+      },
+      {},
+      null,
+    );
+    const user = userEvent.setup();
+    const preview = screen.getByRole('button', {
+      name: 'Preview Cover from user',
+    });
+    expect(within(preview).getByText('Poster')).toBeInTheDocument();
+    await user.click(preview);
+    const editor = within(
+      screen.getByRole('complementary', {
+        name: 'Cover',
+      }),
+    );
+    const poster = editor.getByRole('combobox', {
+      name: 'Poster assignment',
+    });
+    await waitFor(() => expect(poster).toBeEnabled());
+    await user.selectOptions(poster, 'Empty');
+    await user.click(
+      editor.getByRole('button', {
+        name: 'Discard',
+      }),
+    );
+    expect(poster).toHaveValue('');
+    expect(clear).not.toHaveBeenCalled();
+    await user.selectOptions(poster, 'Empty');
+    await user.click(
+      editor.getByRole('button', {
+        name: 'Save changes',
+      }),
+    );
+    await waitFor(() => expect(clear).toHaveBeenCalledOnce());
+  });
+
+  it('asks before Escape closes an image inspector with an unsaved draft', async () => {
+    const router = createMemoryRouter([
+      {
+        path: '/',
+        element: (
+          <DraftGuardProvider>
+            <ArtworkPanel
+              titleId="title1"
+              title={{
+                ...title,
+                media: [
+                  {
+                    id: 'cover1',
+                    type: 'Cover',
+                    url: '/media/cover1',
+                    sourceId: 'user',
+                    isPrimary: true,
+                  },
+                ],
+              }}
+            />
+          </DraftGuardProvider>
+        ),
+      },
+    ]);
+    render(
+      <MantineProvider env="test">
+        <QueryClientProvider
+          client={
+            new QueryClient({
+              defaultOptions: {
+                queries: {
+                  retry: false,
+                },
+              },
+            })
+          }
+        >
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    const user = userEvent.setup();
+    const preview = screen.getByRole('button', {
+      name: 'Preview Cover from user',
+    });
+    await user.click(preview);
+    const editor = within(
+      screen.getByRole('complementary', {
+        name: 'Cover',
+      }),
+    );
+    const poster = editor.getByRole('combobox', {
+      name: 'Poster assignment',
+    });
+    await waitFor(() => expect(poster).toBeEnabled());
+    await user.selectOptions(poster, 'Pinned');
+
+    await user.keyboard('{Escape}');
+    const confirmation = within(
+      await screen.findByRole('dialog', {
+        name: 'Discard unsaved changes?',
+      }),
+    );
+    await user.click(
+      confirmation.getByRole('button', {
+        name: 'Keep editing',
+      }),
+    );
+    expect(poster).toHaveValue('Pinned');
+    expect(router.state.location.search).toBe('?image=media-cover1');
+
+    await user.keyboard('{Escape}');
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'Discard',
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole('complementary')).not.toBeInTheDocument());
+    expect(router.state.location.search).toBe('');
+    expect(preview).toHaveFocus();
   });
 
   it('shows wide SteamGridDB backdrops by default and applies only after crop review', async () => {
@@ -1896,26 +2203,30 @@ describe('Artwork curation', () => {
       ),
       http.delete(`${titles}/media/cover1`, remove),
     );
-    renderPanel({
-      ...title,
-      media: [
-        {
-          id: 'cover1',
-          type: 'Cover',
-          sourceId: 'igdb',
-          url: '/media/cover1',
-          isPrimary: true,
-        },
-      ],
-    });
+    renderPanel(
+      {
+        ...title,
+        media: [
+          {
+            id: 'cover1',
+            type: 'Cover',
+            sourceId: 'igdb',
+            url: '/media/cover1',
+            isPrimary: true,
+          },
+        ],
+      },
+      {},
+      null,
+    );
     const user = userEvent.setup();
     await user.click(
       await screen.findByRole('button', {
-        name: 'Actions for Cover cover1',
+        name: 'Preview Cover from igdb',
       }),
     );
     await user.click(
-      await screen.findByRole('menuitem', {
+      await screen.findByRole('button', {
         name: 'Delete image',
       }),
     );

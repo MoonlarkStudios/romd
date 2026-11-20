@@ -215,10 +215,10 @@ export function Dashboard() {
           action={
             <Anchor
               component={Link}
-              to="/enrichment"
+              to="/catalog?view=review"
               size="sm"
             >
-              Open enrichment workspace
+              Open review queue
             </Anchor>
           }
         >
@@ -235,7 +235,7 @@ export function Dashboard() {
               >
                 <Anchor
                   component={Link}
-                  to={`/enrichment?view=${view.status}`}
+                  to={`/catalog?view=review&state=${view.status}`}
                   size="sm"
                 >
                   {titleStatusLabels[view.status]}

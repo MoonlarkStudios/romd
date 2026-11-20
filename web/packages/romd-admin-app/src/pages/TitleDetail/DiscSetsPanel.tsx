@@ -1,5 +1,7 @@
 import {
+  Accordion,
   Alert,
+  Anchor,
   Badge,
   Button,
   Group,
@@ -8,6 +10,7 @@ import {
   Table,
   Text,
   TextInput,
+  Title,
 } from '@mantine/core';
 import {
   type DiscSet,
@@ -21,8 +24,8 @@ import { Link } from 'react-router';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { libraryManagementKeys } from '../../hooks/api/useLibraryManagement';
-import { usePermissions } from '../../hooks/usePermissions';
 import { collectPages } from '../../utils/collectPages';
+import classes from './ReleasesPanel.module.css';
 
 const issueLabels: Record<string, string> = {
   SingleObservedDisc: 'Only one disc name observed',
@@ -45,14 +48,16 @@ const issueLabels: Record<string, string> = {
 };
 const issueLabel = (issue: string) => issueLabels[issue] ?? issue;
 
-export function DiscSetsPanel({ titleId }: { titleId: string }) {
-  const { hasRole } = usePermissions();
-  const query = useQuery({
+const effectiveSet = (set: DiscSet) => set.correction ?? set.proposal;
+export const discSetRowId = (id: string) => `disc-set-${id}`;
+
+export function useTitleDiscSets(titleId: string, enabled: boolean) {
+  return useQuery({
     queryKey: [
       'discSets',
       titleId,
     ],
-    enabled: hasRole('Admin'),
+    enabled,
     queryFn: ({ signal }) =>
       collectPages(async (cursor) => {
         const response = await listAdminDiscSets({
@@ -67,45 +72,143 @@ export function DiscSetsPanel({ titleId }: { titleId: string }) {
         return response.data;
       }),
   });
-  if (!hasRole('Admin')) return <Text>Disc-set decisions require an administrator.</Text>;
-  if (query.isPending) return <Text>Loading disc sets…</Text>;
-  if (query.isError)
-    return (
-      <Alert
-        color="red"
-        title="Could not load disc sets"
-      >
-        <Button onClick={() => void query.refetch()}>Retry</Button>
-      </Alert>
-    );
+}
+
+export function DiscSetsPanel({
+  query,
+  selectedId,
+  onSelect,
+}: {
+  query: ReturnType<typeof useTitleDiscSets>;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
   return (
-    <Stack>
-      <Text size="sm">
-        <Link to="/disc-layouts">Review original descriptors and repair missing CUE layouts</Link>
-      </Text>
-      <Text size="sm">
-        Review DAT proposals before delivering discs together. Accepting a set preserves its current
-        membership through catalog refreshes. Expected disc count stays unknown unless declared or
-        explicitly corrected.
-      </Text>
-      {query.data.length === 0 && (
-        <Text c="dimmed">
-          No disc proposals on this page. Proposals appear after the system catalog rebuilds.
-        </Text>
-      )}
-      {query.data.map((set) => (
-        <DiscSetEditor
-          key={`${set.id}:${set.revision}`}
-          set={set}
-        />
-      ))}
-    </Stack>
+    <section
+      id="disc-sets"
+      className={classes.discSets}
+      aria-labelledby="disc-sets-heading"
+    >
+      <Stack gap="sm">
+        <Title
+          id="disc-sets-heading"
+          order={2}
+          className={workspace.sectionHeading}
+        >
+          Disc sets
+        </Title>
+        <Anchor
+          component={Link}
+          to="/disc-layouts"
+          size="sm"
+        >
+          Review original descriptors and repair missing CUE layouts
+        </Anchor>
+        {query.isPending ? (
+          <Text
+            size="sm"
+            c="dimmed"
+            role="status"
+          >
+            Loading disc sets…
+          </Text>
+        ) : query.isError ? (
+          <Alert
+            color="red"
+            title="Could not load disc sets"
+          >
+            <Button
+              {...workspaceActionProps}
+              variant="subtle"
+              size="compact-sm"
+              onClick={() => void query.refetch()}
+            >
+              Retry
+            </Button>
+          </Alert>
+        ) : query.data.length === 0 ? (
+          <Text
+            size="sm"
+            c="dimmed"
+          >
+            No disc proposals for this title. Proposals appear after the system catalog rebuilds.
+          </Text>
+        ) : (
+          <Accordion
+            variant="separated"
+            value={selectedId}
+            onChange={onSelect}
+            keepMounted
+            order={3}
+          >
+            {query.data.map((set) => {
+              const effective = effectiveSet(set);
+              const needsReview =
+                set.proposal.reviewReasons.length > 0 ||
+                effective.members.some((member) => member.issue);
+              return (
+                <Accordion.Item
+                  key={set.id}
+                  value={set.id}
+                  id={discSetRowId(set.id)}
+                >
+                  <Accordion.Control>
+                    <span className={classes.discSetIdentity}>
+                      <Text
+                        component="span"
+                        className={classes.discSetName}
+                        fw={600}
+                      >
+                        {effective.name}
+                      </Text>
+                      <span className={classes.discSetStats}>
+                        <Text
+                          component="span"
+                          size="xs"
+                          c="dimmed"
+                        >
+                          {effective.members.length} observed · Expected:{' '}
+                          {effective.expectedDiscCount ?? 'unknown'}
+                        </Text>
+                        <Badge
+                          component="span"
+                          size="xs"
+                          variant="light"
+                        >
+                          {set.decision}
+                        </Badge>
+                        {needsReview && (
+                          <Badge
+                            component="span"
+                            size="xs"
+                            variant="light"
+                            color="yellow"
+                          >
+                            Needs review
+                          </Badge>
+                        )}
+                      </span>
+                    </span>
+                  </Accordion.Control>
+                  <Accordion.Panel>
+                    <DiscSetEditor
+                      key={set.revision}
+                      set={set}
+                    />
+                  </Accordion.Panel>
+                </Accordion.Item>
+              );
+            })}
+          </Accordion>
+        )}
+      </Stack>
+    </section>
   );
 }
 
 function DiscSetEditor({ set }: { set: DiscSet }) {
   const queryClient = useQueryClient();
-  const effective = set.correction ?? set.proposal;
+  const effective = effectiveSet(set);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(effective.name);
   const [total, setTotal] = useState<string | number>(effective.expectedDiscCount ?? '');
@@ -182,82 +285,74 @@ function DiscSetEditor({ set }: { set: DiscSet }) {
     ]),
   ];
   return (
-    <section className={workspace.panel}>
-      <Stack gap="sm">
-        <Group justify="space-between">
-          <Text
-            component="h3"
-            className="romd-section-heading"
-            m={0}
-          >
-            {effective.name}
-          </Text>
-          <Badge>{set.decision}</Badge>
-        </Group>
-        <Text size="sm">
-          {effective.members.length} observed discs · Expected:{' '}
-          {effective.expectedDiscCount ?? 'unknown'} · Catalog source {set.catalogSourceId}
+    <Stack gap="sm">
+      <Text size="sm">Catalog source {set.catalogSourceId}</Text>
+      <Text
+        size="sm"
+        c="dimmed"
+      >
+        Accepting a proposal preserves its current membership through catalog refreshes.
+      </Text>
+      {issues.length > 0 && (
+        <Alert
+          title="Review required"
+          color="yellow"
+        >
+          {issues.map(issueLabel).join('; ')}
+        </Alert>
+      )}
+      {set.correction && (
+        <Text
+          size="sm"
+          c="dimmed"
+        >
+          Pinned correction: {set.correction.members.length} members. Current automatic proposal:{' '}
+          {set.proposal.members.length} members.
         </Text>
-        {issues.length > 0 && (
-          <Alert
-            title="Review required"
-            color="yellow"
-          >
-            {issues.map(issueLabel).join('; ')}
-          </Alert>
-        )}
-        {set.correction && (
-          <Text
-            size="sm"
-            c="dimmed"
-          >
-            Pinned correction: {set.correction.members.length} members. Current automatic proposal:{' '}
-            {set.proposal.members.length} members.
-          </Text>
-        )}
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Disc</Table.Th>
-              <Table.Th>Source name</Table.Th>
-              <Table.Th>Resolution</Table.Th>
+      )}
+      <Table className={classes.discMemberTable}>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Disc</Table.Th>
+            <Table.Th>Source name</Table.Th>
+            <Table.Th>Resolution</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {effective.members.map((member) => (
+            <Table.Tr key={member.entryKey}>
+              <Table.Td>{member.ordinal}</Table.Td>
+              <Table.Td>{member.name}</Table.Td>
+              <Table.Td>{member.issue ? issueLabel(member.issue) : 'Resolved'}</Table.Td>
             </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {effective.members.map((member) => (
-              <Table.Tr key={member.entryKey}>
-                <Table.Td>{member.ordinal}</Table.Td>
-                <Table.Td>{member.name}</Table.Td>
-                <Table.Td>{member.issue ? issueLabel(member.issue) : 'Resolved'}</Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-        {editing && (
-          <Stack gap="xs">
-            <TextInput
-              label="Set name"
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-            />
-            <NumberInput
-              label="Expected disc count (blank means unknown)"
-              allowDecimal={false}
-              min={1}
-              max={99}
-              value={total}
-              onChange={setTotal}
-            />
-            <Text size="sm">
-              Use exact DAT entry names from this catalog source. Removing a row excludes it from
-              this set. Up/down sets a contiguous order; ordinals can also preserve known gaps.
-            </Text>
-            {members.map((member, index) => (
-              <Group
-                key={`${index}:${members.length}`}
-                align="end"
-                wrap="nowrap"
-              >
+          ))}
+        </Table.Tbody>
+      </Table>
+      {editing && (
+        <Stack gap="xs">
+          <TextInput
+            label="Set name"
+            value={name}
+            onChange={(e) => setName(e.currentTarget.value)}
+          />
+          <NumberInput
+            label="Expected disc count (blank means unknown)"
+            allowDecimal={false}
+            min={1}
+            max={99}
+            value={total}
+            onChange={setTotal}
+          />
+          <Text size="sm">
+            Use exact DAT entry names from this catalog source. Removing a row excludes it from this
+            set. Up/down sets a contiguous order; ordinals can also preserve known gaps.
+          </Text>
+          {members.map((member, index) => (
+            <Stack
+              key={`${index}:${members.length}`}
+              gap={4}
+            >
+              <div className={classes.discMemberFields}>
                 <NumberInput
                   aria-label={`Ordinal for member ${index + 1}`}
                   allowDecimal={false}
@@ -276,7 +371,6 @@ function DiscSetEditor({ set }: { set: DiscSet }) {
                       ),
                     )
                   }
-                  w={85}
                 />
                 <TextInput
                   aria-label={`Source entry for member ${index + 1}`}
@@ -294,11 +388,14 @@ function DiscSetEditor({ set }: { set: DiscSet }) {
                       ),
                     );
                   }}
-                  style={{
-                    flex: 1,
-                  }}
                 />
+              </div>
+              <Group
+                gap={4}
+                justify="flex-end"
+              >
                 <Button
+                  size="compact-sm"
                   variant="subtle"
                   disabled={index === 0}
                   aria-label={`Move member ${index + 1} up`}
@@ -309,6 +406,7 @@ function DiscSetEditor({ set }: { set: DiscSet }) {
                 <Button
                   variant="subtle"
                   disabled={index === members.length - 1}
+                  size="compact-sm"
                   aria-label={`Move member ${index + 1} down`}
                   onClick={() => move(index, 1)}
                 >
@@ -317,106 +415,108 @@ function DiscSetEditor({ set }: { set: DiscSet }) {
                 <Button
                   variant="subtle"
                   color="red"
+                  size="compact-sm"
+                  aria-label={`Remove member ${index + 1}`}
                   onClick={() => setMembers(members.filter((_, i) => i !== index))}
                 >
                   Remove
                 </Button>
               </Group>
-            ))}
-            <Button
-              {...workspaceActionProps}
-              variant="light"
-              onClick={() =>
-                setMembers([
-                  ...members,
-                  {
-                    entryKey: '',
-                    ordinal: members.length + 1,
-                  },
-                ])
-              }
-              disabled={members.length >= 99}
-            >
-              Add disc
-            </Button>
-          </Stack>
-        )}
-        <TextInput
-          label="Decision reason"
-          value={reason}
-          maxLength={1000}
-          onChange={(e) => setReason(e.currentTarget.value)}
-        />
-        {mutation.isError && (
-          <Alert color="red">
-            {mutation.error.message}
-            <Button
-              variant="subtle"
-              onClick={() =>
-                void queryClient.invalidateQueries({
-                  queryKey: [
-                    'discSets',
-                  ],
-                })
-              }
-            >
-              Reload
-            </Button>
-          </Alert>
-        )}
-        <Group>
-          {editing ? (
-            <Button
-              {...workspaceActionProps}
-              loading={mutation.isPending}
-              onClick={() => mutation.mutate('correct')}
-            >
-              Save correction
-            </Button>
-          ) : (
-            <Button
-              {...workspaceActionProps}
-              disabled={
-                set.proposal.reviewReasons.length > 0 || set.proposal.members.some((m) => m.issue)
-              }
-              loading={mutation.isPending}
-              onClick={() => mutation.mutate('accept')}
-            >
-              Accept proposal
-            </Button>
-          )}
+            </Stack>
+          ))}
           <Button
             {...workspaceActionProps}
             variant="light"
-            onClick={() => setEditing(!editing)}
+            onClick={() =>
+              setMembers([
+                ...members,
+                {
+                  entryKey: '',
+                  ordinal: members.length + 1,
+                },
+              ])
+            }
+            disabled={members.length >= 99}
           >
-            {editing ? 'Close correction' : 'Correct membership and order'}
+            Add disc
           </Button>
-          <Button
-            color="red"
-            variant="light"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate('reject')}
-          >
-            Reject set
-          </Button>
+        </Stack>
+      )}
+      <TextInput
+        label="Decision reason"
+        value={reason}
+        maxLength={1000}
+        onChange={(e) => setReason(e.currentTarget.value)}
+      />
+      {mutation.isError && (
+        <Alert color="red">
+          {mutation.error.message}
           <Button
             variant="subtle"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate('reset')}
+            onClick={() =>
+              void queryClient.invalidateQueries({
+                queryKey: [
+                  'discSets',
+                ],
+              })
+            }
           >
-            Reset to proposal
+            Reload
           </Button>
-        </Group>
-        {set.reason && (
-          <Text
-            size="xs"
-            c="dimmed"
+        </Alert>
+      )}
+      <Group>
+        {editing ? (
+          <Button
+            {...workspaceActionProps}
+            loading={mutation.isPending}
+            onClick={() => mutation.mutate('correct')}
           >
-            Last decision: {set.reason}
-          </Text>
+            Save correction
+          </Button>
+        ) : (
+          <Button
+            {...workspaceActionProps}
+            disabled={
+              set.proposal.reviewReasons.length > 0 || set.proposal.members.some((m) => m.issue)
+            }
+            loading={mutation.isPending}
+            onClick={() => mutation.mutate('accept')}
+          >
+            Accept proposal
+          </Button>
         )}
-      </Stack>
-    </section>
+        <Button
+          {...workspaceActionProps}
+          variant="light"
+          onClick={() => setEditing(!editing)}
+        >
+          {editing ? 'Close correction' : 'Correct membership and order'}
+        </Button>
+        <Button
+          color="red"
+          variant="light"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate('reject')}
+        >
+          Reject set
+        </Button>
+        <Button
+          variant="subtle"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate('reset')}
+        >
+          Reset to proposal
+        </Button>
+      </Group>
+      {set.reason && (
+        <Text
+          size="xs"
+          c="dimmed"
+        >
+          Last decision: {set.reason}
+        </Text>
+      )}
+    </Stack>
   );
 }

@@ -8,17 +8,16 @@ remote candidates), and Apply (retain selected content in ROMD). Preview must
 not mutate title state, establish provider associations, or retain gallery
 assets. Only explicit Apply creates retained content and selection intent.
 
-The Artwork tab opens a persistent composition workspace. Select a role, then
-choose a saved image, provider candidate, or upload to preview it inline. Current
-and Preview comparison, desktop/mobile views, and focal controls remain beside
-the image choices. Apply commits the draft; Discard restores the saved artwork.
-Leaving with a draft requires a discard decision. Provider imports keep the
-saved presentation visible until publication completes.
+Open the title's **Artwork** section to see its saved images and the roles each
+image fills. Select an image to change its roles or focal point, download it, or
+delete it. Use the role filters to find missing images and compare candidates.
+The role inspector offers current and proposed presentations at desktop and
+mobile sizes. **Save changes** applies your choices, and leaving with unsaved
+changes prompts you to discard them. Provider imports keep the saved
+presentation visible until publication completes.
 
 Backdrop, logo, and poster detail previews use the shared consumer game-detail
-composition. Library poster previews share the consumer poster surface. The
-title header is compact on this tab so the composition remains prominent.
-Automatic-run history and the full saved library are collapsed secondary sections.
+composition. Library poster previews use the consumer poster surface.
 
 ## Choose a presentation role
 
@@ -54,9 +53,9 @@ replacement is ready.
 
 ## Collect images
 
-Managers and admins can use **Add to library** on a title's **Artwork** tab to
-retain alternatives, then expand **Saved artwork library** to inspect them.
-Collecting an image is separate from selecting its presentation role.
+Managers and admins can use **Add artwork** to retain provider images or upload
+files. Saved images appear in the **All** grid. Select an image to assign one or
+more presentation roles.
 
 - IGDB supplies covers, backgrounds and screenshots, including artwork for backdrops.
 - SteamGridDB supplies grids, wide banners and logos.

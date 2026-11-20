@@ -1,13 +1,20 @@
-import { Checkbox, Group, Text, Tooltip } from '@mantine/core';
+import { Checkbox, Group, Text, Tooltip, UnstyledButton } from '@mantine/core';
 import type { CatalogTitle } from '@romd/admin-api-client';
 import { IconPhoto, IconPhotoOff } from '@tabler/icons-react';
-import { Link, useLocation } from 'react-router';
+import { type MouseEventHandler, memo } from 'react';
 import { ArtworkFrame } from '../../components/ArtworkFrame';
 import { artworkRoleLabel, artworkRoles } from '../../components/artworkPresentation';
-import { usePlatforms } from '../../hooks/api/usePlatforms';
+import { titleSectionPath } from '../../components/Title/titleSections';
+import type { useInspectorSelection } from '../../components/Workspace/useInspectorSelection';
 import classes from './Catalog.module.css';
 import { CatalogEnrichmentStatus } from './CatalogEnrichmentStatus';
+import { catalogInspectorId } from './CatalogInspector';
 import { CatalogTrackingAction } from './CatalogTrackingAction';
+
+export type CatalogPreview = Pick<
+  ReturnType<typeof useInspectorSelection>,
+  'selectedId' | 'select' | 'close' | 'onListKeyDown'
+>;
 
 export interface CatalogRowProps {
   title: CatalogTitle;
@@ -15,6 +22,9 @@ export interface CatalogRowProps {
   selectable?: boolean;
   selected?: boolean;
   onToggleSelected?: (id: string) => void;
+  showPreview?: boolean;
+  previewed?: boolean;
+  systemName?: string;
 }
 export function CatalogAvailability({ title }: { title: CatalogTitle }) {
   const available = title.hasLocalPayload || Number(title.localPayloadVersionCount ?? 0) > 0;
@@ -35,16 +45,37 @@ export function CatalogAvailability({ title }: { title: CatalogTitle }) {
     </Tooltip>
   );
 }
-export function CatalogRow({
+export function CatalogPreviewButton({
+  name,
+  active,
+  onClick,
+}: {
+  name: string;
+  active: boolean;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
+}) {
+  return (
+    <UnstyledButton
+      className={classes.previewButton}
+      aria-label={`Preview ${name}`}
+      aria-pressed={active}
+      aria-controls={active ? catalogInspectorId : undefined}
+      data-inspector-trigger
+      onClick={onClick}
+    />
+  );
+}
+
+export const CatalogRow = memo(function CatalogRow({
   title,
   selectable = false,
   selected = false,
   selectionDisabled = false,
   onToggleSelected,
+  showPreview = false,
+  previewed = false,
+  systemName = title.systemKey,
 }: CatalogRowProps) {
-  const location = useLocation();
-  const { data: platforms } = usePlatforms();
-  const platform = platforms?.find((item) => item.key === title.systemKey);
   const poster = title.artwork?.find((item) => item.role === 'Poster');
   const availableRoles = artworkRoles.filter((role) =>
     title.artwork?.some((item) => item.role === role && item.url),
@@ -56,7 +87,11 @@ export function CatalogRow({
     )
     .join(', ');
   return (
-    <tr data-selected={selected || undefined}>
+    <tr
+      data-selected={selected || undefined}
+      aria-current={previewed || undefined}
+      data-inspector-row={showPreview ? title.id : undefined}
+    >
       {selectable && (
         <td className={classes.selection}>
           <Checkbox
@@ -68,13 +103,7 @@ export function CatalogRow({
         </td>
       )}
       <td className={classes.titleCell}>
-        <Link
-          className={classes.titleLink}
-          to={`/titles/${title.id}`}
-          state={{
-            catalogReturnTo: `${location.pathname}${location.search}`,
-          }}
-        >
+        <div className={classes.titleContent}>
           <div className={classes.poster}>
             {poster?.url ? (
               <ArtworkFrame
@@ -95,21 +124,32 @@ export function CatalogRow({
             )}
           </div>
           <div>
-            <div className={classes.name}>{title.name}</div>
+            <a
+              className={`${classes.titleLink} ${classes.name}`}
+              data-stretch={!showPreview || undefined}
+              href={titleSectionPath(title.id)}
+              data-catalog-title-link
+            >
+              {title.name}
+            </a>
             <Text
               className={classes.mobileMeta}
               size="xs"
               c="dimmed"
             >
-              {platform?.compactLabel || platform?.name || title.systemKey}
+              {systemName}
               {title.releaseDate ? ` · ${title.releaseDate.slice(0, 4)}` : ''}
             </Text>
           </div>
-        </Link>
+        </div>
+        {showPreview && (
+          <CatalogPreviewButton
+            name={title.name}
+            active={previewed}
+          />
+        )}
       </td>
-      <td className={classes.platform}>
-        {platform?.compactLabel || platform?.name || title.systemKey}
-      </td>
+      <td className={classes.platform}>{systemName}</td>
       <td className={classes.year}>{title.releaseDate?.slice(0, 4) || '—'}</td>
       <td className={classes.availability}>
         <CatalogAvailability title={title} />
@@ -147,4 +187,4 @@ export function CatalogRow({
       )}
     </tr>
   );
-}
+});

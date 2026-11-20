@@ -67,6 +67,7 @@ function Location() {
     <output
       data-testid="location"
       data-navigation={useNavigationType()}
+      data-pathname={location.pathname}
     >
       {location.search}
     </output>
@@ -86,7 +87,7 @@ function renderCatalog(initialEntry: string) {
         }
       />
       <Route
-        path="/enrichment"
+        path="/jobs/:jobId"
         element={<Location />}
       />
     </Routes>,
@@ -395,9 +396,11 @@ describe('Catalog enrichment filter', () => {
 });
 
 describe('Legacy catalog enrichment links', () => {
-  it('opens a link to the retired catalog run view as that run in the enrichment workspace', async () => {
+  it('opens a link to the retired catalog run view as that job', async () => {
     renderCatalog('/catalog?view=all&artworkJob=saved-run');
-    await waitFor(() => expect(url().get('activity')).toBe('saved-run'));
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveAttribute('data-pathname', '/jobs/saved-run'),
+    );
     expect(screen.getByTestId('location')).toHaveAttribute('data-navigation', 'REPLACE');
     expect(previewArtworkCompletion).not.toHaveBeenCalled();
   });
@@ -434,7 +437,7 @@ it('replaces filter history and returns from title details to the same search', 
         }
       />
       <Route
-        path="/titles/:id"
+        path="/titles/:id/:section?"
         element={<BackButton />}
       />
     </Routes>,

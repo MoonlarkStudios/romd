@@ -61,7 +61,8 @@ intersect with the other predicates before pagination.
 
 Persist search, filters, sort, and tracked/all scope in URL parameters with
 history replacement. Opening title details uses normal navigation so Back
-restores the search; panel expansion and selection remain transient UI state.
+restores the search, scroll position, and preview. Catalog stores the preview ID
+in `title`. Bulk selection stays local and is cleared when filters change.
 Legacy `view=missing` and `view=upgrades` URLs normalize to the tracked view plus
 `releaseReview`. The catalog count endpoint runs independently of the results request, using the same filters. Cache its exact total while appending cursor pages; show counting and retry states without blocking results.
 The total reflects count-query time, not a transactional snapshot across subsequent requests.
@@ -71,6 +72,35 @@ The total reflects count-query time, not a transactional snapshot across subsequ
 The Admin app and its shared test renderer use the foundation's
 `adminCssVariablesResolver`. The consumer portal uses
 `portalCssVariablesResolver`, and the scoped consumer presentation uses
-`darkCssVariablesResolver`. All three build on Mantine's
-`v8CssVariablesResolver` to preserve variant behavior. Keep test providers
-aligned with their app's resolver.
+`darkCssVariablesResolver`. Each resolver extends Mantine’s compatibility resolver to preserve variants.
+Admin loads the foundation variables and typography at startup so workspace
+routes share the same motion and text roles. Keep test providers aligned with
+their app’s resolver.
+
+## Inspectors and sections
+
+- Use `InspectorLayout`, `InspectorPanel` and `useInspectorSelection` for a
+  directory that previews one item at a time. Measure the workspace after the
+  navigation and gutters. Closed inspectors leave the full width to the list.
+  Motion uses foundation tokens and follows the user's reduced-motion setting.
+  With 500 or more loaded Catalog rows, the column widths change once and
+  only the preview animates.
+- Keep the title or system name a real link. Expose the preview as a separate
+  button, mark its row with `aria-current`, and reserve `data-selected` for
+  checked rows. Close with Escape or the close button and return focus to the
+  preview trigger. Up and Down move through the visible results. Use container
+  queries to hide secondary columns as the results narrow.
+- Use `SectionTabs` for addressable sections. Catalog views use the same
+  navigation on `view`, and Title sections use path segments. An inspector in
+  Catalog or Systems opens full details on a narrow workspace. Title section
+  inspectors stack below the list, with focus moved into the opened inspector.
+- Compose title identity and progress with `TitleIdentity`, `RequirementList`
+  and `LinkedCountList`. Show Enrichment status as a collapsible summary above
+  the active Title section.
+  Use `SourceMarker` and `EditorFooter` for provenance and drafts. Register
+  dirty editors with the Admin draft guard.
+- Catalog's Needs review badge shows the global outstanding review count. The
+  queue has its own search and state filter. Enter on a previewed row starts
+  review, and Up or Down moves to another title. The row stays in place after
+  resolving its last issue until the curator moves on. Use Jobs for run history,
+  cancellation and retry.

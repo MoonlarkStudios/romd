@@ -106,6 +106,8 @@ export const titleDetailKeys = {
     ] as const,
 };
 
+export class TitleNotFoundError extends Error {}
+
 /** The title representation, including releases, files and the `revision` its writes send in `If-Match`. */
 export const titleDetailQuery = (titleId: string) =>
   queryOptions({
@@ -120,6 +122,7 @@ export const titleDetailQuery = (titleId: string) =>
         },
       });
 
+      if (response.response?.status === 404) throw new TitleNotFoundError('Title not found');
       if (response.error || !response.data) throw new Error('Failed to fetch title details');
       return normalizeTitleDetail(response.data, signal);
     },
@@ -133,10 +136,15 @@ export const titleDetailQuery = (titleId: string) =>
  * const { data: title, isLoading, isError } = useTitleDetail(titleId);
  * ```
  */
-export function useTitleDetail(titleId: string | undefined) {
+export function useTitleDetail(titleId: string | undefined, retry?: boolean) {
   return useQuery({
     ...titleDetailQuery(titleId ?? ''),
     enabled: !!titleId,
+    ...(retry === false
+      ? {
+          retry,
+        }
+      : {}),
   });
 }
 

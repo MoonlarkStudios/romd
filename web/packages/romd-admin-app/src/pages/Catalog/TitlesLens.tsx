@@ -21,10 +21,17 @@ import {
   IconLayoutGrid,
   IconList,
   IconSearch,
+  IconSparkles,
   IconX,
 } from '@tabler/icons-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { EnrichmentLauncher } from '../../components/Enrichment/EnrichmentLauncher';
+import { InspectorLayout } from '../../components/Workspace/InspectorLayout';
+import {
+  useInspectorSelection,
+  useInspectorSize,
+} from '../../components/Workspace/useInspectorSelection';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useCatalogCount, useCatalogSearch } from '../../hooks/api/useCatalogSearch';
 import { useSetTitlesTracking } from '../../hooks/api/useTitleActions';
@@ -32,7 +39,10 @@ import { usePermissions } from '../../hooks/usePermissions';
 import classes from './Catalog.module.css';
 import { ActiveCatalogFilters, CatalogFilters } from './CatalogFilters';
 import { CatalogGrid, type CatalogView } from './CatalogGrid';
+import { CatalogInspector, catalogInspectorId } from './CatalogInspector';
+import { CatalogLinkedTitle } from './CatalogLinkedTitle';
 import { UntrackConfirmation } from './CatalogTrackingAction';
+import { useRestoreCatalogPosition } from './catalogNavigation';
 import { type LockedCatalogFilters, useCatalogFilters } from './useCatalogFilters';
 
 export interface LockedCatalogFilterLabels {
@@ -59,16 +69,18 @@ export function TitlesLens({
     lockedFilters,
   });
   const { canManageTitles } = usePermissions();
+  const [launching, setLaunching] = useState(false);
   const [confirmUntrack, setConfirmUntrack] = useState(false);
   const mutation = useSetTitlesTracking();
   const [searchParams] = useSearchParams();
-  const { state } = useLocation();
+  const { state, pathname, search } = useLocation();
   const navigate = useNavigate();
+  const linkedTitle = searchParams.get('title');
   const artworkJobId = searchParams.get('artworkJob');
-  // Links to the retired catalog run view open that run in the enrichment workspace.
+  // Legacy run bookmarks open the corresponding job.
   useEffect(() => {
     if (canManageTitles && artworkJobId)
-      navigate(`/enrichment?activity=${encodeURIComponent(artworkJobId)}`, {
+      navigate(`/jobs/${encodeURIComponent(artworkJobId)}`, {
         replace: true,
       });
   }, [
@@ -108,6 +120,28 @@ export function TitlesLens({
   const query = useCatalogSearch(catalogParams);
   const count = useCatalogCount(catalogParams);
   const titles = query.data?.pages.flatMap((page) => page.items) ?? [];
+  const size = useInspectorSize();
+  const preview = useInspectorSelection({
+    param: 'title',
+    panelId: catalogInspectorId,
+    ids: titles.map((title) => title.id),
+    wide: size.wide && pathname === '/catalog',
+    allowUnlisted: true,
+  });
+  const returnPath = `${pathname}${search}`;
+  useRestoreCatalogPosition(returnPath, !query.isPending && size.measured);
+  const previewIndex = titles.findIndex((title) => title.id === preview.selectedId);
+  const inspector = preview.selectedId && (
+    <CatalogInspector
+      key={preview.selectedId}
+      titleId={preview.selectedId}
+      returnPath={returnPath}
+      close={preview.close}
+      onUnknown={preview.close}
+      previous={previewIndex > 0 ? () => preview.move(-1) : undefined}
+      next={previewIndex < titles.length - 1 ? () => preview.move(1) : undefined}
+    />
+  );
   const totalCount = count.data;
   const resultLabel =
     totalCount != null
@@ -115,15 +149,21 @@ export function TitlesLens({
       : `${titles.length} shown${count.isPending ? ' · counting…' : ''}`;
   const selected = titles.filter((item) => selectedIds.has(item.id));
   const updating = query.isPlaceholderData || filters.searchInput !== filters.filters.query;
-  const toggle = (id: string) => {
-    if (updating || mutation.isPending) return;
-    setSelectedIds((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const bulkBusy = updating || mutation.isPending;
+  const toggle = useCallback(
+    (id: string) => {
+      if (bulkBusy) return;
+      setSelectedIds((previous) => {
+        const next = new Set(previous);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    },
+    [
+      bulkBusy,
+    ],
+  );
   const setTracked = (tracked: boolean) => {
     const titleIds = selected.filter((item) => !!item.isTracked !== tracked).map((item) => item.id);
     if (!titleIds.length) return;
@@ -173,256 +213,293 @@ export function TitlesLens({
     />
   );
   return (
-    <Stack
-      gap="sm"
-      style={{
-        '--catalog-toolbar-height': `${toolbarHeight}px`,
-      }}
-    >
-      {showHeader && (
-        <Title
-          order={2}
-          className={classes.heading}
-        >
-          {title}
-        </Title>
-      )}
-      <div className={classes.toolbar}>
-        <TextInput
-          className={classes.search}
-          label="Search titles"
-          placeholder="Search by title name…"
-          rightSection={
-            filters.searchInput ? (
-              <CloseButton
-                aria-label="Clear search"
-                onClick={() => filters.setSearchInput('')}
-                size="sm"
-              />
-            ) : null
-          }
-          leftSection={
-            (query.isFetching && !query.isFetchingNextPage) || updating ? (
-              <Loader
-                size="xs"
-                aria-label="Updating titles"
-              />
-            ) : (
-              <IconSearch size={17} />
-            )
-          }
-          value={filters.searchInput}
-          onChange={(event) => filters.setSearchInput(event.currentTarget.value)}
-        />
-        <CatalogFilters
-          filters={filters}
-          lockedFilterLabels={lockedFilterLabels}
-        />
-      </div>
-      <ActiveCatalogFilters filters={filters} />
-      <div
-        ref={toolbarRef}
-        className={classes.stickyToolbar}
+    <div ref={size.ref}>
+      <InspectorLayout
+        wide={size.wide}
+        inspector={inspector}
+        animateList={titles.length < 500}
       >
-        <div className={classes.resultsToolbar}>
-          <Group
-            gap="sm"
-            wrap="nowrap"
-          >
-            {canManageTitles && view === 'grid' && selectAll}
-            <Text
-              className={classes.resultCount}
-              size="xs"
-              c="dimmed"
-              aria-live="polite"
-            >
-              {query.isLoading ? 'Loading titles' : updating ? 'Updating titles…' : resultLabel}
-            </Text>
-            {count.isError && (
-              <Button
-                size="compact-xs"
-                variant="subtle"
-                color="gray"
-                onClick={() => void count.refetch()}
-              >
-                Retry count
-              </Button>
-            )}
-          </Group>
-          {canManageTitles && (
-            <Group
-              className={classes.selectionActions}
-              data-empty={!selected.length || undefined}
-              gap="xs"
-              wrap="nowrap"
-              role="region"
-              aria-label="Selection actions"
-              aria-hidden={!selected.length}
-            >
-              <Text
-                size="xs"
-                className={classes.selectionCount}
-                aria-live="polite"
-              >
-                {selected.length} selected
-              </Text>
-              {lockedFilters?.tracked !== 'tracked' && (
-                <Button
-                  {...workspaceActionProps}
-                  size="xs"
-                  variant="light"
-                  leftSection={<IconBookmark size={15} />}
-                  disabled={
-                    !selected.some((item) => !item.isTracked) || mutation.isPending || updating
-                  }
-                  onClick={() => setTracked(true)}
-                >
-                  Track
-                </Button>
-              )}
-              <Button
-                size="xs"
-                variant="default"
-                leftSection={<IconBookmarkOff size={15} />}
-                disabled={
-                  !selected.some((item) => item.isTracked) || mutation.isPending || updating
-                }
-                onClick={() => setConfirmUntrack(true)}
-              >
-                Untrack
-              </Button>
-              <Tooltip label="Clear selection">
-                <ActionIcon
-                  aria-label="Clear selection"
-                  variant="subtle"
-                  color="gray"
-                  disabled={!selected.length || mutation.isPending}
-                  onClick={() => setSelectedIds(new Set())}
-                >
-                  <IconX size={16} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-          )}
-
-          <Group
-            gap="xs"
-            wrap="nowrap"
-            className={classes.viewControls}
-          >
-            <Select
-              aria-label="Sort titles"
-              value={filters.filters.sortBy}
-              onChange={(value) => filters.setFilter('sortBy', value)}
-              data={[
-                {
-                  value: 'name',
-                  label: 'Name (A-Z)',
-                },
-                {
-                  value: 'rating',
-                  label: 'Rating',
-                },
-                {
-                  value: 'relevance',
-                  label: 'Relevance',
-                  disabled: !filters.filters.query,
-                },
-              ]}
-              w={150}
-              size="xs"
-            />
-            <Group
-              gap={2}
-              role="group"
-              aria-label="Catalog layout"
-            >
-              <Tooltip label="List">
-                <ActionIcon
-                  aria-label="List view"
-                  aria-pressed={view === 'list'}
-                  variant={view === 'list' ? 'light' : 'subtle'}
-                  color={view === 'list' ? 'teal' : 'gray'}
-                  onClick={() => setView('list')}
-                >
-                  <IconList size={18} />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Grid">
-                <ActionIcon
-                  aria-label="Grid view"
-                  aria-pressed={view === 'grid'}
-                  variant={view === 'grid' ? 'light' : 'subtle'}
-                  color={view === 'grid' ? 'teal' : 'gray'}
-                  onClick={() => setView('grid')}
-                >
-                  <IconLayoutGrid size={18} />
-                </ActionIcon>
-              </Tooltip>
-            </Group>
-          </Group>
-        </div>
-      </div>
-      {query.isError ? (
-        <Alert
-          color="red"
-          title="Could not load catalog"
-        >
-          <Button
-            variant="subtle"
-            onClick={() => void query.refetch()}
-          >
-            Retry
-          </Button>
-        </Alert>
-      ) : !query.isLoading &&
-        !titles.length &&
-        !hasFilters &&
-        lockedFilters?.tracked === 'tracked' ? (
         <Stack
-          align="center"
-          py={60}
-          gap="xs"
+          gap="sm"
+          style={{
+            '--catalog-toolbar-height': `${toolbarHeight}px`,
+          }}
         >
-          <Text fw={600}>No tracked titles yet</Text>
-          <Button
-            component={Link}
-            to={browseAllHref}
-            state={state}
-            {...workspaceActionProps}
-            variant="light"
+          {showHeader && (
+            <Title
+              order={2}
+              className={classes.heading}
+            >
+              {title}
+            </Title>
+          )}
+          {pathname === '/catalog' && size.measured && !size.wide && linkedTitle && (
+            <CatalogLinkedTitle
+              titleId={linkedTitle}
+              returnPath={returnPath}
+              knownName={titles.find((item) => item.id === linkedTitle)?.name}
+            />
+          )}
+          <div className={classes.toolbar}>
+            <TextInput
+              className={classes.search}
+              label="Search titles"
+              placeholder="Search by title name…"
+              rightSection={
+                filters.searchInput ? (
+                  <CloseButton
+                    aria-label="Clear search"
+                    onClick={() => filters.setSearchInput('')}
+                    size="sm"
+                  />
+                ) : null
+              }
+              leftSection={
+                (query.isFetching && !query.isFetchingNextPage) || updating ? (
+                  <Loader
+                    size="xs"
+                    aria-label="Updating titles"
+                  />
+                ) : (
+                  <IconSearch size={17} />
+                )
+              }
+              value={filters.searchInput}
+              onChange={(event) => filters.setSearchInput(event.currentTarget.value)}
+            />
+            <CatalogFilters
+              filters={filters}
+              lockedFilterLabels={lockedFilterLabels}
+            />
+          </div>
+          <ActiveCatalogFilters filters={filters} />
+          <div
+            ref={toolbarRef}
+            className={classes.stickyToolbar}
           >
-            Browse all titles
-          </Button>
+            <div className={classes.resultsToolbar}>
+              <Group
+                gap="sm"
+                wrap="nowrap"
+              >
+                {canManageTitles && view === 'grid' && selectAll}
+                <Text
+                  className={classes.resultCount}
+                  size="xs"
+                  c="dimmed"
+                  aria-live="polite"
+                >
+                  {query.isLoading ? 'Loading titles' : updating ? 'Updating titles…' : resultLabel}
+                </Text>
+                {count.isError && (
+                  <Button
+                    size="compact-xs"
+                    variant="subtle"
+                    color="gray"
+                    onClick={() => void count.refetch()}
+                  >
+                    Retry count
+                  </Button>
+                )}
+              </Group>
+              {canManageTitles && (
+                <Group
+                  className={classes.selectionActions}
+                  data-empty={!selected.length || undefined}
+                  gap="xs"
+                  wrap="nowrap"
+                  role="region"
+                  aria-label="Selection actions"
+                  aria-hidden={!selected.length}
+                >
+                  <Text
+                    size="xs"
+                    className={classes.selectionCount}
+                    aria-live="polite"
+                  >
+                    {selected.length} selected
+                  </Text>
+                  {lockedFilters?.tracked !== 'tracked' && (
+                    <Button
+                      {...workspaceActionProps}
+                      size="xs"
+                      variant="light"
+                      leftSection={<IconBookmark size={15} />}
+                      disabled={
+                        !selected.some((item) => !item.isTracked) || mutation.isPending || updating
+                      }
+                      onClick={() => setTracked(true)}
+                    >
+                      Track
+                    </Button>
+                  )}
+                  <Button
+                    size="xs"
+                    variant="default"
+                    leftSection={<IconBookmarkOff size={15} />}
+                    disabled={
+                      !selected.some((item) => item.isTracked) || mutation.isPending || updating
+                    }
+                    onClick={() => setConfirmUntrack(true)}
+                  >
+                    Untrack
+                  </Button>
+                  <Tooltip label="Clear selection">
+                    <ActionIcon
+                      aria-label="Clear selection"
+                      variant="subtle"
+                      color="gray"
+                      disabled={!selected.length || mutation.isPending}
+                      onClick={() => setSelectedIds(new Set())}
+                    >
+                      <IconX size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              )}
+
+              <Group
+                gap="xs"
+                wrap="nowrap"
+                className={classes.viewControls}
+              >
+                {canManageTitles && pathname === '/catalog' && (
+                  <Button
+                    {...workspaceActionProps}
+                    variant="light"
+                    size="xs"
+                    leftSection={<IconSparkles size={15} />}
+                    onClick={() => setLaunching(true)}
+                  >
+                    Enrich titles
+                  </Button>
+                )}
+                <Select
+                  aria-label="Sort titles"
+                  value={filters.filters.sortBy}
+                  onChange={(value) => filters.setFilter('sortBy', value)}
+                  data={[
+                    {
+                      value: 'name',
+                      label: 'Name (A-Z)',
+                    },
+                    {
+                      value: 'rating',
+                      label: 'Rating',
+                    },
+                    {
+                      value: 'relevance',
+                      label: 'Relevance',
+                      disabled: !filters.filters.query,
+                    },
+                  ]}
+                  w={150}
+                  size="xs"
+                />
+                <Group
+                  gap={2}
+                  role="group"
+                  aria-label="Catalog layout"
+                >
+                  <Tooltip label="List">
+                    <ActionIcon
+                      aria-label="List view"
+                      aria-pressed={view === 'list'}
+                      variant={view === 'list' ? 'light' : 'subtle'}
+                      color={view === 'list' ? undefined : 'gray'}
+                      onClick={() => setView('list')}
+                    >
+                      <IconList size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Grid">
+                    <ActionIcon
+                      aria-label="Grid view"
+                      aria-pressed={view === 'grid'}
+                      variant={view === 'grid' ? 'light' : 'subtle'}
+                      color={view === 'grid' ? undefined : 'gray'}
+                      onClick={() => setView('grid')}
+                    >
+                      <IconLayoutGrid size={18} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              </Group>
+            </div>
+          </div>
+          {query.isError ? (
+            <Alert
+              color="red"
+              title="Could not load catalog"
+            >
+              <Button
+                variant="subtle"
+                onClick={() => void query.refetch()}
+              >
+                Retry
+              </Button>
+            </Alert>
+          ) : !query.isLoading &&
+            !titles.length &&
+            !hasFilters &&
+            lockedFilters?.tracked === 'tracked' ? (
+            <Stack
+              align="center"
+              py={60}
+              gap="xs"
+            >
+              <Text fw={600}>No tracked titles yet</Text>
+              <Button
+                component={Link}
+                to={browseAllHref}
+                state={state}
+                {...workspaceActionProps}
+                variant="light"
+              >
+                Browse all titles
+              </Button>
+            </Stack>
+          ) : (
+            <CatalogGrid
+              selectAll={selectAll}
+              onResetFilters={filters.clearFilters}
+              selectionDisabled={updating || mutation.isPending}
+              titles={titles}
+              view={view}
+              isLoading={query.isLoading}
+              hasMore={!updating && query.hasNextPage}
+              onLoadMore={() => void query.fetchNextPage()}
+              isLoadingMore={query.isFetchingNextPage}
+              hasFilters={hasFilters}
+              selectable={canManageTitles}
+              selectedIds={selectedIds}
+              onToggleSelected={toggle}
+              preview={size.wide && pathname === '/catalog' ? preview : undefined}
+            />
+          )}
+          {canManageTitles && (
+            <EnrichmentLauncher
+              opened={launching}
+              onClose={() => setLaunching(false)}
+              initialMode="Enrich"
+              titleIds={selected.map((item) => item.id)}
+              filters={hasFilters || lockedFilters?.tracked ? catalogParams : undefined}
+              initialScope={selected.length ? 'Selected' : 'Automatic'}
+            />
+          )}
+          <UntrackConfirmation
+            opened={confirmUntrack}
+            count={selected.filter((item) => item.isTracked).length}
+            busy={mutation.isPending}
+            error={mutation.isError ? 'Could not untrack titles. Try again.' : null}
+            onClose={() => {
+              setConfirmUntrack(false);
+              mutation.reset();
+            }}
+            onConfirm={() => setTracked(false)}
+          />
         </Stack>
-      ) : (
-        <CatalogGrid
-          selectAll={selectAll}
-          onResetFilters={filters.clearFilters}
-          selectionDisabled={updating || mutation.isPending}
-          titles={titles}
-          view={view}
-          isLoading={query.isLoading}
-          hasMore={!updating && query.hasNextPage}
-          onLoadMore={() => void query.fetchNextPage()}
-          isLoadingMore={query.isFetchingNextPage}
-          hasFilters={hasFilters}
-          selectable={canManageTitles}
-          selectedIds={selectedIds}
-          onToggleSelected={toggle}
-        />
-      )}
-      <UntrackConfirmation
-        opened={confirmUntrack}
-        count={selected.filter((item) => item.isTracked).length}
-        busy={mutation.isPending}
-        error={mutation.isError ? 'Could not untrack titles. Try again.' : null}
-        onClose={() => {
-          setConfirmUntrack(false);
-          mutation.reset();
-        }}
-        onConfirm={() => setTracked(false)}
-      />
-    </Stack>
+      </InspectorLayout>
+    </div>
   );
 }

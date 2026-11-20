@@ -1,5 +1,6 @@
 import { MantineProvider } from '@mantine/core';
 import type { Job } from '@romd/admin-api-client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -10,7 +11,7 @@ import {
 } from '../../test/fixtures/mediaReconciliationJobs';
 import { JobDetail } from './JobDetail';
 
-const { state, read, retry } = vi.hoisted(() => ({
+const { state, read, retry, refetch } = vi.hoisted(() => ({
   state: {
     manager: true,
     admin: true,
@@ -18,6 +19,7 @@ const { state, read, retry } = vi.hoisted(() => ({
   },
   read: vi.fn(),
   retry: vi.fn(),
+  refetch: vi.fn(),
 }));
 vi.mock('../../hooks/api/useJobs', () => ({
   useJob: (id: string) => {
@@ -26,7 +28,7 @@ vi.mock('../../hooks/api/useJobs', () => ({
       data: state.job,
       isError: !state.job,
       isPending: false,
-      refetch: vi.fn(),
+      refetch,
     };
   },
 }));
@@ -44,24 +46,31 @@ vi.mock('../../hooks/usePermissions', () => ({
     hasRole: (role: string) => (role === 'Admin' ? state.admin && state.manager : state.manager),
   }),
 }));
+vi.mock('../../components/Enrichment/RunPanel', () => ({
+  RunPanel: ({ job }: { job: Job }) => <section aria-label="Enrichment run">{job.id}</section>,
+}));
 // jsdom has no layout, so outside the test env Mantine hides an open menu once floating-ui reports its target as hidden.
-function show() {
+function show(entry = '/jobs/old-job') {
+  const cache = new QueryClient();
   render(
     <MantineProvider env="test">
-      <MemoryRouter
-        initialEntries={[
-          '/jobs/old-job',
-        ]}
-      >
-        <Routes>
-          <Route
-            path="/jobs/:jobId"
-            element={<JobDetail />}
-          />
-        </Routes>
-      </MemoryRouter>
+      <QueryClientProvider client={cache}>
+        <MemoryRouter
+          initialEntries={[
+            entry,
+          ]}
+        >
+          <Routes>
+            <Route
+              path="/jobs/:jobId"
+              element={<JobDetail />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
     </MantineProvider>,
   );
+  return cache;
 }
 beforeEach(() => {
   state.manager = true;
@@ -127,24 +136,62 @@ it('explains missing or inaccessible jobs', () => {
   show();
   expect(screen.getByText('Could not load job')).toBeInTheDocument();
 });
-it('opens an enrichment run in its workspace panel', () => {
-  state.job = {
-    id: 'run-1',
-    jobType: 'artwork-completion',
-    phase: 'Completed',
-    sourceFilename: 'Fill missing artwork',
-    total: 12,
-    isTerminal: true,
-    correlationId: 'run-1',
-    errors: [],
-  } as Job;
-  show();
+const artworkRun: Job = {
+  id: 'run-1',
+  jobType: 'artwork-completion',
+  phase: 'Completed',
+  sourceFilename: 'Fill missing artwork',
+  total: 12,
+  isTerminal: true,
+  correlationId: 'run-1',
+  progressPercent: 100,
+  errors: [],
+};
+
+it('shows an artwork run on its job and refreshes the summary with the canonical record', async () => {
+  state.job = artworkRun;
+  const cache = show('/jobs/run-1');
+  const invalidate = vi.spyOn(cache, 'invalidateQueries');
   expect(
-    screen.getByRole('link', {
+    screen.getByRole('region', {
+      name: 'Enrichment run',
+    }),
+  ).toHaveTextContent('run-1');
+  expect(
+    screen.queryByRole('link', {
       name: 'Open this run',
     }),
-  ).toHaveAttribute('href', '/enrichment/run-1');
-  expect(screen.queryByText('Review artwork results')).not.toBeInTheDocument();
+  ).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'Refresh',
+    }),
+  );
+  expect(refetch).toHaveBeenCalledOnce();
+  expect(invalidate).toHaveBeenCalledWith({
+    queryKey: [
+      'enrichment-workspace',
+      'run',
+      'run-1',
+    ],
+  });
+});
+
+it('preserves ordinary job details without loading the restricted artwork summary', () => {
+  state.job = artworkRun;
+  state.manager = false;
+  show('/jobs/run-1');
+  expect(read).toHaveBeenCalledWith('run-1');
+  expect(
+    screen.getByRole('heading', {
+      name: 'Execution details',
+    }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole('region', {
+      name: 'Enrichment run',
+    }),
+  ).not.toBeInTheDocument();
 });
 
 it('shows bulk selection, adopted children and honest completion counters', () => {

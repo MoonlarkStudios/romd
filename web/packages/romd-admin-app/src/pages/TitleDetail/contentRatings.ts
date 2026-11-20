@@ -35,16 +35,27 @@ export function describeDesignation(
   }
 }
 
-/** Mantine color for a rating's provenance source badge. */
-export function ratingSourceColor(sourceId: string | null | undefined): string {
-  if (sourceId?.toLowerCase() === 'user') return 'green';
-  if (sourceId?.toLowerCase() === 'igdb') return 'violet';
-  return sourceId ? 'blue' : 'gray';
+const boardRegions: Record<RatingBoard, string> = {
+  Esrb: 'North America',
+  Pegi: 'Europe',
+  Cero: 'Japan',
+  Usk: 'Germany',
+  Grac: 'South Korea',
+  ClassInd: 'Brazil',
+  Acb: 'Australia',
+};
+
+export function boardRegion(board: RatingBoard): string {
+  return boardRegions[board] ?? '—';
 }
 
-export function formatSourceLabel(sourceId: string | null | undefined): string {
-  if (!sourceId) return 'None';
-  if (sourceId.toLowerCase() === 'user') return 'User';
+export function isManualRating(sourceId: string | undefined): boolean {
+  return sourceId?.toLowerCase() === 'user';
+}
+
+export function ratingSourceLabel(sourceId: string | undefined): string {
+  if (!sourceId) return 'Manual';
+  if (isManualRating(sourceId)) return 'Manual';
   if (sourceId.toLowerCase() === 'igdb') return 'IGDB';
   return sourceId;
 }
