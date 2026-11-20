@@ -59,6 +59,8 @@ import type { TitleEditorOutcome } from './titleWorkbenchModel';
 interface MetadataPanelProps extends TitleEditorOutcome {
   initialField?: string;
   fieldRequestKey?: string;
+  initialProviderId?: string;
+  providerRequestKey?: string;
   title: TitleDetail;
   titleId: string;
 }
@@ -235,6 +237,8 @@ function MetadataForm({
   titleId,
   initialField,
   fieldRequestKey,
+  initialProviderId,
+  providerRequestKey,
   density = 'comfortable',
   onResolved,
   onDismissed,
@@ -446,6 +450,14 @@ function MetadataForm({
 
   return (
     <Stack gap="md">
+      <MetadataIdentifiers
+        titleId={titleId}
+        titleName={title.name}
+        externalIds={state?.externalIds}
+        initialProviderId={initialProviderId}
+        providerRequestKey={providerRequestKey}
+        metadataDraftPending={dirty || saving}
+      />
       <form
         aria-label="Title metadata"
         className={`${workspace.panel} ${layout.panel}`}
@@ -603,10 +615,6 @@ function MetadataForm({
           />
         )}
       </form>
-      <MetadataIdentifiers
-        titleId={titleId}
-        externalIds={state?.externalIds}
-      />
       <Modal
         opened={providerPreview}
         onClose={() => setProviderPreview(false)}

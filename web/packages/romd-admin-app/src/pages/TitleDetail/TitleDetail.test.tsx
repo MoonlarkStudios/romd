@@ -523,7 +523,7 @@ describe('TitleDetail', () => {
     ).toHaveValue(title.description);
     expect(
       screen.queryByRole('dialog', {
-        name: 'Change provider match',
+        name: 'Match IGDB',
       }),
     ).toBeNull();
   });
@@ -608,13 +608,96 @@ describe('TitleDetail', () => {
     );
   });
 
-  it('opens the match picker from the legacy match link', async () => {
+  it('focuses Identifiers and sources from the legacy match link', async () => {
     renderTitleDetail('?tab=match');
-    const picker = await screen.findByRole('dialog', {
-      name: 'Change provider match',
+    const sources = await screen.findByRole('region', {
+      name: 'Identifiers and sources',
     });
-    expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata?match=1');
-    expect(await within(picker).findByText('#12345')).toBeInTheDocument();
+    expect(locationProbe()).toHaveTextContent(
+      '/titles/title-1/metadata?match=1#identifiers-and-sources',
+    );
+    expect(sources).toHaveFocus();
+    expect(await within(sources).findByText('12345')).toBeVisible();
+  });
+
+  it('opens the requested provider from an identity review link', async () => {
+    vi.mocked(getTitleEnrichmentAssessment).mockResolvedValue({
+      data: {
+        ...assessment,
+        requirements: [
+          unsatisfied('Identity:igdb', 'NeedsReview', 'MatchDecisionRequired', [
+            'ReviewProvider',
+          ]),
+        ],
+      },
+      error: undefined,
+    } as Awaited<ReturnType<typeof getTitleEnrichmentAssessment>>);
+    renderTitleDetail('?requirement=Identity%3Aigdb&match=1', undefined, 'metadata');
+    const picker = await screen.findByRole('dialog', {
+      name: 'Match IGDB',
+    });
+    expect(
+      within(picker).getByRole('textbox', {
+        name: 'Game name',
+      }),
+    ).toHaveValue('Super Mario World');
+    expect(locationProbe()).toHaveTextContent('#identifiers-and-sources');
+  });
+
+  it('links new sources from the provider row reached from another section', async () => {
+    const user = userEvent.setup();
+    vi.mocked(listTitleProviderMatches).mockResolvedValue({
+      data: [
+        {
+          providerId: 'igdb',
+          providerName: 'IGDB',
+          isAvailable: true,
+          capabilities: [
+            'metadata',
+          ],
+          revision: 'revision',
+          state: 'NeedsMatch',
+          externalId: null,
+          game: null,
+          confidence: null,
+          lastError: null,
+          metadataNeedsRefresh: false,
+        },
+      ],
+      error: undefined,
+    } as Awaited<ReturnType<typeof listTitleProviderMatches>>);
+    renderTitleDetail('', undefined, 'releases');
+    const rail = within(
+      await screen.findByRole('complementary', {
+        name: 'Title status',
+      }),
+    );
+    await user.click(rail.getByText('Enrichment status'));
+    await user.click(
+      rail.getByRole('link', {
+        name: 'Manage sources',
+      }),
+    );
+
+    const sources = await screen.findByRole('region', {
+      name: 'Identifiers and sources',
+    });
+    expect(sources).toHaveFocus();
+    const provider = within(
+      await within(sources).findByRole('group', {
+        name: 'IGDB',
+      }),
+    );
+    await user.click(
+      provider.getByRole('button', {
+        name: 'Link source',
+      }),
+    );
+    expect(
+      await screen.findByRole('dialog', {
+        name: 'Match IGDB',
+      }),
+    ).toBeVisible();
   });
 
   it.each([
@@ -718,7 +801,7 @@ describe('TitleDetail', () => {
     renderTitleDetail('?editor=enrichment');
     expect(
       await screen.findByRole('button', {
-        name: 'Change match',
+        name: 'Enrich title',
       }),
     ).toBeInTheDocument();
     expect(locationProbe()).toHaveTextContent('/titles/title-1/metadata#title-status');
@@ -771,15 +854,16 @@ describe('TitleDetail', () => {
     expect(titleSection('Metadata')).toHaveAttribute('aria-current', 'page');
     expect(
       screen.queryByRole('dialog', {
-        name: 'Change provider match',
+        name: 'Match IGDB',
       }),
     ).toBeNull();
     expect(
-      screen.queryByRole('button', {
-        name: 'Change match',
+      screen.queryByRole('heading', {
+        name: 'External sources',
       }),
     ).toBeNull();
     expect(getTitleEnrichmentAssessment).not.toHaveBeenCalled();
+    expect(listTitleProviderMatches).not.toHaveBeenCalled();
   });
 
   it('clears a locked source and chains its accepted revision when writing the edited field alone', async () => {
@@ -927,22 +1011,29 @@ describe('TitleDetail', () => {
     );
   });
 
-  it('confirms an external ID from Change match in the status rail', async () => {
+  it('protects the metadata draft before confirming an external ID in Identifiers and sources', async () => {
     const user = userEvent.setup();
-    renderTitleDetail('?editor=enrichment');
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'Change match',
-      }),
-    );
-    const picker = await screen.findByRole('dialog', {
-      name: 'Change provider match',
+    renderTitleDetail('', undefined, 'metadata');
+    const sources = await screen.findByRole('region', {
+      name: 'Identifiers and sources',
     });
+    const confirm = await within(sources).findByRole('button', {
+      name: 'Confirm match',
+    });
+    await user.type(
+      screen.getByRole('textbox', {
+        name: 'Title name',
+      }),
+      ' edit',
+    );
+    expect(confirm).toBeDisabled();
+    expect(confirmTitleProviderMatch).not.toHaveBeenCalled();
     await user.click(
-      await within(picker).findByRole('button', {
-        name: 'Confirm match',
+      screen.getByRole('button', {
+        name: 'Discard',
       }),
     );
+    await user.click(confirm);
 
     await waitFor(() =>
       expect(confirmTitleProviderMatch).toHaveBeenCalledWith({
@@ -1077,6 +1168,7 @@ describe('TitleDetail', () => {
   });
 
   it('shows backing catalog sources and linked provider IDs in Metadata', async () => {
+    const user = userEvent.setup();
     vi.mocked(listTitleProviderMatches).mockResolvedValue({
       data: [
         {
@@ -1101,18 +1193,23 @@ describe('TitleDetail', () => {
     } as Awaited<ReturnType<typeof listTitleProviderMatches>>);
     renderTitleDetail();
 
+    const sources = await screen.findByRole('region', {
+      name: 'Identifiers and sources',
+    });
+    const metadata = screen.getByRole('form', {
+      name: 'Title metadata',
+    });
     expect(
-      await screen.findByRole('heading', {
-        name: 'Identifiers and sources',
-      }),
-    ).toBeInTheDocument();
+      sources.compareDocumentPosition(metadata) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await user.click(within(sources).getByText('Catalog sources'));
     expect(
       await screen.findByRole('link', {
         name: 'No-Intro SNES',
       }),
     ).toHaveAttribute('href', '/systems/plat-1?dat=dat-1&sourceTitle=title-1');
     expect(screen.getByText('1 entries')).toBeInTheDocument();
-    expect(screen.getByText('Unconfirmed')).toBeInTheDocument();
+    expect(within(sources).getByText('Auto-matched')).toBeInTheDocument();
     expect(
       await screen.findByRole('link', {
         name: /Open IGDB ID 12345/,

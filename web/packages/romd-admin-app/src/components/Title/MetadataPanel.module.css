@@ -22,9 +22,12 @@
 .wide { grid-column: 1 / -1; }
 
 .platform { align-self: end; }
-.identifiers { display: grid; margin: 0; gap: var(--mantine-spacing-xs); grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
-.identifiers > div { min-width: 0; display: grid; gap: var(--mantine-spacing-xs); }
-.identifiers dd { margin: 0; overflow-wrap: anywhere; }
+.sources { scroll-margin-block-start: calc(var(--app-shell-header-offset, 0px) + var(--mantine-spacing-md)); }
+.titleIdentifier { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--mantine-spacing-xs); margin: 0; min-width: 0; }
+.titleIdentifier dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.catalogSources { border-block-start: 1px solid var(--mantine-color-default-border); }
+.catalogSources summary { cursor: pointer; padding-block-start: var(--mantine-spacing-sm); font-size: var(--mantine-font-size-sm); font-weight: 600; }
+.catalogSourceList { padding-block-start: var(--mantine-spacing-sm); }
 .providerField { display: grid; gap: var(--mantine-spacing-xs); border-top: 1px solid var(--mantine-color-default-border); padding-top: var(--mantine-spacing-xs); }
 
 @container metadata-editor (max-width: 32rem) {

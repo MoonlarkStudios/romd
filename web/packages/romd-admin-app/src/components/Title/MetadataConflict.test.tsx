@@ -68,6 +68,7 @@ beforeEach(() => {
   assessmentAvailable = true;
   saves.length = 0;
   server.use(
+    http.get(`${api}/titles/t1/provider-matches`, () => HttpResponse.json([])),
     http.get(`${api}/systems/dreamcast`, () =>
       HttpResponse.json({
         name: 'Sega Dreamcast',
@@ -487,6 +488,7 @@ describe('metadata draft conflicts', () => {
 });
 
 it('shows provider IDs with their exact match links and the catalog sources for the title', async () => {
+  const user = userEvent.setup();
   server.use(
     http.get(`${api}/titles/t1/enrichment`, () =>
       HttpResponse.json({
@@ -505,6 +507,11 @@ it('shows provider IDs with their exact match links and the catalog sources for 
             externalId: '99',
             isConfirmed: false,
           },
+          {
+            provider: 'moby-games',
+            externalId: '123',
+            isConfirmed: false,
+          },
         ],
       }),
     ),
@@ -513,16 +520,24 @@ it('shows provider IDs with their exact match links and the catalog sources for 
         {
           providerId: 'igdb',
           providerName: 'IGDB',
+          isAvailable: true,
+          state: 'Confirmed',
+          externalId: '42',
           game: {
             id: '42',
+            name: 'Test Game',
             url: 'https://www.igdb.com/games/test-game',
           },
         },
         {
           providerId: 'steamgriddb',
           providerName: 'SteamGridDB',
+          isAvailable: true,
+          state: 'NeedsReview',
+          externalId: '99',
           game: {
             id: '100',
+            name: 'A different game',
             url: 'https://www.steamgriddb.com/game/100',
           },
         },
@@ -560,6 +575,7 @@ it('shows provider IDs with their exact match links and the catalog sources for 
       name: /ID 99/,
     }),
   ).not.toBeInTheDocument();
+  await user.click(screen.getByText('Catalog sources'));
   expect(
     await screen.findByRole('link', {
       name: 'Dreamcast catalog',

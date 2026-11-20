@@ -38,6 +38,13 @@ vi.mock('../../hooks/api/usePlatforms', () => ({
   }),
 }));
 
+vi.mock('../../hooks/api/useProviderMatches', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../hooks/api/useProviderMatches')>()),
+  useProviderMatches: () => ({
+    data: [],
+  }),
+}));
+
 vi.mock('../../hooks/api/useTitleActions', () => ({
   useUpdateTitleMetadata: () => ({
     mutateAsync: mocks.update,

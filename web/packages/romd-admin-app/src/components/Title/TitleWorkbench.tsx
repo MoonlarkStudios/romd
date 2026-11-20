@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Group, Modal, Skeleton, Stack, Text } from '@mantine/core';
+import { Alert, Badge, Button, Group, Skeleton, Stack, Text } from '@mantine/core';
 import {
   IconPencil,
   IconPhoto,
@@ -7,11 +7,11 @@ import {
   IconStack,
 } from '@tabler/icons-react';
 import { useState } from 'react';
-import { useLocation, useSearchParams } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
 import { useEnrichmentAssessment } from '../../hooks/api/useEnrichmentWorkspace';
 import type { TitleDetailView } from '../../hooks/api/useTitleDetail';
 import { usePermissions } from '../../hooks/usePermissions';
-import { useDiscardEpoch, useDraftGuard } from '../Administration/DraftGuard';
+import { useDiscardEpoch } from '../Administration/DraftGuard';
 import { artworkRoles } from '../artworkPresentation';
 import { EnrichmentLauncher } from '../Enrichment/EnrichmentLauncher';
 import { SectionTabs } from '../Workspace/SectionTabs';
@@ -25,7 +25,6 @@ import {
   requirementProviderId,
 } from './enrichmentPresentation';
 import { MetadataPanel } from './MetadataPanel';
-import { ProviderMatches } from './ProviderMatches';
 import { RequirementReview } from './RequirementReview';
 import { TitleStatusChips } from './TitleStatusChips';
 import classes from './TitleWorkbench.module.css';
@@ -34,6 +33,7 @@ import {
   titleSectionLabels,
   titleSectionPath,
   titleSections,
+  titleSourcesAnchor,
 } from './titleSections';
 
 const icons = {
@@ -56,9 +56,8 @@ export function TitleWorkbench({
   const { canManageTitles } = usePermissions();
   const assessment = useEnrichmentAssessment(canManageTitles ? titleId : undefined);
   const { ref, wide } = useInspectorSize(970);
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const { key, state, hash } = useLocation();
-  const { discardThen } = useDraftGuard();
   const epoch = useDiscardEpoch();
   const [launching, setLaunching] = useState(false);
   const requirement = params.get('requirement') ?? undefined;
@@ -70,16 +69,6 @@ export function TitleWorkbench({
   const showMatch = params.get('match') === '1';
   const compactRail = !wide || section !== 'metadata';
   const outstanding = assessment.data ? outstandingCount(assessment.data.requirements) : 0;
-  const setMatch = (open: boolean) => {
-    const next = new URLSearchParams(params);
-    if (open) next.set('match', '1');
-    else next.delete('match');
-    setParams(next, {
-      state,
-      replace: !open,
-      preventScrollReset: true,
-    });
-  };
 
   const status = (
     <Stack gap="sm">
@@ -112,14 +101,18 @@ export function TitleWorkbench({
         />
       )}
       <Group gap="xs">
-        <Button
-          {...workspaceActionProps}
-          size="compact-sm"
-          variant="light"
-          onClick={() => setMatch(true)}
-        >
-          Change match
-        </Button>
+        {section !== 'metadata' && (
+          <Button
+            {...workspaceActionProps}
+            component={Link}
+            to={`${titleSectionPath(titleId)}#${titleSourcesAnchor}`}
+            state={state}
+            size="compact-sm"
+            variant="light"
+          >
+            Manage sources
+          </Button>
+        )}
         <Button
           {...workspaceActionProps}
           size="compact-sm"
@@ -228,6 +221,8 @@ export function TitleWorkbench({
               titleId={titleId}
               initialField={requestedField}
               fieldRequestKey={key}
+              initialProviderId={showMatch && row ? requirementProviderId(row) : undefined}
+              providerRequestKey={showMatch ? key : undefined}
             />
           ) : section === 'artwork' ? (
             <ArtworkPanel
@@ -242,30 +237,13 @@ export function TitleWorkbench({
         </section>
       </div>
       {canManageTitles && (
-        <>
-          <Modal
-            size="xl"
-            opened={showMatch}
-            title="Change provider match"
-            onClose={() => void discardThen(() => setMatch(false))}
-          >
-            <ProviderMatches
-              key={`${titleId}:${epoch}`}
-              titleId={titleId}
-              titleName={title.name}
-              inline
-              initialProviderId={row && requirementProviderId(row)}
-              providerRequestKey={key}
-            />
-          </Modal>
-          <EnrichmentLauncher
-            opened={launching}
-            onClose={() => setLaunching(false)}
-            titleId={titleId}
-            titleName={title.name}
-            initialMode="Enrich"
-          />
-        </>
+        <EnrichmentLauncher
+          opened={launching}
+          onClose={() => setLaunching(false)}
+          titleId={titleId}
+          titleName={title.name}
+          initialMode="Enrich"
+        />
       )}
     </Stack>
   );

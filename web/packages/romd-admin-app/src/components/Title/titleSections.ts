@@ -8,6 +8,7 @@ export const titleSections = [
   'ratings',
 ] as const;
 export type TitleSection = (typeof titleSections)[number];
+export const titleSourcesAnchor = 'identifiers-and-sources';
 
 export function titleSectionPath(titleId: string, section: TitleSection = 'metadata') {
   return `/titles/${encodeURIComponent(titleId)}/${section}`;
@@ -42,16 +43,23 @@ export function titleRoute(
   const requested = legacyEditor ?? segment;
   const section = titleSections.find((item) => item === requested) ?? 'metadata';
   const isDiscs = requested === 'discs';
-  const canonical = isDiscs ? 'releases' : section;
   if (requested === 'match') params.set('match', '1');
+  const showMatch = params.get('match') === '1';
+  const canonical = showMatch ? 'metadata' : isDiscs ? 'releases' : section;
   // Legacy enrichment links now lead to the status rail.
-  const destination = isDiscs ? '#disc-sets' : requested === 'enrichment' ? '#title-status' : hash;
+  const destination = showMatch
+    ? `#${titleSourcesAnchor}`
+    : isDiscs
+      ? '#disc-sets'
+      : requested === 'enrichment'
+        ? '#title-status'
+        : hash;
   params.delete('editor');
   params.delete('tab');
   const query = params.toString();
   return {
     section: canonical,
-    replace: segment !== canonical || !!legacyEditor,
+    replace: segment !== canonical || !!legacyEditor || destination !== hash,
     to: `${titleSectionPath(titleId, canonical)}${query ? `?${query}` : ''}${destination}`,
   };
 }

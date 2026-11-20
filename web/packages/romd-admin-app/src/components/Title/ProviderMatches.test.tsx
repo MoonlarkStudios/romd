@@ -88,6 +88,24 @@ function show(density?: 'compact' | 'comfortable') {
   );
 }
 
+async function openContinueWithoutProvider(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Example provider match actions',
+    }),
+  );
+  await user.click(
+    screen.getByRole('menuitem', {
+      name: 'Continue without this provider',
+    }),
+  );
+  return within(
+    await screen.findByRole('dialog', {
+      name: 'Continue without Example provider?',
+    }),
+  );
+}
+
 it('marks the host density on its own size container and tiers row spacing in CSS', async () => {
   const { unmount } = show();
   const list = (await screen.findByText('Example provider')).closest('[data-density]');
@@ -152,7 +170,7 @@ it('requires a preview selection before confirming a match and sends its revisio
   const user = userEvent.setup();
   await user.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   expect(
@@ -229,7 +247,7 @@ it('requires a reload and renewed selection after a match conflict', async () =>
   const user = userEvent.setup();
   await user.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await user.click(
@@ -343,7 +361,7 @@ it('tells the workbench when a match is decided and when an inline picker is can
   const user = userEvent.setup();
   await user.click(
     await screen.findByRole('button', {
-      name: 'Change',
+      name: 'Change match',
     }),
   );
   expect(
@@ -411,7 +429,7 @@ it('shows persisted candidates and independent evidence without repeating provid
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Review match',
     }),
   );
   expect(screen.getByText('Two plausible editions.')).toBeInTheDocument();
@@ -547,6 +565,7 @@ it.each([
   'NeedsReview',
   'NeedsMatch',
 ])('can resolve an unlinked %s decision by continuing without that provider', async (state) => {
+  const user = userEvent.setup();
   let suppressed = false;
   const cache = new QueryClient({
     defaultOptions: {
@@ -592,27 +611,27 @@ it.each([
       </QueryClientProvider>
     </MantineProvider>,
   );
+  const confirmation = await openContinueWithoutProvider(user);
   expect(
-    await screen.findByText(
-      'You can continue without this provider. Automatic matching will stay off until you choose a match.',
+    confirmation.getByText(
+      'Automatic matching for this provider will stay off until you link a source.',
     ),
-  ).toBeInTheDocument();
-  await userEvent.click(
-    screen.getByRole('button', {
-      name: 'Continue without this provider',
+  ).toBeVisible();
+  expect(unlink).not.toHaveBeenCalled();
+  await user.click(
+    confirmation.getByRole('button', {
+      name: 'Continue without provider',
     }),
   );
-  expect(
-    await screen.findByText('Automatic matching is off. Find a match to use this provider again.'),
-  ).toBeInTheDocument();
+  expect(await screen.findByText('Automatic matching is off.')).toBeVisible();
   expect(
     screen.getByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   ).toBeEnabled();
   expect(
     screen.queryByRole('button', {
-      name: 'Continue without this provider',
+      name: 'Example provider match actions',
     }),
   ).not.toBeInTheDocument();
   expect(unlink).toHaveBeenCalledOnce();
@@ -626,6 +645,7 @@ it.each([
 });
 
 it('preserves the review decision when continuing without a provider fails', async () => {
+  const user = userEvent.setup();
   server.use(
     http.get(matches, () =>
       HttpResponse.json([
@@ -647,22 +667,16 @@ it('preserves the review decision when continuing without a provider fails', asy
     ),
   );
   show();
-  await userEvent.click(
-    await screen.findByRole('button', {
-      name: 'Continue without this provider',
-    }),
-  );
+  const confirmation = await openContinueWithoutProvider(user);
+  const continueWithout = confirmation.getByRole('button', {
+    name: 'Continue without provider',
+  });
+  await user.click(continueWithout);
   expect(
-    await screen.findByText('The match could not be updated. Reload matches and try again.'),
+    await confirmation.findByText('The match could not be updated. Reload matches and try again.'),
   ).toBeInTheDocument();
-  expect(
-    screen.getByRole('button', {
-      name: 'Continue without this provider',
-    }),
-  ).toBeEnabled();
-  expect(
-    screen.queryByText('Automatic matching is off. Find a match to use this provider again.'),
-  ).not.toBeInTheDocument();
+  expect(continueWithout).toBeEnabled();
+  expect(screen.queryByText('Automatic matching is off.')).not.toBeInTheDocument();
 });
 
 it('does not preselect an uncertain suggestion and supports keyboard selection', async () => {
@@ -700,7 +714,7 @@ it('does not preselect an uncertain suggestion and supports keyboard selection',
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Change',
+      name: 'Review match',
     }),
   );
   expect(
@@ -734,7 +748,7 @@ it('guards dismissal of a selection and preserves it when editing continues', as
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -857,7 +871,7 @@ it('opens a requested provider once and preserves its draft through background u
   );
   expect(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   ).toBeInTheDocument();
   await userEvent.click(
@@ -883,7 +897,7 @@ it('locks the selected game and dismissal until confirmation completes', async (
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -959,7 +973,7 @@ it('keeps provider settings guidance available when a requested provider is unav
   expect(await screen.findByText('Provider configuration required')).toBeInTheDocument();
   expect(
     screen.getByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   ).toBeDisabled();
   expect(
@@ -1003,7 +1017,7 @@ it('reopens a dismissed provider only for a new explicit review request', async 
   );
   expect(
     screen.getByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   ).toBeInTheDocument();
   rerender(view('first'));
@@ -1026,7 +1040,7 @@ it('reopens a dismissed provider only for a new explicit review request', async 
   );
   expect(
     screen.getByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   ).toBeInTheDocument();
 });
@@ -1229,7 +1243,7 @@ it.each([
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -1269,7 +1283,7 @@ it('does not claim that an empty provider-limited search proves there is no matc
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -1294,7 +1308,7 @@ it('describes a complete empty search as the submitted search result', async () 
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -1311,7 +1325,7 @@ it('clears suggestions and the selected game immediately when the search input c
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -1362,7 +1376,7 @@ it('aborts a pending search when its query changes and ignores its late response
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -1409,7 +1423,7 @@ it('resolves a game ID or URL through the separate safe lookup resource', async 
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -1468,7 +1482,7 @@ it('clears the previous mode results and cancels a search when switching to ID l
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -1604,7 +1618,7 @@ it('rejects a response without search completeness instead of claiming no sugges
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(
@@ -1634,7 +1648,7 @@ it('keeps an unsuccessful ID lookup distinct from a completed search', async () 
   show();
   await userEvent.click(
     await screen.findByRole('button', {
-      name: 'Find match',
+      name: 'Link source',
     }),
   );
   await userEvent.click(

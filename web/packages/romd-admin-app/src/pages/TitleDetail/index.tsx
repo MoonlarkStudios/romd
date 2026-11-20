@@ -7,6 +7,7 @@ import {
   titleRoute,
   titleSectionLabels,
   titleSectionPath,
+  titleSourcesAnchor,
 } from '../../components/Title/titleSections';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { useTitleDetail } from '../../hooks/api/useTitleDetail';
@@ -54,10 +55,16 @@ function TitlePage({
         '#disc-sets',
         '#release-files',
         '#title-status',
+        `#${titleSourcesAnchor}`,
       ].includes(hash)
     )
       return;
-    document.getElementById(hash.slice(1))?.scrollIntoView?.({
+    const target = document.getElementById(hash.slice(1));
+    if (target?.id === titleSourcesAnchor)
+      target.focus({
+        preventScroll: true,
+      });
+    target?.scrollIntoView?.({
       block: 'start',
     });
   }, [
