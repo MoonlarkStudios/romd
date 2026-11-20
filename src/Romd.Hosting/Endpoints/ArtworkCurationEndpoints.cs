@@ -343,7 +343,7 @@ public static class ArtworkCurationEndpoints
         {
             Items = page.Items.Select(candidate =>
             new ArtworkCandidate(candidate.Reference, candidate.CandidateId, candidate.ProviderAssetId, candidate.Role.ToString(),
-                candidate.Width, candidate.Height, candidate.Style, candidate.Attribution, candidate.SourcePageUrl, candidate.MediaType?.ToString(), candidate.IsSaved)).ToArray(),
+                candidate.Width, candidate.Height, candidate.Style, candidate.Attribution, candidate.SourcePageUrl, candidate.MediaType?.ToString(), candidate.IsSaved, candidate.Region)).ToArray(),
             NextCursor = page.NextCursor,
             HasNextPage = page.NextCursor is not null
         }), errors => errors.ToProblem());

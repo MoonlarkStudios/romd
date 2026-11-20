@@ -8141,7 +8141,7 @@
         "tags": [
           "Titles"
         ],
-        "description": "Upload custom media for a title. User uploads become the primary for their type.",
+        "description": "Upload custom media for a title, optionally placed on one of its canonical releases with a region and language. Images are static JPEG, PNG or WebP up to 32 MiB; a Manual is one unencrypted PDF up to 128 MiB. An upload becomes primary only when its type has none.",
         "operationId": "UploadTitleMedia",
         "parameters": [
           {
@@ -8156,6 +8156,27 @@
             "name": "type",
             "in": "query",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "releaseId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -8499,7 +8520,7 @@
         "tags": [
           "Titles"
         ],
-        "description": "Get one media asset of a title",
+        "description": "Get one media asset of a title. A manual's PDF is its alternate representation: request it with Accept: application/pdf.",
         "operationId": "GetTitleMedia",
         "parameters": [
           {
@@ -8535,6 +8556,12 @@
                 "schema": {
                   "$ref": "#/components/schemas/TitleMediaRef"
                 }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
               }
             }
           },
@@ -8564,7 +8591,7 @@
         "tags": [
           "Titles"
         ],
-        "description": "Make a media item the primary for its type with { \"isPrimary\": true }",
+        "description": "Make a media item the primary for its type with { \"isPrimary\": true }, or replace its classification (type, release, region, language and packaging preference) with { \"classification\": { ... } }",
         "operationId": "UpdateTitleMedia",
         "parameters": [
           {
@@ -17905,6 +17932,12 @@
           "isSaved": {
             "type": "boolean",
             "default": false
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -23477,6 +23510,14 @@
           "Video",
           "Box3d",
           "TitleScreen",
+          "BoxFront",
+          "BoxBack",
+          "BoxSpine",
+          "BoxFull",
+          "CartridgeFront",
+          "CartridgeBack",
+          "DiscLabel",
+          "Manual",
           null
         ]
       },
@@ -28095,13 +28136,46 @@
           }
         }
       },
+      "TitleMediaClassification": {
+        "required": [
+          "type"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "catalogReleaseId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isPreferred": {
+            "type": "boolean"
+          }
+        }
+      },
       "TitleMediaRef": {
         "required": [
           "id",
           "type",
           "url",
           "sourceId",
-          "isPrimary"
+          "isPrimary",
+          "contentType"
         ],
         "type": "object",
         "properties": {
@@ -28131,6 +28205,36 @@
           },
           "isPrimary": {
             "type": "boolean"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "catalogReleaseId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "region": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "language": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isPreferred": {
+            "type": "boolean"
+          },
+          "providerAssetId": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "file": {
             "oneOf": [
@@ -28728,13 +28832,23 @@
         }
       },
       "UpdateTitleMediaRequest": {
-        "required": [
-          "isPrimary"
-        ],
         "type": "object",
         "properties": {
           "isPrimary": {
-            "type": "boolean"
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "classification": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TitleMediaClassification"
+              }
+            ]
           }
         }
       },

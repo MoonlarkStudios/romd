@@ -59,17 +59,7 @@ public static class TitleDetailMapper
             FieldProvenance = provenance,
             Media = new Page<TitleMediaRef>
             {
-                Items = data.Media.OrderBy(m => m.Id).Take(50).Select(m => new TitleMediaRef
-                {
-                    Id = IdCoder.Encode(m.Id),
-                    Type = m.Type,
-                    Url = $"/media/{IdCoder.Encode(m.Id)}",
-                    SourceId = m.SourceId,
-                    Attribution = m.Attribution,
-                    SourcePageUrl = m.SourcePageUrl,
-                    IsPrimary = m.IsPrimary,
-                    File = StoredFileRefMapping.ToStoredFileRef(m.SizeBytes, m.SizeOnDiskBytes, m.IsCompressed)
-                }).ToArray(),
+                Items = data.Media.OrderBy(m => m.Id).Take(50).Select(TitleMediaMapping.ToRef).ToArray(),
                 HasNextPage = data.MediaHasNextPage || data.Media.Count > 50,
                 NextCursor = data.MediaNextCursor ?? (data.Media.Count > 50 ? KeysetCursor.Encode(new IntegerPosition(data.Media.OrderBy(m => m.Id).ElementAt(49).Id), KeysetCursor.Fingerprint("admin.title.media", data.Id, "id:asc")) : null)
             },

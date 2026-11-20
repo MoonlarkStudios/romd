@@ -61,6 +61,12 @@ public sealed record TitleMediaData
     public string? Attribution { get; init; }
     public string? SourcePageUrl { get; init; }
     public required bool IsPrimary { get; init; }
+    public string ContentType { get; init; } = "image/jpeg";
+    public int? CatalogReleaseId { get; init; }
+    public string? Region { get; init; }
+    public string? Language { get; init; }
+    public bool IsPreferred { get; init; }
+    public string? ProviderAssetId { get; init; }
 
     /// <summary>Logical size in bytes of the stored media file (from CAS); null if missing.</summary>
     public long? SizeBytes { get; init; }

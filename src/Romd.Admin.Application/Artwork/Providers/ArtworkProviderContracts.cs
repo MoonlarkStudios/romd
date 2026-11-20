@@ -34,7 +34,8 @@ public sealed record ProviderArtworkGame(string Id, string Name, int? Year = nul
 public sealed record ProviderArtworkQuery(ArtworkRole Role, string? Dimension = null, string? Style = null, MediaType? MediaType = null);
 /// <summary>Internal adapter result. Public APIs must replace remote locations with controlled preview references.</summary>
 public sealed record ProviderArtworkCandidate(string ProviderGameId, string ProviderAssetId, ArtworkRole Role,
-    int Width, int Height, string? Style, Uri PreviewUrl, Uri AssetUrl, string? Attribution, string SourcePageUrl, MediaType? MediaType = null);
+    int Width, int Height, string? Style, Uri PreviewUrl, Uri AssetUrl, string? Attribution, string SourcePageUrl, MediaType? MediaType = null,
+    string? Region = null);
 /// <summary>Provider-specific page number stays internal; public browsing uses signed opaque cursors.</summary>
 public sealed record ProviderArtworkPage(IReadOnlyList<ProviderArtworkCandidate> Items, int? NextPage);
 public sealed record DownloadedArtworkAsset(byte[] Bytes, string? ContentType, string? Attribution, string? SourcePageUrl);

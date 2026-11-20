@@ -10,5 +10,5 @@ public interface ITitleMediaFileReader
     Task<TitleMediaFile?> FindAsync(int mediaId, CancellationToken ct);
 }
 
-/// <summary>The stored file and declared content type of one legacy title media row.</summary>
-public sealed record TitleMediaFile(int FileId, string ContentType);
+/// <summary>The stored file, declared content type, owning title and type of one title media row.</summary>
+public sealed record TitleMediaFile(int FileId, string ContentType, int TitleId = 0, string Type = "Cover");

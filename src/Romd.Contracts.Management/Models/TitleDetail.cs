@@ -222,6 +222,24 @@ public sealed record TitleMediaRef
     /// </summary>
     public required bool IsPrimary { get; init; }
 
+    /// <summary>The stored MIME type. Manuals are <c>application/pdf</c> and are opened as documents, not images.</summary>
+    public required string ContentType { get; init; }
+
+    /// <summary>The canonical catalog release this item belongs to (a <see cref="TitleRelease.CatalogReleaseId" />), or null at title level.</summary>
+    public string? CatalogReleaseId { get; init; }
+
+    /// <summary>The region printed on the item, when known.</summary>
+    public string? Region { get; init; }
+
+    /// <summary>The item's language, when known.</summary>
+    public string? Language { get; init; }
+
+    /// <summary>Whether this packaging scan is the one shown for its type and release; alternatives stay in the library.</summary>
+    public bool IsPreferred { get; init; }
+
+    /// <summary>The provider's identifier for a collected asset, when it came from a provider.</summary>
+    public string? ProviderAssetId { get; init; }
+
     /// <summary>
     ///     The stored media blob in CAS (its sizes and compression). Null when the file is missing.
     /// </summary>

@@ -26,6 +26,11 @@ public sealed class TitleReadRepository(RomdDbContext context)
         context.Titles.Where(title => title.Id == titleId).Select(title => (Guid?)title.Revision)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public Task<bool> HasCatalogReleaseAsync(int titleId, int catalogReleaseId,
+        CancellationToken cancellationToken = default) =>
+        context.CatalogReleases.AnyAsync(release => release.Id == catalogReleaseId && release.CatalogTitleId == titleId,
+            cancellationToken);
+
     public async Task<PagedList<TitleSummary>> ListByPlatformAsync(
         PlatformTitlePageRequest request,
         CancellationToken cancellationToken = default)
@@ -123,7 +128,13 @@ public sealed class TitleReadRepository(RomdDbContext context)
                 media.SourceUrl,
                 media.Attribution,
                 media.SourcePageUrl,
-                media.IsPrimary
+                media.IsPrimary,
+                media.ContentType,
+                media.CatalogReleaseId,
+                media.Region,
+                media.Language,
+                media.IsPreferred,
+                media.ProviderAssetId
             })
             .ToListAsync(cancellationToken);
 
@@ -135,7 +146,10 @@ public sealed class TitleReadRepository(RomdDbContext context)
                 row.SourceUrl,
                 row.Attribution,
                 row.SourcePageUrl,
-                row.IsPrimary))
+                row.IsPrimary,
+                row.ContentType,
+                new MediaPlacement(row.CatalogReleaseId, row.Region, row.Language, row.IsPreferred),
+                row.ProviderAssetId))
             .ToList();
     }
 

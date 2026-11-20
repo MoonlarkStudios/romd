@@ -1061,7 +1061,7 @@ export const listTitleMedia = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
- * Upload custom media for a title. User uploads become the primary for their type.
+ * Upload custom media for a title, optionally placed on one of its canonical releases with a region and language. Images are static JPEG, PNG or WebP up to 32 MiB; a Manual is one unencrypted PDF up to 128 MiB. An upload becomes primary only when its type has none.
  */
 export const uploadTitleMedia = <ThrowOnError extends boolean = false>(options: Options<UploadTitleMediaData, ThrowOnError>) => (options.client ?? client).post<UploadTitleMediaResponses, UploadTitleMediaErrors, ThrowOnError>({
     ...formDataBodySerializer,
@@ -1099,7 +1099,7 @@ export const deleteTitleMedia = <ThrowOnError extends boolean = false>(options: 
 });
 
 /**
- * Get one media asset of a title
+ * Get one media asset of a title. A manual's PDF is its alternate representation: request it with Accept: application/pdf.
  */
 export const getTitleMedia = <ThrowOnError extends boolean = false>(options: Options<GetTitleMediaData, ThrowOnError>) => (options.client ?? client).get<GetTitleMediaResponses, GetTitleMediaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
@@ -1108,7 +1108,7 @@ export const getTitleMedia = <ThrowOnError extends boolean = false>(options: Opt
 });
 
 /**
- * Make a media item the primary for its type with { "isPrimary": true }
+ * Make a media item the primary for its type with { "isPrimary": true }, or replace its classification (type, release, region, language and packaging preference) with { "classification": { ... } }
  */
 export const updateTitleMedia = <ThrowOnError extends boolean = false>(options: Options<UpdateTitleMediaData, ThrowOnError>) => (options.client ?? client).patch<UpdateTitleMediaResponses, UpdateTitleMediaErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

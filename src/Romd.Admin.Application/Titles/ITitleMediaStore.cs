@@ -38,6 +38,13 @@ public interface ITitleMediaStore
     ///     fields are untouched. The snapshot must no longer contain <paramref name="mediaId" />.
     /// </summary>
     Task RemoveMediaStagedAsync(Title title, int mediaId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    ///     Verifies and locks the snapshot revision, then stages every media row's type, placement and display flags
+    ///     from the snapshot (after <see cref="Title.ReclassifyMedia" />), rotating the title revision. A row the
+    ///     snapshot no longer matches is a stale-title conflict. The caller owns the flush and commit.
+    /// </summary>
+    Task ReclassifyMediaStagedAsync(Title title, CancellationToken cancellationToken = default);
 }
 
 /// <summary>The title's revision after a media append, and whether it added a row rather than finding its repeat.</summary>

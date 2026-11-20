@@ -173,6 +173,12 @@ public sealed partial class TitleDetailReader : ITitleDetailReader
                     Attribution = m.Attribution,
                     SourcePageUrl = m.SourcePageUrl,
                     IsPrimary = m.IsPrimary,
+                    ContentType = m.ContentType,
+                    CatalogReleaseId = m.CatalogReleaseId,
+                    Region = m.Region,
+                    Language = m.Language,
+                    IsPreferred = m.IsPreferred,
+                    ProviderAssetId = m.ProviderAssetId,
                     SizeBytes = mediaFilesByFileId.TryGetValue(m.FileId, out var mf) ? mf.Size : null,
                     SizeOnDiskBytes = mediaFilesByFileId.TryGetValue(m.FileId, out var mf2) ? mf2.SizeOnDisk : null,
                     IsCompressed = mediaFilesByFileId.TryGetValue(m.FileId, out var mf3) ? mf3.IsCompressed : null

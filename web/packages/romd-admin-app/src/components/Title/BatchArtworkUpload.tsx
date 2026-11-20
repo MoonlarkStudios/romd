@@ -15,22 +15,11 @@ import { IconTrash, IconUpload } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
 import { useUploadTitleMedia } from '../../hooks/api/useTitleActions';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
+import { isDocumentType, mediaTypeLabel, uploadableMediaTypes } from '../mediaTypes';
 import classes from './ArtworkWorkspace.module.css';
 
-export const imageTypes = [
-  'Cover',
-  'Screenshot',
-  'Background',
-  'Banner',
-  'Logo',
-  'Box3d',
-  'TitleScreen',
-];
-export const typeLabel = (type: string) =>
-  ({
-    Box3d: '3D box',
-    TitleScreen: 'Title screen',
-  })[type] ?? type;
+export const imageTypes = uploadableMediaTypes.filter((type) => !isDocumentType(type));
+export const typeLabel = mediaTypeLabel;
 type UploadItem = {
   id: number;
   file: File;

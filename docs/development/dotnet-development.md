@@ -169,8 +169,10 @@ preserving PS1 observations and constraints. The additive
 claims for dispatch recovery. The additive
 `20261118000000_SystemHardwareMetadata` migration adds optional hardware facts for
 installation-owned systems. The additive `20261118194850_SignInMessage`
-migration seeds an empty server-wide web sign-in message. Current readiness is
-version 77.
+migration seeds an empty server-wide web sign-in message. The additive
+`20261120162632_MediaCollection` migration adds release placement, region,
+language, packaging preference and provider asset identity to title media; existing
+rows stay title-level. Current readiness is version 78.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

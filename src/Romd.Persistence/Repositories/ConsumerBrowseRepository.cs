@@ -1,3 +1,4 @@
+using Romd.Domain.Catalog;
 using Romd.Application.Common.Systems;
 using Microsoft.EntityFrameworkCore;
 using Romd.Application.Common.Pagination;
@@ -122,7 +123,8 @@ public sealed partial class ConsumerBrowseRepository(
 
         var media = await context.TitleMedia
             .AsNoTracking()
-            .Where(candidate => OwnedMaterializedLibraryTitles(libraryId).Any(item =>
+            .Where(candidate => MediaTypes.ConsumerVisibleNames.Contains(candidate.Type) &&
+                OwnedMaterializedLibraryTitles(libraryId).Any(item =>
                 item.PlatformId == platformId &&
                 item.TitleId == candidate.TitleId))
             .OrderByDescending(candidate => candidate.IsPrimary)

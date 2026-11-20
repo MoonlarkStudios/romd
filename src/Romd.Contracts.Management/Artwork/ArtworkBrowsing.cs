@@ -12,7 +12,8 @@ public sealed record ArtworkRoleCapability(string Role, IReadOnlyList<string> Di
 ///     <see cref="CandidateId" /> is the candidate's stable identity in routes.
 /// </summary>
 public sealed record ArtworkCandidate(string Reference, string CandidateId, string ProviderAssetId, string Role,
-    int Width, int Height, string? Style, string? Attribution, string SourcePageUrl, string? MediaType = null, bool IsSaved = false);
+    int Width, int Height, string? Style, string? Attribution, string SourcePageUrl, string? MediaType = null, bool IsSaved = false,
+    string? Region = null);
 public sealed record PreviewArtworkRequest([property: JsonRequired] string CandidateReference);
 
 /// <summary>Imports a candidate into the role named by the route; the role's validator travels in <c>If-Match</c>.</summary>

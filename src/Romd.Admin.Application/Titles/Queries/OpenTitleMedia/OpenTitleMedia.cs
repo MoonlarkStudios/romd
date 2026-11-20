@@ -2,14 +2,17 @@ using ErrorOr;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Cqrs;
+using Romd.Domain.Catalog;
 
 namespace Romd.Admin.Application.Titles.Queries.OpenTitleMedia;
 
 /// <summary>
-///     Opens the stored bytes of one legacy title media row by its internal ID. This serves the
-///     unversioned <c>/media/{mediaId}</c> lane only; versioned artwork has its own delivery port.
+///     Opens the stored bytes of one title media row by its internal ID. Without <see cref="DocumentOfTitleId" /> it
+///     serves the anonymous image lane, <c>/media/{mediaId}</c>, which never serves documents. With it, it serves only
+///     a document of that title, for the authenticated document representation. Versioned artwork has its own
+///     delivery port.
 /// </summary>
-public sealed record OpenTitleMediaQuery(int MediaId) : IQuery<TitleMediaContent>;
+public sealed record OpenTitleMediaQuery(int MediaId, int? DocumentOfTitleId = null) : IQuery<TitleMediaContent>;
 
 /// <summary>
 ///     Handler for <see cref="OpenTitleMediaQuery" />. A missing row and a row whose bytes are
@@ -32,7 +35,10 @@ public sealed class OpenTitleMediaQueryHandler : IQueryHandler<OpenTitleMediaQue
         CancellationToken ct = default)
     {
         var media = await _media.FindAsync(query.MediaId, ct);
-        if (media is null)
+        var isDocument = media is not null && Enum.TryParse<MediaType>(media.Type, out var type) &&
+                         MediaTypes.IsDocument(type);
+        if (media is null || isDocument != query.DocumentOfTitleId.HasValue ||
+            (query.DocumentOfTitleId is { } titleId && media.TitleId != titleId))
         {
             return CatalogErrors.MediaNotFound();
         }

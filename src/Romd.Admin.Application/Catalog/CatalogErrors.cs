@@ -1,3 +1,4 @@
+using Romd.Application.Common.Validation;
 using ErrorOr;
 using Romd.Domain.Catalog.Ratings;
 using Romd.Domain.Hashing;
@@ -77,6 +78,28 @@ public static class CatalogErrors
 
     public static Error MediaNotFound() =>
         Error.NotFound("Catalog.MediaNotFound", "Media not found");
+
+    /// <summary>A release a media write names is not one of the title's canonical releases.</summary>
+    public static Error MediaReleaseNotFound() =>
+        FieldErrors.Validation("Catalog.MediaReleaseNotFound", "The release is not one of this title's catalog releases.", "catalogReleaseId");
+
+    public static Error InvalidMediaPlacement() =>
+        Error.Validation("Catalog.InvalidMediaPlacement",
+            $"Region and language are optional plain text of at most {Domain.Catalog.MediaPlacement.MaxTextLength} characters.");
+
+    public static Error MediaPreferenceNotSupported() =>
+        FieldErrors.Validation("Catalog.MediaPreferenceNotSupported", "Only packaging scans can be preferred for their release.", "isPreferred");
+
+    /// <summary>Enrichment-owned media keeps its provider type; images and documents never exchange types.</summary>
+    public static Error MediaTypeLocked() =>
+        Error.Conflict("Catalog.MediaTypeLocked",
+            "This media's type cannot change. Provider enrichment keeps its type, and images and manuals are not interchangeable.");
+
+    public static Error InvalidMediaContent() =>
+        FieldErrors.Validation("Catalog.InvalidMediaContent", "Upload a complete static JPEG, PNG or WebP image.", "file");
+
+    public static Error InvalidManual() =>
+        FieldErrors.Validation("Catalog.InvalidManual", "Manuals must be complete, unencrypted PDF documents of at most 128 MiB.", "file");
 
     public static Error MediaContentNotFound() =>
         Error.NotFound("Catalog.MediaContentNotFound", "Stored content for the media not found");

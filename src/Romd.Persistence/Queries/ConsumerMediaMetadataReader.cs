@@ -1,3 +1,4 @@
+using Romd.Domain.Catalog;
 using Microsoft.EntityFrameworkCore;
 using Romd.Consumer.Application.Delivery;
 using Romd.Persistence.Entities;
@@ -10,7 +11,7 @@ public sealed class ConsumerMediaMetadataReader(RomdDbContext context) : IConsum
     {
         var media = await context.TitleMedia
             .AsNoTracking()
-            .Where(candidate => candidate.Id == mediaId)
+            .Where(candidate => candidate.Id == mediaId && MediaTypes.ConsumerVisibleNames.Contains(candidate.Type))
             .Join(
                 context.Set<FileEntityPersistence>(),
                 media => media.FileId,
