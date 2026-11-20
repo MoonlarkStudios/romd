@@ -2,7 +2,7 @@ import { Alert, Badge, Button, Group, Skeleton, Stack, Text, Title } from '@mant
 import type { DatCatalogSubscription, ManagedSystem, SystemResource } from '@romd/admin-api-client';
 import type { MouseEventHandler } from 'react';
 import { Link } from 'react-router';
-import workspace from '../../components/Workspace/Workspace.module.css';
+import { InspectorPanel } from '../../components/Workspace/InspectorPanel';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useDatsByPlatform } from '../../hooks/api/useDats';
 import { usePlatform } from '../../hooks/api/usePlatforms';
@@ -138,6 +138,8 @@ export function SystemInspector({
   canSetUp,
   returnPath,
   onOpen,
+  onClose,
+  navigation,
 }: {
   system: ManagedSystem;
   icon?: SystemResource['icon'];
@@ -147,6 +149,11 @@ export function SystemInspector({
   canSetUp: boolean;
   returnPath: string;
   onOpen: MouseEventHandler<HTMLAnchorElement>;
+  onClose: () => void;
+  navigation: {
+    onPrevious?: () => void;
+    onNext?: () => void;
+  };
 }) {
   const systemPath = `/systems/${system.key}`;
   const platform = usePlatform(system.key);
@@ -172,45 +179,30 @@ export function SystemInspector({
   const hasAction = next.length === 1 || needsCatalog || attention;
 
   return (
-    <aside
-      className={`${workspace.panel} ${classes.inspector}`}
+    <InspectorPanel
       id={systemInspectorId}
-      aria-labelledby="systems-inspector-name"
+      title={system.name}
+      leading={
+        <SystemLogo
+          icon={icon}
+          size="lg"
+        />
+      }
+      onClose={onClose}
+      navigation={navigation}
     >
       <Stack gap="md">
-        <Group
-          gap="sm"
-          wrap="nowrap"
-          align="flex-start"
+        <Text
+          size="xs"
+          c="dimmed"
         >
-          <SystemLogo
-            icon={icon}
-            size="lg"
-          />
-          <Stack
-            gap={3}
-            className={classes.inspectorIdentity}
-          >
-            <Title
-              id="systems-inspector-name"
-              order={2}
-              className={workspace.sectionHeading}
-            >
-              {system.name}
-            </Title>
-            <Text
-              size="xs"
-              c="dimmed"
-            >
-              {[
-                system.manufacturer,
-                system.shortName,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </Text>
-          </Stack>
-        </Group>
+          {[
+            system.manufacturer,
+            system.shortName,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </Text>
         {platform.data?.description && (
           <Text
             size="sm"
@@ -333,6 +325,6 @@ export function SystemInspector({
           </Button>
         </Group>
       </Stack>
-    </aside>
+    </InspectorPanel>
   );
 }

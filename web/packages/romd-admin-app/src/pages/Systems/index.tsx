@@ -10,11 +10,16 @@ import {
   Title,
   UnstyledButton,
 } from '@mantine/core';
-import { useDebouncedValue, useElementSize } from '@mantine/hooks';
+import { useDebouncedValue } from '@mantine/hooks';
 import { IconPlus, IconSearch, IconUpload } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type MouseEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { InspectorLayout } from '../../components/Workspace/InspectorLayout';
+import {
+  useInspectorSelection,
+  useInspectorSize,
+} from '../../components/Workspace/useInspectorSelection';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { datKeys } from '../../hooks/api/useDats';
@@ -40,18 +45,14 @@ import {
   systemUpdateLabels,
 } from './systemsListStatus';
 
-// Measure the workspace after the navigation rail and its gutters.
-const inspectorMinWidth = 880;
-
 export function Systems() {
-  const { ref, width } = useElementSize<HTMLDivElement>();
+  const { ref, wide: showInspector, measured } = useInspectorSize();
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
   const search = params.get('q') ?? '';
   const [searched] = useDebouncedValue(search.trim(), 180);
   const attentionOnly = params.get('attention') === '1';
-  const selectedKey = params.get('system');
   const systems = useManagedSystems();
   const matches = useManagedSystems(searched, {
     enabled: !!searched,
@@ -90,17 +91,20 @@ export function Systems() {
       : subscriptions.isPending
         ? 'pending'
         : 'available';
-  const showInspector = width >= inspectorMinWidth;
-  const inlineCatalog = width > 0 && width < 520;
-  const showImportDate = width >= 1100;
-  const selected = showInspector
-    ? (rows.find(({ system }) => system.key === selectedKey) ?? rows[0])
-    : undefined;
+  const inspection = useInspectorSelection({
+    param: 'system',
+    panelId: systemInspectorId,
+    ids: rows.map(({ system }) => system.key),
+    wide: showInspector && !searching && !searchFailed,
+    defaultFirst: true,
+  });
+  const selected = rows.find(({ system }) => system.key === inspection.selectedId);
+  const selectedIndex = selected ? rows.indexOf(selected) : -1;
   const returnPath = `${location.pathname}${location.search}`;
   const returnState = {
     systemsReturn: returnPath,
   };
-  const listLoaded = !!systems.data && width > 0 && !searching && !searchFailed;
+  const listLoaded = !!systems.data && measured && !searching && !searchFailed;
 
   useLayoutEffect(() => {
     if (listLoaded) restoreSystemsListScroll(returnPath);
@@ -133,7 +137,7 @@ export function Systems() {
     subscriptions.isSuccess,
   ]);
 
-  const changeFilter = (name: 'q' | 'attention' | 'system', value: string) => {
+  const changeFilter = (name: 'q' | 'attention', value: string) => {
     setParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -234,9 +238,29 @@ export function Systems() {
               )}
             </Stack>
           ) : (
-            <div
-              className={classes.layout}
-              data-layout={selected && !searching && !searchFailed ? 'split' : 'compact'}
+            <InspectorLayout
+              wide={showInspector}
+              inspector={
+                selected && (
+                  <SystemInspector
+                    key={selected.system.key}
+                    system={selected.system}
+                    icon={icons.get(selected.system.key)}
+                    status={selected.status}
+                    subscriptions={bySystem.get(selected.system.key) ?? []}
+                    subscriptionState={subscriptionState}
+                    canSetUp={canSetUp}
+                    returnPath={returnPath}
+                    onOpen={rememberPosition}
+                    onClose={inspection.close}
+                    navigation={{
+                      onPrevious: selectedIndex > 0 ? () => inspection.move(-1) : undefined,
+                      onNext:
+                        selectedIndex < rows.length - 1 ? () => inspection.move(1) : undefined,
+                    }}
+                  />
+                )
+              }
             >
               <Stack
                 gap="sm"
@@ -323,9 +347,8 @@ export function Systems() {
                 ) : (
                   <table
                     className={classes.table}
-                    data-catalog={inlineCatalog ? 'inline' : 'column'}
                     data-row-action={showInspector ? 'preview' : 'open'}
-                    data-import-date={showImportDate || undefined}
+                    onKeyDown={inspection.onListKeyDown}
                     aria-label="Systems"
                   >
                     <thead>
@@ -336,38 +359,30 @@ export function Systems() {
                         >
                           System
                         </th>
-                        {!inlineCatalog && (
-                          <>
-                            <th
-                              scope="col"
-                              className={classes.titleCountColumn}
-                            >
-                              Known titles
-                            </th>
-                            <th
-                              scope="col"
-                              className={classes.datCountColumn}
-                            >
-                              DATs
-                            </th>
-                          </>
-                        )}
-                        {showImportDate && (
-                          <th
-                            scope="col"
-                            className={classes.importDateColumn}
-                          >
-                            Last DAT import
-                          </th>
-                        )}
-                        {!inlineCatalog && (
-                          <th
-                            scope="col"
-                            className={classes.catalogColumn}
-                          >
-                            Catalog
-                          </th>
-                        )}
+                        <th
+                          scope="col"
+                          className={classes.titleCountColumn}
+                        >
+                          Known titles
+                        </th>
+                        <th
+                          scope="col"
+                          className={classes.datCountColumn}
+                        >
+                          DATs
+                        </th>
+                        <th
+                          scope="col"
+                          className={classes.importDateColumn}
+                        >
+                          Last DAT import
+                        </th>
+                        <th
+                          scope="col"
+                          className={classes.catalogColumn}
+                        >
+                          Catalog
+                        </th>
                         <th
                           scope="col"
                           className={classes.updatesColumn}
@@ -392,7 +407,7 @@ export function Systems() {
                         return (
                           <tr
                             key={system.key}
-                            data-selected={isSelected || undefined}
+                            {...inspection.rowProps(system.key)}
                           >
                             <td>
                               <div className={classes.systemCell}>
@@ -416,9 +431,13 @@ export function Systems() {
                                     size="xs"
                                     c="dimmed"
                                   >
-                                    {inlineCatalog
-                                      ? `${(system.knownTitles ?? 0).toLocaleString()} known titles · ${datCountLabel(system.catalogCount)}`
-                                      : system.shortName !== system.name && system.shortName}
+                                    <span className={classes.inlineCatalog}>
+                                      {(system.knownTitles ?? 0).toLocaleString()} known titles ·{' '}
+                                      {datCountLabel(system.catalogCount)}
+                                    </span>
+                                    <span className={classes.shortName}>
+                                      {system.shortName !== system.name && system.shortName}
+                                    </span>
                                   </Text>
                                 </div>
                                 {showInspector && (
@@ -427,32 +446,27 @@ export function Systems() {
                                     aria-label={`Preview ${system.name} in sidebar`}
                                     aria-pressed={isSelected}
                                     aria-controls={systemInspectorId}
-                                    onClick={() => changeFilter('system', system.key)}
+                                    data-inspector-trigger
+                                    onClick={(event) =>
+                                      inspection.select(system.key, event.currentTarget)
+                                    }
                                   >
                                     <span className={classes.previewLabel}>Preview</span>
                                   </UnstyledButton>
                                 )}
                               </div>
-                              {inlineCatalog && (
-                                <div className={classes.inlineCatalog}>{availability}</div>
-                              )}
+                              <div className={classes.inlineCatalog}>{availability}</div>
                             </td>
-                            {!inlineCatalog && (
-                              <>
-                                <td className={classes.numberCell}>
-                                  {(system.knownTitles ?? 0).toLocaleString()}
-                                </td>
-                                <td className={classes.numberCell}>
-                                  {system.catalogCount.toLocaleString()}
-                                </td>
-                              </>
-                            )}
-                            {showImportDate && (
-                              <td className={classes.importDateCell}>
-                                <DatImportDate value={system.lastDatImportedAt} />
-                              </td>
-                            )}
-                            {!inlineCatalog && <td>{availability}</td>}
+                            <td className={`${classes.numberCell} ${classes.titleCountColumn}`}>
+                              {(system.knownTitles ?? 0).toLocaleString()}
+                            </td>
+                            <td className={`${classes.numberCell} ${classes.datCountColumn}`}>
+                              {system.catalogCount.toLocaleString()}
+                            </td>
+                            <td className={`${classes.importDateCell} ${classes.importDateColumn}`}>
+                              <DatImportDate value={system.lastDatImportedAt} />
+                            </td>
+                            <td className={classes.catalogColumn}>{availability}</td>
                             <td>
                               {systemUpdateLabels(system, status, subscriptionState).map(
                                 ({ label, color }) => (
@@ -473,20 +487,7 @@ export function Systems() {
                   </table>
                 )}
               </Stack>
-              {selected && !searching && !searchFailed && (
-                <SystemInspector
-                  key={selected.system.key}
-                  system={selected.system}
-                  icon={icons.get(selected.system.key)}
-                  status={selected.status}
-                  subscriptions={bySystem.get(selected.system.key) ?? []}
-                  subscriptionState={subscriptionState}
-                  canSetUp={canSetUp}
-                  returnPath={returnPath}
-                  onOpen={rememberPosition}
-                />
-              )}
-            </div>
+            </InspectorLayout>
           )}
           {setup && (
             <AddSystemFlow

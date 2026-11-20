@@ -127,6 +127,10 @@ function statusCssVariables(colors: string[], foreground: string, surface: strin
 export const adminCssVariablesResolver: CSSVariablesResolver = (theme) => {
   const primary = `--mantine-color-${theme.primaryColor}`;
   const resolved = resolvePortalColors(theme, {
+    '--romd-text-strong': 'var(--romd-portal-text)',
+    '--romd-text-body': 'var(--romd-portal-text)',
+    '--romd-text-muted': 'var(--romd-portal-muted)',
+    '--romd-text-faint': 'var(--romd-portal-muted)',
     '--mantine-color-default-color': 'var(--romd-portal-text)',
     ...actionCssVariables(...portalAccent, [
       theme.primaryColor,
