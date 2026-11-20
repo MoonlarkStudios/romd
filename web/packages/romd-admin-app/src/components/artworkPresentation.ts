@@ -42,13 +42,17 @@ export function isArtworkRole(value: string): value is ArtworkRole {
 
 export { isMediaType } from './mediaTypes';
 
+/**
+ * Where an image came from, as the curator should judge it. SteamGridDB images are fan-made custom art rather than
+ * publisher material, so the label says so wherever the source appears.
+ */
 export function artworkSourceLabel(source: string): string {
   const id = source.replace(/^gallery:/, '');
   return (
     {
       user: 'Your uploads',
       igdb: 'IGDB',
-      steamgriddb: 'SteamGridDB',
+      steamgriddb: 'SteamGridDB community art',
     }[id] ?? id
   );
 }

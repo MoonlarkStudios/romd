@@ -61,6 +61,38 @@ public class IgdbMetadataProviderTests
     }
 
     [Fact]
+    public async Task BrowseArtworkAsync_Poster_AddsRegionalCoversAfterTheMainCoverWithTheirRegion()
+    {
+        string? query = null;
+        var provider = CreateProvider(request =>
+        {
+            if (request.RequestUri!.Host == "id.twitch.tv")
+                return CreateTokenResponse();
+            query = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""
+                    [{"id":42,"slug":"test-game","cover":{"image_id":"cover1","width":600,"height":900},
+                    "game_localizations":[
+                    {"cover":{"image_id":"cover_jp","width":600,"height":850},"region":{"name":"Japan"}},
+                    {"cover":{"image_id":"cover1","width":600,"height":900},"region":{"name":"North America"}},
+                    {"cover":{"image_id":"cover_eu","width":600,"height":860},"region":{"name":"bad\nregion"}},
+                    {"region":{"name":"Korea"}}]}]
+                    """, Encoding.UTF8, "application/json")
+            };
+        });
+
+        var posters = await provider.BrowseArtworkAsync("42", new(ArtworkRole.Poster), 0, CancellationToken.None);
+
+        query.ShouldNotBeNull().ShouldContain("game_localizations.region.name");
+        posters.Value.Items.Select(item => (item.ProviderAssetId, item.Region))
+            .ShouldBe([("cover1", (string?)null), ("cover_jp", "Japan"), ("cover_eu", null)]);
+        posters.Value.Items.ShouldAllBe(item => item.MediaType == MediaType.Cover);
+        var heroes = await provider.BrowseArtworkAsync("42", new(ArtworkRole.Hero), 0, CancellationToken.None);
+        heroes.Value.Items.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task ArtworkCapabilities_ExcludeGameLogosAndLogoRequestsAreRejectedBeforeTransport()
     {
         var metadata = CreateProvider(_ => throw new InvalidOperationException("No transport expected"));

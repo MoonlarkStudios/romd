@@ -36,7 +36,7 @@ public sealed partial class IgdbMetadataProvider
                 return ArtworkProviderErrors.NotConfigured();
             await _rateLimiter.AcquireAsync(ProviderId, deadline.Token);
             var response = await ReadArtworkResponseAsync(
-                $"where id = {id}; fields slug,cover.image_id,cover.width,cover.height,artworks.image_id,artworks.width,artworks.height,screenshots.image_id,screenshots.width,screenshots.height; limit 1;", deadline.Token);
+                $"where id = {id}; fields slug,cover.image_id,cover.width,cover.height,game_localizations.cover.image_id,game_localizations.cover.width,game_localizations.cover.height,game_localizations.region.name,artworks.image_id,artworks.width,artworks.height,screenshots.image_id,screenshots.width,screenshots.height; limit 1;", deadline.Token);
             if (response.IsError)
                 return response.Errors;
             using var document = response.Value;
@@ -60,7 +60,7 @@ public sealed partial class IgdbMetadataProvider
                     return ArtworkProviderErrors.InvalidResponse();
                 rawCount++;
             }
-            foreach (var kind in new[] { "artworks", "screenshots" })
+            foreach (var kind in new[] { "game_localizations", "artworks", "screenshots" })
                 if (game.TryGetProperty(kind, out var images) && images.ValueKind != JsonValueKind.Null)
                 {
                     if (images.ValueKind != JsonValueKind.Array)
@@ -71,26 +71,42 @@ public sealed partial class IgdbMetadataProvider
                 }
             var items = new List<ProviderArtworkCandidate>();
             if (mediaType == MediaType.Cover && game.TryGetProperty("cover", out var cover))
-                Add(cover);
+                Add(cover, null);
+            // Regional covers are the same kind of art localized for a market. They stay covers: IGDB does not say
+            // they are packaging scans, so only a curator classifies them as box art.
+            if (mediaType == MediaType.Cover && game.TryGetProperty("game_localizations", out var localizations) &&
+                localizations.ValueKind == JsonValueKind.Array)
+                foreach (var localization in localizations.EnumerateArray())
+                    if (localization.ValueKind == JsonValueKind.Object &&
+                        localization.TryGetProperty("cover", out var localized))
+                        Add(localized, RegionName(localization));
             if (mediaType != MediaType.Cover && game.TryGetProperty(mediaType == MediaType.Screenshot ? "screenshots" : "artworks", out var artwork) && artwork.ValueKind == JsonValueKind.Array)
                 foreach (var image in artwork.EnumerateArray())
-                    Add(image);
+                    Add(image, null);
             return new ProviderArtworkPage(items, null);
 
-            void Add(JsonElement image)
+            void Add(JsonElement image, string? region)
             {
                 if (image.ValueKind != JsonValueKind.Object || !image.TryGetProperty("image_id", out var key) ||
                     key.GetString() is not { Length: > 0 and <= 100 } assetId ||
                     !assetId.All(c => char.IsAsciiLetterOrDigit(c) || c == '_') ||
                     !image.TryGetProperty("width", out var w) || !w.TryGetInt32(out var width) ||
                     !image.TryGetProperty("height", out var h) || !h.TryGetInt32(out var height) ||
-                    width is <= 0 or > 16384 || height is <= 0 or > 16384)
+                    width is <= 0 or > 16384 || height is <= 0 or > 16384 ||
+                    items.Any(item => item.ProviderAssetId == assetId))
                     return;
                 items.Add(new(gameId, assetId, query.Role, width, height, null,
                     new($"https://images.igdb.com/igdb/image/upload/t_720p/{assetId}.jpg"),
                     new($"https://images.igdb.com/igdb/image/upload/t_original/{assetId}.jpg"),
-                    null, $"https://www.igdb.com/games/{path}", mediaType));
+                    null, $"https://www.igdb.com/games/{path}", mediaType, region));
             }
+
+            static string? RegionName(JsonElement localization) =>
+                localization.TryGetProperty("region", out var region) && region.ValueKind == JsonValueKind.Object &&
+                region.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String &&
+                MediaPlacement.TryCreate(null, name.GetString(), null, false)?.Region is { } valid
+                    ? valid
+                    : null;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception e) when (e is JsonException or InvalidOperationException or FormatException)

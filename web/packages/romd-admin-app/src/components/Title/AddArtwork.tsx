@@ -390,6 +390,14 @@ function ProviderImages({
             >
               View original
             </Anchor>
+            {candidate.region && (
+              <Text
+                size="xs"
+                c="dimmed"
+              >
+                Region: {candidate.region}
+              </Text>
+            )}
             {failures[candidate.providerAssetId] && (
               <Text
                 size="xs"

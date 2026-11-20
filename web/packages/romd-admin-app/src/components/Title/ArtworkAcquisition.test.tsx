@@ -132,7 +132,7 @@ it.each([
   mount();
   const expected =
     sourceId === 'steamgriddb'
-      ? 'Automatically selected from SteamGridDB'
+      ? 'Automatically selected from SteamGridDB community art'
       : sourceId === 'igdb'
         ? 'Automatically selected from IGDB'
         : 'Automatically selected';
