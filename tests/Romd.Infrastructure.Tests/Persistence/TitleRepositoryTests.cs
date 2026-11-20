@@ -1184,9 +1184,10 @@ public sealed partial class TitleRepositoryTests : IDisposable
         var media = await reader.ListAsync(1);
 
         media.ShouldBe([
-            new TitleMediaSummary(3, MediaType.Cover, 1, "user", null, null, null, true),
+            new TitleMediaSummary(3, MediaType.Cover, 1, "user", null, null, null, true,
+                Placement: MediaPlacement.TitleLevel),
             new TitleMediaSummary(7, MediaType.Screenshot, 1, "gallery:igdb", "https://example.test/shot.jpg",
-                "Artist", "https://example.test/page", false)
+                "Artist", "https://example.test/page", false, Placement: MediaPlacement.TitleLevel)
         ]);
         (await reader.ListAsync(99)).ShouldBeEmpty();
     }

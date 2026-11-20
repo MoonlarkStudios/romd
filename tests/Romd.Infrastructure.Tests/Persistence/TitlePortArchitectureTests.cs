@@ -16,6 +16,7 @@ public sealed class TitlePortArchitectureTests
     {
         [typeof(ITitleReader)] =
         [
+            "Task<Boolean> HasCatalogReleaseAsync(Int32 titleId, Int32 catalogReleaseId, CancellationToken cancellationToken)",
             "Task<IReadOnlyList<Int32>> GetIdsByPlatformAsync(Int32 platformId, CancellationToken cancellationToken)",
             "Task<PagedList<TitleSummary>> ListByPlatformAsync(PlatformTitlePageRequest request, CancellationToken cancellationToken)",
             "Task<TitleSummary> GetSummaryAsync(Int32 titleId, CancellationToken cancellationToken)",
@@ -55,6 +56,7 @@ public sealed class TitlePortArchitectureTests
         [
             "Task<StagedMediaAppend> AddUserMediaStagedAsync(TitleMedia media, CancellationToken cancellationToken)",
             "Task<StagedMediaAppend> AppendGalleryMediaStagedAsync(TitleMedia media, CancellationToken cancellationToken)",
+            "Task ReclassifyMediaStagedAsync(Title title, CancellationToken cancellationToken)",
             "Task RemoveMediaStagedAsync(Title title, Int32 mediaId, CancellationToken cancellationToken)",
             "Task UpdatePrimaryMediaStagedAsync(Title title, MediaType type, CancellationToken cancellationToken)"
         ],
