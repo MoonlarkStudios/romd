@@ -48,7 +48,7 @@ export function RequirementList({
       {heading && (
         <Title
           order={3}
-          className="romd-section-heading"
+          className="romd-card-title"
         >
           Enrichment status
         </Title>
