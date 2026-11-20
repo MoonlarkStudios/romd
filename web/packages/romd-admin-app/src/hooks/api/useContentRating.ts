@@ -77,13 +77,15 @@ export function useRatingBoardCatalog() {
   return useAdminCatalogSnapshot(toRatingBoardCatalog);
 }
 
-interface SetContentRatingParams {
+export interface SetContentRatingParams {
   titleId: string;
   /** The revision of the title the curator is rating. */
   revision: string;
   board: RatingBoard;
   /** Canonical code to set, or null to clear the user override for the board. */
   code: string | null;
+  descriptors?: string[];
+  synopsis?: string;
 }
 
 /**
@@ -95,7 +97,14 @@ export function useSetTitleContentRating() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ titleId, revision, board, code }: SetContentRatingParams) => {
+    mutationFn: async ({
+      titleId,
+      revision,
+      board,
+      code,
+      descriptors,
+      synopsis,
+    }: SetContentRatingParams) => {
       const path = {
         titleId,
         board,
@@ -107,6 +116,16 @@ export function useSetTitleContentRating() {
               headers: ifMatch(revision),
               body: {
                 code,
+                ...(descriptors?.length
+                  ? {
+                      descriptors,
+                    }
+                  : {}),
+                ...(synopsis
+                  ? {
+                      synopsis,
+                    }
+                  : {}),
               },
             })
           : await deleteTitleContentRating({

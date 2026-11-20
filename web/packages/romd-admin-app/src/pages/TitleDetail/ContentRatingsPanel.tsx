@@ -1,23 +1,39 @@
-import { Badge, Group, NativeSelect, Skeleton, Stack, Table, Text } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import type { RatingBoard, TitleContentRating } from '@romd/admin-api-client';
-import { useMemo, useState } from 'react';
 import {
-  type RatingBoardOption,
-  type RatingCategoryOption,
-  useRatingBoardCatalog,
-  useSetTitleContentRating,
-} from '../../hooks/api/useContentRating';
+  Alert,
+  Button,
+  Group,
+  Skeleton,
+  Stack,
+  Table,
+  Text,
+  Title,
+  UnstyledButton,
+} from '@mantine/core';
+import type { RatingBoard } from '@romd/admin-api-client';
+import { RatingMark, useReferenceCatalog } from '@romd/consumer-ui';
+import '@romd/consumer-ui/styles.css';
+import { IconPlus } from '@tabler/icons-react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useDiscardEpoch, useDraftGuard } from '../../components/Administration/DraftGuard';
+import { ratingPresentation } from '../../components/Title/ratingPresentation';
+import { InspectorLayout } from '../../components/Workspace/InspectorLayout';
+import {
+  useInspectorSelection,
+  useInspectorSize,
+} from '../../components/Workspace/useInspectorSelection';
+import workspace from '../../components/Workspace/Workspace.module.css';
+import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { useRatingBoardCatalog, useSetTitleContentRating } from '../../hooks/api/useContentRating';
 import type { TitleDetailView as TitleDetail } from '../../hooks/api/useTitleDetail';
 import { usePermissions } from '../../hooks/usePermissions';
-import { ContentRatingRow } from './ContentRatingRow';
+import { ContentRatingEditor } from './ContentRatingEditor';
+import classes from './ContentRatingsPanel.module.css';
 import {
   boardLabel,
+  boardRegion,
   boardSortIndex,
   describeDesignation,
-  formatContentRating,
-  formatSourceLabel,
-  ratingSourceColor,
+  ratingSourceLabel,
 } from './contentRatings';
 
 interface ContentRatingsPanelProps {
@@ -25,264 +41,262 @@ interface ContentRatingsPanelProps {
   titleId: string;
 }
 
-function categoryOptionLabel(board: RatingBoard, category: RatingCategoryOption): string {
-  const display = formatContentRating(board, category.code);
-  const designation = describeDesignation(category.designation, category.minimumAge);
-  return `${display} · ${designation}`;
-}
+const inspectorId = 'age-rating-inspector';
+const addRating = 'new';
 
-/**
- * Per-board content ratings with provenance and an inline user re-rate control.
- * Reads effective ratings from the title (post-cascade) and writes user-layer overrides
- * that win the cascade for their board.
- */
 export function ContentRatingsPanel({ title, titleId }: ContentRatingsPanelProps) {
   const { canManageTitles } = usePermissions();
-  const { data: catalog, isLoading } = useRatingBoardCatalog();
-  const setRating = useSetTitleContentRating();
-  const [pendingBoard, setPendingBoard] = useState<RatingBoard | null>(null);
+  const catalog = useRatingBoardCatalog();
+  const reference = useReferenceCatalog();
+  const mutation = useSetTitleContentRating();
+  const { ref, wide } = useInspectorSize();
+  const discardEpoch = useDiscardEpoch();
+  const { discardThen } = useDraftGuard();
+  const addButton = useRef<HTMLButtonElement>(null);
+  const [removedBoard, setRemovedBoard] = useState(false);
+  const [addedBoard, setAddedBoard] = useState<RatingBoard>();
+  const rows = [
+    ...(title.contentRatings ?? []),
+  ].sort((left, right) => boardSortIndex(left.board) - boardSortIndex(right.board));
+  const availableBoards = (catalog.data ?? []).filter(
+    ({ board, categories }) => categories.length && !rows.some((row) => row.board === board),
+  );
+  const ids = rows.map((rating) => rating.board);
 
-  const effectiveByBoard = useMemo(() => {
-    const map = new Map<RatingBoard, TitleContentRating>();
-    for (const rating of title.contentRatings ?? []) {
-      map.set(rating.board, rating);
-    }
-    return map;
+  const { selectedId, select, close, rowProps, onListKeyDown } = useInspectorSelection({
+    param: 'board',
+    ids,
+    allowUnlisted: true,
+    panelId: inspectorId,
+    canChange: () => !mutation.isPending,
+    beforeChange: (action) => void discardThen(action),
+  });
+  const existing = rows.find((rating) => rating.board === selectedId);
+  const adding = canManageTitles && selectedId === addRating;
+
+  // The accepted write updates the table. Move the selection once the new row exists and the draft
+  // has unregistered, so the transition does not trigger the unsaved-changes prompt.
+  const selectAdded = useEffectEvent((board: RatingBoard) => select(board));
+  const addedRowReady = rows.some((rating) => rating.board === addedBoard);
+  useEffect(() => {
+    if (!addedBoard || !addedRowReady || mutation.isPending || !adding) return;
+    selectAdded(addedBoard);
+    setAddedBoard(undefined);
   }, [
-    title.contentRatings,
+    addedBoard,
+    addedRowReady,
+    adding,
+    mutation.isPending,
   ]);
 
-  const catalogByBoard = useMemo(() => {
-    const map = new Map<RatingBoard, RatingBoardOption>();
-    for (const board of catalog ?? []) {
-      map.set(board.board, board);
-    }
-    return map;
+  const closeRemoved = useEffectEvent(() => {
+    close();
+    addButton.current?.focus();
+  });
+  useEffect(() => {
+    if (!removedBoard || mutation.isPending) return;
+    closeRemoved();
+    setRemovedBoard(false);
   }, [
-    catalog,
+    removedBoard,
+    mutation.isPending,
   ]);
 
-  // Display is driven by the title's own ratings (always shown) unioned with — for managers —
-  // every board in the catalog so any board can be rated. The catalog is reference data for the
-  // editor only; a failed/missing catalog never hides ratings the title already carries.
-  const boardIds = useMemo(() => {
-    const ids = new Set<RatingBoard>(effectiveByBoard.keys());
-    if (canManageTitles) {
-      for (const board of catalog ?? []) {
-        ids.add(board.board);
-      }
-    }
-    return [
-      ...ids,
-    ].sort((left, right) => boardSortIndex(left) - boardSortIndex(right));
-  }, [
-    effectiveByBoard,
-    catalog,
-    canManageTitles,
-  ]);
-
-  if (isLoading && boardIds.length === 0) {
-    return <Skeleton h={240} />;
-  }
-
-  if (boardIds.length === 0) {
-    return (
-      <Text
-        size="sm"
-        c="dimmed"
-        ta="center"
-        py="md"
-      >
-        No content ratings for this title yet.
-      </Text>
-    );
-  }
-
-  const handleChange = async (board: RatingBoard, value: string) => {
-    setPendingBoard(board);
-    try {
-      await setRating.mutateAsync({
-        titleId,
-        revision: title.revision,
-        board,
-        code: value || null,
-      });
-      notifications.show({
-        title: 'Content rating updated',
-        message: value
-          ? `${formatContentRating(board, value)} saved as a user override.`
-          : `${boardLabel(board)} override cleared.`,
-        color: 'green',
-      });
-    } catch {
-      notifications.show({
-        title: 'Update failed',
-        message: `Could not update the ${boardLabel(board)} rating.`,
-        color: 'red',
-      });
-    } finally {
-      setPendingBoard(null);
-    }
-  };
+  const inspector = (existing || adding) && (
+    <ContentRatingEditor
+      key={`${titleId}:${selectedId}:${discardEpoch}`}
+      id={inspectorId}
+      titleId={titleId}
+      revision={title.revision}
+      rating={existing}
+      boards={adding ? availableBoards : (catalog.data ?? [])}
+      catalogLoading={catalog.isLoading}
+      catalogError={catalog.isError}
+      canManage={canManageTitles}
+      saving={mutation.isPending}
+      write={mutation.mutateAsync}
+      onAdded={setAddedBoard}
+      onRemoved={() => setRemovedBoard(true)}
+      onClose={close}
+    />
+  );
 
   return (
-    <Stack gap="md">
-      <ContentRatingRow ratings={title.contentRatings} />
-      <Table
-        verticalSpacing="sm"
-        highlightOnHover
+    <div ref={ref}>
+      <InspectorLayout
+        wide={wide}
+        narrow="stack"
+        width="23rem"
+        inspector={inspector || undefined}
       >
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Board</Table.Th>
-            <Table.Th>Rating</Table.Th>
-            <Table.Th>Classification</Table.Th>
-            <Table.Th>Source</Table.Th>
-            {canManageTitles && <Table.Th w={260}>User Override</Table.Th>}
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {boardIds.map((boardId) => {
-            const boardInfo = catalogByBoard.get(boardId);
-            const effective = effectiveByBoard.get(boardId);
-            const userOverrideCode =
-              effective && effective.sourceId.toLowerCase() === 'user' ? effective.code : '';
-            const options = [
-              {
-                value: '',
-                label: 'No user override',
-              },
-              ...(boardInfo?.categories ?? []).map((category) => ({
-                value: category.code,
-                label: categoryOptionLabel(boardId, category),
-              })),
-            ];
-
-            return (
-              <Table.Tr key={boardId}>
-                <Table.Td>
-                  <Text
-                    size="sm"
-                    fw={500}
+        <section
+          aria-labelledby="age-ratings-heading"
+          className={`${workspace.panel} ${classes.list}`}
+        >
+          <Group
+            justify="space-between"
+            gap="sm"
+            className={classes.listHeader}
+          >
+            <Title
+              id="age-ratings-heading"
+              order={2}
+              className={workspace.sectionHeading}
+            >
+              Age ratings
+            </Title>
+            {canManageTitles && availableBoards.length > 0 && (
+              <Button
+                {...workspaceActionProps}
+                leftSection={<IconPlus size={16} />}
+                ref={addButton}
+                aria-controls={adding ? inspectorId : undefined}
+                aria-expanded={adding}
+                disabled={mutation.isPending}
+                onClick={(event) => select(addRating, event.currentTarget)}
+              >
+                Add rating
+              </Button>
+            )}
+          </Group>
+          {canManageTitles && catalog.isError && (
+            <Alert
+              color="yellow"
+              title="Rating categories are unavailable"
+              mx="md"
+              mb="md"
+            >
+              <Button
+                size="compact-sm"
+                variant="subtle"
+                onClick={() => void catalog.refetch()}
+              >
+                Retry categories
+              </Button>
+            </Alert>
+          )}
+          {rows.length ? (
+            <Table
+              aria-labelledby="age-ratings-heading"
+              className={classes.table}
+              verticalSpacing="sm"
+              horizontalSpacing="md"
+              onKeyDown={onListKeyDown}
+            >
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th scope="col">Board</Table.Th>
+                  <Table.Th scope="col">Rating</Table.Th>
+                  <Table.Th
+                    scope="col"
+                    className={classes.regionColumn}
                   >
-                    {boardLabel(boardId)}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  {effective ? (
-                    <Stack gap={4}>
-                      <Badge
-                        variant="light"
-                        color="orange"
-                      >
-                        {formatContentRating(boardId, effective.code)}
-                      </Badge>
-                      {effective.descriptors && effective.descriptors.length > 0 && (
-                        <Group gap={4}>
-                          {effective.descriptors.map((descriptor) => (
-                            <Badge
-                              key={descriptor}
-                              size="xs"
-                              variant="outline"
-                              color="gray"
-                            >
-                              {descriptor}
-                            </Badge>
-                          ))}
-                        </Group>
-                      )}
-                      {effective.synopsis && (
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                          lineClamp={2}
-                          style={{
-                            maxWidth: '40ch',
-                          }}
+                    Region
+                  </Table.Th>
+                  <Table.Th
+                    scope="col"
+                    className={classes.descriptorsColumn}
+                  >
+                    Descriptors
+                  </Table.Th>
+                  <Table.Th scope="col">Source</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {rows.map((rating) => {
+                  const label = boardLabel(rating.board);
+                  const region = boardRegion(rating.board);
+                  return (
+                    <Table.Tr
+                      key={rating.board}
+                      className={classes.row}
+                      {...rowProps(rating.board)}
+                    >
+                      <Table.Th scope="row">
+                        <UnstyledButton
+                          data-inspector-trigger
+                          aria-label={`${label} rating`}
+                          aria-expanded={selectedId === rating.board}
+                          aria-controls={selectedId === rating.board ? inspectorId : undefined}
+                          className={classes.boardButton}
+                          disabled={mutation.isPending}
+                          onClick={(event) => select(rating.board, event.currentTarget)}
                         >
-                          {effective.synopsis}
+                          <Text
+                            component="span"
+                            className="romd-card-title"
+                            size="sm"
+                          >
+                            {label}
+                          </Text>
+                          <Text
+                            component="span"
+                            size="xs"
+                            c="dimmed"
+                            className={classes.compactRegion}
+                          >
+                            {region}
+                          </Text>
+                        </UnstyledButton>
+                      </Table.Th>
+                      <Table.Td>
+                        <Stack
+                          gap={4}
+                          align="flex-start"
+                        >
+                          <RatingMark
+                            {...ratingPresentation(reference, rating)}
+                            size={34}
+                          />
+                          <Text
+                            size="xs"
+                            c="dimmed"
+                          >
+                            {describeDesignation(rating.designation, rating.minimumAge)}
+                          </Text>
+                        </Stack>
+                      </Table.Td>
+                      <Table.Td className={classes.regionColumn}>
+                        <Text size="sm">{region}</Text>
+                      </Table.Td>
+                      <Table.Td className={classes.descriptorsColumn}>
+                        <Text
+                          size="sm"
+                          lineClamp={2}
+                        >
+                          {rating.descriptors?.join(', ') || '—'}
                         </Text>
-                      )}
-                    </Stack>
-                  ) : (
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                    >
-                      Not rated
-                    </Text>
-                  )}
-                </Table.Td>
-                <Table.Td>
-                  <Text
-                    size="sm"
-                    c={effective ? undefined : 'dimmed'}
-                  >
-                    {effective
-                      ? describeDesignation(effective.designation, effective.minimumAge)
-                      : '-'}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  {effective ? (
-                    <Badge
-                      size="sm"
-                      variant="dot"
-                      color={ratingSourceColor(effective.sourceId)}
-                    >
-                      {formatSourceLabel(effective.sourceId)}
-                    </Badge>
-                  ) : (
-                    <Text
-                      size="sm"
-                      c="dimmed"
-                    >
-                      -
-                    </Text>
-                  )}
-                </Table.Td>
-                {canManageTitles && (
-                  <Table.Td>
-                    {boardInfo ? (
-                      <NativeSelect
-                        aria-label={`${boardLabel(boardId)} user override`}
-                        data={options}
-                        value={userOverrideCode}
-                        onChange={(event) => handleChange(boardId, event.currentTarget.value)}
-                        disabled={setRating.isPending}
-                      />
-                    ) : (
-                      <Text
-                        size="sm"
-                        c="dimmed"
-                      >
-                        -
-                      </Text>
-                    )}
-                  </Table.Td>
-                )}
-              </Table.Tr>
-            );
-          })}
-        </Table.Tbody>
-      </Table>
-      {canManageTitles && (
-        <Text
-          size="xs"
-          c="dimmed"
-        >
-          A user override wins the cascade for its board and is enforced by library parental
-          controls. Clear it to fall back to provider data.
-        </Text>
-      )}
-      {pendingBoard !== null && (
-        <Text
-          size="xs"
-          c="dimmed"
-        >
-          Saving {boardLabel(pendingBoard)} rating…
-        </Text>
-      )}
-    </Stack>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text
+                          size="sm"
+                          c="dimmed"
+                        >
+                          {ratingSourceLabel(rating.sourceId)}
+                        </Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+              </Table.Tbody>
+            </Table>
+          ) : catalog.isLoading && canManageTitles ? (
+            <Skeleton
+              h={56}
+              m="md"
+            />
+          ) : (
+            <Text
+              px="md"
+              pb="lg"
+              size="sm"
+              c="dimmed"
+            >
+              This title has no age ratings yet.
+            </Text>
+          )}
+        </section>
+      </InspectorLayout>
+    </div>
   );
 }
