@@ -1476,8 +1476,8 @@ function ArtworkPanelContent({
                     disabled={locked || !selections}
                     failed={failedImportRole === itemRole}
                     manual={
-                      selections?.find((item) => item.role === itemRole)?.mode !== 'Automatic' &&
-                      !!selections
+                      (selections?.find((item) => item.role === itemRole)?.mode ?? 'Automatic') !==
+                      'Automatic'
                     }
                     onEdit={(trigger) => chooseRole(itemRole, 'saved', trigger)}
                     onAutomatic={() => void automatic(itemRole)}
