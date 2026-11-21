@@ -60,7 +60,7 @@ export function ImportReceipt({ job, onDismiss }: { job: JobUploadJob; onDismiss
                   {catalogs.toLocaleString()} {catalogs === 1 ? 'catalog' : 'catalogs'}
                 </Text>
               )}
-              {job.duration && (
+              {onDismiss && job.duration && (
                 <Text
                   size="xs"
                   c="dimmed"

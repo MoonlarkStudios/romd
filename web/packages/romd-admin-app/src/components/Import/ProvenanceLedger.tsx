@@ -53,7 +53,7 @@ const OUTCOMES: Record<
     color: 'teal',
   },
   dat_unrouted: {
-    label: 'Imported without a system',
+    label: 'No system at import',
     color: 'orange',
   },
 };
@@ -409,6 +409,16 @@ export function ProvenanceLedger({
                           size="sm"
                           variant="light"
                           color={meta.color}
+                          styles={{
+                            root: {
+                              height: 'auto',
+                              minHeight: 'var(--badge-height)',
+                              textAlign: 'left',
+                            },
+                            label: {
+                              whiteSpace: 'normal',
+                            },
+                          }}
                         >
                           {item.reason === 'OutsideTrackedSelection'
                             ? 'Skipped by policy'
