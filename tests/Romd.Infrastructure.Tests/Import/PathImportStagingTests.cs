@@ -129,7 +129,7 @@ public sealed class PathImportStagingTests : IDisposable
     }
 
     [Fact]
-    public async Task Stage_AllCopiesFail_EmptiesWorkspaceAndReturnsNoFilesWithoutTouchingOriginals()
+    public async Task Stage_AllCopiesFail_RetainsCopyIssuesAndLeavesOriginalsIntact()
     {
         files.CopyFailures["bad.rom"] = new IOException("bad failed");
         files.CopyFailures["good.rom"] = new UnauthorizedAccessException("good failed after writing");
@@ -138,7 +138,10 @@ public sealed class PathImportStagingTests : IDisposable
 
         var result = await Staging().StageAsync(job, Workspace(job.Id), NoProgress, default);
 
-        result.FirstError.Code.ShouldBe("Import.NoFilesFound");
+        result.IsError.ShouldBeFalse();
+        result.Value.HasFiles.ShouldBeFalse();
+        result.Value.Issues.Select(issue => issue.Message).ShouldContain(message => message.Contains("bad failed"));
+        result.Value.Issues.Select(issue => issue.Message).ShouldContain(message => message.Contains("good failed"));
         files.DeleteAttempts.Count.ShouldBe(2);
         AssertEmptyWorkspace(job.Id);
         AssertOriginalsAndDisposedStreams();

@@ -215,11 +215,16 @@ public sealed class UploadJob : CancellableJob
     /// </summary>
     public void BeginExtraction(IEnumerable<JobError> copyIssues)
     {
-        EnsurePhase(UploadPhase.Copying);
-        foreach (var issue in copyIssues)
-            AddError(issue.Item, issue.Message, issue.OccurredAt);
+        RecordCopyIssues(copyIssues);
         PhaseEnum = UploadPhase.Extracting;
         CurrentItem = null;
+    }
+
+    public void RecordCopyIssues(IEnumerable<JobError> issues)
+    {
+        EnsurePhase(UploadPhase.Copying);
+        foreach (var issue in issues)
+            AddError(issue.Item, issue.Message, null, JobErrorReason.ImportSourceCopy, issue.OccurredAt);
     }
 
     /// <summary>
@@ -322,7 +327,11 @@ public sealed class UploadJob : CancellableJob
             throw new InvalidOperationException("ROM outcomes cannot precede the ROM ingestion phase.");
 
         DatsProcessed = DatsSucceeded = RomsProcessed = RomsIngested = RomsDeduplicated = RomsRejected = 0;
-        _errors.Clear();
+        // The ingestion journal can rebuild ingestion failures only. Copy issues belong
+        // to the earlier copy checkpoint, including legacy issues recorded by absolute path.
+        _errors.RemoveAll(error => error.Reason != JobErrorReason.ImportSourceCopy &&
+            !(ImportSourcePath is not null && error.Reason == JobErrorReason.Unknown &&
+              Path.IsPathFullyQualified(error.Item)));
         foreach (var item in outcomes)
         {
             if (item.Kind == JobItemKind.Dat)

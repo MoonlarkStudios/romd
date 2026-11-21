@@ -20,7 +20,7 @@ public sealed class PathImportStaging(
     TimeProvider clock, ILogger<PathImportStaging> logger)
 {
     /// <summary>Issues to record on the job, in source order: skipped entries, then failed copies.</summary>
-    public sealed record StagedSource(ImmutableArray<JobError> Issues);
+    public sealed record StagedSource(bool HasFiles, ImmutableArray<JobError> Issues);
 
     public async Task<ErrorOr<StagedSource>> StageAsync(
         UploadJob job, string workspace, Func<string, CancellationToken, Task> onFile, CancellationToken ct)
@@ -47,7 +47,7 @@ public sealed class PathImportStaging(
             if (copied.Count == 0)
             {
                 Reset(dataDirectory, job.Id, workspace);
-                return ImportErrors.NoFilesFound(plan.RequestedPath);
+                return new StagedSource(false, issues.ToImmutable());
             }
             await PathImportFiles.WriteManifestAsync(plan, job.Id, job.ImportMove, copied, ct);
         }
@@ -68,7 +68,7 @@ public sealed class PathImportStaging(
         }
         logger.LogInformation("Path import {JobId} copied its source into the workspace with {IssueCount} issue(s)",
             job.Id, issues.Count);
-        return new StagedSource(issues.ToImmutable());
+        return new StagedSource(true, issues.ToImmutable());
     }
 
     /// <summary>Empties the workspace, keeping the directory the runner located, and drops any move manifest.</summary>

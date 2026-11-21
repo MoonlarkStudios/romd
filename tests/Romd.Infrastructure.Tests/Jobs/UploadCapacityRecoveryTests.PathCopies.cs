@@ -11,6 +11,7 @@ using Romd.Domain.Jobs;
 using Romd.Infrastructure.Import;
 using Romd.Infrastructure.Jobs;
 using Romd.Infrastructure.Jobs.Lifecycle;
+using Romd.Infrastructure.Tests.Helpers;
 using Romd.Infrastructure.Tests.Import;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
@@ -22,6 +23,53 @@ namespace Romd.Infrastructure.Tests.Jobs;
 
 public sealed partial class UploadCapacityRecoveryTests
 {
+    [Fact]
+    public async Task PathImport_RedeliveryAfterCopyFailure_KeepsIssueAndBothMoveSources()
+    {
+        var job = await SeedAsync();
+        string source = Directory.CreateDirectory(Path.Combine(_root, "interrupted-originals")).FullName;
+        _options.AllowedImportPaths.Returns([source]);
+        string good = Path.Combine(source, "a.rom");
+        string bad = Path.Combine(source, "z.rom");
+        await File.WriteAllBytesAsync(good, [1]);
+        await File.WriteAllBytesAsync(bad, [2]);
+        File.Delete(Path.Combine(Workspace(job), "z.rom"));
+        var info = new FileInfo(good);
+        await ImportManifest.WriteAsync(ImportManifest.PathFor(_root, job.Id),
+            new(ImportManifest.CurrentVersion, source, ".", true, [new("a.rom", "a.rom", info.Length, info.LastWriteTimeUtc)]), default);
+        var now = _clock.GetUtcNow();
+        job.SetImportSource(source, move: true);
+        job.Start("interrupted", now);
+        job.BeginExtraction([new JobError(bad, "Could not read source.", now)]);
+        job.BeginClassification();
+        job.SetDiscoveredFiles(0, 1);
+        job.BeginDatIngestion();
+        job.BeginRomIngestion();
+        var stored = JobItem.ForRom(job.Id, "a.rom", 1, RomIngestOutcome.Ingested, 1, [], null, null, now);
+        await using (var db = _database.CreateContext())
+        {
+            await new UploadJobRepository(db, _clock).CommitCheckpointAsync(db, job);
+            db.JobItems.Add(JobItemEntity.FromDomain(stored));
+            await db.SaveChangesAsync();
+        }
+
+        await using (var host = Host(configure: services =>
+            services.AddScoped<IJobCompletionCleanup<UploadJob>>(provider =>
+                new MoveImportCompletionCleanup(new ImportSourceCleanup(_options, new PathValidator(_options),
+                    provider.GetRequiredService<IJobItemRepository>(), NullLogger<ImportSourceCleanup>.Instance)))))
+            await Runner(host).RunAsync(job.Id, "redelivered", default);
+
+        _attempts.ShouldBeEmpty();
+        await using var observed = _database.CreateContext();
+        var row = await observed.Jobs.OfType<UploadJobEntity>().SingleAsync();
+        row.Phase.ShouldBe("CompletedWithErrors");
+        row.GetErrors().ShouldHaveSingleItem().Reason.ShouldBe(JobErrorReason.ImportSourceCopy);
+        row.RomsIngested.ShouldBe(1);
+        (await observed.JobItems.SingleAsync()).Id.ShouldBe(stored.Id);
+        (await File.ReadAllBytesAsync(good)).ShouldBe([1]);
+        (await File.ReadAllBytesAsync(bad)).ShouldBe([2]);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -112,6 +112,11 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
             }
             if (staged.IsError)
                 throw new JobPermanentFailureException(staged.FirstError.Description);
+            if (!staged.Value.HasFiles)
+            {
+                job.RecordCopyIssues(staged.Value.Issues);
+                throw new JobPermanentFailureException("No files could be copied from the import source.");
+            }
             job.BeginExtraction(staged.Value.Issues);
             await context.CheckpointAsync(ct);
         }
