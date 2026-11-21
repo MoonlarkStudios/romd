@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router';
 import { useDraft, useDraftGuard } from '../../components/Administration/DraftGuard';
 import { computeTransferStats } from '../../hooks/api/uploadWithProgress';
 import { useUploadGeneric } from '../../hooks/api/useUpload';
-import { bundleForUpload } from './bundle';
+import { bundleForUpload, uploadPlanKind } from './bundle';
 import { classifyFile, type FileKind, summarizeKinds } from './classify';
 
 export interface StagedFile {
@@ -79,12 +79,17 @@ export function useImportSession() {
   const busy = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const uploadGeneric = useUploadGeneric();
-  const summary = useMemo(
-    () => summarizeKinds(staged),
-    [
-      staged,
-    ],
-  );
+  const { summary, totalBytes, invalidCount, planKind } = useMemo(() => {
+    const files = staged.map(({ file }) => file);
+    return {
+      summary: summarizeKinds(staged),
+      totalBytes: files.reduce((total, file) => total + file.size, 0),
+      invalidCount: files.filter(importFileIssue).length,
+      planKind: uploadPlanKind(files),
+    };
+  }, [
+    staged,
+  ]);
   const hasDats = summary.dat > 0 || summary.archive > 0;
 
   useDraft(
@@ -94,7 +99,7 @@ export function useImportSession() {
   const stagingIssue =
     staged.length > MAX_STAGED_FILES
       ? 'Choose up to 1,000 files per import.'
-      : staged.some(({ file }) => importFileIssue(file))
+      : invalidCount > 0
         ? 'Remove the marked files to start the import.'
         : undefined;
   const batch = useInfiniteQuery({
@@ -181,6 +186,10 @@ export function useImportSession() {
   const removeFile = (id: string) => {
     if (!busy.current && !planRef.current)
       setStaged((current) => current.filter((entry) => entry.id !== id));
+  };
+  const removeInvalidFiles = () => {
+    if (!busy.current && !planRef.current)
+      setStaged((current) => current.filter(({ file }) => !importFileIssue(file)));
   };
   const reopenJob = (id: string, name?: string) => {
     setDismissed((current) => current.filter((value) => value !== id));
@@ -330,8 +339,8 @@ export function useImportSession() {
     } catch (error) {
       setUploadError(
         error instanceof DOMException && error.name === 'AbortError'
-          ? 'Transfer stopped. Accepted imports continue processing. Retry restarts the remaining transfer.'
-          : `${error instanceof Error ? error.message : 'Upload failed.'} Accepted imports are preserved. Retry uses the same request identity.`,
+          ? 'Transfer stopped. Accepted imports continue in Jobs. You can retry the remaining files.'
+          : `${error instanceof Error ? error.message : 'Upload failed.'} Accepted imports continue in Jobs. You can retry the remaining files.`,
       );
     } finally {
       busy.current = false;
@@ -349,10 +358,13 @@ export function useImportSession() {
   return {
     staged,
     stagingIssue,
-    summary,
+    totalBytes,
+    invalidCount,
+    planKind,
     hasDats,
     addFiles,
     removeFile,
+    removeInvalidFiles,
     clearStaged,
     defaultPlatformId,
     setDefaultPlatformId,

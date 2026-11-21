@@ -2,38 +2,38 @@ import {
   ActionIcon,
   Alert,
   Button,
-  Checkbox,
   Group,
   Loader,
   NavLink,
   ScrollArea,
-  Select,
   Stack,
   Text,
   Title,
   Tooltip,
 } from '@mantine/core';
+import type { ImportFolderListing } from '@romd/admin-api-client';
 import { IconArrowUp, IconFolder, IconServer } from '@tabler/icons-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
-import { useImportFolders, useImportServerFolder } from '../../hooks/api/useUpload';
-import { usePermissions } from '../../hooks/usePermissions';
+import { useImportFolders, type useImportServerFolder } from '../../hooks/api/useUpload';
+import { RomImportOptions } from './RomImportOptions';
 
-/**
- * Imports a folder that is already on the server, for libraries too large to send through the
- * browser or a proxy. Managers pick from the operator's allowed roots; there is no typed path,
- * and the source is always copied, never moved. Hidden unless the operator enabled path import.
- */
 export function ServerFolderPanel({
-  disabled,
+  roots,
+  active,
+  start,
+  refreshRoots,
   onStarted,
 }: {
-  disabled: boolean;
+  roots: ImportFolderListing;
+  active: boolean;
+  start: ReturnType<typeof useImportServerFolder>;
+  refreshRoots: () => void;
   onStarted: (jobId: string, name: string) => void;
 }) {
-  const { canManageTitles } = usePermissions();
-  const [chosen, setChosen] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<string | null>();
+  const currentPath = useRef<HTMLParagraphElement>(null);
   const [trackedOnly, setTrackedOnly] = useState(false);
   const [trackMatchedTitles, setTrackMatchedTitles] = useState(true);
   const [allowUnidentified, setAllowUnidentified] = useState(false);
@@ -41,18 +41,20 @@ export function ServerFolderPanel({
     intent: string;
     requestId: string;
   } | null>(null);
-  const roots = useImportFolders(null, canManageTitles);
-  const rootFolders = roots.data?.folders ?? [];
-  const singleRoot = rootFolders.length === 1;
-  const current = chosen ?? (singleRoot ? rootFolders[0].path : null);
-  const listing = useImportFolders(current, canManageTitles && !!roots.data?.enabled);
-  const start = useImportServerFolder();
-
-  if (!canManageTitles || !roots.data?.enabled) return null;
-
-  const shown = current === null ? roots : listing;
+  const singleRoot = roots.folders.length === 1;
+  const current = chosen === undefined ? (singleRoot ? roots.folders[0].path : null) : chosen;
+  const listing = useImportFolders(current, active && current !== null);
+  const shown = current === null ? roots : listing.data;
   const canGoUp = current !== null && (!!listing.data?.parentPath || !singleRoot);
-  const locked = disabled || start.isPending;
+  const locked = start.isPending;
+  useEffect(() => {
+    if (chosen !== undefined)
+      currentPath.current?.focus({
+        preventScroll: true,
+      });
+  }, [
+    chosen,
+  ]);
   const open = (path: string | null) => {
     start.reset();
     setChosen(path);
@@ -80,7 +82,7 @@ export function ServerFolderPanel({
       {
         onSuccess: (reference) => {
           pending.current = null;
-          setChosen(null);
+          setChosen(undefined);
           onStarted(reference.jobId, current.split(/[\\/]/).filter(Boolean).at(-1) ?? current);
         },
       },
@@ -102,7 +104,7 @@ export function ServerFolderPanel({
             size="sm"
             c="dimmed"
           >
-            Files are copied into ROMD in the background.
+            ROMD copies files from the selected folder and its subfolders.
           </Text>
         </Stack>
         <Group
@@ -120,6 +122,8 @@ export function ServerFolderPanel({
             </ActionIcon>
           </Tooltip>
           <Text
+            ref={currentPath}
+            tabIndex={-1}
             size="sm"
             ff="monospace"
             style={{
@@ -129,145 +133,128 @@ export function ServerFolderPanel({
             {current ?? 'Allowed folders'}
           </Text>
         </Group>
-        {shown.isPending ? (
+        {current !== null && listing.isPending ? (
           <Loader
             size="sm"
             aria-label="Loading folders"
           />
-        ) : shown.isError ? (
+        ) : current !== null && listing.isError ? (
           <Alert
             color="red"
             title="Could not open this folder"
           >
             <Stack gap="xs">
-              <Text size="sm">{shown.error.message}</Text>
+              <Text size="sm">{listing.error.message}</Text>
               <Group gap="xs">
                 <Button
                   variant="subtle"
                   size="xs"
-                  onClick={() => void shown.refetch()}
+                  onClick={() => void listing.refetch()}
                 >
                   Try again
                 </Button>
-                {current !== null && (
-                  <Button
-                    variant="subtle"
-                    size="xs"
-                    color="gray"
-                    onClick={() => open(null)}
-                  >
-                    Back to allowed folders
-                  </Button>
-                )}
+                <Button
+                  variant="subtle"
+                  size="xs"
+                  color="gray"
+                  onClick={() => open(null)}
+                >
+                  Back to allowed folders
+                </Button>
               </Group>
             </Stack>
           </Alert>
         ) : (
-          <>
-            <ScrollArea.Autosize mah={260}>
-              <nav aria-label="Server folders">
-                {shown.data.folders.map((folder) => (
-                  <NavLink
-                    component="button"
-                    type="button"
-                    key={folder.path}
-                    label={folder.name}
-                    leftSection={
-                      current === null ? <IconServer size={16} /> : <IconFolder size={16} />
-                    }
-                    disabled={locked}
-                    onClick={() => open(folder.path)}
-                  />
-                ))}
-              </nav>
-            </ScrollArea.Autosize>
-            {shown.data.truncated && (
-              <Text
-                size="xs"
-                c="dimmed"
-              >
-                Showing the first {shown.data.folders.length.toLocaleString()} folders.
-              </Text>
-            )}
-            {current !== null && (
-              <>
-                <Text size="sm">
-                  {shown.data.fileCount.toLocaleString()}{' '}
-                  {shown.data.fileCount === 1 ? 'file' : 'files'} directly in this folder.
-                  {shown.data.folders.length > 0 && ' The import includes subfolders.'}
-                </Text>
-                <Select
-                  label="ROMs to keep"
-                  value={trackedOnly ? 'tracked' : 'all'}
-                  onChange={(value) => setTrackedOnly(value === 'tracked')}
-                  disabled={locked}
-                  allowDeselect={false}
-                  data={[
-                    {
-                      value: 'all',
-                      label: 'All catalog matches',
-                    },
-                    {
-                      value: 'tracked',
-                      label: 'Tracked titles only',
-                    },
-                  ]}
-                  maw={440}
-                />
-                <Group
-                  gap="xl"
-                  align="flex-start"
-                >
-                  <Checkbox
-                    label="Track matched titles"
-                    checked={!trackedOnly && trackMatchedTitles}
-                    onChange={(event) => setTrackMatchedTitles(event.currentTarget.checked)}
-                    disabled={locked || trackedOnly}
-                  />
-                  <Checkbox
-                    label="Keep unmatched files"
-                    checked={!trackedOnly && allowUnidentified}
-                    onChange={(event) => setAllowUnidentified(event.currentTarget.checked)}
-                    disabled={locked || trackedOnly}
-                  />
-                </Group>
+          shown && (
+            <>
+              {current === null && shown.folders.length === 0 && (
+                <Alert title="No available server folders">
+                  <Stack
+                    gap="xs"
+                    align="flex-start"
+                  >
+                    Check that the configured folders are mounted and readable by ROMD.
+                    <Button
+                      variant="default"
+                      onClick={refreshRoots}
+                    >
+                      Refresh folders
+                    </Button>
+                  </Stack>
+                </Alert>
+              )}
+              {!!shown.folders.length && (
+                <ScrollArea.Autosize mah={260}>
+                  <nav aria-label="Server folders">
+                    {shown.folders.map((folder) => (
+                      <NavLink
+                        component="button"
+                        type="button"
+                        key={folder.path}
+                        label={folder.name}
+                        leftSection={
+                          current === null ? <IconServer size={16} /> : <IconFolder size={16} />
+                        }
+                        disabled={locked}
+                        onClick={() => open(folder.path)}
+                      />
+                    ))}
+                  </nav>
+                </ScrollArea.Autosize>
+              )}
+              {shown.truncated && (
                 <Text
-                  size="sm"
+                  size="xs"
                   c="dimmed"
                 >
-                  {trackedOnly
-                    ? 'Files outside the tracked selection are skipped.'
-                    : allowUnidentified
-                      ? 'Unmatched files go to Needs attention.'
-                      : 'ROMs without a catalog match are skipped.'}
+                  Showing the first {shown.folders.length.toLocaleString()} folders.
                 </Text>
-                {start.isError && (
-                  <Alert
-                    color="red"
-                    title="Could not confirm the import"
+              )}
+              {current !== null && (
+                <>
+                  <Text
+                    size="sm"
+                    c="dimmed"
                   >
-                    {start.error.message}
-                  </Alert>
-                )}
-                <Group justify="flex-end">
-                  <Button
-                    {...workspaceActionProps}
-                    leftSection={<IconFolder size={16} />}
-                    loading={start.isPending}
-                    disabled={
-                      disabled ||
-                      (shown.data.fileCount === 0 &&
-                        shown.data.folders.length === 0 &&
-                        !start.isError)
-                    }
-                    onClick={startImport}
-                  >
-                    {start.isError ? 'Try again' : 'Import this folder'}
-                  </Button>
-                </Group>
-              </>
-            )}
-          </>
+                    {shown.fileCount === 0 && shown.folders.length === 0
+                      ? 'This folder is empty. Choose another folder.'
+                      : `${shown.fileCount.toLocaleString()} ${shown.fileCount === 1 ? 'file' : 'files'} directly in this folder.`}
+                  </Text>
+                  <RomImportOptions
+                    trackedOnly={trackedOnly}
+                    setTrackedOnly={setTrackedOnly}
+                    trackMatchedTitles={trackMatchedTitles}
+                    setTrackMatchedTitles={setTrackMatchedTitles}
+                    allowUnidentified={allowUnidentified}
+                    setAllowUnidentified={setAllowUnidentified}
+                    canKeepUnmatched
+                    disabled={locked}
+                  />
+                  {start.isError && (
+                    <Alert
+                      color="red"
+                      title="Could not confirm the import"
+                    >
+                      {start.error.message}
+                    </Alert>
+                  )}
+                  <Group justify="flex-end">
+                    <Button
+                      {...workspaceActionProps}
+                      leftSection={<IconFolder size={16} />}
+                      loading={start.isPending}
+                      disabled={
+                        shown.fileCount === 0 && shown.folders.length === 0 && !start.isError
+                      }
+                      onClick={startImport}
+                    >
+                      {start.isError ? 'Try again' : 'Import this folder'}
+                    </Button>
+                  </Group>
+                </>
+              )}
+            </>
+          )
         )}
       </Stack>
     </section>

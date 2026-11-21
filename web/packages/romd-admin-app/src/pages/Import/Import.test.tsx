@@ -1,7 +1,7 @@
 import { MantineProvider } from '@mantine/core';
 import type { Job, LibraryStats, SystemResource } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render as renderBare, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as renderBare, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Link, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -49,10 +49,11 @@ const mockGetJobById = getJob as ReturnType<typeof vi.fn>;
 const mockGetLibraryStats = getRomStats as ReturnType<typeof vi.fn>;
 const mockListPlatforms = listAdminSystems as ReturnType<typeof vi.fn>;
 const mockUpload = uploadWithProgress as ReturnType<typeof vi.fn>;
+const permissions = vi.hoisted(() => ({
+  canManageTitles: true,
+}));
 vi.mock('../../hooks/usePermissions', () => ({
-  usePermissions: () => ({
-    canManageTitles: true,
-  }),
+  usePermissions: () => permissions,
 }));
 
 const stats: LibraryStats = {
@@ -136,6 +137,7 @@ const runningJob: Job = {
 
 describe('ImportPage', () => {
   beforeEach(() => {
+    permissions.canManageTitles = true;
     vi.mocked(listImportFolders).mockResolvedValue({
       data: {
         enabled: false,
@@ -199,6 +201,163 @@ describe('ImportPage', () => {
 
     expect(screen.queryByText('Stored ROMs')).not.toBeInTheDocument();
     expect(await screen.findByText('Import roms.zip')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', {
+        name: 'Server folder',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not look up server folders without the Manager role', async () => {
+    permissions.canManageTitles = false;
+    render(<ImportPage />);
+
+    expect(await screen.findByText('Import roms.zip')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', {
+        name: 'Server folder',
+      }),
+    ).not.toBeInTheDocument();
+    expect(listImportFolders).not.toHaveBeenCalled();
+  });
+
+  it('keeps both drafts while switching between the device and a server folder', async () => {
+    const user = userEvent.setup();
+    vi.mocked(listImportFolders).mockImplementation(async (options) => {
+      const path = options?.query?.path;
+      const folders = !path
+        ? [
+            {
+              name: '/staging',
+              path: '/staging',
+            },
+          ]
+        : path === '/staging'
+          ? [
+              {
+                name: 'game-boy',
+                path: '/staging/game-boy',
+              },
+            ]
+          : [];
+      return {
+        data: {
+          enabled: true,
+          path,
+          parentPath: path === '/staging/game-boy' ? '/staging' : undefined,
+          folders,
+          fileCount: path === '/staging/game-boy' ? 3 : 0,
+          truncated: false,
+        },
+        error: undefined,
+      } as Awaited<ReturnType<typeof listImportFolders>>;
+    });
+    render(<ImportPage />);
+
+    const server = await screen.findByRole('tab', {
+      name: 'Server folder',
+    });
+    expect(listImportFolders).toHaveBeenCalledTimes(1);
+    await user.upload(
+      screen.getByLabelText('file upload'),
+      new File(
+        [
+          'content',
+        ],
+        'queued.gb',
+      ),
+    );
+    await user.click(server);
+    expect(
+      screen.queryByRole('table', {
+        name: 'Staged files',
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'game-boy',
+      }),
+    );
+    expect(await screen.findByText('3 files directly in this folder.')).toBeInTheDocument();
+    const folderPane = screen.getByRole('tabpanel', {
+      name: 'Server folder',
+    });
+    await user.click(
+      within(folderPane).getByRole('checkbox', {
+        name: 'Keep unmatched files',
+      }),
+    );
+
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'This device',
+      }),
+    );
+    expect(
+      screen.getByRole('table', {
+        name: 'Staged files',
+      }),
+    ).toHaveTextContent('queued.gb');
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Keep unmatched files',
+      }),
+    ).not.toBeChecked();
+
+    await user.click(server);
+    expect(screen.getByText('/staging/game-boy')).toBeVisible();
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Keep unmatched files',
+      }),
+    ).toBeChecked();
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('removes invalid files together and previews a selection that runs as separate jobs', async () => {
+    const user = userEvent.setup();
+    render(<ImportPage />);
+
+    const fileInput = screen.getByLabelText('file upload');
+    const openPicker = vi.spyOn(fileInput, 'click');
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Browse files',
+      }),
+    );
+    expect(openPicker).toHaveBeenCalledOnce();
+    openPicker.mockRestore();
+
+    await user.upload(fileInput, [
+      new File(
+        [
+          'content',
+        ],
+        'games.zip',
+      ),
+      new File(
+        [
+          'content',
+        ],
+        'title.gb',
+      ),
+      new File([], 'empty.dat'),
+    ]);
+
+    const start = await screen.findByRole('button', {
+      name: /Start import/,
+    });
+    expect(start).toBeDisabled();
+    expect(screen.getByText('Empty file')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Remove 1 invalid file',
+      }),
+    );
+    expect(screen.queryByText('empty.dat')).not.toBeInTheDocument();
+    expect(screen.getByText(/each file will run as its own import/i)).toHaveTextContent('2 jobs');
+    expect(start).toBeEnabled();
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('stages a DAT, routes it to the chosen system, and starts a single import', async () => {
@@ -313,15 +472,15 @@ describe('ImportPage', () => {
       }),
     );
     expect(
-      screen.getByRole('checkbox', {
+      screen.queryByRole('checkbox', {
         name: 'Track matched titles',
       }),
-    ).toBeDisabled();
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('checkbox', {
+      screen.queryByRole('checkbox', {
         name: 'Keep unmatched files',
       }),
-    ).not.toBeChecked();
+    ).not.toBeInTheDocument();
     vi.mocked(getTrackedCollectionStats).mockResolvedValue({
       data: {
         trackedTitleCount: '1',

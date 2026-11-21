@@ -32,7 +32,7 @@ export type BundlePlan =
       files: File[];
     };
 
-function totalBytes(files: File[]): number {
+function totalBytes(files: readonly File[]): number {
   return files.reduce((sum, file) => sum + file.size, 0);
 }
 
@@ -132,32 +132,33 @@ async function zipFiles(files: File[], signal?: AbortSignal): Promise<File> {
   );
 }
 
+export function uploadPlanKind(files: readonly File[]): BundlePlan['kind'] {
+  if (files.length <= 1) return 'single';
+
+  // Large drops and archives already on disk are transferred individually to avoid a second copy in memory.
+  return totalBytes(files) > MAX_BUNDLE_BYTES ||
+    files.some((file) => file.size > MAX_BUNDLE_FILE_BYTES || isArchive(file))
+    ? 'individual'
+    : 'bundled';
+}
+
 export async function bundleForUpload(files: File[], signal?: AbortSignal): Promise<BundlePlan> {
   signal?.throwIfAborted();
-  if (files.length === 0) {
-    throw new Error('No files to upload.');
-  }
-  if (files.length === 1) {
+  if (files.length === 0) throw new Error('No files to upload.');
+
+  const kind = uploadPlanKind(files);
+  if (kind === 'single')
     return {
-      kind: 'single',
+      kind,
       file: files[0],
     };
-  }
-  // Only bundle small, loose multi-file drops. Skip the in-browser zip when the drop is too
-  // large to hold in memory, contains a big single file, or already contains an archive
-  // (re-zipping compressed content wastes memory for no gain) — upload each file as its own job.
-  const skipBundle =
-    totalBytes(files) > MAX_BUNDLE_BYTES ||
-    files.some((file) => file.size > MAX_BUNDLE_FILE_BYTES) ||
-    files.some(isArchive);
-  if (skipBundle) {
+  if (kind === 'individual')
     return {
-      kind: 'individual',
+      kind,
       files,
     };
-  }
   return {
-    kind: 'bundled',
+    kind,
     file: await zipFiles(files, signal),
   };
 }

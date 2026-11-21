@@ -2,6 +2,7 @@ import type { ImportFolderListing } from '@romd/admin-api-client';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useImportFolders, useImportServerFolder } from '../../hooks/api/useUpload';
 import { render } from '../../test/utils/render';
 import { ServerFolderPanel } from './ServerFolderPanel';
 
@@ -14,13 +15,6 @@ vi.mock('@romd/admin-api-client', async () => {
     getTrackedCollectionStats: vi.fn(),
   };
 });
-
-const permissions = vi.hoisted(() => ({
-  canManageTitles: true,
-}));
-vi.mock('../../hooks/usePermissions', () => ({
-  usePermissions: () => permissions,
-}));
 
 import { importFromPath, listImportFolders } from '@romd/admin-api-client';
 
@@ -76,54 +70,25 @@ function serve(listings: Record<string, ImportFolderListing>) {
   );
 }
 
+function FolderPanel({ onStarted }: { onStarted: (jobId: string, name: string) => void }) {
+  const roots = useImportFolders(null, true);
+  const start = useImportServerFolder();
+  if (!roots.data) return null;
+  return (
+    <ServerFolderPanel
+      roots={roots.data}
+      active
+      start={start}
+      refreshRoots={() => void roots.refetch()}
+      onStarted={onStarted}
+    />
+  );
+}
+
 describe('ServerFolderPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    permissions.canManageTitles = true;
     serve(folders);
-  });
-
-  it('stays hidden when the operator has not enabled path import', async () => {
-    serve({
-      '': {
-        enabled: false,
-        folders: [],
-        fileCount: 0,
-        truncated: false,
-      },
-    });
-
-    render(
-      <ServerFolderPanel
-        disabled={false}
-        onStarted={vi.fn()}
-      />,
-    );
-
-    await waitFor(() => expect(listImportFolders).toHaveBeenCalledTimes(1));
-    expect(
-      screen.queryByRole('heading', {
-        name: 'Import from a server folder',
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('never asks the server for folders without the Manager role', () => {
-    permissions.canManageTitles = false;
-
-    render(
-      <ServerFolderPanel
-        disabled={false}
-        onStarted={vi.fn()}
-      />,
-    );
-
-    expect(
-      screen.queryByRole('heading', {
-        name: 'Import from a server folder',
-      }),
-    ).not.toBeInTheDocument();
-    expect(listImportFolders).not.toHaveBeenCalled();
   });
 
   it('browses from the allowed roots and copies the chosen folder without moving it', async () => {
@@ -140,12 +105,7 @@ describe('ServerFolderPanel', () => {
         detail: 'The response was interrupted.',
       },
     } as never);
-    render(
-      <ServerFolderPanel
-        disabled={false}
-        onStarted={onStarted}
-      />,
-    );
+    render(<FolderPanel onStarted={onStarted} />);
 
     expect(await screen.findByText('/archive')).toBeInTheDocument();
     expect(
@@ -158,6 +118,7 @@ describe('ServerFolderPanel', () => {
     await user.click(await screen.findByText('psx'));
 
     expect(await screen.findByText(/12 files directly in this folder/)).toBeInTheDocument();
+    expect(screen.getByText('/library/psx')).toHaveFocus();
     await user.click(
       screen.getByRole('button', {
         name: 'Import this folder',
@@ -202,12 +163,7 @@ describe('ServerFolderPanel', () => {
         truncated: false,
       },
     });
-    render(
-      <ServerFolderPanel
-        disabled={false}
-        onStarted={vi.fn()}
-      />,
-    );
+    render(<FolderPanel onStarted={vi.fn()} />);
 
     await user.click(await screen.findByText('psx'));
     expect(await screen.findByText(/12 files/)).toBeInTheDocument();
@@ -224,8 +180,14 @@ describe('ServerFolderPanel', () => {
     ).toBeDisabled();
   });
 
-  it('shows the server refusal instead of listing a folder', async () => {
+  it('returns to allowed folders when the only root cannot be opened', async () => {
     const user = userEvent.setup();
+    const singleRoot: ImportFolderListing = {
+      ...folders[''],
+      folders: [
+        folders[''].folders[0],
+      ],
+    };
     vi.mocked(listImportFolders).mockImplementation(async (options) =>
       options?.query?.path
         ? ({
@@ -235,18 +197,11 @@ describe('ServerFolderPanel', () => {
             },
           } as Listed)
         : ({
-            data: folders[''],
+            data: singleRoot,
             error: undefined,
           } as Listed),
     );
-    render(
-      <ServerFolderPanel
-        disabled={false}
-        onStarted={vi.fn()}
-      />,
-    );
-
-    await user.click(await screen.findByText('/library'));
+    render(<FolderPanel onStarted={vi.fn()} />);
 
     expect(await screen.findByText(/contains a symbolic link/)).toBeInTheDocument();
     await user.click(
@@ -254,6 +209,10 @@ describe('ServerFolderPanel', () => {
         name: 'Back to allowed folders',
       }),
     );
-    expect(await screen.findByText('/archive')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', {
+        name: '/library',
+      }),
+    ).toBeInTheDocument();
   });
 });

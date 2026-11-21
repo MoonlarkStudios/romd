@@ -2,10 +2,9 @@ import { Alert, Button, Divider, Group, Select, Stack, Title } from '@mantine/co
 import { IconPlus } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import workspace from '../../components/Workspace/Workspace.module.css';
+import { ImportIntake } from './ImportIntake';
 import { ImportJobCard } from './ImportJobCard';
 import { RecentImports } from './RecentImports';
-import { ServerFolderPanel } from './ServerFolderPanel';
-import { StagePanel } from './StagePanel';
 import { useImportSession } from './useImportSession';
 
 export function ImportPage({ embedded = false }: { embedded?: boolean }) {
@@ -32,18 +31,10 @@ export function ImportPage({ embedded = false }: { embedded?: boolean }) {
         </Title>
       )}
       {showStage ? (
-        <>
-          <StagePanel {...session} />
-          {session.staged.length === 0 && (
-            <ServerFolderPanel
-              disabled={session.isStarting}
-              onStarted={(id, name) => {
-                setAddingFiles(false);
-                session.reopenJob(id, name);
-              }}
-            />
-          )}
-        </>
+        <ImportIntake
+          session={session}
+          onStarted={() => setAddingFiles(false)}
+        />
       ) : (
         <Group justify="flex-end">
           <Button
