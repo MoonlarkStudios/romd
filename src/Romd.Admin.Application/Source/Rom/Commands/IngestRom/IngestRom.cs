@@ -178,7 +178,8 @@ public sealed class IngestRomCommandHandler : ICommandHandler<IngestRomCommand, 
                         await EnqueueStatsChangedAsync(token);
                     }, rom => command.UploadItem is { } item ? JobItem.ForRom(item.JobId, item.RelativePath,
                         tempFile.FileSize, RomIngestOutcome.Ingested, rom.Id, catalogMatch.TitleIds,
-                        catalogMatch.PrimaryPlatformId, null, createdAt: _clock.GetUtcNow(), archiveOnly) : null, ct);
+                        catalogMatch.PrimaryPlatformId, null, createdAt: _clock.GetUtcNow(), archiveOnly,
+                        catalogMatch.HasCatalogMatch ? null : JobItemReason.KeptWithoutMatch) : null, ct);
                 if (romFile.IsError)
                     return romFile.Errors;
                 return new RomIngestResult.WholeFile

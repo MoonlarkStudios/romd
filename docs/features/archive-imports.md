@@ -83,6 +83,16 @@ quota-enforcing whole-archive operation.
 
 ## Recovery and move mode
 
+Open **Jobs → Upload → Import results** to review a finished import. Search the
+relative filenames or filter the recorded outcomes. The receipt links to stored
+ROMs and catalog routing and retains the original outcome after a file or
+catalog changes. A failure before classification appears in the job errors.
+
+**Keep unmatched files** retains unmatched ROMs for review. Importing a matching
+DAT can link a retained file by checksum. For an unmatched ROM that was rejected,
+check the catalog and import the original file again. **Tracked titles only**
+shows skipped ROMs separately from failed files.
+
 Before extraction mutates output, the journal records the retained source, chosen
 target and pre-attempt quota. A retry removes a partial target and replays the
 same archive into the same directory. Publication precedes staged-source deletion;

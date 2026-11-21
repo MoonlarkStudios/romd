@@ -16,10 +16,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router';
 import { RunPanel } from '../../components/Enrichment/RunPanel';
 import { enrichmentRunKeys } from '../../components/Enrichment/useEnrichmentRun';
+import { ImportReceipt } from '../../components/Import/ImportReceipt';
+import { importHistoryUrl } from '../../components/Import/importReceiptLinks';
 import { JobRow } from '../../components/Jobs/JobRows';
 import { getJobTitle, mediaReconciliationOutcome } from '../../components/Jobs/jobTypeRegistry';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { jobItemsKey } from '../../hooks/api/useJobItems';
 import { useJob } from '../../hooks/api/useJobs';
 import { useJobOperations } from '../../hooks/useJobOperations';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -27,18 +30,24 @@ import { usePermissions } from '../../hooks/usePermissions';
 export function JobDetail() {
   const { jobId } = useParams();
   const location = useLocation();
-  const returnUrl =
-    typeof location.state?.historyUrl === 'string' && location.state.historyUrl.startsWith('/jobs?')
-      ? location.state.historyUrl
-      : '/jobs';
   const query = useJob(jobId);
   const cache = useQueryClient();
   const operations = useJobOperations();
   const { hasRole } = usePermissions();
   const job = query.data;
+  const returnUrl =
+    typeof location.state?.historyUrl === 'string' && location.state.historyUrl.startsWith('/jobs?')
+      ? location.state.historyUrl
+      : job?.jobType === 'upload'
+        ? importHistoryUrl
+        : '/jobs';
   const run = job?.jobType === 'artwork-completion' && hasRole('Manager') ? job : undefined;
   const refresh = () => {
     void query.refetch();
+    if (job?.jobType === 'upload' && job.isTerminal)
+      void cache.invalidateQueries({
+        queryKey: jobItemsKey(job.id),
+      });
     if (run)
       void cache.invalidateQueries({
         queryKey: enrichmentRunKeys.run(run.id),
@@ -105,8 +114,15 @@ export function JobDetail() {
             )}
             <JobRow
               job={job}
+              showFiles={false}
               {...operations}
             />
+            {job.jobType === 'upload' && job.isTerminal && (
+              <ImportReceipt
+                key={job.id}
+                job={job}
+              />
+            )}
             {run && (
               <RunPanel
                 job={run}

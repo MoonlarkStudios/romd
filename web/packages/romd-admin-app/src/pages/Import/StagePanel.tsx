@@ -22,7 +22,7 @@ import { workspaceActionProps } from '../../components/Workspace/workspaceAction
 import { usePlatforms } from '../../hooks/api/usePlatforms';
 import { usePermissions } from '../../hooks/usePermissions';
 import { formatBytes, formatDuration, formatRate } from '../../utils/format';
-import type { useImportSession } from './useImportSession';
+import { importFileIssue, type useImportSession } from './useImportSession';
 
 export function StagePanel(props: ReturnType<typeof useImportSession>) {
   const filesInputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +68,9 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
               stroke={1.5}
               color="var(--mantine-color-teal-6)"
             />
-            <Text fw={500}>{staged.length ? 'Add files' : 'Drop archives or ROM files'}</Text>
+            <Text fw={500}>
+              {staged.length ? 'Add files' : 'Drop ROMs, archives, or DAT catalogs'}
+            </Text>
           </Stack>
         </Dropzone>
         <Group gap="xs">
@@ -158,6 +160,14 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                         >
                           {entry.kind === 'dat' ? 'DAT catalog' : entry.kind}
                         </Badge>
+                        {importFileIssue(entry.file) && (
+                          <Text
+                            size="xs"
+                            c="red"
+                          >
+                            {importFileIssue(entry.file)}
+                          </Text>
+                        )}
                       </Table.Td>
                       <Table.Td>{formatBytes(entry.file.size)}</Table.Td>
                       <Table.Td>
@@ -187,7 +197,7 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
               data={[
                 {
                   value: 'all',
-                  label: 'Import everything',
+                  label: 'All catalog matches',
                 },
                 {
                   value: 'tracked',
@@ -229,6 +239,16 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                 </Tooltip>
               )}
             </Group>
+            {!props.trackedOnly && (
+              <Text
+                size="sm"
+                c="dimmed"
+              >
+                {canManageTitles && props.allowUnidentified
+                  ? 'Unmatched files go to Needs attention.'
+                  : 'ROMs without a catalog match are skipped.'}
+              </Text>
+            )}
             {props.hasDats && (
               <Select
                 label="Assign catalogs to system"
@@ -247,6 +267,7 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                 maw={440}
               />
             )}
+            {props.stagingIssue && <Alert color="orange">{props.stagingIssue}</Alert>}
             {props.uploadError && (
               <Alert
                 color="red"
@@ -324,6 +345,7 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                 {...workspaceActionProps}
                 leftSection={<IconUpload size={16} />}
                 loading={isStarting}
+                disabled={!!props.stagingIssue && !retryPending}
                 onClick={() => void props.startImport()}
               >
                 {retryPending

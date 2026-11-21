@@ -2,6 +2,12 @@ import { listJobItems } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
 import { jobKeys } from './useJobs';
 
+export const jobItemsKey = (jobId: string) =>
+  [
+    ...jobKeys.detail(jobId),
+    'items',
+  ] as const;
+
 /**
  * Per-file provenance for an upload job. `outcome` (if given) filters to a single outcome
  * (e.g. "rejected", "dat_unrouted"). Enabled only once the job is terminal.
@@ -17,8 +23,7 @@ export function useJobItems(
 ) {
   return useQuery({
     queryKey: [
-      ...jobKeys.detail(jobId ?? ''),
-      'items',
+      ...jobItemsKey(jobId ?? ''),
       outcome ?? 'all',
       options?.cursor,
       options?.search,
@@ -55,5 +60,6 @@ export function useJobItems(
       return response.data;
     },
     enabled: !!jobId && (options?.enabled ?? true),
+    staleTime: 0,
   });
 }

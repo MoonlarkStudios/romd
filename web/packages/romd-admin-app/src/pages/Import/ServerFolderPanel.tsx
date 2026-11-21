@@ -14,7 +14,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { IconArrowUp, IconFolder, IconServer } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useImportFolders, useImportServerFolder } from '../../hooks/api/useUpload';
@@ -30,13 +30,17 @@ export function ServerFolderPanel({
   onStarted,
 }: {
   disabled: boolean;
-  onStarted: (jobId: string) => void;
+  onStarted: (jobId: string, name: string) => void;
 }) {
   const { canManageTitles } = usePermissions();
   const [chosen, setChosen] = useState<string | null>(null);
   const [trackedOnly, setTrackedOnly] = useState(false);
   const [trackMatchedTitles, setTrackMatchedTitles] = useState(true);
   const [allowUnidentified, setAllowUnidentified] = useState(false);
+  const pending = useRef<{
+    intent: string;
+    requestId: string;
+  } | null>(null);
   const roots = useImportFolders(null, canManageTitles);
   const rootFolders = roots.data?.folders ?? [];
   const singleRoot = rootFolders.length === 1;
@@ -54,18 +58,30 @@ export function ServerFolderPanel({
     setChosen(path);
   };
   const startImport = () => {
-    if (!current) return;
+    if (!current || locked) return;
+    const options = {
+      path: current,
+      trackedOnly,
+      archiveOnly: trackedOnly || !trackMatchedTitles,
+      allowUnidentified: !trackedOnly && allowUnidentified,
+    };
+    const intent = JSON.stringify(options);
+    const requestId =
+      pending.current?.intent === intent ? pending.current.requestId : crypto.randomUUID();
+    pending.current = {
+      intent,
+      requestId,
+    };
     start.mutate(
       {
-        path: current,
-        trackedOnly,
-        archiveOnly: trackedOnly || !trackMatchedTitles,
-        allowUnidentified: !trackedOnly && allowUnidentified,
+        ...options,
+        requestId,
       },
       {
         onSuccess: (reference) => {
+          pending.current = null;
           setChosen(null);
-          onStarted(reference.jobId);
+          onStarted(reference.jobId, current.split(/[\\/]/).filter(Boolean).at(-1) ?? current);
         },
       },
     );
@@ -86,8 +102,7 @@ export function ServerFolderPanel({
             size="sm"
             c="dimmed"
           >
-            Import a folder already on the server, without sending it through your browser. ROMD
-            copies the files in the background and leaves the original folder unchanged.
+            Files are copied into ROMD in the background.
           </Text>
         </Stack>
         <Group
@@ -153,6 +168,8 @@ export function ServerFolderPanel({
               <nav aria-label="Server folders">
                 {shown.data.folders.map((folder) => (
                   <NavLink
+                    component="button"
+                    type="button"
                     key={folder.path}
                     label={folder.name}
                     leftSection={
@@ -175,10 +192,9 @@ export function ServerFolderPanel({
             {current !== null && (
               <>
                 <Text size="sm">
-                  {shown.data.folders.length === 0 ? 'No subfolders. ' : ''}
                   {shown.data.fileCount.toLocaleString()}{' '}
-                  {shown.data.fileCount === 1 ? 'file' : 'files'} directly in this folder. Importing
-                  includes every subfolder.
+                  {shown.data.fileCount === 1 ? 'file' : 'files'} directly in this folder.
+                  {shown.data.folders.length > 0 && ' The import includes subfolders.'}
                 </Text>
                 <Select
                   label="ROMs to keep"
@@ -189,7 +205,7 @@ export function ServerFolderPanel({
                   data={[
                     {
                       value: 'all',
-                      label: 'Import everything',
+                      label: 'All catalog matches',
                     },
                     {
                       value: 'tracked',
@@ -215,10 +231,20 @@ export function ServerFolderPanel({
                     disabled={locked || trackedOnly}
                   />
                 </Group>
+                <Text
+                  size="sm"
+                  c="dimmed"
+                >
+                  {trackedOnly
+                    ? 'Files outside the tracked selection are skipped.'
+                    : allowUnidentified
+                      ? 'Unmatched files go to Needs attention.'
+                      : 'ROMs without a catalog match are skipped.'}
+                </Text>
                 {start.isError && (
                   <Alert
                     color="red"
-                    title="Import not started"
+                    title="Could not confirm the import"
                   >
                     {start.error.message}
                   </Alert>
@@ -228,10 +254,15 @@ export function ServerFolderPanel({
                     {...workspaceActionProps}
                     leftSection={<IconFolder size={16} />}
                     loading={start.isPending}
-                    disabled={disabled}
+                    disabled={
+                      disabled ||
+                      (shown.data.fileCount === 0 &&
+                        shown.data.folders.length === 0 &&
+                        !start.isError)
+                    }
                     onClick={startImport}
                   >
-                    Import this folder
+                    {start.isError ? 'Try again' : 'Import this folder'}
                   </Button>
                 </Group>
               </>

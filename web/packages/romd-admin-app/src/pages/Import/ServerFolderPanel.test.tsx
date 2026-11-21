@@ -135,6 +135,11 @@ describe('ServerFolderPanel', () => {
       },
       error: undefined,
     } as Started);
+    vi.mocked(importFromPath).mockResolvedValueOnce({
+      error: {
+        detail: 'The response was interrupted.',
+      },
+    } as never);
     render(
       <ServerFolderPanel
         disabled={false}
@@ -158,11 +163,21 @@ describe('ServerFolderPanel', () => {
         name: 'Import this folder',
       }),
     );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Try again',
+      }),
+    );
 
-    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('job-9'));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('job-9', 'psx'));
+    expect(importFromPath).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(importFromPath).mock.calls[0][0]?.body.requestId).toBe(
+      vi.mocked(importFromPath).mock.calls[1][0]?.body.requestId,
+    );
     expect(importFromPath).toHaveBeenCalledWith({
       body: {
         path: '/library/psx',
+        requestId: expect.any(String),
         move: false,
         allowUnidentified: false,
         archiveOnly: false,

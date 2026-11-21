@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Domain.Jobs;
+using Romd.Domain.Source.Dat;
 using Romd.Persistence.Entities;
+using Romd.Persistence.Queries;
 
 namespace Romd.Persistence.Repositories;
 
@@ -136,12 +138,13 @@ public sealed class JobItemRepository : IJobItemRepository
             .Take(_exportCap)
             .ToListAsync(ct);
 
-        return await ResolveAsync(entities, ct);
+        return await ResolveAsync(entities, ct, includeCurrentStatus: false);
     }
 
     private async Task<IReadOnlyList<JobItemView>> ResolveAsync(
         List<JobItemEntity> entities,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool includeCurrentStatus = true)
     {
         if (entities.Count == 0)
         {
@@ -149,6 +152,7 @@ public sealed class JobItemRepository : IJobItemRepository
         }
 
         var domains = entities.Select(e => e.ToDomain()).ToList();
+        var targets = includeCurrentStatus ? await ReadCurrentTargetsAsync(domains, ct) : null;
 
         var platformIds = domains
             .Where(d => d.PlatformId.HasValue)
@@ -190,29 +194,72 @@ public sealed class JobItemRepository : IJobItemRepository
         return domains
             .OrderBy(d => d.CreatedAt)
             .ThenBy(d => d.Id)
-            .Select(d => new JobItemView
+            .Select(d =>
             {
-                Id = d.Id,
-                JobId = d.JobId,
-                Kind = d.Kind,
-                FileName = d.FileName,
-                SizeBytes = d.SizeBytes,
-                Outcome = d.Outcome,
-                RomFileId = d.RomFileId,
-                DatFileId = d.DatFileId,
-                PlatformId = d.PlatformId,
-                PlatformName = d.PlatformId is { } pid && platformNames.TryGetValue(pid, out var name)
-                    ? name
-                    : null,
-                MatchedTitles = d.MatchedTitleIds
-                    .Where(titleNames.ContainsKey)
-                    .Select(id => new JobItemTitle(id, titleNames[id]))
-                    .ToList(),
-                GameCount = d.GameCount,
-                ArchiveOnly = d.ArchiveOnly,
-                Error = d.Error,
-                CreatedAt = d.CreatedAt
+                var targetId = d.RomFileId ?? d.DatFileId;
+                var target = targetId is { } id && targets is not null
+                    ? targets.GetValueOrDefault((d.Kind, id), new CurrentTarget("Unavailable"))
+                    : null;
+                return new JobItemView
+                {
+                    Id = d.Id,
+                    JobId = d.JobId,
+                    Kind = d.Kind,
+                    FileName = d.FileName,
+                    SizeBytes = d.SizeBytes,
+                    Outcome = d.Outcome,
+                    Reason = d.Reason,
+                    CurrentStatus = target?.Status,
+                    CurrentPlatformId = target?.PlatformId,
+                    RomFileId = d.RomFileId,
+                    DatFileId = d.DatFileId,
+                    PlatformId = d.PlatformId,
+                    PlatformName = d.PlatformId is { } pid && platformNames.TryGetValue(pid, out var name)
+                        ? name
+                        : null,
+                    MatchedTitles = d.MatchedTitleIds
+                        .Where(titleNames.ContainsKey)
+                        .Select(id => new JobItemTitle(id, titleNames[id]))
+                        .ToList(),
+                    GameCount = d.GameCount,
+                    ArchiveOnly = d.ArchiveOnly,
+                    Error = d.Error,
+                    CreatedAt = d.CreatedAt
+                };
             })
             .ToList();
     }
+
+    private async Task<Dictionary<(JobItemKind, int), CurrentTarget>> ReadCurrentTargetsAsync(
+        IReadOnlyList<JobItem> items, CancellationToken ct)
+    {
+        var targets = new Dictionary<(JobItemKind, int), CurrentTarget>();
+        var effectiveLinks = _context.EffectiveTitleSourceLinks();
+        foreach (int[] ids in BoundedIdQuery.DistinctBatches(items.Select(item => item.RomFileId).OfType<int>()))
+        {
+            var rows = await _context.RomFiles.Where(rom => ids.Contains(rom.Id))
+                .Select(rom => new
+                {
+                    rom.Id,
+                    Identified = _context.DatRoms.Any(link => link.RomFileId == rom.Id),
+                    Cataloged = (from link in _context.DatRoms
+                                 join game in _context.DatGames on link.DatGameId equals game.Id
+                                 where link.RomFileId == rom.Id
+                                 select game.SourceEntryId).Any(id => effectiveLinks.Any(link => link.SourceEntryId == id))
+                }).ToListAsync(ct);
+            foreach (var row in rows)
+                targets.Add((JobItemKind.Rom, row.Id),
+                    new(row.Cataloged ? "Cataloged" : row.Identified ? "Unrouted" : "Unidentified"));
+        }
+        foreach (int[] ids in BoundedIdQuery.DistinctBatches(items.Select(item => item.DatFileId).OfType<int>()))
+        {
+            var rows = await _context.DatFiles.Where(dat => ids.Contains(dat.Id) && dat.Lifecycle == nameof(DatFileLifecycle.Active))
+                .Select(dat => new { dat.Id, dat.PlatformId }).ToListAsync(ct);
+            foreach (var row in rows)
+                targets.Add((JobItemKind.Dat, row.Id), new(row.PlatformId.HasValue ? "Routed" : "Unrouted", row.PlatformId));
+        }
+        return targets;
+    }
+
+    private sealed record CurrentTarget(string Status, int? PlatformId = null);
 }

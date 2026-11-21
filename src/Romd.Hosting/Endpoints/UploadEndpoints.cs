@@ -131,7 +131,8 @@ public static class UploadEndpoints
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(new(request.Path, request.SystemKey, request.MaxParallelRoms ?? 4,
-            request.AllowUnidentified ?? false, request.ArchiveOnly ?? false, request.TrackedOnly ?? false, request.Move ?? false), ct);
+            request.AllowUnidentified ?? false, request.ArchiveOnly ?? false, request.TrackedOnly ?? false,
+            request.Move ?? false, request.RequestId), ct);
 
         return result.ToAccepted();
     }

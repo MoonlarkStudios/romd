@@ -1,7 +1,8 @@
-import { type Job, listJobs } from '@romd/admin-api-client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { listJobs } from '@romd/admin-api-client';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
+import { useDraft, useDraftGuard } from '../../components/Administration/DraftGuard';
 import { computeTransferStats } from '../../hooks/api/uploadWithProgress';
 import { useUploadGeneric } from '../../hooks/api/useUpload';
 import { bundleForUpload } from './bundle';
@@ -35,9 +36,19 @@ interface PendingPlan {
   trackedOnly: boolean;
 }
 
+const MAX_STAGED_FILES = 1000;
+const MAX_FILE_BYTES = 64 * 1024 ** 3;
+
+export function importFileIssue(file: File): string | undefined {
+  if (file.size === 0) return 'Empty file';
+  if (file.size > MAX_FILE_BYTES) return 'Larger than 64 GiB';
+  return undefined;
+}
+
 export function useImportSession() {
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
+  const { navigateWithinEditor } = useDraftGuard();
   const rawBatch = params.get('batch');
   const selectedJob = params.get('job');
   const jobId =
@@ -54,7 +65,12 @@ export function useImportSession() {
   const [allowUnidentified, setAllowUnidentified] = useState(false);
   const [trackMatchedTitles, setTrackMatchedTitles] = useState(true);
   const [trackedOnly, setTrackedOnly] = useState(false);
-  const [localIds, setLocalIds] = useState<string[]>([]);
+  const [localJobs, setLocalJobs] = useState<
+    {
+      id: string;
+      name?: string;
+    }[]
+  >([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [isStarting, setIsStarting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<ImportUploadProgress | null>(null);
@@ -71,64 +87,70 @@ export function useImportSession() {
   );
   const hasDats = summary.dat > 0 || summary.archive > 0;
 
-  const batch = useQuery({
+  useDraft(
+    staged.length > 0 || isStarting,
+    'Files waiting to transfer will be cleared. Accepted imports continue in Jobs.',
+  );
+  const stagingIssue =
+    staged.length > MAX_STAGED_FILES
+      ? 'Choose up to 1,000 files per import.'
+      : staged.some(({ file }) => importFileIssue(file))
+        ? 'Remove the marked files to start the import.'
+        : undefined;
+  const batch = useInfiniteQuery({
     queryKey: [
       'import-batch',
       batchId,
     ],
     enabled: !!batchId,
-    queryFn: async ({ signal }) => {
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ signal, pageParam }) => {
       if (!batchId) throw new Error('Choose an import batch first.');
-      const jobs: Job[] = [];
-      let cursor: string | undefined;
-      const seen = new Set<string>();
-      do {
-        signal.throwIfAborted();
-        const result = await listJobs({
-          query: {
-            correlationId: batchId,
-            jobType: 'upload',
-            archive: 'all',
-            limit: 100,
-            cursor,
-          },
-          signal,
-        });
-        if (result.error || !result.data) throw new Error('Could not load this import.');
-        signal.throwIfAborted();
-        jobs.push(...result.data.items);
-        if (!result.data.hasNextPage) return jobs;
-        const next = result.data.nextCursor;
-        if (!next || seen.has(next)) throw new Error('Could not load this import.');
-        seen.add(next);
-        cursor = next;
-      } while (cursor);
-      return jobs;
+      const result = await listJobs({
+        query: {
+          correlationId: batchId,
+          jobType: 'upload',
+          archive: 'all',
+          limit: 25,
+          cursor: pageParam,
+        },
+        signal,
+      });
+      if (result.error || !result.data || (result.data.hasNextPage && !result.data.nextCursor))
+        throw new Error('Could not load this import.');
+      return result.data;
     },
+    getNextPageParam: (page, _, __, cursors) =>
+      page.hasNextPage && page.nextCursor && !cursors.includes(page.nextCursor)
+        ? page.nextCursor
+        : undefined,
     refetchInterval: (query) =>
-      isStarting || query.state.data?.some((job) => !job.isTerminal) ? 2000 : false,
+      isStarting ||
+      query.state.data?.pages.some((page) => page.items.some((job) => !job.isTerminal))
+        ? 2000
+        : false,
   });
+  const batchJobs = batch.data?.pages.flatMap((page) => page.items) ?? [];
+  const jobNames = new Map(
+    localJobs.map((job) => [
+      job.id,
+      job.name,
+    ]),
+  );
+  for (const job of batchJobs)
+    if (job.jobType === 'upload') jobNames.set(job.id, job.sourceFilename);
   const activeJobIds = Array.from(
     new Set([
-      ...localIds,
+      ...localJobs.map((job) => job.id),
       ...(jobId
         ? [
             jobId,
           ]
         : []),
-      ...(batch.data ?? []).map((job) => job.id),
+      ...batchJobs.map((job) => job.id),
     ]),
   ).filter((id) => !dismissed.includes(id));
 
-  useEffect(() => {
-    const preventLeave = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    if (isStarting) window.addEventListener('beforeunload', preventLeave);
-    return () => window.removeEventListener('beforeunload', preventLeave);
-  }, [
-    isStarting,
-  ]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const addFiles = useCallback(
@@ -160,23 +182,32 @@ export function useImportSession() {
     if (!busy.current && !planRef.current)
       setStaged((current) => current.filter((entry) => entry.id !== id));
   };
-  const reopenJob = (id: string) => {
+  const reopenJob = (id: string, name?: string) => {
     setDismissed((current) => current.filter((value) => value !== id));
-    setLocalIds((current) => [
-      ...new Set([
-        id,
-        ...current,
-      ]),
-    ]);
-    setParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        next.set('job', id);
-        return next;
-      },
-      {
-        replace: true,
-      },
+    if (!batchJobs.some((job) => job.id === id)) {
+      setLocalJobs((current) =>
+        current.some((job) => job.id === id)
+          ? current
+          : [
+              {
+                id,
+                name,
+              },
+              ...current,
+            ],
+      );
+    }
+    navigateWithinEditor(() =>
+      setParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.set('job', id);
+          return next;
+        },
+        {
+          replace: true,
+        },
+      ),
     );
   };
 
@@ -198,11 +229,7 @@ export function useImportSession() {
     });
     try {
       if (!planRef.current) {
-        if (
-          staged.length > 1000 ||
-          staged.some(({ file }) => file.size === 0 || file.size > 64 * 1024 ** 3)
-        )
-          throw new Error('Choose up to 1,000 non-empty files, each no larger than 64 GiB.');
+        if (stagingIssue) throw new Error(stagingIssue);
         const bundle = await bundleForUpload(
           staged.map((entry) => entry.file),
           controller.signal,
@@ -231,15 +258,19 @@ export function useImportSession() {
                 : staged.map((entry) => entry.id),
           })),
         };
-        setParams(
-          (current) => {
-            const next = new URLSearchParams(current);
-            next.set('batch', id);
-            return next;
-          },
-          {
-            replace: true,
-          },
+        setLocalJobs([]);
+        navigateWithinEditor(() =>
+          setParams(
+            (current) => {
+              const next = new URLSearchParams(current);
+              next.delete('job');
+              next.set('batch', id);
+              return next;
+            },
+            {
+              replace: true,
+            },
+          ),
         );
       }
       const plan = planRef.current;
@@ -280,12 +311,17 @@ export function useImportSession() {
             });
           },
         });
-        setLocalIds((current) => [
-          ...new Set([
-            result.jobId,
-            ...current,
-          ]),
-        ]);
+        setLocalJobs((current) =>
+          current.some((job) => job.id === result.jobId)
+            ? current
+            : [
+                {
+                  id: result.jobId,
+                  name: request.file.name,
+                },
+                ...current,
+              ],
+        );
         setStaged((current) => current.filter((entry) => !request.stagedIds.includes(entry.id)));
         plan.requests.shift();
       }
@@ -312,6 +348,7 @@ export function useImportSession() {
 
   return {
     staged,
+    stagingIssue,
     summary,
     hasDats,
     addFiles,
@@ -332,13 +369,21 @@ export function useImportSession() {
     retryPending: !!planRef.current,
     cancelUpload: () => abortRef.current?.abort(),
     activeJobIds,
+    selectedJobId: jobId && activeJobIds.includes(jobId) ? jobId : activeJobIds[0],
+    jobNames,
+    hasMoreJobs: batch.hasNextPage,
+    fetchingMoreJobs: batch.isFetchingNextPage,
+    loadMoreJobs: () => void batch.fetchNextPage(),
     dismissJob: (id: string) =>
       setDismissed((current) => [
         ...current,
         id,
       ]),
     reopenJob,
-    batchError: batch.isError,
-    retryBatch: () => void batch.refetch(),
+    batchError: batch.isFetchNextPageError ? 'next-page' : batch.isError ? 'restore' : null,
+    retryBatch: () => {
+      if (batch.isFetchNextPageError) void batch.fetchNextPage();
+      else void batch.refetch();
+    },
   };
 }

@@ -13,4 +13,6 @@ public sealed record ImportFromPath
     public bool? ArchiveOnly { get; init; }
     public bool? TrackedOnly { get; init; }
     public bool? Move { get; init; }
+    /// <summary>Reuse this ID when retrying acceptance of the same folder and options.</summary>
+    public Guid? RequestId { get; init; }
 }

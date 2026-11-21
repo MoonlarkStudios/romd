@@ -1,10 +1,12 @@
-import { Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import type { Dat } from '@romd/admin-api-client';
 import { IconInboxOff, IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { AsyncBoundary } from '../../components/AsyncBoundary';
 import { EmptyState } from '../../components/EmptyState';
+import { importReceiptReturn } from '../../components/Import/importReceiptLinks';
 import { useUnroutedDats } from '../../hooks/api/useDats';
 import { usePlatforms } from '../../hooks/api/usePlatforms';
 import { useLibraryStats, usePurgeUnidentifiedRoms } from '../../hooks/api/useRoms';
@@ -19,6 +21,9 @@ import { UnroutedDatCard } from './UnroutedDatCard';
  * system — assignments can be remembered as aliases for future auto-routing.
  */
 export function Inbox({ embedded = false }: { embedded?: boolean }) {
+  const [params, setParams] = useSearchParams();
+  const datId = params.get('dat');
+  const receipt = importReceiptReturn(params);
   const { canManageTitles } = usePermissions();
   const unroutedQuery = useUnroutedDats();
   const platformsQuery = usePlatforms();
@@ -29,17 +34,17 @@ export function Inbox({ embedded = false }: { embedded?: boolean }) {
   const [newSystemRememberAlias, setNewSystemRememberAlias] = useState(true);
 
   const unidentifiedCount = Number(statsQuery.data?.unidentifiedCount ?? 0);
+  const unroutedCount = Number(statsQuery.data?.unroutedCount ?? 0);
   const unroutedDats = unroutedQuery.data ?? [];
-  const totalBlockedRoms = unroutedDats.reduce<number | undefined>(
-    (sum, dat) =>
-      sum === undefined || dat.matchedRomFileCount === undefined
-        ? undefined
-        : sum + dat.matchedRomFileCount,
-    0,
-  );
+  const targetDats = datId ? unroutedDats.filter((dat) => dat.id === datId) : unroutedDats;
 
   const isLoaded = unroutedQuery.isSuccess && statsQuery.isSuccess;
-  const allCaughtUp = isLoaded && unroutedDats.length === 0 && unidentifiedCount === 0;
+  const allCaughtUp =
+    isLoaded &&
+    !datId &&
+    unroutedDats.length === 0 &&
+    unidentifiedCount === 0 &&
+    unroutedCount === 0;
 
   const handleCreateSystem = (summary: Dat, rememberAlias: boolean) => {
     setNewSystemRememberAlias(rememberAlias);
@@ -75,6 +80,36 @@ export function Inbox({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <Stack gap="xl">
+      {receipt && (
+        <Button
+          component={Link}
+          to={receipt}
+          variant="subtle"
+          w="fit-content"
+        >
+          Back to import results
+        </Button>
+      )}
+      {datId && (
+        <Group justify="space-between">
+          <Text size="sm">Catalog from this import</Text>
+          <Button
+            variant="subtle"
+            onClick={() =>
+              setParams((prior) => {
+                const next = new URLSearchParams(prior);
+                next.delete('dat');
+                return next;
+              })
+            }
+          >
+            Show all catalogs
+          </Button>
+        </Group>
+      )}
+      {datId && unroutedQuery.isSuccess && targetDats.length === 0 && (
+        <Alert color="gray">This catalog has been routed or is no longer available.</Alert>
+      )}
       {!embedded && (
         <Stack gap={0}>
           <Title order={2}>Inbox</Title>
@@ -109,17 +144,18 @@ export function Inbox({ embedded = false }: { embedded?: boolean }) {
                   letterSpacing: '0.5px',
                 }}
               >
-                Unrouted DATs ({unroutedDats.length})
+                Unrouted DATs ({targetDats.length})
               </Text>
-              {totalBlockedRoms !== undefined && totalBlockedRoms > 0 && (
-                <Text
-                  size="sm"
-                  fw={600}
-                  c="orange"
+              {!datId && unroutedCount > 0 && (
+                <Button
+                  component={Link}
+                  to="/roms?tab=all&status=unrouted"
+                  variant="subtle"
+                  size="xs"
                 >
-                  blocking {totalBlockedRoms.toLocaleString()} matched ROM
-                  {totalBlockedRoms === 1 ? '' : 's'}
-                </Text>
+                  Review {unroutedCount.toLocaleString()} unrouted{' '}
+                  {unroutedCount === 1 ? 'file' : 'files'}
+                </Button>
               )}
             </Group>
             <AsyncBoundary
@@ -138,9 +174,9 @@ export function Inbox({ embedded = false }: { embedded?: boolean }) {
                 />
               }
             >
-              {(summaries) => (
+              {() => (
                 <Stack gap="sm">
-                  {summaries.map((summary) => (
+                  {targetDats.map((summary) => (
                     <UnroutedDatCard
                       key={summary.id}
                       summary={summary}
@@ -154,37 +190,39 @@ export function Inbox({ embedded = false }: { embedded?: boolean }) {
             </AsyncBoundary>
           </Stack>
 
-          <Stack gap="sm">
-            <Group
-              justify="space-between"
-              align="center"
-            >
-              <Text
-                size="xs"
-                c="dimmed"
-                tt="uppercase"
-                fw={700}
-                style={{
-                  letterSpacing: '0.5px',
-                }}
+          {!datId && (
+            <Stack gap="sm">
+              <Group
+                justify="space-between"
+                align="center"
               >
-                Unidentified files ({unidentifiedCount.toLocaleString()})
-              </Text>
-              {canManageTitles && unidentifiedCount > 0 && (
-                <Button
+                <Text
                   size="xs"
-                  variant="light"
-                  color="red"
-                  leftSection={<IconTrash size={14} />}
-                  onClick={handlePurgeInbox}
-                  loading={purgeMutation.isPending}
+                  c="dimmed"
+                  tt="uppercase"
+                  fw={700}
+                  style={{
+                    letterSpacing: '0.5px',
+                  }}
                 >
-                  Delete all
-                </Button>
-              )}
-            </Group>
-            <UnidentifiedList />
-          </Stack>
+                  Unidentified files ({unidentifiedCount.toLocaleString()})
+                </Text>
+                {canManageTitles && unidentifiedCount > 0 && (
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="red"
+                    leftSection={<IconTrash size={14} />}
+                    onClick={handlePurgeInbox}
+                    loading={purgeMutation.isPending}
+                  >
+                    Delete all
+                  </Button>
+                )}
+              </Group>
+              <UnidentifiedList />
+            </Stack>
+          )}
         </>
       )}
 

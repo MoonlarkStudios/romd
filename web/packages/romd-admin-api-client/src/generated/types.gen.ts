@@ -861,6 +861,7 @@ export type ImportFromPath = {
     archiveOnly?: null | boolean;
     trackedOnly?: null | boolean;
     move?: null | boolean;
+    requestId?: null | string;
 };
 
 export type ImportGalleryArtworkRequest = {
@@ -1036,6 +1037,9 @@ export type JobItem = {
     fileName: string;
     sizeBytes: ByteCount;
     outcome: string;
+    reason?: null | string;
+    currentStatus?: null | string;
+    currentSystemKey?: null | string;
     romFileId?: null | string;
     datFileId?: null | string;
     systemKey?: null | string;

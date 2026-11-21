@@ -415,7 +415,7 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
                 var result = unsupportedArchives.Contains(romPath)
                     ? new RomProcessingResult(RomIngestOutcome.Failed,
                         ImportErrors.UnsupportedArchive(Path.GetRelativePath(workDirectory, romPath)).Description,
-                        new FileInfo(romPath).Length)
+                        new FileInfo(romPath).Length, Reason: JobItemReason.UnsupportedArchive)
                     : await _romProcessor.ProcessAsync(
                     romPath, allowUnidentified, job.ArchiveOnly, innerCt, job.TrackedOnly,
                     new UploadItemContext(job.Id, Path.GetRelativePath(workDirectory, romPath)));
@@ -443,7 +443,7 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
                     sink.Add(result.JournaledOutcome ?? JobItem.ForRom(
                         job.Id, Path.GetRelativePath(workDirectory, romPath), result.SizeBytes, result.Outcome,
                         result.RomFileId, result.MatchedTitleIds, result.PlatformId, result.Error,
-                        createdAt: occurredAt, job.ArchiveOnly || job.TrackedOnly));
+                        createdAt: occurredAt, job.ArchiveOnly || job.TrackedOnly, result.Reason));
 
                     if (processedCount % _progressSaveInterval == 0 || sinceSave.Elapsed >= TimeSpan.FromSeconds(1))
                     {

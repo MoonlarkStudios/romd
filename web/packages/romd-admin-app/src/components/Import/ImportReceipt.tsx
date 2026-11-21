@@ -1,22 +1,23 @@
-import { ActionIcon, Alert, Badge, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
+import { ActionIcon, Alert, Button, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import type { JobUploadJob } from '@romd/admin-api-client';
 import { IconX } from '@tabler/icons-react';
-import { ProvenanceLedger } from '../../components/Import/ProvenanceLedger';
-import workspace from '../../components/Workspace/Workspace.module.css';
+import { Link } from 'react-router';
+import { JobStatusBadge } from '../Jobs/JobStatusBadge';
+import workspace from '../Workspace/Workspace.module.css';
+import { importHistoryUrl, importReceiptUrl } from './importReceiptLinks';
+import { ProvenanceLedger } from './ProvenanceLedger';
 
-export function ResultsPanel({ job, onDismiss }: { job: JobUploadJob; onDismiss: () => void }) {
+export function ImportReceipt({ job, onDismiss }: { job: JobUploadJob; onDismiss?: () => void }) {
   const cancelled = job.phase === 'Cancelled';
   const failed = job.phase === 'Failed';
-  const issues = job.hasErrors || (!job.trackedOnly && Number(job.romsRejected) > 0);
-  const label = cancelled
-    ? 'Cancelled'
-    : failed
-      ? 'Failed'
-      : issues
-        ? 'Completed with issues'
-        : 'Complete';
+  const skipped = Number(job.romsRejected);
+  const catalogs = Number(job.datsSucceeded);
   return (
-    <section>
+    <section
+      className={workspace.panel}
+      id={onDismiss ? undefined : 'import-results'}
+      aria-label="Import results"
+    >
       <Stack gap="md">
         <Group
           justify="space-between"
@@ -36,7 +37,7 @@ export function ResultsPanel({ job, onDismiss }: { job: JobUploadJob; onDismiss:
                 overflowWrap: 'anywhere',
               }}
             >
-              {job.sourceFilename}
+              {onDismiss ? job.sourceFilename : 'Import results'}
             </Title>
             <Group gap="md">
               <Text size="sm">{Number(job.romsIngested).toLocaleString()} stored</Text>
@@ -46,17 +47,18 @@ export function ResultsPanel({ job, onDismiss }: { job: JobUploadJob; onDismiss:
               >
                 {Number(job.romsDeduplicated).toLocaleString()} already stored
               </Text>
-              {!!Number(job.romsRejected) && (
+              {skipped > 0 && (
                 <Text
                   size="sm"
                   c="orange"
                 >
-                  {Number(job.romsRejected).toLocaleString()}{' '}
-                  {job.trackedOnly ? 'skipped' : 'not stored'}
+                  {skipped.toLocaleString()} {job.trackedOnly ? 'skipped' : 'not stored'}
                 </Text>
               )}
-              {!!Number(job.datsSucceeded) && (
-                <Text size="sm">{Number(job.datsSucceeded).toLocaleString()} catalogs</Text>
+              {catalogs > 0 && (
+                <Text size="sm">
+                  {catalogs.toLocaleString()} {catalogs === 1 ? 'catalog' : 'catalogs'}
+                </Text>
               )}
               {job.duration && (
                 <Text
@@ -68,26 +70,34 @@ export function ResultsPanel({ job, onDismiss }: { job: JobUploadJob; onDismiss:
               )}
             </Group>
           </Stack>
-          <Group gap="xs">
-            <Badge
-              color={failed ? 'red' : cancelled ? 'gray' : issues ? 'orange' : 'teal'}
-              variant="light"
-            >
-              {label}
-            </Badge>
-            <Tooltip label="Dismiss results">
-              <ActionIcon
+          {onDismiss && (
+            <Group gap="xs">
+              <JobStatusBadge job={job} />
+              <Button
+                component={Link}
                 variant="subtle"
-                color="gray"
-                aria-label="Dismiss results"
-                onClick={onDismiss}
+                size="xs"
+                to={importReceiptUrl(job.id)}
+                state={{
+                  historyUrl: importHistoryUrl,
+                }}
               >
-                <IconX size={16} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
+                Open import results
+              </Button>
+              <Tooltip label="Dismiss results">
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  aria-label="Dismiss results"
+                  onClick={onDismiss}
+                >
+                  <IconX size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+          )}
         </Group>
-        {!!Number(job.romsRejected) &&
+        {skipped > 0 &&
           (job.trackedOnly ? (
             <Alert
               color="blue"
@@ -101,8 +111,7 @@ export function ResultsPanel({ job, onDismiss }: { job: JobUploadJob; onDismiss:
               color="orange"
               title="Unmatched files were not stored"
             >
-              Import a matching DAT and upload those files again, or enable Keep unmatched files on
-              your next import.
+              Check the matching DAT before importing those files again.
             </Alert>
           ))}
         {(cancelled || failed) && (
@@ -133,7 +142,10 @@ export function ResultsPanel({ job, onDismiss }: { job: JobUploadJob; onDismiss:
             </Stack>
           </Alert>
         )}
-        <ProvenanceLedger jobId={job.id} />
+        <ProvenanceLedger
+          jobId={job.id}
+          addressable={!onDismiss}
+        />
       </Stack>
     </section>
   );

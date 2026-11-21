@@ -37,6 +37,15 @@ public enum JobItemOutcome
     DatUnrouted = 5
 }
 
+public enum JobItemReason
+{
+    OutsideTrackedSelection = 1,
+    NoCatalogMatch = 2,
+    KeptWithoutMatch = 3,
+    UnsupportedArchive = 4,
+    DiscDescriptorKept = 5
+}
+
 /// <summary>
 ///     A write-once record of what happened to one file during an upload job — the per-file
 ///     provenance behind a job's aggregate counters. Stores only the minimal snapshot captured at
@@ -72,7 +81,7 @@ public sealed class JobItem
 
     public JobItem WithUploadIdentity() => Rehydrate(
         UploadIdentity(JobId, Kind, FileName), JobId, Kind, FileName, SizeBytes, Outcome,
-        RomFileId, DatFileId, PlatformId, MatchedTitleIds, GameCount, Error, ArchiveOnly, CreatedAt);
+        RomFileId, DatFileId, PlatformId, MatchedTitleIds, GameCount, Error, ArchiveOnly, CreatedAt, Reason);
 
     private readonly List<int> _matchedTitleIds = [];
     private readonly ReadOnlyCollection<int> _matchedTitleIdsView;
@@ -95,7 +104,8 @@ public sealed class JobItem
         int? gameCount,
         string? error,
         bool? archiveOnly,
-        DateTimeOffset createdAt) : this()
+        DateTimeOffset createdAt,
+        JobItemReason? reason = null) : this()
     {
         Id = Guid.NewGuid();
         JobId = jobId;
@@ -109,6 +119,7 @@ public sealed class JobItem
         _matchedTitleIds.AddRange(matchedTitleIds);
         GameCount = gameCount;
         Error = error;
+        Reason = reason;
         ArchiveOnly = archiveOnly;
         CreatedAt = createdAt;
     }
@@ -119,6 +130,7 @@ public sealed class JobItem
     public string FileName { get; private set; } = null!;
     public long SizeBytes { get; private set; }
     public JobItemOutcome Outcome { get; private set; }
+    public JobItemReason? Reason { get; private set; }
 
     /// <summary>The stored ROM file (for an ingest) or the existing file it deduplicated to.</summary>
     public int? RomFileId { get; private set; }
@@ -160,7 +172,8 @@ public sealed class JobItem
         int? gameCount,
         string? error,
         bool? archiveOnly,
-        DateTimeOffset createdAt)
+        DateTimeOffset createdAt,
+        JobItemReason? reason = null)
     {
         var item = new JobItem
         {
@@ -170,6 +183,7 @@ public sealed class JobItem
             FileName = fileName,
             SizeBytes = sizeBytes,
             Outcome = outcome,
+            Reason = reason,
             RomFileId = romFileId,
             DatFileId = datFileId,
             PlatformId = platformId,
@@ -192,7 +206,8 @@ public sealed class JobItem
         int? platformId,
         string? error,
         DateTimeOffset createdAt,
-        bool archiveOnly = false)
+        bool archiveOnly = false,
+        JobItemReason? reason = null)
     {
         var mapped = outcome switch
         {
@@ -205,7 +220,7 @@ public sealed class JobItem
         return new JobItem(
             jobId, JobItemKind.Rom, fileName, sizeBytes, mapped,
             romFileId, datFileId: null, platformId, matchedTitleIds ?? [], gameCount: null, error,
-            archiveOnly, createdAt);
+            archiveOnly, createdAt, reason);
     }
 
     public static JobItem ForDat(

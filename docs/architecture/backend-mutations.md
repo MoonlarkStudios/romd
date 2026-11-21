@@ -488,7 +488,13 @@ outcome; a failed recovery read cannot establish rollback or replace that signal
 `ImportFromPathCommandHandler` checks tracked-title eligibility before resolving an
 optional body system key, captures the current actor, and inspects the allowlisted
 source before sampling acceptance time. Path import retains its existing concurrency
-values; the multipart upload range check does not apply to it.
+values. The multipart upload range check applies to browser uploads.
+
+Folder acceptance supports an optional request ID. A matching actor, normalized
+source, and options reuse the accepted job. Replay looks up the accepted job
+before inspecting the source, so acceptance can be recovered after move cleanup.
+A different actor or intent receives a conflict. New requests check again under
+the workspace lease before reserving storage or staging a dispatch.
 
 Inspection validates the source, file count and workspace capacity so the request
 fails fast, but acceptance copies no bytes: copying a large library can outlast any
@@ -515,7 +521,9 @@ is copied; inability to prove that removal aborts the attempt and preserves the
 original failure. Move mode then writes its fingerprint manifest beside the
 workspace; source originals stay untouched until the successful worker cleanup
 protocol permits removal. Skipped and failed sources are recorded in the same
-transition to `Extracting`, so one checkpoint persists both.
+transition to `Extracting`, so one checkpoint persists both. Recovery preserves
+these copy warnings separately from file outcomes recorded during ingestion.
+If no copy succeeds, the job reports the copy errors and stops before extraction.
 
 Any fault or cancellation empties the workspace and removes the manifest, so
 extraction never sees a partial copy and redelivery restarts the copy from the

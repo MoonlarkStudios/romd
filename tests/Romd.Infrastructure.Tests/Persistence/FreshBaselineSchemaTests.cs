@@ -25,12 +25,13 @@ public sealed class FreshBaselineSchemaTests
             "20261117000000_JobDispatchExpiryIndex",
             "20261118000000_SystemHardwareMetadata",
             "20261118194850_SignInMessage",
-            "20261120162632_MediaCollection"
+            "20261120162632_MediaCollection",
+            "20261121030000_ImportOutcomeReasons"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(78);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(78);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(79);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(79);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -74,7 +75,7 @@ public sealed class FreshBaselineSchemaTests
         await database.ProvisionAsync();
 
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(78);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(79);
     }
 
     [Fact]
@@ -97,7 +98,7 @@ public sealed class FreshBaselineSchemaTests
             WHERE conname IN ('CK_TitleMedia_PreferredPackaging', 'FK_TitleMedia_CatalogReleases_CatalogReleaseId')
             ORDER BY conname
             """).ToArrayAsync()).ShouldBe(["CK_TitleMedia_PreferredPackaging", "FK_TitleMedia_CatalogReleases_CatalogReleaseId"]);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(78);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(79);
     }
 
     [Theory]

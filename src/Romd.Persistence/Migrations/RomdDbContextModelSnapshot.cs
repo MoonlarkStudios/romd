@@ -2364,6 +2364,9 @@ namespace Romd.Persistence.Migrations
                     b.Property<int?>("PlatformId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("Reason")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("RomFileId")
                         .HasColumnType("integer");
 

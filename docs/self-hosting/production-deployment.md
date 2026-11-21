@@ -548,8 +548,8 @@ environment variables is not an account-recovery mechanism.
 The current schema starts at `20261031050000_FreshMediaBaseline` with the
 additive `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
 `20261117000000_JobDispatchExpiryIndex`, `20261118000000_SystemHardwareMetadata`,
-`20261118194850_SignInMessage` and `20261120162632_MediaCollection` migrations
-(readiness version 78).
+`20261118194850_SignInMessage`, `20261120162632_MediaCollection`, and
+`20261121030000_ImportOutcomeReasons` migrations (readiness version 79).
 The Saturn migration preserves PS1 observations and adds distinct Saturn fields.
 The sign-in message starts blank. Existing title media stays title-level and
 unpreferred after the media collection migration.

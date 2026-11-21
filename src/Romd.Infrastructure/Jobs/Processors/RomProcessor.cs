@@ -80,7 +80,8 @@ public sealed class RomProcessor
         if (uploadItem is not null && stream.Length == 0 && Path.GetExtension(path).Equals(".cue", StringComparison.OrdinalIgnoreCase))
         {
             if (trackedOnly)
-                return new RomProcessingResult(RomIngestOutcome.Rejected, CatalogErrors.UntrackedRom().Description, sizeBytes);
+                return new RomProcessingResult(RomIngestOutcome.Rejected, CatalogErrors.UntrackedRom().Description, sizeBytes,
+                    Reason: JobItemReason.OutsideTrackedSelection);
             var intake = scope.ServiceProvider.GetRequiredService<IOriginalDiscDescriptorIntake>();
             return FromOutcome(await intake.IntakeAsync(stream, uploadItem.JobId, uploadItem.RelativePath, ct));
         }
@@ -110,11 +111,13 @@ public sealed class RomProcessor
             if (error.Code == RomPublicationErrors.RetryRequiredCode)
                 return new RomProcessingResult(default, null, sizeBytes, RetryReason: error.Description);
             if (error.Code == "Library.UntrackedRom")
-                return new RomProcessingResult(RomIngestOutcome.Rejected, error.Description, sizeBytes);
+                return new RomProcessingResult(RomIngestOutcome.Rejected, error.Description, sizeBytes,
+                    Reason: JobItemReason.OutsideTrackedSelection);
 
             if (error.Code == "Library.UnidentifiedRom")
             {
-                return new RomProcessingResult(RomIngestOutcome.Rejected, null, sizeBytes);
+                return new RomProcessingResult(RomIngestOutcome.Rejected, null, sizeBytes,
+                    Reason: JobItemReason.NoCatalogMatch);
             }
 
             return new RomProcessingResult(RomIngestOutcome.Failed, error.Description, sizeBytes);
@@ -165,4 +168,5 @@ public readonly record struct RomProcessingResult(
     IReadOnlyList<int>? MatchedTitleIds = null,
     int? PlatformId = null,
     JobItem? JournaledOutcome = null,
-    string? RetryReason = null);
+    string? RetryReason = null,
+    JobItemReason? Reason = null);

@@ -22,7 +22,7 @@ vi.mock('../../hooks/usePermissions', () => ({
   }),
 }));
 beforeEach(() => vi.resetAllMocks());
-function page() {
+function page(entry = '/roms/file?tab=all&q=mario&status=cataloged') {
   render(
     <Routes>
       <Route
@@ -33,12 +33,29 @@ function page() {
     {
       routerOptions: {
         initialEntries: [
-          '/roms/file?tab=all&q=mario&status=cataloged',
+          entry,
         ],
       },
     },
   );
 }
+it('returns to the exact import receipt filters from a file deep link', async () => {
+  vi.mocked(getRom).mockResolvedValue({
+    response: {
+      status: 404,
+    },
+  } as never);
+  page('/roms/file?tab=all&importJob=job-1&fileOutcome=ingested&fileQuery=folder%2Fgame');
+  expect(await screen.findByText('It may have been deleted.')).toBeInTheDocument();
+  expect(
+    screen.getByRole('link', {
+      name: 'Back to import results',
+    }),
+  ).toHaveAttribute(
+    'href',
+    '/jobs/job-1?fileOutcome=ingested&fileQuery=folder%2Fgame#import-results',
+  );
+});
 it('loads a deep link and links every match without losing inventory filters', async () => {
   vi.mocked(getRom).mockResolvedValue({
     data: {
@@ -148,7 +165,7 @@ it('offers retry when file details fail', async () => {
   page();
   expect(
     await screen.findByRole('button', {
-      name: 'Retry file',
+      name: 'Reload file details',
     }),
   ).toBeInTheDocument();
 });

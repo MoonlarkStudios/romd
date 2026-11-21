@@ -238,7 +238,8 @@ public sealed class PathImportAcceptanceOwnershipTests : IDisposable
         user.UserId.Returns(actor);
         var preparation = new PathImportPreparation(options, new PathValidator(options), new FileSystem());
         return new(tracked, reference, user, new ObservedPreparation(preparation, work), new JobWorkspaceExclusion(options),
-            acceptance ?? new UploadJobRepository(db, new FixedClock()), work, new FixedClock(), NullLogger<ImportFromPathCommandHandler>.Instance);
+            acceptance ?? new UploadJobRepository(db, new FixedClock()), work, new FixedClock(),
+            NullLogger<ImportFromPathCommandHandler>.Instance, new JobRepository(db, new FixedClock()));
     }
 
     private ObservedWork Work(RomdDbContext db) => new(new EfUnitOfWork(db), DataRoot);

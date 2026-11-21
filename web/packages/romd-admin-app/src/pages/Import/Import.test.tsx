@@ -1,7 +1,11 @@
+import { MantineProvider } from '@mantine/core';
 import type { Job, LibraryStats, SystemResource } from '@romd/admin-api-client';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render as renderBare, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createMemoryRouter, Link, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DraftGuardProvider } from '../../components/Administration/DraftGuard';
 import { completePage } from '../../test/fixtures/referencePages';
 import { render } from '../../test/utils/render';
 import { ImportPage } from './index';
@@ -678,10 +682,84 @@ describe('ImportPage', () => {
           correlationId: batchId,
           jobType: 'upload',
           archive: 'all',
-          limit: 100,
+          limit: 25,
           cursor: undefined,
         },
       }),
     );
+  });
+
+  it('protects staged browser files when leaving the import route', async () => {
+    const user = userEvent.setup();
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/roms/import',
+          element: (
+            <DraftGuardProvider>
+              <Link to="/other">Leave import</Link>
+              <ImportPage />
+            </DraftGuardProvider>
+          ),
+        },
+        {
+          path: '/other',
+          element: <h1>Other page</h1>,
+        },
+      ],
+      {
+        initialEntries: [
+          '/roms/import',
+        ],
+      },
+    );
+    const cache = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+    renderBare(
+      <MantineProvider env="test">
+        <QueryClientProvider client={cache}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    const file = new File(
+      [
+        'fixture data',
+      ],
+      'staged.bin',
+    );
+    await user.upload(screen.getByLabelText('file upload'), file);
+    expect(await screen.findByText('staged.bin')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Leave import',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Keep editing',
+      }),
+    );
+    expect(screen.getByText('staged.bin')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Leave import',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Discard',
+      }),
+    );
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Other page',
+      }),
+    ).toBeInTheDocument();
   });
 });

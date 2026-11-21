@@ -163,6 +163,7 @@ export function useImportFolders(path: string | null, enabled: boolean) {
 }
 
 interface ImportServerFolderParams {
+  requestId: string;
   path: string;
   allowUnidentified: boolean;
   archiveOnly: boolean;
@@ -175,15 +176,16 @@ export function useImportServerFolder() {
 
   return useMutation({
     mutationFn: async ({
+      requestId,
       path,
       allowUnidentified,
       archiveOnly,
       trackedOnly,
     }: ImportServerFolderParams) => {
-      if (trackedOnly) await requireTrackedTitles();
       const response = await importFromPath({
         body: {
           path,
+          requestId,
           move: false,
           allowUnidentified,
           archiveOnly,

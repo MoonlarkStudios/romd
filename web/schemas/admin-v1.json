@@ -21100,6 +21100,13 @@
               "null",
               "boolean"
             ]
+          },
+          "requestId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -21822,6 +21829,24 @@
           },
           "outcome": {
             "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currentStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currentSystemKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "romFileId": {
             "type": [

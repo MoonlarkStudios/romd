@@ -23,6 +23,13 @@ public sealed record JobItem
     /// <summary>"ingested", "deduplicated", "rejected", "failed", "dat_routed", or "dat_unrouted".</summary>
     public required string Outcome { get; init; }
 
+    /// <summary>The import-time reason, when recorded. Older outcomes can have no reason.</summary>
+    public string? Reason { get; init; }
+
+    /// <summary>Current state of the referenced ROM or DAT, or unavailable if it no longer exists.</summary>
+    public string? CurrentStatus { get; init; }
+    public string? CurrentSystemKey { get; init; }
+
     /// <summary>The stored ROM (ingest) or the existing ROM it deduplicated to.</summary>
     public string? RomFileId { get; init; }
 
