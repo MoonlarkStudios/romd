@@ -48,7 +48,7 @@ export function ImportIntake({
             leftSection={<IconDeviceLaptop size={16} />}
             disabled={switchingDisabled && active !== 'device'}
           >
-            This device
+            Upload
           </Tabs.Tab>
           <Tabs.Tab
             value="server"

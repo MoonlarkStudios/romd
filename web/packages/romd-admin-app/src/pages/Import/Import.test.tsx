@@ -447,7 +447,7 @@ describe('ImportPage', () => {
 
     await user.click(
       screen.getByRole('tab', {
-        name: 'This device',
+        name: 'Upload',
       }),
     );
     expect(
