@@ -312,39 +312,39 @@ it('removes an accepted game from batch retry after a failed refresh and retries
   const { rerender, unmount } = render(builder(previous));
   await user.click(
     screen.getByRole('checkbox', {
-      name: 'Select First new game',
+      name: /^Select First new game ·/,
     }),
   );
   await user.click(
     screen.getByRole('checkbox', {
-      name: 'Select Second new game',
+      name: /^Select Second new game ·/,
     }),
   );
   await user.click(
     screen.getByRole('button', {
-      name: 'Add 2 selected games',
+      name: 'Add 2 games',
     }),
   );
 
   expect(await screen.findByText(/Added 1 of 2 games/)).toBeInTheDocument();
   expect(
     screen.getByRole('checkbox', {
-      name: 'Select First new game',
+      name: /^Select First new game ·/,
     }),
   ).toBeDisabled();
   expect(
     screen.getByRole('checkbox', {
-      name: 'Select First new game',
+      name: /^Select First new game ·/,
     }),
   ).toBeChecked();
   expect(
     screen.getByRole('button', {
-      name: 'Add 1 selected games',
+      name: 'Add 1 game',
     }),
   ).toBeEnabled();
   await user.click(
     screen.getByRole('button', {
-      name: 'Add 1 selected games',
+      name: 'Add 1 game',
     }),
   );
   expect(await screen.findByText('Added 1 game to the collection.')).toBeInTheDocument();
@@ -377,7 +377,7 @@ it('removes an accepted game from batch retry after a failed refresh and retries
   rerender(builder(previous));
   expect(
     screen.getByRole('checkbox', {
-      name: 'Select First new game',
+      name: /^Select First new game ·/,
     }),
   ).toBeEnabled();
   unmount();

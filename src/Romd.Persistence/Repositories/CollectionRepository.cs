@@ -1,5 +1,4 @@
 using ErrorOr;
-using Romd.Application.Common.Artwork;
 using Romd.Application.Common.Pagination;
 using Romd.Application.Common.Validation;
 using Romd.Application.Common.Systems;
@@ -9,7 +8,6 @@ using Romd.Consumer.Application.Browse;
 using Romd.Consumer.Application.Browse.ReadModels;
 using Romd.Consumer.Application.Collections;
 using Romd.Consumer.Application.Libraries;
-using Romd.Domain.Catalog;
 using Romd.Domain.Collections;
 using Romd.Domain.Libraries;
 using Romd.Persistence.Entities;
@@ -86,11 +84,10 @@ public sealed partial class CollectionRepository(
     private async Task<CollectionItemReadModel[]> WithPostersAsync(
         IReadOnlyCollection<CollectionItemReadModel> items, CancellationToken ct)
     {
-        var artwork = await new ArtworkReader(context).ResolveAsync(items.Select(item => item.TitleId).ToArray(), ct);
+        var posters = await new ArtworkReader(context).ResolvePosterUrlsAsync(items.Select(item => item.TitleId).ToArray(), ct);
         return items.Select(item => item with
         {
-            PosterUrl = artwork.GetValueOrDefault(item.TitleId)?
-                .FirstOrDefault(resolution => resolution.Role == ArtworkRole.Poster)?.ToContract().Url
+            PosterUrl = posters.GetValueOrDefault(item.TitleId)
         }).ToArray();
     }
 

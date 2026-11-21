@@ -8,6 +8,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { GameCover } from '../../components/GameCover';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import type { CollectionDetailView as CollectionDetail } from '../../hooks/api/useCollectionManagement';
 import { useLibraryPreview } from '../../hooks/api/useLibraryExperience';
@@ -16,7 +17,6 @@ import { collectPages } from '../../utils/collectPages';
 import { exclusionReasons } from '../Libraries/libraryEvaluation';
 import { awaitsFirstPublication, needsLibraryRefresh } from '../Libraries/libraryRefresh';
 import { useCollectionPlacements } from './CollectionAudiences';
-import { CollectionGameCover } from './CollectionGameCover';
 import classes from './Collections.module.css';
 
 export function CollectionPreview({ collection }: { collection: CollectionDetail }) {
@@ -175,7 +175,7 @@ function AudienceGames({
           <div className={classes.previewGrid}>
             {items.map((game) => (
               <div key={game.id}>
-                <CollectionGameCover
+                <GameCover
                   className={classes.previewArt}
                   url={game.coverUrl}
                   iconSize={32}

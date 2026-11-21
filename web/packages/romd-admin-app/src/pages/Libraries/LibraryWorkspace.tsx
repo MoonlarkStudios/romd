@@ -648,10 +648,7 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
       {active === 'collections' && <LibraryCollections libraryId={libraryId} />}
       {active === 'access' && <Audience libraryId={libraryId} />}
       {active === 'preview' && !awaitsFirstPublication(library) && (
-        <LibraryPreview
-          libraryId={libraryId}
-          name={library.name}
-        />
+        <LibraryPreview libraryId={libraryId} />
       )}
       <Modal
         opened={settings}

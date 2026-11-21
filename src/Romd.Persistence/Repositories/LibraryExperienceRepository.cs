@@ -4,10 +4,8 @@ using Romd.Contracts.Common.Models;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Libraries;
-using Romd.Application.Common.Artwork;
 using Romd.Application.Common.Ids;
 using Romd.Contracts.Management.Libraries;
-using Romd.Domain.Catalog;
 using Romd.Persistence.Entities;
 
 namespace Romd.Persistence.Repositories;
@@ -119,9 +117,9 @@ public sealed partial class LibraryExperienceRepository(RomdDbContext context) :
 
     private async Task<LibraryPreviewTitle[]> ResolvePreviewTitlesAsync(PreviewRow[] page, CancellationToken ct)
     {
-        var artwork = await new ArtworkReader(context).ResolveAsync(page.Select(row => row.Id).ToArray(), ct);
+        var posters = await new ArtworkReader(context).ResolvePosterUrlsAsync(page.Select(row => row.Id).ToArray(), ct);
         return page.Select(row => new LibraryPreviewTitle(IdCoder.Encode(row.Id), row.Name, row.PlatformName,
-            artwork.GetValueOrDefault(row.Id)?.FirstOrDefault(item => item.Role == ArtworkRole.Poster)?.ToContract().Url))
+            posters.GetValueOrDefault(row.Id)))
             .ToArray();
     }
 

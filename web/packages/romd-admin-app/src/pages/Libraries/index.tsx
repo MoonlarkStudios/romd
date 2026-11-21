@@ -255,7 +255,6 @@ export function Libraries() {
           <Stack>
             <TextInput
               label="Library name"
-              placeholder="e.g. Everyone or Kids"
               autoFocus
               required
               maxLength={200}
@@ -300,7 +299,7 @@ export function Libraries() {
                     c="dimmed"
                     size="xs"
                   >
-                    Include matching games as your catalog grows.
+                    Add matching games automatically.
                   </Text>
                 </Radio.Card>
                 <Radio.Card
@@ -327,7 +326,7 @@ export function Libraries() {
                     c="dimmed"
                     size="xs"
                   >
-                    Include the specific games you choose.
+                    Include only the games you select.
                   </Text>
                 </Radio.Card>
               </SimpleGrid>
@@ -335,7 +334,7 @@ export function Libraries() {
             {selection === 'Rules' ? (
               <MultiSelect
                 label="Systems"
-                placeholder="All systems"
+                placeholder={systems.length ? undefined : 'All systems'}
                 searchable
                 clearable
                 comboboxProps={{
@@ -353,14 +352,13 @@ export function Libraries() {
                 label="Find games"
                 localFirst
                 withinPortal={false}
-                emptyMessage="Choose your first game, or add games later."
                 value={games}
                 onChange={setGames}
               />
             )}
             <Select
               label="Maximum content-rating age"
-              description="Applies to both selection modes. Unrated games are held for review."
+              description="Unrated games are held for review."
               data={maxMinimumAgeOptions}
               comboboxProps={{
                 withinPortal: false,

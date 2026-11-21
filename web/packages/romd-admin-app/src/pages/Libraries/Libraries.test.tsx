@@ -2,7 +2,14 @@ import { MantineProvider } from '@mantine/core';
 import type { Library } from '@romd/admin-api-client';
 import { getLibrary, updateCollection } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render as renderBare, screen, waitFor, within } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render as renderBare,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -108,6 +115,11 @@ const attachment = {
   visibleCount: 12,
   totalCount: 20,
   libraryCount: 2,
+};
+const posterUrl = '/artwork/zelda/card/current';
+const poster = {
+  role: 'Poster',
+  url: posterUrl,
 };
 
 beforeEach(() => {
@@ -674,6 +686,10 @@ describe('audience libraries', () => {
           name: 'The Legend of Zelda',
           systemKey: 'nes',
           hasLocalPayload: true,
+          coverUrl: '/media/legacy-zelda',
+          artwork: [
+            poster,
+          ],
         },
         {
           id: 'zelda-snes',
@@ -736,7 +752,13 @@ describe('audience libraries', () => {
       }),
       'Legend of Zelda',
     );
-    await userEvent.click(await screen.findByLabelText('The Legend of Zelda, nes, Local files'));
+    const option = await screen.findByLabelText('The Legend of Zelda, nes, Local files');
+    expect(within(option).getByAltText('')).toHaveAttribute('src', posterUrl);
+    await userEvent.click(option);
+    const selection = screen.getByRole('list', {
+      name: 'Find games selection',
+    });
+    expect(within(selection).getByAltText('')).toHaveAttribute('src', posterUrl);
     await userEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', {
         name: 'Create draft',
@@ -1101,7 +1123,7 @@ it('previews the actual library projection, with bounded pagination', async () =
             id: 'one',
             name: 'Mario',
             platformName: 'NES',
-            coverUrl: null,
+            coverUrl: posterUrl,
           },
         ],
         nextCursor: '0:one',
@@ -1122,13 +1144,12 @@ it('previews the actual library projection, with bounded pagination', async () =
         hasNextPage: false,
       },
     } as never);
-  render(
-    <LibraryPreview
-      libraryId="kids"
-      name="Kids"
-    />,
-  );
+  render(<LibraryPreview libraryId="kids" />);
   expect(await screen.findByText('Mario')).toBeInTheDocument();
+  const cover = screen.getByAltText('');
+  expect(cover).toHaveAttribute('src', posterUrl);
+  fireEvent.error(cover);
+  expect(cover).not.toBeInTheDocument();
   await userEvent.click(
     screen.getByRole('button', {
       name: 'Show more games',
@@ -1207,7 +1228,7 @@ it('keeps unsaved audience rules until the user explicitly discards them', async
     }),
   );
   await waitFor(() => expect(router.state.location.search).toBe('?tab=preview'));
-  expect(await screen.findByText('Through their eyes')).toBeInTheDocument();
+  expect(await screen.findByText('Library preview')).toBeInTheDocument();
 });
 
 it('drops the library details draft after a discarded Back within the same library', async () => {
@@ -1355,6 +1376,76 @@ it('refreshes attached library cards after editing the shared collection', async
 });
 
 describe('draft Games evaluation', () => {
+  it.each([
+    'Rules',
+    'IncludeOnly',
+  ] as const)('shows resolved covers in %s game results', async (mode) => {
+    vi.mocked(getTitle).mockResolvedValue({
+      data: {
+        id: 'zelda',
+        name: 'Zelda',
+        artwork: [
+          poster,
+        ],
+      },
+    } as never);
+    vi.mocked(previewLibraryConfiguration).mockResolvedValue({
+      data: evaluationPage({
+        evaluatedAt: '2026-09-07T00:00:00Z',
+        savedCount: 1,
+        matchingCount: 1,
+        addedCount: 0,
+        removedCount: 0,
+        removalReasons: [],
+        items: [
+          {
+            id: 'zelda',
+            name: 'Zelda',
+            platformName: 'NES',
+            coverUrl: posterUrl,
+            wasEligible: true,
+            isEligible: true,
+            isOwned: true,
+            isPlayable: true,
+            reason: null,
+            ratingBoard: null,
+            ratingCategory: null,
+            ratingAge: null,
+            attachedCollectionCount: 0,
+          },
+        ],
+      }),
+    } as never);
+    render(
+      <LibraryGames
+        library={{
+          ...library,
+          configuration: {
+            ...defaultLibraryConfiguration,
+            titleSelectionMode: mode,
+            includeTitleIds:
+              mode === 'IncludeOnly'
+                ? [
+                    'zelda',
+                  ]
+                : [],
+          },
+        }}
+        onDirtyChange={() => {}}
+      />,
+    );
+    const results = await screen.findByRole('list', {
+      name: 'Game results',
+    });
+    expect(within(results).getByAltText('')).toHaveAttribute('src', posterUrl);
+    if (mode === 'IncludeOnly') {
+      const selection = screen.getByRole('list', {
+        name: 'Handpicked games selection',
+      });
+      expect(await within(selection).findByAltText('')).toHaveAttribute('src', posterUrl);
+    }
+  });
+
   it('evaluates the saved rules once when Games opens', async () => {
     render(
       <LibraryGames
@@ -1512,7 +1603,7 @@ it('keeps published previews available after uploads and refreshes only on reque
 
   expect(await screen.findByText('Unpublished changes')).toBeInTheDocument();
   expect(screen.getByText(/Your audience keeps the published library/)).toBeInTheDocument();
-  expect(await screen.findByText('Through their eyes')).toBeInTheDocument();
+  expect(await screen.findByText('Library preview')).toBeInTheDocument();
   expect(materializeLibrary).not.toHaveBeenCalled();
   await userEvent.click(
     screen.getByRole('button', {
@@ -1564,7 +1655,7 @@ it('keeps the published preview while access-narrowing changes wait for an expli
   );
 
   expect(await screen.findByText(/Your audience keeps the published library/)).toBeInTheDocument();
-  expect(await screen.findByText('Through their eyes')).toBeInTheDocument();
+  expect(await screen.findByText('Library preview')).toBeInTheDocument();
   expect(materializeLibrary).not.toHaveBeenCalled();
 });
 
@@ -1649,6 +1740,6 @@ it('requires a first refresh before a new library is published', async () => {
   expect(
     await screen.findByText(/Review the games in this draft, then publish it/),
   ).toBeInTheDocument();
-  expect(screen.queryByText('Through their eyes')).not.toBeInTheDocument();
+  expect(screen.queryByText('Library preview')).not.toBeInTheDocument();
   expect(materializeLibrary).not.toHaveBeenCalled();
 });

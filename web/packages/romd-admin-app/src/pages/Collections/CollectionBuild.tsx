@@ -17,7 +17,9 @@ import { useDebouncedValue } from '@mantine/hooks';
 import type { CatalogTitle } from '@romd/admin-api-client';
 import { IconPlus, IconSearch } from '@tabler/icons-react';
 import { useEffect, useRef, useState } from 'react';
+import { gamePosterUrl } from '../../components/artworkPresentation';
 import { catalogGameLabel } from '../../components/catalogGameLabel';
+import { GameCover } from '../../components/GameCover';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useCatalogSearch } from '../../hooks/api/useCatalogSearch';
 import type { CollectionDetailView as CollectionDetail } from '../../hooks/api/useCollectionManagement';
@@ -28,7 +30,6 @@ import {
   useUpdateCollectionItemNote,
 } from '../../hooks/api/useCollectionManagement';
 import { usePlatforms } from '../../hooks/api/usePlatforms';
-import { CollectionGameCover } from './CollectionGameCover';
 import { CollectionItemRow } from './CollectionItemRow';
 import classes from './Collections.module.css';
 
@@ -336,10 +337,7 @@ export function CollectionBuild({
                             );
                           }}
                         />
-                        <CollectionGameCover
-                          className={classes.gameCover}
-                          url={title.artwork?.find((artwork) => artwork.role === 'Poster')?.url}
-                        />
+                        <GameCover url={gamePosterUrl(title.artwork)} />
                         <label
                           htmlFor={`collection-game-${title.id}`}
                           className={classes.catalogGameLabel}

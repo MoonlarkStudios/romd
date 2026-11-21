@@ -6,6 +6,14 @@ namespace Romd.Persistence.Repositories;
 
 public sealed class ArtworkReader(RomdDbContext context) : IArtworkReader
 {
+    internal async Task<IReadOnlyDictionary<int, string?>> ResolvePosterUrlsAsync(
+        IReadOnlyCollection<int> titleIds, CancellationToken ct)
+    {
+        var artwork = await ResolveAsync(titleIds, ct);
+        return artwork.ToDictionary(entry => entry.Key,
+            entry => entry.Value.FirstOrDefault(item => item.Role == ArtworkRole.Poster)?.ToContract().Url);
+    }
+
     public async Task<IReadOnlyDictionary<int, IReadOnlyList<ArtworkResolution>>> ResolveAsync(
         IReadOnlyCollection<int> titleIds, CancellationToken ct = default)
     {

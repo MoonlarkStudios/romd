@@ -12,18 +12,18 @@ export function LibraryDiagnostics({ libraryId }: { libraryId: string }) {
       radius="md"
     >
       <Accordion.Item value="diagnostics">
-        <Accordion.Control>Missing a game? Check its visibility</Accordion.Control>
+        <Accordion.Control>Game visibility</Accordion.Control>
         <Accordion.Panel>
           <Stack>
             <Text
               size="sm"
               c="dimmed"
             >
-              Search for a game to inspect its releases against the saved library rules. Unsaved
-              changes are not reflected here.
+              Check releases against the saved library settings.
             </Text>
             <TitleSearchSelect
-              label="Inspect a title"
+              label="Inspect a game"
+              placeholder=""
               value={titleId}
               onChange={(id) => setTitleId(id)}
             />
@@ -34,8 +34,7 @@ export function LibraryDiagnostics({ libraryId }: { libraryId: string }) {
                 size="sm"
                 c="dimmed"
               >
-                No release results for this title. It may be outside this library’s game selection
-                or blocked by an audience rule.
+                No releases to display for this game.
               </Text>
             )}
             {query.data?.map((row) => (

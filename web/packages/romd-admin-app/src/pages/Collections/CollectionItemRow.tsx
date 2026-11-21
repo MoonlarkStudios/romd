@@ -14,8 +14,7 @@ import { notifications } from '@mantine/notifications';
 import type { CollectionItem } from '@romd/admin-api-client';
 import { IconArrowDown, IconArrowUp, IconNote, IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
-import { CollectionGameCover } from './CollectionGameCover';
-import classes from './Collections.module.css';
+import { GameCover } from '../../components/GameCover';
 
 interface CollectionItemRowProps {
   item: CollectionItem;
@@ -78,10 +77,7 @@ export function CollectionItemRow({
           {index + 1}
         </Text>
 
-        <CollectionGameCover
-          className={classes.gameCover}
-          url={item.posterUrl}
-        />
+        <GameCover url={item.posterUrl} />
 
         <Box
           style={{
@@ -92,7 +88,7 @@ export function CollectionItemRow({
           <Text
             size="sm"
             fw={500}
-            truncate
+            lineClamp={2}
           >
             {item.titleName}
           </Text>

@@ -20,6 +20,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { GameCover } from '../../components/GameCover';
 import { libraryManagementKeys } from '../../hooks/api/useLibraryManagement';
 import classes from './Libraries.module.css';
 import { LibraryRules } from './LibraryRules';
@@ -49,7 +50,7 @@ export function LibraryGames({
         data={[
           {
             value: 'rules',
-            label: 'Rules',
+            label: 'Game selection',
           },
           {
             value: 'results',
@@ -102,8 +103,7 @@ function DraftResults({
   const activeCursor = cursorKey === filterKey ? cursor : undefined;
   const query = useQuery({
     queryKey: [
-      ...libraryManagementKeys.all,
-      'evaluation',
+      ...libraryManagementKeys.evaluations(),
       library.id,
       library.configuration,
       debounced,
@@ -144,23 +144,12 @@ function DraftResults({
       gap="lg"
       className={classes.resultsPanel}
     >
-      <div>
-        <Title
-          order={2}
-          className={classes.sectionHeading}
-          mt="xs"
-        >
-          Game eligibility
-        </Title>
-        <Text
-          size="sm"
-          c="dimmed"
-          mt="xs"
-        >
-          Compare your current edits with the saved settings. Save your edits, then publish the
-          library to update what its audience can see.
-        </Text>
-      </div>
+      <Title
+        order={2}
+        className={classes.sectionHeading}
+      >
+        Game results
+      </Title>
       <div
         className={classes.changeSummary}
         aria-live="polite"
@@ -182,7 +171,7 @@ function DraftResults({
         ) : !data ? (
           <Group>
             <Loader size="sm" />
-            <Text size="sm">Evaluating your rules…</Text>
+            <Text size="sm">Checking game eligibility…</Text>
           </Group>
         ) : (
           <Stack gap="sm">
@@ -221,15 +210,13 @@ function DraftResults({
               size="xs"
               c="dimmed"
             >
-              Compared with {data.savedCount} games eligible under saved rules. Counts include
-              missing games only when your policy allows them.
+              {data.savedCount.toLocaleString()} eligible in saved settings
             </Text>
           </Stack>
         )}
       </div>
       <TextInput
         label="Find a game in the catalog"
-        placeholder="Why isn't this game here?"
         value={search}
         onChange={(e) => {
           setSearch(e.currentTarget.value);
@@ -271,20 +258,19 @@ function DraftResults({
           {data.page.items.length === 0 ? (
             <Text c="dimmed">No games match this view and search.</Text>
           ) : (
-            <ul className={classes.evaluationList}>
+            <ul
+              className={classes.evaluationList}
+              aria-label="Game results"
+            >
               {data.page.items.map((game) => (
                 <li
                   key={game.id}
                   className={classes.evaluationRow}
                 >
-                  {game.coverUrl && (
-                    <img
-                      src={game.coverUrl}
-                      alt=""
-                      loading="lazy"
-                      className={classes.evaluationCover}
-                    />
-                  )}
+                  <GameCover
+                    url={game.coverUrl}
+                    className={classes.evaluationCover}
+                  />
                   <Stack
                     gap={5}
                     style={{
@@ -311,10 +297,10 @@ function DraftResults({
                       {game.reason
                         ? (exclusionReasons[game.reason] ?? game.reason)
                         : game.isPlayable
-                          ? 'An owned release has all required files.'
+                          ? 'Owned and playable'
                           : game.isOwned
-                            ? 'Owned release files are incomplete.'
-                            : 'Eligible, but no owned release is available.'}
+                            ? 'Missing required files'
+                            : 'No owned release'}
                     </Text>
                     {game.ratingCategory && (
                       <Text
@@ -331,8 +317,7 @@ function DraftResults({
                         c="dimmed"
                       >
                         In {game.attachedCollectionCount} attached collection
-                        {game.attachedCollectionCount === 1 ? '' : 's'}. Collection membership does
-                        not override library rules.
+                        {game.attachedCollectionCount === 1 ? '' : 's'}
                       </Text>
                     )}
                     <Button
@@ -342,7 +327,7 @@ function DraftResults({
                       variant="subtle"
                       w="fit-content"
                     >
-                      Inspect title and metadata
+                      Title details
                     </Button>
                   </Stack>
                 </li>

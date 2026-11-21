@@ -1,5 +1,4 @@
 .page { composes: page from "../../components/Workspace/Workspace.module.css"; }
-.eyebrow { composes: eyebrow from "../../components/Workspace/Workspace.module.css"; }
 .heading { composes: heading from "../../components/Workspace/Workspace.module.css"; }
 .intro { composes: intro from "../../components/Workspace/Workspace.module.css"; }
 .hero { composes: hero from "../../components/Workspace/Workspace.module.css"; }
@@ -24,7 +23,7 @@
 .shelf { border: 1px solid var(--mantine-color-default-border); border-radius: 14px; padding: 20px; background: var(--mantine-color-default); }
 .shelfArt { width: 64px; height: 78px; border-radius: 8px; object-fit: cover; background: var(--mantine-color-default-hover); display: grid; place-items: center; color: var(--mantine-color-dimmed); flex-shrink: 0; }
 .preview { border: 1px solid var(--mantine-color-default-border); border-radius: 18px; padding: 28px; background: var(--mantine-color-default); }
-.gameArt { aspect-ratio: 3 / 4; width: 100%; object-fit: cover; border-radius: 9px; background: var(--mantine-color-default-hover); display: grid; place-items: center; color: var(--mantine-color-dimmed); }
+.gameArt { aspect-ratio: 3 / 4; width: 100%; border-radius: 9px; }
 .empty { padding: 32px 0; }
 .saveBar { border-top: 1px solid var(--mantine-color-default-border); padding-top: 20px; margin-top: 14px; }
 @media (max-width: 600px) { .preview { padding: 18px; } }
@@ -35,7 +34,9 @@
 .changeSummary { background: var(--mantine-primary-color-light); border-radius: 12px; padding: 18px; }
 .evaluationList { list-style: none; margin: 0; padding: 0; }
 .evaluationRow { display: flex; gap: 14px; padding: 18px 0; border-bottom: 1px solid var(--mantine-color-default-border); }
-.evaluationCover { width: 56px; height: 76px; object-fit: cover; border-radius: 6px; }
+.evaluationCover { width: 56px; height: 76px; border-radius: 6px; }
+.pickedGames { list-style: none; margin: 0; padding: 0; max-height: 14rem; overflow-y: auto; scrollbar-gutter: stable; }
+.pickedGames > li { padding: var(--mantine-spacing-xs) 0; border-bottom: 1px solid var(--mantine-color-default-border); }
 .mobilePanels { display: none; }
 @media (max-width: 1100px) { .gamesWorkspace { display: block; } .mobilePanels { display: flex; } .mobileHidden { display: none; } .resultsPanel { padding: 18px; } }
 @media (min-width: 1101px) { .changeSummary { position: sticky; top: calc(var(--app-shell-header-height, 60px) + 12px); z-index: 1; border: 1px solid var(--mantine-color-default-border); } }

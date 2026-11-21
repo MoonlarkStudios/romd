@@ -154,17 +154,17 @@ public sealed class LibraryDraftEvaluator : ILibraryDraftEvaluator
         {
             t.Id,
             PlatformName = context.Platforms.Where(p => p.Id == t.PlatformId).Select(p => p.Name).First(),
-            Cover = t.Media.Where(m => m.Type == "Cover" && m.IsPrimary).Select(m => (int?)m.Id).FirstOrDefault(),
             Collections = context.CollectionItems.Count(i => i.TitleId == t.Id &&
                 context.LibraryCollections.Any(a => a.LibraryId == libraryId && a.CollectionId == i.CollectionId))
         }).ToDictionaryAsync(t => t.Id, ct);
+        var posters = await new ArtworkReader(context).ResolvePosterUrlsAsync(pageIds, ct);
         var items = filtered.Take(limit).Select(r =>
         {
             var detail = pageMetadata[r.Id];
             return r.Item with
             {
                 PlatformName = detail.PlatformName,
-                CoverUrl = detail.Cover is int cover ? $"/media/{IdCoder.Encode(cover)}" : null,
+                CoverUrl = posters.GetValueOrDefault(r.Id),
                 AttachedCollectionCount = detail.Collections
             };
         }).ToList();

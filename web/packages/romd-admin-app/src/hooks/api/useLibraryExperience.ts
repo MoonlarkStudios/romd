@@ -97,8 +97,7 @@ export function useAttachCollectionToLibraries(collectionId: string) {
 export function useLibraryPreview(libraryId: string, collectionId?: string) {
   return useInfiniteQuery({
     queryKey: [
-      ...libraryManagementKeys.all,
-      'preview',
+      ...libraryManagementKeys.previews(),
       libraryId,
       collectionId,
     ],

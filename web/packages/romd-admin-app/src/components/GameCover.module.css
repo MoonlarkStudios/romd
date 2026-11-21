@@ -1,0 +1,14 @@
+.cover {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: var(--mantine-color-default-hover);
+  color: var(--mantine-color-dimmed);
+}
+
+.thumbnail {
+  width: 42px;
+  height: 56px;
+  border-radius: 4px;
+}

@@ -3,15 +3,17 @@ import {
   Alert,
   Badge,
   Button,
+  Checkbox,
   Group,
   Modal,
-  MultiSelect,
+  ScrollArea,
   Stack,
   Text,
+  TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { listCollectionLibraryPlacements, listLibraryAttachments } from '@romd/admin-api-client';
-import { IconUnlink } from '@tabler/icons-react';
+import { IconSearch, IconUnlink } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -180,6 +182,7 @@ function CollectionAttachmentPicker({
   const placements = useCollectionPlacements(collectionId);
   const attach = useAttachCollectionToLibraries(collectionId);
   const [selected, setSelected] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
   const [failures, setFailures] = useState<
     {
       libraryId: string;
@@ -187,13 +190,13 @@ function CollectionAttachmentPicker({
     }[]
   >([]);
   const [message, setMessage] = useState('');
-  const options = (libraries.data ?? [])
-    .filter((library) => !placements.data?.some((placement) => placement.libraryId === library.id))
-    .map((library) => ({
-      value: library.id,
-      label: library.name,
-    }));
-  const availableIds = selected.filter((id) => options.some((option) => option.value === id));
+  const options = (libraries.data ?? []).filter(
+    (library) => !placements.data?.some((placement) => placement.libraryId === library.id),
+  );
+  const availableIds = selected.filter((id) => options.some((option) => option.id === id));
+  const matching = options.filter((library) =>
+    library.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+  );
 
   if (libraries.isError || placements.isError) {
     return (
@@ -235,20 +238,64 @@ function CollectionAttachmentPicker({
         </Text>
       ) : (
         <>
-          <MultiSelect
-            label="Libraries"
-            placeholder={selected.length ? undefined : 'Choose libraries'}
+          {onAttached && (
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              Each library’s rules determine which games its audience sees.
+            </Text>
+          )}
+          <TextInput
+            label="Find libraries"
+            placeholder="Search by name"
             data-autofocus={onAttached ? true : undefined}
-            comboboxProps={{
-              withinPortal: false,
-            }}
-            searchable
-            nothingFoundMessage="No matching libraries"
             disabled={disabled || attach.isPending}
-            value={selected}
-            onChange={setSelected}
-            data={options}
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={(event) => setSearch(event.currentTarget.value)}
           />
+          {matching.length ? (
+            <ScrollArea.Autosize
+              mah={224}
+              type="auto"
+            >
+              <Stack
+                gap="sm"
+                p="xs"
+                role="group"
+                aria-label="Libraries to add"
+              >
+                {matching.map((library) => (
+                  <Checkbox
+                    key={library.id}
+                    label={library.name}
+                    description={!library.lastMaterializedAt ? 'Draft' : undefined}
+                    disabled={disabled || attach.isPending}
+                    checked={availableIds.includes(library.id)}
+                    onChange={(event) => {
+                      const checked = event.currentTarget.checked;
+                      setSelected((current) =>
+                        checked
+                          ? [
+                              ...current,
+                              library.id,
+                            ]
+                          : current.filter((id) => id !== library.id),
+                      );
+                    }}
+                  />
+                ))}
+              </Stack>
+            </ScrollArea.Autosize>
+          ) : (
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              No libraries match this search.
+            </Text>
+          )}
           <Group justify="flex-end">
             <Button
               {...workspaceActionProps}

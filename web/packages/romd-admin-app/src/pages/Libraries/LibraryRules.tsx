@@ -111,20 +111,12 @@ export function LibraryRules({
         )}
         {section === 'games' && (
           <>
-            <div>
-              <Title
-                order={2}
-                className={classes.sectionHeading}
-              >
-                Choose their games
-              </Title>
-              <Text
-                c="dimmed"
-                mt="xs"
-              >
-                Build a growing library with rules, or choose every game yourself.
-              </Text>
-            </div>
+            <Title
+              order={2}
+              className={classes.sectionHeading}
+            >
+              Game selection
+            </Title>
             <SegmentedControl
               fullWidth
               value={form.titleSelectionMode}
@@ -144,7 +136,7 @@ export function LibraryRules({
             />
             <Switch
               label="Include untracked titles"
-              description="Off by default: only tracked titles qualify, including handpicked games. Turn on to also consider untracked titles under these rules."
+              description="Applies to rules and handpicked games."
               checked={form.includeUntrackedTitles}
               onChange={(e) => set('includeUntrackedTitles', e.currentTarget.checked)}
             />
@@ -152,8 +144,7 @@ export function LibraryRules({
               <>
                 <MultiSelect
                   label="Systems"
-                  description="Leave empty to include every system."
-                  placeholder="All systems"
+                  placeholder={form.allowedSystemKeys.length ? undefined : 'All systems'}
                   searchable
                   data={(platforms.data ?? []).map((p) => ({
                     value: p.key,
@@ -164,8 +155,7 @@ export function LibraryRules({
                 />
                 <MultiSelect
                   label="Genres"
-                  description="Leave empty to include every genre."
-                  placeholder="All genres"
+                  placeholder={form.allowedGenres.length ? undefined : 'All genres'}
                   searchable
                   data={(facets.data?.genres ?? []).map((g) => ({
                     value: g.value,
@@ -186,15 +176,12 @@ export function LibraryRules({
                 <Divider />
                 <TitleOverridePicker
                   label="Include specific games"
-                  description="Bypass genre rules for these games. Tracking, content-rating limits, and system scope still apply."
-                  emptyMessage="No additional games selected."
+                  description="Bypasses genre filters. System, tracking, and rating limits still apply."
                   value={form.includeTitleIds}
                   onChange={(value) => set('includeTitleIds', value)}
                 />
                 <TitleOverridePicker
                   label="Exclude specific games"
-                  description="Keep these titles out of this audience’s library."
-                  emptyMessage="No games excluded."
                   value={form.excludeTitleIds}
                   onChange={(value) => set('excludeTitleIds', value)}
                 />
@@ -203,8 +190,7 @@ export function LibraryRules({
               <TitleOverridePicker
                 label="Handpicked games"
                 localFirst
-                description="Only these games are included. Tracking and content-rating limits still apply."
-                emptyMessage="Choose a game to begin. An empty selection creates an empty library."
+                description="Tracking and rating limits still apply."
                 value={form.includeTitleIds}
                 onChange={(value) => set('includeTitleIds', value)}
               />
@@ -224,8 +210,7 @@ export function LibraryRules({
                 c="dimmed"
                 mt="xs"
               >
-                Start with the ratings appropriate for this audience. These limits apply to all
-                games, including handpicked titles and shared collections.
+                Applies to all games, including shared collections.
               </Text>
             </div>
             <Select

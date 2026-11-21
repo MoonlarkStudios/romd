@@ -1,19 +1,20 @@
 import { IconDeviceGamepad2 } from '@tabler/icons-react';
 import { useState } from 'react';
+import classes from './GameCover.module.css';
 
-export function CollectionGameCover({
+export function GameCover({
   url,
-  className,
+  className = classes.thumbnail,
   iconSize = 20,
 }: {
   url?: string | null;
-  className: string;
+  className?: string;
   iconSize?: number;
 }) {
   const [failedUrl, setFailedUrl] = useState<string>();
   return url && url !== failedUrl ? (
     <img
-      className={className}
+      className={`${classes.cover} ${className}`}
       src={url}
       alt=""
       loading="lazy"
@@ -21,7 +22,7 @@ export function CollectionGameCover({
     />
   ) : (
     <span
-      className={className}
+      className={`${classes.cover} ${className}`}
       aria-hidden="true"
     >
       <IconDeviceGamepad2 size={iconSize} />

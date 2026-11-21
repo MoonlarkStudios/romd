@@ -1,4 +1,5 @@
 import {
+  Box,
   Combobox,
   Group,
   Loader,
@@ -15,7 +16,9 @@ import { IconSearch } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useCatalogSearch } from '../hooks/api/useCatalogSearch';
 import { usePlatforms } from '../hooks/api/usePlatforms';
+import { gamePosterUrl } from './artworkPresentation';
 import { catalogGameLabel } from './catalogGameLabel';
+import { GameCover } from './GameCover';
 
 interface TitleSearchSelectProps {
   /** Current selected title ID */
@@ -99,18 +102,27 @@ export function TitleSearchSelect({
         value={title.id}
         aria-label={`${title.name}, ${system}, ${availability}`}
       >
-        <Text
-          size="sm"
-          fw={600}
+        <Group
+          gap="sm"
+          wrap="nowrap"
         >
-          {title.name}
-        </Text>
-        <Text
-          size="xs"
-          c="dimmed"
-        >
-          {system} · {availability}
-        </Text>
+          <GameCover url={gamePosterUrl(title.artwork)} />
+          <Box miw={0}>
+            <Text
+              size="sm"
+              fw={600}
+              lineClamp={2}
+            >
+              {title.name}
+            </Text>
+            <Text
+              size="xs"
+              c="dimmed"
+            >
+              {system} · {availability}
+            </Text>
+          </Box>
+        </Group>
       </Combobox.Option>
     );
   });
