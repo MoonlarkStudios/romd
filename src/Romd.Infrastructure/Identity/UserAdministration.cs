@@ -225,7 +225,8 @@ public sealed class UserAdministration(
             return UserErrors.NotFound();
         }
 
-        if (precondition is not null && (user.ConcurrencyStamp is null || !precondition.IsSatisfiedBy(user.ConcurrencyStamp)))
+        if (precondition is not null &&
+            !precondition.IsSatisfiedBy(ManagedUser.AssignmentRevisionFor(user.Id, user.ConcurrencyStamp, user.LibraryId)))
             return Error.Custom(412, "Users.PreconditionFailed", "This account changed. Review its current assignment before continuing.");
         if (user.LibraryId == libraryId)
             return await ToManagedUserAsync(user, ct);
@@ -332,7 +333,7 @@ public sealed class UserAdministration(
     }
 
     private static IReadOnlyList<ManagedUser> Materialize(IReadOnlyList<UserRoleRow> rows) =>
-        rows.GroupBy(row => new { row.Id, row.Email, row.LibraryId, row.CreatedAt, row.UpdatedAt, row.IsSuspended, row.RequiresActivation, row.LastSignedInAt, row.AssignmentRevision })
+        rows.GroupBy(row => new { row.Id, row.Email, row.LibraryId, row.CreatedAt, row.UpdatedAt, row.IsSuspended, row.RequiresActivation, row.LastSignedInAt, row.ConcurrencyStamp })
             .OrderBy(group => group.Key.Email)
             .Select(group => new ManagedUser(
                 group.Key.Id,
@@ -344,7 +345,7 @@ public sealed class UserAdministration(
                 group.Key.IsSuspended,
                 group.Key.RequiresActivation,
                 group.Key.LastSignedInAt,
-                group.Key.AssignmentRevision))
+                ManagedUser.AssignmentRevisionFor(group.Key.Id, group.Key.ConcurrencyStamp, group.Key.LibraryId)))
             .ToList();
 
     private static ManagedUser Map(RomdUser user, IReadOnlyList<string> roles) =>
@@ -358,7 +359,7 @@ public sealed class UserAdministration(
             user.IsSuspended,
             user.RequiresActivation,
             user.LastSignedInAt,
-            user.ConcurrencyStamp);
+            ManagedUser.AssignmentRevisionFor(user.Id, user.ConcurrencyStamp, user.LibraryId));
 
     private sealed record UserRoleRow(
         Guid Id,
@@ -369,6 +370,6 @@ public sealed class UserAdministration(
         bool IsSuspended,
         bool RequiresActivation,
         DateTimeOffset? LastSignedInAt,
-        string? AssignmentRevision,
+        string? ConcurrencyStamp,
         string? RoleName);
 }

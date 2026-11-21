@@ -32,6 +32,7 @@ export function useLibraryPublicationReview(libraryId: string) {
       'publication-review',
       libraryId,
     ],
+    staleTime: 0,
     queryFn: async ({ signal }) => {
       const result = await reviewLibraryPublication({
         path: {

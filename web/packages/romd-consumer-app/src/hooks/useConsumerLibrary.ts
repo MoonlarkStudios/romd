@@ -58,6 +58,13 @@ export const consumerQueryKeys = {
       'title',
       titleId,
     ] as const,
+  playbackTitle: (accountId: string, titleId: string) =>
+    [
+      'consumer',
+      'playbackTitle',
+      accountId,
+      titleId,
+    ] as const,
   collections: (systemKey?: string) =>
     [
       'consumer',
@@ -161,9 +168,20 @@ export function useCatalogSearch(params: ConsumerCatalogSearchParams, options?: 
   });
 }
 
-export function useTitleDetail(titleId: string | undefined) {
+export function useTitleDetail(
+  titleId: string | undefined,
+  options?: {
+    playbackAccountId: string;
+  },
+) {
+  const playbackAccountId = options?.playbackAccountId;
   return useQuery({
-    queryKey: consumerQueryKeys.title(titleId ?? ''),
+    queryKey: playbackAccountId
+      ? consumerQueryKeys.playbackTitle(playbackAccountId, titleId ?? '')
+      : consumerQueryKeys.title(titleId ?? ''),
+    // The player keeps these inputs for the mounted session and reads them again on return.
+    staleTime: playbackAccountId ? 'static' : undefined,
+    gcTime: playbackAccountId ? 0 : undefined,
     queryFn: async ({ signal }): Promise<ConsumerTitleDetail> => {
       if (!titleId) {
         throw new Error('Title ID is required');

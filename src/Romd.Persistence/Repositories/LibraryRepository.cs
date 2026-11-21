@@ -7,6 +7,7 @@ using Romd.Admin.Application.Libraries;
 using Romd.Domain.Libraries;
 using Romd.Domain.Catalog;
 using Romd.Persistence.Entities;
+using Romd.Persistence.Identity;
 using Romd.Persistence.Queries;
 using Romd.Domain.Paths;
 
@@ -65,6 +66,8 @@ public sealed partial class LibraryRepository(RomdDbContext context) : ILibraryR
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
     {
+        // The foreign key clears assignments. Order that change with conditional account writes.
+        await AccountAccessGuard.LockAsync(context, ct);
         int deleted = await context.Libraries
             .Where(l => l.Id == id)
             .ExecuteDeleteAsync(ct);

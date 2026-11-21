@@ -122,7 +122,7 @@ function AccountBrowserPlayer({ userId }: { userId: string }) {
   const { titleId, releaseId } = useParams();
   const navigate = useNavigate();
   const { state: navigationState } = useLocation();
-  const titleQuery = useTitleDetail(titleId);
+  const titleQuery = useTitleDetail(titleId, { playbackAccountId: userId });
   const issueManifest = useIssueReleaseManifest();
   const title = titleQuery.data;
   const release = title?.releases.find((candidate) => candidate.id === releaseId) ?? null;

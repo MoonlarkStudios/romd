@@ -1,3 +1,5 @@
+using Romd.Application.Common.Pagination;
+
 namespace Romd.Admin.Application.Users;
 
 public sealed record ManagedUser(
@@ -10,4 +12,8 @@ public sealed record ManagedUser(
     bool IsSuspended = false,
     bool RequiresActivation = false,
     DateTimeOffset? LastSignedInAt = null,
-    string? AssignmentRevision = null);
+    string? AssignmentRevision = null)
+{
+    public static string AssignmentRevisionFor(Guid id, string? concurrencyStamp, int? libraryId) =>
+        KeysetCursor.Fingerprint("admin.user.library-assignment", id, concurrencyStamp, libraryId);
+}

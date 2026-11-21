@@ -10,7 +10,8 @@ export function refreshLibraryQueries(cache: QueryClient) {
     queryKey: [
       'consumer',
     ],
-    predicate: (query) => query.queryKey[1] !== 'currentUser',
+    predicate: (query) =>
+      query.queryKey[1] !== 'currentUser' && query.queryKey[1] !== 'playbackTitle',
   });
 }
 
@@ -50,26 +51,22 @@ export function LibraryPublicationObserver() {
   });
   useEffect(() => {
     const old = previous.current;
-    if (old.userId !== userId) {
+    if (old.userId !== userId || observed.data !== undefined) {
       previous.current = {
         userId,
         version: observed.data,
       };
-      if (old.userId)
-        void cache.resetQueries({
-          queryKey: [
-            'consumer',
-          ],
-        });
-      return;
     }
-    if (observed.data === undefined) return;
-    previous.current = {
-      userId,
-      version: observed.data,
-    };
-    if (old.version !== undefined && old.version !== observed.data)
+    if (old.userId && old.userId !== userId) {
+      void cache.resetQueries({
+        queryKey: [
+          'consumer',
+        ],
+      });
+    } else if (observed.data !== undefined && old.version !== observed.data) {
+      // Browse can already be reading an older snapshot before the first observation resolves.
       void refreshLibraryQueries(cache);
+    }
   }, [
     userId,
     observed.data,

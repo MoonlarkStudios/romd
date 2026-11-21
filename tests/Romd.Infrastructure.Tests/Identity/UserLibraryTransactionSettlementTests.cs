@@ -49,6 +49,7 @@ public sealed class UserLibraryTransactionSettlementTests
         await using var provider = CreateServices(database);
         var seeded = await SeedAsync(database);
         var destination = IdCoder.Encode(seeded.TargetId);
+        var initialRevision = ManagedUser.AssignmentRevisionFor(seeded.UserId, seeded.Stamp, null);
         async Task<ErrorOr<ManagedUser>> Assign(string? id, string? revision)
         {
             await using var scope = provider.CreateAsyncScope();
@@ -59,19 +60,56 @@ public sealed class UserLibraryTransactionSettlementTests
                 .HandleAsync(new(seeded.UserId, id,
                     revision is null ? null : RevisionPrecondition.For(revision)));
         }
-        var moved = await Assign(destination, seeded.Stamp);
+        var moved = await Assign(destination, initialRevision);
         moved.IsError.ShouldBeFalse();
         await using var read = database.CreateContext();
         var activeStamp = (await read.Users.SingleAsync(user => user.Id == seeded.UserId)).SecurityStamp;
 
-        var stale = await Assign(null, seeded.Stamp);
+        var stale = await Assign(null, initialRevision);
         stale.FirstError.Code.ShouldBe("Users.PreconditionFailed");
-        (await Assign(destination, seeded.Stamp)).FirstError.Code.ShouldBe("Users.PreconditionFailed");
+        (await Assign(destination, initialRevision)).FirstError.Code.ShouldBe("Users.PreconditionFailed");
         var repeat = await Assign(destination, moved.Value.AssignmentRevision);
         repeat.Value.AssignmentRevision.ShouldBe(moved.Value.AssignmentRevision);
         var current = await read.Users.SingleAsync(user => user.Id == seeded.UserId);
         current.LibraryId.ShouldBe(seeded.TargetId);
         current.SecurityStamp.ShouldBe(activeStamp);
+    }
+
+    [Fact]
+    public async Task Assign_LibraryDeletedSinceReview_RejectsTheOldAssignmentRevision()
+    {
+        await using var database = PostgreSqlTestDatabase.Create();
+        await using var provider = CreateServices(database);
+        var seed = await SeedAsync(database);
+        string? securityStamp;
+        await using (var setup = database.CreateContext())
+        {
+            await setup.Users.Where(user => user.Id == seed.UserId)
+                .ExecuteUpdateAsync(update => update.SetProperty(user => user.LibraryId, seed.TargetId));
+            securityStamp = await setup.Users.Where(user => user.Id == seed.UserId).Select(user => user.SecurityStamp).SingleAsync();
+        }
+        await using var scope = provider.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+        var users = scope.ServiceProvider.GetRequiredService<IUserAdministration>();
+        var oldAssignment = (await users.GetByIdAsync(seed.UserId)).ShouldNotBeNull();
+        var libraries = new LibraryRepository(db);
+        var work = new EfUnitOfWork(db);
+        var deleted = await new DeleteLibraryCommandHandler(libraries, new AdminRealtimeOutbox(db, TimeProvider.System),
+            work, NullLogger<DeleteLibraryCommandHandler>.Instance).HandleAsync(new(seed.TargetId));
+
+        deleted.IsError.ShouldBeFalse();
+        var afterDeletion = (await users.GetByIdAsync(seed.UserId)).ShouldNotBeNull();
+        afterDeletion.LibraryId.ShouldBeNull();
+        afterDeletion.AssignmentRevision.ShouldNotBe(oldAssignment.AssignmentRevision);
+        var result = await new AssignUserLibraryCommandHandler(users, libraries, work, new FixedClock(),
+            NullLogger<AssignUserLibraryCommandHandler>.Instance).HandleAsync(new(seed.UserId,
+                IdCoder.Encode(seed.DefaultId), RevisionPrecondition.For(oldAssignment.AssignmentRevision.ShouldNotBeNull())));
+
+        result.FirstError.Code.ShouldBe("Users.PreconditionFailed");
+        await using var verify = database.CreateContext();
+        var unchanged = await verify.Users.SingleAsync(user => user.Id == seed.UserId);
+        unchanged.LibraryId.ShouldBeNull();
+        unchanged.SecurityStamp.ShouldBe(securityStamp);
     }
 
     [Fact]

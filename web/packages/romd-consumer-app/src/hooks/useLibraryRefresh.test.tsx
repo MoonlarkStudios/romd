@@ -35,6 +35,7 @@ it('discards warmed library pages when the same account receives a new publicati
       },
     },
   });
+  const reset = vi.spyOn(client, 'resetQueries');
   const versionKey = [
     'library-publication',
     'account',
@@ -44,14 +45,6 @@ it('discards warmed library pages when the same account receives a new publicati
     'catalog',
     {},
   ];
-  client.setQueryData(catalogKey, {
-    pages: [
-      'previous page',
-    ],
-    pageParams: [
-      'previous cursor',
-    ],
-  });
   client.setQueryData(
     [
       'consumer',
@@ -68,6 +61,15 @@ it('discards warmed library pages when the same account receives a new publicati
   );
 
   await waitFor(() => expect(client.getQueryData(versionKey)).toBe('previous'));
+  await waitFor(() => expect(reset).toHaveBeenCalledTimes(1));
+  client.setQueryData(catalogKey, {
+    pages: [
+      'previous page',
+    ],
+    pageParams: [
+      'previous cursor',
+    ],
+  });
   expect(client.getQueryData(catalogKey)).toBeDefined();
   await act(async () => {
     await client.refetchQueries({
@@ -84,4 +86,48 @@ it('discards warmed library pages when the same account receives a new publicati
   ).toEqual({
     id: 'account',
   });
+});
+
+it('reconciles Browse on the first observation while preserving a mounted player', async () => {
+  let finishObservation: (() => void) | undefined;
+  vi.mocked(getConsumerLibraryPublication).mockImplementationOnce(async () => {
+    await new Promise<void>((resolve) => {
+      finishObservation = resolve;
+    });
+    return {
+      data: {
+        version: 'current',
+      },
+    } as never;
+  });
+  const client = new QueryClient();
+  const titleKey = [
+    'consumer',
+    'title',
+    'game',
+  ];
+  const playerKey = [
+    'consumer',
+    'playbackTitle',
+    'account',
+    'game',
+  ];
+  const playing = {
+    id: 'game',
+  };
+  render(
+    <QueryClientProvider client={client}>
+      <LibraryPublicationObserver />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(finishObservation).toBeDefined());
+  client.setQueryData(titleKey, {
+    id: 'game',
+  });
+  client.setQueryData(playerKey, playing);
+
+  await act(async () => finishObservation?.());
+
+  await waitFor(() => expect(client.getQueryData(titleKey)).toBeUndefined());
+  expect(client.getQueryData(playerKey)).toBe(playing);
 });

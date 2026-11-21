@@ -161,8 +161,8 @@ export function LibraryPublishDialog({
             />
             {data.shelvesEmptied > 0 && (
               <Text size="sm">
-                {data.shelvesEmptied} {data.shelvesEmptied === 1 ? 'shelf will' : 'shelves will'}{' '}
-                become empty. {data.shelvesEmptiedExamples.join(', ')}
+                {data.shelvesEmptied} {data.shelvesEmptied === 1 ? 'shelf' : 'shelves'} would become
+                empty with the current attachments. {data.shelvesEmptiedExamples.join(', ')}
               </Text>
             )}
             {data.publishedAt && (
