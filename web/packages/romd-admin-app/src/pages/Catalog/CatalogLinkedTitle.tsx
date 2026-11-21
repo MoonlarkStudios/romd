@@ -11,11 +11,13 @@ export function CatalogLinkedTitle({
   returnPath,
   knownName,
   href,
+  actionLabel = 'Open linked title',
 }: {
   titleId: string;
   returnPath: string;
   knownName?: string;
   href?: string;
+  actionLabel?: string;
 }) {
   const query = useTitleDetail(knownName ? undefined : titleId, false);
   const name = knownName ?? query.data?.name;
@@ -65,7 +67,7 @@ export function CatalogLinkedTitle({
         }}
         onClick={(event) => rememberCatalogPosition(returnPath, event)}
       >
-        Open linked title
+        {actionLabel}
       </Button>
     </Group>
   );

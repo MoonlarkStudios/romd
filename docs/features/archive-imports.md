@@ -87,6 +87,9 @@ Open **Jobs → Upload → Import results** to review a finished import. Search 
 relative filenames or filter the recorded outcomes. The receipt links to stored
 ROMs and catalog routing and retains the original outcome after a file or
 catalog changes. A failure before classification appears in the job errors.
+For managers and administrators, a matched game opens the exact title in
+**Catalog → Needs review**. Use **Back to import results** to return to the
+receipt with its outcome and filename filters.
 
 **Keep unmatched files** retains unmatched ROMs for review. Importing a matching
 DAT can link a retained file by checksum. For an unmatched ROM that was rejected,

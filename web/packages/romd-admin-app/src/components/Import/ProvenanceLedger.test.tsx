@@ -2,6 +2,7 @@ import type { PageOfJobItem } from '@romd/admin-api-client';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { authFixtures } from '../../test/msw/fixtures/auth';
 import { render } from '../../test/utils/render';
 import { authenticatedDownload } from '../../utils/download';
 import { ProvenanceLedger } from './ProvenanceLedger';
@@ -42,6 +43,7 @@ const page: PageOfJobItem = {
         },
       ],
       platformName: 'Genesis',
+      systemKey: 'genesis',
       romFileId: 'rom-1',
       archiveOnly: false,
     },
@@ -88,6 +90,43 @@ describe('ProvenanceLedger', () => {
 
   afterEach(() => {
     vi.resetAllMocks();
+  });
+
+  it('links managers to the exact matched title and preserves the receipt filters', async () => {
+    render(
+      <ProvenanceLedger
+        jobId="job-1"
+        addressable
+      />,
+      {
+        auth: {
+          user: {
+            ...authFixtures.currentUser,
+            roles: [
+              'Manager',
+            ],
+          },
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+          retry: async () => {},
+          login: async () => {},
+          logout: async () => {},
+        },
+        routerOptions: {
+          initialEntries: [
+            '/jobs/job-1?fileOutcome=ingested&fileQuery=nhl94',
+          ],
+        },
+      },
+    );
+    const link = await screen.findByRole('link', {
+      name: 'NHL 94 (USA)',
+    });
+    expect(link).toHaveAttribute(
+      'href',
+      '/catalog?view=review&title=t1&systemKey=genesis&importJob=job-1&fileOutcome=ingested&fileQuery=nhl94',
+    );
   });
 
   it('renders each file with its resolved destination', async () => {

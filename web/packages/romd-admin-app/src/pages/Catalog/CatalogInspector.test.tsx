@@ -483,7 +483,7 @@ it('does not advance to a fetched page while a review decision is open', async (
   ).toBeVisible();
 });
 
-it('offers full details for an off-queue review bookmark on a narrow screen', async () => {
+it('resolves the exact requirement for an off-queue review bookmark on a narrow screen', async () => {
   dimensions.width = 390;
   vi.mocked(listEnrichmentWorkbench).mockResolvedValue({
     data: finalPage([
@@ -493,8 +493,8 @@ it('offers full details for an off-queue review bookmark on a narrow screen', as
   open('/catalog?view=review&title=alpha');
   expect(
     await screen.findByRole('link', {
-      name: 'Open linked title',
+      name: 'Open linked review',
     }),
-  ).toHaveAttribute('href', '/titles/alpha/metadata');
+  ).toHaveAttribute('href', '/titles/alpha/metadata?requirement=Metadata%3APublisher');
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
 });

@@ -12,6 +12,7 @@ import {
   deleteLibrary,
   getCatalogFilters,
   getLibrary,
+  getLibraryTitleVisibility,
   getTitle,
   listLibraries,
   listLibraryTitleReleaseDiagnostics,
@@ -50,6 +51,12 @@ export const libraryManagementKeys = {
     [
       ...libraryManagementKeys.all,
       'evaluation',
+    ] as const,
+  visibility: (titleId: string) =>
+    [
+      ...libraryManagementKeys.all,
+      'visibility',
+      titleId,
     ] as const,
   detail: (libraryId: string) =>
     [
@@ -213,6 +220,33 @@ export function useLibraryTitleReleaseDiagnostics(
       });
     },
     enabled: libraryId !== null && titleId !== null,
+  });
+}
+
+export function useLibraryTitleVisibility(libraryId: string, titleId: string | null) {
+  return useQuery({
+    queryKey: [
+      ...libraryManagementKeys.visibility(titleId ?? ''),
+      libraryId,
+    ],
+    enabled: titleId !== null,
+    queryFn: async ({ signal }) => {
+      const response = await getLibraryTitleVisibility({
+        path: {
+          libraryId,
+          titleId: titleId ?? '',
+        },
+        signal,
+      });
+      if (response.error || !response.data)
+        throw new ApiClientError(
+          response.response?.status === 409
+            ? (response.error?.detail ?? 'Game visibility is temporarily unavailable.')
+            : 'Could not check game visibility.',
+          response.response?.status,
+        );
+      return response.data;
+    },
   });
 }
 

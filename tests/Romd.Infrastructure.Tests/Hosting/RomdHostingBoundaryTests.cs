@@ -53,6 +53,7 @@ using Romd.Admin.Application.Taxonomy.ReadModels;
 using Romd.Admin.Application.Libraries;
 using Romd.Admin.Application.Libraries.Commands.CreateLibrary;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryDiscSetOptions;
+using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleVisibility;
 using Romd.Admin.Application.Libraries.Commands.ForceMaterializeLibrary;
 using Romd.Admin.Application.Titles;
 using Romd.Admin.Application.Titles.Commands.SetFieldOverrides;
@@ -782,14 +783,18 @@ public sealed class RomdHostingBoundaryTests
             .Distinct()
             .ToArray();
 
-        libraryHandlerServiceTypes.Length.ShouldBe(16);
+        libraryHandlerServiceTypes.Length.ShouldBe(17);
         libraryHandlerServiceTypes.ShouldContain(typeof(IQueryHandler<GetLibraryDiscSetOptionsQuery,
             Romd.Contracts.Management.Libraries.LibraryDiscSetOptions>));
+        libraryHandlerServiceTypes.ShouldContain(typeof(IQueryHandler<GetLibraryTitleVisibilityQuery,
+            Romd.Contracts.Management.Libraries.LibraryTitleVisibility>));
         services.ShouldAllBe(descriptor => !libraryHandlerServiceTypes.Contains(descriptor.ServiceType));
         services.ShouldNotResolveService<
             ICommandHandler<ForceMaterializeLibraryCommand, Guid>>();
         services.ShouldNotResolveService<IQueryHandler<GetLibraryDiscSetOptionsQuery,
             Romd.Contracts.Management.Libraries.LibraryDiscSetOptions>>();
+        services.ShouldNotResolveService<IQueryHandler<GetLibraryTitleVisibilityQuery,
+            Romd.Contracts.Management.Libraries.LibraryTitleVisibility>>();
     }
 
     [Fact]

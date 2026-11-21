@@ -1,5 +1,5 @@
 import { Alert, Button, Group, Radio, Skeleton, Stack, Text } from '@mantine/core';
-import type { EnrichmentRequirement } from '@romd/admin-api-client';
+import type { EnrichmentRequirement, TitleProviderMatch } from '@romd/admin-api-client';
 import { replaceTitleArtworkRole } from '@romd/admin-api-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -64,6 +64,10 @@ function useReportPending(pending: boolean, report?: (pending: boolean) => void)
   ]);
 }
 
+export function canQuickConfirmMatch(match: TitleProviderMatch | undefined) {
+  return match?.isAvailable && !!match.game && (match.decision?.candidates.length ?? 0) <= 1;
+}
+
 function MatchDecision(props: DecisionProps) {
   const query = useProviderMatches(props.titleId);
   const mutation = useProviderMatchDecision(props.titleId);
@@ -79,7 +83,7 @@ function MatchDecision(props: DecisionProps) {
       />
     );
   if (query.isError) return <Alert color="red">{query.error.message}</Alert>;
-  if (!match?.isAvailable || !match.game || (match.decision?.candidates.length ?? 0) > 1)
+  if (!match?.game || !canQuickConfirmMatch(match))
     return (
       <Stack>
         <Text size="sm">Open the title to compare candidates or find a match.</Text>

@@ -16,6 +16,7 @@ import { IconSearch, IconSparkles } from '@tabler/icons-react';
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { EnrichmentLauncher } from '../../components/Enrichment/EnrichmentLauncher';
+import { importReceiptReturn } from '../../components/Import/importReceiptLinks';
 import { KeyboardShortcutsHelp } from '../../components/KeyboardShortcutsHelp/KeyboardShortcutsHelp';
 import {
   noLongerInViewLabel,
@@ -25,6 +26,7 @@ import {
   requirementSubjectLabel,
 } from '../../components/Title/enrichmentPresentation';
 import { RequirementReview } from '../../components/Title/RequirementReview';
+import { libraryInspectionPath } from '../../components/Title/reviewHandoff';
 import { TitleStatusChips } from '../../components/Title/TitleStatusChips';
 import { titleRequirementPath, titleSectionPath } from '../../components/Title/titleSections';
 import { currentRequirement, type WorkbenchView } from '../../components/Title/titleWorkbenchModel';
@@ -35,7 +37,12 @@ import {
 } from '../../components/Workspace/useInspectorSelection';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
-import { useEnrichmentWorkspace } from '../../hooks/api/useEnrichmentWorkspace';
+import {
+  useEnrichmentAssessment,
+  useEnrichmentWorkspace,
+  useEnrichmentWorkspaceCounts,
+} from '../../hooks/api/useEnrichmentWorkspace';
+import { usePlatforms } from '../../hooks/api/usePlatforms';
 import { type KeyboardShortcut, useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { usePermissions } from '../../hooks/usePermissions';
 import classes from './Catalog.module.css';
@@ -77,6 +84,14 @@ const states = [
   empty: string;
 }[];
 
+const countForState = {
+  NeedsReview: 'needsReview',
+  Automatic: 'automatic',
+  Processing: 'processing',
+  Blocked: 'blocked',
+  All: 'total',
+} as const;
+
 function focusReviewRow(root: HTMLElement | null, id: string) {
   const row = Array.from(root?.querySelectorAll<HTMLElement>('[data-inspector-row]') ?? []).find(
     (candidate) => candidate.dataset.inspectorRow === id,
@@ -89,11 +104,18 @@ export function CatalogReview() {
   const location = useLocation();
   const state = reviewState(params.get('state'));
   const search = params.get('q') ?? '';
+  const systemKey = params.get('systemKey') || undefined;
   const titleId = params.get('title');
   const requirement = params.get('requirement') ?? undefined;
   const returnPath = `${location.pathname}${location.search}`;
+  const returnToReceipt = importReceiptReturn(params);
+  const { canManageUsers } = usePermissions();
   const size = useInspectorSize();
-  const query = useEnrichmentWorkspace(state, search);
+  const query = useEnrichmentWorkspace(state, search, systemKey);
+  const platforms = usePlatforms();
+  const scoped = !!(systemKey || search);
+  const counts = useEnrichmentWorkspaceCounts(search, scoped, systemKey);
+  const count = counts.data?.[countForState[state]];
   const rows = [
     ...new Map(
       query.data?.pages
@@ -114,7 +136,11 @@ export function CatalogReview() {
     key: location.key,
     locked: false,
   });
-  const viewContext = `${state}:${search}`;
+  const viewContext = JSON.stringify([
+    state,
+    systemKey,
+    search,
+  ]);
   const remembered = useRef<
     | {
         context: string;
@@ -126,11 +152,16 @@ export function CatalogReview() {
   >(undefined);
   const liveIndex = rows.findIndex((row) => row.titleId === titleId);
   const active = rows[liveIndex];
-  const linkedRequirement = active && currentRequirement(active.requirements, state, requirement);
+  const linked = useEnrichmentAssessment(
+    size.measured && !size.wide && !active ? (titleId ?? undefined) : undefined,
+  );
+  const linkedAssessment = linked.data ?? active;
+  const linkedRequirement =
+    linkedAssessment && currentRequirement(linkedAssessment.requirements, state, requirement);
   useLayoutEffect(() => {
     queuePosition.current = {
       key: location.key,
-      locked: !size.wide || decisionOpen || launching,
+      locked: !size.measured || decisionOpen || launching,
     };
     if (active)
       remembered.current = {
@@ -167,25 +198,47 @@ export function CatalogReview() {
       'role',
     ],
   });
-  const index = visible.findIndex((row) => row.titleId === preview.selectedId);
-  const changeFilters = (values: Record<string, string>) => {
+  const index = visible.findIndex((row) => row.titleId === titleId);
+  const canAdvance = index < visible.length - 1 || query.hasNextPage;
+  const titleParams = (id: string) => {
+    const next = new URLSearchParams(params);
+    if (id !== titleId) {
+      next.set('title', id);
+      next.delete('requirement');
+      next.delete('role');
+    }
+    return next;
+  };
+  const changeFilters = (values: Record<string, string>, keepTitle = false) => {
     const next = new URLSearchParams(params);
     for (const [name, value] of Object.entries(values)) {
       if (value) next.set(name, value);
       else next.delete(name);
     }
-    next.delete('title');
-    next.delete('requirement');
-    next.delete('role');
+    if (!keepTitle) {
+      next.delete('title');
+      next.delete('requirement');
+      next.delete('role');
+    }
     setParams(next, {
       preventScrollReset: true,
     });
   };
   const advance = async () => {
     if (queuePosition.current.locked || paging.current) return;
+    const select = (id: string) => {
+      if (size.wide) {
+        preview.select(id);
+        requestAnimationFrame(() => focusReviewRow(list.current, id));
+      } else {
+        setParams(titleParams(id), {
+          replace: true,
+          preventScrollReset: true,
+        });
+      }
+    };
     if (index < visible.length - 1) {
-      preview.move(1);
-      focusReviewRow(list.current, visible[index + 1].titleId);
+      select(visible[index + 1].titleId);
       return;
     }
     if (!query.hasNextPage || query.isFetching) return;
@@ -200,10 +253,7 @@ export function CatalogReview() {
       const next = updated.data?.pages
         .flatMap((page) => page.items)
         .find((row) => !known.has(row.titleId));
-      if (next) {
-        preview.select(next.titleId);
-        requestAnimationFrame(() => focusReviewRow(list.current, next.titleId));
-      }
+      if (next) select(next.titleId);
     } catch {
       if (queuePosition.current.key === location.key) setPagingError(true);
     } finally {
@@ -286,42 +336,124 @@ export function CatalogReview() {
                 close={preview.close}
                 onUnknown={preview.close}
                 previous={index > 0 ? () => preview.move(-1) : undefined}
-                next={
-                  index < visible.length - 1 || query.hasNextPage ? () => void advance() : undefined
-                }
+                next={canAdvance ? () => void advance() : undefined}
                 fallbackAssessment={active}
                 renderRequirements={(assessment, refresh) => (
-                  <RequirementReview
-                    assessment={assessment}
-                    view={state}
-                    currentKey={
-                      requirement ?? currentRequirement(assessment.requirements, state)?.key
-                    }
-                    onRefresh={refresh}
-                    navigationState={{
-                      catalogReturnTo: returnPath,
-                    }}
-                    onOpenEditor={(event) => rememberCatalogPosition(returnPath, event)}
-                    onDecisionOpen={setDecisionOpen}
-                    onDecisionSaved={() =>
-                      requestAnimationFrame(() => focusReviewRow(list.current, assessment.titleId))
-                    }
-                  />
+                  <Stack gap="sm">
+                    {state === 'NeedsReview' &&
+                      !assessment.needsReview &&
+                      assessment.hasOperationalBlocker && (
+                        <Button
+                          variant="subtle"
+                          size="compact-sm"
+                          style={{
+                            alignSelf: 'flex-start',
+                          }}
+                          onClick={() =>
+                            changeFilters(
+                              {
+                                state: 'Blocked',
+                              },
+                              true,
+                            )
+                          }
+                        >
+                          View blocked queue
+                        </Button>
+                      )}
+                    <RequirementReview
+                      assessment={assessment}
+                      view={state}
+                      currentKey={
+                        requirement ?? currentRequirement(assessment.requirements, state)?.key
+                      }
+                      onRefresh={refresh}
+                      navigationState={{
+                        catalogReturnTo: returnPath,
+                      }}
+                      reviewReturnTo={returnPath}
+                      onOpenEditor={(event) => rememberCatalogPosition(returnPath, event)}
+                      onDecisionOpen={setDecisionOpen}
+                      onDecisionSaved={() =>
+                        requestAnimationFrame(() =>
+                          focusReviewRow(list.current, assessment.titleId),
+                        )
+                      }
+                    />
+                    <Group gap="xs">
+                      {canManageUsers && (
+                        <Button
+                          component={Link}
+                          to={libraryInspectionPath(assessment.titleId, returnPath)}
+                          variant="light"
+                          size="compact-sm"
+                          style={{
+                            alignSelf: 'flex-start',
+                          }}
+                          onClick={(event) => rememberCatalogPosition(returnPath, event)}
+                        >
+                          Inspect in a library
+                        </Button>
+                      )}
+                      {state === 'NeedsReview' && !assessment.needsReview && canAdvance && (
+                        <Button
+                          variant="light"
+                          size="compact-sm"
+                          onClick={() => void advance()}
+                        >
+                          Next review
+                        </Button>
+                      )}
+                    </Group>
+                  </Stack>
                 )}
               />
             )
           }
         >
           <Stack gap="sm">
-            {size.measured && !size.wide && titleId && (
-              <CatalogLinkedTitle
-                titleId={titleId}
-                knownName={active?.titleName}
-                returnPath={returnPath}
-                href={
-                  linkedRequirement ? titleRequirementPath(titleId, linkedRequirement) : undefined
-                }
-              />
+            {returnToReceipt && (
+              <Anchor
+                component={Link}
+                to={returnToReceipt}
+                size="sm"
+                style={{
+                  alignSelf: 'flex-start',
+                }}
+              >
+                Back to import results
+              </Anchor>
+            )}
+            {size.measured &&
+              !size.wide &&
+              titleId &&
+              (!active && linked.isPending ? (
+                <Skeleton
+                  h={40}
+                  aria-label="Loading linked review"
+                />
+              ) : (
+                <CatalogLinkedTitle
+                  titleId={titleId}
+                  knownName={linkedAssessment?.titleName}
+                  returnPath={returnPath}
+                  href={
+                    linkedRequirement ? titleRequirementPath(titleId, linkedRequirement) : undefined
+                  }
+                  actionLabel={linkedRequirement ? 'Open linked review' : undefined}
+                />
+              ))}
+            {size.measured && !size.wide && titleId && canAdvance && (
+              <Button
+                variant="subtle"
+                size="compact-sm"
+                onClick={() => void advance()}
+                style={{
+                  alignSelf: 'flex-start',
+                }}
+              >
+                Next review
+              </Button>
             )}
             <div className={classes.toolbar}>
               <NativeSelect
@@ -331,6 +463,33 @@ export function CatalogReview() {
                 onChange={(event) =>
                   changeFilters({
                     state: event.currentTarget.value,
+                  })
+                }
+              />
+              <NativeSelect
+                label="System"
+                value={systemKey ?? ''}
+                data={[
+                  {
+                    value: '',
+                    label: 'All systems',
+                  },
+                  ...(systemKey && !platforms.data?.some((platform) => platform.key === systemKey)
+                    ? [
+                        {
+                          value: systemKey,
+                          label: systemKey,
+                        },
+                      ]
+                    : []),
+                  ...(platforms.data ?? []).map((platform) => ({
+                    value: platform.key,
+                    label: platform.name,
+                  })),
+                ]}
+                onChange={(event) =>
+                  changeFilters({
+                    systemKey: event.currentTarget.value,
                   })
                 }
               />
@@ -381,7 +540,9 @@ export function CatalogReview() {
               >
                 {query.isPending
                   ? 'Loading titles…'
-                  : `${rows.length}${query.hasNextPage ? '+' : ''} ${rows.length === 1 && !query.hasNextPage ? 'title' : 'titles'}`}
+                  : count !== undefined
+                    ? `${count.toLocaleString()} ${count === 1 ? 'title' : 'titles'} in this view`
+                    : `${rows.length}${query.hasNextPage ? '+' : ''} ${rows.length === 1 && !query.hasNextPage ? 'title' : 'titles'}`}
               </Text>
               <Group gap="xs">
                 {size.wide && (
@@ -508,7 +669,9 @@ export function CatalogReview() {
                                   data-stretch={!size.wide || undefined}
                                   to={to}
                                   state={{
-                                    catalogReturnTo: returnPath,
+                                    catalogReturnTo: size.wide
+                                      ? returnPath
+                                      : `${location.pathname}?${titleParams(item.titleId)}`,
                                   }}
                                   onClick={(event) => rememberCatalogPosition(returnPath, event)}
                                 >
@@ -614,12 +777,15 @@ export function CatalogReview() {
         <EnrichmentLauncher
           opened={launching}
           onClose={() => setLaunching(false)}
-          initialScope="Automatic"
+          initialScope={scoped ? 'Filtered' : 'Automatic'}
           initialMode="Enrich"
+          reviewReturnTo={returnPath}
+          scopedBlockedCount={scoped ? counts.data?.blocked : undefined}
           filters={
-            search
+            scoped
               ? {
-                  query: search,
+                  query: search || undefined,
+                  systemKey,
                   tracked: 'tracked',
                 }
               : undefined

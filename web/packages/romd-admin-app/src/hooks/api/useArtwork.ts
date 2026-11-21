@@ -44,9 +44,10 @@ export const artworkKeys = {
     ] as const,
 };
 
-export function useSavedArtwork(titleId: string) {
+export function useSavedArtwork(titleId: string, enabled = true) {
   return useQuery({
     queryKey: artworkKeys.saved(titleId),
+    enabled,
     queryFn: async ({ signal }) => {
       return collectPages(async (cursor) => {
         const response = await listTitleArtworkAssets({

@@ -79,6 +79,8 @@ public sealed class BulkEnrichmentTitleProcessor(
                     title.AttachPublishedMedia(result.StagedMedia, publication.ReadAfterFlush(), clock.GetUtcNow());
                 }
                 await titleMetadata.ApplyEnrichmentStagedAsync(title, token);
+                // Fence any publication based on the old metadata before artwork can defer.
+                await materializationService.FlagAffectedLibrariesAsync(platform.Id, token);
             }, ct);
             title = await titleAggregates.GetAggregateAsync(title.Id, ct)
                 ?? throw new InvalidOperationException("Title was removed during enrichment.");
@@ -104,14 +106,6 @@ public sealed class BulkEnrichmentTitleProcessor(
                     title.AttachPublishedMedia(result.StagedMedia, publication.ReadAfterFlush(), clock.GetUtcNow());
                 }
                 await titleMetadata.ApplyEnrichmentStagedAsync(title, mutationCt);
-            }
-            if (result.Enriched)
-            {
-                // The enriched title and its authorization-relevant library invalidation
-                // are one fenced commit. A crash before the next job checkpoint can then
-                // safely skip the already-completed title on redelivery without losing
-                // the durable rematerialization intent.
-                await materializationService.FlagAffectedLibrariesAsync(platform.Id, mutationCt);
             }
         }, ct);
         // An unacknowledged final write is a processing failure, not an enriched/not-found

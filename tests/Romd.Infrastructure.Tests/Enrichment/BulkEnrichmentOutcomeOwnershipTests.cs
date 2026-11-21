@@ -5,7 +5,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using Romd.Admin.Application.Artwork;
+using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.Common.Persistence;
+using Romd.Admin.Application.Common.Realtime;
 using Romd.Admin.Application.Configuration;
 using Romd.Admin.Application.Dashboard;
 using Romd.Admin.Application.Ingestion.Jobs;
@@ -18,10 +20,13 @@ using Romd.Admin.Application.Titles.ReadModels;
 using Romd.Application.Common.Configuration;
 using Romd.Application.Common.Security;
 using Romd.Domain.Catalog;
+using Romd.Domain.Catalog.Ratings;
 using Romd.Domain.Jobs;
+using Romd.Domain.Libraries;
 using Romd.Domain.Source.Platform;
 using Romd.Infrastructure.Jobs;
 using Romd.Infrastructure.Jobs.Executors;
+using Romd.Infrastructure.Libraries;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Repositories;
@@ -171,6 +176,60 @@ public sealed class BulkEnrichmentOutcomeOwnershipTests
         job.Errors.ShouldBeEmpty();
     }
 
+    [Fact]
+    public async Task ArtworkDeferral_AfterRatingCommit_RejectsPublicationWithOldRevision()
+    {
+        var artwork = Substitute.For<IAutomaticArtworkService>();
+        artwork.FillAsync(Arg.Any<Title>(), Arg.Any<Platform>(), Arg.Any<JobContext>(),
+                Arg.Any<CancellationToken>(), Arg.Any<IReadOnlyList<ProviderArtworkResult>?>())
+            .Returns(call =>
+            {
+                call.Arg<JobContext>().RequestDeferral(DateTimeOffset.UtcNow.AddMinutes(1), "Provider cooldown");
+                return Task.CompletedTask;
+            });
+        await using var rig = await Rig.CreateAsync("enriched", "none", artwork, title =>
+        {
+            title.StoreProviderLayer("igdb", MetadataSourceType.Provider, new TitleMetadataPayload
+            {
+                ContentRatings = [new ContentRatingClaim { Board = RatingBoard.Pegi, RawCode = "12" }]
+            }, DateTimeOffset.UtcNow);
+            title.Rematerialize(["igdb"]);
+        });
+
+        var oldRevision = Guid.NewGuid();
+        await using (var seed = rig.Database.CreateContext())
+        {
+            var publishedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
+            seed.Libraries.Add(new LibraryEntity
+            {
+                Id = 1,
+                Name = "Family games",
+                ConfigurationJson = "{}",
+                MaterializationRevision = oldRevision,
+                MaterializationGeneration = 1,
+                LastMaterializedAt = publishedAt,
+                CreatedAt = publishedAt
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await rig.RunAsync();
+
+        await using var publisher = rig.Database.CreateContext();
+        (await publisher.Titles.SingleAsync()).ConservativeMinimumAge.ShouldBe(12);
+        var job = await publisher.Jobs.SingleAsync();
+        job.CompletedAt.ShouldBeNull();
+        await using var transaction = await new EfUnitOfWork(publisher).BeginTransactionAsync();
+        using var publication = await new LibraryRepository(publisher)
+            .StageMaterializedProjectionsAndActivateAsync(1, new MaterializedLibraryProjection([], []), 0, oldRevision);
+        publication.Applied.ShouldBeFalse("the rating commit must fence publication even when artwork defers");
+        await transaction.CommitAsync();
+        var library = await publisher.Libraries.SingleAsync();
+        library.NeedsMaterialization.ShouldBeTrue();
+        library.MaterializationRevision.ShouldNotBe(oldRevision);
+        library.MaterializationGeneration.ShouldBe(1);
+    }
+
     private static string Status(string result) => result switch
     {
         "enriched" => nameof(EnrichmentStatus.Completed),
@@ -185,7 +244,8 @@ public sealed class BulkEnrichmentOutcomeOwnershipTests
         public Guid JobId => jobId;
         public BoundaryProbe Probe => probe;
 
-        public static async Task<Rig> CreateAsync(string result, string fault)
+        public static async Task<Rig> CreateAsync(string result, string fault,
+            IAutomaticArtworkService? artwork = null, Action<Title>? applyMetadata = null)
         {
             var database = PostgreSqlTestDatabase.Create();
             Guid jobId;
@@ -241,17 +301,21 @@ public sealed class BulkEnrichmentOutcomeOwnershipTests
                 {
                     _ = provider.GetRequiredService<ScopeCleanup>();
                     var titles = provider.GetRequiredService<TitleRepository>();
+                    var db = provider.GetRequiredService<RomdDbContext>();
+                    var work = provider.GetRequiredService<IUnitOfWork>();
+                    var materialization = new LibraryMaterializationService(new LibraryRepository(db),
+                        Substitute.For<IMaterializationDataProvider>(), Substitute.For<ICatalogProjectionService>(),
+                        Substitute.For<IAdminEventOutbox>(), work, NullLogger<LibraryMaterializationService>.Instance);
                     return new BulkEnrichmentTitleProcessor(titles, titles, titles,
-                        new PlatformRepository(provider.GetRequiredService<RomdDbContext>()), Substitute.For<IFileStorageService>(),
-                        provider.GetRequiredService<IUnitOfWork>(), notifier, Substitute.For<ILibraryMaterializationService>(), options,
-                        NullLogger<BulkEnrichmentTitleProcessor>.Instance, Substitute.For<IAutomaticArtworkService>(), TimeProvider.System);
+                        new PlatformRepository(db), Substitute.For<IFileStorageService>(), work, notifier, materialization, options,
+                        NullLogger<BulkEnrichmentTitleProcessor>.Instance, artwork ?? Substitute.For<IAutomaticArtworkService>(), TimeProvider.System);
                 }).BuildServiceProvider();
             var parent = database.CreateContext();
             var selection = Substitute.For<ITitleEnrichmentStatusReader>();
             selection.GetCandidatesAsync(3, Arg.Any<EnrichmentScope>(), Arg.Any<CancellationToken>())
                 .Returns(new[] { new EnrichmentCandidate(7, "Chrono", false) });
             var executor = new BulkEnrichmentJobExecutor(new TitleRepository(parent), selection, new PlatformRepository(parent),
-                new SingleResult(result), Substitute.For<IStatsNotifier>(), options, NullLogger<BulkEnrichmentJobExecutor>.Instance,
+                new SingleResult(result, applyMetadata), Substitute.For<IStatsNotifier>(), options, NullLogger<BulkEnrichmentJobExecutor>.Instance,
                 services.GetRequiredService<IServiceScopeFactory>(), TimeProvider.System);
             return new(database, services, parent, jobId, probe, executor);
         }
@@ -381,7 +445,7 @@ public sealed class BulkEnrichmentOutcomeOwnershipTests
         }
     }
 
-    private sealed class SingleResult(string result) : IEnrichmentOrchestrator
+    private sealed class SingleResult(string result, Action<Title>? applyMetadata) : IEnrichmentOrchestrator
     {
         public Task<OrchestrationResult> EnrichTitleAsync(Title title, Platform platform, CancellationToken ct = default) =>
             throw new NotSupportedException();
@@ -389,8 +453,11 @@ public sealed class BulkEnrichmentOutcomeOwnershipTests
             IAsyncEnumerable<(Title Title, Platform Platform)> titles, [EnumeratorCancellation] CancellationToken ct = default)
         {
             await foreach (var (title, _) in titles.WithCancellation(ct))
+            {
+                applyMetadata?.Invoke(title);
                 yield return (title.Id, result == "enriched" ? OrchestrationResult.Found(1) :
                     result == "not-found" ? OrchestrationResult.NotFound : OrchestrationResult.Failed);
+            }
         }
     }
 }

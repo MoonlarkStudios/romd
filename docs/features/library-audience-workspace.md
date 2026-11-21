@@ -83,6 +83,11 @@ create an account. Reassignment changes the person's audience.
 **Preview** shows the saved, owned games in the published audience, including
 collection order. Use **Filter by collection** to see an attached collection.
 The game picker, **Game results**, and **Preview** use the title's selected cover.
+Use **Game visibility** to check one title against the current saved rules and
+the active publication. It shows the exclusion reason and links to **Ratings**
+or **Releases** when those details explain the result. From **Catalog → Needs
+review**, administrators can choose **Inspect in a library** to open the same
+game in a named audience. Use **Publish changes** to update that audience.
 Preview does not simulate a device or promise emulator compatibility.
 
 Contributors: [library publication](../architecture/library-publication.md) owns

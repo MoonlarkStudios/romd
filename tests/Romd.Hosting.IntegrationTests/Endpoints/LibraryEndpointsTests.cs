@@ -27,6 +27,7 @@ using Romd.Admin.Application.Libraries.Queries.GetLibraryCollections;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryGenreFacets;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryPlatformFacets;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleReleaseDiagnostics;
+using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleVisibility;
 using Romd.Admin.Application.Libraries.Queries.ListLibraries;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
@@ -469,7 +470,8 @@ public sealed class LibraryEndpointsTests
             new("/libraries/{libraryId}/facets/systems", "GET", "ListLibrarySystemFacets", [200, 404], typeof(IEnumerable<LibraryFacet>)),
             new("/libraries/{libraryId}/facets/genres", "GET", "ListLibraryGenreFacets", [200, 400, 404], typeof(Page<LibraryFacet>)),
             new("/libraries/{libraryId}/collections", "GET", "ListLibraryCollections", [200, 400, 404], typeof(Page<LibraryCollection>)),
-            new("/libraries/{libraryId}/titles/{titleId}/releases", "GET", "ListLibraryTitleReleaseDiagnostics", [200, 400, 404], typeof(Page<ContractLibraryTitleReleaseDiagnostics>))
+            new("/libraries/{libraryId}/titles/{titleId}/releases", "GET", "ListLibraryTitleReleaseDiagnostics", [200, 400, 404], typeof(Page<ContractLibraryTitleReleaseDiagnostics>)),
+            new("/libraries/{libraryId}/titles/{titleId}/visibility", "GET", "GetLibraryTitleVisibility", [200, 404, 409], typeof(LibraryTitleVisibility))
         ];
 
         endpoints.Count.ShouldBe(expected.Length);
@@ -609,6 +611,7 @@ public sealed class LibraryEndpointsTests
             GetLibraryCollectionsQuery, Page<LibraryCollection>>>());
         services.AddSingleton(Substitute.For<IQueryHandler<
             GetLibraryTitleReleaseDiagnosticsQuery, Page<ContractLibraryTitleReleaseDiagnostics>>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryTitleVisibilityQuery, LibraryTitleVisibility>>());
     }
 
     private static async Task<IResult> InvokeAsync(string methodName, params object?[] args)

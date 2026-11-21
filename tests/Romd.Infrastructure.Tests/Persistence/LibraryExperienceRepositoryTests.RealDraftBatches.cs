@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using OpenIddict.EntityFrameworkCore;
 using Romd.Admin.Application.Libraries;
+using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleVisibility;
+using Romd.Application.Common.Ids;
 using Romd.Domain.Hashing;
 using Romd.Domain.Libraries;
 using Romd.Infrastructure.Libraries;
@@ -18,6 +20,53 @@ namespace Romd.Infrastructure.Tests.Persistence;
 
 public sealed partial class LibraryExperienceRepositoryTests
 {
+    [Fact]
+    public async Task Visibility_ReadsOnlyTheSelectedTitle_AndSeparatesSavedRulesFromPublication()
+    {
+        await SeedEvaluationTitlesAsync(8);
+        await SeedDuplicateEvaluationSourcesAsync(8);
+        await using (var seed = CreateContext())
+        {
+            await seed.Libraries.Where(library => library.Id == 1).ExecuteUpdateAsync(update => update
+                .SetProperty(library => library.LastMaterializedAt, DateTimeOffset.UtcNow)
+                .SetProperty(library => library.MaterializationGeneration, 1)
+                .SetProperty(library => library.NeedsMaterialization, true));
+            seed.MaterializedLibraryTitles.Add(new()
+            {
+                LibraryId = 1,
+                TitleId = 1,
+                PlatformId = 1,
+                IsVisible = true,
+                IsOwned = true,
+                Availability = "Playable"
+            });
+            await seed.SaveChangesAsync();
+        }
+        var commands = new EvaluationScopeInterceptor();
+        await using var context = new RomdDbContext(new DbContextOptionsBuilder<RomdDbContext>()
+            .UseNpgsql(database.ConnectionString).UseOpenIddict().AddInterceptors(commands).Options);
+        var evaluator = EvaluationService(context, new MaterializationDataProvider(context));
+        var handler = new GetLibraryTitleVisibilityQueryHandler(evaluator, new EfReadSnapshotTransactionFactory(context));
+
+        var excluded = (await handler.HandleAsync(new(1, 1))).Value;
+        excluded.TitleId.ShouldBe(IdCoder.Encode(1));
+        excluded.HasPublication.ShouldBeTrue();
+        excluded.IsPublished.ShouldBeTrue();
+        excluded.NeedsPublish.ShouldBeTrue();
+        excluded.IsEligible.ShouldBeFalse();
+        excluded.Reason.ShouldBe("ContentRating");
+        excluded.RatingCategory.ShouldBe("T");
+        excluded.RatingAge.ShouldBe(13);
+        var absent = (await handler.HandleAsync(new(1, 2))).Value;
+        absent.TitleId.ShouldBe(IdCoder.Encode(2));
+        absent.IsPublished.ShouldBeFalse();
+        absent.IsEligible.ShouldBeTrue();
+        absent.IsOwned.ShouldBeTrue();
+        commands.CandidateScopes.Select(scope => scope.ShouldHaveSingleItem()).ShouldBe([1, 2]);
+        (await handler.HandleAsync(new(1, 999))).FirstError.Code.ShouldBe("Catalog.TitleNotFound");
+        context.Database.CurrentTransaction.ShouldBeNull();
+    }
+
     [Fact]
     public async Task DraftEvaluation_RealCandidateBatchesWithDuplicateSources_PreservesCollapsedReleaseEligibility()
     {

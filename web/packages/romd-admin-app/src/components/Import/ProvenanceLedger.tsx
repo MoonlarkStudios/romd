@@ -171,6 +171,8 @@ function NextStep({
       </Stack>
     );
   }
+  const systemKey =
+    item.matchedTitles.length === 1 ? (item.currentSystemKey ?? item.systemKey) : undefined;
   return (
     <Stack gap={4}>
       {item.matchedTitles.map((title) => (
@@ -178,7 +180,21 @@ function NextStep({
           key={title.id}
           component={Link}
           size="sm"
-          to={`/titles/${title.id}`}
+          to={
+            canRoute
+              ? destination(
+                  `/catalog?${new URLSearchParams({
+                    view: 'review',
+                    title: title.id,
+                    ...(systemKey
+                      ? {
+                          systemKey,
+                        }
+                      : {}),
+                  })}`,
+                )
+              : `/titles/${title.id}`
+          }
         >
           {title.name}
         </Anchor>
@@ -187,7 +203,12 @@ function NextStep({
         size="xs"
         c="dimmed"
       >
-        {item.platformName}
+        {[
+          item.platformName,
+          canRoute && item.matchedTitles.length > 0 && 'Review in Catalog',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       </Text>
     </Stack>
   );

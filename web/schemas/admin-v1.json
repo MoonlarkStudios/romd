@@ -3412,6 +3412,75 @@
         }
       }
     },
+    "/api/libraries/{libraryId}/titles/{titleId}/visibility": {
+      "get": {
+        "tags": [
+          "Libraries"
+        ],
+        "description": "Compare one title's current saved-rule eligibility with its owned visibility in the active publication.",
+        "operationId": "GetLibraryTitleVisibility",
+        "parameters": [
+          {
+            "name": "libraryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryTitleVisibility"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/libraries/{libraryId}/attachments": {
       "get": {
         "tags": [
@@ -9941,7 +10010,7 @@
         "tags": [
           "Enrichment"
         ],
-        "description": "Current tracked titles in id ascending order, with query/view-bound cursors. Limit defaults to 50 and is at most 100; counts are read independently from workbench/stats.",
+        "description": "Current tracked titles in id ascending order, with cursors bound to the search, system and view. Limit defaults to 50 and is at most 100; counts are read independently from workbench/stats.",
         "operationId": "ListEnrichmentWorkbench",
         "parameters": [
           {
@@ -9984,25 +10053,32 @@
               "maxLength": 200,
               "type": "string"
             }
+          },
+          {
+            "name": "systemKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageOfEnrichmentAssessment"
-                }
-              }
-            }
-          },
           "400": {
             "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfEnrichmentAssessment"
                 }
               }
             }
@@ -10024,25 +10100,32 @@
               "maxLength": 200,
               "type": "string"
             }
+          },
+          {
+            "name": "systemKey",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EnrichmentWorkbenchCounts"
-                }
-              }
-            }
-          },
           "400": {
             "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrichmentWorkbenchCounts"
                 }
               }
             }
@@ -23366,6 +23449,70 @@
           "Rules",
           "IncludeOnly"
         ]
+      },
+      "LibraryTitleVisibility": {
+        "required": [
+          "titleId",
+          "titleName",
+          "hasPublication",
+          "isPublished",
+          "needsPublish",
+          "isEligible",
+          "isOwned",
+          "reason",
+          "ratingBoard",
+          "ratingCategory",
+          "ratingAge"
+        ],
+        "type": "object",
+        "properties": {
+          "titleId": {
+            "type": "string"
+          },
+          "titleName": {
+            "type": "string"
+          },
+          "hasPublication": {
+            "type": "boolean"
+          },
+          "isPublished": {
+            "type": "boolean"
+          },
+          "needsPublish": {
+            "type": "boolean"
+          },
+          "isEligible": {
+            "type": "boolean"
+          },
+          "isOwned": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ratingBoard": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ratingCategory": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ratingAge": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
       },
       "ManagedSystem": {
         "required": [

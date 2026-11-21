@@ -10,8 +10,8 @@ public interface IEnrichmentWorkbench
     /// <summary>The largest page the operation serves; the endpoint publishes and enforces it.</summary>
     public const int MaxLimit = 100;
 
-    Task<ErrorOr<Page<EnrichmentAssessment>>> ReadAsync(string view, string? cursor, int limit, string? query, CancellationToken ct);
-    Task<ErrorOr<EnrichmentWorkbenchCounts>> ReadCountsAsync(string? query, CancellationToken ct);
+    Task<ErrorOr<Page<EnrichmentAssessment>>> ReadAsync(string view, string? cursor, int limit, string? query, CancellationToken ct, int? systemId = null);
+    Task<ErrorOr<EnrichmentWorkbenchCounts>> ReadCountsAsync(string? query, CancellationToken ct, int? systemId = null);
     Task<ErrorOr<EnrichmentAssessment>> GetAsync(int titleId, CancellationToken ct);
     /// <summary>
     ///     Accepts or revisits an omission when <paramref name="ifMatch" /> holds the title's current revision, and

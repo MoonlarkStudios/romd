@@ -35,14 +35,15 @@ public static class EnrichmentEndpoints
 
         group.MapGet("workbench", async ([FromServices] Romd.Admin.Application.Enrichment.IEnrichmentWorkbench workbench, CancellationToken ct,
             [ClosedValues("NeedsReview", "Automatic", "Processing", "Blocked", "All")] string view = "NeedsReview", string? cursor = null,
-            [Range(1, Romd.Admin.Application.Enrichment.IEnrichmentWorkbench.MaxLimit)] int limit = 50, [MaxLength(200)] string? query = null) =>
-            (await workbench.ReadAsync(view, cursor, limit, query, ct)).Match(Results.Ok, errors => errors.ToProblem()))
-            .WithDescription("Current tracked titles in id ascending order, with query/view-bound cursors. Limit defaults to 50 and is at most 100; counts are read independently from workbench/stats.")
+            [Range(1, Romd.Admin.Application.Enrichment.IEnrichmentWorkbench.MaxLimit)] int limit = 50, [MaxLength(200)] string? query = null,
+            SystemKeyParameter? systemKey = null) =>
+            (await workbench.ReadAsync(view, cursor, limit, query, ct, systemKey?.SystemId)).Match(Results.Ok, errors => errors.ToProblem()))
+            .WithDescription("Current tracked titles in id ascending order, with cursors bound to the search, system and view. Limit defaults to 50 and is at most 100; counts are read independently from workbench/stats.")
             .WithName("ListEnrichmentWorkbench").Produces<Page<EnrichmentAssessment>>().ProducesProblems(400)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
         group.MapGet("workbench/stats", async ([FromServices] Romd.Admin.Application.Enrichment.IEnrichmentWorkbench workbench,
-            CancellationToken ct, [MaxLength(200)] string? query = null) =>
-            (await workbench.ReadCountsAsync(query, ct)).Match(Results.Ok, errors => errors.ToProblem()))
+            CancellationToken ct, [MaxLength(200)] string? query = null, SystemKeyParameter? systemKey = null) =>
+            (await workbench.ReadCountsAsync(query, ct, systemKey?.SystemId)).Match(Results.Ok, errors => errors.ToProblem()))
             .WithName("GetEnrichmentWorkbenchStats").Produces<EnrichmentWorkbenchCounts>().ProducesProblems(400)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 

@@ -17,6 +17,7 @@ using Romd.Admin.Application.Libraries.Queries.GetLibraryCollections;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryGenreFacets;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryPlatformFacets;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleReleaseDiagnostics;
+using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleVisibility;
 using Romd.Admin.Application.Libraries.Queries.ListLibraries;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
@@ -98,6 +99,13 @@ public static class LibraryEndpoints
             .WithName("ListLibraryTitleReleaseDiagnostics")
             .Produces<Page<ContractLibraryTitleReleaseDiagnostics>>().ProducesProblems(400)
             .ProducesProblems(StatusCodes.Status404NotFound);
+
+        group.MapGet("{libraryId}/titles/{titleId}/visibility", async (Sqid libraryId, Sqid titleId,
+            IQueryHandler<GetLibraryTitleVisibilityQuery, LibraryTitleVisibility> handler, CancellationToken ct) =>
+            (await handler.HandleAsync(new(libraryId.Value, titleId.Value), ct)).Match(Results.Ok, ToLibraryProblem))
+            .WithName("GetLibraryTitleVisibility")
+            .WithDescription("Compare one title's current saved-rule eligibility with its owned visibility in the active publication.")
+            .Produces<LibraryTitleVisibility>().ProducesProblems(404, 409);
 
         group.MapGet("{libraryId}/attachments", GetAttachments)
             .WithName("ListLibraryAttachments").Produces<IReadOnlyList<LibraryAttachment>>().ProducesProblems(404).WithDescription("At most 500 attachments; the replacement write enforces uniqueness and this bound.");

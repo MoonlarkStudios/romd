@@ -22,6 +22,7 @@ export { enrichmentWorkspaceKeys } from './enrichmentWorkspaceCache';
 export function useEnrichmentWorkspace(
   view: NonNullable<ListEnrichmentWorkbenchData['query']>['view'],
   search: string,
+  systemKey?: string,
 ) {
   const cache = useQueryClient();
   const queryKey = [
@@ -29,6 +30,11 @@ export function useEnrichmentWorkspace(
     'list',
     view,
     search,
+    ...(systemKey
+      ? [
+          systemKey,
+        ]
+      : []),
   ];
   const query = useInfiniteQuery({
     queryKey,
@@ -38,6 +44,7 @@ export function useEnrichmentWorkspace(
         query: {
           view,
           query: search || undefined,
+          systemKey,
           cursor: pageParam,
           limit: 50,
         },
@@ -82,14 +89,15 @@ export function useEnrichmentWorkspace(
   };
 }
 
-/** One cache entry per search; each surface chooses its own freshness. */
-export const enrichmentWorkspaceCountsQuery = (search: string) =>
+/** One cache entry per filter scope; each surface chooses its own freshness. */
+export const enrichmentWorkspaceCountsQuery = (search: string, systemKey?: string) =>
   queryOptions({
-    queryKey: enrichmentWorkspaceKeys.counts(search),
+    queryKey: enrichmentWorkspaceKeys.counts(search, systemKey),
     queryFn: async ({ signal }) => {
       const result = await getEnrichmentWorkbenchStats({
         query: {
           query: search || undefined,
+          systemKey,
         },
         signal,
       });
@@ -99,9 +107,9 @@ export const enrichmentWorkspaceCountsQuery = (search: string) =>
     },
   });
 
-export function useEnrichmentWorkspaceCounts(search: string, enabled = true) {
+export function useEnrichmentWorkspaceCounts(search: string, enabled = true, systemKey?: string) {
   return useQuery({
-    ...enrichmentWorkspaceCountsQuery(search),
+    ...enrichmentWorkspaceCountsQuery(search, systemKey),
     enabled,
     staleTime: 15_000,
     refetchInterval: 30_000,

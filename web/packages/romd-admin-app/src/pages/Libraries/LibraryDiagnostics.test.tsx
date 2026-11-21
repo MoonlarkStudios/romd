@@ -8,6 +8,23 @@ vi.mock('../../components/TitleSearchSelect', () => ({
   TitleSearchSelect: () => null,
 }));
 vi.mock('../../hooks/api/useLibraryManagement', () => ({
+  useLibraryTitleVisibility: (_library: string, title: string | null) => ({
+    data: title
+      ? {
+          titleId: title,
+          titleName: 'Game to review',
+          hasPublication: true,
+          isPublished: true,
+          isEligible: false,
+          isOwned: false,
+          needsPublish: true,
+          reason: 'ContentRating',
+          ratingBoard: 'Esrb',
+          ratingCategory: 'T',
+          ratingAge: 13,
+        }
+      : undefined,
+  }),
   useLibraryTitleReleaseDiagnostics: () => ({
     data: [
       {
@@ -31,8 +48,28 @@ it('shows why a visible release cannot appear in VFS', async () => {
       name: 'Game visibility',
     }),
   );
-  await waitFor(() => expect(screen.getByText('Visible')).toBeVisible());
+  await userEvent.click(screen.getByText('Published release rules (1)'));
+  await waitFor(() => expect(screen.getByText('Allowed')).toBeVisible());
   expect(
     screen.getByText('VFS unavailable: Original paths conflict on case-insensitive filesystems.'),
   ).toBeVisible();
+});
+
+it('opens on the linked game and distinguishes saved eligibility from the active audience', async () => {
+  render(<LibraryDiagnostics libraryId="library" />, {
+    routerOptions: {
+      initialEntries: [
+        '/libraries/library?tab=preview&inspect=title',
+      ],
+    },
+  });
+  expect(await screen.findByText('Game to review')).toBeVisible();
+  expect(screen.getByText('Exceeds the content-rating ceiling')).toBeVisible();
+  expect(screen.getByText('Visible to this audience')).toBeVisible();
+  expect(screen.getByText('Publish changes to update what this audience can see.')).toBeVisible();
+  expect(
+    screen.getByRole('link', {
+      name: 'Open ratings',
+    }),
+  ).toHaveAttribute('href', '/titles/title/ratings');
 });

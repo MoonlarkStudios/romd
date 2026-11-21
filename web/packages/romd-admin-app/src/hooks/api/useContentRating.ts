@@ -9,10 +9,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { RATING_BOARD_ORDER } from '../../pages/TitleDetail/contentRatings';
 import { useAdminCatalogSnapshot } from '../../providers/EffectiveReferenceCatalog';
 import type { AssembledReferenceCatalog } from '../../utils/referenceCatalog';
-import { cacheAcceptedTitle } from './titleCache';
+import { cacheAcceptedTitle, invalidateTitle } from './titleCache';
 import { ifMatch, titleWriteResult } from './titleConflict';
-import { catalogSearchKeys } from './useCatalogSearch';
-import { titleEnrichmentKeys } from './useTitleEnrichment';
 
 /** One category a board can assign, as the re-rate picker offers it. */
 export interface RatingCategoryOption {
@@ -137,14 +135,9 @@ export function useSetTitleContentRating() {
     },
     onSuccess: async (data, { titleId }) => {
       await cacheAcceptedTitle(queryClient, data);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: titleEnrichmentKeys.detail(titleId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: catalogSearchKeys.all,
-        }),
-      ]);
+      await invalidateTitle(queryClient, titleId, {
+        keepAcceptedDetail: true,
+      });
     },
   });
 }
