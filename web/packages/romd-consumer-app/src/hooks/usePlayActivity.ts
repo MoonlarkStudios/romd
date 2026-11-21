@@ -44,9 +44,10 @@ export async function putPlaySessionSnapshot(
   }
 }
 
-export function useRecentlyPlayed(limit = 18) {
+export function useRecentlyPlayed(limit = 18, enabled = true) {
   return useQuery({
     queryKey: playActivityQueryKeys.recentlyPlayed,
+    enabled,
     queryFn: async () => {
       const response = await listConsumerRecentlyPlayed({
         query: {

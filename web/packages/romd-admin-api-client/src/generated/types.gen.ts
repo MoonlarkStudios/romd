@@ -1059,6 +1059,7 @@ export type JobItemTitle = {
 
 export type JobMaterializationJob = {
     jobType?: 'materialization';
+    publicationOutcome?: null | string;
     libraryId?: null | string;
     totalTitles?: number;
     processedCount?: number;
@@ -1219,6 +1220,15 @@ export type Library = {
     updatedAt?: null | string;
 };
 
+export type LibraryAccountAccess = {
+    state: string;
+    libraryId: null | string;
+    libraryName: null | string;
+    publishedAt: null | string;
+    ownedGames: null | number;
+    selectedGameVisible: null | boolean;
+};
+
 export type LibraryAttachment = {
     collectionId: string;
     name: string;
@@ -1324,6 +1334,42 @@ export type LibraryPreviewTitle = {
     name: string;
     platformName: string;
     coverUrl: null | string;
+};
+
+export type LibraryPublicationAttempt = {
+    jobId: string;
+    phase: string;
+    isTerminal: boolean;
+    outcome: null | string;
+    createdAt: string;
+    finishedAt: null | string;
+    includedCount: number;
+    excludedCount: number;
+};
+
+export type LibraryPublicationGame = {
+    id: string;
+    name: string;
+    reason: null | string;
+};
+
+export type LibraryPublicationReview = {
+    revision: string;
+    checkedAt: string;
+    publishedAt: null | string;
+    publishedGames: number;
+    projectedGames: number;
+    assignedAccounts: number;
+    addedGames: number;
+    removedGames: number;
+    addedExamples: Array<LibraryPublicationGame>;
+    removedExamples: Array<LibraryPublicationGame>;
+    shelvesEmptied: number;
+    shelvesEmptiedExamples: Array<string>;
+};
+
+export type LibraryPublicationStatus = {
+    latestAttempt: null | LibraryPublicationAttempt;
 };
 
 export type LibraryStats = {
@@ -2763,6 +2809,7 @@ export type User = {
     isSuspended?: boolean;
     requiresActivation?: boolean;
     lastSignedInAt?: null | string;
+    assignmentRevision?: null | string;
 };
 
 export type WedgedReplaceDatJob = {
@@ -3139,6 +3186,12 @@ export type AssignUserRoleResponse = AssignUserRoleResponses[keyof AssignUserRol
 
 export type AssignUserLibraryData = {
     body: AssignLibraryRequest;
+    headers: {
+        /**
+         * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.
+         */
+        'If-Match': string;
+    };
     path: {
         userId: string;
     };
@@ -3159,6 +3212,14 @@ export type AssignUserLibraryErrors = {
      * Conflict
      */
     409: ProblemDetails;
+    /**
+     * Precondition Failed
+     */
+    412: ProblemDetails;
+    /**
+     * Precondition Required
+     */
+    428: ProblemDetails;
 };
 
 export type AssignUserLibraryError = AssignUserLibraryErrors[keyof AssignUserLibraryErrors];
@@ -3200,6 +3261,39 @@ export type AssignDefaultLibraryToUsersResponses = {
 };
 
 export type AssignDefaultLibraryToUsersResponse = AssignDefaultLibraryToUsersResponses[keyof AssignDefaultLibraryToUsersResponses];
+
+export type GetLibraryAccountAccessData = {
+    body?: never;
+    path: {
+        userId: string;
+    };
+    query?: {
+        titleId?: string;
+    };
+    url: '/api/users/{userId}/library/access';
+};
+
+export type GetLibraryAccountAccessErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type GetLibraryAccountAccessError = GetLibraryAccountAccessErrors[keyof GetLibraryAccountAccessErrors];
+
+export type GetLibraryAccountAccessResponses = {
+    /**
+     * OK
+     */
+    200: LibraryAccountAccess;
+};
+
+export type GetLibraryAccountAccessResponse = GetLibraryAccountAccessResponses[keyof GetLibraryAccountAccessResponses];
 
 export type GetAccountSecurityData = {
     body?: never;
@@ -4477,7 +4571,9 @@ export type MaterializeLibraryData = {
     path: {
         libraryId: string;
     };
-    query?: never;
+    query?: {
+        reviewedRevision?: string;
+    };
     url: '/api/libraries/{libraryId}/materialize';
 };
 
@@ -4490,6 +4586,10 @@ export type MaterializeLibraryErrors = {
      * Not Found
      */
     404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
 };
 
 export type MaterializeLibraryError = MaterializeLibraryErrors[keyof MaterializeLibraryErrors];
@@ -4502,6 +4602,72 @@ export type MaterializeLibraryResponses = {
 };
 
 export type MaterializeLibraryResponse = MaterializeLibraryResponses[keyof MaterializeLibraryResponses];
+
+export type GetLibraryPublicationStatusData = {
+    body?: never;
+    path: {
+        libraryId: string;
+    };
+    query?: never;
+    url: '/api/libraries/{libraryId}/publication';
+};
+
+export type GetLibraryPublicationStatusErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type GetLibraryPublicationStatusError = GetLibraryPublicationStatusErrors[keyof GetLibraryPublicationStatusErrors];
+
+export type GetLibraryPublicationStatusResponses = {
+    /**
+     * OK
+     */
+    200: LibraryPublicationStatus;
+};
+
+export type GetLibraryPublicationStatusResponse = GetLibraryPublicationStatusResponses[keyof GetLibraryPublicationStatusResponses];
+
+export type ReviewLibraryPublicationData = {
+    body?: never;
+    path: {
+        libraryId: string;
+    };
+    query?: never;
+    url: '/api/libraries/{libraryId}/publication/review';
+};
+
+export type ReviewLibraryPublicationErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type ReviewLibraryPublicationError = ReviewLibraryPublicationErrors[keyof ReviewLibraryPublicationErrors];
+
+export type ReviewLibraryPublicationResponses = {
+    /**
+     * OK
+     */
+    200: LibraryPublicationReview;
+};
+
+export type ReviewLibraryPublicationResponse = ReviewLibraryPublicationResponses[keyof ReviewLibraryPublicationResponses];
 
 export type ListLibrarySystemFacetsData = {
     body?: never;

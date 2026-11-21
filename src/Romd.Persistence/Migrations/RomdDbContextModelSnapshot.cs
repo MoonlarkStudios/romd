@@ -5003,6 +5003,15 @@ namespace Romd.Persistence.Migrations
                     b.Property<int>("ProcessedCount")
                         .HasColumnType("integer");
 
+                    b.Property<string>("PublicationOutcome")
+                        .HasColumnType("text");
+
+                    b.Property<long?>("PublishedGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("ReviewedRevision")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("TotalTitles")
                         .HasColumnType("integer");
 
@@ -5010,6 +5019,10 @@ namespace Romd.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_MaterializationJobs_Active_LibraryId")
                         .HasFilter("\"JobType\" = 'materialization' AND \"Phase\" NOT IN ('Completed', 'CompletedWithErrors', 'Failed', 'Cancelled', 'Deferred')");
+
+                    b.HasIndex("LibraryId", "CreatedAt", "Id")
+                        .HasDatabaseName("IX_MaterializationJobs_LibraryHistory")
+                        .HasFilter("\"JobType\" = 'materialization'");
 
                     b.ToTable("Jobs", "romd", t =>
                         {

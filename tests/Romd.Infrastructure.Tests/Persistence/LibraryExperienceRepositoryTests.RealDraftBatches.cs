@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using OpenIddict.EntityFrameworkCore;
 using Romd.Admin.Application.Libraries;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleVisibility;
+using Romd.Admin.Application.Libraries.Queries.ReviewLibraryPublication;
 using Romd.Application.Common.Ids;
 using Romd.Domain.Hashing;
 using Romd.Domain.Libraries;
@@ -20,6 +21,48 @@ namespace Romd.Infrastructure.Tests.Persistence;
 
 public sealed partial class LibraryExperienceRepositoryTests
 {
+    [Fact]
+    public async Task PublicationReview_UsesLiveOwnedGamesAndSavedRulesAcrossBoundedBatches()
+    {
+        await SeedEvaluationTitlesAsync(8);
+        await SeedDuplicateEvaluationSourcesAsync(8);
+        await using (var seed = CreateContext())
+        {
+            await seed.Libraries.Where(library => library.Id == 1).ExecuteUpdateAsync(update => update
+                .SetProperty(library => library.LastMaterializedAt, DateTimeOffset.UtcNow)
+                .SetProperty(library => library.MaterializationGeneration, 1));
+            seed.MaterializedLibraryTitles.AddRange(new[] { 1, 2 }.Select(titleId => new MaterializedLibraryTitleEntity
+            {
+                LibraryId = 1,
+                TitleId = titleId,
+                PlatformId = 1,
+                IsVisible = true,
+                IsOwned = true,
+                Availability = "Playable"
+            }));
+            seed.Collections.Add(new() { Id = 4, Name = "First shelf", CreatedAt = DateTimeOffset.UtcNow });
+            seed.LibraryCollections.Add(new() { LibraryId = 1, CollectionId = 4 });
+            seed.CollectionItems.Add(new() { CollectionId = 4, TitleId = 1, AddedAt = DateTimeOffset.UtcNow });
+            await seed.SaveChangesAsync();
+        }
+        var commands = new EvaluationScopeInterceptor();
+        await using var context = new RomdDbContext(new DbContextOptionsBuilder<RomdDbContext>()
+            .UseNpgsql(database.ConnectionString).UseOpenIddict().AddInterceptors(commands).Options);
+        var evaluator = EvaluationService(context, new MaterializationDataProvider(context), batchSize: 3);
+        var handler = new ReviewLibraryPublicationQueryHandler(evaluator, new EfReadSnapshotTransactionFactory(context),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ReviewLibraryPublicationQueryHandler>.Instance);
+
+        var review = (await handler.HandleAsync(new(1))).Value;
+
+        review.PublishedGames.ShouldBe(2);
+        review.ProjectedGames.ShouldBe(6);
+        review.AddedGames.ShouldBe(5);
+        review.RemovedGames.ShouldBe(1);
+        review.RemovedExamples.ShouldHaveSingleItem().Reason.ShouldBe("ContentRating");
+        review.ShelvesEmptiedExamples.ShouldBe(["First shelf"]);
+        commands.CandidateScopes.Select(ids => ids.Length).ShouldBe([3, 3, 2]);
+    }
+
     [Fact]
     public async Task Visibility_ReadsOnlyTheSelectedTitle_AndSeparatesSavedRulesFromPublication()
     {

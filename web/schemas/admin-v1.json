@@ -427,6 +427,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -645,6 +653,15 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -660,6 +677,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -678,6 +703,16 @@
               }
             }
           },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad Request",
             "content": {
@@ -688,8 +723,18 @@
               }
             }
           },
-          "409": {
-            "description": "Conflict",
+          "412": {
+            "description": "Precondition Failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -740,6 +785,64 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{userId}/library/access": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "operationId": "GetLibraryAccountAccess",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "titleId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryAccountAccess"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3070,6 +3173,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "reviewedRevision",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -3094,6 +3205,126 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/libraries/{libraryId}/publication": {
+      "get": {
+        "tags": [
+          "Libraries"
+        ],
+        "operationId": "GetLibraryPublicationStatus",
+        "parameters": [
+          {
+            "name": "libraryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryPublicationStatus"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/libraries/{libraryId}/publication/review": {
+      "get": {
+        "tags": [
+          "Libraries"
+        ],
+        "operationId": "ReviewLibraryPublication",
+        "parameters": [
+          {
+            "name": "libraryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryPublicationReview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -22148,6 +22379,12 @@
             ],
             "type": "string"
           },
+          "publicationOutcome": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "libraryId": {
             "type": [
               "null",
@@ -22897,6 +23134,54 @@
           }
         }
       },
+      "LibraryAccountAccess": {
+        "required": [
+          "state",
+          "libraryId",
+          "libraryName",
+          "publishedAt",
+          "ownedGames",
+          "selectedGameVisible"
+        ],
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "libraryId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "libraryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "ownedGames": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "selectedGameVisible": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          }
+        }
+      },
       "LibraryAttachment": {
         "required": [
           "collectionId",
@@ -23340,6 +23625,172 @@
             "type": [
               "null",
               "string"
+            ]
+          }
+        }
+      },
+      "LibraryPublicationAttempt": {
+        "required": [
+          "jobId",
+          "phase",
+          "isTerminal",
+          "outcome",
+          "createdAt",
+          "finishedAt",
+          "includedCount",
+          "excludedCount"
+        ],
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "phase": {
+            "type": "string"
+          },
+          "isTerminal": {
+            "type": "boolean"
+          },
+          "outcome": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "includedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "excludedCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "LibraryPublicationGame": {
+        "required": [
+          "id",
+          "name",
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LibraryPublicationReview": {
+        "required": [
+          "revision",
+          "checkedAt",
+          "publishedAt",
+          "publishedGames",
+          "projectedGames",
+          "assignedAccounts",
+          "addedGames",
+          "removedGames",
+          "addedExamples",
+          "removedExamples",
+          "shelvesEmptied",
+          "shelvesEmptiedExamples"
+        ],
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "publishedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "publishedGames": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "projectedGames": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assignedAccounts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "addedGames": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "removedGames": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "addedExamples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryPublicationGame"
+            }
+          },
+          "removedExamples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryPublicationGame"
+            }
+          },
+          "shelvesEmptied": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "shelvesEmptiedExamples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "LibraryPublicationStatus": {
+        "required": [
+          "latestAttempt"
+        ],
+        "type": "object",
+        "properties": {
+          "latestAttempt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LibraryPublicationAttempt"
+              }
             ]
           }
         }
@@ -29392,6 +29843,12 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "assignmentRevision": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

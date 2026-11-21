@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -110,13 +111,32 @@ public sealed partial class AuthEndpointsTests(IntegrationTestFixture fixture)
     {
         string email = $"revocation-{Guid.NewGuid():N}@localhost";
         var userId = await CreateAdminUserAsync(email, "Password123");
+        using var admin = fixture.CreateAuthenticatedClient();
+        async Task<HttpResponseMessage> AssignLibraryAsync(string? libraryId)
+        {
+            using var current = await admin.GetAsync($"/api/users/{userId}");
+            current.EnsureSuccessStatusCode();
+            using var assignment = new HttpRequestMessage(HttpMethod.Put, $"/api/users/{userId}/library")
+            {
+                Content = JsonContent.Create(new AssignLibraryRequest(libraryId))
+            };
+            assignment.Headers.IfMatch.Add(current.Headers.ETag.ShouldNotBeNull());
+            return await admin.SendAsync(assignment);
+        }
+        if (action == "library")
+        {
+            using var created = await admin.PostAsJsonAsync("/api/libraries", new { Name = $"Revocation {Guid.NewGuid():N}" });
+            created.EnsureSuccessStatusCode();
+            var body = await created.Content.ReadFromJsonAsync<JsonElement>();
+            using var assigned = await AssignLibraryAsync(body.GetProperty("id").GetString().ShouldNotBeNull());
+            assigned.EnsureSuccessStatusCode();
+        }
         using var browser = fixture.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
         var issued = await OidcAuthorizationCodeFlow.RunAsync(browser, RomdOpenIddictClients.AdminSpa,
             "http://localhost:5137/auth/callback", email, "Password123");
         using var session = fixture.CreateClient();
         session.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", issued["access_token"].GetString());
         (await session.GetAsync("/api/users")).StatusCode.ShouldBe(HttpStatusCode.OK);
-        using var admin = fixture.CreateAuthenticatedClient();
         var security = await admin.GetFromJsonAsync<AccountSecurity>($"/api/users/{userId}/security");
         security!.Sessions.Items.Count.ShouldBe(1);
         Guid.TryParse(security.Sessions.Items[0].Id, out _).ShouldBeTrue();
@@ -128,7 +148,7 @@ public sealed partial class AuthEndpointsTests(IntegrationTestFixture fixture)
             "suspend" => await admin.PutAsJsonAsync($"/api/users/{userId}/suspension", new SetAccountSuspensionRequest(true)),
             "role" => await admin.PutAsJsonAsync($"/api/users/{userId}/role", new AssignRoleRequest("User")),
             "password" => await admin.PutAsJsonAsync($"/api/users/{userId}", new UpdateUserRequest(null, "Password456")),
-            "library" => await admin.PutAsJsonAsync($"/api/users/{userId}/library", new AssignLibraryRequest(null)),
+            "library" => await AssignLibraryAsync(null),
             _ => await admin.DeleteAsync($"/api/users/{userId}/sessions")
         };
         change.IsSuccessStatusCode.ShouldBeTrue(await change.Content.ReadAsStringAsync());

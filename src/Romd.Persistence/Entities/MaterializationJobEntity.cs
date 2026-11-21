@@ -10,6 +10,9 @@ public sealed class MaterializationJobEntity : JobEntity
     public int ProcessedCount { get; set; }
     public int IncludedCount { get; set; }
     public int ExcludedCount { get; set; }
+    public Guid? ReviewedRevision { get; set; }
+    public long? PublishedGeneration { get; set; }
+    public string? PublicationOutcome { get; set; }
 
     public IReadOnlyList<JobError> GetErrors()
     {
@@ -47,7 +50,10 @@ public sealed class MaterializationJobEntity : JobEntity
             completedAt: CompletedAt,
             isArchived: IsArchived,
             archivedAt: ArchivedAt,
-            createdByUserId: CreatedByUserId));
+            createdByUserId: CreatedByUserId,
+            reviewedRevision: ReviewedRevision,
+            publishedGeneration: PublishedGeneration,
+            publicationOutcome: Enum.TryParse<PublicationOutcome>(PublicationOutcome, out var outcome) ? outcome : null));
     }
 
     public static MaterializationJobEntity FromDomain(MaterializationJob domain, DateTimeOffset? updatedAt = null)
@@ -65,6 +71,9 @@ public sealed class MaterializationJobEntity : JobEntity
             ProcessedCount = domain.ProcessedCount,
             IncludedCount = domain.IncludedCount,
             ExcludedCount = domain.ExcludedCount,
+            ReviewedRevision = domain.ReviewedRevision,
+            PublishedGeneration = domain.PublishedGeneration,
+            PublicationOutcome = domain.Outcome?.ToString(),
             CurrentItem = domain.CurrentItem,
             ErrorsJson = JsonSerializer.Serialize(domain.Errors.ToList()),
             CreatedAt = domain.CreatedAt,

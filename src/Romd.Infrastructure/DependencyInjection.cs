@@ -780,6 +780,7 @@ public static class DependencyInjection
         services.TryAddSingleton(typeof(IJobCancellationPolicy<>), typeof(DefaultJobLifecyclePolicy<>));
         services.TryAddSingleton<IJobCancellationPolicy<MetadataRematerializationJob>, MetadataRematerializationCancellationPolicy>();
         services.TryAddSingleton(typeof(IJobTerminationPolicy<>), typeof(DefaultJobLifecyclePolicy<>));
+        services.TryAddScoped<IJobTerminationPolicy<MaterializationJob>, MaterializationTerminationPolicy>();
         services.TryAddSingleton(typeof(IJobCompletionCleanup<>), typeof(DefaultJobLifecyclePolicy<>));
 
         var retryAge = TimeSpan.FromDays(1);
@@ -1173,6 +1174,7 @@ public static class DependencyInjection
         services.AddScoped<IUserAdministration, UserAdministration>();
         services.AddScoped<IAccountLifecycle, Romd.Persistence.Identity.AccountLifecycle>();
         services.AddScoped<Romd.Admin.Application.Users.Queries.GetUserDirectory.IUserDirectoryReader, Romd.Persistence.Queries.UserDirectoryReader>();
+        services.AddScoped<Romd.Admin.Application.Users.Queries.GetLibraryAccountAccess.ILibraryAccountAccessReader, Romd.Persistence.Queries.LibraryAccountAccessReader>();
         services.AddScoped<Romd.Admin.Application.Users.Queries.GetAdminAudit.IAdminAuditReader, Romd.Persistence.Queries.AdminAuditReader>();
         services.AddScoped<IFileRepository, FileRepository>();
         services.AddScoped<IFileMutationLock, FileMutationLock>();
@@ -1213,6 +1215,7 @@ public static class DependencyInjection
         services.AddScoped<IConsumerBiosRepository, ConsumerBiosRepository>();
         services.AddScoped<IConsumerCollectionReadRepository, CollectionRepository>();
         services.AddScoped<IConsumerLibraryContextRepository, LibraryRepository>();
+        services.AddScoped<Romd.Consumer.Application.Libraries.Queries.GetCurrentLibraryPublication.IConsumerLibraryVersionReader, Romd.Persistence.Queries.ConsumerLibraryVersionReader>();
         services.AddScoped<IConsumerPasswordPolicy, ConsumerPasswordPolicy>();
         services.AddScoped<ConsumerAccountService>();
         services.AddScoped<IConsumerPasswordChanger>(sp => sp.GetRequiredService<ConsumerAccountService>());

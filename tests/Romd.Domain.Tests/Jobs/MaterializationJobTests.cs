@@ -79,11 +79,16 @@ public sealed class MaterializationJobTests
             completedAt: DateTimeOffset.UtcNow,
             isArchived: false,
             archivedAt: null,
-            createdByUserId: null);
+            createdByUserId: null,
+            reviewedRevision: null,
+            publishedGeneration: null,
+            publicationOutcome: null);
 
         job.PhaseEnum.ShouldBe(MaterializationPhase.Deferred);
         job.IsTerminal.ShouldBeTrue();
         job.HasErrors.ShouldBeFalse();
         job.ProgressPercent.ShouldBe(100);
+        job.Outcome.ShouldBeNull();
+        job.PublishedGeneration.ShouldBeNull();
     }
 }

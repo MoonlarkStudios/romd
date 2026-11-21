@@ -1,4 +1,5 @@
 using ErrorOr;
+using Romd.Application.Common.Concurrency;
 using Romd.Domain.Identity;
 
 namespace Romd.Admin.Application.Users;
@@ -39,7 +40,8 @@ public interface IUserAdministration
         Guid userId,
         int? libraryId,
         DateTimeOffset updatedAt,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        RevisionPrecondition? precondition = null);
     Task<ErrorOr<Deleted>> DeleteAsync(Guid userId, CancellationToken ct = default);
     Task<int> AssignDefaultLibraryAsync(
         int libraryId,

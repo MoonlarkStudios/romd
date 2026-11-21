@@ -333,8 +333,12 @@ def main():
                            method='POST')[0] == 202, 'VFS publication did not queue'
             # Changing our own library revokes existing sessions, including admin_token.
             # Finish admin operations before assigning access, then sign in again as a consumer.
+            status, _, account = request(admin, f'/api/users/{user_id}', token=admin_token)
+            assert status == 200, 'VFS account lookup failed'
+            revision = json.loads(account)['assignmentRevision']
             assert request(admin, f'/api/users/{user_id}/library', token=admin_token,
-                           method='PUT', payload={'libraryId': library_id})[0] == 200, 'VFS assignment failed'
+                           method='PUT', payload={'libraryId': library_id},
+                           extra_headers={'If-Match': f'"{revision}"'})[0] == 200, 'VFS assignment failed'
             assert request(consumer, '/vfs/library/', method='PROPFIND', extra_headers={'Depth': '1'})[0] == 401
             # Release setup: consumer sign-in manages a registered connection whose app password reads /vfs.
             consumer_token = sign_in(consumer, 'romd-consumer-spa')

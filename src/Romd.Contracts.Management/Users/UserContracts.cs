@@ -12,7 +12,8 @@ public sealed record User(
     DateTimeOffset? UpdatedAt,
     bool IsSuspended = false,
     bool RequiresActivation = false,
-    DateTimeOffset? LastSignedInAt = null);
+    DateTimeOffset? LastSignedInAt = null,
+    string? AssignmentRevision = null);
 
 /// <summary>
 ///     Request to create a new user.

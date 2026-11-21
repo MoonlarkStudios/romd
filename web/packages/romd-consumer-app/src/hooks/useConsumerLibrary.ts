@@ -14,6 +14,10 @@ import {
 } from '@romd/consumer-api-client';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { collectConsumerPages } from '../services/collectConsumerPages';
+import {
+  ConsumerGameUnavailableError,
+  ConsumerLibraryUnavailableError,
+} from '../services/libraryErrors';
 import type { ConsumerTitleDetail } from '../types/consumerTitle';
 
 export interface ConsumerCatalogSearchParams {
@@ -93,12 +97,14 @@ export function useCurrentLibrary() {
     queryKey: consumerQueryKeys.currentLibrary,
     queryFn: async () => {
       const response = await getConsumerCurrentLibrary();
+      if (response.response?.status === 404) throw new ConsumerLibraryUnavailableError();
       if (response.error || !response.data) {
         throw new Error('Unable to load library context');
       }
 
       return response.data;
     },
+    retry: (attempt, error) => !(error instanceof ConsumerLibraryUnavailableError) && attempt < 1,
   });
 }
 
@@ -177,6 +183,7 @@ export function useTitleDetail(titleId: string | undefined) {
         !response.data.media ||
         !response.data.releases
       ) {
+        if (response.response?.status === 404) throw new ConsumerGameUnavailableError();
         throw new Error('Unable to load title');
       }
 
@@ -221,9 +228,10 @@ export function useTitleDetail(titleId: string | undefined) {
   });
 }
 
-export function useCollections(systemKey?: string) {
+export function useCollections(systemKey?: string, enabled = true) {
   return useQuery({
     queryKey: consumerQueryKeys.collections(systemKey),
+    enabled,
     queryFn: ({ signal }) =>
       collectConsumerPages(async (cursor) => {
         const response = await listConsumerCollections({

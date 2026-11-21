@@ -179,6 +179,8 @@ public sealed partial class LibraryMaterializationServiceTests
         var transaction = Substitute.For<ITransaction>();
         var library = NewLibrary(7, "Broken", needsMaterialization: true);
         library.MarkConfigurationInvalid("bad reference", now: DateTimeOffset.UnixEpoch);
+        libraryRepo.StageMaterializedProjectionsAndMarkConfigurationInvalidAsync(7, "bad reference",
+            library.MaterializationRevision, Arg.Any<CancellationToken>()).Returns(true);
         var service = new LibraryMaterializationService(
             libraryRepo,
             dataProvider,

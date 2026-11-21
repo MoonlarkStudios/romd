@@ -229,6 +229,10 @@ public sealed partial class AdminMutationOutboxAtomicityTests
         try
         {
             await operation.ExecuteAsync(job, context);
+            if (job is MaterializationJob publication &&
+                await repository(claimDb).GetByIdAsync(job.Id) is MaterializationJob settled &&
+                publication.AdoptPublication(settled))
+                return job;
             job.Complete(completedAt: DateTimeOffset.UtcNow);
         }
         catch (JobExecutionOwnershipLostException) { throw; }

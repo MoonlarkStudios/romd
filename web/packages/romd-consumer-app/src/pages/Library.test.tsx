@@ -155,6 +155,7 @@ describe('Library', () => {
       },
       {
         limit: 36,
+        enabled: true,
       },
     );
     expect(screen.getByText('Top rated first')).toBeInTheDocument();

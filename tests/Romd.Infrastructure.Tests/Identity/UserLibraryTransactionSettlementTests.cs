@@ -18,6 +18,7 @@ using Romd.Admin.Application.Users.Commands.AssignUserRole;
 using Romd.Admin.Application.Users.Commands.CreateUser;
 using Romd.Admin.Application.Users.Commands.DeleteUser;
 using Romd.Admin.Application.Users.Commands.UpdateUser;
+using Romd.Application.Common.Concurrency;
 using Romd.Application.Common.Ids;
 using Romd.Application.Common.Security;
 using Romd.Domain.Identity;
@@ -40,6 +41,62 @@ namespace Romd.Infrastructure.Tests.Identity;
 public sealed class UserLibraryTransactionSettlementTests
 {
     private static readonly DateTimeOffset Now = DateTimeOffset.UnixEpoch.AddDays(1000);
+
+    [Fact]
+    public async Task Assign_StaleUnassignAndRepeatedMove_DoNotRevokeCurrentAccess()
+    {
+        await using var database = PostgreSqlTestDatabase.Create();
+        await using var provider = CreateServices(database);
+        var seeded = await SeedAsync(database);
+        var destination = IdCoder.Encode(seeded.TargetId);
+        async Task<ErrorOr<ManagedUser>> Assign(string? id, string? revision)
+        {
+            await using var scope = provider.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+            var users = scope.ServiceProvider.GetRequiredService<IUserAdministration>();
+            return await new AssignUserLibraryCommandHandler(users, new LibraryRepository(db), new EfUnitOfWork(db),
+                new FixedClock(), NullLogger<AssignUserLibraryCommandHandler>.Instance)
+                .HandleAsync(new(seeded.UserId, id,
+                    revision is null ? null : RevisionPrecondition.For(revision)));
+        }
+        var moved = await Assign(destination, seeded.Stamp);
+        moved.IsError.ShouldBeFalse();
+        await using var read = database.CreateContext();
+        var activeStamp = (await read.Users.SingleAsync(user => user.Id == seeded.UserId)).SecurityStamp;
+
+        var stale = await Assign(null, seeded.Stamp);
+        stale.FirstError.Code.ShouldBe("Users.PreconditionFailed");
+        (await Assign(destination, seeded.Stamp)).FirstError.Code.ShouldBe("Users.PreconditionFailed");
+        var repeat = await Assign(destination, moved.Value.AssignmentRevision);
+        repeat.Value.AssignmentRevision.ShouldBe(moved.Value.AssignmentRevision);
+        var current = await read.Users.SingleAsync(user => user.Id == seeded.UserId);
+        current.LibraryId.ShouldBe(seeded.TargetId);
+        current.SecurityStamp.ShouldBe(activeStamp);
+    }
+
+    [Fact]
+    public async Task Force_ReviewedPublicationRejectsStaleRevisionAndReusesOnlyTheSameReview()
+    {
+        await using var database = PostgreSqlTestDatabase.Create();
+        var seed = await SeedAsync(database);
+        var enqueuer = Substitute.For<IMaterializationJobEnqueuer>();
+        var current = Substitute.For<ICurrentUser>();
+        async Task<ErrorOr<Guid>> Accept(Guid revision)
+        {
+            await using var db = database.CreateContext();
+            return await new ForceMaterializeLibraryCommandHandler(new LibraryRepository(db),
+                new MaterializationJobRepository(db, TimeProvider.System), enqueuer, new AdminRealtimeOutbox(db, TimeProvider.System),
+                current, new EfUnitOfWork(db), NullLogger<ForceMaterializeLibraryCommandHandler>.Instance, new FixedClock())
+                .HandleAsync(new(seed.TargetId, revision));
+        }
+        (await Accept(Guid.NewGuid())).FirstError.Code.ShouldBe("Libraries.PublicationReviewExpired");
+        var accepted = await Accept(seed.TargetRevision);
+        accepted.IsError.ShouldBeFalse();
+        (await Accept(seed.TargetRevision)).Value.ShouldBe(accepted.Value);
+        await using var verify = database.CreateContext();
+        (await verify.Set<MaterializationJobEntity>().SingleAsync()).ReviewedRevision.ShouldBe(seed.TargetRevision);
+    }
+
     public static IEnumerable<object[]> SettlementCases =>
         from owner in new[] { "create-user", "update-user", "delete-user", "role", "assign", "default", "create-library", "update-library", "delete-library", "force" }
         from outcome in new[] { "ack", "before-io", "before-oce", "after-io", "after-oce" }

@@ -247,6 +247,8 @@ class AdmissionIdentityTests(unittest.TestCase):
                 order = []
                 def request(host, path, **options):
                     order.append(('call', host, path))
+                    if path == '/api/users/current-admin/library':
+                        self.assertEqual(('If-Match: "current-revision"',), options.get('headers'))
                     if path == '/api/libraries':
                         return 201, {}, b'{"id":"library"}'
                     if host == chd.CONSUMER_HOST:
@@ -256,6 +258,8 @@ class AdmissionIdentityTests(unittest.TestCase):
                     order.append(('json', host, path))
                     if path == '/api/roms/rom':
                         return rom
+                    if path == '/api/users/current-admin':
+                        return {'assignmentRevision': 'current-revision'}
                     self.assertEqual('/api/me', path)
                     return {'id': 'current-admin'}
                 run.api.call.side_effect, run.api.json.side_effect = request, read

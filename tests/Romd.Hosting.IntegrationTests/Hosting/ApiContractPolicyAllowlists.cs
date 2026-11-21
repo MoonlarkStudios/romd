@@ -36,6 +36,12 @@ internal static class ApiContractPolicyAllowlists
         new Dictionary<string, ReviewedRevisionField>(StringComparer.Ordinal)
         {
             {
+                "admin POST /api/libraries/{libraryId}/materialize ?reviewedRevision",
+                new(RevisionFieldClassification.SnapshotBinding,
+                    "Binds the queued computation to the saved rules and catalog inputs used by the impact review. " +
+                    "A stale pin is rejected at acceptance or deferred by the worker before publication.")
+            },
+            {
                 "admin MergeTitlesRequest.sourceTitleRevision",
                 new(RevisionFieldClassification.Batch,
                     "A merge writes two titles: the target is the If-Match resource of POST /api/titles/{titleId}/merge, " +

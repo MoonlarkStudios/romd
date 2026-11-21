@@ -11,6 +11,7 @@ internal sealed class OwnerTransactionFaults(IUnitOfWork inner, string point, Ex
     public bool Disposed { get; private set; }
     public bool RollbackAttempted { get; private set; }
     public Action? ObserveDisposal { get; init; }
+    public Func<Task>? ObserveCommitAsync { get; init; }
     public TransactionConflict ConflictOf(Exception error) => inner.ConflictOf(error);
     public async Task<ITransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
         new Transaction(this, await inner.BeginTransactionAsync(cancellationToken));
@@ -36,6 +37,8 @@ internal sealed class OwnerTransactionFaults(IUnitOfWork inner, string point, Ex
                 owner.Fail();
             }
             await inner.CommitAsync(cancellationToken);
+            if (owner.ObserveCommitAsync is { } observe)
+                await observe();
             if (owner._point == "commit-after")
                 owner.Fail();
         }

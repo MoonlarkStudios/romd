@@ -383,19 +383,31 @@ export function useForceMaterializeLibrary() {
   const { seedJob } = useCreateJob();
 
   return useMutation({
-    mutationFn: async (libraryId: string): Promise<JobReference> => {
+    mutationFn: async ({
+      libraryId,
+      reviewedRevision,
+    }: {
+      libraryId: string;
+      reviewedRevision: string;
+    }): Promise<JobReference> => {
       const response = await materializeLibrary({
+        query: {
+          reviewedRevision,
+        },
         path: {
           libraryId,
         },
       });
       if (response.error || !response.data) {
-        throw new ApiClientError('Failed to rebuild library', response.response?.status);
+        throw new ApiClientError(
+          getApiErrorMessage(response.error, 'Could not start publication.'),
+          response.response?.status,
+        );
       }
 
       return response.data;
     },
-    onSuccess: (jobReference, libraryId) => {
+    onSuccess: (jobReference, { libraryId }) => {
       seedJob(jobReference, {
         invalidateDelayMs: 0,
       });

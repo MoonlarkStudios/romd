@@ -34,6 +34,10 @@ The active-library index prevents two active materializations for one library.
 An execution fence rejects late publication from an older cancelled job, and
 the materialization compare token rejects rules changed during computation.
 Catalog topology fencing prevents publication across a conflicting rebuild.
+Reviewed publication checks the library revision at acceptance and execution.
+Activation commits the published generation and terminal job outcome together.
+Recovery reads that outcome after an ambiguous acknowledgement. A late
+cancellation observes the completed job before it can change the outcome.
 A rejected refresh is **Deferred**; refresh again after changes settle.
 
 ## Counts and collections

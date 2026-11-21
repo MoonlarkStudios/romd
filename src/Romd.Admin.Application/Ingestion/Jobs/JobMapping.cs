@@ -249,6 +249,7 @@ public static class JobMapping
             ProcessedCount = job.ProcessedCount,
             IncludedCount = job.IncludedCount,
             ExcludedCount = job.ExcludedCount,
+            PublicationOutcome = job.Outcome?.ToString(),
             CurrentItem = job.CurrentItem,
             Errors = job.Errors.Select(e => e.ToContract()).ToList(),
             HasErrors = job.HasErrors,

@@ -28,12 +28,13 @@ public sealed class FreshBaselineSchemaTests
             "20261120162632_MediaCollection",
             "20261121030000_ImportOutcomeReasons",
             "20261121040529_ServerImportInbox",
-            "20261121060000_RemoveServerImportFileHistory"
+            "20261121060000_RemoveServerImportFileHistory",
+            "20261121200000_LibraryPublicationOutcome"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(81);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(81);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(82);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(82);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -77,7 +78,7 @@ public sealed class FreshBaselineSchemaTests
         await database.ProvisionAsync();
 
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(81);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(PostgreSqlConfiguration.ExpectedSchemaVersion);
     }
 
     [Fact]
@@ -100,7 +101,7 @@ public sealed class FreshBaselineSchemaTests
             WHERE conname IN ('CK_TitleMedia_PreferredPackaging', 'FK_TitleMedia_CatalogReleases_CatalogReleaseId')
             ORDER BY conname
             """).ToArrayAsync()).ShouldBe(["CK_TitleMedia_PreferredPackaging", "FK_TitleMedia_CatalogReleases_CatalogReleaseId"]);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(81);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(PostgreSqlConfiguration.ExpectedSchemaVersion);
     }
 
     [Theory]

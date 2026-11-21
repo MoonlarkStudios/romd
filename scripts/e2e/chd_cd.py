@@ -153,7 +153,9 @@ class CdQualification(chd.Qualification):
         library = json.loads(body)['id']
         self.api.call(chd.ADMIN_HOST, f'/api/libraries/{library}/materialize', method='POST', expect=(202,))
         user = self.api.json(chd.ADMIN_HOST, '/api/me')['id']
-        self.api.call(chd.ADMIN_HOST, f'/api/users/{user}/library', method='PUT', payload={'libraryId':library})
+        revision = self.api.json(chd.ADMIN_HOST, f'/api/users/{user}')['assignmentRevision']
+        self.api.call(chd.ADMIN_HOST, f'/api/users/{user}/library', method='PUT',
+                      headers=(f'If-Match: "{revision}"',), payload={'libraryId': library})
         self.api.forget(chd.ADMIN_HOST)
         deadline = time.monotonic()+600
         while True:

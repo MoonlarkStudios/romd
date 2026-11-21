@@ -1,5 +1,14 @@
 namespace Romd.Domain.Jobs;
 
+public enum PublicationOutcome
+{
+    Published,
+    CatalogRebuilding,
+    InputsChanged,
+    InvalidConfiguration,
+    AlreadyPublished
+}
+
 public sealed class MaterializationJob : CancellableJob
 {
     private bool _isDeferred;
@@ -15,6 +24,9 @@ public sealed class MaterializationJob : CancellableJob
     public int ProcessedCount { get; private set; }
     public int IncludedCount { get; private set; }
     public int ExcludedCount { get; private set; }
+    public Guid? ReviewedRevision { get; private set; }
+    public long? PublishedGeneration { get; private set; }
+    public PublicationOutcome? Outcome { get; private set; }
 
     /// <inheritdoc />
     public override string Phase => PhaseEnum.ToString();
@@ -35,7 +47,8 @@ public sealed class MaterializationJob : CancellableJob
         _ => 100
     };
 
-    public static MaterializationJob Create(int libraryId, string libraryName, DateTimeOffset createdAt, Guid? createdByUserId = null)
+    public static MaterializationJob Create(int libraryId, string libraryName, DateTimeOffset createdAt, Guid? createdByUserId = null,
+        Guid? reviewedRevision = null)
     {
         return new MaterializationJob
         {
@@ -47,6 +60,7 @@ public sealed class MaterializationJob : CancellableJob
             SourceFilename = string.IsNullOrWhiteSpace(libraryName) ? "Library Materialization" : libraryName,
             LibraryId = libraryId,
             PhaseEnum = MaterializationPhase.Pending,
+            ReviewedRevision = reviewedRevision,
             CreatedAt = createdAt,
             CreatedByUserId = createdByUserId
         };
@@ -71,7 +85,10 @@ public sealed class MaterializationJob : CancellableJob
         DateTimeOffset? completedAt,
         bool isArchived,
         DateTimeOffset? archivedAt,
-        Guid? createdByUserId)
+        Guid? createdByUserId,
+        Guid? reviewedRevision,
+        long? publishedGeneration,
+        PublicationOutcome? publicationOutcome)
     {
         var job = new MaterializationJob
         {
@@ -86,6 +103,9 @@ public sealed class MaterializationJob : CancellableJob
             ProcessedCount = processedCount,
             IncludedCount = includedCount,
             ExcludedCount = excludedCount,
+            ReviewedRevision = reviewedRevision,
+            PublishedGeneration = publishedGeneration,
+            Outcome = publicationOutcome,
             CurrentItem = currentItem,
             CreatedAt = createdAt,
             StartedAt = startedAt,
@@ -99,6 +119,34 @@ public sealed class MaterializationJob : CancellableJob
     }
 
     public void SetTotalTitles(int total) => TotalTitles = total;
+
+    public void CompletePublication(PublicationOutcome outcome, long? generation, int total, int excluded, DateTimeOffset now)
+    {
+        EnsurePhase(MaterializationPhase.Materializing);
+        Outcome = outcome;
+        PublishedGeneration = generation;
+        TotalTitles = ProcessedCount = total;
+        ExcludedCount = excluded;
+        IncludedCount = total - excluded;
+        _isDeferred = outcome is not (PublicationOutcome.Published or PublicationOutcome.AlreadyPublished);
+        Complete(now);
+    }
+
+    public bool AdoptPublication(MaterializationJob persisted)
+    {
+        if (persisted.Id != Id || !persisted.IsTerminal || persisted.Outcome is null)
+            return false;
+        PhaseEnum = persisted.PhaseEnum;
+        CompletedAt = persisted.CompletedAt;
+        CurrentItem = persisted.CurrentItem;
+        Outcome = persisted.Outcome;
+        PublishedGeneration = persisted.PublishedGeneration;
+        TotalTitles = persisted.TotalTitles;
+        ProcessedCount = persisted.ProcessedCount;
+        IncludedCount = persisted.IncludedCount;
+        ExcludedCount = persisted.ExcludedCount;
+        return true;
+    }
 
     public void RecordIncluded()
     {

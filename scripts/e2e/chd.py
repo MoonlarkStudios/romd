@@ -1736,7 +1736,9 @@ class Qualification:
         library_id = json.loads(body)['id']
         self.api.call(ADMIN_HOST, f'/api/libraries/{library_id}/materialize', method='POST', expect=(202,))
         user_id = self.api.json(ADMIN_HOST, '/api/me')['id']
-        self.api.call(ADMIN_HOST, f'/api/users/{user_id}/library', method='PUT', payload={'libraryId': library_id})
+        revision = self.api.json(ADMIN_HOST, f'/api/users/{user_id}')['assignmentRevision']
+        self.api.call(ADMIN_HOST, f'/api/users/{user_id}/library', method='PUT',
+                      headers=(f'If-Match: "{revision}"',), payload={'libraryId': library_id})
         self.api.forget(ADMIN_HOST)
         deadline = time.monotonic() + 600
         while True:

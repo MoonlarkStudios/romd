@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { StatusState } from './components/status/StatusState';
 import { AuthProvider } from './contexts/AuthContext';
+import { LibraryPublicationObserver } from './hooks/useLibraryRefresh';
 import { QueryProvider } from './providers/QueryProvider';
 import { routes } from './routes';
 import { consumerTheme } from './styles/theme';
@@ -23,6 +24,7 @@ export function App() {
       <Notifications position="top-right" />
       <QueryProvider>
         <AuthProvider>
+          <LibraryPublicationObserver />
           <Suspense
             fallback={
               <StatusState

@@ -123,6 +123,7 @@ public sealed record ExportJob : Job
 /// </summary>
 public sealed record MaterializationJob : Job
 {
+    public string? PublicationOutcome { get; init; }
     public string? LibraryId { get; init; }
     public int TotalTitles { get; init; }
     public int ProcessedCount { get; init; }

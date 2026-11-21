@@ -61,7 +61,7 @@ public sealed class UserDirectoryReader(RomdDbContext db) : IUserDirectoryReader
         var memberships = await (from membership in db.UserRoles join role in db.Roles on membership.RoleId equals role.Id where ids.Contains(membership.UserId) select new { membership.UserId, role.Name }).ToListAsync(ct);
         return new Page<User>
         {
-            Items = page.Select(user => new User(user.Id, user.Email ?? "", memberships.Where(role => role.UserId == user.Id).Select(role => role.Name!).Order().ToArray(), user.LibraryId.HasValue ? IdCoder.Encode(user.LibraryId.Value) : null, user.CreatedAt, user.UpdatedAt, user.IsSuspended, user.RequiresActivation, user.LastSignedInAt)).ToArray(),
+            Items = page.Select(user => new User(user.Id, user.Email ?? "", memberships.Where(role => role.UserId == user.Id).Select(role => role.Name!).Order().ToArray(), user.LibraryId.HasValue ? IdCoder.Encode(user.LibraryId.Value) : null, user.CreatedAt, user.UpdatedAt, user.IsSuspended, user.RequiresActivation, user.LastSignedInAt, user.ConcurrencyStamp)).ToArray(),
             HasNextPage = users.Count > input.Limit,
             NextCursor = users.Count > input.Limit ? KeysetCursor.Encode(new DirectoryPosition(page[^1].NormalizedEmail ?? "", page[^1].Id), fingerprint) : null
         };
