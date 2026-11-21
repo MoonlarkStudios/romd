@@ -1,13 +1,6 @@
 import type { JobReference } from '@romd/admin-api-client';
-import {
-  getTrackedCollectionStats,
-  importFromPath,
-  listImportFolders,
-  uploadDat,
-  uploadRom,
-} from '@romd/admin-api-client';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { apiError } from '../../components/Administration/apiError';
+import { getTrackedCollectionStats, uploadDat, uploadRom } from '@romd/admin-api-client';
+import { useMutation } from '@tanstack/react-query';
 import { type UploadProgress, uploadWithProgress } from './uploadWithProgress';
 import { useCreateJob } from './useCreateJob';
 
@@ -126,74 +119,6 @@ export function useUploadRom() {
         throw new Error('Failed to upload ROM file');
       }
 
-      return response.data as JobReference;
-    },
-    onSuccess: (data) => {
-      seedJob(data);
-    },
-  });
-}
-
-/**
- * One level of the server folders a path import may read: the allowed roots without a path,
- * otherwise the real subfolders of the given folder. The server refuses anything outside them.
- */
-export function useImportFolders(path: string | null, enabled: boolean) {
-  return useQuery({
-    queryKey: [
-      'import-folders',
-      path,
-    ],
-    enabled,
-    staleTime: 30_000,
-    queryFn: async ({ signal }) => {
-      const response = await listImportFolders({
-        query: path
-          ? {
-              path,
-            }
-          : undefined,
-        signal,
-      });
-      if (response.error || !response.data)
-        throw new Error(apiError(response.error, 'Could not list server folders.'));
-      return response.data;
-    },
-  });
-}
-
-interface ImportServerFolderParams {
-  requestId: string;
-  path: string;
-  allowUnidentified: boolean;
-  archiveOnly: boolean;
-  trackedOnly: boolean;
-}
-
-/** Copies a server folder into a new import job. The source folder is never moved or changed. */
-export function useImportServerFolder() {
-  const { seedJob } = useCreateJob();
-
-  return useMutation({
-    mutationFn: async ({
-      requestId,
-      path,
-      allowUnidentified,
-      archiveOnly,
-      trackedOnly,
-    }: ImportServerFolderParams) => {
-      const response = await importFromPath({
-        body: {
-          path,
-          requestId,
-          move: false,
-          allowUnidentified,
-          archiveOnly,
-          trackedOnly,
-        },
-      });
-      if (response.error || !response.data)
-        throw new Error(apiError(response.error, 'Could not start the server folder import.'));
       return response.data as JobReference;
     },
     onSuccess: (data) => {

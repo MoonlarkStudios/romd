@@ -1,7 +1,7 @@
 import { MantineProvider } from '@mantine/core';
 import type { Job, LibraryStats, ServerImportStatus, SystemResource } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render as renderBare, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render as renderBare, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Link, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -164,15 +164,6 @@ describe('ImportPage', () => {
   beforeEach(() => {
     permissions.canManageTitles = true;
     mockServerStatus(unconfiguredServer);
-    vi.mocked(listImportFolders).mockResolvedValue({
-      data: {
-        enabled: false,
-        folders: [],
-        fileCount: 0,
-        truncated: false,
-      },
-      error: undefined,
-    } as Awaited<ReturnType<typeof listImportFolders>>);
     mockGetCurrentUser.mockResolvedValue({
       data: null,
       error: {
@@ -234,7 +225,74 @@ describe('ImportPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('does not look up server folders without the Manager role', async () => {
+  it('shows the device import when a server deep link has no configured drop folder', async () => {
+    vi.mocked(listImportFolders).mockResolvedValue({
+      data: {
+        enabled: true,
+        folders: [
+          {
+            name: '/library',
+            path: '/library',
+          },
+        ],
+        fileCount: 0,
+        truncated: false,
+      },
+    } as Awaited<ReturnType<typeof listImportFolders>>);
+    render(<ImportPage />, {
+      routerOptions: {
+        initialEntries: [
+          '/roms/import?source=server',
+        ],
+      },
+    });
+
+    await waitFor(() => expect(getServerImport).toHaveBeenCalledOnce());
+    expect(await screen.findByText('Import roms.zip')).toBeInTheDocument();
+    expect(screen.getByText('Files to import')).toBeVisible();
+    expect(
+      screen.queryByRole('tablist', {
+        name: 'Import source',
+      }),
+    ).not.toBeInTheDocument();
+    expect(listImportFolders).not.toHaveBeenCalled();
+  });
+
+  it('can retry a failed folder status check before showing the server tab', async () => {
+    const user = userEvent.setup();
+    mockServerStatus({
+      ...unconfiguredServer,
+      directory: '/incoming',
+    });
+    vi.mocked(getServerImport).mockResolvedValueOnce({
+      error: {
+        title: 'Service unavailable',
+        status: 503,
+      },
+    } as Awaited<ReturnType<typeof getServerImport>>);
+    render(<ImportPage />);
+
+    const retry = await screen.findByRole('button', {
+      name: 'Retry folder status',
+    });
+    expect(
+      screen.queryByRole('tab', {
+        name: 'Server folder',
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Files to import')).toBeVisible();
+
+    await user.click(retry);
+
+    expect(
+      await screen.findByRole('tab', {
+        name: 'Server folder',
+      }),
+    ).toBeVisible();
+    expect(retry).not.toBeInTheDocument();
+  });
+
+  it('does not look up the server drop folder without the Manager role', async () => {
     permissions.canManageTitles = false;
     render(<ImportPage />);
 
@@ -285,10 +343,11 @@ describe('ImportPage', () => {
     expect(screen.getByText(/removes files from this folder after storing them/)).toBeVisible();
     expect(screen.getByText(/Checks every 15 minutes/)).toBeVisible();
     expect(
-      screen.queryByRole('heading', {
-        name: 'Import from a server folder',
+      screen.queryByRole('button', {
+        name: 'Browse server folders',
       }),
     ).not.toBeInTheDocument();
+    expect(listImportFolders).not.toHaveBeenCalled();
     await user.click(
       screen.getByRole('button', {
         name: 'Import from server folder',
@@ -352,43 +411,17 @@ describe('ImportPage', () => {
     );
   });
 
-  it('keeps both drafts while switching between the device and a server folder', async () => {
+  it('keeps the device draft while switching to the configured server folder', async () => {
     const user = userEvent.setup();
-    vi.mocked(listImportFolders).mockImplementation(async (options) => {
-      const path = options?.query?.path;
-      const folders = !path
-        ? [
-            {
-              name: '/staging',
-              path: '/staging',
-            },
-          ]
-        : path === '/staging'
-          ? [
-              {
-                name: 'game-boy',
-                path: '/staging/game-boy',
-              },
-            ]
-          : [];
-      return {
-        data: {
-          enabled: true,
-          path,
-          parentPath: path === '/staging/game-boy' ? '/staging' : undefined,
-          folders,
-          fileCount: path === '/staging/game-boy' ? 3 : 0,
-          truncated: false,
-        },
-        error: undefined,
-      } as Awaited<ReturnType<typeof listImportFolders>>;
+    mockServerStatus({
+      ...unconfiguredServer,
+      directory: '/incoming',
     });
     render(<ImportPage />);
 
     const server = await screen.findByRole('tab', {
       name: 'Server folder',
     });
-    expect(listImportFolders).toHaveBeenCalledTimes(1);
     await user.upload(
       screen.getByLabelText('file upload'),
       new File(
@@ -398,26 +431,19 @@ describe('ImportPage', () => {
         'queued.gb',
       ),
     );
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'Keep unmatched files',
+      }),
+    );
+
     await user.click(server);
+    expect(screen.getByText('/incoming')).toBeVisible();
     expect(
       screen.queryByRole('table', {
         name: 'Staged files',
       }),
     ).not.toBeInTheDocument();
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'game-boy',
-      }),
-    );
-    expect(await screen.findByText('3 files directly in this folder.')).toBeInTheDocument();
-    const folderPane = screen.getByRole('tabpanel', {
-      name: 'Server folder',
-    });
-    await user.click(
-      within(folderPane).getByRole('checkbox', {
-        name: 'Keep unmatched files',
-      }),
-    );
 
     await user.click(
       screen.getByRole('tab', {
@@ -433,16 +459,9 @@ describe('ImportPage', () => {
       screen.getByRole('checkbox', {
         name: 'Keep unmatched files',
       }),
-    ).not.toBeChecked();
-
-    await user.click(server);
-    expect(screen.getByText('/staging/game-boy')).toBeVisible();
-    expect(
-      screen.getByRole('checkbox', {
-        name: 'Keep unmatched files',
-      }),
     ).toBeChecked();
     expect(mockUpload).not.toHaveBeenCalled();
+    expect(startServerImport).not.toHaveBeenCalled();
   });
 
   it('removes invalid files together and previews a selection that runs as separate jobs', async () => {
