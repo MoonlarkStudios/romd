@@ -24,6 +24,7 @@ import {
 } from './enrichmentPresentation';
 import { MetadataPanel } from './MetadataPanel';
 import { RequirementReview } from './RequirementReview';
+import { reviewReturnPath } from './reviewHandoff';
 import { TitleStatusChips } from './TitleStatusChips';
 import classes from './TitleWorkbench.module.css';
 import {
@@ -55,6 +56,7 @@ export function TitleWorkbench({
   const assessment = useEnrichmentAssessment(canManageTitles ? titleId : undefined);
   const [params] = useSearchParams();
   const { key, state, hash } = useLocation();
+  const reviewReturnTo = reviewReturnPath(state?.catalogReturnTo);
   const epoch = useDiscardEpoch();
   const [launching, setLaunching] = useState(false);
   const requirement = params.get('requirement') ?? undefined;
@@ -75,6 +77,7 @@ export function TitleWorkbench({
           currentKey={requirement}
           heading={false}
           navigationState={state}
+          reviewReturnTo={reviewReturnTo}
           onRefresh={() => void assessment.refetch()}
         />
       ) : assessment.isError ? (
@@ -227,6 +230,7 @@ export function TitleWorkbench({
           titleId={titleId}
           titleName={title.name}
           initialMode="Enrich"
+          reviewReturnTo={reviewReturnTo}
         />
       )}
     </Stack>

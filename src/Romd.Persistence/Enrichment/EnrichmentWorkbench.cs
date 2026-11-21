@@ -17,16 +17,18 @@ namespace Romd.Persistence.Enrichment;
 
 public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IArtworkReader artworkReader, IOptions<EnrichmentOptions>? options = null, IEnumerable<Romd.Admin.Application.MetadataProviders.IProviderIdentityAdapter>? adapters = null) : IEnrichmentWorkbench
 {
-    public async Task<ErrorOr<Page<EnrichmentAssessment>>> ReadAsync(string view, string? cursor, int limit, string? query, CancellationToken ct)
+    public async Task<ErrorOr<Page<EnrichmentAssessment>>> ReadAsync(string view, string? cursor, int limit, string? query, CancellationToken ct, int? systemId = null)
     {
         if (view is not ("NeedsReview" or "Automatic" or "Processing" or "Blocked" or "All") || limit is < 1 or > IEnrichmentWorkbench.MaxLimit || query?.Length > 200)
             return Error.Validation("Enrichment.InvalidQuery", $"Choose a supported view, a limit between 1 and {IEnrichmentWorkbench.MaxLimit}, and a search of at most 200 characters.");
         query = string.IsNullOrWhiteSpace(query) ? null : query.Trim();
-        var fingerprint = KeysetCursor.Fingerprint("enrichment-workbench", "manager-tracked-titles", view, query, "id", "asc");
+        var fingerprint = systemId is null
+            ? KeysetCursor.Fingerprint("enrichment-workbench", "manager-tracked-titles", view, query, "id", "asc")
+            : KeysetCursor.Fingerprint("enrichment-workbench", "manager-tracked-titles", view, query, "id", "asc", systemId);
         var position = KeysetCursor.Decode<IntegerPosition>(cursor, fingerprint, value => value.IsValid);
         if (position.IsError)
             return position.Errors;
-        var titles = TitleScope(query);
+        var titles = TitleScope(query, systemId);
         var providers = await EnrichmentProviderAvailability.ReadAsync(adapters ?? [], ct);
         var page = await ReadIdsAsync(titles, providers, view, position.Value?.Id ?? 0, limit, ct);
         var hasMore = page.Count > limit;
@@ -40,12 +42,12 @@ public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IA
         };
     }
 
-    public async Task<ErrorOr<EnrichmentWorkbenchCounts>> ReadCountsAsync(string? query, CancellationToken ct)
+    public async Task<ErrorOr<EnrichmentWorkbenchCounts>> ReadCountsAsync(string? query, CancellationToken ct, int? systemId = null)
     {
         if (query?.Length > 200)
             return Error.Validation("Enrichment.InvalidQuery", "Use a search of at most 200 characters.");
         var providers = await EnrichmentProviderAvailability.ReadAsync(adapters ?? [], ct);
-        var summaries = new EnrichmentAssessmentQuery(db, TitleScope(query), options?.Value, providers).SummariesForCounts();
+        var summaries = new EnrichmentAssessmentQuery(db, TitleScope(query, systemId), options?.Value, providers).SummariesForCounts();
         // One statement counts the canonical flags without hydrating queue items or details.
         var counts = await summaries.GroupBy(_ => 1).Select(group => new EnrichmentWorkbenchCounts(
             group.Count(), group.Count(x => x.NeedsReview), group.Count(x => x.CanEnrichAutomatically),
@@ -54,9 +56,11 @@ public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IA
     }
 
     // The catalog's full-text predicate, so a launch from this search selects exactly the titles counted here.
-    private IQueryable<TitleEntity> TitleScope(string? query)
+    private IQueryable<TitleEntity> TitleScope(string? query, int? systemId)
     {
         var titles = db.Titles.Where(x => db.TrackedTitles.Any(tracked => tracked.TitleId == x.Id));
+        if (systemId is { } id)
+            titles = titles.Where(title => title.PlatformId == id);
         return string.IsNullOrWhiteSpace(query) ? titles : SearchQuery.MatchTitles(titles, query);
     }
 

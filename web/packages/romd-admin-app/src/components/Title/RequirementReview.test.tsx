@@ -169,11 +169,11 @@ async function openDecision(
   action: string,
   heading: string,
 ) {
-  await user.click(
-    await screen.findByRole('button', {
-      name: action,
-    }),
-  );
+  const button = await screen.findByRole('button', {
+    name: action,
+  });
+  await waitFor(() => expect(button).toBeEnabled());
+  await user.click(button);
   return within(
     await screen.findByRole('dialog', {
       name: heading,
@@ -523,19 +523,13 @@ describe('quick requirement decisions', () => {
         ]),
       ),
     );
-    const user = renderReview();
-    const dialog = await openDecision(user, 'Review IGDB match', 'IGDB');
-
+    renderReview();
     expect(
-      await dialog.findByRole('link', {
-        name: 'Open title editor',
+      await screen.findByRole('link', {
+        name: 'Review IGDB match',
       }),
     ).toHaveAttribute('href', `/titles/${titleId}/metadata?requirement=Identity%3Aigdb&match=1`);
-    expect(
-      dialog.queryByRole('button', {
-        name: 'Accept match',
-      }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it.each([

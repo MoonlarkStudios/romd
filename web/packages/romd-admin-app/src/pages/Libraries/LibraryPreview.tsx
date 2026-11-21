@@ -10,15 +10,17 @@ import {
   Title,
 } from '@mantine/core';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { GameCover } from '../../components/GameCover';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useLibraryAttachments, useLibraryPreview } from '../../hooks/api/useLibraryExperience';
 import classes from './Libraries.module.css';
-import { LibraryDiagnostics } from './LibraryDiagnostics';
 
 export function LibraryPreview({ libraryId }: { libraryId: string }) {
   const [collection, setCollection] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const gameSelection = new URLSearchParams(params);
+  gameSelection.set('tab', 'games');
   const attachments = useLibraryAttachments(libraryId);
   const preview = useLibraryPreview(libraryId, collection ?? undefined);
   const items = preview.data?.pages.flatMap((p) => p.items) ?? [];
@@ -78,7 +80,7 @@ export function LibraryPreview({ libraryId }: { libraryId: string }) {
             </Title>
             <Button
               component={Link}
-              to="?tab=games"
+              to={`?${gameSelection}`}
               variant="light"
               mt="md"
               {...workspaceActionProps}
@@ -134,7 +136,6 @@ export function LibraryPreview({ libraryId }: { libraryId: string }) {
           </Button>
         )}
       </div>
-      <LibraryDiagnostics libraryId={libraryId} />
     </Stack>
   );
 }

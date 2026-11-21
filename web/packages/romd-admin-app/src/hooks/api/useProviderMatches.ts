@@ -30,8 +30,11 @@ export const providerMatchesQuery = (titleId: string) =>
     staleTime: 30_000,
   });
 
-export function useProviderMatches(titleId: string) {
-  return useQuery(providerMatchesQuery(titleId));
+export function useProviderMatches(titleId: string, enabled = true) {
+  return useQuery({
+    ...providerMatchesQuery(titleId),
+    enabled,
+  });
 }
 
 /** A provider-match write carried a stale match revision (412); the server wrote nothing. */

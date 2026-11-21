@@ -22,7 +22,8 @@ import {
   IconSearch,
 } from '@tabler/icons-react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
+import { reviewReturnPath } from '../../components/Title/reviewHandoff';
 import { CurationHelp } from '../../components/Workspace/CurationHelp';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useCreateLibrary, useLibraries } from '../../hooks/api/useLibraryManagement';
@@ -40,6 +41,14 @@ export function Libraries() {
   const libraries = useLibraries();
   const create = useCreateLibrary();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const inspect = params.get('inspect');
+  const returnToReview = reviewReturnPath(params.get('reviewReturn'));
+  const inspection = new URLSearchParams({
+    tab: 'preview',
+  });
+  if (inspect) inspection.set('inspect', inspect);
+  if (returnToReview) inspection.set('reviewReturn', returnToReview);
   const [search, setSearch] = useState('');
   const [opened, setOpened] = useState(false);
   const [name, setName] = useState('');
@@ -85,6 +94,29 @@ export function Libraries() {
           </Button>
         </Group>
       </div>
+      {inspect && (
+        <Group
+          justify="space-between"
+          mb="md"
+        >
+          <Text
+            size="sm"
+            fw={550}
+          >
+            Choose a library to inspect this game.
+          </Text>
+          {returnToReview && (
+            <Button
+              component={Link}
+              to={returnToReview}
+              variant="subtle"
+              size="compact-sm"
+            >
+              Back to review
+            </Button>
+          )}
+        </Group>
+      )}
       <Group
         justify="space-between"
         mb="md"
@@ -149,7 +181,7 @@ export function Libraries() {
           {filtered.map((library) => (
             <li key={library.id}>
               <Link
-                to={`/libraries/${library.id}`}
+                to={`/libraries/${library.id}${inspect ? `?${inspection}` : ''}`}
                 className={classes.libraryRow}
               >
                 <div>

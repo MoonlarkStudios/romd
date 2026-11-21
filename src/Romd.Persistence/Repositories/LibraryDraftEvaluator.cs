@@ -42,6 +42,51 @@ public sealed class LibraryDraftEvaluator : ILibraryDraftEvaluator
         this.titleBatchSize = titleBatchSize;
     }
 
+    public async Task<ErrorOr<LibraryTitleVisibility>> GetTitleVisibilityAsync(int libraryId, int titleId, CancellationToken ct)
+    {
+        var library = await libraries.GetByIdAsync(libraryId, ct);
+        if (library is null)
+            return LibraryErrors.NotFound();
+        if (!library.HasValidConfiguration)
+            return Error.Conflict("Libraries.InvalidBaseline", "Repair the saved library rules before inspecting game visibility.");
+
+        var title = await context.Titles.AsNoTracking().Where(title => title.Id == titleId)
+            .Select(title => new EvaluationTitle(title.Id, title.Name, title.PlatformId, title.Genre,
+                context.TrackedTitles.Any(tracked => tracked.TitleId == title.Id)))
+            .SingleOrDefaultAsync(ct);
+        if (title is null)
+            return CatalogErrors.TitleNotFound();
+        if ((await catalog.GetPlatformIdsNeedingRebuildAsync(ct)).Contains(title.PlatformId))
+            return Error.Conflict("Libraries.CatalogUpdating", "This system's catalog is updating. Try inspecting again when it finishes.");
+
+        var loaded = await dataProvider.GetCandidatesAsync(ReadScope([titleId]), ct);
+        var candidate = loaded.SingleOrDefault();
+        if (candidate is null)
+        {
+            var ratings = await context.TitleContentRatings.AsNoTracking()
+                .Where(rating => rating.TitleId == titleId).ToListAsync(ct);
+            candidate = new(titleId, title.PlatformId, title.Genre, ratings.Select(rating => rating.ToDomain()).ToArray(),
+                [], title.IsTracked);
+        }
+
+        var configuration = library.Configuration;
+        var projected = MaterializedLibraryProjectionBuilder.Build(libraryId, [candidate], configuration).Titles.SingleOrDefault();
+        var basis = ContentRatingPolicyEvaluator.Evaluate(configuration.ContentRatingPolicy, candidate.ContentRatings).Basis;
+        var isPublished = await context.MaterializedLibraryTitles.AsNoTracking()
+            .AnyAsync(item => item.LibraryId == libraryId && item.TitleId == titleId && item.IsOwned, ct);
+        return new LibraryTitleVisibility(IdCoder.Encode(titleId), title.Name, library.LastMaterializedAt is not null,
+            isPublished, library.NeedsRefresh, projected is not null, projected?.IsOwned ?? false,
+            projected is null ? MaterializedLibraryProjectionBuilder.GetExclusionReason(candidate, configuration) : null,
+            basis?.Board.ToString(), basis?.Code, basis?.MinimumAge);
+    }
+
+    private static LibraryConfiguration ReadScope(IReadOnlyList<int> titleIds) => new()
+    {
+        IncludeUntrackedTitles = true,
+        TitleSelectionMode = Romd.Domain.Libraries.LibraryTitleSelectionMode.IncludeOnly,
+        IncludeTitleIds = titleIds
+    };
+
     public async Task<ErrorOr<LibraryEvaluation>> EvaluateAsync(int libraryId,
         LibraryConfiguration configuration, string view, string? search, int afterId, CancellationToken ct, string? cursor = null, int limit = 48)
     {
@@ -89,12 +134,7 @@ public sealed class LibraryDraftEvaluator : ILibraryDraftEvaluator
             if (metadata.Count == 0)
                 break;
             var ids = Array.AsReadOnly(metadata.Select(title => title.Id).ToArray());
-            var loaded = await dataProvider.GetCandidatesAsync(new LibraryConfiguration
-            {
-                IncludeUntrackedTitles = true,
-                TitleSelectionMode = Romd.Domain.Libraries.LibraryTitleSelectionMode.IncludeOnly,
-                IncludeTitleIds = ids
-            }, ct);
+            var loaded = await dataProvider.GetCandidatesAsync(ReadScope(ids), ct);
             var candidatesById = loaded.ToDictionary(title => title.TitleId);
             var missingIds = metadata.Where(title => !candidatesById.ContainsKey(title.Id))
                 .Select(title => title.Id).ToArray();

@@ -31,6 +31,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useDiscardEpoch } from '../../components/Administration/DraftGuard';
 import { UnsavedChanges } from '../../components/Administration/UnsavedChanges';
+import { libraryInspectionPath, reviewReturnPath } from '../../components/Title/reviewHandoff';
 import { CurationHelp } from '../../components/Workspace/CurationHelp';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useExportLibrary } from '../../hooks/api/useExport';
@@ -45,6 +46,7 @@ import { useAssignUserLibrary, useUsers } from '../../hooks/api/useUsers';
 import { archiveFormatLabel } from '../../utils/archiveFormats';
 import classes from './Libraries.module.css';
 import { LibraryCollections } from './LibraryCollections';
+import { LibraryDiagnostics } from './LibraryDiagnostics';
 import { LibraryGames } from './LibraryGames';
 import { LibraryPreview } from './LibraryPreview';
 import { LibraryRules } from './LibraryRules';
@@ -204,6 +206,10 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const active = tabs.find((t) => t === params.get('tab')) ?? 'overview';
+  const inspect = params.get('inspect');
+  const returnToReview = reviewReturnPath(params.get('reviewReturn'));
+  const librariesPath =
+    inspect && returnToReview ? libraryInspectionPath(inspect, returnToReview) : '/libraries';
   const [dirty, setDirty] = useState(false);
   const [discardSettings, setDiscardSettings] = useState(false);
   const [settings, setSettings] = useState(false);
@@ -237,7 +243,7 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
         <Text>This library could not be loaded.</Text>
         <Button
           component={Link}
-          to="/libraries"
+          to={librariesPath}
           variant="subtle"
         >
           Back to libraries
@@ -263,16 +269,28 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
         dirty={dirty}
         description="Your edits have not been saved. Stay here to finish, or discard them."
       />
-      <Button
-        component={Link}
-        to="/libraries"
-        variant="subtle"
-        color="gray"
-        leftSection={<IconArrowLeft size={15} />}
-        px={0}
-      >
-        All libraries
-      </Button>
+      <Group gap="md">
+        <Button
+          component={Link}
+          to={librariesPath}
+          variant="subtle"
+          color="gray"
+          leftSection={<IconArrowLeft size={15} />}
+          px={0}
+        >
+          {inspect && returnToReview ? 'Choose another library' : 'All libraries'}
+        </Button>
+        {returnToReview && (
+          <Button
+            component={Link}
+            to={returnToReview}
+            variant="subtle"
+            size="compact-sm"
+          >
+            Back to review
+          </Button>
+        )}
+      </Group>
       <div className={classes.hero}>
         <Group
           justify="space-between"
@@ -647,8 +665,14 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
       )}
       {active === 'collections' && <LibraryCollections libraryId={libraryId} />}
       {active === 'access' && <Audience libraryId={libraryId} />}
-      {active === 'preview' && !awaitsFirstPublication(library) && (
-        <LibraryPreview libraryId={libraryId} />
+      {active === 'preview' && (
+        <Stack gap="lg">
+          <LibraryDiagnostics
+            libraryId={libraryId}
+            published={!!library.lastMaterializedAt}
+          />
+          {!awaitsFirstPublication(library) && <LibraryPreview libraryId={libraryId} />}
+        </Stack>
       )}
       <Modal
         opened={settings}

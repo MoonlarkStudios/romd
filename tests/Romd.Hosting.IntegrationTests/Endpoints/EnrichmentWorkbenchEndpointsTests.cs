@@ -39,6 +39,48 @@ public sealed class EnrichmentWorkbenchEndpointsTests(IntegrationTestFixture fix
     }
 
     [Fact]
+    public async Task Workbench_SystemSearchScopesCountsAndContinuations()
+    {
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+        var systems = await db.Platforms.Where(system => system.CanonicalKey == "nes" || system.CanonicalKey == "snes")
+            .OrderBy(system => system.Id).Select(system => new { system.Id, system.CanonicalKey }).ToArrayAsync();
+        systems.Length.ShouldBe(2);
+        var name = $"Workbench {Guid.NewGuid():N}";
+        var titles = new[] { systems[0], systems[1], systems[0] }.Select((system, index) => new TitleEntity
+        {
+            PlatformId = system.Id,
+            Name = $"{name} {index}",
+            NormalizedName = $"{name.ToLowerInvariant()} {index}",
+            EnrichmentStatus = "None",
+            CreatedAt = DateTimeOffset.UtcNow
+        }).ToArray();
+        db.Titles.AddRange(titles);
+        await db.SaveChangesAsync();
+        db.TrackedTitles.AddRange(titles.Select(title => new TrackedTitleEntity { TitleId = title.Id }));
+        await db.SaveChangesAsync();
+
+        using var client = fixture.CreateClient().WithTestUser(Guid.NewGuid(), roles: [RomdRoleType.Manager]);
+        var queue = $"/api/enrichment/workbench?view=All&query={Uri.EscapeDataString(name)}&limit=1";
+        var scoped = $"{queue}&systemKey={systems[0].CanonicalKey}";
+        var first = await client.GetFromJsonAsync<Page<EnrichmentAssessment>>(scoped, JsonOptions);
+        first.ShouldNotBeNull().Items.ShouldHaveSingleItem().TitleId.ShouldBe(IdCoder.Encode(titles[0].Id));
+        first.HasNextPage.ShouldBeTrue();
+        var cursor = Uri.EscapeDataString(first.NextCursor.ShouldNotBeNull());
+        var next = await client.GetFromJsonAsync<Page<EnrichmentAssessment>>($"{scoped}&cursor={cursor}", JsonOptions);
+        next.ShouldNotBeNull().Items.ShouldHaveSingleItem().TitleId.ShouldBe(IdCoder.Encode(titles[2].Id));
+        next.HasNextPage.ShouldBeFalse();
+        (await client.GetAsync($"{queue}&systemKey={systems[1].CanonicalKey}&cursor={cursor}"))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var stats = $"/api/enrichment/workbench/stats?query={Uri.EscapeDataString(name)}";
+        (await client.GetFromJsonAsync<EnrichmentWorkbenchCounts>($"{stats}&systemKey={systems[0].CanonicalKey}"))
+            .ShouldNotBeNull().Total.ShouldBe(2);
+        (await client.GetFromJsonAsync<EnrichmentWorkbenchCounts>(stats)).ShouldNotBeNull().Total.ShouldBe(3);
+        (await client.GetAsync($"{stats}&systemKey=unknown-{Guid.NewGuid():N}"))
+            .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task Manager_CanReviewWithoutJobAndPersistPreconditionedOmission()
     {
         using var scope = fixture.Services.CreateScope();

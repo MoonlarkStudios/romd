@@ -6,11 +6,16 @@ export const enrichmentWorkspaceKeys = {
   all: [
     'enrichment-workspace',
   ] as const,
-  counts: (search: string) =>
+  counts: (search: string, systemKey?: string) =>
     [
       'enrichment-workspace',
       'counts',
       search,
+      ...(systemKey
+        ? [
+            systemKey,
+          ]
+        : []),
     ] as const,
   title: (titleId: string) =>
     [

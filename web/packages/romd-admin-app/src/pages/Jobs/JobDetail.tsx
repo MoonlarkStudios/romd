@@ -20,6 +20,7 @@ import { ImportReceipt } from '../../components/Import/ImportReceipt';
 import { importHistoryUrl, serverImportUrl } from '../../components/Import/importReceiptLinks';
 import { JobRow } from '../../components/Jobs/JobRows';
 import { getJobTitle, mediaReconciliationOutcome } from '../../components/Jobs/jobTypeRegistry';
+import { reviewReturnPath } from '../../components/Title/reviewHandoff';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { jobItemsKey } from '../../hooks/api/useJobItems';
@@ -45,6 +46,7 @@ export function JobDetail() {
         ? importHistoryUrl
         : '/jobs';
   const run = job?.jobType === 'artwork-completion' && hasRole('Manager') ? job : undefined;
+  const returnToReview = hasRole('Manager') && reviewReturnPath(location.state?.reviewReturnTo);
   const refresh = () => {
     void query.refetch();
     if (job?.jobType === 'upload' && job.isTerminal)
@@ -61,19 +63,31 @@ export function JobDetail() {
       className={workspace.page}
       gap="lg"
     >
-      <Button
-        component={Link}
-        to={returnUrl}
-        variant="subtle"
-        color="gray"
-        p={0}
-        leftSection={<IconArrowLeft size={15} />}
-        style={{
-          alignSelf: 'flex-start',
-        }}
-      >
-        {fromServerImport ? 'Server import folder' : 'Job history'}
-      </Button>
+      <Group gap="md">
+        <Button
+          component={Link}
+          to={returnUrl}
+          variant="subtle"
+          color="gray"
+          p={0}
+          leftSection={<IconArrowLeft size={15} />}
+          style={{
+            alignSelf: 'flex-start',
+          }}
+        >
+          {fromServerImport ? 'Server import folder' : 'Job history'}
+        </Button>
+        {returnToReview && (
+          <Button
+            component={Link}
+            to={returnToReview}
+            variant="light"
+            size="compact-sm"
+          >
+            Back to review
+          </Button>
+        )}
+      </Group>
       <Group
         className={workspace.hero}
         justify="space-between"

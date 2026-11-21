@@ -1352,6 +1352,20 @@ export type LibraryTitleReleaseDiagnostics = {
 
 export type LibraryTitleSelectionMode = 'Rules' | 'IncludeOnly';
 
+export type LibraryTitleVisibility = {
+    titleId: string;
+    titleName: string;
+    hasPublication: boolean;
+    isPublished: boolean;
+    needsPublish: boolean;
+    isEligible: boolean;
+    isOwned: boolean;
+    reason: null | string;
+    ratingBoard: null | string;
+    ratingCategory: null | string;
+    ratingAge: null | number;
+};
+
 export type ManagedSystem = {
     key: string;
     name: string;
@@ -4627,6 +4641,42 @@ export type ListLibraryTitleReleaseDiagnosticsResponses = {
 
 export type ListLibraryTitleReleaseDiagnosticsResponse = ListLibraryTitleReleaseDiagnosticsResponses[keyof ListLibraryTitleReleaseDiagnosticsResponses];
 
+export type GetLibraryTitleVisibilityData = {
+    body?: never;
+    path: {
+        libraryId: string;
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/libraries/{libraryId}/titles/{titleId}/visibility';
+};
+
+export type GetLibraryTitleVisibilityErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type GetLibraryTitleVisibilityError = GetLibraryTitleVisibilityErrors[keyof GetLibraryTitleVisibilityErrors];
+
+export type GetLibraryTitleVisibilityResponses = {
+    /**
+     * OK
+     */
+    200: LibraryTitleVisibility;
+};
+
+export type GetLibraryTitleVisibilityResponse = GetLibraryTitleVisibilityResponses[keyof GetLibraryTitleVisibilityResponses];
+
 export type ListLibraryAttachmentsData = {
     body?: never;
     path: {
@@ -7822,6 +7872,7 @@ export type ListEnrichmentWorkbenchData = {
         cursor?: string;
         limit?: number;
         query?: string;
+        systemKey?: string;
     };
     url: '/api/enrichment/workbench';
 };
@@ -7849,6 +7900,7 @@ export type GetEnrichmentWorkbenchStatsData = {
     path?: never;
     query?: {
         query?: string;
+        systemKey?: string;
     };
     url: '/api/enrichment/workbench/stats';
 };

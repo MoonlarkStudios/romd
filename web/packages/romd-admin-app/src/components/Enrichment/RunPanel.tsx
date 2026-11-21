@@ -18,6 +18,7 @@ import {
 } from './runPresentation';
 import {
   type ArtworkRunJob,
+  type RunItemStatus,
   type RunRetryStatus,
   useEnrichmentRun,
   useEnrichmentRunItems,
@@ -88,8 +89,14 @@ function RunItem({ item }: { item: ArtworkCompletionItem }) {
   );
 }
 
-function ReviewList({ jobId }: { jobId: string }) {
-  const items = useEnrichmentRunItems(jobId, 'Review');
+function RunItemList({
+  jobId,
+  status,
+}: {
+  jobId: string;
+  status: Extract<RunItemStatus, 'Review' | 'Failed'>;
+}) {
+  const items = useEnrichmentRunItems(jobId, status);
   if (items.isPending) return <Skeleton height={60} />;
   if (items.isError)
     return (
@@ -118,7 +125,9 @@ function ReviewList({ jobId }: { jobId: string }) {
           size="sm"
           c="dimmed"
         >
-          No titles in this run need review now.
+          {status === 'Review'
+            ? 'No titles in this run need review now.'
+            : 'No titles failed in this run.'}
         </Text>
       )}
       {items.hasNextPage && (
@@ -149,7 +158,7 @@ export function RunPanel({ job }: { job: ArtworkRunJob }) {
   });
   const { discardThen } = useDraftGuard();
   const retry = useRetryEnrichmentRun(jobId);
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const [openList, setOpenList] = useState<'Review' | 'Failed'>();
   const startRetry = (status: RunRetryStatus) =>
     void discardThen(async () => {
       const retryId = await retry.mutateAsync(status);
@@ -209,10 +218,20 @@ export function RunPanel({ job }: { job: ArtworkRunJob }) {
                     {...workspaceActionProps}
                     size="xs"
                     variant="light"
-                    aria-expanded={reviewOpen}
-                    onClick={() => setReviewOpen(!reviewOpen)}
+                    aria-expanded={openList === 'Review'}
+                    onClick={() => setOpenList(openList === 'Review' ? undefined : 'Review')}
                   >
                     Review {run.data.review.toLocaleString()} in this run
+                  </Button>
+                )}
+                {run.data.failed > 0 && (
+                  <Button
+                    size="xs"
+                    variant="subtle"
+                    aria-expanded={openList === 'Failed'}
+                    onClick={() => setOpenList(openList === 'Failed' ? undefined : 'Failed')}
+                  >
+                    View failed titles
                   </Button>
                 )}
                 {!active && run.data.failed > 0 && (
@@ -249,7 +268,13 @@ export function RunPanel({ job }: { job: ArtworkRunJob }) {
               </Anchor>
             </Group>
             {retry.isError && <Alert color="red">{retry.error.message}</Alert>}
-            {reviewOpen && run.data.review > 0 && <ReviewList jobId={jobId} />}
+            {openList && (
+              <RunItemList
+                key={openList}
+                jobId={jobId}
+                status={openList}
+              />
+            )}
           </>
         )}
       </Stack>

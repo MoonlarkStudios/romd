@@ -158,7 +158,8 @@ Catalog's **Needs review** view lists decisions on tracked titles independently
 of any run. Use its state filter to see automatic work, processing titles or
 blocked requirements. A title can need review while another requirement is
 processing. A selected title stays visible until the curator moves on, even
-after its last requirement leaves the queue.
+after its last requirement leaves the queue. The system and search filters
+scope the queue, its counts, and the default scope of a filtered launch.
 
 Catalog and Title actions launch durable execution and open the accepted job.
 The server resolves automatic scope from current eligibility. The launcher
@@ -170,8 +171,9 @@ the corresponding Catalog view.
 The persistence query evaluates current provider trust, effective metadata,
 artwork selections/assets, operational availability, and active work. It filters
 and counts in PostgreSQL, uses keyset pagination, then hydrates only the requested
-page. Counts and page IDs share one materialized assessment evaluation and database
-snapshot. EF generates the assessment SQL and bound parameters; the persistence
+page. Counts and pages evaluate the same policy in separate requests. Cursors
+bind the queue state, search and system scope. EF generates the assessment SQL
+and bound parameters. The persistence
 reader retains retry, cancellation, and connection lifetime handling. The catalog exposes the same assessment separately from the historical
 metadata-attempt status. Core metadata requirements are Description, Genre, and
 ReleaseDate; optional credits and ratings do not create a permanent review queue.

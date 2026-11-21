@@ -1049,6 +1049,17 @@ it('follows plan scenario 8.3 from a finished run through a cancelled retry to r
       unfinished: 0,
     }),
   );
+  state.items.set('run-240:Failed', [
+    {
+      titleId: 'failed-title',
+      titleName: 'Failed title from this run',
+      completion: 'Done',
+      metadataOutcome: 'Failed',
+      followUpJobId: null,
+      roles: [],
+      now: null,
+    },
+  ]);
   state.retry = (request) =>
     request.retryStatus === 'Failed'
       ? runDto({
@@ -1100,6 +1111,16 @@ it('follows plan scenario 8.3 from a finished run through a cancelled retry to r
       name: 'Global queue: 61 need review →',
     }),
   ).toBeInTheDocument();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'View failed titles',
+    }),
+  );
+  expect(
+    await screen.findByRole('link', {
+      name: 'Failed title from this run',
+    }),
+  ).toHaveAttribute('href', '/catalog?view=review&title=failed-title');
 
   await user.click(
     screen.getByRole('button', {

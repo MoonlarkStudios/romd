@@ -26,8 +26,10 @@ export type { EnrichmentLaunchMode, EnrichmentLaunchScope } from './enrichmentLa
 interface LaunchCommon {
   opened: boolean;
   onClose: () => void;
+  reviewReturnTo?: string;
   /** Defaults to Artwork. */
   initialMode?: EnrichmentLaunchMode;
+  scopedBlockedCount?: number;
 }
 
 /** One title: the run covers exactly that title, so no scope is offered. */
@@ -96,8 +98,10 @@ function LaunchForm({
   titleName,
   titleIds = [],
   filters,
+  scopedBlockedCount,
   initialMode = 'Artwork',
   initialScope = 'AllTracked',
+  reviewReturnTo,
 }: EnrichmentLauncherProps) {
   const navigate = useNavigate();
   const { discardThen } = useDraftGuard();
@@ -170,7 +174,13 @@ function LaunchForm({
     },
     onSuccess: (jobId) => {
       void invalidateEnrichmentWorkspace(cache);
-      navigate(`/jobs/${encodeURIComponent(jobId)}`);
+      navigate(`/jobs/${encodeURIComponent(jobId)}`, {
+        state: reviewReturnTo
+          ? {
+              reviewReturnTo,
+            }
+          : undefined,
+      });
       onClose();
     },
   });
@@ -212,6 +222,21 @@ function LaunchForm({
               {titles.toLocaleString()} {titles === 1 ? 'title' : 'titles'} in this scope
             </Text>
           )}
+          {scope === 'Filtered' && reviewReturnTo && (
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              Includes tracked titles matching the system and search, across queue states.
+            </Text>
+          )}
+          {scope === 'Filtered' && !!scopedBlockedCount && (
+            <Alert color="yellow">
+              {scopedBlockedCount === 1
+                ? '1 title in these filters has a blocker.'
+                : `${scopedBlockedCount.toLocaleString()} titles in these filters have blockers.`}
+            </Alert>
+          )}
           <Group gap="sm">
             {preview.data?.roles.map((row) => (
               <Text
@@ -224,8 +249,8 @@ function LaunchForm({
             ))}
           </Group>
           <Text size="sm">
-            Existing artwork and your curation choices are preserved. Any provider decisions will
-            appear in your enrichment workspace.
+            Existing artwork and curation choices are preserved. Provider decisions appear in
+            Catalog → Needs review.
           </Text>
           {(preview.error || start.error) && (
             <Alert color="red">

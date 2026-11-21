@@ -72,8 +72,11 @@ export const providerMatchKeys = {
 export function titleSurfaceKeys(titleId: string): QueryKey[] {
   return [
     catalogSearchKeys.all,
+    libraryManagementKeys.lists(),
+    libraryManagementKeys.details(),
     libraryManagementKeys.previews(),
     libraryManagementKeys.evaluations(),
+    libraryManagementKeys.visibility(titleId),
     titleLookupKeys.detail(titleId),
     titleDetailKeys.detail(titleId),
     titleEnrichmentKeys.detail(titleId),
@@ -86,13 +89,19 @@ export function titleSurfaceKeys(titleId: string): QueryKey[] {
 }
 
 /** Follows an observed assessment change without re-reading the workspace that reported it. */
-export async function invalidateTitleSurfaces(cache: QueryClient, titleId: string): Promise<void> {
+export async function invalidateTitleSurfaces(
+  cache: QueryClient,
+  titleId: string,
+  keepAcceptedDetail = false,
+): Promise<void> {
   await Promise.all(
-    titleSurfaceKeys(titleId).map((queryKey) =>
-      cache.invalidateQueries({
-        queryKey,
-      }),
-    ),
+    titleSurfaceKeys(titleId)
+      .filter((key) => !keepAcceptedDetail || key[0] !== titleDetailKeys.all[0])
+      .map((queryKey) =>
+        cache.invalidateQueries({
+          queryKey,
+        }),
+      ),
   );
 }
 
@@ -101,15 +110,23 @@ export async function invalidateTitleSurfaces(cache: QueryClient, titleId: strin
  * next action, and other open tabs follow. Global queue counts and run review counts and lists
  * refresh in the background so saves never wait for them.
  */
-export async function invalidateTitle(cache: QueryClient, titleId: string): Promise<void> {
+export async function invalidateTitle(
+  cache: QueryClient,
+  titleId: string,
+  { keepAcceptedDetail = false } = {},
+): Promise<void> {
   announceInvalidation(cache, {
     kind: 'title',
     titleId,
   });
-  await invalidateTitleInThisTab(cache, titleId);
+  await invalidateTitleInThisTab(cache, titleId, keepAcceptedDetail);
 }
 
-async function invalidateTitleInThisTab(cache: QueryClient, titleId: string): Promise<void> {
+async function invalidateTitleInThisTab(
+  cache: QueryClient,
+  titleId: string,
+  keepAcceptedDetail = false,
+): Promise<void> {
   void cache.invalidateQueries({
     queryKey: [
       ...enrichmentWorkspaceKeys.all,
@@ -129,7 +146,7 @@ async function invalidateTitleInThisTab(cache: QueryClient, titleId: string): Pr
     cache.invalidateQueries({
       queryKey: enrichmentWorkspaceKeys.title(titleId),
     }),
-    invalidateTitleSurfaces(cache, titleId),
+    invalidateTitleSurfaces(cache, titleId, keepAcceptedDetail),
   ]);
 }
 

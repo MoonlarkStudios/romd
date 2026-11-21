@@ -2,21 +2,26 @@ import { Alert, Button, Group, Modal, Stack, Text } from '@mantine/core';
 import type { EnrichmentAssessment, EnrichmentRequirement } from '@romd/admin-api-client';
 import { type MouseEventHandler, useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { useSavedArtwork } from '../../hooks/api/useArtwork';
+import { useProviderMatches } from '../../hooks/api/useProviderMatches';
+import { useTitleDetail } from '../../hooks/api/useTitleDetail';
 import { usePermissions } from '../../hooks/usePermissions';
 import { EnrichmentLauncher } from '../Enrichment/EnrichmentLauncher';
 import { RequirementList } from '../Workspace/RequirementList';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
+import { artworkLibraryEntries } from './artworkLibrary';
 import { DecisionConfirmation } from './DecisionConfirmation';
 import {
   type DecisionConfirmationCopy,
   enrichActionLabel,
   requirementCopy,
+  requirementProviderId,
   requirementSubjectLabel,
   returnToAutomaticLabel,
   reviewActionLabel,
   revisitOmissionLabel,
 } from './enrichmentPresentation';
-import { QuickRequirementDecision } from './QuickRequirementDecision';
+import { canQuickConfirmMatch, QuickRequirementDecision } from './QuickRequirementDecision';
 import { titleRequirementPath } from './titleSections';
 import {
   currentRequirement,
@@ -37,6 +42,7 @@ export function RequirementReview({
   view = 'All',
   heading,
   navigationState,
+  reviewReturnTo,
   onOpenEditor,
   onRefresh,
   onDecisionOpen,
@@ -47,6 +53,7 @@ export function RequirementReview({
   view?: WorkbenchView;
   heading?: boolean;
   navigationState?: unknown;
+  reviewReturnTo?: string;
   onOpenEditor?: MouseEventHandler<HTMLAnchorElement>;
   onRefresh: () => void;
   onDecisionOpen?: (opened: boolean) => void;
@@ -59,6 +66,32 @@ export function RequirementReview({
   const [quickPending, setQuickPending] = useState(false);
   const [launching, setLaunching] = useState(false);
   const current = currentRequirement(assessment.requirements, view, currentKey);
+  const needsChoice = (action: string) =>
+    assessment.requirements.some(
+      (row) => row.state !== 'Satisfied' && row.actions.includes(action),
+    );
+  const needsArtwork = needsChoice('ReviewArtwork');
+  const matches = useProviderMatches(
+    assessment.titleId,
+    needsChoice('ReviewProvider') ||
+      assessment.requirements.some((row) => row.kind === 'Identity' && row.state === 'Processing'),
+  );
+  const savedArtwork = useSavedArtwork(assessment.titleId, needsArtwork);
+  const title = useTitleDetail(needsArtwork ? assessment.titleId : undefined);
+  const artworkEntries =
+    title.data && savedArtwork.data
+      ? artworkLibraryEntries(title.data.media, savedArtwork.data, title.data.artwork ?? [])
+      : undefined;
+  const providerJob = matches.data?.find(
+    (match) =>
+      match.pendingJobId &&
+      assessment.requirements.some(
+        (row) =>
+          row.kind === 'Identity' &&
+          row.state === 'Processing' &&
+          requirementProviderId(row) === match.providerId,
+      ),
+  )?.pendingJobId;
   useEffect(
     () => () => onDecisionOpen?.(false),
     [
@@ -83,12 +116,33 @@ export function RequirementReview({
 
   return (
     <Stack gap="sm">
-      {operation && (
+      {(operation || providerJob) && (
         <Alert
           color="blue"
           role="status"
         >
-          {requirementCopy(operation)}
+          <Group justify="space-between">
+            <Text size="sm">
+              {operation ? requirementCopy(operation) : 'Provider work is running.'}
+            </Text>
+            {providerJob && (
+              <Button
+                component={Link}
+                to={`/jobs/${encodeURIComponent(providerJob)}`}
+                state={
+                  reviewReturnTo
+                    ? {
+                        reviewReturnTo,
+                      }
+                    : undefined
+                }
+                size="compact-sm"
+                variant="subtle"
+              >
+                View job
+              </Button>
+            )}
+          </Group>
         </Alert>
       )}
       {decisions.error && (
@@ -114,22 +168,53 @@ export function RequirementReview({
         href={(row) => titleRequirementPath(assessment.titleId, row)}
         renderDecision={(row) => {
           const review = row.actions.find(isReviewAction);
+          const match =
+            review === 'ReviewProvider'
+              ? matches.data?.find((item) => item.providerId === requirementProviderId(row))
+              : undefined;
+          const editor =
+            (review === 'ReviewProvider' && !matches.isLoading && !canQuickConfirmMatch(match)) ||
+            (review === 'ReviewArtwork' &&
+              !title.isLoading &&
+              !savedArtwork.isLoading &&
+              !artworkEntries?.some(
+                (entry) => entry.url && (!entry.asset || entry.asset.role === row.subject),
+              ));
           return (
             <Group gap={4}>
-              {review && row.state !== 'Satisfied' && (
-                <Button
-                  {...workspaceActionProps}
-                  variant="light"
-                  size="compact-sm"
-                  data-review-primary={row.key === current?.key || undefined}
-                  onClick={() => {
-                    setQuick(row);
-                    onDecisionOpen?.(true);
-                  }}
-                >
-                  {reviewActionLabel(review, row)}
-                </Button>
-              )}
+              {review &&
+                row.state !== 'Satisfied' &&
+                (editor ? (
+                  <Button
+                    {...workspaceActionProps}
+                    component={Link}
+                    to={titleRequirementPath(assessment.titleId, row)}
+                    state={navigationState}
+                    onClick={onOpenEditor}
+                    variant="light"
+                    size="compact-sm"
+                    data-review-primary={row.key === current?.key || undefined}
+                  >
+                    {reviewActionLabel(review, row)}
+                  </Button>
+                ) : (
+                  <Button
+                    {...workspaceActionProps}
+                    variant="light"
+                    size="compact-sm"
+                    data-review-primary={row.key === current?.key || undefined}
+                    loading={
+                      (review === 'ReviewProvider' && matches.isLoading) ||
+                      (review === 'ReviewArtwork' && (title.isLoading || savedArtwork.isLoading))
+                    }
+                    onClick={() => {
+                      setQuick(row);
+                      onDecisionOpen?.(true);
+                    }}
+                  >
+                    {reviewActionLabel(review, row)}
+                  </Button>
+                ))}
               {confirmedActions
                 .filter((action) => row.actions.includes(action))
                 .map((action, index) => {
@@ -247,6 +332,7 @@ export function RequirementReview({
         )}
       </Modal>
       <EnrichmentLauncher
+        reviewReturnTo={reviewReturnTo}
         opened={launching}
         onClose={() => {
           setLaunching(false);

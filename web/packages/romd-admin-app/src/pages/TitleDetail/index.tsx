@@ -1,6 +1,11 @@
 import { Alert, Anchor, Breadcrumbs, Button, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { useLayoutEffect } from 'react';
 import { Link, Navigate, useLocation, useParams } from 'react-router';
+import {
+  libraryInspectionPath,
+  libraryPreviewReturnPath,
+  reviewReturnPath,
+} from '../../components/Title/reviewHandoff';
 import { TitleHero } from '../../components/Title/TitleHero';
 import { TitleWorkbench } from '../../components/Title/TitleWorkbench';
 import {
@@ -11,6 +16,7 @@ import {
 } from '../../components/Title/titleSections';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { useTitleDetail } from '../../hooks/api/useTitleDetail';
+import { usePermissions } from '../../hooks/usePermissions';
 import { ContentRatingsPanel } from './ContentRatingsPanel';
 import { ReleasesPanel } from './ReleasesPanel';
 
@@ -43,6 +49,9 @@ function TitlePage({
 }) {
   const { state, hash } = useLocation();
   const returnTo: unknown = state?.catalogReturnTo;
+  const returnToReview = reviewReturnPath(returnTo);
+  const { canManageUsers } = usePermissions();
+  const returnToLibrary = canManageUsers && libraryPreviewReturnPath(state?.libraryReturnTo);
   const catalog =
     typeof returnTo === 'string' && /^\/catalog(?:\?|$)/.test(returnTo) ? returnTo : '/catalog';
   const query = useTitleDetail(titleId);
@@ -80,10 +89,14 @@ function TitlePage({
       <Breadcrumbs aria-label="Breadcrumb">
         <Anchor
           component={Link}
-          to={catalog}
+          to={returnToLibrary || catalog}
           size="sm"
         >
-          Catalog
+          {returnToLibrary
+            ? 'Back to library preview'
+            : returnToReview
+              ? 'Back to review'
+              : 'Catalog'}
         </Anchor>
         {title && (
           <Anchor
@@ -126,6 +139,19 @@ function TitlePage({
             titleId={titleId}
             compact={section === 'artwork'}
           />
+          {canManageUsers && returnToReview && (
+            <Button
+              component={Link}
+              to={libraryInspectionPath(titleId, returnToReview)}
+              variant="light"
+              size="compact-sm"
+              style={{
+                alignSelf: 'flex-start',
+              }}
+            >
+              Inspect in a library
+            </Button>
+          )}
           <TitleWorkbench
             key={titleId}
             title={title}
