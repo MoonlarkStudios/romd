@@ -4041,6 +4041,115 @@
         }
       }
     },
+    "/api/upload/server-folder": {
+      "get": {
+        "tags": [
+          "Upload"
+        ],
+        "description": "Read the configured server import folder and its last check.",
+        "operationId": "GetServerImport",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerImportStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "description": "Import ready files from the configured server drop folder, or return the check result if there is no new job.",
+        "operationId": "StartServerImport",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartServerImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerImportStatus"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Location": {
+                "description": "The accepted job's resource, /api/jobs/{jobId}.",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobReference"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/jobs": {
       "get": {
         "tags": [
@@ -21100,6 +21209,13 @@
               "null",
               "boolean"
             ]
+          },
+          "requestId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -21822,6 +21938,24 @@
           },
           "outcome": {
             "type": "string"
+          },
+          "reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currentStatus": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currentSystemKey": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "romFileId": {
             "type": [
@@ -26906,6 +27040,91 @@
           }
         }
       },
+      "ServerImportStatus": {
+        "required": [
+          "directory",
+          "intervalMinutes",
+          "nextCheckAt",
+          "lastCheckedAt",
+          "lastCheckOutcome",
+          "waitingFiles",
+          "message",
+          "lastJobId",
+          "lastJobPhase",
+          "lastQueuedFiles",
+          "isRunning",
+          "canRetry"
+        ],
+        "type": "object",
+        "properties": {
+          "directory": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "intervalMinutes": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "nextCheckAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastCheckedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "lastCheckOutcome": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "waitingFiles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastJobId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "lastJobPhase": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastQueuedFiles": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isRunning": {
+            "type": "boolean"
+          },
+          "canRetry": {
+            "type": "boolean"
+          }
+        }
+      },
       "ServerInfo": {
         "required": [
           "release",
@@ -27251,6 +27470,18 @@
           },
           "conversionRequested": {
             "type": "boolean"
+          }
+        }
+      },
+      "StartServerImport": {
+        "type": "object",
+        "properties": {
+          "retryJobId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },

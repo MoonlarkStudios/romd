@@ -107,14 +107,7 @@ export function UnidentifiedList() {
                   />
                 )}
                 isLoading={libraryData.isLoading}
-                emptyContent={
-                  !libraryData.isError && (
-                    <EmptyState
-                      title="Everything routed itself"
-                      description="No stored files are waiting for identification."
-                    />
-                  )
-                }
+                emptyContent={!libraryData.isError && <EmptyState title="No unidentified files" />}
                 height="100%"
                 onItemClick={(rom: Rom) => {
                   const next = new URLSearchParams(params);

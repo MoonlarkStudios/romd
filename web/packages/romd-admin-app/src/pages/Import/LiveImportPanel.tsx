@@ -17,6 +17,10 @@ const PHASE_LABELS: Record<string, string> = {
 
 export function LiveImportPanel({ job }: { job: JobUploadJob }) {
   const cancel = useCancelJob();
+  const waiting = !!job.nextAttemptAt;
+  const retryReason = waiting
+    ? job.errors.find((error) => error.item === 'deferral')?.message
+    : undefined;
   const [confirm, { open, close }] = useDisclosure(false);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -65,17 +69,26 @@ export function LiveImportPanel({ job }: { job: JobUploadJob }) {
             </Text>
           </Stack>
           <Badge
-            color="blue"
+            color={waiting ? 'orange' : 'blue'}
             variant="light"
           >
-            {job.phase === 'Pending' ? 'Queued' : 'Running'}
+            {waiting ? 'Waiting to retry' : job.phase === 'Pending' ? 'Queued' : 'Running'}
           </Badge>
         </Group>
+        {job.nextAttemptAt && (
+          <Text
+            size="sm"
+            role="status"
+          >
+            Next attempt {new Date(job.nextAttemptAt).toLocaleString()}.
+            {retryReason && <> {retryReason}</>}
+          </Text>
+        )}
         <Progress
           aria-label={measurable ? 'Files processed' : 'Processing activity'}
           value={measurable ? (processed / total) * 100 : 100}
           striped={!measurable}
-          animated
+          animated={!waiting}
           size="sm"
           color="teal"
         />

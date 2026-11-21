@@ -15,6 +15,7 @@ public sealed class JobItemEntity : GuidEntityBase
     public string FileName { get; set; } = null!;
     public long SizeBytes { get; set; }
     public int Outcome { get; set; }
+    public JobItemReason? Reason { get; set; }
     public int? RomFileId { get; set; }
     public int? DatFileId { get; set; }
     public int? PlatformId { get; set; }
@@ -49,7 +50,8 @@ public sealed class JobItemEntity : GuidEntityBase
         GameCount,
         Error,
         ArchiveOnly,
-        CreatedAt);
+        CreatedAt,
+        Reason);
 
     public static JobItemEntity FromDomain(JobItem item) => new()
     {
@@ -59,6 +61,7 @@ public sealed class JobItemEntity : GuidEntityBase
         FileName = item.FileName,
         SizeBytes = item.SizeBytes,
         Outcome = (int)item.Outcome,
+        Reason = item.Reason,
         RomFileId = item.RomFileId,
         DatFileId = item.DatFileId,
         PlatformId = item.PlatformId,

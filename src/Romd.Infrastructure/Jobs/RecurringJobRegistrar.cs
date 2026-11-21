@@ -2,6 +2,7 @@ using Hangfire;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Romd.Admin.Application.Ingestion.Jobs;
+using Romd.Application.Common.Configuration;
 using Romd.Infrastructure.Identity;
 using Romd.Infrastructure.Realtime;
 
@@ -10,13 +11,17 @@ namespace Romd.Infrastructure.Jobs;
 public sealed class RecurringJobRegistrar : IHostedService
 {
     private readonly ILogger<RecurringJobRegistrar> _logger;
+    private const string _serverImportJob = "server-import-inbox";
     private readonly IRecurringJobManager _recurringJobs;
+    private readonly IServerImportOptions _options;
 
     public RecurringJobRegistrar(
         IRecurringJobManager recurringJobs,
+        IServerImportOptions options,
         ILogger<RecurringJobRegistrar> logger)
     {
         _recurringJobs = recurringJobs;
+        _options = options;
         _logger = logger;
     }
 
@@ -66,6 +71,12 @@ public sealed class RecurringJobRegistrar : IHostedService
             "openiddict-prune",
             job => job.ExecuteAsync(CancellationToken.None),
             Cron.Daily(6));
+
+        if (_options.ServerImportDirectory is not null &&
+            _options.ServerImportIntervalMinutes is { } interval && ServerImportSchedule.ToCron(interval) is { } cron)
+            _recurringJobs.AddOrUpdate<ServerImportCheckJob>(_serverImportJob, job => job.ExecuteAsync(CancellationToken.None), cron);
+        else
+            _recurringJobs.RemoveIfExists(_serverImportJob);
 
         _logger.LogInformation("Registered recurring Hangfire jobs");
         return Task.CompletedTask;

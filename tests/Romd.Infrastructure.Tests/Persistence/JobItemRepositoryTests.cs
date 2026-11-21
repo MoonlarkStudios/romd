@@ -48,7 +48,8 @@ public sealed class JobItemRepositoryTests : IDisposable
         await SeedItemsAsync(db, [
             JobItem.ForRom(_jobId, "nhl94.bin", 1024, RomIngestOutcome.Ingested, romFileId: 10, [1, 2], PlatformId, null, createdAt: DateTimeOffset.UtcNow, archiveOnly: false),
             JobItem.ForRom(_jobId, "dupe.bin", 2048, RomIngestOutcome.Deduplicated, romFileId: 10, [1], PlatformId, null, createdAt: DateTimeOffset.UtcNow, archiveOnly: true),
-            JobItem.ForRom(_jobId, "mystery.bin", 512, RomIngestOutcome.Rejected, null, null, null, null, createdAt: DateTimeOffset.UtcNow),
+            JobItem.ForRom(_jobId, "mystery.bin", 512, RomIngestOutcome.Rejected, null, null, null, null,
+                createdAt: DateTimeOffset.UtcNow, reason: JobItemReason.NoCatalogMatch),
             JobItem.ForDat(_jobId, "snes.dat", 4096, success: true, routed: true, PlatformId, datFileId: 5, gameCount: 100, null, createdAt: DateTimeOffset.UtcNow),
         ]);
 
@@ -61,6 +62,7 @@ public sealed class JobItemRepositoryTests : IDisposable
         ingested.PlatformName.ShouldBe("snes");
         ingested.MatchedTitles.Select(t => t.Name).ShouldBe(["Title 1", "Title 2"], ignoreOrder: true);
         ingested.RomFileId.ShouldBe(10);
+        ingested.CurrentStatus.ShouldBe("Unavailable");
         ingested.ArchiveOnly.ShouldBe(false);
 
         var deduplicated = page.Items.Single(i => i.Outcome == JobItemOutcome.Deduplicated);
@@ -75,6 +77,8 @@ public sealed class JobItemRepositoryTests : IDisposable
         var rejected = page.Items.Single(i => i.Outcome == JobItemOutcome.Rejected);
         rejected.MatchedTitles.ShouldBeEmpty();
         rejected.PlatformName.ShouldBeNull();
+        rejected.Reason.ShouldBe(JobItemReason.NoCatalogMatch);
+        rejected.CurrentStatus.ShouldBeNull();
     }
 
     [Fact]

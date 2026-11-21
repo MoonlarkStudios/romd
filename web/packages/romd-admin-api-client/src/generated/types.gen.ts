@@ -861,6 +861,7 @@ export type ImportFromPath = {
     archiveOnly?: null | boolean;
     trackedOnly?: null | boolean;
     move?: null | boolean;
+    requestId?: null | string;
 };
 
 export type ImportGalleryArtworkRequest = {
@@ -1036,6 +1037,9 @@ export type JobItem = {
     fileName: string;
     sizeBytes: ByteCount;
     outcome: string;
+    reason?: null | string;
+    currentStatus?: null | string;
+    currentSystemKey?: null | string;
     romFileId?: null | string;
     datFileId?: null | string;
     systemKey?: null | string;
@@ -2225,6 +2229,21 @@ export type ServerBuild = {
     revision: string;
 };
 
+export type ServerImportStatus = {
+    directory: null | string;
+    intervalMinutes: null | number;
+    nextCheckAt: null | string;
+    lastCheckedAt: null | string;
+    lastCheckOutcome: null | string;
+    waitingFiles: number;
+    message: null | string;
+    lastJobId: null | string;
+    lastJobPhase: null | string;
+    lastQueuedFiles: number;
+    isRunning: boolean;
+    canRetry: boolean;
+};
+
 export type ServerInfo = {
     release: null | string;
     build: ServerBuild;
@@ -2325,6 +2344,10 @@ export type StartMediaReconciliationSelectionRequest = {
 export type StartMediaReconciliationSubjectRequest = {
     requestId: string;
     conversionRequested: boolean;
+};
+
+export type StartServerImport = {
+    retryJobId?: null | string;
 };
 
 export type SteamGridDbSettings = {
@@ -4898,6 +4921,68 @@ export type ListImportFoldersResponses = {
 };
 
 export type ListImportFoldersResponse = ListImportFoldersResponses[keyof ListImportFoldersResponses];
+
+export type GetServerImportData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/upload/server-folder';
+};
+
+export type GetServerImportErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type GetServerImportError = GetServerImportErrors[keyof GetServerImportErrors];
+
+export type GetServerImportResponses = {
+    /**
+     * OK
+     */
+    200: ServerImportStatus;
+};
+
+export type GetServerImportResponse = GetServerImportResponses[keyof GetServerImportResponses];
+
+export type StartServerImportData = {
+    body: StartServerImport;
+    path?: never;
+    query?: never;
+    url: '/api/upload/server-folder';
+};
+
+export type StartServerImportErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Conflict
+     */
+    409: ProblemDetails;
+};
+
+export type StartServerImportError = StartServerImportErrors[keyof StartServerImportErrors];
+
+export type StartServerImportResponses = {
+    /**
+     * OK
+     */
+    200: ServerImportStatus;
+    /**
+     * Accepted
+     */
+    202: JobReference;
+};
+
+export type StartServerImportResponse = StartServerImportResponses[keyof StartServerImportResponses];
 
 export type ListJobsData = {
     body?: never;

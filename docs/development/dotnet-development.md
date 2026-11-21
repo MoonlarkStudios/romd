@@ -172,7 +172,12 @@ installation-owned systems. The additive `20261118194850_SignInMessage`
 migration seeds an empty server-wide web sign-in message. The additive
 `20261120162632_MediaCollection` migration adds release placement, region,
 language, packaging preference and provider asset identity to title media; existing
-rows stay title-level. Current readiness is version 78.
+rows stay title-level. The additive `20261121030000_ImportOutcomeReasons` migration
+records an optional reason on new import outcomes. The additive
+`20261121040529_ServerImportInbox` migration records drop-folder activity and the
+file selection for each accepted job. The
+`20261121060000_RemoveServerImportFileHistory` migration removes the separate
+folder-wide file history. Current readiness is version 81.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

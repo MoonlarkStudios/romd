@@ -92,7 +92,7 @@ public sealed partial class UploadCapacityRecoveryTests
                 var handler = new ImportFromPathCommandHandler(Substitute.For<ITrackedTitleReader>(),
                     Substitute.For<IReferenceCatalogService>(), Substitute.For<ICurrentUser>(), preparation,
                     new JobWorkspaceExclusion(_options), new UploadJobRepository(db, _clock), new EfUnitOfWork(db),
-                    _clock, NullLogger<ImportFromPathCommandHandler>.Instance);
+                    _clock, NullLogger<ImportFromPathCommandHandler>.Instance, new JobRepository(db, _clock));
 
                 var accepted = await handler.HandleAsync(new(source, Move: move));
 

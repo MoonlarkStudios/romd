@@ -40,7 +40,9 @@ public sealed class OriginalDiscDescriptorIntake(IOriginalDiscDescriptorReposito
             await unitOfWork.FlushAsync(ct);
         var file = publication.ReadAfterFlush();
         await descriptors.RecordStagedAsync(jobId, relativePath, entryPoint, file.File.Id, parsed, ct);
-        var outcome = JobItem.ForRom(jobId, relativePath, bytes.Length, RomIngestOutcome.Ingested, null, [], null, null, createdAt: clock.GetUtcNow(), true).WithUploadIdentity();
+        var outcome = JobItem.ForRom(jobId, relativePath, bytes.Length, RomIngestOutcome.Ingested,
+            null, [], null, null, createdAt: clock.GetUtcNow(), archiveOnly: true,
+            reason: JobItemReason.DiscDescriptorKept).WithUploadIdentity();
         await outcomes.AddStagedAsync(outcome, ct);
         await tx.CommitAsync(ct);
         return outcome;

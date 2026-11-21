@@ -4,6 +4,7 @@ using NSubstitute;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Ingestion.Import;
 using Romd.Admin.Application.Ingestion.Import.Commands.ImportFromPath;
+using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Ingestion.Preparation;
 using Romd.Admin.Application.Titles;
 using Romd.Application.Common.ReferenceCatalog;
@@ -19,6 +20,23 @@ public sealed class ImportFromPathCommandTests
 {
     private const string Source = "/allowed/roms";
     private static readonly DateTimeOffset Now = new(2026, 11, 4, 10, 9, 8, TimeSpan.FromHours(2));
+
+    [Fact]
+    public async Task Handle_IdenticalFolderReplay_ReturnsAcceptedJobWithoutCheckingMissingSource()
+    {
+        var fixture = new Fixture { InspectionError = ImportErrors.PathNotFound(Source) };
+        var original = UploadJob.Create("roms/", Now, createdByUserId: fixture.Actor);
+        original.SetImportSource(Source, move: true);
+        fixture.Jobs.GetByIdAsync(original.Id, Arg.Any<CancellationToken>()).Returns(original);
+
+        var replay = await fixture.Handler.HandleAsync(new(Source + "/", Move: true, RequestId: original.Id));
+        var changed = await fixture.Handler.HandleAsync(new(Source, Move: false, RequestId: original.Id));
+
+        replay.Value.ShouldBe(original.Id);
+        changed.FirstError.Code.ShouldBe("Upload.RequestIdReused");
+        fixture.Events.ShouldBe(["actor", "actor"]);
+        fixture.Job.ShouldBeNull();
+    }
 
     [Fact]
     public async Task Handle_NoTrackedTitles_RejectsBeforeOptionalSystemKeyOrPathInspection()
@@ -278,10 +296,12 @@ public sealed class ImportFromPathCommandTests
                     throw new IOException("Lease cleanup failed.");
                 return ValueTask.CompletedTask;
             });
-            Handler = new(_tracked, _systems, _user, _preparation, _exclusion, _acceptance, Work, new Clock(this), NullLogger<ImportFromPathCommandHandler>.Instance);
+            Handler = new(_tracked, _systems, _user, _preparation, _exclusion, _acceptance, Work,
+                new Clock(this), NullLogger<ImportFromPathCommandHandler>.Instance, Jobs);
         }
 
         public ImportFromPathCommandHandler Handler { get; }
+        public IJobRepository Jobs { get; } = Substitute.For<IJobRepository>();
         public IUnitOfWork Work { get; } = Substitute.For<IUnitOfWork>();
         public List<string> Events { get; } = [];
         public List<CancellationToken> Tokens { get; } = [];

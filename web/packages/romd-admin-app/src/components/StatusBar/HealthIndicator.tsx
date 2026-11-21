@@ -11,19 +11,31 @@ interface HealthIndicatorProps {
 
 export function HealthIndicator({ health, isLoading, isError }: HealthIndicatorProps) {
   const unavailable = !health;
+  const unidentified = health?.unidentifiedCount ?? 0;
+  const unrouted = health?.unroutedCount ?? 0;
   const status = isLoading
     ? 'loading'
     : isError && health
       ? 'stale'
       : unavailable
         ? 'unavailable'
-        : health.unidentifiedCount > 0 || health.unroutedCount > 0
+        : unidentified > 0 || unrouted > 0
           ? 'needs attention'
           : 'identified & routed';
   const observed = !isLoading && !isError && !unavailable;
   const color = !observed ? 'gray' : status === 'needs attention' ? 'orange' : 'green';
+  const unidentifiedLabel = `${unidentified.toLocaleString()} unidentified ROM${unidentified === 1 ? '' : 's'}`;
+  const unroutedLabel = `${unrouted.toLocaleString()} unrouted ROM${unrouted === 1 ? '' : 's'}`;
+  const label =
+    status !== 'needs attention'
+      ? status
+      : unidentified === 0
+        ? unroutedLabel
+        : unrouted === 0
+          ? unidentifiedLabel
+          : `${(unidentified + unrouted).toLocaleString()} ROMs need attention`;
   const details = observed
-    ? `${health.unidentifiedCount} unidentified ROMs; ${health.unroutedCount} unrouted ROMs. Library identification and routing only.`
+    ? `${unidentifiedLabel}. ${unroutedLabel}.`
     : isLoading
       ? 'Loading library identification and routing counts.'
       : status === 'stale'
@@ -35,7 +47,7 @@ export function HealthIndicator({ health, isLoading, isError }: HealthIndicatorP
       <UnstyledButton
         component={Link}
         to={observed && status === 'needs attention' ? '/roms?tab=attention' : '/roms?tab=all'}
-        aria-label={`Library: ${status}`}
+        aria-label={`Library: ${label}`}
         px="sm"
         h="100%"
         style={{
@@ -56,7 +68,7 @@ export function HealthIndicator({ health, isLoading, isError }: HealthIndicatorP
             size="xs"
             c="dimmed"
           >
-            Library: {status}
+            Library: {label}
           </Text>
         </Group>
       </UnstyledButton>

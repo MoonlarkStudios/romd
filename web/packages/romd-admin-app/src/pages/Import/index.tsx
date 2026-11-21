@@ -1,11 +1,10 @@
-import { Alert, Button, Divider, Group, Stack, Title } from '@mantine/core';
+import { Alert, Button, Divider, Group, Select, Stack, Title } from '@mantine/core';
 import { IconPlus } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import workspace from '../../components/Workspace/Workspace.module.css';
+import { ImportIntake } from './ImportIntake';
 import { ImportJobCard } from './ImportJobCard';
 import { RecentImports } from './RecentImports';
-import { ServerFolderPanel } from './ServerFolderPanel';
-import { StagePanel } from './StagePanel';
 import { useImportSession } from './useImportSession';
 
 export function ImportPage({ embedded = false }: { embedded?: boolean }) {
@@ -32,15 +31,10 @@ export function ImportPage({ embedded = false }: { embedded?: boolean }) {
         </Title>
       )}
       {showStage ? (
-        <>
-          <StagePanel {...session} />
-          {session.staged.length === 0 && (
-            <ServerFolderPanel
-              disabled={session.isStarting}
-              onStarted={session.reopenJob}
-            />
-          )}
-        </>
+        <ImportIntake
+          session={session}
+          onStarted={() => setAddingFiles(false)}
+        />
       ) : (
         <Group justify="flex-end">
           <Button
@@ -55,23 +49,59 @@ export function ImportPage({ embedded = false }: { embedded?: boolean }) {
       {session.batchError && (
         <Alert
           color="red"
-          title="Import could not be restored"
+          title={
+            session.batchError === 'next-page'
+              ? 'More imports could not be loaded'
+              : 'Import could not be restored'
+          }
         >
           <Button
             variant="subtle"
+            loading={session.fetchingMoreJobs}
             onClick={session.retryBatch}
           >
-            Retry import status
+            Retry loading imports
           </Button>
         </Alert>
       )}
-      {session.activeJobIds.map((jobId) => (
+      {(session.activeJobIds.length > 1 || session.hasMoreJobs) && (
+        <Group align="flex-end">
+          <Select
+            label="Import to review"
+            searchable
+            allowDeselect={false}
+            value={session.selectedJobId}
+            onChange={(id) => {
+              if (id) session.reopenJob(id);
+            }}
+            data={session.activeJobIds.map((id, index) => ({
+              value: id,
+              label: `${index + 1}. ${session.jobNames.get(id) ?? 'Import'}`,
+            }))}
+            style={{
+              flex: 1,
+            }}
+          />
+          {session.hasMoreJobs && session.batchError !== 'next-page' && (
+            <Button
+              variant="default"
+              loading={session.fetchingMoreJobs}
+              onClick={session.loadMoreJobs}
+            >
+              Load more imports
+            </Button>
+          )}
+        </Group>
+      )}
+      {session.selectedJobId && (
         <ImportJobCard
-          key={jobId}
-          jobId={jobId}
-          onDismiss={() => session.dismissJob(jobId)}
+          key={session.selectedJobId}
+          jobId={session.selectedJobId}
+          onDismiss={() => {
+            if (session.selectedJobId) session.dismissJob(session.selectedJobId);
+          }}
         />
-      ))}
+      )}
       <Divider />
       <RecentImports
         activeJobIds={session.activeJobIds}

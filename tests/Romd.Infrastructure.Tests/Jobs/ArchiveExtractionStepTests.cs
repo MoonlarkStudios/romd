@@ -54,10 +54,11 @@ public sealed class ArchiveExtractionStepTests : IDisposable
         var interrupted = new ArchiveExtractionStep(new ArchiveExtractorResolver([new InterruptingZipExtractor()]),
             _fileSystem, _defaultLimits, NullLogger<ArchiveExtractionStep>.Instance);
 
-        await Should.ThrowAsync<IOException>(() => interrupted.ExtractRecursivelyAsync(_workspace, default));
+        await Should.ThrowAsync<IOException>(() => interrupted.ExtractRecursivelyAsync(_workspace, default, recordArchiveRoots: true));
         File.Exists(source).ShouldBeTrue();
         File.Exists(Path.Combine(_workspace, "game.extracted", "partial.rom")).ShouldBeTrue();
-        await CreateStep().ExtractRecursivelyAsync(_workspace, default);
+        var published = await CreateStep().ExtractRecursivelyAsync(_workspace, default, recordArchiveRoots: true);
+        published.ShouldHaveSingleItem().ShouldBe(new KeyValuePair<string, string>("game.zip", "game.extracted"));
 
         File.ReadAllBytes(Path.Combine(_workspace, "game.extracted", "game.rom")).ShouldBe(payload);
         File.Exists(Path.Combine(_workspace, "game.extracted", "partial.rom")).ShouldBeFalse();
@@ -65,8 +66,24 @@ public sealed class ArchiveExtractionStepTests : IDisposable
         File.ReadAllText(Path.Combine(_workspace, "game", "staged.rom")).ShouldBe("original");
         File.Exists(source).ShouldBeFalse();
         // Re-entry after extraction completion and before the DB phase save is idempotent.
-        await CreateStep().ExtractRecursivelyAsync(_workspace, default);
+        var replay = await CreateStep().ExtractRecursivelyAsync(_workspace, default, recordArchiveRoots: true);
+        replay.ShouldHaveSingleItem().ShouldBe(published.ShouldHaveSingleItem());
         Directory.EnumerateFiles(_workspace, "game.rom", SearchOption.AllDirectories).Count().ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Extract_ServerMoveArchiveWithSkippedEntry_CannotAuthorizeSourceCleanup()
+    {
+        string source = Path.Combine(_workspace, "game.zip");
+        WriteZip(source, ("game.rom", IncompressibleBytes(128)), ("../escape.rom", IncompressibleBytes(128)));
+
+        var error = await Should.ThrowAsync<InvalidDataException>(
+            () => CreateStep().ExtractRecursivelyAsync(_workspace, default, recordArchiveRoots: true));
+
+        error.Message.ShouldContain("could not be safely extracted");
+        File.Exists(source).ShouldBeTrue();
+        (await ArchiveExtractionJournal.ReadAsync(_workspace, _defaultLimits, default)).ShouldNotBeNull()
+            .PublishedRoots.ShouldNotBeNull().ShouldBeEmpty();
     }
 
     [Theory]

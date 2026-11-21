@@ -10,7 +10,8 @@ public sealed class JobAcceptedOpenApiContractTests(ApiContractPolicyGuardrailTe
     public void EveryBackgroundAcceptance_DeclaresCanonicalJobReferenceLocationAndNoETag()
     {
         var operations = documents.Operations.Where(operation => operation.Documents("202")).ToArray();
-        operations.Length.ShouldBe(17);
+        operations.Length.ShouldBe(18);
+        operations.ShouldContain(operation => operation.Key == "admin POST /api/upload/server-folder");
         foreach (var operation in operations)
         {
             var accepted = operation.Definition.GetProperty("responses").GetProperty("202");

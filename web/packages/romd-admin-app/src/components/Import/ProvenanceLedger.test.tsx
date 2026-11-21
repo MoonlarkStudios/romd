@@ -51,6 +51,7 @@ const page: PageOfJobItem = {
       fileName: 'mystery.bin',
       sizeBytes: '512',
       outcome: 'rejected',
+      reason: 'NoCatalogMatch',
       matchedTitles: [],
       archiveOnly: true,
     },
@@ -102,9 +103,9 @@ describe('ProvenanceLedger', () => {
       screen.getByRole('link', {
         name: 'nhl94.bin',
       }),
-    ).toHaveAttribute('href', '/roms/rom-1?tab=all');
+    ).toHaveAttribute('href', '/roms/rom-1?tab=all&importJob=job-1');
     expect(screen.getByText('mystery.bin')).toBeInTheDocument();
-    expect(screen.getByText('No catalog match')).toBeInTheDocument();
+    expect(screen.getByText('Check that the matching DAT is installed.')).toBeInTheDocument();
     expect(screen.getByText('scph5500.bin')).toBeInTheDocument();
     expect(screen.getByText('psx')).toBeInTheDocument();
   });

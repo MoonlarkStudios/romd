@@ -160,6 +160,7 @@ public sealed class AcceptUploadCommandHandler(
 
     private static ErrorOr<Guid> Reuse(Job previous, UploadJob job, UploadJobOptions settings) =>
         previous is UploadJob existing
+        && existing.ImportSourcePath is null
         && existing.CreatedByUserId == settings.CreatedByUserId
         && existing.SourceFilename == job.SourceFilename
         && existing.CorrelationId == job.CorrelationId

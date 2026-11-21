@@ -1,7 +1,11 @@
-import type { Job, LibraryStats, SystemResource } from '@romd/admin-api-client';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { MantineProvider } from '@mantine/core';
+import type { Job, LibraryStats, ServerImportStatus, SystemResource } from '@romd/admin-api-client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render as renderBare, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createMemoryRouter, Link, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DraftGuardProvider } from '../../components/Administration/DraftGuard';
 import { completePage } from '../../test/fixtures/referencePages';
 import { render } from '../../test/utils/render';
 import { ImportPage } from './index';
@@ -17,6 +21,8 @@ vi.mock('@romd/admin-api-client', async () => {
     getTrackedCollectionStats: vi.fn(),
     listAdminSystems: vi.fn(),
     listImportFolders: vi.fn(),
+    getServerImport: vi.fn(),
+    startServerImport: vi.fn(),
   };
 });
 
@@ -33,10 +39,12 @@ import {
   getJob,
   getMe,
   getRomStats,
+  getServerImport,
   getTrackedCollectionStats,
   listAdminSystems,
   listImportFolders,
   listJobs,
+  startServerImport,
 } from '@romd/admin-api-client';
 import { uploadWithProgress } from '../../hooks/api/uploadWithProgress';
 
@@ -45,10 +53,11 @@ const mockGetJobById = getJob as ReturnType<typeof vi.fn>;
 const mockGetLibraryStats = getRomStats as ReturnType<typeof vi.fn>;
 const mockListPlatforms = listAdminSystems as ReturnType<typeof vi.fn>;
 const mockUpload = uploadWithProgress as ReturnType<typeof vi.fn>;
+const permissions = vi.hoisted(() => ({
+  canManageTitles: true,
+}));
 vi.mock('../../hooks/usePermissions', () => ({
-  usePermissions: () => ({
-    canManageTitles: true,
-  }),
+  usePermissions: () => permissions,
 }));
 
 const stats: LibraryStats = {
@@ -130,17 +139,31 @@ const runningJob: Job = {
   duration: null,
 };
 
+const unconfiguredServer: ServerImportStatus = {
+  directory: null,
+  intervalMinutes: null,
+  nextCheckAt: null,
+  lastCheckedAt: null,
+  lastCheckOutcome: null,
+  waitingFiles: 0,
+  message: null,
+  lastJobId: null,
+  lastJobPhase: null,
+  lastQueuedFiles: 0,
+  isRunning: false,
+  canRetry: false,
+};
+
+function mockServerStatus(data: ServerImportStatus) {
+  vi.mocked(getServerImport).mockResolvedValue({
+    data,
+  } as Awaited<ReturnType<typeof getServerImport>>);
+}
+
 describe('ImportPage', () => {
   beforeEach(() => {
-    vi.mocked(listImportFolders).mockResolvedValue({
-      data: {
-        enabled: false,
-        folders: [],
-        fileCount: 0,
-        truncated: false,
-      },
-      error: undefined,
-    } as Awaited<ReturnType<typeof listImportFolders>>);
+    permissions.canManageTitles = true;
+    mockServerStatus(unconfiguredServer);
     mockGetCurrentUser.mockResolvedValue({
       data: null,
       error: {
@@ -195,6 +218,296 @@ describe('ImportPage', () => {
 
     expect(screen.queryByText('Stored ROMs')).not.toBeInTheDocument();
     expect(await screen.findByText('Import roms.zip')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', {
+        name: 'Server folder',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the device import when a server deep link has no configured drop folder', async () => {
+    vi.mocked(listImportFolders).mockResolvedValue({
+      data: {
+        enabled: true,
+        folders: [
+          {
+            name: '/library',
+            path: '/library',
+          },
+        ],
+        fileCount: 0,
+        truncated: false,
+      },
+    } as Awaited<ReturnType<typeof listImportFolders>>);
+    render(<ImportPage />, {
+      routerOptions: {
+        initialEntries: [
+          '/roms/import?source=server',
+        ],
+      },
+    });
+
+    await waitFor(() => expect(getServerImport).toHaveBeenCalledOnce());
+    expect(await screen.findByText('Import roms.zip')).toBeInTheDocument();
+    expect(screen.getByText('Files to import')).toBeVisible();
+    expect(
+      screen.queryByRole('tablist', {
+        name: 'Import source',
+      }),
+    ).not.toBeInTheDocument();
+    expect(listImportFolders).not.toHaveBeenCalled();
+  });
+
+  it('can retry a failed folder status check before showing the server tab', async () => {
+    const user = userEvent.setup();
+    mockServerStatus({
+      ...unconfiguredServer,
+      directory: '/incoming',
+    });
+    vi.mocked(getServerImport).mockResolvedValueOnce({
+      error: {
+        title: 'Service unavailable',
+        status: 503,
+      },
+    } as Awaited<ReturnType<typeof getServerImport>>);
+    render(<ImportPage />);
+
+    const retry = await screen.findByRole('button', {
+      name: 'Retry folder status',
+    });
+    expect(
+      screen.queryByRole('tab', {
+        name: 'Server folder',
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Files to import')).toBeVisible();
+
+    await user.click(retry);
+
+    expect(
+      await screen.findByRole('tab', {
+        name: 'Server folder',
+      }),
+    ).toBeVisible();
+    expect(retry).not.toBeInTheDocument();
+  });
+
+  it('does not look up the server drop folder without the Manager role', async () => {
+    permissions.canManageTitles = false;
+    render(<ImportPage />);
+
+    expect(await screen.findByText('Import roms.zip')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', {
+        name: 'Server folder',
+      }),
+    ).not.toBeInTheDocument();
+    expect(listImportFolders).not.toHaveBeenCalled();
+    expect(getServerImport).not.toHaveBeenCalled();
+  });
+
+  it('checks the configured folder in one step and preserves the last receipt on an idle result', async () => {
+    const user = userEvent.setup();
+    const lastJobId = '2fa2e739-af69-404d-83af-43262ab28d46';
+    const profile = {
+      ...unconfiguredServer,
+      directory: '/incoming',
+      intervalMinutes: 15,
+      nextCheckAt: '2026-11-20T12:15:00Z',
+      lastJobId,
+      lastJobPhase: 'Completed',
+      lastQueuedFiles: 3,
+    };
+    mockServerStatus(profile);
+    vi.mocked(startServerImport).mockResolvedValue({
+      data: {
+        ...profile,
+        lastCheckOutcome: 'NoNewFiles',
+        lastCheckedAt: '2026-11-20T12:00:00Z',
+      },
+    } as Awaited<ReturnType<typeof startServerImport>>);
+    render(<ImportPage />, {
+      routerOptions: {
+        initialEntries: [
+          '/roms/import?source=server',
+        ],
+      },
+    });
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Server import folder',
+      }),
+    ).toBeVisible();
+
+    expect(screen.getByText('/incoming')).toBeVisible();
+    expect(screen.getByText(/removes files from this folder after storing them/)).toBeVisible();
+    expect(screen.getByText(/Checks every 15 minutes/)).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Browse server folders',
+      }),
+    ).not.toBeInTheDocument();
+    expect(listImportFolders).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Import from server folder',
+      }),
+    );
+
+    expect(await screen.findByText('No new files')).toBeInTheDocument();
+    expect(startServerImport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: {},
+      }),
+    );
+    expect(
+      screen.getByRole('link', {
+        name: 'View last import',
+      }),
+    ).toHaveAttribute('href', `/jobs/${lastJobId}#import-results`);
+  });
+
+  it('retries the displayed failed job and opens the resulting import', async () => {
+    const user = userEvent.setup();
+    const lastJobId = '2fa2e739-af69-404d-83af-43262ab28d46';
+    const jobId = '0fb66e70-36b7-4869-9b81-9f7d0db819b8';
+    mockServerStatus({
+      ...unconfiguredServer,
+      directory: '/incoming',
+      lastJobId,
+      lastJobPhase: 'Failed',
+      canRetry: true,
+    });
+    vi.mocked(startServerImport).mockResolvedValue({
+      data: {
+        jobId,
+      },
+    } as Awaited<ReturnType<typeof startServerImport>>);
+    render(<ImportPage />);
+    await user.click(
+      await screen.findByRole('tab', {
+        name: 'Server folder',
+      }),
+    );
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Retry last import',
+      }),
+    );
+
+    expect(await screen.findByText('Running')).toBeInTheDocument();
+    expect(startServerImport).toHaveBeenCalledWith({
+      body: {
+        retryJobId: lastJobId,
+      },
+    });
+    expect(getJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: {
+          jobId,
+        },
+      }),
+    );
+  });
+
+  it('keeps the device draft while switching to the configured server folder', async () => {
+    const user = userEvent.setup();
+    mockServerStatus({
+      ...unconfiguredServer,
+      directory: '/incoming',
+    });
+    render(<ImportPage />);
+
+    const server = await screen.findByRole('tab', {
+      name: 'Server folder',
+    });
+    await user.upload(
+      screen.getByLabelText('file upload'),
+      new File(
+        [
+          'content',
+        ],
+        'queued.gb',
+      ),
+    );
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'Keep unmatched files',
+      }),
+    );
+
+    await user.click(server);
+    expect(screen.getByText('/incoming')).toBeVisible();
+    expect(
+      screen.queryByRole('table', {
+        name: 'Staged files',
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'Upload',
+      }),
+    );
+    expect(
+      screen.getByRole('table', {
+        name: 'Staged files',
+      }),
+    ).toHaveTextContent('queued.gb');
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'Keep unmatched files',
+      }),
+    ).toBeChecked();
+    expect(mockUpload).not.toHaveBeenCalled();
+    expect(startServerImport).not.toHaveBeenCalled();
+  });
+
+  it('removes invalid files together and previews a selection that runs as separate jobs', async () => {
+    const user = userEvent.setup();
+    render(<ImportPage />);
+
+    const fileInput = screen.getByLabelText('file upload');
+    const openPicker = vi.spyOn(fileInput, 'click');
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Browse files',
+      }),
+    );
+    expect(openPicker).toHaveBeenCalledOnce();
+    openPicker.mockRestore();
+
+    await user.upload(fileInput, [
+      new File(
+        [
+          'content',
+        ],
+        'games.zip',
+      ),
+      new File(
+        [
+          'content',
+        ],
+        'title.gb',
+      ),
+      new File([], 'empty.dat'),
+    ]);
+
+    const start = await screen.findByRole('button', {
+      name: /Start import/,
+    });
+    expect(start).toBeDisabled();
+    expect(screen.getByText('Empty file')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Remove 1 invalid file',
+      }),
+    );
+    expect(screen.queryByText('empty.dat')).not.toBeInTheDocument();
+    expect(screen.getByText(/each file will run as its own import/i)).toHaveTextContent('2 jobs');
+    expect(start).toBeEnabled();
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('stages a DAT, routes it to the chosen system, and starts a single import', async () => {
@@ -309,15 +622,15 @@ describe('ImportPage', () => {
       }),
     );
     expect(
-      screen.getByRole('checkbox', {
+      screen.queryByRole('checkbox', {
         name: 'Track matched titles',
       }),
-    ).toBeDisabled();
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('checkbox', {
+      screen.queryByRole('checkbox', {
         name: 'Keep unmatched files',
       }),
-    ).not.toBeChecked();
+    ).not.toBeInTheDocument();
     vi.mocked(getTrackedCollectionStats).mockResolvedValue({
       data: {
         trackedTitleCount: '1',
@@ -678,10 +991,84 @@ describe('ImportPage', () => {
           correlationId: batchId,
           jobType: 'upload',
           archive: 'all',
-          limit: 100,
+          limit: 25,
           cursor: undefined,
         },
       }),
     );
+  });
+
+  it('protects staged browser files when leaving the import route', async () => {
+    const user = userEvent.setup();
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/roms/import',
+          element: (
+            <DraftGuardProvider>
+              <Link to="/other">Leave import</Link>
+              <ImportPage />
+            </DraftGuardProvider>
+          ),
+        },
+        {
+          path: '/other',
+          element: <h1>Other page</h1>,
+        },
+      ],
+      {
+        initialEntries: [
+          '/roms/import',
+        ],
+      },
+    );
+    const cache = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
+    renderBare(
+      <MantineProvider env="test">
+        <QueryClientProvider client={cache}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </MantineProvider>,
+    );
+    const file = new File(
+      [
+        'fixture data',
+      ],
+      'staged.bin',
+    );
+    await user.upload(screen.getByLabelText('file upload'), file);
+    expect(await screen.findByText('staged.bin')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Leave import',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Keep editing',
+      }),
+    );
+    expect(screen.getByText('staged.bin')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('link', {
+        name: 'Leave import',
+      }),
+    );
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Discard',
+      }),
+    );
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Other page',
+      }),
+    ).toBeInTheDocument();
   });
 });

@@ -27,13 +27,16 @@ export function JobRow({
   onRetry,
   retryingId,
   actionsPending,
-}: JobActionsProps) {
+  showFiles = true,
+}: JobActionsProps & {
+  showFiles?: boolean;
+}) {
   const location = useLocation();
   const isRunning = !job.isTerminal;
   const progress = Number(job.progressPercent ?? 0);
   const mediaSummary = mediaReconciliationSummary(job);
   // Only upload jobs produce per-file provenance; other job types have nothing to drill into.
-  const canInspect = job.jobType === 'upload';
+  const canInspect = showFiles && job.jobType === 'upload' && job.isTerminal;
   const [expanded, setExpanded] = useState(false);
 
   return (

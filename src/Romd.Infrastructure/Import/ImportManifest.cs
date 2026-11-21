@@ -15,7 +15,11 @@ public sealed record ImportManifestEntry(
     string SourceRelativePath,
     string WorkspaceRelativePath,
     long SizeBytes,
-    DateTime LastWriteTimeUtc);
+    DateTime LastWriteTimeUtc)
+{
+    /// <summary>All leaf files from a fully extracted server-folder archive.</summary>
+    public IReadOnlyList<string>? ArchiveMembers { get; init; }
+}
 
 /// <summary>
 ///     Move-mode source manifest (version 2). Lives outside the job workspace (a
@@ -33,15 +37,49 @@ public sealed record ImportManifest(
 {
     public const int CurrentVersion = 2;
 
+    public bool ServerFolder { get; init; }
+
     public static string PathFor(string dataDirectory, Guid jobId) =>
-        Path.Combine(dataDirectory, "temp", "jobs", $"{jobId:N}.import.json");
+        PathForWorkspace(Path.Combine(dataDirectory, "temp", "jobs", jobId.ToString("N")));
+
+    internal static string PathForWorkspace(string workspace) =>
+        Path.TrimEndingDirectorySeparator(workspace) + ".import.json";
 
     /// <summary>Normalizes a relative path to '/' separators for storage and joining.</summary>
     public static string NormalizeRelativePath(string relativePath) =>
-        relativePath.Replace('\\', '/');
+        relativePath.Replace(Path.DirectorySeparatorChar, '/');
 
     public static async Task WriteAsync(string path, ImportManifest manifest, CancellationToken ct) =>
         await WriteOwnedAsync(File.Create(path), manifest, ct);
+
+    internal async Task RecordArchiveMembersAsync(
+        string path, string workspace, IReadOnlyDictionary<string, string> archiveRoots, CancellationToken ct)
+    {
+        if (archiveRoots.Count == 0)
+            return;
+
+        var entries = new List<ImportManifestEntry>(Entries.Count);
+        foreach (var entry in Entries)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!archiveRoots.TryGetValue(entry.WorkspaceRelativePath.Replace('/', Path.DirectorySeparatorChar), out string? target))
+            {
+                entries.Add(entry);
+                continue;
+            }
+
+            var files = Directory.EnumerateFiles(Path.Combine(workspace, target), "*", SearchOption.AllDirectories)
+                .Select(file => NormalizeRelativePath(Path.GetRelativePath(workspace, file))).ToArray();
+            entries.Add(entry with { ArchiveMembers = files });
+        }
+
+        // The previous manifest remains valid if publication is interrupted. In that case
+        // extraction redelivery restores the same archive roots and reconstructs the proof.
+        string pending = path + ".pending";
+        await WriteAsync(pending, this with { Entries = entries }, ct);
+        ct.ThrowIfCancellationRequested();
+        File.Move(pending, path, overwrite: true);
+    }
 
     internal static async Task WriteOwnedAsync(Stream stream, ImportManifest manifest, CancellationToken ct)
     {

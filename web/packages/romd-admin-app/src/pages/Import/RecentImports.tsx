@@ -1,12 +1,13 @@
 import { Alert, Button, Group, Skeleton, Stack, Text, Title, UnstyledButton } from '@mantine/core';
 import { IconChevronRight, IconHistory } from '@tabler/icons-react';
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { EmptyState } from '../../components/EmptyState';
+import { importHistoryUrl } from '../../components/Import/importReceiptLinks';
 import { JobStatusBadge } from '../../components/Jobs/JobStatusBadge';
 import { getJobTitle } from '../../components/Jobs/jobTypeRegistry';
 import workspace from '../../components/Workspace/Workspace.module.css';
-import { useJobs } from '../../hooks/api/useJobs';
+import { useJobHistory } from '../../hooks/api/useJobHistory';
 import { formatRelativeTime } from '../../utils/format';
 
 export function RecentImports({
@@ -14,14 +15,17 @@ export function RecentImports({
   onReopen,
 }: {
   activeJobIds: string[];
-  onReopen: (jobId: string) => void;
+  onReopen: (jobId: string, name?: string) => void;
 }) {
-  const navigate = useNavigate();
-  const jobsQuery = useJobs();
+  const jobsQuery = useJobHistory({
+    jobType: 'upload',
+    archive: 'active',
+    limit: 50,
+  });
 
   const recent = useMemo(() => {
     const active = new Set(activeJobIds);
-    return (jobsQuery.data ?? [])
+    return (jobsQuery.data?.items ?? [])
       .filter((job) => job.jobType === 'upload' && !active.has(job.id))
       .slice(0, 6);
   }, [
@@ -42,12 +46,15 @@ export function RecentImports({
           >
             Recent imports
           </Title>
-          <UnstyledButton onClick={() => navigate('/jobs')}>
+          <UnstyledButton
+            component={Link}
+            to={importHistoryUrl}
+          >
             <Text
               size="xs"
               c="teal"
             >
-              View all
+              All imports
             </Text>
           </UnstyledButton>
         </Group>
@@ -72,7 +79,7 @@ export function RecentImports({
               return (
                 <UnstyledButton
                   key={job.id}
-                  onClick={() => onReopen(job.id)}
+                  onClick={() => onReopen(job.id, job.sourceFilename)}
                   style={{
                     padding: 'var(--mantine-spacing-xs) var(--mantine-spacing-sm)',
                     borderRadius: 'var(--mantine-radius-sm)',

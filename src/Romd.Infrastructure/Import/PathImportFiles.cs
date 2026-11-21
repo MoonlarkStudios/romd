@@ -11,7 +11,8 @@ using Romd.Infrastructure.Jobs;
 namespace Romd.Infrastructure.Import;
 
 internal sealed record InspectedPathImport(
-    string DataDirectory, string RequestedPath, string AllowedRoot, ImmutableArray<ImportFile> Files, PathImportFacts Facts) : IPathImportPlan;
+    string DataDirectory, string RequestedPath, string AllowedRoot, ImmutableArray<ImportFile> Files, PathImportFacts Facts,
+    bool VerifyFileVersions = false) : IPathImportPlan;
 
 /// <summary>
 ///     Shared source inspection and copying; it never saves jobs or deletes source originals.
@@ -36,15 +37,47 @@ internal static class PathImportFiles
             return ImportErrors.NoFilesFound(sourcePath);
         if (files.Any(file => file.RelativePath.Length > JobItem.MaxFileNameLength))
             return Error.Validation("Import.PathTooLong", "Upload relative paths must fit the 1000-character outcome journal.");
-        string jobs = Path.Combine(dataDirectory, "temp", "jobs");
-        Directory.CreateDirectory(jobs);
-        long available = fileSystem.DriveInfo.New(jobs).AvailableFreeSpace;
-        var preflight = ImportPreflight.Validate(files.Count, files.Sum(file => file.SizeBytes), available);
+        var preflight = CheckCapacity(dataDirectory, fileSystem, files.Count, files.Sum(file => file.SizeBytes));
         if (preflight.IsError)
             return preflight.Errors;
         return new InspectedPathImport(Path.GetFullPath(dataDirectory), sourcePath, rootValidation.Value, files.ToImmutableArray(),
             new PathImportFacts(sourceRoot, $"{Path.GetFileName(sourceRoot)}/", files.Count,
                 skipped.Select(issue => new ImportPreparationIssue(issue.Path, issue.Reason)).ToImmutableArray()));
+    }
+
+    internal static ErrorOr<InspectedPathImport> InspectSelection(
+        string dataDirectory, string sourcePath, ServerImportSelection selection, IPathValidator validator, IFileSystem fileSystem)
+    {
+        var allowed = validator.ValidateImportRoot(sourcePath);
+        if (allowed.IsError)
+            return allowed.Errors;
+
+        string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourcePath));
+        var files = ImmutableArray.CreateBuilder<ImportFile>(selection.Files.Count);
+        foreach (var file in selection.Files)
+        {
+            string path = Path.GetFullPath(Path.Combine(root, file.RelativePath));
+            string relative = Path.GetRelativePath(root, path);
+            if (!string.Equals(relative, file.RelativePath, StringComparison.Ordinal) || relative == ".." ||
+                relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                return Error.Validation("Import.InvalidSelection", "A saved import file is outside the configured folder.");
+
+            files.Add(new ImportFile(path, relative, file.Bytes) { LastWriteTimeUtc = file.LastWriteUtc });
+        }
+
+        var capacity = CheckCapacity(dataDirectory, fileSystem, files.Count, files.Sum(file => file.SizeBytes));
+        if (capacity.IsError)
+            return capacity.Errors;
+
+        return new InspectedPathImport(Path.GetFullPath(dataDirectory), sourcePath, allowed.Value, files.MoveToImmutable(),
+            new PathImportFacts(root, $"{Path.GetFileName(root)}/", selection.Files.Count, []), VerifyFileVersions: true);
+    }
+
+    internal static ErrorOr<Success> CheckCapacity(string dataDirectory, IFileSystem fileSystem, int count, long bytes)
+    {
+        string jobs = Path.Combine(dataDirectory, "temp", "jobs");
+        Directory.CreateDirectory(jobs);
+        return ImportPreflight.Validate(count, bytes, fileSystem.DriveInfo.New(jobs).AvailableFreeSpace);
     }
 
     internal static async Task<List<ImportManifestEntry>> PopulateAsync(
@@ -70,6 +103,9 @@ internal static class PathImportFiles
             {
                 // The original size+mtime fence remains authoritative for later move-mode deletion.
                 var info = new FileInfo(file.AbsolutePath);
+                if (plan.VerifyFileVersions && !MatchesVersion(info, file))
+                    throw new IOException("The source file changed after the folder was checked.");
+
                 var entry = new ImportManifestEntry(
                     ImportManifest.NormalizeRelativePath(Path.GetRelativePath(plan.AllowedRoot, file.AbsolutePath)),
                     ImportManifest.NormalizeRelativePath(file.RelativePath), info.Length, info.LastWriteTimeUtc);
@@ -77,6 +113,10 @@ internal static class PathImportFiles
                 await CopyOwnedAsync(
                     () => fileSystem.File.Open(file.AbsolutePath, FileMode.Open, FileAccess.Read, FileShare.Read),
                     () => fileSystem.File.Create(targetPath), ct);
+                if (plan.VerifyFileVersions &&
+                    (!MatchesVersion(new FileInfo(file.AbsolutePath), file) || fileSystem.FileInfo.New(targetPath).Length != file.SizeBytes))
+                    throw new IOException("The source file changed while it was being copied.");
+
                 // A buffered target can still fail while disposing. Admit only fully settled copies.
                 copied.Add(entry);
             }
@@ -100,6 +140,9 @@ internal static class PathImportFiles
         }
         return copied;
     }
+
+    private static bool MatchesVersion(FileInfo info, ImportFile file) =>
+        info.Exists && info.Length == file.SizeBytes && info.LastWriteTimeUtc == file.LastWriteTimeUtc;
 
     internal static async Task CopyOwnedAsync(Func<Stream> openSource, Func<Stream> openTarget, CancellationToken ct)
     {
@@ -143,12 +186,15 @@ internal static class PathImportFiles
     }
 
     internal static Task WriteManifestAsync(
-        InspectedPathImport plan, Guid jobId, bool move, List<ImportManifestEntry> copied, CancellationToken ct)
+        InspectedPathImport plan, Guid jobId, bool move, bool serverFolder, List<ImportManifestEntry> copied, CancellationToken ct)
     {
         if (!move)
             return Task.CompletedTask;
         var manifest = new ImportManifest(ImportManifest.CurrentVersion, plan.AllowedRoot,
-            ImportManifest.NormalizeRelativePath(Path.GetRelativePath(plan.AllowedRoot, plan.Facts.SourceRoot)), move, copied);
+            ImportManifest.NormalizeRelativePath(Path.GetRelativePath(plan.AllowedRoot, plan.Facts.SourceRoot)), move, copied)
+        {
+            ServerFolder = serverFolder
+        };
         return ImportManifest.WriteAsync(ImportManifest.PathFor(plan.DataDirectory, jobId), manifest, ct);
     }
 

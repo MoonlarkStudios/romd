@@ -19,6 +19,9 @@ public sealed record JobItemView
     public required string FileName { get; init; }
     public required long SizeBytes { get; init; }
     public required JobItemOutcome Outcome { get; init; }
+    public JobItemReason? Reason { get; init; }
+    public string? CurrentStatus { get; init; }
+    public int? CurrentPlatformId { get; init; }
     public int? RomFileId { get; init; }
     public int? DatFileId { get; init; }
     public int? PlatformId { get; init; }
