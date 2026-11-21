@@ -7,15 +7,16 @@ Start with [Your first library](first-library.md) for a complete walkthrough.
 
 ## Create or open a library
 
-Use **Libraries → New library**, choose a name, initial selection and maximum
-content-rating age. The workspace has **Overview**, **Games**, **Collections**,
-**People** and **Preview** tabs. Overview counts releases: regional versions
-and revisions can make that count larger than the distinct game count.
+Use **Libraries → New library** to name the library and set a maximum
+content-rating age. Choose **Select with rules** to set systems or **Handpick
+games** to pick individual titles, then choose **Create draft**. The library
+list and **Overview** show distinct owned games alongside published releases.
+Regional versions and revisions can give one game several releases.
 
 ## Choose games and ratings
 
 In **Games**, rules and results sit side by side on wide screens; use the
-**Rules / Results** switch on smaller screens.
+**Game selection / Results** switch on smaller screens.
 
 Start with **Content ratings**: set the maximum age and **When a game has no
 rating**. The default, **Flag for review**, keeps unrated games hidden. The
@@ -29,8 +30,8 @@ apply. Explicit exclusions stay excluded. **Handpick games** starts from an
 explicit list; an empty list creates an empty library under the same restrictions.
 
 For original multi-disc games, **Disc sets** chooses accepted sets. Every member
-still obeys the audience rules. Save and refresh to publish the chosen membership;
-repair unresolved selections instead of assuming they grant access.
+still follows the audience rules. Resolve selection issues, then save and publish
+the chosen membership.
 
 ## Tracking and ownership
 
@@ -47,7 +48,7 @@ titles are not narrowed by that gate.
 
 ## Inspect the draft
 
-**See what changes** compares saved and draft rules against the same current
+**Game results** compares saved and draft rules against the same current
 catalog snapshot. Inspect matching, added, removed or excluded games, or search
 for a specific title. Results explain the primary exclusion and relevant ratings.
 Evaluation saves no rules, starts no publication and changes no consumer access.
@@ -60,15 +61,12 @@ before leaving the workspace.
 
 ## Publish changes
 
-**Save changes** records configuration; **Refresh library** publishes it. A new
-library needs its first successful refresh before consumers can use it. Imports,
-policy edits and tracking changes mark unpublished changes without scheduling an
-automatic refresh job. Existing consumers keep the previous published snapshot,
-including after narrower ratings, exclusions or untracking, until you refresh.
+**Save changes** records configuration. Choose **Publish library** for the first
+publication and **Publish changes** after later imports, policy edits, or tracking
+changes. Consumers keep the previous published snapshot until publication succeeds.
 
-If refresh fails, inspect **Jobs**. Let concurrent catalog/rule changes settle and
-refresh again. Invalid configuration needs repair; a failed job does not prove
-that intended restrictions were published. There is no automatic daily publication.
+If publication fails, inspect **Jobs**. Repair any invalid configuration, let
+concurrent catalog or rule changes settle, and publish again.
 
 ## Arrange collections
 
@@ -83,7 +81,8 @@ In **People**, choose **Assign a person**, or **Manage people and roles** to
 create an account. Reassignment changes the person's audience.
 
 **Preview** shows the saved, owned games in the published audience, including
-collection order. Inspect it before inviting people to the consumer portal.
+collection order. Use **Filter by collection** to see an attached collection.
+The game picker, **Game results**, and **Preview** use the title's selected cover.
 Preview does not simulate a device or promise emulator compatibility.
 
 Contributors: [library publication](../architecture/library-publication.md) owns

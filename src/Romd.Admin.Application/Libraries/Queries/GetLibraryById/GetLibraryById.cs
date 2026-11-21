@@ -9,7 +9,7 @@ namespace Romd.Admin.Application.Libraries.Queries.GetLibraryById;
 public sealed record GetLibraryByIdQuery(int LibraryId) : IQuery<Library>;
 
 public sealed class GetLibraryByIdQueryHandler(IReferenceCatalogService referenceCatalog, ILibraryRepository libraryRepository,
-    RomDeliveryPolicy deliveryPolicy)
+    ILibraryExperienceRepository experienceRepository, RomDeliveryPolicy deliveryPolicy)
     : IQueryHandler<GetLibraryByIdQuery, Library>
 {
     public async Task<ErrorOr<Library>> HandleAsync(
@@ -17,6 +17,14 @@ public sealed class GetLibraryByIdQueryHandler(IReferenceCatalogService referenc
         CancellationToken ct = default)
     {
         var library = await libraryRepository.GetByIdAsync(query.LibraryId, ct);
-        return library is null ? LibraryErrors.NotFound() : library.ToContract(await referenceCatalog.GetSystemKeysAsync(ct), deliveryPolicy);
+        if (library is null)
+        {
+            return LibraryErrors.NotFound();
+        }
+
+        int? gameCount = library.HasValidConfiguration && library.LastMaterializedAt.HasValue
+            ? (await experienceRepository.GetPublishedGameCountsAsync([library.Id], ct)).GetValueOrDefault(library.Id)
+            : null;
+        return library.ToContract(await referenceCatalog.GetSystemKeysAsync(ct), deliveryPolicy, gameCount);
     }
 }

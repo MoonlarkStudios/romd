@@ -11166,6 +11166,14 @@
             }
           },
           {
+            "name": "localFilesOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
             "name": "sortBy",
             "in": "query",
             "schema": {
@@ -11323,6 +11331,14 @@
                 "untracked"
               ],
               "type": "string"
+            }
+          },
+          {
+            "name": "localFilesOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -18984,6 +19000,12 @@
               "string"
             ]
           },
+          "posterUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "note": {
             "type": [
               "null",
@@ -22630,6 +22652,13 @@
           },
           "itemCount": {
             "type": "integer",
+            "format": "int32"
+          },
+          "publishedGameCount": {
+            "type": [
+              "null",
+              "integer"
+            ],
             "format": "int32"
           },
           "exportFormats": {

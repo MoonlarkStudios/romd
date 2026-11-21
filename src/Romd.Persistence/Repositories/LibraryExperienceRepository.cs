@@ -12,6 +12,21 @@ namespace Romd.Persistence.Repositories;
 
 public sealed partial class LibraryExperienceRepository(RomdDbContext context) : ILibraryExperienceRepository
 {
+    public async Task<IReadOnlyDictionary<int, int>> GetPublishedGameCountsAsync(
+        IReadOnlyList<int> libraryIds, CancellationToken ct)
+    {
+        if (libraryIds.Count == 0)
+        {
+            return new Dictionary<int, int>();
+        }
+
+        return await context.MaterializedLibraryTitles
+            .Where(title => title.IsOwned && libraryIds.Contains(title.LibraryId))
+            .GroupBy(title => title.LibraryId)
+            .Select(group => new { LibraryId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.LibraryId, group => group.Count, ct);
+    }
+
     public async Task<IReadOnlyDictionary<int, IReadOnlyList<string>>> GetCollectionIdsByLibraryAsync(CancellationToken ct, IReadOnlyList<int>? libraryIds = null)
     {
         var rows = await context.LibraryCollections.Where(a => libraryIds == null || libraryIds.Contains(a.LibraryId)).OrderBy(a => a.SortOrder).ThenBy(a => a.CollectionId)
@@ -93,16 +108,20 @@ public sealed partial class LibraryExperienceRepository(RomdDbContext context) :
         });
         var rows = await ordered.Where(x => x.SortOrder > afterOrder || (x.SortOrder == afterOrder && x.Title.Id > afterId))
             .OrderBy(x => x.SortOrder).ThenBy(x => x.Title.Id)
-            .Select(x => new
-            {
-                x.Title.Id,
-                x.Title.Name,
-                x.SortOrder,
-                PlatformName = context.Platforms.Where(p => p.Id == x.Title.PlatformId).Select(p => p.Name).First(),
-                Cover = x.Title.Media.Where(m => m.Type == "Cover" && m.IsPrimary).Select(m => (int?)m.Id).FirstOrDefault()
-            }).Take(49).ToListAsync(ct);
-        return new LibraryPreview(rows.Take(48).Select(t => new LibraryPreviewTitle(IdCoder.Encode(t.Id), t.Name,
-            t.PlatformName, t.Cover is int cover ? $"/media/{IdCoder.Encode(cover)}" : null)).ToList(),
+            .Select(x => new PreviewRow(x.Title.Id, x.Title.Name, x.SortOrder,
+                context.Platforms.Where(p => p.Id == x.Title.PlatformId).Select(p => p.Name).First()))
+            .Take(49).ToListAsync(ct);
+        return new LibraryPreview(await ResolvePreviewTitlesAsync(rows.Take(48).ToArray(), ct),
             rows.Count > 48 ? $"{rows[47].SortOrder}:{IdCoder.Encode(rows[47].Id)}" : null);
     }
+
+    private async Task<LibraryPreviewTitle[]> ResolvePreviewTitlesAsync(PreviewRow[] page, CancellationToken ct)
+    {
+        var posters = await new ArtworkReader(context).ResolvePosterUrlsAsync(page.Select(row => row.Id).ToArray(), ct);
+        return page.Select(row => new LibraryPreviewTitle(IdCoder.Encode(row.Id), row.Name, row.PlatformName,
+            posters.GetValueOrDefault(row.Id)))
+            .ToArray();
+    }
+
+    private sealed record PreviewRow(int Id, string Name, int SortOrder, string PlatformName);
 }

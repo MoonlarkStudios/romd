@@ -94,7 +94,7 @@ retains its own unresolved selections for repair/removal; new or cross-Library
 invalid selections are rejected. Other rule edits and selection-mode changes
 preserve these choices. Group updates do not discard unsaved form values.
 
-Save then **Refresh library**. Publication atomically snapshots selected IDs,
+Save, then choose **Publish library** or **Publish changes**. Publication atomically snapshots selected IDs,
 ordered pinned definitions/revisions and release projection. Consumers read that
 publication, not live corrections or editable rules. Group edits mark configured
 and published selections pending through the Library materialization revision.

@@ -14,3 +14,10 @@ export function needsLibraryRefresh(library: Library): boolean {
 export function awaitsFirstPublication(library: Library): boolean {
   return library.needsMaterialization && !library.lastMaterializedAt;
 }
+
+export function publicationStatus(library: Library) {
+  if (library.configurationState !== 'Valid') return 'Needs attention';
+  if (!library.lastMaterializedAt) return 'Draft';
+  if (needsLibraryRefresh(library)) return 'Unpublished changes';
+  return null;
+}

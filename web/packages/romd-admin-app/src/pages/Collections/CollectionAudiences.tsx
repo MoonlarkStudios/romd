@@ -1,11 +1,25 @@
-import { ActionIcon, Alert, Badge, Button, Group, Select, Stack, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Alert,
+  Badge,
+  Button,
+  Checkbox,
+  Group,
+  Modal,
+  ScrollArea,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { listCollectionLibraryPlacements, listLibraryAttachments } from '@romd/admin-api-client';
-import { IconUnlink } from '@tabler/icons-react';
+import { IconSearch, IconUnlink } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import {
+  useAttachCollectionToLibraries,
   useLibraryAttachments,
   useSetLibraryAttachments,
 } from '../../hooks/api/useLibraryExperience';
@@ -44,12 +58,9 @@ export function useCollectionPlacements(collectionId: string, enabled = true) {
 }
 
 export function CollectionAudiences({ collectionId }: { collectionId: string }) {
-  const libraries = useLibraries();
   const placements = useCollectionPlacements(collectionId);
-  const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const save = useSetLibraryAttachments(selected ?? '');
   return (
     <Stack gap="sm">
       <Group justify="space-between">
@@ -111,59 +122,234 @@ export function CollectionAudiences({ collectionId }: { collectionId: string }) 
           Not attached to an audience yet.
         </Text>
       )}
-      <Select
-        label="Attach to another library"
-        placeholder="Choose an audience"
-        disabled={busy}
-        value={selected}
-        onChange={setSelected}
-        data={(libraries.data ?? [])
-          .filter((l) => !placements.data?.some((p) => p.libraryId === l.id))
-          .map((l) => ({
-            value: l.id,
-            label: l.name,
-          }))}
-      />
       {error && <Alert color="red">{error}</Alert>}
-      <Button
-        variant="light"
-        {...workspaceActionProps}
-        disabled={busy || !selected || !placements.isSuccess}
-        loading={busy}
-        onClick={async () => {
-          if (!selected) return;
-          setBusy(true);
-          setError(null);
-          try {
-            const current = await listLibraryAttachments({
-              path: {
-                libraryId: selected,
-              },
-            });
-            if (current.error || !current.data)
-              throw new Error('Could not read the library’s current collections.');
-            await save.mutateAsync([
-              ...current.data
-                .filter((a) => a.collectionId !== collectionId)
-                .map((a) => ({
-                  collectionId: a.collectionId,
-                  isFeatured: a.isFeatured,
-                })),
-              {
-                collectionId,
-                isFeatured: true,
-              },
-            ]);
-            setSelected(null);
-          } catch (e) {
-            setError(e instanceof Error ? e.message : 'Could not attach collection.');
-          } finally {
-            setBusy(false);
-          }
+      <CollectionAttachmentPicker
+        collectionId={collectionId}
+        disabled={busy}
+        onBusyChange={setBusy}
+      />
+    </Stack>
+  );
+}
+
+export function CollectionAttachmentDialog({
+  collectionId,
+  opened,
+  onClose,
+}: {
+  collectionId: string;
+  opened: boolean;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Modal
+      opened={opened}
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+      title="Add collection to libraries"
+      centered
+    >
+      <CollectionAttachmentPicker
+        collectionId={collectionId}
+        onBusyChange={setBusy}
+        onAttached={(message) => {
+          notifications.show({
+            title: 'Collection added',
+            message,
+            color: 'teal',
+          });
+          onClose();
         }}
+      />
+    </Modal>
+  );
+}
+
+function CollectionAttachmentPicker({
+  collectionId,
+  disabled = false,
+  onBusyChange,
+  onAttached,
+}: {
+  collectionId: string;
+  disabled?: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onAttached?: (message: string) => void;
+}) {
+  const libraries = useLibraries();
+  const placements = useCollectionPlacements(collectionId);
+  const attach = useAttachCollectionToLibraries(collectionId);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
+  const [failures, setFailures] = useState<
+    {
+      libraryId: string;
+      message: string;
+    }[]
+  >([]);
+  const [message, setMessage] = useState('');
+  const options = (libraries.data ?? []).filter(
+    (library) => !placements.data?.some((placement) => placement.libraryId === library.id),
+  );
+  const availableIds = selected.filter((id) => options.some((option) => option.id === id));
+  const matching = options.filter((library) =>
+    library.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+  );
+
+  if (libraries.isError || placements.isError) {
+    return (
+      <Alert
+        color="red"
+        title="Could not load libraries"
       >
-        Attach collection
-      </Button>
+        <Button
+          variant="subtle"
+          onClick={() => {
+            void libraries.refetch();
+            void placements.refetch();
+          }}
+        >
+          Try again
+        </Button>
+      </Alert>
+    );
+  }
+
+  return (
+    <Stack gap="sm">
+      {libraries.isPending || placements.isPending ? (
+        <Text
+          size="sm"
+          c="dimmed"
+          role="status"
+        >
+          Loading libraries…
+        </Text>
+      ) : options.length === 0 ? (
+        <Text
+          size="sm"
+          c="dimmed"
+        >
+          {libraries.data.length
+            ? 'This collection is in every library.'
+            : 'Create a library before adding this collection.'}
+        </Text>
+      ) : (
+        <>
+          {onAttached && (
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              Each library’s rules determine which games its audience sees.
+            </Text>
+          )}
+          <TextInput
+            label="Find libraries"
+            placeholder="Search by name"
+            data-autofocus={onAttached ? true : undefined}
+            disabled={disabled || attach.isPending}
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={(event) => setSearch(event.currentTarget.value)}
+          />
+          {matching.length ? (
+            <ScrollArea.Autosize
+              mah={224}
+              type="auto"
+            >
+              <Stack
+                gap="sm"
+                p="xs"
+                role="group"
+                aria-label="Libraries to add"
+              >
+                {matching.map((library) => (
+                  <Checkbox
+                    key={library.id}
+                    label={library.name}
+                    description={!library.lastMaterializedAt ? 'Draft' : undefined}
+                    disabled={disabled || attach.isPending}
+                    checked={availableIds.includes(library.id)}
+                    onChange={(event) => {
+                      const checked = event.currentTarget.checked;
+                      setSelected((current) =>
+                        checked
+                          ? [
+                              ...current,
+                              library.id,
+                            ]
+                          : current.filter((id) => id !== library.id),
+                      );
+                    }}
+                  />
+                ))}
+              </Stack>
+            </ScrollArea.Autosize>
+          ) : (
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              No libraries match this search.
+            </Text>
+          )}
+          <Group justify="flex-end">
+            <Button
+              {...workspaceActionProps}
+              disabled={disabled || availableIds.length === 0}
+              loading={attach.isPending}
+              onClick={async () => {
+                setFailures([]);
+                setMessage('');
+                onBusyChange(true);
+                try {
+                  const failed = await attach.mutateAsync(availableIds);
+                  const count = availableIds.length - failed.length;
+                  setSelected(failed.map(({ libraryId }) => libraryId));
+                  setFailures(failed);
+                  const confirmation = count
+                    ? `Added to ${count} ${count === 1 ? 'library' : 'libraries'}.`
+                    : '';
+                  setMessage(confirmation);
+                  if (!failed.length) onAttached?.(confirmation);
+                } finally {
+                  onBusyChange(false);
+                }
+              }}
+            >
+              {availableIds.length
+                ? `Add to ${availableIds.length} ${availableIds.length === 1 ? 'library' : 'libraries'}`
+                : 'Add to libraries'}
+            </Button>
+          </Group>
+        </>
+      )}
+      {message && (
+        <Text
+          size="sm"
+          role="status"
+        >
+          {message}
+        </Text>
+      )}
+      {failures.length > 0 && (
+        <Alert
+          color="red"
+          title="Some libraries could not be updated"
+        >
+          {failures.map(({ libraryId, message }) => (
+            <Text
+              key={libraryId}
+              size="sm"
+            >
+              {libraries.data?.find(({ id }) => id === libraryId)?.name ?? libraryId} · {message}
+            </Text>
+          ))}
+        </Alert>
+      )}
     </Stack>
   );
 }

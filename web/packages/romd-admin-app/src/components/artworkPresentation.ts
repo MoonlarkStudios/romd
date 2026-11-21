@@ -1,3 +1,9 @@
+import type { ResolvedArtwork } from '@romd/admin-api-client';
+
+export function gamePosterUrl(artwork?: readonly ResolvedArtwork[]): string | null {
+  return artwork?.find((item) => item.role === 'Poster')?.url ?? null;
+}
+
 export const artworkRoles = [
   'Poster',
   'Backdrop',

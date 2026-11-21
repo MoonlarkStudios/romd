@@ -19,9 +19,10 @@
 .panel { composes: panel from "../../components/Workspace/Workspace.module.css"; }
 .results { max-height: 650px; overflow-y: auto; scrollbar-gutter: stable; }
 .catalogRow { display: flex; align-items: center; gap: 14px; padding: 14px 2px; border-bottom: 1px solid var(--mantine-color-default-border); }
+.catalogGameLabel { flex: 1; min-width: 0; cursor: pointer; }
 .shared { border-bottom: 1px solid var(--mantine-color-default-border); padding: 8px 0 16px; }
 .previewGrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px; }
-.previewArt { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 10px; background: var(--mantine-color-default-hover); display: grid; place-items: center; }
+.previewArt { width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; }
 .mobileToggle { display: none; }
 @media (max-width: 1050px) { .build { display: block; } .mobileToggle { display: flex; } .mobileHidden { display: none; } .previewGrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .heroArt { width: 64px; height: 84px; } .previewGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .listRow { gap: 12px; } }

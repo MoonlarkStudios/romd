@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Group, Stack, Text } from '@mantine/core';
 import type {
   CatalogTitle,
   Library,
@@ -8,13 +8,15 @@ import type {
 } from '@romd/admin-api-client';
 import { IconX } from '@tabler/icons-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { gamePosterUrl } from '../../components/artworkPresentation';
+import { GameCover } from '../../components/GameCover';
 import { TitleSearchSelect } from '../../components/TitleSearchSelect';
 import {
-  type TitleLabel,
+  type TitlePickerGame,
   titleLookupKeys,
-  useTitleLabelMap,
+  usePickedGameMap,
 } from '../../hooks/api/useLibraryManagement';
+import classes from './Libraries.module.css';
 import {
   defaultContentRatingPolicy,
   defaultLibraryConfiguration,
@@ -164,25 +166,22 @@ export function toConfiguration(form: LibraryFormState): LibraryConfiguration {
 export function TitleOverridePicker({
   label,
   description,
-  emptyMessage = 'No manual title overrides.',
   value,
   onChange,
   excludeIds = [],
+  localFirst,
+  withinPortal,
 }: {
   label: string;
-  description: string;
-  emptyMessage?: string;
+  description?: string;
   value: string[];
   onChange: (ids: string[]) => void;
   excludeIds?: string[];
+  localFirst?: boolean;
+  withinPortal?: boolean;
 }) {
-  const [knownTitles, setKnownTitles] = useState<Map<string, string>>(new Map());
-  const [searchKey, setSearchKey] = useState(0);
-  const titleLabels = useTitleLabelMap(value);
+  const games = usePickedGameMap(value);
   const queryClient = useQueryClient();
-
-  const getTitleLabel = (titleId: string) =>
-    knownTitles.get(titleId) ?? titleLabels.get(titleId) ?? titleId;
 
   const handleAdd = (titleId: string | null, title: CatalogTitle | null) => {
     if (!titleId || value.includes(titleId)) {
@@ -190,10 +189,10 @@ export function TitleOverridePicker({
     }
 
     if (title) {
-      setKnownTitles((current) => new Map(current).set(titleId, title.name));
-      queryClient.setQueryData<TitleLabel>(titleLookupKeys.detail(titleId), {
+      queryClient.setQueryData<TitlePickerGame>(titleLookupKeys.detail(titleId), {
         id: titleId,
         name: title.name,
+        posterUrl: gamePosterUrl(title.artwork),
       });
     }
 
@@ -201,7 +200,6 @@ export function TitleOverridePicker({
       ...value,
       titleId,
     ]);
-    setSearchKey((current) => current + 1);
   };
 
   const handleRemove = (titleId: string) => {
@@ -211,52 +209,61 @@ export function TitleOverridePicker({
   return (
     <Stack gap="xs">
       <TitleSearchSelect
-        key={searchKey}
         value={null}
         onChange={handleAdd}
         label={label}
-        placeholder="Search titles to add"
+        placeholder=""
+        clearAfterSelect
+        localFirst={localFirst}
+        withinPortal={withinPortal}
         excludeIds={[
           ...excludeIds,
           ...value,
         ]}
       />
-      <Text
-        size="xs"
-        c="dimmed"
-      >
-        {description}
-      </Text>
-      {value.length > 0 ? (
-        <Group gap="xs">
-          {value.map((titleId) => (
-            <Badge
-              key={titleId}
-              variant="light"
-              color="blue"
-              rightSection={
-                <ActionIcon
-                  aria-label={`Remove ${getTitleLabel(titleId)}`}
-                  size="xs"
-                  variant="transparent"
-                  color="blue"
-                  onClick={() => handleRemove(titleId)}
-                >
-                  <IconX size={12} />
-                </ActionIcon>
-              }
-            >
-              {getTitleLabel(titleId)}
-            </Badge>
-          ))}
-        </Group>
-      ) : (
+      {description && (
         <Text
           size="xs"
           c="dimmed"
         >
-          {emptyMessage}
+          {description}
         </Text>
+      )}
+      {value.length > 0 && (
+        <ul
+          className={classes.pickedGames}
+          aria-label={`${label} selection`}
+        >
+          {value.map((titleId) => {
+            const game = games.get(titleId);
+            const name = game?.name ?? titleId;
+            return (
+              <Group
+                component="li"
+                key={titleId}
+                gap="sm"
+                wrap="nowrap"
+              >
+                <GameCover url={game?.posterUrl} />
+                <Text
+                  size="sm"
+                  lineClamp={2}
+                  flex={1}
+                >
+                  {name}
+                </Text>
+                <ActionIcon
+                  aria-label={`Remove ${name}`}
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => handleRemove(titleId)}
+                >
+                  <IconX size={16} />
+                </ActionIcon>
+              </Group>
+            );
+          })}
+        </ul>
       )}
     </Stack>
   );

@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Group,
-  Image,
   Paper,
   Popover,
   Stack,
@@ -15,6 +14,7 @@ import { notifications } from '@mantine/notifications';
 import type { CollectionItem } from '@romd/admin-api-client';
 import { IconArrowDown, IconArrowUp, IconNote, IconTrash } from '@tabler/icons-react';
 import { useState } from 'react';
+import { GameCover } from '../../components/GameCover';
 
 interface CollectionItemRowProps {
   item: CollectionItem;
@@ -77,18 +77,7 @@ export function CollectionItemRow({
           {index + 1}
         </Text>
 
-        <Image
-          alt=""
-          src={item.coverUrl ?? undefined}
-          w={36}
-          h={48}
-          radius="sm"
-          fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
-          style={{
-            flexShrink: 0,
-            background: 'var(--mantine-color-default)',
-          }}
-        />
+        <GameCover url={item.posterUrl} />
 
         <Box
           style={{
@@ -99,7 +88,7 @@ export function CollectionItemRow({
           <Text
             size="sm"
             fw={500}
-            truncate
+            lineClamp={2}
           >
             {item.titleName}
           </Text>
@@ -169,7 +158,6 @@ export function CollectionItemRow({
                 <Stack gap="xs">
                   <Textarea
                     label="Note"
-                    placeholder="Why is this title here?"
                     autosize
                     minRows={2}
                     maxRows={5}

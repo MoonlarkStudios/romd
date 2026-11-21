@@ -7,6 +7,7 @@ import {
 } from './enrichmentWorkspaceCache';
 import { artworkKeys } from './useArtwork';
 import { catalogSearchKeys } from './useCatalogSearch';
+import { libraryManagementKeys, titleLookupKeys } from './useLibraryManagement';
 import { normalizeTitleDetail, titleDetailKeys } from './useTitleDetail';
 
 /** A successful write stays accepted even when its subsequent relationship reads fail. */
@@ -71,6 +72,9 @@ export const providerMatchKeys = {
 export function titleSurfaceKeys(titleId: string): QueryKey[] {
   return [
     catalogSearchKeys.all,
+    libraryManagementKeys.previews(),
+    libraryManagementKeys.evaluations(),
+    titleLookupKeys.detail(titleId),
     titleDetailKeys.detail(titleId),
     titleEnrichmentKeys.detail(titleId),
     artworkKeys.selections(titleId),

@@ -19,6 +19,7 @@ import {
   updateLibrary,
 } from '@romd/admin-api-client';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { gamePosterUrl } from '../../components/artworkPresentation';
 import { collectPages } from '../../utils/collectPages';
 import { useCreateJob } from './useCreateJob';
 
@@ -39,6 +40,16 @@ export const libraryManagementKeys = {
     [
       ...libraryManagementKeys.all,
       'detail',
+    ] as const,
+  previews: () =>
+    [
+      ...libraryManagementKeys.all,
+      'preview',
+    ] as const,
+  evaluations: () =>
+    [
+      ...libraryManagementKeys.all,
+      'evaluation',
     ] as const,
   detail: (libraryId: string) =>
     [
@@ -86,9 +97,10 @@ export const titleLookupKeys = {
     ] as const,
 };
 
-export interface TitleLabel {
+export interface TitlePickerGame {
   id: string;
   name: string;
+  posterUrl: string | null;
 }
 
 export class ApiClientError extends Error {
@@ -204,12 +216,12 @@ export function useLibraryTitleReleaseDiagnostics(
   });
 }
 
-export function useTitleLabelMap(titleIds: string[]): Map<string, string> {
+export function usePickedGameMap(titleIds: string[]): Map<string, TitlePickerGame> {
   const uniqueTitleIds = Array.from(new Set(titleIds.filter((titleId) => titleId.length > 0)));
   const titleQueries = useQueries({
     queries: uniqueTitleIds.map((titleId) => ({
       queryKey: titleLookupKeys.detail(titleId),
-      queryFn: async (): Promise<TitleLabel | null> => {
+      queryFn: async (): Promise<TitlePickerGame | null> => {
         const response = await getTitle({
           path: {
             titleId,
@@ -223,6 +235,7 @@ export function useTitleLabelMap(titleIds: string[]): Map<string, string> {
         return {
           id: title.id,
           name: title.name,
+          posterUrl: gamePosterUrl(title.artwork),
         };
       },
       retry: false,
@@ -236,7 +249,7 @@ export function useTitleLabelMap(titleIds: string[]): Map<string, string> {
         ? ([
             [
               query.data.id,
-              query.data.name,
+              query.data,
             ],
           ] as const)
         : [],

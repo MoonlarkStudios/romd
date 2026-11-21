@@ -5,10 +5,10 @@ import {
   type LibraryEvaluationTitle,
   previewLibraryConfiguration,
 } from '@romd/admin-api-client';
-import { IconDeviceGamepad2 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { GameCover } from '../../components/GameCover';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import type { CollectionDetailView as CollectionDetail } from '../../hooks/api/useCollectionManagement';
 import { useLibraryPreview } from '../../hooks/api/useLibraryExperience';
@@ -30,32 +30,24 @@ export function CollectionPreview({ collection }: { collection: CollectionDetail
         justify="space-between"
         align="flex-start"
       >
-        <div>
-          <Title
-            order={2}
-            className={classes.sectionHeading}
-          >
-            Through their eyes
-          </Title>
-          <Text
-            c="dimmed"
-            mt="xs"
-            size="sm"
-          >
-            Saved, owned games that this audience can discover, in collection order.
-          </Text>
-        </div>
-        <Select
-          label="Preview as audience"
-          placeholder="Choose an attached library"
-          value={audience?.libraryId ?? null}
-          onChange={setSelected}
-          allowDeselect={false}
-          data={(placements.data ?? []).map((p) => ({
-            value: p.libraryId,
-            label: p.name,
-          }))}
-        />
+        <Title
+          order={2}
+          className={classes.sectionHeading}
+        >
+          Collection preview
+        </Title>
+        {audience && (
+          <Select
+            label="Library"
+            value={audience.libraryId}
+            onChange={setSelected}
+            allowDeselect={false}
+            data={(placements.data ?? []).map((p) => ({
+              value: p.libraryId,
+              label: p.name,
+            }))}
+          />
+        )}
       </Group>
       {placements.isError ? (
         <Alert color="red">
@@ -71,18 +63,16 @@ export function CollectionPreview({ collection }: { collection: CollectionDetail
         <Loader size="sm" />
       ) : !audience ? (
         <div className={classes.panel}>
-          <Title
-            order={3}
-            className={classes.sectionHeading}
+          <Text c="dimmed">Attach this collection to a library to preview it.</Text>
+          <Button
+            component={Link}
+            to="?tab=audiences"
+            variant="light"
+            mt="md"
+            {...workspaceActionProps}
           >
-            Choose who gets this experience
-          </Title>
-          <Text
-            c="dimmed"
-            mt="sm"
-          >
-            Attach the collection to a library in Audiences, then return here to preview it.
-          </Text>
+            Go to Audiences
+          </Button>
         </div>
       ) : library.isError ? (
         <Alert color="red">
@@ -103,7 +93,7 @@ export function CollectionPreview({ collection }: { collection: CollectionDetail
             component={Link}
             to={`/libraries/${audience.libraryId}`}
           >
-            Refresh the library
+            Publish the library
           </Text>{' '}
           to preview what its members will see.
         </Alert>
@@ -124,8 +114,7 @@ export function CollectionPreview({ collection }: { collection: CollectionDetail
               size="sm"
               c="dimmed"
             >
-              This preview shows the published library. Changes appear after the library is
-              refreshed.
+              This preview shows the published library. Pending changes appear after publication.
             </Text>
           )}
           <AudienceGames
@@ -186,18 +175,11 @@ function AudienceGames({
           <div className={classes.previewGrid}>
             {items.map((game) => (
               <div key={game.id}>
-                {game.coverUrl ? (
-                  <img
-                    className={classes.previewArt}
-                    src={game.coverUrl}
-                    alt=""
-                    loading="lazy"
-                  />
-                ) : (
-                  <span className={classes.previewArt}>
-                    <IconDeviceGamepad2 size={32} />
-                  </span>
-                )}
+                <GameCover
+                  className={classes.previewArt}
+                  url={game.coverUrl}
+                  iconSize={32}
+                />
                 <Text
                   fw={600}
                   size="sm"
@@ -232,15 +214,8 @@ function AudienceGames({
             order={3}
             className={classes.sectionHeading}
           >
-            Missing a game?
+            Game visibility
           </Title>
-          <Text
-            size="sm"
-            c="dimmed"
-          >
-            Collection membership never overrides library policy. Inspect any game in this
-            collection against the saved rules.
-          </Text>
           <Select
             label="Investigate a game"
             placeholder="Choose a collection game"

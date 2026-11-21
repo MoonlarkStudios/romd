@@ -61,8 +61,8 @@ export function LibraryDiscSets({
         Disc sets
       </Text>
       <Text size="sm">
-        {value.length} selected sets. Each member remains subject to this Library’s rules. Save
-        these choices, then refresh the Library to publish its ordered membership.
+        {value.length} selected {value.length === 1 ? 'set' : 'sets'}. Library rules apply to each
+        game.
       </Text>
       <Button
         variant="light"

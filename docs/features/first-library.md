@@ -66,33 +66,29 @@ Use [artwork completion](unified-artwork-completion.md) and
 
 ## 4. Choose the audience's games
 
-Open **Libraries → New library**. Give it a name such as **Living room**, choose
-the initial selection and set a maximum content-rating age. Creating a library
-opens its **Games** tab.
+Open **Libraries → New library** and give it a name such as **Living room**.
+Choose **Select with rules** to set a system scope or **Handpick games** to add
+specific titles. The picker starts with games that have files on your server.
+Set a maximum content-rating age and choose **Create draft** to open **Games**.
 
-Start with **Content ratings**, including **When a game has no rating**. The
-default holds unrated games for review. Choose **Show** only when that is the
-policy you want for this audience; an imported game can be hidden simply because
-it has no rating yet.
+Review the eligible games and exclusion reasons. In **Content ratings**,
+**When a game has no rating** defaults to **Flag for review**. Choose **Show**
+when this audience should see unrated games.
 
-Then choose **Select with rules** or **Handpick games**. Review the eligible
-results and exclusion reasons beside your draft. Handpicked games still obey
-tracking and rating restrictions. **Include untracked titles** is an explicit
-opt-in, and **Include missing games** is separate from owning playable files.
+Handpicked games still follow tracking and rating rules. Use **Include
+untracked titles** to consider the wider catalog or **Include missing games**
+to show eligible games that have no downloadable files.
 
-Select **Save changes**. Saving records your rules; the audience receives them
-only after publication.
+Select **Save changes** if you edited the draft.
 
 ## 5. Publish and assign people
 
-Choose **Refresh library** and wait for it to finish. This publishes the first
-consumer snapshot. After later edits or imports, refresh again when you are
-ready to publish those changes. There is no scheduled automatic publication;
-people keep seeing the previous published contents in the meantime.
+Choose **Publish library** and wait for it to finish. After later edits or
+imports, choose **Publish changes** when you are ready. People keep seeing the
+previous published contents until the new publication succeeds.
 
-The overview counts **releases**, so a title with regional versions or revisions
-can contribute more than one item. This differs from a count of distinct titles
-or owned games.
+The library list and overview show both games and releases. One game can have
+several releases, such as regional versions or revisions.
 
 In **People**, use **Assign a person**. Create accounts through **Manage people
 and roles** when needed. Each person has one assigned library, wherever they
@@ -121,8 +117,8 @@ Next: [Browsing and playing](browsing-and-playing.md),
 
 | Check | What to do |
 | --- | --- |
-| The first library has not been published | Use **Refresh library** and inspect the job outcome. |
+| The first library has not been published | Use **Publish library** and inspect the job outcome. |
 | The wrong audience is assigned | Check the library's **People** tab and the person's account. |
 | Ratings or tracking exclude games | Inspect **Games** results and exclusion reasons; set a deliberate unrated-game policy. |
 | Catalog entries exist but no files are owned | Review import outcomes in **Jobs** and the title's files. |
-| Imports or rule edits are newer than publication | Refresh the library after saving and after the catalog settles. |
+| Imports or rule edits are newer than publication | Use **Publish changes** after saving and after the catalog settles. |

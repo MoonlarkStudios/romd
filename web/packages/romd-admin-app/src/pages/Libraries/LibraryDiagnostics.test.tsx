@@ -28,7 +28,7 @@ it('shows why a visible release cannot appear in VFS', async () => {
   render(<LibraryDiagnostics libraryId="library" />);
   await userEvent.click(
     screen.getByRole('button', {
-      name: 'Missing a game? Check its visibility',
+      name: 'Game visibility',
     }),
   );
   await waitFor(() => expect(screen.getByText('Visible')).toBeVisible());

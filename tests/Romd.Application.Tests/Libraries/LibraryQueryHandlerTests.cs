@@ -25,6 +25,7 @@ public sealed class LibraryQueryHandlerTests
     {
         var repository = Substitute.For<ILibraryRepository>();
         var valid = NewLibrary(1, "Valid");
+        valid.MarkMaterialized(12, DateTimeOffset.UnixEpoch);
         var invalid = NewLibrary(2, "Invalid");
         invalid.MarkConfigurationInvalid("bad config", now: DateTimeOffset.UnixEpoch);
         repository.GetPageAsync(null, null, 50, Arg.Any<CancellationToken>()).Returns(new PagedList<Library>([valid, invalid], null, false));
@@ -32,6 +33,8 @@ public sealed class LibraryQueryHandlerTests
         var experience = Substitute.For<ILibraryExperienceRepository>();
         experience.GetCollectionIdsByLibraryAsync(Arg.Any<CancellationToken>(), Arg.Any<IReadOnlyList<int>>()).Returns(
             new Dictionary<int, IReadOnlyList<string>> { [1] = [IdCoder.Encode(7)] });
+        experience.GetPublishedGameCountsAsync(Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 1 })),
+            Arg.Any<CancellationToken>()).Returns(new Dictionary<int, int> { [1] = 3 });
         var result = await new ListLibrariesQueryHandler(TestSystemCatalog.Create(), repository, experience, TestDeliveryPolicies.Production)
             .HandleAsync(new ListLibrariesQuery());
 
@@ -39,9 +42,12 @@ public sealed class LibraryQueryHandlerTests
         result.Value.Items[0].Id.ShouldBe(IdCoder.Encode(1));
         result.Value.Items[0].Configuration.ShouldNotBeNull();
         result.Value.Items[0].CollectionIds.ShouldBe([IdCoder.Encode(7)]);
+        result.Value.Items[0].PublishedGameCount.ShouldBe(3);
+        result.Value.Items[0].ItemCount.ShouldBe(12);
         result.Value.Items[1].CollectionIds.ShouldBeEmpty();
         result.Value.Items[1].Id.ShouldBe(IdCoder.Encode(2));
         result.Value.Items[1].Configuration.ShouldBeNull();
+        result.Value.Items[1].PublishedGameCount.ShouldBeNull();
         result.Value.Items[1].ConfigurationState.ShouldBe(LibraryConfigurationState.Invalid.ToString());
         result.Value.Items[1].ConfigurationError.ShouldBe("bad config");
     }
@@ -57,7 +63,8 @@ public sealed class LibraryQueryHandlerTests
         repository.GetByIdAsync(7, Arg.Any<CancellationToken>()).Returns(NewLibrary(7, "Library",
             new LibraryConfiguration { AllowedPlatformIds = systemIds }));
 
-        var result = await new GetLibraryByIdQueryHandler(MediaSystems(), repository, TestDeliveryPolicies.Production)
+        var result = await new GetLibraryByIdQueryHandler(MediaSystems(), repository,
+                Substitute.For<ILibraryExperienceRepository>(), TestDeliveryPolicies.Production)
             .HandleAsync(new GetLibraryByIdQuery(7));
 
         result.Value.ExportFormats.Select(format => $"{format.Format}:{format.Label}").ShouldBe(expected);
@@ -87,7 +94,8 @@ public sealed class LibraryQueryHandlerTests
     {
         var repository = Substitute.For<ILibraryRepository>();
 
-        var result = await new GetLibraryByIdQueryHandler(TestSystemCatalog.Create(), repository, TestDeliveryPolicies.Production)
+        var result = await new GetLibraryByIdQueryHandler(TestSystemCatalog.Create(), repository,
+                Substitute.For<ILibraryExperienceRepository>(), TestDeliveryPolicies.Production)
             .HandleAsync(new GetLibraryByIdQuery(123));
 
         result.IsError.ShouldBeTrue();

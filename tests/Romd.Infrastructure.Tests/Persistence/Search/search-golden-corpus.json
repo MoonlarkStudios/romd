@@ -236,6 +236,20 @@
       ]
     },
     {
+      "id": "admin-titles/punct-possessive-omitted/name",
+      "surface": "AdminTitles",
+      "tags": [
+        "punctuation"
+      ],
+      "query": "mario picross",
+      "sort": "Name",
+      "limit": 50,
+      "orderMode": "Exact",
+      "expected": [
+        "8:Mario's Picross"
+      ]
+    },
+    {
       "id": "admin-titles/punct-apostrophe-stripped/name",
       "surface": "AdminTitles",
       "tags": [

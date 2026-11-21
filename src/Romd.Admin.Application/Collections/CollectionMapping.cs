@@ -68,6 +68,7 @@ public static class CollectionMapping
         TitleName = model.TitleName,
         SystemKey = systemKeys.Required(model.PlatformId),
         CoverUrl = model.CoverMediaId.HasValue ? $"/media/{IdCoder.Encode(model.CoverMediaId.Value)}" : null,
+        PosterUrl = model.PosterUrl,
         Note = model.Note,
         SortOrder = model.SortOrder,
         AddedAt = model.AddedAt
