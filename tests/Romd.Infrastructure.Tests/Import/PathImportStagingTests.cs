@@ -62,6 +62,33 @@ public sealed class PathImportStagingTests : IDisposable
     }
 
     [Fact]
+    public async Task Stage_SavedServerSelection_CopiesOnlyTheUnchangedSelectedFiles()
+    {
+        var (job, lease) = await AcceptedAsync(move: false);
+        await using var owned = lease;
+        var selection = Substitute.For<IServerImportStore>();
+        selection.ReadSelectionAsync(job.Id, Arg.Any<CancellationToken>()).Returns(
+            new ServerImportSelection([Stamp("good.rom"), Stamp("bad.rom")]));
+        await File.WriteAllBytesAsync(Path.Combine(SourceRoot, "bad.rom"), [1, 2, 3]);
+        await File.WriteAllBytesAsync(Path.Combine(SourceRoot, "arrived-later.rom"), [4]);
+        var staging = new PathImportStaging(options, new PathValidator(options), new System.IO.Abstractions.FileSystem(),
+            new FixedClock(), NullLogger<PathImportStaging>.Instance, selection);
+
+        var result = (await staging.StageAsync(job, Workspace(job.Id), NoProgress, default)).Value;
+
+        result.HasFiles.ShouldBeTrue();
+        result.Issues.ShouldHaveSingleItem().Message.ShouldContain("changed after the folder was checked");
+        Directory.EnumerateFiles(Workspace(job.Id)).Select(Path.GetFileName).ShouldBe(["good.rom"]);
+        File.ReadAllBytes(Path.Combine(SourceRoot, "bad.rom")).ShouldBe([1, 2, 3]);
+
+        ServerImportFile Stamp(string name)
+        {
+            var file = new FileInfo(Path.Combine(SourceRoot, name));
+            return new ServerImportFile(name, file.Length, file.LastWriteTimeUtc);
+        }
+    }
+
+    [Fact]
     public async Task Stage_MoveManifestRecordsRootRelativeFingerprintsOutsideTheWorkspace()
     {
         var (job, lease) = await AcceptedAsync(move: true);
@@ -129,7 +156,7 @@ public sealed class PathImportStagingTests : IDisposable
     }
 
     [Fact]
-    public async Task Stage_AllCopiesFail_EmptiesWorkspaceAndReturnsNoFilesWithoutTouchingOriginals()
+    public async Task Stage_AllCopiesFail_RetainsCopyIssuesAndLeavesOriginalsIntact()
     {
         files.CopyFailures["bad.rom"] = new IOException("bad failed");
         files.CopyFailures["good.rom"] = new UnauthorizedAccessException("good failed after writing");
@@ -138,7 +165,10 @@ public sealed class PathImportStagingTests : IDisposable
 
         var result = await Staging().StageAsync(job, Workspace(job.Id), NoProgress, default);
 
-        result.FirstError.Code.ShouldBe("Import.NoFilesFound");
+        result.IsError.ShouldBeFalse();
+        result.Value.HasFiles.ShouldBeFalse();
+        result.Value.Issues.Select(issue => issue.Message).ShouldContain(message => message.Contains("bad failed"));
+        result.Value.Issues.Select(issue => issue.Message).ShouldContain(message => message.Contains("good failed"));
         files.DeleteAttempts.Count.ShouldBe(2);
         AssertEmptyWorkspace(job.Id);
         AssertOriginalsAndDisposedStreams();
@@ -276,7 +306,8 @@ public sealed class PathImportStagingTests : IDisposable
     }
 
     private PathImportStaging Staging(IPathValidator? validator = null) => new(options,
-        validator ?? new PathValidator(options), files.FileSystem, new FixedClock(), NullLogger<PathImportStaging>.Instance);
+        validator ?? new PathValidator(options), files.FileSystem, new FixedClock(), NullLogger<PathImportStaging>.Instance,
+        Substitute.For<IServerImportStore>());
 
     /// <summary>Mirrors acceptance plus the runner: a reserved, empty workspace under the job's lock.</summary>
     private async Task<(UploadJob Job, IAsyncDisposable Lease)> AcceptedAsync(bool move)

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.Ingestion.Jobs;
+using Romd.Application.Common.Configuration;
 using Romd.Infrastructure.Identity;
 using Romd.Infrastructure.Jobs;
 using Romd.Infrastructure.Realtime;
@@ -33,11 +34,13 @@ public sealed class RecurringJobRegistrarTests
 
         var registrar = new RecurringJobRegistrar(
             recurringJobs,
+            Substitute.For<IServerImportOptions>(),
             NullLogger<RecurringJobRegistrar>.Instance);
 
         await registrar.StartAsync(CancellationToken.None);
 
         registrations.Count.ShouldBe(9);
+        recurringJobs.Received(1).RemoveIfExists("server-import-inbox");
         registrations.ShouldContain(job => job.Id == "dat-subscription-checks"
             && job.TargetType == typeof(DatSubscriptionCheckJob)
             && job.MethodName == nameof(DatSubscriptionCheckJob.ExecuteAsync)
@@ -75,6 +78,23 @@ public sealed class RecurringJobRegistrarTests
             && job.TargetType == typeof(RomdOpenIddictPruneJob)
             && job.MethodName == nameof(RomdOpenIddictPruneJob.ExecuteAsync)
             && job.CronExpression == Cron.Daily(6));
+    }
+
+    [Fact]
+    public async Task StartAsync_FolderScheduleConfigured_RegistersTheSharedImportCommandOnUtcCadence()
+    {
+        var jobs = Substitute.For<IRecurringJobManager>();
+        var options = Substitute.For<IServerImportOptions>();
+        options.ServerImportDirectory.Returns("/incoming");
+        options.ServerImportIntervalMinutes.Returns(15);
+        var registrar = new RecurringJobRegistrar(jobs, options, NullLogger<RecurringJobRegistrar>.Instance);
+
+        await registrar.StartAsync(CancellationToken.None);
+
+        jobs.Received(1).AddOrUpdate("server-import-inbox",
+            Arg.Is<Job>(job => job.Type == typeof(ServerImportCheckJob) && job.Method.Name == nameof(ServerImportCheckJob.ExecuteAsync)),
+            "*/15 * * * *", Arg.Is<RecurringJobOptions>(option => option.TimeZone == TimeZoneInfo.Utc));
+        jobs.DidNotReceive().RemoveIfExists("server-import-inbox");
     }
 
     private sealed record RecurringJobRegistration(string Id, Job Job, string CronExpression)

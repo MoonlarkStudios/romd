@@ -192,13 +192,12 @@ it('archives through PATCH with the actual updated representation', async () => 
   ]);
 });
 
-it('collects every import page with the same signal and publishes no partial batch', async () => {
+it('loads the next import page on demand and keeps the first page visible', async () => {
   const requests: URL[] = [];
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const calls = vi.spyOn(client, 'get');
   server.use(
     http.get('http://localhost/api/jobs', async ({ request }) => {
       const url = new URL(request.url);
@@ -221,18 +220,17 @@ it('collects every import page with the same signal and publishes no partial bat
       );
     }),
   );
-  const { cache, wrapper } = harness(true);
+  const { wrapper } = harness(true);
   const { result } = renderHook(() => useImportSession(), {
     wrapper,
   });
+  await waitFor(() => expect(result.current.hasMoreJobs).toBe(true));
+  expect(requests).toHaveLength(1);
+  act(() => result.current.loadMoreJobs());
   await waitFor(() => expect(requests).toHaveLength(2));
-  expect(result.current.activeJobIds).toEqual([]);
-  expect(
-    cache.getQueryData([
-      'import-batch',
-      batchId,
-    ]),
-  ).toBeUndefined();
+  expect(result.current.activeJobIds).toEqual([
+    first.id,
+  ]);
   await act(async () => {
     release();
   });
@@ -246,19 +244,26 @@ it('collects every import page with the same signal and publishes no partial bat
     expect(url.searchParams.get('correlationId')).toBe(batchId);
     expect(url.searchParams.get('jobType')).toBe('upload');
     expect(url.searchParams.get('archive')).toBe('all');
-    expect(url.searchParams.get('limit')).toBe('100');
+    expect(url.searchParams.get('limit')).toBe('25');
   }
-  const listCalls = calls.mock.calls.filter(([options]) => options.url === '/api/jobs');
-  expect(listCalls[0]?.[0].signal).toBeInstanceOf(AbortSignal);
-  expect(listCalls[1]?.[0].signal).toBe(listCalls[0]?.[0].signal);
 });
 
-it('fails the whole import query if a later page fails instead of publishing page one', async () => {
+it('retries a later import page without losing the imports already loaded', async () => {
   let pages = 0;
   server.use(
     http.get('http://localhost/api/jobs', ({ request }) => {
       pages++;
-      return new URL(request.url).searchParams.has('cursor')
+      if (!new URL(request.url).searchParams.has('cursor')) {
+        return HttpResponse.json(
+          page(
+            [
+              first,
+            ],
+            'page-two',
+          ),
+        );
+      }
+      return pages === 2
         ? HttpResponse.json(
             {
               detail: 'Page failed.',
@@ -268,31 +273,34 @@ it('fails the whole import query if a later page fails instead of publishing pag
             },
           )
         : HttpResponse.json(
-            page(
-              [
-                first,
-              ],
-              'page-two',
-            ),
+            page([
+              second,
+            ]),
           );
     }),
   );
-  const { cache, wrapper } = harness(true);
+  const { wrapper } = harness(true);
   const { result } = renderHook(() => useImportSession(), {
     wrapper,
   });
-  await waitFor(() => expect(result.current.batchError).toBe(true));
+  await waitFor(() => expect(result.current.hasMoreJobs).toBe(true));
+  act(() => result.current.loadMoreJobs());
+  await waitFor(() => expect(result.current.batchError).toBe('next-page'));
   expect(pages).toBe(2);
-  expect(result.current.activeJobIds).toEqual([]);
-  expect(
-    cache.getQueryData([
-      'import-batch',
-      batchId,
+  expect(result.current.activeJobIds).toEqual([
+    first.id,
+  ]);
+  act(() => result.current.retryBatch());
+  await waitFor(() =>
+    expect(result.current.activeJobIds).toEqual([
+      first.id,
+      second.id,
     ]),
-  ).toBeUndefined();
+  );
+  expect(result.current.batchError).toBeNull();
 });
 
-it('keeps polling when only page two contains active import work', async () => {
+it('polls loaded pages while a later page contains active import work', async () => {
   let pages = 0;
   server.use(
     http.get('http://localhost/api/jobs', ({ request }) => {
@@ -316,9 +324,11 @@ it('keeps polling when only page two contains active import work', async () => {
     }),
   );
   const { wrapper } = harness(true);
-  renderHook(() => useImportSession(), {
+  const { result } = renderHook(() => useImportSession(), {
     wrapper,
   });
+  await waitFor(() => expect(result.current.hasMoreJobs).toBe(true));
+  act(() => result.current.loadMoreJobs());
   await waitFor(() => expect(pages).toBe(2));
   await waitFor(() => expect(pages).toBeGreaterThanOrEqual(4), {
     timeout: 3000,
@@ -531,7 +541,7 @@ it.each([
   expect(transport).not.toHaveBeenCalled();
 });
 
-it('aborts later-page import transport when its query is unmounted and publishes no partial result', async () => {
+it('aborts an in-flight import page on unmount and keeps the completed page cached', async () => {
   let release: () => void = () => {};
   const held = new Promise<void>((resolve) => {
     release = resolve;
@@ -558,13 +568,14 @@ it('aborts later-page import transport when its query is unmounted and publishes
     }),
   );
   const { cache, wrapper } = harness(true);
-  const { unmount } = renderHook(() => useImportSession(), {
+  const { result, unmount } = renderHook(() => useImportSession(), {
     wrapper,
   });
-  await waitFor(() =>
-    expect(calls.mock.calls.filter(([options]) => options.url === '/api/jobs')).toHaveLength(2),
-  );
-  const signal = calls.mock.calls[1]?.[0].signal;
+  await waitFor(() => expect(result.current.hasMoreJobs).toBe(true));
+  act(() => result.current.loadMoreJobs());
+  const listCalls = () => calls.mock.calls.filter(([options]) => options.url === '/api/jobs');
+  await waitFor(() => expect(listCalls()).toHaveLength(2));
+  const signal = listCalls()[1]?.[0].signal;
   expect(signal?.aborted).toBe(false);
   unmount();
   expect(signal?.aborted).toBe(true);
@@ -576,5 +587,14 @@ it('aborts later-page import transport when its query is unmounted and publishes
       'import-batch',
       batchId,
     ]),
-  ).toBeUndefined();
+  ).toMatchObject({
+    pages: [
+      page(
+        [
+          first,
+        ],
+        'page-two',
+      ),
+    ],
+  });
 });

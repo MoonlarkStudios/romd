@@ -105,14 +105,15 @@ public sealed class ImportFromPathEndpointsTests(IntegrationTestFixture fixture)
     {
         string sourceRoot = CreateSourceTree(out string topFile, out string nestedFile);
         using var client = fixture.CreateAuthenticatedClient();
+        Guid requestId = Guid.NewGuid();
+        var body = new { path = sourceRoot, move = true, allowUnidentified = true, requestId };
 
-        using var response = await client.PostAsJsonAsync(
-            "/api/upload/from-path",
-            new { path = sourceRoot, move = true, allowUnidentified = true });
+        using var response = await client.PostAsJsonAsync("/api/upload/from-path", body);
         var accepted = await response.Content.ReadFromJsonAsync<JobReference>();
 
         response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         accepted.ShouldNotBeNull();
+        accepted.JobId.ShouldBe(requestId);
 
         await TestHelpers.WaitForJobCompletionAsync(client, accepted.JobId.ToString());
 
@@ -122,6 +123,13 @@ public sealed class ImportFromPathEndpointsTests(IntegrationTestFixture fixture)
         await WaitForConditionAsync(
             () => !File.Exists(topFile) && !File.Exists(nestedFile) && !File.Exists(manifestPath),
             "move-mode sources and manifest deleted after successful completion");
+
+        using var replay = await client.PostAsJsonAsync("/api/upload/from-path", body);
+        replay.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        replay.Headers.Location.ShouldBe(response.Headers.Location);
+        (await replay.Content.ReadFromJsonAsync<JobReference>()).ShouldBe(accepted);
+        var conflict = await PostImportAsync(client, body with { move = false });
+        conflict.ShouldBe((HttpStatusCode.Conflict, "Upload.RequestIdReused"));
     }
 
     [Fact]

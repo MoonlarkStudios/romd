@@ -11,4 +11,5 @@ public enum JobErrorReason
     Unknown = 0,
     ProviderError,
     ProcessingError,
+    ImportSourceCopy,
 }

@@ -36,7 +36,7 @@ export function UnroutedDatCard({
   const addAliasMutation = useAddPlatformAlias();
 
   const gameCount = Number(dat.gameCount ?? 0);
-  const blockedCount = dat.matchedRomFileCount;
+  const matchCount = dat.matchedRomFileCount;
   const isAssigning = assignMutation.isPending || addAliasMutation.isPending;
 
   const handleAssign = async () => {
@@ -71,11 +71,7 @@ export function UnroutedDatCard({
         title: `Routed to ${platform?.name ?? 'system'}`,
         message: (
           <Stack gap={4}>
-            <Text size="sm">
-              {blockedCount !== undefined && blockedCount > 0
-                ? `${dat.name} assigned — ${blockedCount.toLocaleString()} waiting ROM${blockedCount === 1 ? '' : 's'} now cataloging.`
-                : `${dat.name} assigned.`}
-            </Text>
+            <Text size="sm">{dat.name} assigned.</Text>
             <Anchor
               component="button"
               type="button"
@@ -175,19 +171,16 @@ export function UnroutedDatCard({
               size="sm"
               c="dimmed"
             >
-              {gameCount.toLocaleString()} games
+              {gameCount.toLocaleString()} {gameCount === 1 ? 'game' : 'games'}
             </Text>
-            <Text
-              size="sm"
-              fw={600}
-              c={blockedCount !== undefined && blockedCount > 0 ? 'orange' : 'dimmed'}
-            >
-              {blockedCount === undefined
-                ? 'Waiting ROM count unavailable'
-                : blockedCount > 0
-                  ? `${blockedCount.toLocaleString()} ROM${blockedCount === 1 ? '' : 's'} waiting`
-                  : 'no ROMs waiting'}
-            </Text>
+            {matchCount !== undefined && matchCount > 0 && (
+              <Text
+                size="sm"
+                c="dimmed"
+              >
+                {matchCount.toLocaleString()} matching stored {matchCount === 1 ? 'file' : 'files'}
+              </Text>
+            )}
           </Stack>
         </Group>
 

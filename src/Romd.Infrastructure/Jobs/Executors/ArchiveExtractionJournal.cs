@@ -19,6 +19,8 @@ internal sealed record ArchiveExtractionJournal(
     ArchiveExtractionWork? Cleanup)
 {
     private const int CurrentVersion = 1;
+
+    public Dictionary<string, string>? PublishedRoots { get; init; }
     private const long MaxJournalBytes = 32L * 1024 * 1024;
 
     internal static string PathFor(string workspace) =>
@@ -72,6 +74,18 @@ internal sealed record ArchiveExtractionJournal(
         if (state.Pending.Skip(1).Any(item => item.Target is not null)
             || state.Cleanup is { Target: null })
             throw new JobPermanentFailureException("The extraction checkpoint has an invalid publication state.");
+        if (state.PublishedRoots is { } roots)
+        {
+            if (roots.Count > limits.MaxTotalEntries)
+                throw new JobPermanentFailureException("The extraction checkpoint contains too many published archives.");
+            foreach (var (source, target) in roots)
+            {
+                Resolve(workspace, source);
+                Resolve(workspace, target);
+                if (source == target || Path.GetDirectoryName(source) != Path.GetDirectoryName(target))
+                    throw new JobPermanentFailureException("The extraction checkpoint has an invalid published archive.");
+            }
+        }
         return state;
     }
 

@@ -1,7 +1,7 @@
 import { Alert, Button, Group, Loader, Text } from '@mantine/core';
+import { ImportReceipt } from '../../components/Import/ImportReceipt';
 import { useJob } from '../../hooks/api/useJobs';
 import { LiveImportPanel } from './LiveImportPanel';
-import { ResultsPanel } from './ResultsPanel';
 
 /**
  * Tracks one import job and renders the live (Act 2) or results (Act 3) view.
@@ -42,7 +42,7 @@ export function ImportJobCard({ jobId, onDismiss }: { jobId: string; onDismiss: 
   if (job.jobType !== 'upload') return null;
 
   return job.isTerminal ? (
-    <ResultsPanel
+    <ImportReceipt
       job={job}
       onDismiss={onDismiss}
     />

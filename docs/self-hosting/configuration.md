@@ -27,8 +27,9 @@ The server uses PostgreSQL 18. The current application schema starts with
 `20261031050000_FreshMediaBaseline` and includes the additive
 `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
 `20261117000000_JobDispatchExpiryIndex`, `20261118000000_SystemHardwareMetadata`,
-`20261118194850_SignInMessage` and `20261120162632_MediaCollection` migrations
-(readiness version 78).
+`20261118194850_SignInMessage`, `20261120162632_MediaCollection`,
+`20261121030000_ImportOutcomeReasons`, `20261121040529_ServerImportInbox`, and
+`20261121060000_RemoveServerImportFileHistory` migrations (readiness version 81).
 The Saturn migration adds distinct nullable observations without backfilling
 or rewriting existing PS1 evidence.
 Earlier migration chains, unversioned populated databases and baseline downgrades
@@ -259,12 +260,41 @@ promise future provider availability.
 
 ## Path import
 
-Server-side path import (`POST /api/upload/from-path`) is disabled until at least
-one allowed root is configured.
+Server-side import requires at least one allowed root. Admin shows Managers the
+**Server folder** tab when a drop folder is configured.
 
 | JSON path | Environment variable | Default | Description |
 | --- | --- | --- | --- |
 | `Romd:AllowedImportPaths` | `Romd__AllowedImportPaths__0`, `__1`, … | Empty (feature disabled) | Absolute directories that server-side imports may read from. Every imported path must be canonically contained under one of these roots; symbolic links anywhere on the path are rejected. |
+| `Romd:ServerImportDirectory` | `Romd__ServerImportDirectory` | Empty | Absolute drop folder used by **Import from server folder**. It must be under an allowed import root and separate from the ROMD data directory. |
+| `Romd:ServerImportIntervalMinutes` | `Romd__ServerImportIntervalMinutes` | Empty (manual only) | Enables worker checks every 5, 15, 30, or 60 minutes on UTC clock boundaries. Requires a configured drop folder. |
+
+Set the drop folder and, optionally, the interval on both the admin and worker
+hosts. Mount the same directory at the same container path. For a mount at
+`/incoming`, set `Romd__AllowedImportPaths__0=/incoming` and
+`Romd__ServerImportDirectory=/incoming` on both services. Give the worker write
+access to the drop folder so it can remove stored files. The admin host only
+needs read access.
+
+Publish complete files by writing outside the drop folder and renaming them into
+it on the same filesystem. A hidden staging directory under the same mount also
+works. ROMD skips hidden entries, waits for nonempty files with at least a minute
+since the last write, and defers common temporary extensions such as `.partial`.
+Publish multi-file disc sets together in a directory or archive. When changing
+an existing file, publish it with a fresh modification time. ROMD identifies
+previously submitted versions by relative path, size, and modification time.
+
+Manual and scheduled checks both move files into ROMD. The worker removes
+each original after confirming its contents are stored, including duplicates.
+For an archive, every extracted file must be accounted for before the worker
+removes the archive. Files that fail, change during import, or need review
+stay in the folder. Empty subdirectories stay in place.
+
+Admin shows the last check, the next scheduled check and the latest receipt.
+An unchanged file left in the folder is skipped while its move job is retained.
+Use **Retry last import** when offered, or publish the file again with a fresh
+modification time. Files left by an earlier copy-only run can be processed on
+the next check.
 
 In a split-host deployment the admin host validates an import and accepts the
 job; the worker host copies the source into the job workspace (the import's
@@ -276,12 +306,33 @@ source is not visible from the executing host it is never counted as moved: the
 original is retained with a warning and the deletion is retried by the periodic
 sweep until its manifest ages out.
 
-The admin import page shows **Import from a server folder** to Managers only
-while at least one root is configured. It lists the allowed roots and the real
-subfolders beneath them (`GET /api/upload/from-path/folders`); nobody types a
-path, hidden folders and symbolic links are never listed, and the picker always
-copies, never moves. Mount the library read-only so neither ROMD nor a mistaken
-request can change it.
+### One-off path import API
+
+Managers can call `POST /api/upload/from-path` with a JSON body containing an
+absolute `path` under an allowed import root. Copy mode is the default and
+works with a read-only source. This request imports ROMs for tracked titles
+and processes any DAT catalogs in the source.
+
+```json
+{
+  "path": "/library/roms",
+  "move": false,
+  "trackedOnly": true
+}
+```
+
+Other options include `allowUnidentified` to keep unmatched files and
+`archiveOnly` to store matching ROMs without tracking their titles. For an
+intentional move, send `"move": true` and give the worker write access to the
+source. See [archive import cleanup](../features/archive-imports.md#recovery-and-move-mode)
+for the one-off move rules.
+
+`GET /api/upload/from-path/folders` lists allowed roots. Pass a `path` query
+parameter to list its immediate subfolders.
+
+An accepted import returns `202 Accepted` with a job ID and a `Location` header
+for polling. Reuse the same `requestId` and options when retrying an uncertain
+submission.
 
 ## Temporary staging
 

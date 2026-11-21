@@ -5,6 +5,7 @@ using NSubstitute.ExceptionExtensions;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Ingestion.Import;
 using Romd.Admin.Application.Ingestion.Import.Commands.ImportFromPath;
+using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Ingestion.Preparation;
 using Romd.Admin.Application.Titles;
 using Romd.Application.Common.Configuration;
@@ -61,7 +62,7 @@ public sealed class PathImportAcceptanceTests : IDisposable
     private ImportFromPathCommandHandler CreateCreator() => new(
         Substitute.For<ITrackedTitleReader>(), Substitute.For<IReferenceCatalogService>(), Substitute.For<ICurrentUser>(),
         Preparation(), new JobWorkspaceExclusion(_options), _acceptance, _work, TimeProvider.System,
-        NullLogger<ImportFromPathCommandHandler>.Instance);
+        NullLogger<ImportFromPathCommandHandler>.Instance, Substitute.For<IJobRepository>());
 
     private string WorkspacePathFor(Guid jobId) =>
         Path.Combine(_dataDirectory, "temp", "jobs", jobId.ToString("N"));

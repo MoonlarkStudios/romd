@@ -3,7 +3,6 @@ import {
   Alert,
   Badge,
   Button,
-  Checkbox,
   Group,
   Progress,
   ScrollArea,
@@ -22,19 +21,24 @@ import { workspaceActionProps } from '../../components/Workspace/workspaceAction
 import { usePlatforms } from '../../hooks/api/usePlatforms';
 import { usePermissions } from '../../hooks/usePermissions';
 import { formatBytes, formatDuration, formatRate } from '../../utils/format';
-import type { useImportSession } from './useImportSession';
+import type { FileKind } from './classify';
+import { RomImportOptions } from './RomImportOptions';
+import { importFileIssue, type useImportSession } from './useImportSession';
+
+const fileKinds: Record<FileKind, string> = {
+  rom: 'ROM',
+  archive: 'Archive',
+  dat: 'DAT catalog',
+  unknown: 'Other file',
+};
 
 export function StagePanel(props: ReturnType<typeof useImportSession>) {
-  const filesInputRef = useRef<HTMLInputElement>(null);
+  const openFiles = useRef<(() => void) | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const platforms = usePlatforms();
   const { canManageTitles } = usePermissions();
   const { staged, isStarting, uploadProgress: progress, retryPending } = props;
   const locked = isStarting || retryPending;
-  const handleInput = (input: HTMLInputElement) => {
-    if (input.files) props.addFiles(Array.from(input.files));
-    input.value = '';
-  };
   return (
     <section>
       <Stack gap="md">
@@ -44,69 +48,70 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
         >
           Files to import
         </Title>
-        <Dropzone
-          disabled={locked}
-          onDrop={props.addFiles}
-          data-testid="import-dropzone"
-          styles={{
-            root: {
-              minHeight: staged.length ? 110 : 170,
-            },
+        {!locked && (
+          <Dropzone
+            onDrop={props.addFiles}
+            openRef={openFiles}
+            activateOnClick={false}
+            activateOnKeyboard={false}
+            enablePointerEvents
+            data-testid="import-dropzone"
+          >
+            <Stack
+              align="center"
+              justify="center"
+              gap="sm"
+              py="sm"
+            >
+              {staged.length === 0 && (
+                <IconArchive
+                  size={28}
+                  stroke={1.5}
+                  color="var(--mantine-primary-color-filled)"
+                  aria-hidden
+                />
+              )}
+              <Text ta="center">
+                {staged.length
+                  ? 'Drop more files here'
+                  : 'Drop ROMs, archives, or DAT catalogs here'}
+              </Text>
+              <Group
+                gap="xs"
+                justify="center"
+              >
+                <Button
+                  {...workspaceActionProps}
+                  variant="default"
+                  leftSection={<IconFiles size={16} />}
+                  onClick={() => openFiles.current?.()}
+                >
+                  Browse files
+                </Button>
+                <Button
+                  {...workspaceActionProps}
+                  variant="default"
+                  leftSection={<IconFolderPlus size={16} />}
+                  onClick={() => folderInputRef.current?.click()}
+                >
+                  Browse folder
+                </Button>
+              </Group>
+            </Stack>
+          </Dropzone>
+        )}
+        <input
+          ref={folderInputRef}
+          type="file"
+          multiple
+          hidden
+          // @ts-expect-error directory selection is supported by browsers but not React's input types
+          webkitdirectory=""
+          onChange={({ currentTarget }) => {
+            if (currentTarget.files) props.addFiles(Array.from(currentTarget.files));
+            currentTarget.value = '';
           }}
-        >
-          <Stack
-            align="center"
-            justify="center"
-            gap="xs"
-            mih={staged.length ? 78 : 138}
-            style={{
-              pointerEvents: 'none',
-            }}
-          >
-            <IconArchive
-              size={32}
-              stroke={1.5}
-              color="var(--mantine-color-teal-6)"
-            />
-            <Text fw={500}>{staged.length ? 'Add files' : 'Drop archives or ROM files'}</Text>
-          </Stack>
-        </Dropzone>
-        <Group gap="xs">
-          <Button
-            {...workspaceActionProps}
-            variant="default"
-            disabled={locked}
-            leftSection={<IconFiles size={16} />}
-            onClick={() => filesInputRef.current?.click()}
-          >
-            Browse files
-          </Button>
-          <Button
-            {...workspaceActionProps}
-            variant="default"
-            disabled={locked}
-            leftSection={<IconFolderPlus size={16} />}
-            onClick={() => folderInputRef.current?.click()}
-          >
-            Browse folder
-          </Button>
-          <input
-            ref={filesInputRef}
-            type="file"
-            multiple
-            hidden
-            onChange={(event) => handleInput(event.currentTarget)}
-          />
-          <input
-            ref={folderInputRef}
-            type="file"
-            multiple
-            hidden
-            // @ts-expect-error directory selection is supported by browsers but not React's input types
-            webkitdirectory=""
-            onChange={(event) => handleInput(event.currentTarget)}
-          />
-        </Group>
+        />
         {!!staged.length && (
           <>
             <Group justify="space-between">
@@ -114,8 +119,8 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                 size="sm"
                 c="dimmed"
               >
-                {staged.length.toLocaleString()} files ·{' '}
-                {formatBytes(staged.reduce((sum, entry) => sum + entry.file.size, 0))}
+                {staged.length.toLocaleString()} {staged.length === 1 ? 'file' : 'files'} ·{' '}
+                {formatBytes(props.totalBytes)}
               </Text>
               <Button
                 variant="subtle"
@@ -123,9 +128,30 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                 disabled={isStarting}
                 onClick={props.clearStaged}
               >
-                Clear
+                {retryPending ? 'Discard remaining files' : 'Clear'}
               </Button>
             </Group>
+            {props.stagingIssue && (
+              <Alert color="orange">
+                <Stack
+                  align="flex-start"
+                  gap="xs"
+                >
+                  {props.stagingIssue}
+                  {props.invalidCount > 0 && (
+                    <Button
+                      variant="default"
+                      size="xs"
+                      disabled={locked}
+                      onClick={props.removeInvalidFiles}
+                    >
+                      Remove {props.invalidCount.toLocaleString()} invalid{' '}
+                      {props.invalidCount === 1 ? 'file' : 'files'}
+                    </Button>
+                  )}
+                </Stack>
+              </Alert>
+            )}
             <ScrollArea.Autosize mah={280}>
               <Table
                 layout="fixed"
@@ -156,8 +182,16 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                           color="gray"
                           size="xs"
                         >
-                          {entry.kind === 'dat' ? 'DAT catalog' : entry.kind}
+                          {fileKinds[entry.kind]}
                         </Badge>
+                        {importFileIssue(entry.file) && (
+                          <Text
+                            size="xs"
+                            c="red"
+                          >
+                            {importFileIssue(entry.file)}
+                          </Text>
+                        )}
                       </Table.Td>
                       <Table.Td>{formatBytes(entry.file.size)}</Table.Td>
                       <Table.Td>
@@ -166,7 +200,7 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                             variant="subtle"
                             color="gray"
                             disabled={locked}
-                            aria-label={`Remove ${entry.file.name}`}
+                            aria-label={`Remove ${entry.file.webkitRelativePath || entry.file.name}`}
                             onClick={() => props.removeFile(entry.id)}
                           >
                             <IconX size={16} />
@@ -178,57 +212,25 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                 </Table.Tbody>
               </Table>
             </ScrollArea.Autosize>
-            <Select
-              label="ROMs to keep"
-              value={props.trackedOnly ? 'tracked' : 'all'}
-              onChange={(value) => props.setTrackedOnly(value === 'tracked')}
-              disabled={locked}
-              allowDeselect={false}
-              data={[
-                {
-                  value: 'all',
-                  label: 'Import everything',
-                },
-                {
-                  value: 'tracked',
-                  label: 'Tracked titles only',
-                },
-              ]}
-              maw={440}
-            />
-            {props.trackedOnly && (
+            {!props.stagingIssue && !locked && props.planKind === 'individual' && (
               <Text
                 size="sm"
                 c="dimmed"
               >
-                Track titles before importing. Only ROMs matching currently tracked titles are kept,
-                including matching regions and revisions. Unidentified ROMs and BIOS-only files are
-                skipped. Catalogs still import normally.
+                Each file will run as its own import. Review all {staged.length.toLocaleString()}{' '}
+                jobs here after upload.
               </Text>
             )}
-            <Group
-              gap="xl"
-              align="flex-start"
-            >
-              <Tooltip label="Track titles matched by the imported ROMs">
-                <Checkbox
-                  label="Track matched titles"
-                  checked={!props.trackedOnly && props.trackMatchedTitles}
-                  onChange={(event) => props.setTrackMatchedTitles(event.currentTarget.checked)}
-                  disabled={locked || props.trackedOnly}
-                />
-              </Tooltip>
-              {canManageTitles && (
-                <Tooltip label="Store files without a DAT match in Needs attention">
-                  <Checkbox
-                    label="Keep unmatched files"
-                    checked={!props.trackedOnly && props.allowUnidentified}
-                    onChange={(event) => props.setAllowUnidentified(event.currentTarget.checked)}
-                    disabled={locked || props.trackedOnly}
-                  />
-                </Tooltip>
-              )}
-            </Group>
+            <RomImportOptions
+              trackedOnly={props.trackedOnly}
+              setTrackedOnly={props.setTrackedOnly}
+              trackMatchedTitles={props.trackMatchedTitles}
+              setTrackMatchedTitles={props.setTrackMatchedTitles}
+              allowUnidentified={props.allowUnidentified}
+              setAllowUnidentified={props.setAllowUnidentified}
+              canKeepUnmatched={canManageTitles}
+              disabled={locked}
+            />
             {props.hasDats && (
               <Select
                 label="Assign catalogs to system"
@@ -324,6 +326,7 @@ export function StagePanel(props: ReturnType<typeof useImportSession>) {
                 {...workspaceActionProps}
                 leftSection={<IconUpload size={16} />}
                 loading={isStarting}
+                disabled={!!props.stagingIssue && !retryPending}
                 onClick={() => void props.startImport()}
               >
                 {retryPending

@@ -6,7 +6,7 @@ namespace Romd.Host.Configuration;
 /// <summary>
 ///     Configuration options for ROMD.
 /// </summary>
-public sealed class RomdOptions : IRomdOptions
+public sealed class RomdOptions : IRomdOptions, IServerImportOptions
 {
     public const string SectionName = "Romd";
 
@@ -49,6 +49,12 @@ public sealed class RomdOptions : IRomdOptions
     /// </summary>
     public string[] AllowedImportPaths { get; set; } = [];
 
+    /// <summary>The explicit drop folder used by manual checks and scheduled server imports.</summary>
+    public string? ServerImportDirectory { get; set; }
+
+    /// <summary>Optional UTC scan interval in minutes. An empty value disables the schedule.</summary>
+    public int? ServerImportIntervalMinutes { get; set; }
+
     /// <summary>
     ///     Gets the path to log files.
     /// </summary>
@@ -85,6 +91,45 @@ public sealed class RomdOptions : IRomdOptions
                 $"Invalid entries: {string.Join(", ", invalidEntries.Select(entry => $"'{entry}'"))}");
         }
     }
+
+    public void ValidateServerImportDirectory()
+    {
+        if (ServerImportIntervalMinutes is { } interval &&
+            (string.IsNullOrWhiteSpace(ServerImportDirectory) || ServerImportSchedule.ToCron(interval) is null))
+        {
+            throw new InvalidOperationException(
+                "Romd:ServerImportIntervalMinutes requires a server import directory and must be 5, 15, 30, or 60.");
+        }
+
+        if (string.IsNullOrWhiteSpace(ServerImportDirectory))
+        {
+            ServerImportDirectory = null;
+            return;
+        }
+
+        if (!Path.IsPathFullyQualified(ServerImportDirectory))
+            throw new InvalidOperationException("Romd:ServerImportDirectory must be an absolute path.");
+
+        string directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(ServerImportDirectory));
+        if (!AllowedImportPaths.Select(root => Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)))
+                .Any(root => directory.Equals(root, StringComparison.Ordinal) ||
+                    directory.StartsWith(Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar,
+                        StringComparison.Ordinal)))
+        {
+            throw new InvalidOperationException("Romd:ServerImportDirectory must be inside a configured Romd:AllowedImportPaths root.");
+        }
+
+        string data = Path.TrimEndingDirectorySeparator(Path.GetFullPath(DataDirectory));
+        if (IsAtOrBelow(directory, data) || IsAtOrBelow(data, directory))
+            throw new InvalidOperationException("Romd:ServerImportDirectory must be separate from the ROMD data directory.");
+
+        ServerImportDirectory = directory;
+    }
+
+    private static bool IsAtOrBelow(string path, string root) =>
+        path.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith(Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     ///     Ensures all required directories exist.

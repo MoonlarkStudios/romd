@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { HashRow } from '../../components/HashRow';
+import { importReceiptReturn } from '../../components/Import/importReceiptLinks';
 import { RomDownloadButtons } from '../../components/RomDownloadButtons';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { romKeys, useDeleteRom } from '../../hooks/api/useRoms';
@@ -29,9 +30,10 @@ import { formatBytes } from '../../utils/format';
 export function RomDetail() {
   const { romId = '' } = useParams();
   const [params] = useSearchParams();
+  const receipt = importReceiptReturn(params);
   const backParams = new URLSearchParams(params);
   if (!backParams.has('tab')) backParams.set('tab', 'all');
-  const back = `/roms?${backParams}`;
+  const back = receipt ?? `/roms?${backParams}`;
   const navigate = useNavigate();
   const { canManageTitles } = usePermissions();
   const deletion = useDeleteRom();
@@ -76,7 +78,7 @@ export function RomDetail() {
           w="fit-content"
           leftSection={<IconArrowLeft size={15} />}
         >
-          Back to ROMs
+          {receipt ? 'Back to import results' : 'Back to ROMs'}
         </Button>
         {query.isPending ? (
           <Skeleton height={240} />
@@ -89,7 +91,7 @@ export function RomDetail() {
               variant="subtle"
               onClick={() => void query.refetch()}
             >
-              Retry file
+              Reload file details
             </Button>
           </Alert>
         ) : !rom ? (

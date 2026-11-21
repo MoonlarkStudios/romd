@@ -571,6 +571,7 @@ public static class DependencyInjection
         services.AddScoped<IPathValidator, Import.PathValidator>();
         services.AddScoped<IImportFolderBrowser, Import.ImportFolderBrowser>();
         services.AddScoped<IPathImportPreparation, Import.PathImportPreparation>();
+        services.AddScoped<IServerImportSource, Import.ServerImportSource>();
         services.AddScoped<IEnrichmentJobEnqueuer, EnrichmentJobEnqueuer>();
         services.AddScoped<IRematerializationScheduler, RematerializationScheduler>();
         services.AddScoped<MetadataRematerializationJobRepository>();
@@ -854,6 +855,7 @@ public static class DependencyInjection
     public static IServiceCollection AddRomdRecurringJobs(this IServiceCollection services)
     {
         services.AddScoped<DatSubscriptionCheckJob>();
+        services.AddScoped<ServerImportCheckJob>();
         services.AddScoped<AdminRealtimeOutboxCleanupJob>();
         services.AddScoped<RomdOpenIddictPruneJob>();
         services.AddScoped<DatReplacementConvergenceSweepJob>();
@@ -1098,6 +1100,7 @@ public static class DependencyInjection
         services.AddScoped<UploadJobRepository>();
         services.AddScoped<IUploadJobRepository>(sp => sp.GetRequiredService<UploadJobRepository>());
         services.AddScoped<IUploadJobAcceptance>(sp => sp.GetRequiredService<UploadJobRepository>());
+        services.AddScoped<IServerImportStore, ServerImportStore>();
         services.AddScoped<IJobRepository<UploadJob>, ClaimedJobRepository<UploadJob, UploadJobRepository>>();
         services.AddScoped<ReplaceDatJobRepository>();
         services.AddScoped<IJobRepository<ReplaceDatJob>, ClaimedJobRepository<ReplaceDatJob, ReplaceDatJobRepository>>();

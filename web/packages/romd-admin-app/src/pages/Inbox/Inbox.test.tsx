@@ -201,12 +201,16 @@ describe('Inbox', () => {
 
     expect(screen.getByText('Nintendo - Super Famicom')).toBeInTheDocument();
     expect(screen.getByText('1,842 games')).toBeInTheDocument();
-    expect(screen.getByText(/blocking 312 matched ROMs/i)).toBeInTheDocument();
-    expect(screen.getByText('312 ROMs waiting')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: 'Review 312 unrouted files',
+      }),
+    ).toHaveAttribute('href', '/roms?tab=all&status=unrouted');
+    expect(screen.getByText('312 matching stored files')).toBeInTheDocument();
     expect(screen.getByText('Unidentified files (88)')).toBeInTheDocument();
   });
 
-  it('includes waiting ROM counts from every unrouted DAT page in the total', async () => {
+  it('shows catalogs across pages and uses the distinct unrouted file count', async () => {
     mockListUnroutedDats
       .mockResolvedValueOnce({
         data: {
@@ -235,9 +239,13 @@ describe('Inbox', () => {
     render(<Inbox />);
 
     expect(await screen.findByText('Unrouted DATs (2)')).toBeInTheDocument();
-    expect(screen.getByText(/blocking 319 matched ROMs/i)).toBeInTheDocument();
-    expect(screen.getByText('312 ROMs waiting')).toBeInTheDocument();
-    expect(screen.getByText('7 ROMs waiting')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: 'Review 312 unrouted files',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('312 matching stored files')).toBeInTheDocument();
+    expect(screen.getByText('7 matching stored files')).toBeInTheDocument();
     expect(mockListUnroutedDats).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
@@ -249,7 +257,7 @@ describe('Inbox', () => {
     );
   });
 
-  it('reports a real zero waiting count without a blocking aggregate', async () => {
+  it('omits the per-catalog match count when no files match', async () => {
     mockListUnroutedDats.mockResolvedValue({
       data: {
         items: [
@@ -265,11 +273,11 @@ describe('Inbox', () => {
 
     render(<Inbox />);
 
-    expect(await screen.findByText('no ROMs waiting')).toBeInTheDocument();
-    expect(screen.queryByText(/blocking .* matched ROM/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Nintendo - Super Famicom')).toBeInTheDocument();
+    expect(screen.queryByText(/matching stored files/i)).not.toBeInTheDocument();
   });
 
-  it('does not describe a missing waiting count as zero', async () => {
+  it('omits the per-catalog match count when it is unavailable', async () => {
     mockListUnroutedDats.mockResolvedValue({
       data: {
         items: [
@@ -285,9 +293,8 @@ describe('Inbox', () => {
 
     render(<Inbox />);
 
-    expect(await screen.findByText('Waiting ROM count unavailable')).toBeInTheDocument();
-    expect(screen.queryByText('no ROMs waiting')).not.toBeInTheDocument();
-    expect(screen.queryByText(/blocking .* matched ROM/)).not.toBeInTheDocument();
+    expect(await screen.findByText('Nintendo - Super Famicom')).toBeInTheDocument();
+    expect(screen.queryByText(/matching stored files/i)).not.toBeInTheDocument();
   });
 
   it('shows the caught-up state when both zones are empty', async () => {
@@ -303,6 +310,7 @@ describe('Inbox', () => {
       data: {
         ...stats,
         unidentifiedCount: 0,
+        unroutedCount: 0,
       },
       error: undefined,
     });
@@ -363,7 +371,7 @@ describe('Inbox', () => {
     });
 
     // The success toast continues the journey to the routed hub
-    expect(await screen.findByText(/312 waiting ROMs now cataloging/)).toBeInTheDocument();
+    expect(await screen.findByText('Nintendo - Super Famicom assigned.')).toBeInTheDocument();
     expect(
       await screen.findByRole('button', {
         name: /view super nintendo entertainment system/i,

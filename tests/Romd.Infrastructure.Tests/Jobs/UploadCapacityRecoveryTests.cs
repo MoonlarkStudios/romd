@@ -14,6 +14,7 @@ using Polly.Registry;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Ingestion.Classification;
 using Romd.Admin.Application.Ingestion.Extraction;
+using Romd.Admin.Application.Ingestion.Import;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Source.Rom;
 using Romd.Admin.Application.Source.Rom.Commands.IngestRom;
@@ -993,7 +994,7 @@ public sealed partial class UploadCapacityRecoveryTests : IDisposable
         var resilience = host.GetRequiredService<ResiliencePipelineProvider<string>>();
         var scopes = host.GetRequiredService<IServiceScopeFactory>();
         var staging = new PathImportStaging(_options, new PathValidator(_options), sourceFiles ?? new FileSystem(),
-            _clock, NullLogger<PathImportStaging>.Instance);
+            _clock, NullLogger<PathImportStaging>.Instance, Substitute.For<IServerImportStore>());
         var executor = new UploadJobExecutor(extraction, staging, classifier,
             new DatProcessor(host, resilience, NullLogger<DatProcessor>.Instance),
             new RomProcessor(host, resilience, NullLogger<RomProcessor>.Instance),

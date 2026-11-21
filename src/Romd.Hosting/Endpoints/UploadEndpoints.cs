@@ -1,11 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Romd.Admin.Application.Ingestion.Commands.AcceptUpload;
+using Romd.Admin.Application.Ingestion.Import;
 using Romd.Admin.Application.Ingestion.Import.Commands.ImportFromPath;
+using Romd.Admin.Application.Ingestion.Import.Commands.StartServerImport;
+using Romd.Admin.Application.Ingestion.Import.Queries.GetServerImport;
 using Romd.Admin.Application.Ingestion.Import.Queries.ListImportFolders;
 using Romd.Application.Common.Configuration;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
+using Romd.Application.Common.Security;
 using Romd.Host.Authorization;
 using Romd.Hosting;
 using Romd.Contracts.Management.Models;
@@ -79,6 +83,20 @@ public static class UploadEndpoints
             .ProducesProblems(StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
+        group.MapGet("server-folder", GetServerImport)
+            .WithName("GetServerImport")
+            .WithDescription("Read the configured server import folder and its last check.")
+            .Produces<ServerImportStatus>()
+            .RequireAuthorization(AuthorizationPolicies.RequireManager);
+
+        group.MapPost("server-folder", StartServerImport)
+            .WithName("StartServerImport")
+            .WithDescription("Import ready files from the configured server drop folder, or return the check result if there is no new job.")
+            .Produces<ServerImportStatus>()
+            .ProducesAcceptedJob()
+            .ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict)
+            .RequireAuthorization(AuthorizationPolicies.RequireManager);
+
         return app;
     }
 
@@ -131,7 +149,8 @@ public static class UploadEndpoints
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(new(request.Path, request.SystemKey, request.MaxParallelRoms ?? 4,
-            request.AllowUnidentified ?? false, request.ArchiveOnly ?? false, request.TrackedOnly ?? false, request.Move ?? false), ct);
+            request.AllowUnidentified ?? false, request.ArchiveOnly ?? false, request.TrackedOnly ?? false,
+            request.Move ?? false, request.RequestId), ct);
 
         return result.ToAccepted();
     }
@@ -140,4 +159,20 @@ public static class UploadEndpoints
         CancellationToken ct, [FromQuery, StringLength(4096)] string? path = null) =>
         (await handler.HandleAsync(new(path), ct)).Match(Results.Ok, errors => errors.ToProblem());
 
+    private static async Task<IResult> GetServerImport(
+        [FromServices] IQueryHandler<GetServerImportQuery, ServerImportView> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(new(), ct)).Match(status => Results.Ok(ToContract(status)), errors => errors.ToProblem());
+
+    private static async Task<IResult> StartServerImport(Commands.StartServerImport request,
+        [FromServices] ICommandHandler<StartServerImportCommand, ServerImportResult> handler,
+        [FromServices] ICurrentUser user, CancellationToken ct) =>
+        (await handler.HandleAsync(new(user.UserId, request.RetryJobId), ct)).Match(
+            result => result.AcceptedJobId is { } jobId ? JobAccepted.Result(jobId) : Results.Ok(ToContract(result.Status)),
+            errors => errors.ToProblem());
+
+    private static ServerImportStatus ToContract(ServerImportView status) =>
+        new(status.Directory, status.IntervalMinutes, status.NextCheckAt, status.Activity?.CheckedAt,
+            status.Activity?.Outcome.ToString(), status.Activity?.WaitingFiles ?? 0, status.Activity?.Message,
+            status.Job?.Id, status.Job?.Phase.ToString(), status.Activity?.LastQueuedFiles ?? 0,
+            status.Job is { IsTerminal: false }, status.Job?.CanRetry == true);
 }

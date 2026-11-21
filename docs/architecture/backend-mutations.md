@@ -488,7 +488,13 @@ outcome; a failed recovery read cannot establish rollback or replace that signal
 `ImportFromPathCommandHandler` checks tracked-title eligibility before resolving an
 optional body system key, captures the current actor, and inspects the allowlisted
 source before sampling acceptance time. Path import retains its existing concurrency
-values; the multipart upload range check does not apply to it.
+values. The multipart upload range check applies to browser uploads.
+
+Folder acceptance supports an optional request ID. A matching actor, normalized
+source, and options reuse the accepted job. Replay looks up the accepted job
+before inspecting the source, so acceptance can be recovered after move cleanup.
+A different actor or intent receives a conflict. New requests check again under
+the workspace lease before reserving storage or staging a dispatch.
 
 Inspection validates the source, file count and workspace capacity so the request
 fails fast, but acceptance copies no bytes: copying a large library can outlast any
@@ -504,6 +510,30 @@ suggests no acceptance; orphan cleanup owns it. Preserve the primary fault or
 cancellation token through transaction and lease cleanup. An acknowledged commit
 still returns its accepted job ID if cleanup subsequently fails.
 
+### Configured drop folder
+
+Manual checks and the worker's optional Hangfire schedule call the same
+`StartServerImportCommandHandler`. It scans source metadata before opening a
+transaction. A PostgreSQL transaction lock serializes acceptance, protects
+against stale scan results, and returns the current job while an import is
+active. The handler commits the job, dispatch, file selection, and last check
+together. Empty checks record activity without creating an import job.
+
+The selection records relative paths, sizes, and modification times at
+acceptance. Worker redelivery reads that selection by job ID and checks the
+version before and after copying. Changed files fail the copy with a receipt
+error. Checks compare ready files with existing move-job selections so retained
+files do not queue again on every scheduled check. The folder keeps only the
+last check status, with file selections tied to job retention. A manager can
+explicitly retry remaining files from the latest job when it needs review.
+
+Acceptance never waits for source bytes or removes originals. After a persisted
+completion, the worker removes each unchanged original with durable storage
+outcomes, even if other files in the batch had errors. For archives, the
+extraction checkpoint tracks the published output and the move manifest records
+its payloads before ingestion. Cleanup requires a storage outcome for every
+payload. The orphaned-job sweep can resume interrupted cleanup.
+
 ### Worker copy
 
 A path-import job starts in the `Copying` phase instead of `Extracting`.
@@ -515,7 +545,9 @@ is copied; inability to prove that removal aborts the attempt and preserves the
 original failure. Move mode then writes its fingerprint manifest beside the
 workspace; source originals stay untouched until the successful worker cleanup
 protocol permits removal. Skipped and failed sources are recorded in the same
-transition to `Extracting`, so one checkpoint persists both.
+transition to `Extracting`, so one checkpoint persists both. Recovery preserves
+these copy warnings separately from file outcomes recorded during ingestion.
+If no copy succeeds, the job reports the copy errors and stops before extraction.
 
 Any fault or cancellation empties the workspace and removes the manifest, so
 extraction never sees a partial copy and redelivery restarts the copy from the

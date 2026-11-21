@@ -2364,6 +2364,9 @@ namespace Romd.Persistence.Migrations
                     b.Property<int?>("PlatformId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("Reason")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("RomFileId")
                         .HasColumnType("integer");
 
@@ -3985,6 +3988,49 @@ namespace Romd.Persistence.Migrations
                         {
                             t.ExcludeFromMigrations();
                         });
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.ServerImportActivityEntity", b =>
+                {
+                    b.Property<string>("DirectoryKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("CheckedAt")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("JobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LastQueuedFiles")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WaitingFiles")
+                        .HasColumnType("integer");
+
+                    b.HasKey("DirectoryKey");
+
+                    b.ToTable("ServerImportActivity", "romd");
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.ServerImportSelectionEntity", b =>
+                {
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FilesJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("JobId");
+
+                    b.ToTable("ServerImportSelections", "romd");
                 });
 
             modelBuilder.Entity("Romd.Persistence.Entities.SignInMessageEntity", b =>
@@ -5821,6 +5867,15 @@ namespace Romd.Persistence.Migrations
                     b.HasOne("Romd.Persistence.Entities.RomRepresentationEntity", null)
                         .WithMany()
                         .HasForeignKey("RepresentationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.ServerImportSelectionEntity", b =>
+                {
+                    b.HasOne("Romd.Persistence.Entities.JobEntity", null)
+                        .WithOne()
+                        .HasForeignKey("Romd.Persistence.Entities.ServerImportSelectionEntity", "JobId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
