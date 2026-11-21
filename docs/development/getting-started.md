@@ -212,7 +212,7 @@ Ordinary demo runs read only the prepared manifest. Keep demo inputs separate
 from durable application data.
 
 The worker seeds the first administrator. For manual consumer access, create a library
-in **Libraries**, use **Refresh library** to publish it, and assign the account
+in **Libraries**, use **Publish library**, and assign the account
 in **People**. Sign in again after changing its library assignment. An assigned
 empty library shows an empty-games view; an unassigned account has no consumer
 library. Browser play also needs a playable entry and configured runtime.

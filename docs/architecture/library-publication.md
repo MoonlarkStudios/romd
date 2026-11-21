@@ -6,7 +6,7 @@ and [split-host topology](split-host-topology.md) for process ownership.
 
 ## Publication is explicit
 
-**Save changes** persists rules. **Refresh library** accepts a materialization
+**Save changes** persists rules. **Publish library** and **Publish changes** accept a materialization
 job, including the first publication of a new library. ROM imports and rule
 edits mark updates available without automatically scheduling publication.
 There is no periodic library refresh. The worker dispatches accepted jobs and

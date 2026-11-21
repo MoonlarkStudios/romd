@@ -386,7 +386,7 @@ overlap evidence above determines which operations may run concurrently.
 Do not add a second dispatcher to an API host.
 
 Library publication is explicit. Invalidation marks affected libraries but does
-not schedule a new materialization job; administrators choose **Refresh library**
+not schedule a new materialization job. Administrators choose **Publish changes**
 after catalog projections are Clean. The durable dispatcher recovers already
 accepted jobs. No `LibraryMaterializationReconciler` is registered.
 
