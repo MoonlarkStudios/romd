@@ -17,7 +17,7 @@ import { Link, useLocation, useParams } from 'react-router';
 import { RunPanel } from '../../components/Enrichment/RunPanel';
 import { enrichmentRunKeys } from '../../components/Enrichment/useEnrichmentRun';
 import { ImportReceipt } from '../../components/Import/ImportReceipt';
-import { importHistoryUrl } from '../../components/Import/importReceiptLinks';
+import { importHistoryUrl, serverImportUrl } from '../../components/Import/importReceiptLinks';
 import { JobRow } from '../../components/Jobs/JobRows';
 import { getJobTitle, mediaReconciliationOutcome } from '../../components/Jobs/jobTypeRegistry';
 import workspace from '../../components/Workspace/Workspace.module.css';
@@ -35,8 +35,11 @@ export function JobDetail() {
   const operations = useJobOperations();
   const { hasRole } = usePermissions();
   const job = query.data;
-  const returnUrl =
-    typeof location.state?.historyUrl === 'string' && location.state.historyUrl.startsWith('/jobs?')
+  const fromServerImport = location.state?.historyUrl === serverImportUrl;
+  const returnUrl = fromServerImport
+    ? serverImportUrl
+    : typeof location.state?.historyUrl === 'string' &&
+        location.state.historyUrl.startsWith('/jobs?')
       ? location.state.historyUrl
       : job?.jobType === 'upload'
         ? importHistoryUrl
@@ -69,7 +72,7 @@ export function JobDetail() {
           alignSelf: 'flex-start',
         }}
       >
-        Job history
+        {fromServerImport ? 'Server import folder' : 'Job history'}
       </Button>
       <Group
         className={workspace.hero}

@@ -204,6 +204,8 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
         FileEntityPersistence.Configure(modelBuilder.Entity<FileEntityPersistence>());
         AdminRealtimeOutboxEventEntity.Configure(modelBuilder.Entity<AdminRealtimeOutboxEventEntity>());
         JobItemEntity.Configure(modelBuilder.Entity<JobItemEntity>());
+        ServerImportActivityEntity.Configure(modelBuilder.Entity<ServerImportActivityEntity>());
+        ServerImportSelectionEntity.Configure(modelBuilder.Entity<ServerImportSelectionEntity>());
         AccountLinkEntity.Configure(modelBuilder.Entity<AccountLinkEntity>());
         AdminAuditEventEntity.Configure(modelBuilder.Entity<AdminAuditEventEntity>());
         PlatformFieldDefaultEntity.Configure(modelBuilder.Entity<PlatformFieldDefaultEntity>());

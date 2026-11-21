@@ -1,5 +1,5 @@
 import { MantineProvider } from '@mantine/core';
-import type { Job, LibraryStats, SystemResource } from '@romd/admin-api-client';
+import type { Job, LibraryStats, ServerImportStatus, SystemResource } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render as renderBare, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -21,6 +21,8 @@ vi.mock('@romd/admin-api-client', async () => {
     getTrackedCollectionStats: vi.fn(),
     listAdminSystems: vi.fn(),
     listImportFolders: vi.fn(),
+    getServerImport: vi.fn(),
+    startServerImport: vi.fn(),
   };
 });
 
@@ -37,10 +39,12 @@ import {
   getJob,
   getMe,
   getRomStats,
+  getServerImport,
   getTrackedCollectionStats,
   listAdminSystems,
   listImportFolders,
   listJobs,
+  startServerImport,
 } from '@romd/admin-api-client';
 import { uploadWithProgress } from '../../hooks/api/uploadWithProgress';
 
@@ -135,9 +139,31 @@ const runningJob: Job = {
   duration: null,
 };
 
+const unconfiguredServer: ServerImportStatus = {
+  directory: null,
+  intervalMinutes: null,
+  nextCheckAt: null,
+  lastCheckedAt: null,
+  lastCheckOutcome: null,
+  waitingFiles: 0,
+  message: null,
+  lastJobId: null,
+  lastJobPhase: null,
+  lastQueuedFiles: 0,
+  isRunning: false,
+  canRetry: false,
+};
+
+function mockServerStatus(data: ServerImportStatus) {
+  vi.mocked(getServerImport).mockResolvedValue({
+    data,
+  } as Awaited<ReturnType<typeof getServerImport>>);
+}
+
 describe('ImportPage', () => {
   beforeEach(() => {
     permissions.canManageTitles = true;
+    mockServerStatus(unconfiguredServer);
     vi.mocked(listImportFolders).mockResolvedValue({
       data: {
         enabled: false,
@@ -219,6 +245,110 @@ describe('ImportPage', () => {
       }),
     ).not.toBeInTheDocument();
     expect(listImportFolders).not.toHaveBeenCalled();
+    expect(getServerImport).not.toHaveBeenCalled();
+  });
+
+  it('checks the configured folder in one step and preserves the last receipt on an idle result', async () => {
+    const user = userEvent.setup();
+    const lastJobId = '2fa2e739-af69-404d-83af-43262ab28d46';
+    const profile = {
+      ...unconfiguredServer,
+      directory: '/incoming',
+      intervalMinutes: 15,
+      nextCheckAt: '2026-11-20T12:15:00Z',
+      lastJobId,
+      lastJobPhase: 'Completed',
+      lastQueuedFiles: 3,
+    };
+    mockServerStatus(profile);
+    vi.mocked(startServerImport).mockResolvedValue({
+      data: {
+        ...profile,
+        lastCheckOutcome: 'NoNewFiles',
+        lastCheckedAt: '2026-11-20T12:00:00Z',
+      },
+    } as Awaited<ReturnType<typeof startServerImport>>);
+    render(<ImportPage />, {
+      routerOptions: {
+        initialEntries: [
+          '/roms/import?source=server',
+        ],
+      },
+    });
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Server import folder',
+      }),
+    ).toBeVisible();
+
+    expect(screen.getByText('/incoming')).toBeVisible();
+    expect(screen.getByText(/Checks every 15 minutes/)).toBeVisible();
+    expect(
+      screen.queryByRole('heading', {
+        name: 'Import from a server folder',
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Import from server folder',
+      }),
+    );
+
+    expect(await screen.findByText('No new files')).toBeInTheDocument();
+    expect(startServerImport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: {},
+      }),
+    );
+    expect(
+      screen.getByRole('link', {
+        name: 'View last import',
+      }),
+    ).toHaveAttribute('href', `/jobs/${lastJobId}#import-results`);
+  });
+
+  it('retries the displayed failed job and opens the resulting import', async () => {
+    const user = userEvent.setup();
+    const lastJobId = '2fa2e739-af69-404d-83af-43262ab28d46';
+    const jobId = '0fb66e70-36b7-4869-9b81-9f7d0db819b8';
+    mockServerStatus({
+      ...unconfiguredServer,
+      directory: '/incoming',
+      lastJobId,
+      lastJobPhase: 'Failed',
+      canRetry: true,
+    });
+    vi.mocked(startServerImport).mockResolvedValue({
+      data: {
+        jobId,
+      },
+    } as Awaited<ReturnType<typeof startServerImport>>);
+    render(<ImportPage />);
+    await user.click(
+      await screen.findByRole('tab', {
+        name: 'Server folder',
+      }),
+    );
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Retry last import',
+      }),
+    );
+
+    expect(await screen.findByText('Running')).toBeInTheDocument();
+    expect(startServerImport).toHaveBeenCalledWith({
+      body: {
+        retryJobId: lastJobId,
+      },
+    });
+    expect(getJob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: {
+          jobId,
+        },
+      }),
+    );
   });
 
   it('keeps both drafts while switching between the device and a server folder', async () => {

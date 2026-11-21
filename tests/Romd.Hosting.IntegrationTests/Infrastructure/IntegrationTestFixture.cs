@@ -57,6 +57,8 @@ public class IntegrationTestFixture : WebApplicationFactory<Romd.Admin.Host.Prog
     /// <summary>Allowlisted root (Romd:AllowedImportPaths) for path-import tests.</summary>
     public string ImportRootPath => Path.Combine(_tempDataDirectory, "import-root");
 
+    public string ServerImportPath => _tempDataDirectory + "-inbox";
+
     // Every fixture gets its own PostgreSQL database copy and data directory for full isolation.
 
     public async Task InitializeAsync()
@@ -134,6 +136,9 @@ public class IntegrationTestFixture : WebApplicationFactory<Romd.Admin.Host.Prog
             _database!.ConnectionString);
         builder.UseSetting("Romd:AllowedImportPaths:0", ImportRootPath);
         Directory.CreateDirectory(ImportRootPath);
+        builder.UseSetting("Romd:AllowedImportPaths:1", ServerImportPath);
+        builder.UseSetting("Romd:ServerImportDirectory", ServerImportPath);
+        Directory.CreateDirectory(ServerImportPath);
 
         // JWT settings - single source of truth via RomdOptions
         builder.UseSetting("Romd:JwtSecret", TestJwtSecret);
@@ -211,6 +216,8 @@ public class IntegrationTestFixture : WebApplicationFactory<Romd.Admin.Host.Prog
                 {
                     Directory.Delete(_tempDataDirectory, true);
                 }
+                if (Directory.Exists(ServerImportPath))
+                    Directory.Delete(ServerImportPath, true);
             }
             catch
             {

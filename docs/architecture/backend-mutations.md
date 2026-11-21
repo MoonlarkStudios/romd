@@ -510,6 +510,22 @@ suggests no acceptance; orphan cleanup owns it. Preserve the primary fault or
 cancellation token through transaction and lease cleanup. An acknowledged commit
 still returns its accepted job ID if cleanup subsequently fails.
 
+### Configured drop folder
+
+Manual checks and the worker's optional Hangfire schedule call the same
+`StartServerImportCommandHandler`. It scans source metadata before opening a
+transaction. A PostgreSQL transaction lock serializes acceptance, protects
+against stale scan results, and returns the current job while an import is
+active. The handler commits the job, dispatch, file selection, and last check
+together. Empty checks record activity without creating an import job.
+
+The selection records relative paths, sizes, and modification times at
+acceptance. Worker redelivery reads that selection by job ID and checks the
+version before and after copying. Changed files fail the copy with a receipt
+error. The scheduled path skips unchanged submitted versions. A manager can
+explicitly retry the last failed selection while its receipt is retained.
+Acceptance never waits for source bytes or removes originals.
+
 ### Worker copy
 
 A path-import job starts in the `Copying` phase instead of `Extracting`.

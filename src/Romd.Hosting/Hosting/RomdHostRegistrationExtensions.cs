@@ -73,9 +73,11 @@ public static class RomdHostRegistrationExtensions
         Validator.ValidateObject(romdOptions, new ValidationContext(romdOptions), validateAllProperties: true);
         validate?.Invoke(environment, romdOptions, configuration);
         romdOptions.ValidateAllowedImportPaths();
+        romdOptions.ValidateServerImportDirectory();
         romdOptions.EnsureDirectoriesExist();
 
         services.AddSingleton<IRomdOptions>(romdOptions);
+        services.AddSingleton<IServerImportOptions>(romdOptions);
 
         return romdOptions;
     }

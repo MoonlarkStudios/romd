@@ -4,7 +4,10 @@ using Romd.Admin.Application.Ingestion.Import;
 namespace Romd.Infrastructure.Import;
 
 /// <summary>A candidate import file with its path relative to the import source root.</summary>
-public sealed record ImportFile(string AbsolutePath, string RelativePath, long SizeBytes);
+public sealed record ImportFile(string AbsolutePath, string RelativePath, long SizeBytes)
+{
+    public DateTime LastWriteTimeUtc { get; init; }
+}
 
 /// <summary>Importable files plus per-entry skip reasons surfaced as job errors.</summary>
 public sealed record ImportEnumeration(
@@ -25,7 +28,8 @@ public sealed class ImportSourceEnumerator
 
     public ImportSourceEnumerator(IPathValidator pathValidator) => _pathValidator = pathValidator;
 
-    public ErrorOr<ImportEnumeration> Enumerate(string sourceRoot, int maxObservedEntries, CancellationToken ct)
+    public ErrorOr<ImportEnumeration> Enumerate(
+        string sourceRoot, int maxObservedEntries, CancellationToken ct, Func<string, bool>? include = null)
     {
         var files = new List<ImportFile>();
         var skipped = new List<(string Path, string Reason)>();
@@ -45,6 +49,9 @@ public sealed class ImportSourceEnumerator
                     {
                         return ImportErrors.TooManyFiles(observed, maxObservedEntries);
                     }
+
+                    if (include is not null && !include(entry))
+                        continue;
 
                     if (Directory.Exists(entry))
                     {
@@ -88,7 +95,11 @@ public sealed class ImportSourceEnumerator
 
         try
         {
-            files.Add(new ImportFile(entry, Path.GetRelativePath(sourceRoot, entry), new FileInfo(entry).Length));
+            var info = new FileInfo(entry);
+            files.Add(new ImportFile(entry, Path.GetRelativePath(sourceRoot, entry), info.Length)
+            {
+                LastWriteTimeUtc = info.LastWriteTimeUtc
+            });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

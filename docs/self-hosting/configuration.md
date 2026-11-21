@@ -27,8 +27,9 @@ The server uses PostgreSQL 18. The current application schema starts with
 `20261031050000_FreshMediaBaseline` and includes the additive
 `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
 `20261117000000_JobDispatchExpiryIndex`, `20261118000000_SystemHardwareMetadata`,
-`20261118194850_SignInMessage`, `20261120162632_MediaCollection`, and
-`20261121030000_ImportOutcomeReasons` migrations (readiness version 79).
+`20261118194850_SignInMessage`, `20261120162632_MediaCollection`,
+`20261121030000_ImportOutcomeReasons`, and `20261121040529_ServerImportInbox`
+migrations (readiness version 80).
 The Saturn migration adds distinct nullable observations without backfilling
 or rewriting existing PS1 evidence.
 Earlier migration chains, unversioned populated databases and baseline downgrades
@@ -265,6 +266,27 @@ one allowed root is configured.
 | JSON path | Environment variable | Default | Description |
 | --- | --- | --- | --- |
 | `Romd:AllowedImportPaths` | `Romd__AllowedImportPaths__0`, `__1`, … | Empty (feature disabled) | Absolute directories that server-side imports may read from. Every imported path must be canonically contained under one of these roots; symbolic links anywhere on the path are rejected. |
+| `Romd:ServerImportDirectory` | `Romd__ServerImportDirectory` | Empty | Absolute drop folder used by **Import from server folder**. It must be under an allowed import root and separate from the ROMD data directory. |
+| `Romd:ServerImportIntervalMinutes` | `Romd__ServerImportIntervalMinutes` | Empty (manual only) | Enables worker checks every 5, 15, 30, or 60 minutes on UTC clock boundaries. Requires a configured drop folder. |
+
+Set the drop folder and, optionally, the interval on both the admin and worker
+hosts. Mount the same directory at the same container path. For a read-only
+mount at `/incoming`, set `Romd__AllowedImportPaths__0=/incoming` and
+`Romd__ServerImportDirectory=/incoming` on both services.
+
+Publish complete files by writing outside the drop folder and renaming them into
+it on the same filesystem. A hidden staging directory under the same mount also
+works. ROMD skips hidden entries, waits for nonempty files with at least a minute
+since the last write, and defers common temporary extensions such as `.partial`.
+Publish multi-file disc sets together in a directory or archive. When changing
+an existing file, publish it with a fresh modification time. ROMD identifies
+previously submitted versions by relative path, size, and modification time.
+
+Manual and scheduled checks use the same file selection and keep source
+originals. Admin shows the last check, the next scheduled check when enabled,
+and the latest import receipt. Use **Retry last import** to resubmit the
+unchanged files still present from a failed or stopped run. Use **Browse server
+folders** for a one-off import with different settings.
 
 In a split-host deployment the admin host validates an import and accepts the
 job; the worker host copies the source into the job workspace (the import's

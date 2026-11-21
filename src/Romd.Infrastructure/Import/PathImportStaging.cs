@@ -17,7 +17,7 @@ namespace Romd.Infrastructure.Import;
 /// </summary>
 public sealed class PathImportStaging(
     IRomdOptions options, IPathValidator validator, IFileSystem fileSystem,
-    TimeProvider clock, ILogger<PathImportStaging> logger)
+    TimeProvider clock, ILogger<PathImportStaging> logger, IServerImportStore serverImports)
 {
     /// <summary>Issues to record on the job, in source order: skipped entries, then failed copies.</summary>
     public sealed record StagedSource(bool HasFiles, ImmutableArray<JobError> Issues);
@@ -32,7 +32,10 @@ public sealed class PathImportStaging(
             throw new ArgumentException("The workspace does not belong to this job.", nameof(workspace));
 
         Reset(dataDirectory, job.Id, workspace);
-        var inspected = PathImportFiles.Inspect(dataDirectory, sourcePath, validator, fileSystem, ct);
+        var selection = await serverImports.ReadSelectionAsync(job.Id, ct);
+        var inspected = selection is null
+            ? PathImportFiles.Inspect(dataDirectory, sourcePath, validator, fileSystem, ct)
+            : PathImportFiles.InspectSelection(dataDirectory, sourcePath, selection, validator, fileSystem);
         if (inspected.IsError)
             return inspected.Errors;
         var plan = inspected.Value;
