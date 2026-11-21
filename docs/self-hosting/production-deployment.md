@@ -130,7 +130,9 @@ Optional IGDB credentials can be supplied to admin and worker; leave both empty
 to manage them through **Integrations**. For path imports, mount the source at the
 same container path on admin and worker and configure `Romd__AllowedImportPaths__*`
 on both. Set the same [drop-folder and interval settings](configuration.md#path-import)
-on both services to enable one-click or scheduled imports. Removing a `romd-secrets-*` volume does not rotate a database
+on both services to enable one-click or scheduled imports. Mount the drop
+folder read-write on the worker so it can remove stored files.
+Removing a `romd-secrets-*` volume does not rotate a database
 password: the initialized PostgreSQL cluster keeps the old one and the hosts can
 no longer connect. Remove those volumes only together with the database volume.
 
@@ -550,8 +552,8 @@ The current schema starts at `20261031050000_FreshMediaBaseline` with the
 additive `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
 `20261117000000_JobDispatchExpiryIndex`, `20261118000000_SystemHardwareMetadata`,
 `20261118194850_SignInMessage`, `20261120162632_MediaCollection`,
-`20261121030000_ImportOutcomeReasons`, and `20261121040529_ServerImportInbox`
-migrations (readiness version 80).
+`20261121030000_ImportOutcomeReasons`, `20261121040529_ServerImportInbox`, and
+`20261121060000_RemoveServerImportFileHistory` migrations (readiness version 81).
 The Saturn migration preserves PS1 observations and adds distinct Saturn fields.
 The sign-in message starts blank. Existing title media stays title-level and
 unpreferred after the media collection migration.

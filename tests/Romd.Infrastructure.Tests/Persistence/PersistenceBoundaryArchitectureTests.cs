@@ -146,6 +146,8 @@ public sealed class PersistenceBoundaryArchitectureTests
         Sql(Persistence + "Repositories/CollectionRepository.cs", "CollectionRepository", "LockForItemMutationStagedAsync", "SqlQuery"),
         // Parameterized visible-job root lock revalidates cancellation under the caller's transaction.
         Sql(Persistence + "Repositories/JobCancellationStore.cs", "JobCancellationStore", "LockVisibleForCancellationStagedAsync", "SqlQuery"),
+        // Set-based matching against the existing per-job selections avoids a second folder history.
+        Sql(Persistence + "Repositories/ServerImportStore.cs", "ServerImportStore", "FindUnsubmittedFilesAsync", "SqlQuery"),
         // Parameterized key-share lock retains selected cover media through the caller-owned collection transaction.
         Sql(Persistence + "Queries/CollectionCoverMediaReader.cs", "CollectionCoverMediaReader", "LockStagedAsync", "SqlQuery"),
         // Parameterized region and language row locks for merges and alias writes; each repository supplies its

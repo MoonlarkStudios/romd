@@ -52,7 +52,7 @@ public sealed class PathImportStaging(
                 Reset(dataDirectory, job.Id, workspace);
                 return new StagedSource(false, issues.ToImmutable());
             }
-            await PathImportFiles.WriteManifestAsync(plan, job.Id, job.ImportMove, copied, ct);
+            await PathImportFiles.WriteManifestAsync(plan, job.Id, job.ImportMove, selection is not null, copied, ct);
         }
         catch (Exception primary)
         {
@@ -90,7 +90,7 @@ public sealed class PathImportStaging(
         }
         JobWorkspace.DeleteExtractionCheckpoint(workspace);
         string manifest = ImportManifest.PathFor(dataDirectory, jobId);
-        if (File.Exists(manifest))
-            File.Delete(manifest);
+        File.Delete(manifest);
+        File.Delete(manifest + ".pending");
     }
 }

@@ -4011,10 +4011,6 @@ namespace Romd.Persistence.Migrations
                     b.Property<int>("Outcome")
                         .HasColumnType("integer");
 
-                    b.Property<string>("SubmittedFilesJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
                     b.Property<int>("WaitingFiles")
                         .HasColumnType("integer");
 

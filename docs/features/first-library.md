@@ -33,9 +33,10 @@ Use **Import files** on the Dashboard or the import action in **ROMs**. Select
 the target system and upload your files or supported ZIP/7z archives. Large
 collections can skip the browser transfer. On the **Server folder** tab,
 Managers can choose **Import from server folder** to check the configured drop
-folder or **Browse server folders** for a one-off import. ROMD copies files in
-the background and keeps the originals. The operator can also enable automatic
-checks in the [server configuration](../self-hosting/configuration.md#path-import).
+folder or **Browse server folders** to copy from another folder. ROMD clears
+stored files from the configured drop folder and leaves files that need review.
+The operator can enable automatic checks in the
+[server configuration](../self-hosting/configuration.md#path-import).
 
 Wait for the job to complete and inspect its file outcomes. ROMD matches
 content against the catalog by checksum. Import failures or unmatched files

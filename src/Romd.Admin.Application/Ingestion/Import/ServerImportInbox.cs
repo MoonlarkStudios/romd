@@ -24,9 +24,10 @@ public sealed record ServerImportActivity(
     DateTimeOffset CheckedAt, ServerImportCheck Outcome, int WaitingFiles, string? Message,
     Guid? JobId, int LastQueuedFiles);
 
-public sealed record ServerImportJob(Guid Id, UploadPhase Phase, bool IsTerminal)
+public sealed record ServerImportJob(Guid Id, UploadPhase Phase, bool IsTerminal, bool HasRejectedFiles = false)
 {
-    public bool CanRetry => Phase is UploadPhase.CompletedWithErrors or UploadPhase.Failed or UploadPhase.Cancelled;
+    public bool CanRetry => HasRejectedFiles && Phase == UploadPhase.Completed ||
+        Phase is UploadPhase.CompletedWithErrors or UploadPhase.Failed or UploadPhase.Cancelled;
 }
 
 public sealed record ServerImportView(
@@ -50,9 +51,9 @@ public interface IServerImportStore
     Task AcquireAcceptanceLockAsync(CancellationToken ct);
     Task<ServerImportActivity?> ReadActivityAsync(string directory, CancellationToken ct);
     Task<ServerImportJob?> ReadJobAsync(Guid? jobId, CancellationToken ct);
-    Task<IReadOnlyList<ServerImportFile>> ReadSubmittedFilesAsync(string directory, CancellationToken ct);
+    Task<IReadOnlyList<ServerImportFile>> FindUnsubmittedFilesAsync(
+        string directory, IReadOnlyList<ServerImportFile> ready, CancellationToken ct);
     Task<ServerImportSelection?> ReadSelectionAsync(Guid jobId, CancellationToken ct);
-    Task StageActivityAsync(string directory, ServerImportActivity activity,
-        IReadOnlyList<ServerImportFile>? submittedFiles, CancellationToken ct);
+    Task StageActivityAsync(string directory, ServerImportActivity activity, CancellationToken ct);
     void StageSelection(Guid jobId, ServerImportSelection selection);
 }

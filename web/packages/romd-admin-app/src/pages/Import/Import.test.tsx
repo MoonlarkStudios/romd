@@ -282,6 +282,7 @@ describe('ImportPage', () => {
     ).toBeVisible();
 
     expect(screen.getByText('/incoming')).toBeVisible();
+    expect(screen.getByText(/removes files from this folder after storing them/)).toBeVisible();
     expect(screen.getByText(/Checks every 15 minutes/)).toBeVisible();
     expect(
       screen.queryByRole('heading', {

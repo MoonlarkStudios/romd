@@ -70,7 +70,6 @@ public sealed class StartServerImportCommandHandler(
                 return await FinishCheckAsync(ServerImportCheck.Failed, 0, scan.FirstError.Description);
 
             var snapshot = scan.Value;
-            var seen = (await store.ReadSubmittedFilesAsync(directory, ct)).ToDictionary(file => file.RelativePath, StringComparer.Ordinal);
             IReadOnlyList<ServerImportFile> candidates;
             if (command.RetryJobId is { } retry)
             {
@@ -80,15 +79,7 @@ public sealed class StartServerImportCommandHandler(
             }
             else
             {
-                candidates = snapshot.Files.Where(file => !seen.TryGetValue(file.RelativePath, out var earlier) || earlier != file).ToArray();
-            }
-
-            IReadOnlyList<ServerImportFile>? submitted = null;
-            if (snapshot.Warning is null)
-            {
-                var present = snapshot.Files.Select(file => file.RelativePath).ToHashSet(StringComparer.Ordinal);
-                if (seen.Keys.Any(path => !present.Contains(path)))
-                    submitted = seen.Values.Where(file => present.Contains(file.RelativePath)).ToArray();
+                candidates = await store.FindUnsubmittedFilesAsync(directory, snapshot.Files, ct);
             }
 
             if (candidates.Count == 0)
@@ -101,7 +92,7 @@ public sealed class StartServerImportCommandHandler(
                     : snapshot.WaitingFiles > 0
                         ? ServerImportCheck.WaitingForFiles
                         : ServerImportCheck.NoNewFiles;
-                return await FinishCheckAsync(check, snapshot.WaitingFiles, message, submitted);
+                return await FinishCheckAsync(check, snapshot.WaitingFiles, message);
             }
 
             var capacity = source.ValidateCapacity(candidates);
@@ -111,20 +102,15 @@ public sealed class StartServerImportCommandHandler(
             string folderName = Path.GetFileName(directory);
             string name = string.IsNullOrEmpty(folderName) ? "Server import folder" : $"{folderName}/";
             var job = UploadJob.Create(name, checkedAt, createdByUserId: command.ActorId, requestId: jobId);
-            job.SetImportSource(directory, move: false);
+            job.SetImportSource(directory, move: true);
             lease = await exclusion.AcquireAsync(jobId, ct);
             workspace = await preparation.ReserveAsync(jobId, lease, ct);
-
-            if (submitted is not null)
-                seen = submitted.ToDictionary(file => file.RelativePath, StringComparer.Ordinal);
-            foreach (var file in candidates)
-                seen[file.RelativePath] = file;
 
             var activity = new ServerImportActivity(
                 checkedAt, ServerImportCheck.Queued, snapshot.WaitingFiles, snapshot.Warning, jobId, candidates.Count);
             await acceptance.AddStagedAsync(job, ct);
             store.StageSelection(jobId, new ServerImportSelection(candidates));
-            await store.StageActivityAsync(directory, activity, seen.Values.ToArray(), ct);
+            await store.StageActivityAsync(directory, activity, ct);
             ct.ThrowIfCancellationRequested();
             commitAttempted = true;
             await transaction.CommitAsync(ct);
@@ -133,11 +119,11 @@ public sealed class StartServerImportCommandHandler(
                 new ServerImportJob(jobId, UploadPhase.Pending, IsTerminal: false)), jobId);
 
             async Task<ServerImportResult> FinishCheckAsync(
-                ServerImportCheck result, int waiting, string? message, IReadOnlyList<ServerImportFile>? files = null)
+                ServerImportCheck result, int waiting, string? message)
             {
                 var activity = new ServerImportActivity(checkedAt, result, waiting, message, previous?.JobId,
                     previous?.LastQueuedFiles ?? 0);
-                await store.StageActivityAsync(directory, activity, files, ct);
+                await store.StageActivityAsync(directory, activity, ct);
                 ct.ThrowIfCancellationRequested();
                 commitAttempted = true;
                 await transaction.CommitAsync(ct);

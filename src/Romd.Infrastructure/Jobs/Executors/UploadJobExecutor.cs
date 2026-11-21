@@ -143,13 +143,18 @@ public sealed class UploadJobExecutor : IJobExecutor<UploadJob>
             {
                 await WithHeartbeatAsync(async token =>
                 {
-                    await _extraction.ExtractRecursivelyAsync(workDirectory, token, async (path, updateToken) =>
+                    string manifestPath = ImportManifest.PathForWorkspace(workDirectory);
+                    var manifest = job.ImportMove ? await ImportManifest.ReadAsync(manifestPath, token) : null;
+                    bool serverMove = manifest is { Version: ImportManifest.CurrentVersion, ServerFolder: true };
+                    var archiveRoots = await _extraction.ExtractRecursivelyAsync(workDirectory, token, async (path, updateToken) =>
                     {
                         await extractionGate.WaitAsync(updateToken);
                         try
                         { job.SetCurrentItem(path); await CheckpointExtractionAsync(updateToken); }
                         finally { extractionGate.Release(); }
-                    });
+                    }, recordArchiveRoots: serverMove);
+                    if (serverMove)
+                        await manifest!.RecordArchiveMembersAsync(manifestPath, workDirectory, archiveRoots, token);
                 }, async token =>
                 {
                     await extractionGate.WaitAsync(token);

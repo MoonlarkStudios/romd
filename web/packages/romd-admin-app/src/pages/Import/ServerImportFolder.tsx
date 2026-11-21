@@ -58,7 +58,10 @@ export function ServerImportFolder({
       : status.lastCheckOutcome
         ? (checkLabels[status.lastCheckOutcome] ?? 'Folder checked')
         : 'Ready to check';
-  const lastImport = status.lastJobPhase && importLabels[status.lastJobPhase];
+  const lastImport =
+    status.lastJobPhase === 'Completed' && status.canRetry
+      ? 'Last import has files to review'
+      : status.lastJobPhase && importLabels[status.lastJobPhase];
 
   return (
     <Stack gap="md">
@@ -81,7 +84,7 @@ export function ServerImportFolder({
           size="sm"
           c="dimmed"
         >
-          ROMD copies ready files and keeps the originals.
+          ROMD removes files from this folder after storing them. Files that need review stay here.
         </Text>
       </Stack>
       <Stack

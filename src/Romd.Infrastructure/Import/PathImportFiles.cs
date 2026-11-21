@@ -186,12 +186,15 @@ internal static class PathImportFiles
     }
 
     internal static Task WriteManifestAsync(
-        InspectedPathImport plan, Guid jobId, bool move, List<ImportManifestEntry> copied, CancellationToken ct)
+        InspectedPathImport plan, Guid jobId, bool move, bool serverFolder, List<ImportManifestEntry> copied, CancellationToken ct)
     {
         if (!move)
             return Task.CompletedTask;
         var manifest = new ImportManifest(ImportManifest.CurrentVersion, plan.AllowedRoot,
-            ImportManifest.NormalizeRelativePath(Path.GetRelativePath(plan.AllowedRoot, plan.Facts.SourceRoot)), move, copied);
+            ImportManifest.NormalizeRelativePath(Path.GetRelativePath(plan.AllowedRoot, plan.Facts.SourceRoot)), move, copied)
+        {
+            ServerFolder = serverFolder
+        };
         return ImportManifest.WriteAsync(ImportManifest.PathFor(plan.DataDirectory, jobId), manifest, ct);
     }
 

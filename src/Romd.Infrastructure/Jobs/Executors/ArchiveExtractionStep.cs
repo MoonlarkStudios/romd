@@ -42,8 +42,8 @@ public sealed class ArchiveExtractionStep
         _logger = logger;
     }
 
-    public async Task ExtractRecursivelyAsync(string directory, CancellationToken ct,
-        Func<string, CancellationToken, Task>? onArchive = null)
+    public async Task<IReadOnlyDictionary<string, string>> ExtractRecursivelyAsync(string directory, CancellationToken ct,
+        Func<string, CancellationToken, Task>? onArchive = null, bool recordArchiveRoots = false)
     {
         directory = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
         var state = await ArchiveExtractionJournal.ReadAsync(directory, _limits, ct);
@@ -53,6 +53,8 @@ public sealed class ArchiveExtractionStep
             (long stagedEntryCount, List<string> archives) = ScanStagedWorkspace(directory);
             var initialBudget = new ExtractionBudget(_limits, availableBytes, stagedEntryCount);
             state = ArchiveExtractionJournal.Create(directory, _limits, initialBudget, archives);
+            if (recordArchiveRoots)
+                state = state with { PublishedRoots = new Dictionary<string, string>(StringComparer.Ordinal) };
             await state.SaveAsync(ct);
         }
 
@@ -86,7 +88,7 @@ public sealed class ArchiveExtractionStep
             if (File.Exists(target))
                 throw new JobPermanentFailureException("The extraction output path was replaced by a file.");
 
-            await ExtractArchiveAsync(source, directory, target, budget, ct);
+            await ExtractArchiveAsync(source, directory, target, budget, recordArchiveRoots, ct);
             foreach (string output in Directory.EnumerateFiles(target, "*", SearchOption.AllDirectories))
                 if (Path.GetRelativePath(directory, output).Length > Romd.Domain.Jobs.JobItem.MaxFileNameLength)
                     throw new JobPermanentFailureException("An extracted upload path exceeds the 1000-character journal limit.");
@@ -99,6 +101,8 @@ public sealed class ArchiveExtractionStep
                 RemainingEntries = budget.RemainingEntries,
                 RemainingBytes = budget.RemainingBytes
             };
+            if (archive.Depth == 1)
+                state.PublishedRoots?.Add(archive.Source, archive.Target);
             await state.SaveAsync(ct);
             state.FinishSourceCleanup();
             state = state with { Cleanup = null };
@@ -106,6 +110,7 @@ public sealed class ArchiveExtractionStep
         // Empty queue is also a checkpoint: a crash before the DB phase transition must not
         // rescan extracted archives as new inputs or reset cumulative quotas/depth.
         await state.SaveAsync(ct);
+        return state.PublishedRoots ?? [];
     }
 
     private async Task ExtractArchiveAsync(
@@ -113,6 +118,7 @@ public sealed class ArchiveExtractionStep
         string workspaceDirectory,
         string targetDir,
         ExtractionBudget budget,
+        bool requireCompleteExtraction,
         CancellationToken ct)
     {
         string archiveName = Path.GetFileName(file);
@@ -148,7 +154,9 @@ public sealed class ArchiveExtractionStep
 
             await using (var stream = File.OpenRead(file))
             {
-                await extractor.ExtractAllAsync(stream, targetDir, budget, ct);
+                var extracted = await extractor.ExtractAllAsync(stream, targetDir, budget, ct);
+                if (requireCompleteExtraction && extracted.Count != declared.EntryCount)
+                    throw new InvalidDataException($"'{archiveName}' contains entries that could not be safely extracted.");
             }
 
         }

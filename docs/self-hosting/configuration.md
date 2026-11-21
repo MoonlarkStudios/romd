@@ -28,8 +28,8 @@ The server uses PostgreSQL 18. The current application schema starts with
 `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
 `20261117000000_JobDispatchExpiryIndex`, `20261118000000_SystemHardwareMetadata`,
 `20261118194850_SignInMessage`, `20261120162632_MediaCollection`,
-`20261121030000_ImportOutcomeReasons`, and `20261121040529_ServerImportInbox`
-migrations (readiness version 80).
+`20261121030000_ImportOutcomeReasons`, `20261121040529_ServerImportInbox`, and
+`20261121060000_RemoveServerImportFileHistory` migrations (readiness version 81).
 The Saturn migration adds distinct nullable observations without backfilling
 or rewriting existing PS1 evidence.
 Earlier migration chains, unversioned populated databases and baseline downgrades
@@ -270,9 +270,11 @@ one allowed root is configured.
 | `Romd:ServerImportIntervalMinutes` | `Romd__ServerImportIntervalMinutes` | Empty (manual only) | Enables worker checks every 5, 15, 30, or 60 minutes on UTC clock boundaries. Requires a configured drop folder. |
 
 Set the drop folder and, optionally, the interval on both the admin and worker
-hosts. Mount the same directory at the same container path. For a read-only
-mount at `/incoming`, set `Romd__AllowedImportPaths__0=/incoming` and
-`Romd__ServerImportDirectory=/incoming` on both services.
+hosts. Mount the same directory at the same container path. For a mount at
+`/incoming`, set `Romd__AllowedImportPaths__0=/incoming` and
+`Romd__ServerImportDirectory=/incoming` on both services. Give the worker write
+access to the drop folder so it can remove stored files. The admin host only
+needs read access.
 
 Publish complete files by writing outside the drop folder and renaming them into
 it on the same filesystem. A hidden staging directory under the same mount also
@@ -282,11 +284,17 @@ Publish multi-file disc sets together in a directory or archive. When changing
 an existing file, publish it with a fresh modification time. ROMD identifies
 previously submitted versions by relative path, size, and modification time.
 
-Manual and scheduled checks use the same file selection and keep source
-originals. Admin shows the last check, the next scheduled check when enabled,
-and the latest import receipt. Use **Retry last import** to resubmit the
-unchanged files still present from a failed or stopped run. Use **Browse server
-folders** for a one-off import with different settings.
+Manual and scheduled checks both move files into ROMD. The worker removes
+each original after confirming its contents are stored, including duplicates.
+For an archive, every extracted file must be accounted for before the worker
+removes the archive. Files that fail, change during import, or need review
+stay in the folder. Empty subdirectories stay in place.
+
+Admin shows the last check, the next scheduled check and the latest receipt.
+An unchanged file left in the folder is skipped while its move job is retained.
+Use **Retry last import** when offered, or publish the file again with a fresh
+modification time. Files left by an earlier copy-only run can be processed on
+the next check. Use **Browse server folders** for a one-off copy.
 
 In a split-host deployment the admin host validates an import and accepts the
 job; the worker host copies the source into the job workspace (the import's

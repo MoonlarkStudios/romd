@@ -101,12 +101,14 @@ permanent; recoverable I/O failures use the existing bounded retry protocol.
 
 Path imports stage a copy even in move mode. The worker makes that copy in the
 job's Copying phase, after the request has returned, and restarts it from the
-source if the attempt is interrupted. Cleanup requires a persisted
-`Completed` phase, a direct durable-storage outcome for the original manifest
-entry, and matching source fingerprint/containment checks. ZIP and 7z archive
-originals are conservatively retained: member outcomes do not prove storage of
-the archive itself. Failed/unsupported sources remain undeleted. Ordinary source
-files with direct successful outcomes follow the existing move-mode rules.
+source if the attempt is interrupted. Cleanup checks that originals are
+unchanged and still inside the allowed source. For the configured drop folder,
+a completed import removes each source whose payloads are all stored. This
+includes ZIP and 7z files whose complete extraction and every extracted file's
+storage are recorded, even when another source in the batch had errors.
+Unmatched payloads and unsupported files leave their originals in the folder.
+A one-off move through the path-import API requires a successful batch and
+a direct storage outcome for each source, so it retains extracted archives.
 
 Synthetic fixtures, exact 7-Zip commands and header transformations are documented
 in [the fixture README](../../tests/Romd.Infrastructure.Tests/Fixtures/SevenZip/README.md).

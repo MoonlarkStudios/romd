@@ -1,5 +1,7 @@
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Romd.Contracts.Management.Commands;
@@ -19,14 +21,23 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
     private const string _route = "/api/upload/server-folder";
 
     [Fact]
-    public async Task Start_ReadyAndArrivingFiles_QueuesEachVersionOnceAndKeepsTheOriginals()
+    public async Task Start_MovesStoredSourcesAndSkipsAlreadyReviewedVersions()
     {
         using var client = fixture.CreateAuthenticatedClient();
         string folder = fixture.ServerImportPath;
         string ready = Path.Combine(folder, "ready.bin");
         string temporary = Path.Combine(folder, "copy.bin.partial");
         string changed = Path.Combine(folder, "changed.bin");
-        await File.WriteAllBytesAsync(ready, [10, 20, 30]);
+        byte[] matched = RandomNumberGenerator.GetBytes(128);
+        string catalogName = $"Drop folder {Guid.NewGuid():N}";
+        await TestHelpers.UploadDatWithPlatformAsync(client, $"""
+            <datafile><header><name>{catalogName}</name></header>
+              <game name="{catalogName}">
+                <rom name="ready.bin" size="{matched.Length}" sha1="{Convert.ToHexString(SHA1.HashData(matched))}"/>
+              </game>
+            </datafile>
+            """, "drop-folder.dat", await TestHelpers.GetFirstSystemKeyAsync(client));
+        await File.WriteAllBytesAsync(ready, matched);
         await File.WriteAllBytesAsync(temporary, [40, 50, 60]);
         await File.WriteAllBytesAsync(changed, [70, 80, 90]);
         File.SetLastWriteTimeUtc(ready, DateTime.UnixEpoch.AddDays(1));
@@ -59,6 +70,10 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
             firstId = accepted.Distinct().ShouldHaveSingleItem();
         }
         await TestHelpers.WaitForJobCompletionAsync(client, firstId.ToString());
+        await WaitForSourceCleanupAsync(firstId);
+        File.Exists(ready).ShouldBeFalse();
+        File.Exists(temporary).ShouldBeTrue();
+        File.Exists(changed).ShouldBeTrue();
 
         using var waitingResponse = await client.PostAsJsonAsync(_route, new StartServerImport());
         waitingResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -70,27 +85,41 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
 
         string finished = Path.Combine(folder, "copy.bin");
         File.Move(temporary, finished);
+        string completeArchive = Path.Combine(folder, "complete.zip");
+        string partialArchive = Path.Combine(folder, "partial.zip");
+        string unsupported = Path.Combine(folder, "unsupported.rar");
+        await WriteZipAsync(completeArchive, ("nested/duplicate.bin", matched));
+        await WriteZipAsync(partialArchive, ("duplicate.bin", matched), ("unmatched.bin", [101, 102, 103]));
+        await File.WriteAllBytesAsync(unsupported, [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0, 1]);
+        File.SetLastWriteTimeUtc(completeArchive, DateTime.UnixEpoch.AddDays(2));
+        File.SetLastWriteTimeUtc(partialArchive, DateTime.UnixEpoch.AddDays(2));
+        File.SetLastWriteTimeUtc(unsupported, DateTime.UnixEpoch.AddDays(2));
         File.SetLastWriteTimeUtc(finished, DateTime.UnixEpoch.AddDays(2));
         File.SetLastWriteTimeUtc(changed, DateTime.UnixEpoch.AddDays(2));
         using var secondResponse = await client.PostAsJsonAsync(_route, new StartServerImport());
         secondResponse.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         var second = (await secondResponse.Content.ReadFromJsonAsync<JobReference>()).ShouldNotBeNull();
-        await TestHelpers.WaitForJobCompletionAsync(client, second.JobId.ToString());
+        await WaitForImportPhaseAsync(client, second.JobId, "CompletedWithErrors");
+        await WaitForSourceCleanupAsync(second.JobId);
+        File.Exists(completeArchive).ShouldBeFalse();
+        File.Exists(partialArchive).ShouldBeTrue();
+        File.Exists(unsupported).ShouldBeTrue();
 
         using var idleResponse = await client.PostAsJsonAsync(_route, new StartServerImport());
         idleResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var idle = (await idleResponse.Content.ReadFromJsonAsync<ServerImportStatus>()).ShouldNotBeNull();
         idle.LastCheckOutcome.ShouldBe("NoNewFiles");
         idle.LastJobId.ShouldBe(second.JobId);
-        idle.LastQueuedFiles.ShouldBe(2);
+        idle.LastQueuedFiles.ShouldBe(5);
 
         await using var scope = fixture.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
         var jobs = await db.Jobs.OfType<UploadJobEntity>().Where(job => job.ImportSourcePath == folder)
             .OrderBy(job => job.CreatedAt).ToListAsync();
-        jobs.Select(job => job.RomsDiscovered).ShouldBe([1, 2]);
-        jobs.ShouldAllBe(job => !job.ImportMove);
-        (await File.ReadAllBytesAsync(ready)).ShouldBe([10, 20, 30]);
+        jobs.Select(job => job.RomsDiscovered).ShouldBe([1, 6]);
+        jobs.ShouldAllBe(job => job.ImportMove);
+        jobs[0].RomsIngested.ShouldBe(1);
+        jobs[1].RomsDeduplicated.ShouldBe(2);
         (await File.ReadAllBytesAsync(finished)).ShouldBe([40, 50, 60]);
 
         string damaged = Path.Combine(folder, "damaged.zip");
@@ -100,7 +129,7 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
         using var damagedResponse = await client.PostAsJsonAsync(_route, new StartServerImport());
         damagedResponse.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         var failed = (await damagedResponse.Content.ReadFromJsonAsync<JobReference>()).ShouldNotBeNull();
-        var failure = await WaitForFailedImportAsync(client, failed.JobId);
+        var failure = await WaitForImportPhaseAsync(client, failed.JobId, "Failed");
         failure.LastJobId.ShouldBe(failed.JobId);
         failure.CanRetry.ShouldBeTrue();
         using var staleRetry = await client.PostAsJsonAsync(_route, new StartServerImport(second.JobId));
@@ -110,10 +139,9 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
         retry.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         var retried = (await retry.Content.ReadFromJsonAsync<JobReference>()).ShouldNotBeNull();
         retried.JobId.ShouldNotBe(failed.JobId);
-        var retriedFailure = await WaitForFailedImportAsync(client, retried.JobId);
+        var retriedFailure = await WaitForImportPhaseAsync(client, retried.JobId, "Failed");
         retriedFailure.LastQueuedFiles.ShouldBe(1);
         (await File.ReadAllBytesAsync(damaged)).ShouldBe(invalidZip);
-
     }
 
     [Fact]
@@ -127,7 +155,27 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
         status.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         start.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
     }
-    private static async Task<ServerImportStatus> WaitForFailedImportAsync(HttpClient client, Guid jobId)
+
+    private async Task WaitForSourceCleanupAsync(Guid jobId)
+    {
+        string manifest = Path.Combine(fixture.DataDirectoryPath, "temp", "jobs", $"{jobId:N}.import.json");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (File.Exists(manifest))
+            await Task.Delay(50, timeout.Token);
+    }
+
+    private static async Task WriteZipAsync(string path, params (string Name, byte[] Bytes)[] entries)
+    {
+        await using var stream = File.Create(path);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
+        foreach (var (name, bytes) in entries)
+        {
+            await using var output = archive.CreateEntry(name).Open();
+            await output.WriteAsync(bytes);
+        }
+    }
+
+    private static async Task<ServerImportStatus> WaitForImportPhaseAsync(HttpClient client, Guid jobId, string phase)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         while (true)
@@ -135,7 +183,7 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
             var status = (await client.GetFromJsonAsync<ServerImportStatus>(_route, timeout.Token)).ShouldNotBeNull();
             if (status.LastJobId == jobId && !status.IsRunning)
             {
-                status.LastJobPhase.ShouldBe("Failed");
+                status.LastJobPhase.ShouldBe(phase);
                 return status;
             }
             await Task.Delay(50, timeout.Token);

@@ -25,18 +25,38 @@ public sealed class ServerImportStore(RomdDbContext db) : IServerImportStore
     {
         if (jobId is not { } id)
             return null;
-        var row = await db.Jobs.OfType<UploadJobEntity>().Where(job => job.Id == id).Select(job => job.Phase).SingleOrDefaultAsync(ct);
-        return Enum.TryParse<UploadPhase>(row, out var phase)
+        var row = await db.Jobs.OfType<UploadJobEntity>().Where(job => job.Id == id)
+            .Select(job => new { job.Phase, job.RomsRejected }).SingleOrDefaultAsync(ct);
+        return row is not null && Enum.TryParse<UploadPhase>(row.Phase, out var phase)
             ? new ServerImportJob(id, phase,
-                phase is UploadPhase.Completed or UploadPhase.CompletedWithErrors or UploadPhase.Failed or UploadPhase.Cancelled)
+                phase is UploadPhase.Completed or UploadPhase.CompletedWithErrors or UploadPhase.Failed or UploadPhase.Cancelled,
+                row.RomsRejected > 0)
             : null;
     }
 
-    public async Task<IReadOnlyList<ServerImportFile>> ReadSubmittedFilesAsync(string directory, CancellationToken ct)
+    public async Task<IReadOnlyList<ServerImportFile>> FindUnsubmittedFilesAsync(
+        string directory, IReadOnlyList<ServerImportFile> ready, CancellationToken ct)
     {
-        string? json = await db.Set<ServerImportActivityEntity>()
-            .Where(row => row.DirectoryKey == Key(directory)).Select(row => row.SubmittedFilesJson).SingleOrDefaultAsync(ct);
-        return json is null ? [] : DeserializeFiles(json);
+        if (ready.Count == 0)
+            return [];
+
+        // Compare only files that still exist. The accepted job already owns its selection for
+        // worker recovery and retry. Copy-era selections must not suppress a move-mode attempt.
+        var submitted = (await db.Database.SqlQuery<int>($"""
+            WITH submitted AS (
+                SELECT file.stamp
+                FROM romd."ServerImportSelections" AS selection
+                JOIN romd."Jobs" AS job ON job."Id" = selection."JobId"
+                CROSS JOIN LATERAL jsonb_array_elements(selection."FilesJson") AS file(stamp)
+                WHERE job."ImportSourcePath" = {directory} AND job."ImportMove"
+            )
+            SELECT (ready.ordinality - 1)::integer AS "Value"
+            FROM jsonb_array_elements(CAST({JsonSerializer.Serialize(ready)} AS jsonb))
+                WITH ORDINALITY AS ready(stamp, ordinality)
+            WHERE EXISTS (SELECT 1 FROM submitted WHERE submitted.stamp = ready.stamp)
+            """).ToListAsync(ct)).ToHashSet();
+
+        return ready.Where((_, index) => !submitted.Contains(index)).ToArray();
     }
 
     public async Task<ServerImportSelection?> ReadSelectionAsync(Guid jobId, CancellationToken ct)
@@ -46,8 +66,7 @@ public sealed class ServerImportStore(RomdDbContext db) : IServerImportStore
         return json is null ? null : new ServerImportSelection(DeserializeFiles(json));
     }
 
-    public async Task StageActivityAsync(string directory, ServerImportActivity activity,
-        IReadOnlyList<ServerImportFile>? submittedFiles, CancellationToken ct)
+    public async Task StageActivityAsync(string directory, ServerImportActivity activity, CancellationToken ct)
     {
         string key = Key(directory);
         var row = await db.Set<ServerImportActivityEntity>().AsTracking().SingleOrDefaultAsync(value => value.DirectoryKey == key, ct);
@@ -62,8 +81,6 @@ public sealed class ServerImportStore(RomdDbContext db) : IServerImportStore
         row.Message = activity.Message;
         row.JobId = activity.JobId;
         row.LastQueuedFiles = activity.LastQueuedFiles;
-        if (submittedFiles is not null)
-            row.SubmittedFilesJson = JsonSerializer.Serialize(submittedFiles);
     }
 
     public void StageSelection(Guid jobId, ServerImportSelection selection) =>

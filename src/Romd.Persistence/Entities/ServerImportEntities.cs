@@ -13,14 +13,12 @@ internal sealed class ServerImportActivityEntity
     public string? Message { get; set; }
     public Guid? JobId { get; set; }
     public int LastQueuedFiles { get; set; }
-    public string SubmittedFilesJson { get; set; } = "[]";
 
     internal static void Configure(EntityTypeBuilder<ServerImportActivityEntity> builder)
     {
         builder.ToTable("ServerImportActivity");
         builder.HasKey(row => row.DirectoryKey);
         builder.Property(row => row.DirectoryKey).HasMaxLength(64);
-        builder.Property(row => row.SubmittedFilesJson).HasColumnType("jsonb");
     }
 }
 

@@ -522,9 +522,17 @@ together. Empty checks record activity without creating an import job.
 The selection records relative paths, sizes, and modification times at
 acceptance. Worker redelivery reads that selection by job ID and checks the
 version before and after copying. Changed files fail the copy with a receipt
-error. The scheduled path skips unchanged submitted versions. A manager can
-explicitly retry the last failed selection while its receipt is retained.
-Acceptance never waits for source bytes or removes originals.
+error. Checks compare ready files with existing move-job selections so retained
+files do not queue again on every scheduled check. The folder keeps only the
+last check status, with file selections tied to job retention. A manager can
+explicitly retry remaining files from the latest job when it needs review.
+
+Acceptance never waits for source bytes or removes originals. After a persisted
+completion, the worker removes each unchanged original with durable storage
+outcomes, even if other files in the batch had errors. For archives, the
+extraction checkpoint tracks the published output and the move manifest records
+its payloads before ingestion. Cleanup requires a storage outcome for every
+payload. The orphaned-job sweep can resume interrupted cleanup.
 
 ### Worker copy
 

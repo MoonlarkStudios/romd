@@ -156,12 +156,8 @@ public sealed class OrphanedJobCleanupJob
     }
 
     /// <summary>
-    ///     Durable backstop for move-mode import manifests ("{jobId:N}.import.json" siblings of
-    ///     the job workspaces), driven by the PERSISTED job row: a Completed job re-runs the
-    ///     idempotent source cleanup (retryable across sweeps); any other terminal job has its
-    ///     manifest deleted while every source file is retained; a non-terminal or unresolvable
-    ///     job leaves the manifest until the age-out, which warns before discarding a move
-    ///     manifest because its retained sources then stay behind permanently.
+    ///     Retries interrupted source cleanup from a persisted completion. Discards terminal
+    ///     manifests without cleanup authority, and ages out unresolvable manifests.
     /// </summary>
     private async Task ProcessImportManifestsAsync(CancellationToken ct)
     {
@@ -187,28 +183,31 @@ public sealed class OrphanedJobCleanupJob
     {
         string fileName = Path.GetFileName(manifestPath);
         UploadJob? job = null;
-        if (Guid.TryParseExact(fileName[..fileName.IndexOf('.')], "N", out Guid jobId))
+        bool hasJobId = Guid.TryParseExact(fileName[..fileName.IndexOf('.')], "N", out Guid jobId);
+        using var executionLock = hasJobId ? JobWorkspace.TryAcquireExecutionLock(_options.DataDirectory, jobId) : null;
+        if (hasJobId)
         {
+            if (executionLock is null)
+                return;
+
             using var scope = _serviceProvider.CreateScope();
             job = await scope.ServiceProvider
                 .GetRequiredService<IUploadJobRepository>()
                 .GetByIdAsync(jobId, ct);
 
-            if (job is { ImportMove: true, PhaseEnum: UploadPhase.Completed })
-            {
-                await scope.ServiceProvider
+            if (job is not null && await scope.ServiceProvider
                     .GetRequiredService<ImportSourceCleanup>()
-                    .RunCompletedAsync(job, ct);
+                    .RunCompletedAsync(job, ct))
+            {
                 if (!File.Exists(manifestPath))
-                {
                     return;
-                }
             }
             else if (job is { IsTerminal: true })
             {
                 _logger.LogInformation(
                     "Import job {JobId} is terminal as {Phase}; deleting its move manifest, source files retained",
                     job.Id, job.Phase);
+                File.Delete(manifestPath + ".pending");
                 File.Delete(manifestPath);
                 return;
             }
@@ -220,6 +219,7 @@ public sealed class OrphanedJobCleanupJob
             _logger.LogWarning(
                 "Aging out move-mode import manifest {Manifest} ({Hours:F1} hours old, job phase {Phase}); any remaining source files stay retained and must be removed manually",
                 fileName, age.TotalHours, job?.Phase ?? "unknown");
+            File.Delete(manifestPath + ".pending");
             File.Delete(manifestPath);
         }
     }
