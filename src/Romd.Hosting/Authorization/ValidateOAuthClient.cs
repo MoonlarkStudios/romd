@@ -17,7 +17,9 @@ public sealed class ValidateOAuthClient(RomdSurfaceAuthOptions surface, IConsume
     public async ValueTask HandleAsync(ValidateAuthorizationRequestContext context)
     {
         string? clientId = context.Request.ClientId;
-        if (surface.IsClientAllowed(clientId))
+        // The existing authorize endpoint rejects built-in clients on the wrong host
+        // after OpenIddict has validated the callback. Preserve that protocol response.
+        if (!ConsumerWebAppRegistration.IsClientId(clientId))
             return;
 
         var registration = await surface.FindActiveWebAppAsync(clientId, registrations, context.CancellationToken);
