@@ -1,4 +1,3 @@
-using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
 using Romd.Application.Common.Content;
 using Romd.Application.Common.Security;
 using Romd.Consumer.Application;

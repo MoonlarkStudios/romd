@@ -1,4 +1,3 @@
-using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
 using System.ComponentModel.DataAnnotations;
 using Romd.Application.Common.Configuration;
 using Romd.Application.Common.Pagination;

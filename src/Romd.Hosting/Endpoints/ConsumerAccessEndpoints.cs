@@ -1,4 +1,4 @@
-using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
+using Romd.Application.Common.Security;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
 using Romd.Consumer.Application.Access.Queries.GetConsumerReleaseAccess;

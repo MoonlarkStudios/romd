@@ -1,4 +1,4 @@
-using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
+using Romd.Application.Common.Security;
 using ErrorOr;
 using System.ComponentModel.DataAnnotations;
 using Romd.Contracts.Common.Models;

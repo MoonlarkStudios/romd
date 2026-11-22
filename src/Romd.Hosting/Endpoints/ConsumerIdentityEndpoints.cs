@@ -1,4 +1,4 @@
-using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
+using Romd.Application.Common.Security;
 using Romd.Application.Common.Cqrs;
 using Romd.Consumer.Application.Auth.Queries.GetCurrentConsumerUser;
 using Romd.Consumer.Application.Libraries.Queries.GetCurrentLibraryContext;

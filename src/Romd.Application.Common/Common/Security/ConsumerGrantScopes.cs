@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace Romd.Infrastructure.Identity;
+namespace Romd.Application.Common.Security;
 
 public static class ConsumerGrantScopes
 {

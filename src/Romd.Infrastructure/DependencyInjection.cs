@@ -117,8 +117,7 @@ public static class DependencyInjection
 
     private static IServiceCollection AddRomdOpenIddictCore(this IServiceCollection services)
     {
-        services.AddScoped<ConsumerWebAppRegistrationStore>();
-        services.AddScoped<IConsumerWebAppRegistrations>(sp => sp.GetRequiredService<ConsumerWebAppRegistrationStore>());
+        services.AddScoped<IConsumerWebAppRegistrations, ConsumerWebAppRegistrationStore>();
         services.AddOpenIddict()
             .AddCore(options =>
             {
@@ -145,6 +144,7 @@ public static class DependencyInjection
                 sp.GetRequiredService<SearchDocumentInterceptor>());
         });
 
+        services.AddScoped<ConsumerWebAppRegistrationStore>();
         services.AddScoped<IConsumerWebAppAdministration>(sp => sp.GetRequiredService<ConsumerWebAppRegistrationStore>());
         return services.AddRomdPersistenceRepositories();
     }
