@@ -894,6 +894,37 @@ public sealed partial class UploadCapacityRecoveryTests : IDisposable
     }
 
     [Fact]
+    public async Task ExpiredRetryBudget_AfterFileCommitBeforeCheckpoint_FailsWithSavedFileInReceipt()
+    {
+        var job = await SeedAsync();
+        job.Start("lost-checkpoint", startedAt: _clock.GetUtcNow());
+        job.BeginClassification();
+        job.SetDiscoveredFiles(0, 2);
+        job.BeginDatIngestion();
+        job.BeginRomIngestion();
+        job.RecordDeferral("previous pressure", _clock.GetUtcNow().AddDays(-2));
+        await using (var db = _database.CreateContext())
+        {
+            await new UploadJobRepository(db, _clock).CommitCheckpointAsync(db, job);
+            db.JobItems.Add(JobItemEntity.FromDomain(JobItem.ForRom(job.Id, "a.rom", 1,
+                RomIngestOutcome.Ingested, null, null, null, null, _clock.GetUtcNow()).WithUploadIdentity()));
+            await db.SaveChangesAsync();
+        }
+
+        await using (var host = Host())
+            await Runner(host).RunAsync(job.Id, "expired-budget", default);
+
+        await using var observed = _database.CreateContext();
+        var row = await observed.Set<UploadJobEntity>().SingleAsync();
+        row.Phase.ShouldBe("Failed");
+        row.RomsIngested.ShouldBe(1);
+        row.RomsProcessed.ShouldBe(1);
+        row.GetErrors().ShouldContain(error => error.Message.Contains("retry age budget exhausted", StringComparison.Ordinal));
+        (await observed.JobItems.CountAsync()).ShouldBe(1);
+        _handler.ReceivedCalls().ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task RecoverOutcomeAheadOfCheckpoint_ReplenishesPersistedRetryBudget()
     {
         var job = await SeedAsync();

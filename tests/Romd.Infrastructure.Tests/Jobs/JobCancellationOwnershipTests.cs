@@ -51,7 +51,7 @@ public sealed class JobCancellationOwnershipTests
         }
 
         var after = await SnapshotAsync(observer, id);
-        string[] changed = ["Phase", "CompletedAt", "UpdatedAt", "ExecutionFenceToken", "ExecutionLeaseExpiresAtUtc"];
+        string[] changed = ["Phase", "CompletedAt", "UpdatedAt", "ExecutionFenceToken", "ExecutionLeaseExpiresAtUtc", "NextAttemptAtUtc"];
         foreach (var (property, value) in before)
             if (!commit || !changed.Contains(property))
                 after[property].ShouldBe(value, property);
@@ -62,6 +62,7 @@ public sealed class JobCancellationOwnershipTests
             after["UpdatedAt"].ShouldBe(Persisted(Now));
             after["ExecutionFenceToken"].ShouldBeNull();
             after["ExecutionLeaseExpiresAtUtc"].ShouldBeNull();
+            after["NextAttemptAtUtc"].ShouldBeNull();
         }
     }
 
@@ -270,10 +271,40 @@ public sealed class JobCancellationOwnershipTests
         await delivery.Received(1).RequestStopAsync("original-delivery", CancellationToken.None);
     }
 
+    [Fact]
+    public async Task HandleAsync_OutcomeCommittedBeforeCheckpoint_SettlesReceiptAndClearsScheduledRetry()
+    {
+        using var database = PostgreSqlTestDatabase.Create();
+        var id = await SeedAsync(database, checkpointed: false);
+        var clock = new ManualTimeProvider(Now);
+        var item = JobItem.ForRom(id, "committed.rom", 12, RomIngestOutcome.Ingested,
+            null, null, null, null, Now).WithUploadIdentity();
+
+        await using (var writer = database.CreateContext())
+        using (JobExecutionFenceScope.Enter(id, SeedFence, clock))
+        await using (var transaction = await new EfUnitOfWork(writer).BeginTransactionAsync())
+        {
+            await new JobItemRepository(writer).AddStagedAsync(item);
+            await writer.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+
+        await using var context = database.CreateContext();
+        var jobs = new JobRepository(context, clock);
+        (await jobs.GetByIdAsync(id)).ShouldBeOfType<UploadJob>().RomsIngested.ShouldBe(0);
+        (await Handler(context, clock, Substitute.For<IJobDeliveryCancellation>()).HandleAsync(new(id))).IsError.ShouldBeFalse();
+        var receipt = (await jobs.GetByIdAsync(id)).ShouldBeOfType<UploadJob>();
+        receipt.PhaseEnum.ShouldBe(UploadPhase.Cancelled);
+        receipt.RomsIngested.ShouldBe(1);
+        receipt.RomsProcessed.ShouldBe(1);
+        receipt.NextAttemptAt.ShouldBeNull();
+        (await context.JobItems.Select(row => row.Id).SingleAsync()).ShouldBe(item.Id);
+    }
+
     private static DateTimeOffset Persisted(DateTimeOffset time) => DateTimeOffset.FromUnixTimeMilliseconds(time.ToUnixTimeMilliseconds());
 
     private static readonly Guid SeedFence = Guid.Parse("819197c6-18ea-4d4a-8ab0-33f6ad467b14");
-    private static async Task<Guid> SeedAsync(PostgreSqlTestDatabase database, bool scheduled = true, bool claimable = false)
+    private static async Task<Guid> SeedAsync(PostgreSqlTestDatabase database, bool scheduled = true, bool claimable = false, bool checkpointed = true)
     {
         await using var db = database.CreateContext();
         var job = UploadJob.Create("source.zip", Now.AddHours(-1), createdByUserId: null);
@@ -287,9 +318,11 @@ public sealed class JobCancellationOwnershipTests
         job.BeginClassification();
         job.SetDiscoveredFiles(2, 5);
         job.BeginDatIngestion();
-        job.RecordDatResult(true, Now.AddMinutes(-10));
+        if (checkpointed)
+            job.RecordDatResult(true, Now.AddMinutes(-10));
         job.BeginRomIngestion();
-        job.RecordRomResult(RomIngestOutcome.Ingested, Now.AddMinutes(-5));
+        if (checkpointed)
+            job.RecordRomResult(RomIngestOutcome.Ingested, Now.AddMinutes(-5));
         job.SetCurrentItem("prior.rom");
         var row = UploadJobEntity.FromDomain(job, Now.AddMinutes(-5));
         row.ExecutionFenceToken = claimable ? null : SeedFence;

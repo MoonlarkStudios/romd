@@ -33,10 +33,11 @@ export function useJobOperations() {
           : 'The job has been cancelled.',
         color: 'blue',
       });
-    } catch {
+    } catch (error) {
       notifications.show({
         title: 'Failed to cancel',
-        message: 'Could not cancel the job. Please try again.',
+        message:
+          error instanceof Error ? error.message : 'Could not cancel the job. Please try again.',
         color: 'red',
       });
     }

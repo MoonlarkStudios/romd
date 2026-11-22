@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Domain.Jobs;
+using Romd.Persistence.Entities;
 
 namespace Romd.Persistence.Repositories;
 
@@ -10,6 +11,7 @@ public sealed class JobCancellationStore(RomdDbContext context, IJobRepository j
 {
     private Job? _lockedJob;
     private Guid? _lockedTransactionId;
+    private bool _restoredUploadProgress;
     private static readonly string[] TerminalPhases = ["Completed", "CompletedWithErrors", "Failed", "Cancelled", "Deferred", "Superseded"];
 
     public async Task<Job?> LockVisibleForCancellationStagedAsync(
@@ -18,6 +20,7 @@ public sealed class JobCancellationStore(RomdDbContext context, IJobRepository j
         var transaction = RequireTransaction();
         _lockedJob = null;
         _lockedTransactionId = null;
+        _restoredUploadProgress = false;
         if (visibility.Empty)
             return null;
         bool restrictOwner = visibility.OwnerId.HasValue;
@@ -37,6 +40,13 @@ public sealed class JobCancellationStore(RomdDbContext context, IJobRepository j
         var current = await jobs.GetByIdAsync(jobId, ct);
         if (current is null || !JobVisibility.IsVisibleTo(current, visibility))
             return null;
+        // Per-file content commits take the same root lock. After acquiring it, the
+        // journal contains every outcome that can survive this cancellation.
+        if (current is UploadJob { IsIngesting: true } upload)
+        {
+            var outcomes = await new JobItemRepository(context).GetOutcomesAsync(jobId, ct);
+            _restoredUploadProgress = upload.TryRestoreRecordedIngestionProgress(outcomes);
+        }
         _lockedJob = current;
         _lockedTransactionId = transaction.TransactionId;
         return current;
@@ -55,10 +65,16 @@ public sealed class JobCancellationStore(RomdDbContext context, IJobRepository j
                 .SetProperty(row => row.Phase, job.Phase)
                 .SetProperty(row => row.CompletedAt, job.CompletedAt)
                 .SetProperty(row => row.UpdatedAt, job.CompletedAt.Value)
+                .SetProperty(row => row.NextAttemptAtUtc, (DateTimeOffset?)null)
                 .SetProperty(row => row.ExecutionFenceToken, (Guid?)null)
                 .SetProperty(row => row.ExecutionLeaseExpiresAtUtc, (DateTimeOffset?)null), ct);
         if (updated != 1)
             throw new InvalidOperationException("Cancellation requires an existing non-terminal locked job.");
+        if (_restoredUploadProgress && job is UploadJob upload)
+        {
+            var row = await context.Jobs.OfType<UploadJobEntity>().AsTracking().SingleAsync(row => row.Id == job.Id, ct);
+            row.SetIngestionProgress(upload);
+        }
         if (job is ArtworkImportJob artwork)
             await context.ArtworkSelections.Where(selection => selection.TitleId == artwork.TitleId && selection.Role == artwork.Role
                     && selection.Revision == artwork.SelectionRevision && selection.PendingRequestId == artwork.Id)

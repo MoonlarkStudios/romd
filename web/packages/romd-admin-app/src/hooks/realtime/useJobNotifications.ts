@@ -9,6 +9,7 @@ import {
   getJobTypeConfig,
   type JobOutcome,
   mediaReconciliationSummary,
+  publicationOutcomeCopy,
 } from '../../components/Jobs/jobTypeRegistry';
 import { useJobs } from '../api/useJobs';
 
@@ -144,7 +145,10 @@ function buildTerminalNotification(
     case 'deferred':
       return {
         title: `${label}: Deferred`,
-        message: `${job.sourceFilename}: changes are still pending — refresh the library again when they settle`,
+        message:
+          job.jobType === 'materialization'
+            ? publicationOutcomeCopy(job.phase, job.publicationOutcome)
+            : 'Review the job for next steps.',
         color: 'gray',
       };
     default:

@@ -107,7 +107,7 @@ describe('getJobTitle', () => {
           sourceFilename: 'Family Room',
         }),
       ),
-    ).toBe('Materialize Family Room');
+    ).toBe('Publish Family Room');
   });
 
   it('falls back to a generic materialization title for legacy rows', () => {
@@ -118,7 +118,7 @@ describe('getJobTitle', () => {
           sourceFilename: 'Library Materialization',
         }),
       ),
-    ).toBe('Materialize library');
+    ).toBe('Publish library');
   });
 
   it('names an export by file count, ignoring the literal label', () => {

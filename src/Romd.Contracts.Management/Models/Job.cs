@@ -52,7 +52,7 @@ public sealed record UploadJob : Job
     // Provenance: server-local directory this job was imported from, when created via path import.
     public string? ImportSourcePath { get; init; }
 
-    // Whether path-import source originals are deleted after durable, fully successful completion.
+    // Whether the path import requested cleanup of originals proven safe to remove after completion.
     public bool ImportMove { get; init; }
 
     // Discovery

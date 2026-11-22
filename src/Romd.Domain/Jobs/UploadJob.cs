@@ -103,6 +103,8 @@ public sealed class UploadJob : CancellableJob
     /// </summary>
     public UploadPhase PhaseEnum { get; private set; }
 
+    public bool IsIngesting => PhaseEnum is UploadPhase.IngestingDats or UploadPhase.IngestingRoms;
+
     /// <summary>
     ///     Maximum number of ROMs to process in parallel.
     /// </summary>
@@ -318,7 +320,7 @@ public sealed class UploadJob : CancellableJob
     /// </summary>
     public void RestoreIngestionProgress(IReadOnlyList<JobItem> outcomes)
     {
-        if (PhaseEnum is not (UploadPhase.IngestingDats or UploadPhase.IngestingRoms))
+        if (!IsIngesting)
             throw new InvalidOperationException("Only ingestion phases can restore file outcomes.");
         if (outcomes.Any(item => item.JobId != Id)
             || outcomes.Select(item => (item.Kind, item.FileName)).Distinct().Count() != outcomes.Count)
@@ -360,6 +362,18 @@ public sealed class UploadJob : CancellableJob
                 _errors.Add(new JobError(item.FileName, item.Error, item.CreatedAt));
         }
         CurrentItem = null;
+    }
+
+    /// <summary>Settles interrupted progress from the file journal when one is present.</summary>
+    public bool TryRestoreRecordedIngestionProgress(IReadOnlyList<JobItem> outcomes)
+    {
+        // Older checkpoints can exist without a journal. When it exists, the journal
+        // wins even if last checkpoint counts are equal or ahead of durable outcomes.
+        if (outcomes.Count == 0)
+            return false;
+
+        RestoreIngestionProgress(outcomes);
+        return true;
     }
 
     /// <inheritdoc />

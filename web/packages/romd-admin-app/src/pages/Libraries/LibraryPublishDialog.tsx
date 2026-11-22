@@ -1,10 +1,10 @@
 import { Alert, Badge, Button, Group, List, Modal, Skeleton, Stack, Text } from '@mantine/core';
 import type { LibraryPublicationAttempt, LibraryPublicationGame } from '@romd/admin-api-client';
 import { Link } from 'react-router';
+import { publicationOutcomeCopy } from '../../components/Jobs/jobTypeRegistry';
 import { ApiClientError, useForceMaterializeLibrary } from '../../hooks/api/useLibraryManagement';
 import { useLibraryPublicationReview } from '../../hooks/api/useLibraryPublication';
 import { exclusionReasons } from './libraryEvaluation';
-import { publicationOutcomeCopy } from './libraryRefresh';
 
 export function LibraryPublicationProgress({
   attempt,
@@ -85,11 +85,13 @@ function Examples({ title, games }: { title: string; games: LibraryPublicationGa
 export function LibraryPublishDialog({
   libraryId,
   action,
+  blockedReason,
   close,
   accepted,
 }: {
   libraryId: string;
   action: string;
+  blockedReason?: string;
   close: () => void;
   accepted: (jobId: string) => void;
 }) {
@@ -175,6 +177,7 @@ export function LibraryPublishDialog({
             )}
           </>
         )}
+        {blockedReason && !publish.isPending && <Alert color="yellow">{blockedReason}</Alert>}
         {publish.isError && <Alert color="red">{publish.error.message}</Alert>}
         <Group justify="end">
           <Button
@@ -196,7 +199,7 @@ export function LibraryPublishDialog({
             </Button>
           ) : (
             <Button
-              disabled={!data || review.isFetching}
+              disabled={!!blockedReason || !data || review.isFetching}
               loading={publish.isPending}
               onClick={() => {
                 if (data)

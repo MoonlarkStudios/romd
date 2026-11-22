@@ -23,7 +23,7 @@ import { useJobItems } from '../../hooks/api/useJobItems';
 import { usePermissions } from '../../hooks/usePermissions';
 import { authenticatedDownload } from '../../utils/download';
 import { formatBytes } from '../../utils/format';
-import { importResultTarget, receiptFilters } from './importReceiptLinks';
+import { importResultTarget, receiptFilters, uploadImportUrl } from './importReceiptLinks';
 
 const OUTCOMES: Record<
   string,
@@ -62,10 +62,12 @@ function NextStep({
   item,
   destination,
   canRoute,
+  retryUrl,
 }: {
   item: JobItem;
   destination: (path: string) => string;
   canRoute: boolean;
+  retryUrl: string | null;
 }) {
   if (item.currentStatus === 'Unavailable')
     return (
@@ -161,13 +163,15 @@ function NextStep({
     return (
       <Stack gap={4}>
         <Text size="sm">{guidance}</Text>
-        <Anchor
-          component={Link}
-          size="sm"
-          to="/roms/import"
-        >
-          Import the original again
-        </Anchor>
+        {retryUrl && (
+          <Anchor
+            component={Link}
+            size="sm"
+            to={retryUrl}
+          >
+            {retryUrl === uploadImportUrl ? 'Back to Upload' : 'Open server import folder'}
+          </Anchor>
+        )}
       </Stack>
     );
   }
@@ -217,9 +221,11 @@ function NextStep({
 export function ProvenanceLedger({
   jobId,
   addressable = false,
+  retryUrl = uploadImportUrl,
 }: {
   jobId: string;
   addressable?: boolean;
+  retryUrl?: string | null;
 }) {
   const location = useLocation();
   const { canManageTitles } = usePermissions();
@@ -290,6 +296,17 @@ export function ProvenanceLedger({
       });
     }
   };
+  if (!query.isError && query.data?.items.length === 0 && filter === 'all' && !search && !term) {
+    return (
+      <Text
+        size="sm"
+        c="dimmed"
+      >
+        No file outcomes were recorded.
+      </Text>
+    );
+  }
+
   const destination = (path: string) => importResultTarget(path, jobId, filter, search);
   return (
     <Stack gap="md">
@@ -362,9 +379,7 @@ export function ProvenanceLedger({
           c="dimmed"
           py="lg"
         >
-          {filter === 'all' && !search
-            ? 'No file outcomes were recorded.'
-            : 'No files match these filters.'}
+          No files match these filters.
         </Text>
       ) : (
         <>
@@ -453,6 +468,7 @@ export function ProvenanceLedger({
                           item={item}
                           destination={destination}
                           canRoute={canManageTitles}
+                          retryUrl={retryUrl}
                         />
                       </Table.Td>
                     </Table.Tr>

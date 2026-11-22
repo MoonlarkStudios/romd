@@ -37,7 +37,7 @@ describe('OverviewJobs', () => {
 
     render(<OverviewJobs jobs={jobs} />);
 
-    expect(screen.getByText('Materialize Family Room')).toBeInTheDocument();
+    expect(screen.getByText('Publish Family Room')).toBeInTheDocument();
     expect(screen.getByText('Deferred')).toBeInTheDocument();
     expect(screen.getAllByText('Completed')).toHaveLength(1);
   });

@@ -66,6 +66,7 @@ public sealed class JobLifecyclePolicyArchitectureTests
 
         ShouldRegister<IJobRetryBudgetPolicy<UploadJob>>(services);
         ShouldRegister<IJobCompletionCleanup<UploadJob>>(services, typeof(MoveImportCompletionCleanup));
+        ShouldRegister<IJobTerminationPolicy<UploadJob>>(services, typeof(UploadTerminationPolicy));
         foreach (var (job, policy) in new[]
                  {
                      (typeof(MediaReconciliationJob), typeof(MediaReconciliationLifecyclePolicy))

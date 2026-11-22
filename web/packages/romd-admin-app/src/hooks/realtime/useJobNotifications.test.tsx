@@ -246,6 +246,7 @@ describe('useJobNotifications', () => {
       makeJob({
         isTerminal: true,
         phase: 'Deferred',
+        publicationOutcome: 'InputsChanged',
         progressPercent: '100',
       }),
     ];
@@ -253,9 +254,9 @@ describe('useJobNotifications', () => {
 
     expect(updateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Materialization: Deferred',
+        title: 'Library publication: Deferred',
         message:
-          'Family Room: changes are still pending — refresh the library again when they settle',
+          'The library changed during publication. Review the updated changes and publish again.',
         color: 'gray',
       }),
     );
@@ -278,7 +279,7 @@ describe('useJobNotifications', () => {
 
     expect(showSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Materialization: Deferred',
+        title: 'Library publication: Deferred',
         color: 'gray',
       }),
     );
@@ -302,7 +303,7 @@ describe('useJobNotifications', () => {
 
     expect(updateSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Materialization: Complete',
+        title: 'Library publication: Complete',
         message: 'Family Room processed successfully',
         color: 'green',
       }),
@@ -341,7 +342,7 @@ it.each([
   rerender();
   expect(updateSpy).toHaveBeenCalledWith(
     expect.objectContaining({
-      title: `Materialization: ${label}`,
+      title: `Library publication: ${label}`,
       color,
     }),
   );
