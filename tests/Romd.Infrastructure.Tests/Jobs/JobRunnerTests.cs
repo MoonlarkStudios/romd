@@ -58,6 +58,7 @@ public sealed class JobRunnerTests
         services.AddSingleton(unitOfWork);
         services.AddScoped<JobAuditContext>();
         services.AddScoped<IAuditContext>(provider => provider.GetRequiredService<JobAuditContext>());
+        services.AddSingleton(Substitute.For<IJobItemRepository>());
         services.AddRomdJobLifecyclePolicies();
         await using var provider = services.BuildServiceProvider();
         var runner = new JobRunner<UploadJob>(provider.GetRequiredService<IServiceScopeFactory>(), executor,
@@ -90,6 +91,7 @@ public sealed class JobRunnerTests
         services.AddSingleton(repository);
         services.AddScoped<JobAuditContext>();
         services.AddScoped<IAuditContext>(sp => sp.GetRequiredService<JobAuditContext>());
+        services.AddSingleton(Substitute.For<IJobItemRepository>());
         services.AddRomdJobLifecyclePolicies();
 
         await using var provider = services.BuildServiceProvider();
@@ -148,6 +150,7 @@ public sealed class JobRunnerTests
         services.AddSingleton(repository);
         services.AddScoped<JobAuditContext>();
         services.AddScoped<IAuditContext>(sp => sp.GetRequiredService<JobAuditContext>());
+        services.AddSingleton(Substitute.For<IJobItemRepository>());
         services.AddRomdJobLifecyclePolicies();
 
         await using var provider = services.BuildServiceProvider();
@@ -424,6 +427,7 @@ public sealed class JobRunnerTests
             services.AddSingleton(repository);
             services.AddScoped<JobAuditContext>();
             services.AddScoped<IAuditContext>(sp => sp.GetRequiredService<JobAuditContext>());
+            services.AddSingleton(jobItems);
             services.AddRomdJobLifecyclePolicies();
             services.AddScoped(_ => new ImportSourceCleanup(
                 options,

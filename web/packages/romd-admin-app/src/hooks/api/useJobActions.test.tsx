@@ -6,10 +6,10 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { subjectReconciliationJob } from '../../test/fixtures/mediaReconciliationJobs';
 import { server } from '../../test/msw/server';
-import { useRetryJob } from './useJobActions';
+import { useCancelJob, useRetryJob } from './useJobActions';
 import { jobKeys } from './useJobs';
 
-function setup() {
+function setup<T>(hook: () => T) {
   const cache = new QueryClient({
     defaultOptions: {
       queries: {
@@ -25,7 +25,7 @@ function setup() {
     <QueryClientProvider client={cache}>{children}</QueryClientProvider>
   );
   return {
-    ...renderHook(() => useRetryJob(), {
+    ...renderHook(hook, {
       wrapper,
     }),
     cache,
@@ -71,7 +71,7 @@ describe('typed job retries', () => {
         );
       }),
     );
-    const { result } = setup();
+    const { result } = setup(useRetryJob);
     const job = subjectReconciliationJob({
       phase: 'Failed',
       isTerminal: true,
@@ -105,7 +105,7 @@ describe('typed job retries', () => {
         });
       }),
     );
-    const { result } = setup();
+    const { result } = setup(useRetryJob);
     const job: Job = {
       jobType: 'bulk_enrichment',
       id: 'ordinary',
@@ -138,7 +138,7 @@ describe('typed job retries', () => {
         }),
       ),
     );
-    const { result } = setup();
+    const { result } = setup(useRetryJob);
     await act(async () => {
       await expect(
         result.current.mutateAsync(
@@ -150,4 +150,27 @@ describe('typed job retries', () => {
       ).rejects.toThrow('Could not retry media reconciliation.');
     });
   });
+});
+
+it('refreshes stale jobs and shows the server reason when cancellation loses to completion', async () => {
+  server.use(
+    http.post('http://localhost/api/jobs/:jobId/cancel', () =>
+      HttpResponse.json(
+        {
+          detail: 'Job is already complete.',
+        },
+        {
+          status: 409,
+        },
+      ),
+    ),
+  );
+  const { result, cache } = setup(useCancelJob);
+  expect(cache.getQueryState(jobKeys.list())?.isInvalidated).toBe(false);
+  await act(async () => {
+    await expect(result.current.mutateAsync('finished')).rejects.toThrow(
+      'Job is already complete.',
+    );
+  });
+  expect(cache.getQueryState(jobKeys.list())?.isInvalidated).toBe(true);
 });

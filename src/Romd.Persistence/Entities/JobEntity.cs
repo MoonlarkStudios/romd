@@ -31,7 +31,7 @@ public abstract class JobEntity : GuidEntityBase
     /// <summary>Exposes the persisted deferral schedule on a rehydrated job without making it writable state.</summary>
     protected TJob WithNextAttempt<TJob>(TJob job) where TJob : Job
     {
-        job.NextAttemptAt = NextAttemptAtUtc;
+        job.NextAttemptAt = job.IsTerminal ? null : NextAttemptAtUtc;
         job.DeferralCount = DeferralCount;
         job.LastDeferralError = LastDeferralError;
         job.LastDeferralAt = LastDeferralAt;

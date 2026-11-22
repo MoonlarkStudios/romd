@@ -40,7 +40,10 @@ import {
   useDeleteLibrary,
   useLibrary,
 } from '../../hooks/api/useLibraryManagement';
-import { useLibraryPublicationStatus } from '../../hooks/api/useLibraryPublication';
+import {
+  libraryPublicationReviewKey,
+  useLibraryPublicationStatus,
+} from '../../hooks/api/useLibraryPublication';
 import { archiveFormatLabel } from '../../utils/archiveFormats';
 import classes from './Libraries.module.css';
 import { LibraryCollections } from './LibraryCollections';
@@ -75,7 +78,6 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
   const attachments = useLibraryAttachments(libraryId);
   const cache = useQueryClient();
   const publication = useLibraryPublicationStatus(libraryId);
-  const [reviewing, setReviewing] = useState(false);
   const [acceptedId, setAcceptedId] = useState<string>();
   const exact = useJob(acceptedId).data;
   const latest = publication.data?.latestAttempt;
@@ -108,6 +110,9 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
       void cache.invalidateQueries({
         queryKey: libraryManagementKeys.previews(),
       });
+      void cache.invalidateQueries({
+        queryKey: libraryPublicationReviewKey(libraryId),
+      });
     }
   }, [
     cache,
@@ -127,6 +132,15 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
   const remove = useDeleteLibrary();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const reviewing = params.get('review') === 'publication';
+  const setReviewing = (open: boolean) => {
+    const next = new URLSearchParams(params);
+    if (open) next.set('review', 'publication');
+    else next.delete('review');
+    setParams(next, {
+      replace: true,
+    });
+  };
   const active = tabs.find((t) => t === params.get('tab')) ?? 'overview';
   const inspect = params.get('inspect');
   const returnToReview = reviewReturnPath(params.get('reviewReturn'));
@@ -174,6 +188,13 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
     );
   const library = query.data;
   const status = publicationStatus(library);
+  const publishBlockedReason = refreshing
+    ? 'A publication is already running.'
+    : library.configurationState !== 'Valid'
+      ? 'Repair the saved library rules before publishing.'
+      : dirty
+        ? 'Save your changes before publishing.'
+        : undefined;
   const publishLabel = !library.lastMaterializedAt
     ? 'Publish library'
     : needsLibraryRefresh(library)
@@ -289,7 +310,7 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
               variant={needsLibraryRefresh(library) ? 'filled' : 'light'}
               leftSection={<IconRefresh size={17} />}
               loading={refreshing}
-              disabled={dirty || library.configurationState !== 'Valid'}
+              disabled={!!publishBlockedReason}
               onClick={() => setReviewing(true)}
             >
               {refreshing ? 'Publishing library…' : publishLabel}
@@ -392,6 +413,7 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
         <LibraryPublishDialog
           libraryId={libraryId}
           action={publishLabel}
+          blockedReason={publishBlockedReason}
           close={() => setReviewing(false)}
           accepted={(jobId) => {
             setAcceptedId(jobId);

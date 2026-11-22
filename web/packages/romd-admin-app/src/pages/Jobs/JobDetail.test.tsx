@@ -15,6 +15,8 @@ const { state, read, retry, refetch } = vi.hoisted(() => ({
   state: {
     manager: true,
     admin: true,
+    serverFolder: undefined as string | undefined,
+    lastServerImport: undefined as string | undefined,
     job: undefined as Job | undefined,
   },
   read: vi.fn(),
@@ -32,6 +34,26 @@ vi.mock('../../hooks/api/useJobs', () => ({
     };
   },
 }));
+vi.mock('../../hooks/api/useServerImport', () => ({
+  useServerImportStatus: () => ({
+    data: {
+      directory: state.serverFolder,
+      lastJobId: state.lastServerImport,
+      canRetry: true,
+    },
+  }),
+}));
+vi.mock('../../hooks/api/useJobItems', () => ({
+  jobItemsKey: (id: string) => [
+    'job-items',
+    id,
+  ],
+  useJobItems: () => ({
+    data: {
+      items: [],
+    },
+  }),
+}));
 vi.mock('../../hooks/useJobOperations', () => ({
   useJobOperations: () => ({
     onCancel: vi.fn(),
@@ -43,6 +65,7 @@ vi.mock('../../hooks/useJobOperations', () => ({
 }));
 vi.mock('../../hooks/usePermissions', () => ({
   usePermissions: () => ({
+    canManageTitles: state.manager,
     hasRole: (role: string) => (role === 'Admin' ? state.admin && state.manager : state.manager),
   }),
 }));
@@ -75,6 +98,8 @@ function show(entry = '/jobs/old-job') {
 beforeEach(() => {
   state.manager = true;
   state.admin = true;
+  state.serverFolder = undefined;
+  state.lastServerImport = undefined;
   state.job = {
     id: 'old-job',
     jobType: 'bulk_enrichment',
@@ -337,4 +362,141 @@ it('offers the same exact retry action for a failed finite selection', async () 
     }),
   );
   expect(retry).toHaveBeenCalledWith(state.job);
+});
+
+it.each([
+  [
+    null,
+    'Back to Upload',
+    '/roms/import',
+  ],
+  [
+    '/srv/inbox',
+    'Open server import folder',
+    '/roms/import?source=server',
+  ],
+  [
+    '/srv/one-off',
+    null,
+    null,
+  ],
+])('shows committed and remaining files with recovery for source %s', (source, label, href) => {
+  state.serverFolder = '/srv/inbox';
+  state.lastServerImport = 'old-job';
+  state.job = {
+    id: 'old-job',
+    correlationId: 'old-job',
+    jobType: 'upload',
+    sourceFilename: 'batch.zip',
+    importSourcePath: source,
+    phase: 'Failed',
+    isTerminal: true,
+    progressPercent: 50,
+    romsDiscovered: 2,
+    romsProcessed: 1,
+    romsIngested: 1,
+    errors: [
+      {
+        item: 'job',
+        message: 'The archive could not be read.',
+        occurredAt: '2026-10-02T15:00:00Z',
+      },
+    ],
+  };
+  show();
+  expect(screen.getByText('Import failed')).toBeInTheDocument();
+  expect(screen.getByText('1 stored')).toBeInTheDocument();
+  expect(screen.getByText('1 file was left unprocessed.')).toBeInTheDocument();
+  expect(screen.getByText('No file outcomes were recorded.')).toBeInTheDocument();
+  expect(
+    screen.queryByRole('textbox', {
+      name: 'Search imported files',
+    }),
+  ).not.toBeInTheDocument();
+  if (label)
+    expect(
+      screen.getByRole('link', {
+        name: label,
+      }),
+    ).toHaveAttribute('href', href);
+  else {
+    expect(screen.getByText('/srv/one-off')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', {
+        name: 'Back to Upload',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', {
+        name: 'Open server import folder',
+      }),
+    ).not.toBeInTheDocument();
+  }
+});
+
+it('explains how to recover an older server-folder import without targeting the latest job', () => {
+  state.serverFolder = '/srv/inbox';
+  state.lastServerImport = 'another-job';
+  state.job = {
+    id: 'old-job',
+    correlationId: 'old-job',
+    jobType: 'upload',
+    sourceFilename: 'inbox/',
+    importSourcePath: '/srv/inbox',
+    phase: 'Failed',
+    isTerminal: true,
+    progressPercent: 0,
+    errors: [],
+  };
+  show();
+  expect(screen.getByText(/move the remaining originals into a new subfolder/)).toBeInTheDocument();
+  expect(
+    screen.queryByRole('link', {
+      name: 'Open server import folder',
+    }),
+  ).not.toBeInTheDocument();
+});
+
+it.each([
+  [
+    'InputsChanged',
+    'Review publication',
+    '?review=publication',
+  ],
+  [
+    'InvalidConfiguration',
+    'Edit library rules',
+    '?tab=games',
+  ],
+  [
+    'CatalogRebuilding',
+    'Open library',
+    '',
+  ],
+])('links a deferred publication with outcome %s to its recovery action', (outcome, label, suffix) => {
+  state.job = {
+    id: 'old-job',
+    correlationId: 'old-job',
+    jobType: 'materialization',
+    sourceFilename: 'Arcade Library',
+    libraryId: 'library-1',
+    phase: 'Deferred',
+    isTerminal: true,
+    progressPercent: 0,
+    publicationOutcome: outcome,
+    errors: [],
+  };
+  show();
+  expect(screen.getByText('Publication deferred')).toBeInTheDocument();
+  expect(
+    screen.getByRole('link', {
+      name: label,
+      exact: true,
+    }),
+  ).toHaveAttribute('href', `/libraries/library-1${suffix}`);
+  const publicationSummary = screen.queryByText('This attempt published no changes.');
+  if (outcome === 'InvalidConfiguration') {
+    expect(publicationSummary).not.toBeInTheDocument();
+    expect(screen.getByText(/invalid publication was withdrawn/)).toBeInTheDocument();
+  } else expect(publicationSummary).toBeInTheDocument();
 });

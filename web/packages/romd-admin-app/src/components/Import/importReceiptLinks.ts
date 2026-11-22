@@ -1,5 +1,6 @@
 export const importHistoryUrl = '/jobs?type=upload';
-export const serverImportUrl = '/roms/import?source=server';
+export const uploadImportUrl = '/roms/import';
+export const serverImportUrl = `${uploadImportUrl}?source=server`;
 
 export function importReceiptUrl(jobId: string, filter = 'all', search = ''): string {
   const query = receiptFilters(filter, search).toString();

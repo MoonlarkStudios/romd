@@ -2,13 +2,23 @@ import { getLibraryPublicationStatus, reviewLibraryPublication } from '@romd/adm
 import { useQuery } from '@tanstack/react-query';
 import { libraryManagementKeys } from './useLibraryManagement';
 
+export const libraryPublicationKey = (libraryId: string) =>
+  [
+    ...libraryManagementKeys.all,
+    'publication',
+    libraryId,
+  ] as const;
+
+export const libraryPublicationReviewKey = (libraryId: string) =>
+  [
+    ...libraryManagementKeys.all,
+    'publication-review',
+    libraryId,
+  ] as const;
+
 export function useLibraryPublicationStatus(libraryId: string) {
   return useQuery({
-    queryKey: [
-      ...libraryManagementKeys.all,
-      'publication',
-      libraryId,
-    ],
+    queryKey: libraryPublicationKey(libraryId),
     enabled: !!libraryId,
     queryFn: async ({ signal }) => {
       const result = await getLibraryPublicationStatus({
@@ -27,11 +37,7 @@ export function useLibraryPublicationStatus(libraryId: string) {
 
 export function useLibraryPublicationReview(libraryId: string) {
   return useQuery({
-    queryKey: [
-      ...libraryManagementKeys.all,
-      'publication-review',
-      libraryId,
-    ],
+    queryKey: libraryPublicationReviewKey(libraryId),
     staleTime: 0,
     queryFn: async ({ signal }) => {
       const result = await reviewLibraryPublication({

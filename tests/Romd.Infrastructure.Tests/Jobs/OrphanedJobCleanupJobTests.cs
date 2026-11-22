@@ -81,7 +81,7 @@ public sealed class OrphanedJobCleanupJobTests : IDisposable
             cancellationToken);
     }
 
-    private UploadJob StubJob(Guid jobId, UploadPhase phase, bool move = true)
+    private UploadJob StubJob(Guid jobId, UploadPhase phase, bool move = true, DateTimeOffset? completedAt = null)
     {
         var job = UploadJob.Rehydrate(
             jobId, Guid.NewGuid(), "source/", null, phase, null,
@@ -90,7 +90,7 @@ public sealed class OrphanedJobCleanupJobTests : IDisposable
             maxParallelRoms: 4, allowUnidentified: false, archiveOnly: false,
             importSourcePath: _sourceRoot, importMove: move, currentItem: null, errors: [],
             createdAt: DateTimeOffset.UtcNow, startedAt: DateTimeOffset.UtcNow,
-            completedAt: DateTimeOffset.UtcNow, isArchived: false, archivedAt: null,
+            completedAt: completedAt ?? DateTimeOffset.UtcNow, isArchived: false, archivedAt: null,
             createdByUserId: null);
         _jobRepo.GetByIdAsync(jobId, Arg.Any<CancellationToken>()).Returns(job);
         _allJobs.GetByIdAsync(jobId, Arg.Any<CancellationToken>()).Returns(job);
@@ -164,7 +164,7 @@ public sealed class OrphanedJobCleanupJobTests : IDisposable
     }
 
     [Fact]
-    public async Task Execute_ManifestForNonTerminalJob_IsLeftUntilAgeOut()
+    public async Task Execute_ManifestForNonTerminalJob_IsRetained()
     {
         Guid jobId = Guid.NewGuid();
         var (sourceFile, manifestPath) = await StageManifestAsync(jobId);
@@ -178,16 +178,32 @@ public sealed class OrphanedJobCleanupJobTests : IDisposable
     }
 
     [Fact]
-    public async Task Execute_StaleManifestForNonTerminalJob_IsAgedOutRetainingSources()
+    public async Task Execute_OldActiveManifest_StillEnablesSafeMoveAfterCompletion()
     {
         Guid jobId = Guid.NewGuid();
         var (sourceFile, manifestPath) = await StageManifestAsync(jobId);
         StubJob(jobId, UploadPhase.IngestingRoms);
         _timeProvider.UtcNow = DateTimeOffset.UtcNow.AddHours(5);
+        var sweep = CreateSweep();
 
-        await CreateSweep().ExecuteAsync(CreatePerformContext());
+        await sweep.ExecuteAsync(CreatePerformContext());
 
         File.Exists(sourceFile).ShouldBeTrue();
+        File.Exists(manifestPath).ShouldBeTrue();
+
+        // The source mount disappeared during the long run. Completion still gets
+        // a cleanup retry window, then the unchanged original can be safely removed.
+        string offlineSource = sourceFile + ".offline";
+        File.Move(sourceFile, offlineSource);
+        StubJob(jobId, UploadPhase.Completed, completedAt: _timeProvider.UtcNow);
+        SetIngestedJobItem(jobId);
+        await sweep.ExecuteAsync(CreatePerformContext());
+        File.Exists(manifestPath).ShouldBeTrue();
+
+        File.Move(offlineSource, sourceFile);
+        await sweep.ExecuteAsync(CreatePerformContext());
+
+        File.Exists(sourceFile).ShouldBeFalse();
         File.Exists(manifestPath).ShouldBeFalse();
     }
 

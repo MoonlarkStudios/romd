@@ -125,8 +125,9 @@ export function JobRow({
               size="xs"
               c="red"
             >
-              {job.errors.length} {job.jobType === 'media-reconciliation' ? 'job errors' : 'failed'}{' '}
-              · {summarizeFailureReasons(job.errors)}
+              {job.jobType === 'upload'
+                ? `${job.errors.length} import ${job.errors.length === 1 ? 'error' : 'errors'}`
+                : `${job.errors.length} ${job.jobType === 'media-reconciliation' ? 'job errors' : 'failed'} · ${summarizeFailureReasons(job.errors)}`}
             </Text>
           )}
         </Stack>

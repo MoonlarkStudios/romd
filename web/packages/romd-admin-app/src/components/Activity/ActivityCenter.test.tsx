@@ -125,7 +125,7 @@ describe('ActivityCenter', () => {
     expect(screen.getByText('Needs attention')).toBeInTheDocument();
     expect(screen.getByText('Enrich 10 titles · SNES')).toBeInTheDocument();
     expect(screen.getByText('Earlier')).toBeInTheDocument();
-    expect(screen.getByText('Materialize library')).toBeInTheDocument();
+    expect(screen.getByText('Publish library')).toBeInTheDocument();
   });
 
   it('shows an upload retry reason without counting a failed file', async () => {
@@ -152,7 +152,7 @@ describe('ActivityCenter', () => {
     );
 
     expect(await screen.findByText('Earlier')).toBeInTheDocument();
-    expect(screen.getByText('Materialize Family Room')).toBeInTheDocument();
+    expect(screen.getByText('Publish Family Room')).toBeInTheDocument();
     expect(screen.getByText('Deferred')).toBeInTheDocument();
   });
 

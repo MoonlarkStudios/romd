@@ -19,7 +19,11 @@ import { enrichmentRunKeys } from '../../components/Enrichment/useEnrichmentRun'
 import { ImportReceipt } from '../../components/Import/ImportReceipt';
 import { importHistoryUrl, serverImportUrl } from '../../components/Import/importReceiptLinks';
 import { JobRow } from '../../components/Jobs/JobRows';
-import { getJobTitle, mediaReconciliationOutcome } from '../../components/Jobs/jobTypeRegistry';
+import {
+  getJobTitle,
+  mediaReconciliationOutcome,
+  publicationOutcomeCopy,
+} from '../../components/Jobs/jobTypeRegistry';
 import { reviewReturnPath } from '../../components/Title/reviewHandoff';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
@@ -27,8 +31,6 @@ import { jobItemsKey } from '../../hooks/api/useJobItems';
 import { useJob } from '../../hooks/api/useJobs';
 import { useJobOperations } from '../../hooks/useJobOperations';
 import { usePermissions } from '../../hooks/usePermissions';
-
-import { publicationOutcomeCopy } from '../Libraries/libraryRefresh';
 
 export function JobDetail() {
   const { jobId } = useParams();
@@ -47,6 +49,8 @@ export function JobDetail() {
       : job?.jobType === 'upload'
         ? importHistoryUrl
         : '/jobs';
+  const deferredPublication =
+    job?.jobType === 'materialization' && job.phase === 'Deferred' ? job : undefined;
   const run = job?.jobType === 'artwork-completion' && hasRole('Manager') ? job : undefined;
   const returnToReview = hasRole('Manager') && reviewReturnPath(location.state?.reviewReturnTo);
   const refresh = () => {
@@ -136,6 +140,45 @@ export function JobDetail() {
               showFiles={false}
               {...operations}
             />
+            {deferredPublication && (
+              <Alert
+                color="yellow"
+                title="Publication deferred"
+              >
+                <Stack gap="xs">
+                  {deferredPublication.publicationOutcome !== 'InvalidConfiguration' && (
+                    <Text size="sm">This attempt published no changes.</Text>
+                  )}
+                  <Text size="sm">
+                    {publicationOutcomeCopy(
+                      deferredPublication.phase,
+                      deferredPublication.publicationOutcome,
+                    )}
+                  </Text>
+                  {deferredPublication.libraryId && hasRole('Admin') && (
+                    <Button
+                      component={Link}
+                      variant="light"
+                      size="compact-sm"
+                      w="fit-content"
+                      to={`/libraries/${deferredPublication.libraryId}${
+                        deferredPublication.publicationOutcome === 'InvalidConfiguration'
+                          ? '?tab=games'
+                          : deferredPublication.publicationOutcome === 'CatalogRebuilding'
+                            ? ''
+                            : '?review=publication'
+                      }`}
+                    >
+                      {deferredPublication.publicationOutcome === 'InvalidConfiguration'
+                        ? 'Edit library rules'
+                        : deferredPublication.publicationOutcome === 'CatalogRebuilding'
+                          ? 'Open library'
+                          : 'Review publication'}
+                    </Button>
+                  )}
+                </Stack>
+              </Alert>
+            )}
             {job.jobType === 'upload' && job.isTerminal && (
               <ImportReceipt
                 key={job.id}
@@ -228,7 +271,7 @@ export function JobDetail() {
                   )}
                 </Stack>
               )}
-              {job.currentItem && (
+              {!job.isTerminal && job.currentItem && (
                 <Text
                   size="sm"
                   style={{
@@ -297,7 +340,8 @@ export function JobDetail() {
                     Open title
                   </Anchor>
                 )}
-                {(job.jobType === 'materialization' || job.jobType === 'export') &&
+                {((job.jobType === 'materialization' && !deferredPublication) ||
+                  job.jobType === 'export') &&
                   job.libraryId &&
                   hasRole('Admin') && (
                     <Anchor
@@ -308,20 +352,15 @@ export function JobDetail() {
                     </Anchor>
                   )}
               </Group>
-              {job.phase === 'Deferred' && job.jobType === 'materialization' && (
-                <Alert color="gray">
-                  {publicationOutcomeCopy(job.phase, job.publicationOutcome)}
-                </Alert>
-              )}
             </Stack>
-            <Stack className={workspace.panel}>
-              <Title
-                order={2}
-                className={workspace.sectionHeading}
-              >
-                Errors
-              </Title>
-              {job.errors?.length ? (
+            {job.errors.length > 0 && (
+              <Stack className={workspace.panel}>
+                <Title
+                  order={2}
+                  className={workspace.sectionHeading}
+                >
+                  Errors
+                </Title>
                 <Table.ScrollContainer minWidth={600}>
                   <Table>
                     <Table.Thead>
@@ -354,15 +393,8 @@ export function JobDetail() {
                     </Table.Tbody>
                   </Table>
                 </Table.ScrollContainer>
-              ) : (
-                <Text
-                  size="sm"
-                  c="dimmed"
-                >
-                  No errors recorded.
-                </Text>
-              )}
-            </Stack>
+              </Stack>
+            )}
           </>
         )
       )}

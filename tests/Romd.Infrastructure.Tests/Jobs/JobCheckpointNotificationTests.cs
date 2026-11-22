@@ -109,6 +109,7 @@ public sealed class JobCheckpointNotificationTests
                 .AddSingleton(TimeProvider.System)
                 .AddSingleton(new JobExecutionClaimOptions())
                 .AddScoped<UploadJobRepository>()
+                .AddScoped<IJobItemRepository, JobItemRepository>()
                 .AddScoped<IJobRepository<UploadJob>, ClaimedJobRepository<UploadJob, UploadJobRepository>>()
                 .AddScoped<IAuditContext, JobAuditContext>()
                 .AddRomdJobLifecyclePolicies()

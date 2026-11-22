@@ -70,9 +70,21 @@ public sealed class UploadJobEntity : JobEntity
             TrackedOnly));
     }
 
+    public void SetIngestionProgress(UploadJob domain)
+    {
+        DatsProcessed = domain.DatsProcessed;
+        DatsSucceeded = domain.DatsSucceeded;
+        RomsProcessed = domain.RomsProcessed;
+        RomsIngested = domain.RomsIngested;
+        RomsDeduplicated = domain.RomsDeduplicated;
+        RomsRejected = domain.RomsRejected;
+        CurrentItem = domain.CurrentItem;
+        ErrorsJson = JsonSerializer.Serialize(domain.Errors);
+    }
+
     public static UploadJobEntity FromDomain(UploadJob domain, DateTimeOffset? updatedAt = null)
     {
-        return new UploadJobEntity
+        var entity = new UploadJobEntity
         {
             Id = domain.Id,
             CorrelationId = domain.CorrelationId,
@@ -82,24 +94,16 @@ public sealed class UploadJobEntity : JobEntity
             HangfireJobId = domain.HangfireJobId,
             DatsDiscovered = domain.DatsDiscovered,
             RomsDiscovered = domain.RomsDiscovered,
-            DatsProcessed = domain.DatsProcessed,
-            DatsSucceeded = domain.DatsSucceeded,
-            RomsProcessed = domain.RomsProcessed,
-            RomsIngested = domain.RomsIngested,
-            RomsDeduplicated = domain.RomsDeduplicated,
-            RomsRejected = domain.RomsRejected,
             MaxParallelRoms = domain.MaxParallelRoms,
             AllowUnidentified = domain.AllowUnidentified,
             ArchiveOnly = domain.ArchiveOnly,
             TrackedOnly = domain.TrackedOnly,
             ImportSourcePath = domain.ImportSourcePath,
             ImportMove = domain.ImportMove,
-            CurrentItem = domain.CurrentItem,
             DeferralCount = domain.DeferralCount,
             LastDeferralError = domain.LastDeferralError,
             LastDeferralAt = domain.LastDeferralAt,
             FirstDeferralAt = domain.FirstDeferralAt,
-            ErrorsJson = JsonSerializer.Serialize(domain.Errors.ToList()),
             CreatedAt = domain.CreatedAt,
             StartedAt = domain.StartedAt,
             CompletedAt = domain.CompletedAt,
@@ -109,5 +113,7 @@ public sealed class UploadJobEntity : JobEntity
             UpdatedAt = updatedAt ?? domain.CreatedAt,
             JobType = "upload"
         };
+        entity.SetIngestionProgress(domain);
+        return entity;
     }
 }

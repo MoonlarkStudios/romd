@@ -195,6 +195,10 @@ public sealed class OrphanedJobCleanupJob
                 .GetRequiredService<IUploadJobRepository>()
                 .GetByIdAsync(jobId, ct);
 
+            // Deferred imports still need their original file stamps to finish a safe move.
+            if (job is { IsTerminal: false })
+                return;
+
             if (job is not null && await scope.ServiceProvider
                     .GetRequiredService<ImportSourceCleanup>()
                     .RunCompletedAsync(job, ct))
@@ -213,7 +217,12 @@ public sealed class OrphanedJobCleanupJob
             }
         }
 
-        var age = _timeProvider.GetUtcNow().UtcDateTime - File.GetCreationTimeUtc(manifestPath);
+        var retryWindowStartedAt = File.GetCreationTimeUtc(manifestPath);
+        // A long run can finish after the original manifest's orphan age. Give a newly
+        // completed job the same cleanup window, including when its source mount is offline.
+        if (job?.CompletedAt is { UtcDateTime: var finishedAt } && finishedAt > retryWindowStartedAt)
+            retryWindowStartedAt = finishedAt;
+        var age = _timeProvider.GetUtcNow().UtcDateTime - retryWindowStartedAt;
         if (age > MaxWorkspaceAge)
         {
             _logger.LogWarning(

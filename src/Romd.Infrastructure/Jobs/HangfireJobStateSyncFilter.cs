@@ -80,7 +80,21 @@ public sealed class HangfireJobStateSyncFilter(
                 return;
             }
 
+            if (job is UploadJobEntity uploadRow)
+            {
+                var upload = uploadRow.ToDomain();
+                if (upload.IsIngesting)
+                {
+                    var outcomes = dbContext.JobItems.Where(item => item.JobId == job.Id)
+                        .OrderBy(item => item.CreatedAt).ThenBy(item => item.Id)
+                        .AsEnumerable().Select(item => item.ToDomain()).ToArray();
+                    if (upload.TryRestoreRecordedIngestionProgress(outcomes))
+                        uploadRow.SetIngestionProgress(upload);
+                }
+            }
+
             job.Phase = "Failed";
+            job.NextAttemptAtUtc = null;
             job.ExecutionFenceToken = null;
             job.ExecutionLeaseExpiresAtUtc = null;
             var failedAt = new DateTimeOffset(failedState.FailedAt);

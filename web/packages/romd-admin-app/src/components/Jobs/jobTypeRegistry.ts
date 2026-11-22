@@ -150,7 +150,7 @@ const registry: Record<string, JobTypeConfig> = {
   materialization: {
     icon: IconRefresh,
     color: 'teal',
-    label: 'Materialization',
+    label: 'Library publication',
     invalidates: () => [
       [
         'libraries',
@@ -276,7 +276,7 @@ export function getJobOutcome(job: Job): JobOutcome {
 
 // Jobs created before the factories captured a real subject stored these literal
 // labels in sourceFilename. Treat them as "no name" so legacy rows degrade to the
-// generic title instead of reading "Materialize Library Materialization".
+// generic title instead of reading "Publish Library Materialization".
 const LEGACY_MATERIALIZATION_SUBJECT = 'Library Materialization';
 const LEGACY_BULK_ENRICHMENT_SUBJECT = 'Bulk Enrichment';
 
@@ -335,7 +335,7 @@ export function getJobTitle(job: Job): string {
     }
     case 'materialization': {
       const library = jobSubject(job.sourceFilename, LEGACY_MATERIALIZATION_SUBJECT);
-      return library ? `Materialize ${library}` : 'Materialize library';
+      return library ? `Publish ${library}` : 'Publish library';
     }
     default:
       return job.sourceFilename ?? 'Job';
@@ -363,4 +363,20 @@ export function mediaReconciliationSummary(job: Job): string | null {
     return `${selected.completed} / ${selected.created + selected.adopted} finished · ${selected.failed} failed · ${selected.skipped} skipped`;
   }
   return job.outcome ? mediaReconciliationOutcome(job.outcome) : null;
+}
+
+export function publicationOutcomeCopy(phase: string, outcome?: string | null) {
+  if (outcome === 'CatalogRebuilding')
+    return 'A system used by this library is rebuilding. Review and publish again when it is ready.';
+  if (outcome === 'InputsChanged')
+    return 'The library changed during publication. Review the updated changes and publish again.';
+  if (outcome === 'InvalidConfiguration')
+    return 'Repair the saved rules before publishing. The invalid publication was withdrawn.';
+  if (phase === 'Deferred')
+    return 'Publication was deferred. Check the library, then review and publish again.';
+  if (phase === 'Failed' || phase === 'CompletedWithErrors')
+    return 'Publication failed. Open the job for details.';
+  if (phase === 'Cancelled') return 'Publication was cancelled.';
+  if (outcome === 'AlreadyPublished') return 'The current library is already published.';
+  return 'Publication completed.';
 }

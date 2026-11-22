@@ -781,6 +781,7 @@ public static class DependencyInjection
         services.TryAddSingleton<IJobCancellationPolicy<MetadataRematerializationJob>, MetadataRematerializationCancellationPolicy>();
         services.TryAddSingleton(typeof(IJobTerminationPolicy<>), typeof(DefaultJobLifecyclePolicy<>));
         services.TryAddScoped<IJobTerminationPolicy<MaterializationJob>, MaterializationTerminationPolicy>();
+        services.TryAddScoped<IJobTerminationPolicy<UploadJob>, UploadTerminationPolicy>();
         services.TryAddSingleton(typeof(IJobCompletionCleanup<>), typeof(DefaultJobLifecyclePolicy<>));
 
         var retryAge = TimeSpan.FromDays(1);

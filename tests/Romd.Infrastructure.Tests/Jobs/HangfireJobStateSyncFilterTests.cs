@@ -37,15 +37,33 @@ public sealed class HangfireJobStateSyncFilterTests : IDisposable
         using var db = CreateDb();
     }
 
-    [Fact]
-    public void OnStateApplied_FailedState_MarksRomdJobFailed()
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 0)]
+    [InlineData(true, 1)]
+    [InlineData(true, 2)]
+    public void OnStateApplied_FailedState_SettlesCommittedImportProgress(bool committedFile, int checkpointedDatFailures)
     {
         var job = UploadJob.Create("library.zip", createdAt: DateTimeOffset.UtcNow);
         job.Start("hangfire-1", startedAt: DateTimeOffset.UtcNow);
 
+        if (committedFile)
+        {
+            job.BeginClassification();
+            job.SetDiscoveredFiles(3, 0);
+            job.BeginDatIngestion();
+            // The aggregate checkpoint can include failures whose buffered rows did not commit.
+            for (int count = 0; count < checkpointedDatFailures; count++)
+                job.RecordDatResult(false, FixedNow, "Uncommitted DAT failure");
+        }
         using (var db = CreateDb())
         {
-            db.Set<UploadJobEntity>().Add(UploadJobEntity.FromDomain(job));
+            var row = UploadJobEntity.FromDomain(job);
+            row.NextAttemptAtUtc = FixedNow.AddMinutes(1);
+            db.Set<UploadJobEntity>().Add(row);
+            if (committedFile)
+                db.JobItems.Add(JobItemEntity.FromDomain(JobItem.ForDat(job.Id, "saved.dat", 12,
+                    success: true, routed: true, null, null, null, null, FixedNow).WithUploadIdentity()));
             db.SaveChanges();
         }
 
@@ -72,6 +90,9 @@ public sealed class HangfireJobStateSyncFilterTests : IDisposable
         entity.CompletedAt.Value.ToUnixTimeMilliseconds().ShouldBe(failedAt.ToUnixTimeMilliseconds());
         entity.UpdatedAt.ShouldBe(FixedNow);
         entity.CurrentItem.ShouldBeNull();
+        entity.NextAttemptAtUtc.ShouldBeNull();
+        entity.DatsSucceeded.ShouldBe(committedFile ? 1 : 0);
+        entity.DatsProcessed.ShouldBe(committedFile ? 1 : 0);
         errors.Count.ShouldBe(1);
         errors[0].Item.ShouldBe("job");
         errors[0].Message.ShouldBe("disk full");
@@ -87,6 +108,7 @@ public sealed class HangfireJobStateSyncFilterTests : IDisposable
         outboxEvent.AvailableAtUtc.ShouldBe(FixedNow);
         payload.Id.ShouldBe(job.Id);
         payload.Phase.ShouldBe("Failed");
+        payload.ShouldBeOfType<Romd.Contracts.Management.Models.UploadJob>().DatsSucceeded.ShouldBe(committedFile ? 1 : 0);
     }
 
     [Theory]

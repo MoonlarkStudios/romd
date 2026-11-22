@@ -15,6 +15,7 @@ import { createMemoryRouter, Outlet, RouterProvider } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftGuardProvider } from '../../components/Administration/DraftGuard';
 import { useUpdateCollection } from '../../hooks/api/useCollectionManagement';
+import { libraryPublicationKey } from '../../hooks/api/useLibraryPublication';
 import { completePage } from '../../test/fixtures/referencePages';
 import { render } from '../../test/utils/render';
 import { evaluationPage, finalPage } from '../../test/workspacePages';
@@ -1691,6 +1692,90 @@ it('keeps published previews available after uploads and refreshes only on reque
       name: 'View publication job',
     }),
   ).toHaveAttribute('href', '/jobs/refresh-job');
+});
+
+it('follows an accepted publication even if an active attempt appears before the response', async () => {
+  vi.mocked(getLibrary).mockResolvedValue({
+    data: {
+      ...library,
+      needsMaterialization: true,
+    },
+  } as never);
+  let acknowledge!: () => void;
+  vi.mocked(materializeLibrary).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        acknowledge = () =>
+          resolve({
+            data: {
+              jobId: 'accepted-job',
+            },
+          } as never);
+      }),
+  );
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/libraries/:libraryId',
+        element: <LibraryWorkspace />,
+      },
+    ],
+    {
+      initialEntries: [
+        '/libraries/kids?review=publication',
+      ],
+    },
+  );
+  const client = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+  renderBare(
+    <MantineProvider>
+      <QueryClientProvider client={client}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+
+  const dialog = await screen.findByRole('dialog', {
+    name: 'Review publication',
+  });
+  await within(dialog).findByText('4 → 1 owned games');
+  expect(materializeLibrary).not.toHaveBeenCalled();
+  await userEvent.click(
+    within(dialog).getByRole('button', {
+      name: 'Publish changes',
+    }),
+  );
+  await waitFor(() => expect(materializeLibrary).toHaveBeenCalledTimes(1));
+  await act(async () => {
+    client.setQueryData(libraryPublicationKey('kids'), {
+      latestAttempt: {
+        jobId: 'other-job',
+        phase: 'Building',
+        isTerminal: false,
+      },
+    });
+  });
+  expect(dialog).toBeInTheDocument();
+
+  await act(async () => acknowledge());
+
+  expect(
+    await screen.findByRole('link', {
+      name: 'View publication job',
+    }),
+  ).toHaveAttribute('href', '/jobs/accepted-job');
+  expect(
+    screen.queryByRole('dialog', {
+      name: 'Review publication',
+    }),
+  ).not.toBeInTheDocument();
+  expect(router.state.location.search).toBe('');
 });
 
 it('keeps the published preview while access-narrowing changes wait for an explicit refresh', async () => {

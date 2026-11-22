@@ -23,7 +23,13 @@ export function useCancelJob() {
         },
       });
       if (response.error) {
-        throw new Error('Failed to cancel job');
+        const status = response.response?.status;
+        if (status === 404 || status === 409) {
+          void queryClient.invalidateQueries({
+            queryKey: jobKeys.all,
+          });
+        }
+        throw jobActionFailure(response.error, 'Could not cancel the job. Please try again.');
       }
     },
     onSuccess: () => {
@@ -73,7 +79,7 @@ export function useArchiveJob() {
   });
 }
 
-function retryFailure(error: unknown, fallback: string) {
+function jobActionFailure(error: unknown, fallback: string) {
   const detail =
     typeof error === 'object' &&
     error !== null &&
@@ -114,7 +120,7 @@ export function useRetryJob() {
           },
         });
         if (response.error || !response.data)
-          throw retryFailure(response.error, 'Could not retry media reconciliation.');
+          throw jobActionFailure(response.error, 'Could not retry media reconciliation.');
         requestIds.current.delete(job.id);
         seedJob(response.data, {
           invalidateDelayMs: 0,
@@ -130,7 +136,7 @@ export function useRetryJob() {
         },
       });
       if (response.error || !response.data)
-        throw retryFailure(response.error, 'Could not retry this job.');
+        throw jobActionFailure(response.error, 'Could not retry this job.');
       return {
         kind: 'items',
         requeued: response.data.requeued,
