@@ -1,3 +1,4 @@
+using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
 using Romd.Application.Common.Cqrs;
 using Romd.Consumer.Application.Auth.Queries.GetCurrentConsumerUser;
 using Romd.Consumer.Application.Libraries.Queries.GetCurrentLibraryContext;
@@ -18,11 +19,13 @@ public static class ConsumerIdentityEndpoints
 
         group.MapGet("me", GetCurrentUser)
             .WithName("GetConsumerCurrentUser")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Discovery))
             .Produces<CurrentUser>()
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapGet("me/library", GetCurrentLibrary)
             .WithName("GetConsumerCurrentLibrary")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Library))
             .Produces<LibraryContext>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status404NotFound);

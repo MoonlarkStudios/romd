@@ -17,6 +17,7 @@ public static class RomdConsumerEndpointRouteExtensions
         api.MapConsumerServerEndpoints();
         api.MapConsumerAccessEndpoints();
         api.MapConsumerAccountEndpoints();
+        api.MapConsumerSessionEndpoints();
         api.MapConsumerVfsConnectionEndpoints();
         api.MapConsumerIdentityEndpoints();
         api.MapConsumerBrowseEndpoints();

@@ -53,6 +53,11 @@ const Shelves = lazy(() =>
     default: module.Shelves,
   })),
 );
+const SignInSessions = lazy(() =>
+  import('./pages/SignInSessions').then((module) => ({
+    default: module.SignInSessions,
+  })),
+);
 const TitleDetail = lazy(() =>
   import('./pages/TitleDetail').then((module) => ({
     default: module.TitleDetail,
@@ -95,6 +100,10 @@ export const routes: RouteObject[] = [
       {
         path: 'connections',
         element: <Connections />,
+      },
+      {
+        path: 'sessions',
+        element: <SignInSessions />,
       },
       {
         path: 'activity',

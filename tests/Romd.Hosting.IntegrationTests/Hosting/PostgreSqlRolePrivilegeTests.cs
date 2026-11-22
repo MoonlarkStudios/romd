@@ -61,6 +61,7 @@ public sealed class PostgreSqlRolePrivilegeTests
         await AssertWorkerAndAdminHaveApplicationDmlAsync(postgres);
         await AssertConsumerHoldsExactApplicationAllowListAsync(postgres.ConsumerConnectionString);
         await AssertMetadataProviderSettingsAreManagementOnlyAsync(postgres);
+        await AssertConsumerWebAppProvisioningBoundaryAsync(postgres);
         await AssertDiscReferenceAdmissionIsWorkerOnlyAsync(postgres);
         await AssertMeasurementPublicationIsWorkerOnlyAsync(postgres);
         await AssertWorkerAndAdminCanAssessEnrichmentAsync(postgres);
@@ -523,6 +524,37 @@ public sealed class PostgreSqlRolePrivilegeTests
         {
             await AssertDeniedAsync(consumerConnectionString, statement);
         }
+    }
+
+    private static async Task AssertConsumerWebAppProvisioningBoundaryAsync(RomdPostgreSqlContainer postgres)
+    {
+        await ExecuteAsync(postgres.AdminConnectionString, """
+            INSERT INTO romd."ConsumerWebAppRegistrations" ("ClientId", "DisplayName", "CallbackUri", "BrowserOrigin")
+            VALUES ('romd-web-privilege-probe', 'Probe', 'https://probe.example/callback', 'https://probe.example')
+            """);
+        await AssertDeniedAsync(postgres.AdminConnectionString,
+            """UPDATE romd."OpenIddictApplications" SET "DisplayName" = 'Unowned' """);
+        await AssertDeniedAsync(postgres.AdminConnectionString,
+            """UPDATE romd."ConsumerWebAppRegistrations" SET "ProvisionedAt" = 1 """);
+        await AssertDeniedAsync(postgres.WorkerConnectionString,
+            """UPDATE romd."ConsumerWebAppRegistrations" SET "DisabledAt" = 1 """);
+        await AssertDeniedAsync(postgres.ConsumerConnectionString,
+            """UPDATE romd."ConsumerWebAppRegistrations" SET "DisabledAt" = 1 """);
+
+        await ExecuteAsync(postgres.WorkerConnectionString, """
+            UPDATE romd."ConsumerWebAppRegistrations" SET "ProvisionedAt" = 1 WHERE "ClientId" = 'romd-web-privilege-probe'
+            """);
+        Convert.ToBoolean(await ScalarAsync(postgres.ConsumerConnectionString, """
+            SELECT "ProvisionedAt" IS NOT NULL AND "DisabledAt" IS NULL FROM romd."ConsumerWebAppRegistrations"
+            WHERE "ClientId" = 'romd-web-privilege-probe'
+            """)).ShouldBeTrue();
+
+        await ExecuteAsync(postgres.AdminConnectionString, """
+            UPDATE romd."ConsumerWebAppRegistrations" SET "DisabledAt" = 1 WHERE "ClientId" = 'romd-web-privilege-probe'
+            """);
+        Convert.ToBoolean(await ScalarAsync(postgres.ConsumerConnectionString, """
+            SELECT "DisabledAt" IS NOT NULL FROM romd."ConsumerWebAppRegistrations" WHERE "ClientId" = 'romd-web-privilege-probe'
+            """)).ShouldBeTrue();
     }
 
     private static async Task AssertMetadataProviderSettingsAreManagementOnlyAsync(RomdPostgreSqlContainer postgres)

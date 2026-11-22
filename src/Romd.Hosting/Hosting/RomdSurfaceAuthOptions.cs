@@ -1,3 +1,5 @@
+using Romd.Application.Common.Security;
+
 namespace Romd.Hosting;
 
 /// <summary>
@@ -11,6 +13,13 @@ public sealed class RomdSurfaceAuthOptions
 
     public required IReadOnlySet<string> AllowedClientIds { get; init; }
 
+    public bool AllowsRegisteredWebApps { get; init; }
+
     public bool IsClientAllowed(string? clientId) =>
         clientId is not null && AllowedClientIds.Contains(clientId);
+
+    public async ValueTask<ConsumerWebAppRegistration?> FindActiveWebAppAsync(string? clientId,
+        IConsumerWebAppRegistrations registrations, CancellationToken ct) =>
+        AllowsRegisteredWebApps && ConsumerWebAppRegistration.IsClientId(clientId)
+            && await registrations.FindAsync(clientId!, ct) is { IsActive: true } app ? app : null;
 }

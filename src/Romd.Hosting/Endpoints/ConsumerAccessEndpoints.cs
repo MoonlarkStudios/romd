@@ -1,3 +1,4 @@
+using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
 using Romd.Consumer.Application.Access.Queries.GetConsumerReleaseAccess;
@@ -20,6 +21,7 @@ public static class ConsumerAccessEndpoints
             .WithTags("Consumer Access")
             .RequireAuthorization(AuthorizationPolicies.RequireUser)
             .WithName("GetConsumerReleaseAccess")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Releases))
             .Produces<ConsumerReleaseAccess>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict);

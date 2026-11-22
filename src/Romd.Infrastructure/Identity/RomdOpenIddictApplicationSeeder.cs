@@ -42,6 +42,12 @@ public sealed class RomdOpenIddictApplicationSeeder(
     private IEnumerable<OpenIddictApplicationDescriptor> BuildDescriptors()
     {
         yield return BuildDeviceDescriptor(RomdOpenIddictClients.Console, "ROMD Console");
+        var community = BuildDeviceDescriptor(RomdOpenIddictClients.CommunityDevice, "Community device");
+        community.Permissions.Remove(Permissions.Scopes.Email);
+        community.Permissions.Remove(Permissions.Scopes.Profile);
+        community.Permissions.Remove(Permissions.Scopes.Roles);
+        community.Permissions.UnionWith(ConsumerGrantScopes.All.Select(scope => Permissions.Prefixes.Scope + scope));
+        yield return community;
         yield return BuildDeviceDescriptor(RomdOpenIddictClients.Mount, "ROMD Mount");
         yield return BuildSpaDescriptor(
             RomdOpenIddictClients.AdminSpa,

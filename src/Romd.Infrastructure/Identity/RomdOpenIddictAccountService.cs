@@ -119,7 +119,8 @@ public sealed class RomdOpenIddictAccountService(
         string clientId,
         CancellationToken ct = default)
     {
-        var roles = await GetUserRolesAsync(user.Id, ct);
+        bool thirdParty = RomdOpenIddictClients.IsThirdParty(clientId);
+        var roles = thirdParty ? [nameof(RomdRoleType.User)] : await GetUserRolesAsync(user.Id, ct);
         if (!IsEligibleForClient(roles, clientId))
         {
             return null;
@@ -133,12 +134,12 @@ public sealed class RomdOpenIddictAccountService(
         identity
             .SetClaim(Claims.Subject, user.Id.ToString())
             .SetClaim("romd_account_stamp", user.SecurityStamp)
-            .SetClaim(Claims.Email, user.Email ?? string.Empty)
+            .SetClaim(Claims.Email, thirdParty ? null : user.Email ?? string.Empty)
             .SetClaim(Claims.Name, user.UserName ?? string.Empty)
             .SetClaim(Claims.PreferredUsername, user.UserName ?? string.Empty)
             .SetClaims(Claims.Role, roles.ToImmutableArray());
 
-        if (user.LibraryId.HasValue)
+        if (!thirdParty && user.LibraryId.HasValue)
         {
             identity.SetClaim("LibraryId", user.LibraryId.Value.ToString());
         }

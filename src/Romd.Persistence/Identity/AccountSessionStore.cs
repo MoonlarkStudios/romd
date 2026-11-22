@@ -54,15 +54,14 @@ public sealed class AccountSessionStore(RomdDbContext db, TimeProvider clock) : 
         var query = db.AccountSessions.AsNoTracking().Where(item => item.UserId == userId);
         var accountEnabled = user is not null && !user.IsSuspended && !user.RequiresActivation;
         var stamp = user?.SecurityStamp;
+        var disabledClients = DisabledWebApps();
         var current = query.Where(item => accountEnabled && item.RevokedAt == null
-            && item.ExpiresAt > now && item.AccountStamp == stamp);
+            && item.ExpiresAt > now && item.AccountStamp == stamp && !disabledClients.Contains(item.ClientId));
         var history = query.Where(item => !accountEnabled || item.RevokedAt != null
-            || item.ExpiresAt <= now || item.AccountStamp != stamp);
+            || item.ExpiresAt <= now || item.AccountStamp != stamp || disabledClients.Contains(item.ClientId));
         var sessions = await current.OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id).ToListAsync(ct);
         sessions.AddRange(await history.OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id).Take(200).ToListAsync(ct));
-        return sessions.Select(item => ToModel(item, item.RevokedAt.HasValue ? "Revoked" :
-            user is null || user.IsSuspended || user.RequiresActivation || item.AccountStamp != user.SecurityStamp ? "Invalidated" :
-            item.ExpiresAt <= now ? "Expired" : "Current")).ToList();
+        return await WithStatusesAsync(sessions, user, now, ct);
     }
 
     public async Task<ErrorOr<PagedList<AccountSession>>> ListPageAsync(Guid userId, string scope, string? cursor, int limit, CancellationToken ct)
@@ -79,7 +78,26 @@ public sealed class AccountSessionStore(RomdDbContext db, TimeProvider clock) : 
         if (decoded.Value is { } position)
             query = query.Where(item => item.CreatedAt < position.CreatedAt || item.CreatedAt == position.CreatedAt && item.Id.CompareTo(position.Id) < 0);
         var rows = await query.OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id).Take(limit + 1).ToListAsync(ct);
-        return new PagedList<AccountSession>(rows.Take(limit).Select(item => ToModel(item, item.RevokedAt.HasValue ? "Revoked" : user is null || user.IsSuspended || user.RequiresActivation || item.AccountStamp != user.SecurityStamp ? "Invalidated" : item.ExpiresAt <= now ? "Expired" : "Current")).ToArray(), rows.Count > limit ? KeysetCursor.Encode(new DateIdPosition(rows[limit - 1].CreatedAt, rows[limit - 1].Id), fingerprint) : null, rows.Count > limit);
+        var sessions = await WithStatusesAsync(rows.Take(limit).ToArray(), user, now, ct);
+        return new PagedList<AccountSession>(sessions,
+            rows.Count > limit ? KeysetCursor.Encode(new DateIdPosition(rows[limit - 1].CreatedAt, rows[limit - 1].Id), fingerprint) : null,
+            rows.Count > limit);
+    }
+
+    private IQueryable<string> DisabledWebApps() =>
+        db.ConsumerWebAppRegistrations.Where(app => app.DisabledAt != null).Select(app => app.ClientId);
+
+    private async Task<IReadOnlyList<AccountSession>> WithStatusesAsync(
+        IReadOnlyCollection<AccountSessionEntity> rows, RomdUser? user, DateTimeOffset now, CancellationToken ct)
+    {
+        string[] registeredClients = rows.Select(item => item.ClientId)
+            .Where(ConsumerWebAppRegistration.IsClientId).Distinct().ToArray();
+        var disabled = registeredClients.Length == 0 ? [] :
+            await DisabledWebApps().Where(clientId => registeredClients.Contains(clientId)).ToArrayAsync(ct);
+        return rows.Select(item => ToModel(item, item.RevokedAt.HasValue ? "Revoked" :
+            user is null || user.IsSuspended || user.RequiresActivation || item.AccountStamp != user.SecurityStamp
+                || disabled.Contains(item.ClientId) ? "Invalidated" :
+            item.ExpiresAt <= now ? "Expired" : "Current")).ToArray();
     }
 
     public async Task<bool> RevokeAsync(Guid userId, Guid? sessionId, Guid? exceptSessionId, Guid actorId, string reason, CancellationToken ct)

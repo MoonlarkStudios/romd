@@ -1,3 +1,4 @@
+using Romd.Admin.Application.ConsumerApps;
 // src/Romd.Infrastructure/DependencyInjection.cs
 
 using System.IO.Abstractions;
@@ -116,6 +117,8 @@ public static class DependencyInjection
 
     private static IServiceCollection AddRomdOpenIddictCore(this IServiceCollection services)
     {
+        services.AddScoped<ConsumerWebAppRegistrationStore>();
+        services.AddScoped<IConsumerWebAppRegistrations>(sp => sp.GetRequiredService<ConsumerWebAppRegistrationStore>());
         services.AddOpenIddict()
             .AddCore(options =>
             {
@@ -142,6 +145,7 @@ public static class DependencyInjection
                 sp.GetRequiredService<SearchDocumentInterceptor>());
         });
 
+        services.AddScoped<IConsumerWebAppAdministration>(sp => sp.GetRequiredService<ConsumerWebAppRegistrationStore>());
         return services.AddRomdPersistenceRepositories();
     }
 
@@ -851,6 +855,7 @@ public static class DependencyInjection
         services.AddHostedService<SharedReferenceDataSeeder>();
         services.AddHostedService<CatalogBackfillSeeder>();
         services.AddHostedService<RomdOpenIddictApplicationSeeder>();
+        services.AddHostedService<ConsumerWebAppProvisioningWorker>();
 
         return services;
     }

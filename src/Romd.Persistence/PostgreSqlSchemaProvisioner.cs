@@ -32,6 +32,7 @@ public sealed class PostgreSqlSchemaProvisioner(
         await RefuseUnknownMigrationsAsync(context, cancellationToken);
         await context.Database.MigrateAsync(cancellationToken);
         await context.Database.ExecuteSqlRawAsync(_consumerGrantSql, cancellationToken);
+        await context.Database.ExecuteSqlRawAsync(_consumerWebAppGrantSql, cancellationToken);
         await context.Database.ExecuteSqlRawAsync(_discReferenceGrantSql, cancellationToken);
         await context.Database.ExecuteSqlRawAsync(MediaFactSchema.RuntimeGrantsSql, cancellationToken);
         await VerifySearchDocumentsAsync(context, cancellationToken);
@@ -121,6 +122,22 @@ public sealed class PostgreSqlSchemaProvisioner(
                 ON {{PostgreSqlConfiguration.SchemaName}}."AspNetUsers" TO romd_consumer;
         END
         $consumer$;
+        """;
+
+    private const string _consumerWebAppGrantSql = """
+        DO $consumer_web_apps$
+        BEGIN
+            IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'romd_admin') THEN
+                REVOKE INSERT, UPDATE, DELETE ON romd."OpenIddictApplications", romd."OpenIddictScopes" FROM romd_admin;
+                REVOKE UPDATE, DELETE ON romd."ConsumerWebAppRegistrations" FROM romd_admin;
+                GRANT UPDATE ("DisabledAt") ON romd."ConsumerWebAppRegistrations" TO romd_admin;
+            END IF;
+            IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'romd_worker') THEN
+                REVOKE INSERT, UPDATE, DELETE ON romd."ConsumerWebAppRegistrations" FROM romd_worker;
+                GRANT UPDATE ("ProvisionedAt") ON romd."ConsumerWebAppRegistrations" TO romd_worker;
+            END IF;
+        END
+        $consumer_web_apps$;
         """;
 
     // Retained source bodies are admitted only by the worker. Schema-wide defaults must not

@@ -1,3 +1,4 @@
+using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
 using ErrorOr;
 using System.ComponentModel.DataAnnotations;
 using Romd.Contracts.Common.Models;
@@ -15,9 +16,11 @@ public static class ReferenceCatalogEndpoints
     public static IEndpointRouteBuilder MapReferenceCatalogEndpoints(this IEndpointRouteBuilder app, bool admin)
     {
         var prefix = admin ? "Admin" : "Consumer";
-        app.MapGet("catalog-snapshot", Current).WithTags("Catalog snapshots").WithName("Get" + prefix + "CatalogSnapshot")
+        var snapshot = app.MapGet("catalog-snapshot", Current).WithTags("Catalog snapshots").WithName("Get" + prefix + "CatalogSnapshot")
             .RequireAuthorization(AuthorizationPolicies.RequireUser).Produces<ReferenceCatalogDescriptor>().ConditionalRead().ProducesProblems(503);
-        MapSnapshotPages(app, prefix);
+        if (!admin)
+            snapshot.WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Discovery));
+        MapSnapshotPages(app, prefix, admin);
 
         app.MapGet("assets/{hash}", Asset).WithTags("Reference assets").WithName("Get" + prefix + "ReferenceAsset")
             .AllowAnonymous().Produces(200).ProducesProblems(404);
@@ -59,16 +62,16 @@ public static class ReferenceCatalogEndpoints
         var descriptor = ReferenceCatalogCanonicalJson.Describe(catalog);
         return Preconditions.ConditionalRead(context, descriptor, descriptor.Revision);
     }
-    private static void MapSnapshotPages(IEndpointRouteBuilder app, string prefix)
+    private static void MapSnapshotPages(IEndpointRouteBuilder app, string prefix, bool admin)
     {
-        MapSnapshotPage(app, prefix, "systems", "Systems", (ReferenceCatalog x) => x.Systems, x => x.Key);
-        MapSnapshotPage(app, prefix, "companies", "Companies", (ReferenceCatalog x) => x.Companies, x => x.Key);
-        MapSnapshotPage(app, prefix, "regions", "Regions", (ReferenceCatalog x) => x.Regions, x => x.Key);
-        MapSnapshotPage(app, prefix, "languages", "Languages", (ReferenceCatalog x) => x.Languages, x => x.Key);
-        MapSnapshotPage(app, prefix, "rating-boards", "RatingBoards", (ReferenceCatalog x) => x.RatingBoards, x => x.Key);
-        MapSnapshotPage(app, prefix, "ratings", "Ratings", (ReferenceCatalog x) => x.Ratings, x => x.Board + ":" + x.Code);
+        MapSnapshotPage(app, prefix, admin, "systems", "Systems", (ReferenceCatalog x) => x.Systems, x => x.Key);
+        MapSnapshotPage(app, prefix, admin, "companies", "Companies", (ReferenceCatalog x) => x.Companies, x => x.Key);
+        MapSnapshotPage(app, prefix, admin, "regions", "Regions", (ReferenceCatalog x) => x.Regions, x => x.Key);
+        MapSnapshotPage(app, prefix, admin, "languages", "Languages", (ReferenceCatalog x) => x.Languages, x => x.Key);
+        MapSnapshotPage(app, prefix, admin, "rating-boards", "RatingBoards", (ReferenceCatalog x) => x.RatingBoards, x => x.Key);
+        MapSnapshotPage(app, prefix, admin, "ratings", "Ratings", (ReferenceCatalog x) => x.Ratings, x => x.Board + ":" + x.Code);
     }
-    private static void MapSnapshotPage<T>(IEndpointRouteBuilder app, string prefix, string family, string name,
+    private static void MapSnapshotPage<T>(IEndpointRouteBuilder app, string prefix, bool admin, string family, string name,
         Func<ReferenceCatalog, IReadOnlyList<T>> select, Func<T, string> key)
     {
         // A typed local delegate avoids Minimal API's generic method-group inference ambiguity.
@@ -88,10 +91,12 @@ public static class ReferenceCatalogEndpoints
             return page.IsError ? page.Errors.ToProblem() : Results.Ok(page.Value);
         }
         var handler = (Func<IReferenceCatalogService, string, string?, int, CancellationToken, Task<IResult>>)Read;
-        app.MapGet("catalog-snapshot/" + family, handler).WithTags("Catalog snapshots")
+        var endpoint = app.MapGet("catalog-snapshot/" + family, handler).WithTags("Catalog snapshots")
             .WithName("List" + prefix + "CatalogSnapshot" + name).RequireAuthorization(AuthorizationPolicies.RequireUser)
             .Produces<Page<T>>().ProducesProblems(409, 503)
             .WithDescription("Members of one published schema-v1 catalog in its exact published sequence. Required revision is the descriptor catalogRevision. Default/max limit 100. The current-only publication may change between requests: 409 discards the entire staged traversal. Successful pages are 200 and have no ETag or conditional-read behavior.");
+        if (!admin)
+            endpoint.WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Discovery));
     }
     private static async Task<IResult> Asset(string hash, [FromServices] IReferenceCatalogService service, HttpContext context, CancellationToken ct)
     {

@@ -61,8 +61,8 @@ try
     app.UseRomdExceptionHandling();
 
     app.UseRomdInteractiveAuthenticationForms();
-    app.UseAuthentication();
     app.UseCors(RomdCorsPolicyNames.Consumer);
+    app.UseAuthentication();
     app.UseAuthorization();
 
     // Unmatched /api routes and routing's 405/415 rejections answer with the shared envelope.
@@ -96,6 +96,7 @@ try
     app.MapFallbackToFile("login", "index.html");
     app.MapFallbackToFile("auth/callback", "index.html");
     app.MapFallbackToFile("library", "index.html");
+    app.MapFallbackToFile("sessions", "index.html");
     app.MapFallbackToFile("titles/{*path:nonfile}", "index.html");
     app.MapFallbackToFile("collections/{*path:nonfile}", "index.html");
 

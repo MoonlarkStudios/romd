@@ -1,3 +1,4 @@
+using ConsumerGrantScopes = Romd.Infrastructure.Identity.ConsumerGrantScopes;
 using System.ComponentModel.DataAnnotations;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
@@ -16,6 +17,7 @@ public static class ConsumerCollectionEndpoints
     {
         var group = app.MapGroup("collections")
             .WithTags("Consumer Collections")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Library))
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
 
         group.MapGet("", ListCollections)

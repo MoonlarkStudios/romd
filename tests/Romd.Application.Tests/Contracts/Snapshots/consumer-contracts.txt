@@ -11,6 +11,14 @@ Romd.Contracts.Consumer.Account.ConsumerReleasePreference
   PreferredRegionKeys: IReadOnlyList<string>
   RevisionStrategy: string
 
+Romd.Contracts.Consumer.Account.ConsumerSignInSession
+  CreatedAt: DateTimeOffset
+  Device: string
+  Id: Guid
+  IsCurrent: bool
+  LastUsedAt: DateTimeOffset
+  Status: string
+
 Romd.Contracts.Consumer.Account.ConsumerUserSettings
   ReleasePreference: ConsumerReleasePreference
   Theme: string
