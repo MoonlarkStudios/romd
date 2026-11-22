@@ -38,8 +38,11 @@ import { defaultLibraryConfiguration } from './libraryOptions';
 vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   getLibrary: vi.fn(),
+  getJob: vi.fn(),
   listLibraries: vi.fn(),
   materializeLibrary: vi.fn(),
+  getLibraryPublicationStatus: vi.fn(),
+  reviewLibraryPublication: vi.fn(),
   createLibrary: vi.fn(),
   previewLibraryConfiguration: vi.fn(),
   updateLibrary: vi.fn(),
@@ -61,6 +64,8 @@ import {
   createLibrary,
   exportLibrary,
   getCatalogFilters,
+  getJob,
+  getLibraryPublicationStatus,
   getTitle,
   listAdminSystems,
   listCatalogTitles,
@@ -72,6 +77,7 @@ import {
   materializeLibrary,
   previewLibraryConfiguration,
   replaceLibraryAttachments,
+  reviewLibraryPublication,
   updateLibrary,
 } from '@romd/admin-api-client';
 
@@ -123,6 +129,33 @@ const poster = {
 };
 
 beforeEach(() => {
+  vi.mocked(getLibraryPublicationStatus).mockResolvedValue({
+    data: {
+      latestAttempt: null,
+    },
+  } as never);
+  vi.mocked(reviewLibraryPublication).mockResolvedValue({
+    data: {
+      revision: 'review-revision',
+      checkedAt: library.updatedAt,
+      publishedAt: library.lastMaterializedAt,
+      publishedGames: 4,
+      projectedGames: 1,
+      assignedAccounts: 1,
+      addedGames: 0,
+      removedGames: 3,
+      addedExamples: [],
+      removedExamples: [
+        {
+          id: 'chrono',
+          name: 'Chrono Trigger',
+          reason: 'UnknownRatingNeedsReview',
+        },
+      ],
+      shelvesEmptied: 0,
+      shelvesEmptiedExamples: [],
+    },
+  } as never);
   vi.clearAllMocks();
   vi.mocked(previewLibraryConfiguration).mockResolvedValue({
     data: evaluationPage({
@@ -1573,6 +1606,27 @@ it('keeps published previews available after uploads and refreshes only on reque
       jobId: 'refresh-job',
     },
   } as never);
+  vi.mocked(getLibraryPublicationStatus).mockResolvedValue({
+    data: {
+      latestAttempt: {
+        jobId: 'previous-job',
+        phase: 'Completed',
+        isTerminal: true,
+        outcome: 'Published',
+        createdAt: '2026-09-01T00:00:00Z',
+      },
+    },
+  } as never);
+  vi.mocked(getJob).mockResolvedValueOnce({
+    data: {
+      id: 'refresh-job',
+      jobType: 'materialization',
+      phase: 'Deferred',
+      isTerminal: true,
+      publicationOutcome: 'InputsChanged',
+      createdAt: '2026-09-02T00:00:00Z',
+    },
+  } as never);
   const router = createMemoryRouter(
     [
       {
@@ -1610,13 +1664,33 @@ it('keeps published previews available after uploads and refreshes only on reque
       name: 'Publish changes',
     }),
   );
+  const review = await screen.findByRole('dialog', {
+    name: 'Review publication',
+  });
+  expect(await within(review).findByText('4 → 1 owned games')).toBeInTheDocument();
+  expect(within(review).getByText('3 removed')).toBeInTheDocument();
+  expect(materializeLibrary).not.toHaveBeenCalled();
+  await userEvent.click(
+    within(review).getByRole('button', {
+      name: 'Publish changes',
+    }),
+  );
   await waitFor(() =>
     expect(materializeLibrary).toHaveBeenCalledWith({
+      query: {
+        reviewedRevision: 'review-revision',
+      },
       path: {
         libraryId: 'kids',
       },
     }),
   );
+  expect(await screen.findByText(/The library changed during publication/)).toBeInTheDocument();
+  expect(
+    screen.getByRole('link', {
+      name: 'View publication job',
+    }),
+  ).toHaveAttribute('href', '/jobs/refresh-job');
 });
 
 it('keeps the published preview while access-narrowing changes wait for an explicit refresh', async () => {

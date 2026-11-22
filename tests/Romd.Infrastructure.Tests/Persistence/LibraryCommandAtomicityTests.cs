@@ -642,6 +642,9 @@ public sealed class LibraryCommandAtomicityTests
     private sealed class NullFirstActiveLookupJobRepository(IMaterializationJobRepository inner)
         : IMaterializationJobRepository
     {
+        public Task<MaterializationJob?> GetLatestForLibraryAsync(int libraryId, CancellationToken ct = default) =>
+            inner.GetLatestForLibraryAsync(libraryId, ct);
+
         private bool _missNextActiveLookup = true;
 
         public Task<MaterializationJob?> GetByIdAsync(Guid id, CancellationToken ct = default) =>

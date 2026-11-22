@@ -57,6 +57,15 @@ public sealed class MaterializationJobRepository : IMaterializationJobRepository
         return entity?.ToDomain();
     }
 
+    public async Task<MaterializationJob?> GetLatestForLibraryAsync(int libraryId, CancellationToken ct = default)
+    {
+        var entity = await _context.Jobs.OfType<MaterializationJobEntity>()
+            .Where(job => job.LibraryId == libraryId)
+            .OrderByDescending(job => job.CreatedAt).ThenByDescending(job => job.Id)
+            .FirstOrDefaultAsync(ct);
+        return entity?.ToDomain();
+    }
+
     public Task AddStagedAsync(MaterializationJob job, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

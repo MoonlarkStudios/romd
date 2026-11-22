@@ -1948,6 +1948,39 @@
         }
       }
     },
+    "/api/me/library/publication": {
+      "get": {
+        "tags": [
+          "Consumer Identity"
+        ],
+        "operationId": "GetConsumerLibraryPublication",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryPublicationVersion"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/library/systems": {
       "get": {
         "tags": [
@@ -5333,6 +5366,20 @@
           "count": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "LibraryPublicationVersion": {
+        "required": [
+          "version"
+        ],
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

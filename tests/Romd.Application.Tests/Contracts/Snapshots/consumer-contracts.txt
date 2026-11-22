@@ -198,6 +198,9 @@ Romd.Contracts.Consumer.Libraries.LibraryFacet
   Id: string
   Name: string
 
+Romd.Contracts.Consumer.Libraries.LibraryPublicationVersion
+  Version: string?
+
 Romd.Contracts.Consumer.Playback.ConsumerPlaybackConfig
   PlayerOrigin: string? [required]
 

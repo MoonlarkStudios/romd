@@ -409,6 +409,9 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
         modelBuilder.Entity<MaterializationJobEntity>(entity =>
         {
             entity.Property(j => j.LibraryId).HasColumnName("LibraryId");
+            entity.HasIndex(j => new { j.LibraryId, j.CreatedAt, j.Id })
+                .HasFilter("\"JobType\" = 'materialization'")
+                .HasDatabaseName("IX_MaterializationJobs_LibraryHistory");
             entity.HasIndex(j => j.LibraryId)
                 .IsUnique()
                 .HasFilter(

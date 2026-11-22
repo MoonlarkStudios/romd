@@ -18,6 +18,8 @@ using Romd.Admin.Application.Libraries.Queries.GetLibraryGenreFacets;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryPlatformFacets;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleReleaseDiagnostics;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleVisibility;
+using Romd.Admin.Application.Libraries.Queries.GetLibraryPublicationStatus;
+using Romd.Admin.Application.Libraries.Queries.ReviewLibraryPublication;
 using Romd.Admin.Application.Libraries.Queries.ListLibraries;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
@@ -81,7 +83,17 @@ public static class LibraryEndpoints
         group.MapPost("{libraryId}/materialize", ForceMaterialize)
             .WithName("MaterializeLibrary")
             .ProducesAcceptedJob()
-            .ProducesProblems(StatusCodes.Status404NotFound);
+            .ProducesProblems(404, 409);
+
+        group.MapGet("{libraryId}/publication", async (Sqid libraryId,
+            IQueryHandler<GetLibraryPublicationStatusQuery, LibraryPublicationStatus> handler, CancellationToken ct) =>
+            (await handler.HandleAsync(new(libraryId.Value), ct)).Match(Results.Ok, ToLibraryProblem))
+            .WithName("GetLibraryPublicationStatus").Produces<LibraryPublicationStatus>().ProducesProblems(404);
+
+        group.MapGet("{libraryId}/publication/review", async (Sqid libraryId,
+            IQueryHandler<ReviewLibraryPublicationQuery, LibraryPublicationReview> handler, CancellationToken ct) =>
+            (await handler.HandleAsync(new(libraryId.Value), ct)).Match(Results.Ok, ToLibraryProblem))
+            .WithName("ReviewLibraryPublication").Produces<LibraryPublicationReview>().ProducesProblems(404, 409);
 
         group.MapGet("{libraryId}/facets/systems", GetPlatformFacets)
             .WithName("ListLibrarySystemFacets")
@@ -235,12 +247,12 @@ public static class LibraryEndpoints
         return result.Match(_ => Results.NoContent(), ToLibraryProblem);
     }
 
-    private static async Task<IResult> ForceMaterialize(Sqid libraryId,
+    private static async Task<IResult> ForceMaterialize(Sqid libraryId, Guid? reviewedRevision,
         ICommandHandler<ForceMaterializeLibraryCommand, Guid> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(
-            new ForceMaterializeLibraryCommand(libraryId),
+            new ForceMaterializeLibraryCommand(libraryId, reviewedRevision),
             cancellationToken);
         return result.Match(
             JobAccepted.Result,

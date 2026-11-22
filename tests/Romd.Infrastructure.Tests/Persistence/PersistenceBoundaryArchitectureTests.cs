@@ -182,7 +182,7 @@ public sealed class PersistenceBoundaryArchitectureTests
         // Parameterized tracking mutation + scoped invalidation + deduplicated job acceptance
         // are one PostgreSQL statement; changed IDs remain server-side even for platform batches.
         // Keep refresh timestamps strictly newer than publication at millisecond storage precision.
-        Sql(Persistence + "Repositories/LibraryRepository.cs", "LibraryRepository", "FlagForRematerializationAsync", "ExecuteSqlInterpolatedAsync"),
+        Sql(Persistence + "Repositories/LibraryRepository.cs", "LibraryRepository", "FlagPublicationRequestAsync", "ExecuteSqlInterpolatedAsync"),
         Sql(Persistence + "Repositories/LibraryRepository.cs", "LibraryRepository", "MarkPlatformChangedAsync", "ExecuteSqlInterpolatedAsync"),
         Sql(Persistence + "Repositories/TrackingLibraryInvalidation.cs", "TrackingLibraryInvalidation", "ApplyAsync", "SqlQueryRaw"),
         // Serializes per-account VFS credential changes and enforces the active-connection cap.

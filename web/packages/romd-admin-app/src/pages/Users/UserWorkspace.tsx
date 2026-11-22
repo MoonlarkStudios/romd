@@ -432,6 +432,7 @@ function AccountWorkspace({ user }: { user: User }) {
                             {
                               userId: user.id,
                               libraryId,
+                              expectedRevision: user.assignmentRevision,
                             },
                             {
                               onSuccess: (saved) => {

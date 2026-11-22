@@ -366,6 +366,10 @@ public sealed class JobRunner<TJob> where TJob : Job
         }
         catch (Exception ex)
         {
+            await StopHeartbeatAsync();
+            if (await RecoverCommittedOutcomeAsync())
+                return;
+
             // Record a clean terminal failure with the real error. We do NOT rethrow: once a
             // job has started its workspace is disposed and the phase machine can't resume, so a
             // Hangfire retry would only re-enter a now-terminal job and surface a misleading

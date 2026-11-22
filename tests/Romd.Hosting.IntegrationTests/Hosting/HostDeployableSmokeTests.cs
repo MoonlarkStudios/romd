@@ -80,6 +80,7 @@ public sealed class HostDeployableSmokeTests
         "/api/me/activity/play-sessions/{sessionId:guid}",
         "/api/me/activity/recently-played",
         "/api/me/library",
+        "/api/me/library/publication",
         "/api/me/library/systems",
         "/api/me/library/systems/{systemKey}",
         "/api/systems/{systemKey}/bios",

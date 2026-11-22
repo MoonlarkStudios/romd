@@ -402,6 +402,10 @@ export type LibraryFacet = {
     count: number;
 };
 
+export type LibraryPublicationVersion = {
+    version: null | string;
+};
+
 export type PageOfCompanyResource = {
     items: Array<CompanyResource>;
     nextCursor?: null | string;
@@ -1860,6 +1864,35 @@ export type GetConsumerCurrentLibraryResponses = {
 };
 
 export type GetConsumerCurrentLibraryResponse = GetConsumerCurrentLibraryResponses[keyof GetConsumerCurrentLibraryResponses];
+
+export type GetConsumerLibraryPublicationData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/me/library/publication';
+};
+
+export type GetConsumerLibraryPublicationErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type GetConsumerLibraryPublicationError = GetConsumerLibraryPublicationErrors[keyof GetConsumerLibraryPublicationErrors];
+
+export type GetConsumerLibraryPublicationResponses = {
+    /**
+     * OK
+     */
+    200: LibraryPublicationVersion;
+};
+
+export type GetConsumerLibraryPublicationResponse = GetConsumerLibraryPublicationResponses[keyof GetConsumerLibraryPublicationResponses];
 
 export type ListConsumerLibrarySystemsData = {
     body?: never;

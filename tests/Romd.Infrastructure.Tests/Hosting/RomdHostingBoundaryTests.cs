@@ -783,7 +783,7 @@ public sealed class RomdHostingBoundaryTests
             .Distinct()
             .ToArray();
 
-        libraryHandlerServiceTypes.Length.ShouldBe(17);
+        libraryHandlerServiceTypes.Length.ShouldBe(19);
         libraryHandlerServiceTypes.ShouldContain(typeof(IQueryHandler<GetLibraryDiscSetOptionsQuery,
             Romd.Contracts.Management.Libraries.LibraryDiscSetOptions>));
         libraryHandlerServiceTypes.ShouldContain(typeof(IQueryHandler<GetLibraryTitleVisibilityQuery,

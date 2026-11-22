@@ -171,6 +171,9 @@ describe('BrowserPlayer', () => {
 
     renderPlayer();
 
+    expect(useTitleDetail).toHaveBeenCalledWith('title-1', {
+      playbackAccountId: 'person-a',
+    });
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith('release-1');
     });
@@ -364,6 +367,9 @@ describe('BrowserPlayer', () => {
       </Routes>,
     );
     await waitFor(() => expect(bridgeHarness.create).toHaveBeenCalledOnce());
+    expect(useTitleDetail).toHaveBeenLastCalledWith('title-1', {
+      playbackAccountId: 'person-b',
+    });
     await act(async () => {
       resolveOld(createManifest());
     });

@@ -2,13 +2,18 @@ using Romd.Persistence.Libraries;
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.Libraries;
+using Romd.Application.Common.Configuration;
+using Romd.Application.Common.Security;
 using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Domain.Libraries;
 using Romd.Infrastructure.Jobs.Executors;
+using Romd.Infrastructure.Jobs;
 using Romd.Infrastructure.Libraries;
 using Romd.Infrastructure.Realtime;
 using Romd.Infrastructure.Tests.Helpers;
@@ -26,6 +31,86 @@ public sealed partial class AdminMutationOutboxAtomicityTests
     private readonly ITestOutputHelper _queueOutput;
 
     public AdminMutationOutboxAtomicityTests(ITestOutputHelper output) => _queueOutput = output;
+
+    [Theory]
+    [InlineData("commit-before", false)]
+    [InlineData("commit-after", true)]
+    public async Task QueueSafety_PublicationCommitFault_JobAndLiveGenerationAgree(string point, bool published)
+    {
+        await using var database = await TestDatabase.CreateAsync();
+        await SeedQueueMaterializationAsync(database, 1, 3);
+        var job = await AddQueueMaterializationAsync(database, 1);
+        await using var db = database.CreateReadContext();
+        var fault = new OwnerTransactionFaults(new EfUnitOfWork(db), point, new IOException("Publication acknowledgement was lost."))
+        {
+            ObserveCommitAsync = async () =>
+            {
+                // A competing cancellation locks and reads the committed row before the runner receives its acknowledgement.
+                await using var cancel = database.CreateReadContext();
+                await using var transaction = await cancel.Database.BeginTransactionAsync();
+                var cancellations = new JobCancellationStore(cancel, new JobRepository(cancel, TimeProvider.System));
+                var visible = await cancellations.LockVisibleForCancellationStagedAsync(job.Id, new(null, true, false));
+                visible.ShouldNotBeNull();
+                visible.IsTerminal.ShouldBeTrue();
+                visible.Phase.ShouldBe("Completed");
+            }
+        };
+        var executor = new MaterializationJobExecutor(new LibraryMaterializationService(
+            new LibraryRepository(db), new MaterializationDataProvider(db), CatalogProjectionTestFactory.Create(db),
+            new AdminRealtimeOutbox(db, TimeProvider.System), fault, NullLogger<LibraryMaterializationService>.Instance,
+            new MaterializationJobRepository(db, TimeProvider.System)),
+            new LibraryRepository(db), NullLogger<MaterializationJobExecutor>.Instance);
+        var services = new ServiceCollection();
+        services.AddScoped(_ => database.CreateReadContext());
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton(new JobExecutionClaimOptions());
+        services.AddScoped<MaterializationJobRepository>();
+        services.AddScoped<IMaterializationJobRepository>(sp => sp.GetRequiredService<MaterializationJobRepository>());
+        services.AddScoped<IJobRepository<MaterializationJob>, ClaimedJobRepository<MaterializationJob, MaterializationJobRepository>>();
+        services.AddScoped<IAuditContext, JobAuditContext>();
+        services.AddRomdJobLifecyclePolicies();
+        await using var provider = services.BuildServiceProvider();
+        var options = Substitute.For<IRomdOptions>();
+        options.DataDirectory.Returns(Path.GetTempPath());
+        var runner = new JobRunner<MaterializationJob>(provider.GetRequiredService<IServiceScopeFactory>(), executor,
+            Substitute.For<IJobNotifier>(), options, NullLogger<JobRunner<MaterializationJob>>.Instance);
+
+        await runner.RunAsync(job.Id, "first", CancellationToken.None);
+        fault.Injected.ShouldBeTrue();
+        await runner.RunAsync(job.Id, "redelivery", CancellationToken.None);
+
+        await AssertQueueProjectionsAsync(database, 1, published ? 3 : 0, published ? 1 : 0);
+        await using var verify = database.CreateReadContext();
+        var settled = await verify.Set<MaterializationJobEntity>().SingleAsync();
+        settled.Phase.ShouldBe(published ? "Completed" : "Failed");
+        settled.IncludedCount.ShouldBe(published ? 3 : 0);
+        settled.PublishedGeneration.ShouldBe(published ? 1L : null);
+        settled.ExecutionFenceToken.ShouldBeNull();
+        (await verify.AdminRealtimeOutboxEvents.CountAsync()).ShouldBe(published ? 1 : 0);
+    }
+
+    [Fact]
+    public async Task QueueSafety_ReviewedPublicationInvalidatedBeforeExecution_DoesNotPublishNewInputs()
+    {
+        await using var database = await TestDatabase.CreateAsync();
+        await SeedQueueMaterializationAsync(database, 1, 3);
+        Guid jobId;
+        await using (var context = database.CreateReadContext())
+        {
+            var library = await context.Libraries.SingleAsync();
+            var job = MaterializationJob.Create(library.Id, library.Name, DateTimeOffset.UtcNow,
+                reviewedRevision: library.MaterializationRevision);
+            await new MaterializationJobRepository(context, TimeProvider.System).SeedCommittedAsync(context, job);
+            jobId = job.Id;
+            await new LibraryRepository(context).FlagAllForRematerializationAsync();
+        }
+
+        var outcome = await RunQueueMaterializationAsync(database, jobId);
+
+        outcome.PhaseEnum.ShouldBe(MaterializationPhase.Deferred);
+        outcome.Outcome.ShouldBe(PublicationOutcome.InputsChanged);
+        await AssertQueueProjectionsAsync(database, 1, 0, 0);
+    }
 
     [Fact]
     public async Task QueueSafety_MaterializationDistinctLibraries_SharedCatalogPublishesIndependentProjections()
@@ -249,7 +334,8 @@ public sealed partial class AdminMutationOutboxAtomicityTests
         db => new MaterializationJobExecutor(new LibraryMaterializationService(
                 new LibraryRepository(db), new QueueMaterializationDataProvider(new MaterializationDataProvider(db), gate),
                 CatalogProjectionTestFactory.Create(db), new AdminRealtimeOutbox(db, TimeProvider.System),
-                new EfUnitOfWork(db), NullLogger<LibraryMaterializationService>.Instance),
+                new EfUnitOfWork(db), NullLogger<LibraryMaterializationService>.Instance,
+                new MaterializationJobRepository(db, TimeProvider.System)),
             new LibraryRepository(db), NullLogger<MaterializationJobExecutor>.Instance));
 
     private static async Task AssertQueueProjectionsAsync(TestDatabase database, int libraryCount, int titleCount, int generation,

@@ -18,6 +18,8 @@ import {
 } from '@romd/admin-api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { collectPages } from '../../utils/collectPages';
+import { ifMatch } from './titleConflict';
+import { ApiClientError } from './useLibraryManagement';
 
 export type UserRole = 'User' | 'Contributor' | 'Manager' | 'Admin';
 
@@ -96,19 +98,24 @@ function directoryStatus(
   throw new Error('Invalid account status filter.');
 }
 
-export function useUserDirectory(filters: {
-  search?: string;
-  role?: string;
-  status?: string;
-  libraryId?: string;
-  cursor?: string;
-}) {
+export function useUserDirectory(
+  filters: {
+    search?: string;
+    role?: string;
+    status?: string;
+    libraryId?: string;
+    cursor?: string;
+    limit?: number;
+  },
+  enabled = true,
+) {
   return useQuery({
     queryKey: [
       ...userKeys.all,
       'directory',
       filters,
     ],
+    enabled,
     queryFn: async ({ signal }) => {
       const response = await listUsers({
         query: {
@@ -117,6 +124,7 @@ export function useUserDirectory(filters: {
           status: directoryStatus(filters.status),
           libraryId: filters.libraryId,
           cursor: filters.cursor,
+          limit: filters.limit,
         },
         signal,
       });
@@ -242,17 +250,34 @@ export function useAssignUserLibrary() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ userId, libraryId }: { userId: string; libraryId: string | null }) => {
+    mutationFn: async ({
+      userId,
+      libraryId,
+      expectedRevision,
+    }: {
+      userId: string;
+      libraryId: string | null;
+      expectedRevision?: string | null;
+    }) => {
+      if (!expectedRevision) throw new Error('Refresh the account before changing its library.');
       const response = await assignUserLibrary({
         path: {
           userId,
         },
+        headers: ifMatch(expectedRevision),
         body: {
           libraryId,
         },
       });
       if (response.error) {
-        throw new Error(getApiErrorMessage(response.error, 'Failed to assign library'));
+        if (response.response?.status === 412)
+          void queryClient.invalidateQueries({
+            queryKey: userKeys.all,
+          });
+        throw new ApiClientError(
+          getApiErrorMessage(response.error, 'Failed to assign library'),
+          response.response?.status,
+        );
       }
       return response.data as User;
     },

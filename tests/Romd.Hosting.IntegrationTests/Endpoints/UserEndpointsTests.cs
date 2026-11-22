@@ -5,6 +5,7 @@ using ErrorOr;
 using Romd.Admin.Application.Users.Commands.AccountSecurity;
 using Romd.Admin.Application.Users.Queries.GetAccountSecurity;
 using Romd.Admin.Application.Users.Queries.GetAdminAudit;
+using Romd.Admin.Application.Users.Queries.GetLibraryAccountAccess;
 using Romd.Admin.Application.Users.Queries.GetUserDirectory;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -158,9 +159,20 @@ public sealed class UserEndpointsTests
         handler.HandleAsync(Arg.Any<GetUserByIdQuery>(), Arg.Any<CancellationToken>())
             .Returns(UserErrors.NotFound());
 
-        var result = await InvokeAsync("GetById", User.Id, handler, CancellationToken.None);
+        var result = await InvokeAsync("GetById", User.Id, new DefaultHttpContext(), handler, CancellationToken.None);
 
         AssertNotFoundProblem(result);
+    }
+
+    [Fact]
+    public async Task AssignLibrary_MissingIfMatch_Returns428WithoutAssignment()
+    {
+        var handler = Substitute.For<ICommandHandler<AssignUserLibraryCommand, ManagedUser>>();
+        var result = await InvokeAsync("AssignLibrary", User.Id, new AssignLibraryRequest(null), new DefaultHttpContext(),
+            handler, CancellationToken.None);
+
+        result.ShouldBeAssignableTo<IStatusCodeHttpResult>().StatusCode.ShouldBe(StatusCodes.Status428PreconditionRequired);
+        await handler.DidNotReceive().HandleAsync(Arg.Any<AssignUserLibraryCommand>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -174,6 +186,7 @@ public sealed class UserEndpointsTests
             "AssignLibrary",
             User.Id,
             new AssignLibraryRequest("bad"),
+            AssignmentContext(),
             handler,
             CancellationToken.None);
 
@@ -195,6 +208,7 @@ public sealed class UserEndpointsTests
             "AssignLibrary",
             User.Id,
             new AssignLibraryRequest("unknown"),
+            AssignmentContext(),
             handler,
             CancellationToken.None);
 
@@ -248,7 +262,8 @@ public sealed class UserEndpointsTests
             new("{userId}", "PUT", "UpdateUser", [200, 400, 404]),
             new("{userId}", "DELETE", "DeleteUser", [204, 404, 409]),
             new("{userId}/role", "PUT", "AssignUserRole", [200, 400, 404]),
-            new("{userId}/library", "PUT", "AssignUserLibrary", [200, 400, 404, 409]),
+            new("{userId}/library", "PUT", "AssignUserLibrary", [200, 400, 404, 409, 412, 428]),
+            new("{userId}/library/access", "GET", "GetLibraryAccountAccess", [200, 404]),
             new("assign-default-library", "POST", "AssignDefaultLibraryToUsers", [200, 400, 409])
         ];
 
@@ -292,12 +307,12 @@ public sealed class UserEndpointsTests
     {
         AssertParameters("GetDirectory", typeof(string), typeof(string), typeof(string), typeof(string), typeof(string),
             typeof(IQueryHandler<GetUserDirectoryQuery, Page<User>>), typeof(CancellationToken), typeof(int));
-        AssertParameters("GetById", typeof(Guid), typeof(IQueryHandler<GetUserByIdQuery, ManagedUser>), typeof(CancellationToken));
+        AssertParameters("GetById", typeof(Guid), typeof(HttpContext), typeof(IQueryHandler<GetUserByIdQuery, ManagedUser>), typeof(CancellationToken));
         AssertParameters("Create", typeof(CreateUserRequest), typeof(ICommandHandler<CreateUserCommand, ManagedUser>), typeof(CancellationToken));
         AssertParameters("Update", typeof(Guid), typeof(UpdateUserRequest), typeof(ICommandHandler<UpdateUserCommand, ManagedUser>), typeof(CancellationToken));
         AssertParameters("Delete", typeof(Guid), typeof(ICommandHandler<DeleteUserCommand, Deleted>), typeof(CancellationToken));
         AssertParameters("AssignRole", typeof(Guid), typeof(AssignRoleRequest), typeof(ICommandHandler<AssignUserRoleCommand, ManagedUser>), typeof(CancellationToken));
-        AssertParameters("AssignLibrary", typeof(Guid), typeof(AssignLibraryRequest), typeof(ICommandHandler<AssignUserLibraryCommand, ManagedUser>), typeof(CancellationToken));
+        AssertParameters("AssignLibrary", typeof(Guid), typeof(AssignLibraryRequest), typeof(HttpContext), typeof(ICommandHandler<AssignUserLibraryCommand, ManagedUser>), typeof(CancellationToken));
         AssertParameters("AssignDefaultLibrary", typeof(AssignDefaultLibraryRequest), typeof(ICommandHandler<AssignDefaultLibraryToUsersCommand, int>), typeof(CancellationToken));
     }
 
@@ -310,7 +325,16 @@ public sealed class UserEndpointsTests
         var handler = Substitute.For<ICommandHandler<TCommand, ManagedUser>>();
         handler.HandleAsync(Arg.Any<TCommand>(), Arg.Any<CancellationToken>())
             .Returns(UserErrors.NotFound());
-        return await InvokeAsync(method, userId, request, handler, CancellationToken.None);
+        return method == "AssignLibrary"
+            ? await InvokeAsync(method, userId, request, AssignmentContext(), handler, CancellationToken.None)
+            : await InvokeAsync(method, userId, request, handler, CancellationToken.None);
+    }
+
+    private static HttpContext AssignmentContext()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers.IfMatch = "\"current-assignment\"";
+        return context;
     }
 
     private static void AssertNotFoundProblem(IResult result)
@@ -358,6 +382,7 @@ public sealed class UserEndpointsTests
         services.AddScoped(_ => Substitute.For<ICommandHandler<SetAccountSuspensionCommand, Success>>());
         services.AddScoped(_ => Substitute.For<IQueryHandler<ListUsersQuery, IReadOnlyList<ManagedUser>>>());
         services.AddScoped(_ => Substitute.For<IQueryHandler<GetUserByIdQuery, ManagedUser>>());
+        services.AddScoped(_ => Substitute.For<IQueryHandler<GetLibraryAccountAccessQuery, LibraryAccountAccess>>());
         services.AddScoped(_ => Substitute.For<ICommandHandler<CreateUserCommand, ManagedUser>>());
         services.AddScoped(_ => Substitute.For<ICommandHandler<UpdateUserCommand, ManagedUser>>());
         services.AddScoped(_ => Substitute.For<ICommandHandler<DeleteUserCommand, Deleted>>());

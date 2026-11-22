@@ -45,8 +45,8 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
             "Recovery sweep commits bounded title-payload availability batches.",
             Site("src/Romd.Infrastructure/Jobs/TitlePayloadAvailabilitySweepJob.cs", "TitlePayloadAvailabilitySweepJob", "ExecuteAsync", "BeginTransactionAsync")),
         Boundary(TransactionBoundaryKind.WorkerProtocol,
-            "Materialization claims and publishes through distinct short transactions around effectful computation; the published generation remains atomic.",
-            Site("src/Romd.Infrastructure/Libraries/LibraryMaterializationService.cs", "LibraryMaterializationService", "MaterializeAsync", "BeginTransactionAsync", 2)),
+            "Materialization settles under the job execution fence after computing the projection. Activation or withdrawal and the terminal outcome share one transaction.",
+            Site("src/Romd.Infrastructure/Libraries/LibraryMaterializationService.cs", "LibraryMaterializationService", "SettleAsync", "BeginTransactionAsync")),
         Boundary(TransactionBoundaryKind.StandalonePublication,
             "Standalone best-effort notifications commit only their own outbox intents through the notifier commit gate; command paths enlist the outbox in their own transaction.",
             Site("src/Romd.Infrastructure/Realtime/OutboxJobNotifier.cs", "OutboxJobNotifier", "NotifyJobUpdatedAsync", "SaveChangesAsync"),
@@ -268,7 +268,7 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
     {
         var sites = AdditionalTransactionBoundaries.SelectMany(boundary => boundary.Sites).ToArray();
         sites.Length.ShouldBe(103);
-        sites.Sum(site => site.Count).ShouldBe(115);
+        sites.Sum(site => site.Count).ShouldBe(114);
         sites.Select(site => site.Key).Distinct().Count().ShouldBe(103);
         var initialKeys = InitialDebt.Select(site => site.Key).ToHashSet();
         sites.ShouldAllBe(site => !initialKeys.Contains(site.Key));
@@ -280,7 +280,7 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
     [InlineData("MigrationDebt", 30, 31)]
     [InlineData("UnitOfWorkAdapter", 10, 10)]
     [InlineData("ReadSnapshot", 14, 14)]
-    [InlineData("WorkerProtocol", 30, 34)]
+    [InlineData("WorkerProtocol", 30, 33)]
     [InlineData("BootstrapProtocol", 13, 19)]
     [InlineData("BatchFlushProtocol", 1, 2)]
     [InlineData("PublicationFlushProtocol", 1, 1)]

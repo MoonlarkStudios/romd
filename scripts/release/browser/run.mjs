@@ -73,7 +73,7 @@ async function api(page, path, options = {}) {
     const entry = Object.keys(sessionStorage).find((key) => key.startsWith(`oidc.user:${location.origin}:`));
     const token = entry ? JSON.parse(sessionStorage.getItem(entry)).access_token : null;
     if (!token) throw new Error('Browser session missing');
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = { Authorization: `Bearer ${token}`, ...options.headers };
     let body;
     if (options.upload) {
       body = new FormData();
@@ -160,7 +160,10 @@ export async function ensureFixture(page, config) {
   await poll(() => api(page, `/api/libraries/${id}`), (result) => Boolean(result.json.lastMaterializedAt)
     && result.json.needsMaterialization === false && result.json.itemCount === 1, 'Synthetic library publication');
   // Assignment invalidates this admin session. All admin operations precede it.
-  await api(page, `/api/users/${me.json.id}/library`, { method: 'PUT', json: { libraryId: id } });
+  const user = await api(page, `/api/users/${me.json.id}`);
+  await api(page, `/api/users/${me.json.id}/library`, {
+    method: 'PUT', json: { libraryId: id }, headers: { 'If-Match': `"${user.json.assignmentRevision}"` },
+  });
   return { librarySha256: hash(id), adminUserSha256: hash(me.json.id) };
 }
 

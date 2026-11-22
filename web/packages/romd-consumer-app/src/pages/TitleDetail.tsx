@@ -37,6 +37,7 @@ import {
   getBrowserPlaybackPreflight,
 } from '../services/browserPlayback';
 import { getDownloadVerificationUnavailableReason } from '../services/downloadVerification';
+import { ConsumerGameUnavailableError } from '../services/libraryErrors';
 import type { PlayerCapabilityResult } from '../services/playerBridge';
 import { artworkDeliveryUrl, selectArtwork } from '../utils/artwork';
 import { formatBytes } from '../utils/format';
@@ -55,6 +56,22 @@ export function TitleDetail() {
   const [failedBackdrop, setFailedBackdrop] = useState<string | null>(null);
   const title = titleQuery.data;
   if (titleQuery.isLoading) return <StatusState kind="loading" />;
+  if (titleQuery.error instanceof ConsumerGameUnavailableError)
+    return (
+      <StatusState
+        kind="empty"
+        title="This game is no longer available in your library"
+        action={
+          <Button
+            component={Link}
+            to="/library"
+            variant="light"
+          >
+            Browse games
+          </Button>
+        }
+      />
+    );
   if (titleQuery.isError || !title)
     return (
       <StatusState

@@ -19,12 +19,15 @@ import { useEffect, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
 import { PosterCard } from '../components/library/PosterCard';
 import { TitleListRow } from '../components/library/TitleListRow';
+import { LibraryUnavailable } from '../components/status/LibraryUnavailable';
 import { StatusState } from '../components/status/StatusState';
 import {
   type ConsumerCatalogSearchParams,
   useCatalogSearch,
   useCurrentLibrary,
 } from '../hooks/useConsumerLibrary';
+import { useRefreshLibrary } from '../hooks/useLibraryRefresh';
+import { ConsumerLibraryUnavailableError } from '../services/libraryErrors';
 
 const completenessOptions = [
   {
@@ -81,6 +84,7 @@ export function Library() {
   const sortBy = urlSearchParams.get('sortBy') === 'rating' ? 'rating' : 'name';
 
   const libraryQuery = useCurrentLibrary();
+  const refresh = useRefreshLibrary();
   const library = libraryQuery.data;
   const platforms = library?.platforms ?? [];
   const genres = library?.genres ?? [];
@@ -95,6 +99,7 @@ export function Library() {
 
   const catalogQuery = useCatalogSearch(catalogSearchParams, {
     limit: 36,
+    enabled: !!library,
   });
 
   const titles = catalogQuery.data?.pages.flatMap((page) => page.items) ?? [];
@@ -199,11 +204,13 @@ export function Library() {
   }
 
   if (libraryQuery.isError) {
+    if (libraryQuery.error instanceof ConsumerLibraryUnavailableError)
+      return <LibraryUnavailable retry={() => void refresh()} />;
     return (
       <StatusState
         kind="error"
         message="Your library could not be loaded."
-        onRetry={() => void libraryQuery.refetch()}
+        onRetry={() => void refresh()}
         retrying={libraryQuery.isRefetching}
       />
     );
@@ -218,7 +225,17 @@ export function Library() {
         >
           Browse games
         </Title>
-        <Text c="dimmed">{filteredContext}</Text>
+        <Group justify="space-between">
+          <Text c="dimmed">{filteredContext}</Text>
+          <Button
+            variant="subtle"
+            color="gray"
+            size="compact-sm"
+            onClick={() => void refresh()}
+          >
+            Refresh library
+          </Button>
+        </Group>
       </Stack>
 
       <Stack gap="sm">
@@ -357,8 +374,16 @@ export function Library() {
       ) : loadedResultCount === 0 && !catalogQuery.isLoading ? (
         <StatusState
           kind="empty"
-          title="No games match your filters"
-          message="Try clearing a filter or widening your search."
+          title={
+            library?.counts.availableTitleCount === 0
+              ? 'No games in your library yet'
+              : 'No games match your filters'
+          }
+          message={
+            library?.counts.availableTitleCount === 0
+              ? 'Games will appear after they are published to your library.'
+              : 'Try clearing a filter or widening your search.'
+          }
         />
       ) : viewMode === 'grid' ? (
         <SimpleGrid

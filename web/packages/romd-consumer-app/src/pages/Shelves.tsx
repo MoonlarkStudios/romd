@@ -1,7 +1,8 @@
-import { Stack, Title, VisuallyHidden } from '@mantine/core';
+import { Button, Group, Stack, Title, VisuallyHidden } from '@mantine/core';
 import type { ConsumerCollection } from '@romd/consumer-api-client';
 import { SpotlightCarousel } from '../components/library/SpotlightCarousel';
 import { TitleRail } from '../components/library/TitleRail';
+import { LibraryUnavailable } from '../components/status/LibraryUnavailable';
 import { StatusState } from '../components/status/StatusState';
 import {
   useCatalogSearch,
@@ -9,17 +10,22 @@ import {
   useCollectionTitles,
   useCurrentLibrary,
 } from '../hooks/useConsumerLibrary';
+import { useRefreshLibrary } from '../hooks/useLibraryRefresh';
 import { useRecentlyPlayed } from '../hooks/usePlayActivity';
+import { ConsumerLibraryUnavailableError } from '../services/libraryErrors';
 
 export function Shelves() {
   const libraryQuery = useCurrentLibrary();
-  const collectionsQuery = useCollections();
+  const refresh = useRefreshLibrary();
+  const available = !!libraryQuery.data;
+  const collectionsQuery = useCollections(undefined, available);
   const readyToPlayQuery = useCatalogSearch(
     {
       completeness: 'complete',
     },
     {
       limit: 18,
+      enabled: available,
     },
   );
   const topRatedQuery = useCatalogSearch(
@@ -28,9 +34,10 @@ export function Shelves() {
     },
     {
       limit: 18,
+      enabled: available,
     },
   );
-  const recentlyPlayedQuery = useRecentlyPlayed();
+  const recentlyPlayedQuery = useRecentlyPlayed(18, available);
 
   const library = libraryQuery.data;
   const collections = (collectionsQuery.data ?? []).slice(0, 10);
@@ -56,15 +63,13 @@ export function Shelves() {
   }
 
   if (libraryQuery.isError) {
+    if (libraryQuery.error instanceof ConsumerLibraryUnavailableError)
+      return <LibraryUnavailable retry={() => void refresh()} />;
     return (
       <StatusState
         kind="error"
-        message="Your library could not be loaded. Sign out and sign in again if the session expired."
-        onRetry={() => {
-          void libraryQuery.refetch();
-          void readyToPlayQuery.refetch();
-          void topRatedQuery.refetch();
-        }}
+        message="Your library could not be loaded."
+        onRetry={() => void refresh()}
       />
     );
   }
@@ -84,6 +89,17 @@ export function Shelves() {
           <Title order={1}>Your games</Title>
         </VisuallyHidden>
       )}
+
+      <Group justify="flex-end">
+        <Button
+          variant="subtle"
+          color="gray"
+          size="compact-sm"
+          onClick={() => void refresh()}
+        >
+          Refresh library
+        </Button>
+      </Group>
 
       {(recentlyPlayedQuery.data?.length ?? 0) > 0 && (
         <TitleRail
@@ -111,8 +127,8 @@ export function Shelves() {
       {library?.counts.ownedTitleCount === 0 && (
         <StatusState
           kind="empty"
-          title="Your next adventure starts here"
-          message="Games will appear here when they are added to your library."
+          title="No games in your library yet"
+          message="Games will appear after they are published to your library."
         />
       )}
       {exploreTitles.length > 0 && (

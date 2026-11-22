@@ -10,7 +10,7 @@ using Romd.Domain.Libraries;
 
 namespace Romd.Admin.Application.Libraries.Commands.ForceMaterializeLibrary;
 
-public sealed record ForceMaterializeLibraryCommand(int LibraryId) : ICommand<Guid>;
+public sealed record ForceMaterializeLibraryCommand(int LibraryId, Guid? ReviewedRevision = null) : ICommand<Guid>;
 
 public sealed class ForceMaterializeLibraryCommandHandler(
     ILibraryRepository libraryRepository,
@@ -42,20 +42,31 @@ public sealed class ForceMaterializeLibraryCommandHandler(
                 {
                     return LibraryErrors.NotFound();
                 }
+                if (command.ReviewedRevision is { } revision && library.MaterializationRevision != revision)
+                    return ReviewExpired();
 
                 acceptedJob = await materializationJobs.GetActiveForLibraryAsync(library.Id, ct);
                 if (acceptedJob is not null)
                 {
+                    if (!MatchesReview(acceptedJob, command.ReviewedRevision))
+                        return Error.Conflict("Libraries.PublicationRunning", "Another publication is running. Review changes again when it finishes.");
                     accelerateExistingJob = acceptedJob.PhaseEnum == MaterializationPhase.Pending
                         && string.IsNullOrWhiteSpace(acceptedJob.HangfireJobId);
                 }
                 else
                 {
-                    library = await libraryRepository.FlagForRematerializationAsync(library.Id, ct);
+                    if (command.ReviewedRevision is { } expected)
+                    {
+                        if (!await libraryRepository.FlagReviewedPublicationAsync(library.Id, expected, ct))
+                            return ReviewExpired();
+                        library = await libraryRepository.GetByIdAsync(library.Id, ct);
+                    }
+                    else
+                        library = await libraryRepository.FlagForRematerializationAsync(library.Id, ct);
                     if (library is null)
                         return LibraryErrors.NotFound();
 
-                    acceptedJob = MaterializationJob.Create(library.Id, library.Name, createdAt: clock.GetUtcNow(), currentUser.UserId);
+                    acceptedJob = MaterializationJob.Create(library.Id, library.Name, clock.GetUtcNow(), currentUser.UserId, command.ReviewedRevision);
 
                     await materializationJobs.AddStagedAsync(acceptedJob, ct);
                     await outbox.EnqueueAsync(
@@ -86,6 +97,8 @@ public sealed class ForceMaterializeLibraryCommandHandler(
             MaterializationJob? convergedJob = await TryGetActiveJobAsync(command.LibraryId, ct);
             if (convergedJob is not null)
             {
+                if (!MatchesReview(convergedJob, command.ReviewedRevision))
+                    return ReviewExpired();
                 logger.LogWarning(
                     ex,
                     "Library materialization request lost a concurrent accept race but converged " +
@@ -109,6 +122,12 @@ public sealed class ForceMaterializeLibraryCommandHandler(
 
         return acceptedJob!.Id;
     }
+
+    private static bool MatchesReview(MaterializationJob job, Guid? revision) =>
+        revision is null || job.ReviewedRevision == revision;
+
+    private static Error ReviewExpired() =>
+        Error.Conflict("Libraries.PublicationReviewExpired", "The library changed. Review publication changes again.");
 
     private async Task<MaterializationJob?> TryGetActiveJobAsync(int libraryId, CancellationToken ct)
     {

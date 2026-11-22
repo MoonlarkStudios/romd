@@ -13,4 +13,5 @@ public interface ILibraryDraftEvaluator
 
     /// <summary>Compares the saved rules and published membership within the caller's read snapshot.</summary>
     Task<ErrorOr<LibraryTitleVisibility>> GetTitleVisibilityAsync(int libraryId, int titleId, CancellationToken ct);
+    Task<ErrorOr<LibraryPublicationReview>> ReviewPublicationAsync(int libraryId, CancellationToken ct);
 }

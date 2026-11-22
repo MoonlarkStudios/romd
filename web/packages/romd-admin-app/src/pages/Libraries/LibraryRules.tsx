@@ -182,6 +182,7 @@ export function LibraryRules({
                 />
                 <TitleOverridePicker
                   label="Exclude specific games"
+                  localFirst
                   value={form.excludeTitleIds}
                   onChange={(value) => set('excludeTitleIds', value)}
                 />

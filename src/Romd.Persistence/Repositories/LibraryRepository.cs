@@ -7,6 +7,7 @@ using Romd.Admin.Application.Libraries;
 using Romd.Domain.Libraries;
 using Romd.Domain.Catalog;
 using Romd.Persistence.Entities;
+using Romd.Persistence.Identity;
 using Romd.Persistence.Queries;
 using Romd.Domain.Paths;
 
@@ -65,6 +66,8 @@ public sealed partial class LibraryRepository(RomdDbContext context) : ILibraryR
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
     {
+        // The foreign key clears assignments. Order that change with conditional account writes.
+        await AccountAccessGuard.LockAsync(context, ct);
         int deleted = await context.Libraries
             .Where(l => l.Id == id)
             .ExecuteDeleteAsync(ct);
@@ -169,19 +172,33 @@ public sealed partial class LibraryRepository(RomdDbContext context) : ILibraryR
 
     public async Task<Library?> FlagForRematerializationAsync(int libraryId, CancellationToken ct = default)
     {
+        int updated = await FlagPublicationRequestAsync(libraryId, null, ct);
+        return updated == 0 ? null : await GetByIdAsync(libraryId, ct);
+    }
+
+    public async Task<bool> FlagReviewedPublicationAsync(int libraryId, Guid revision, CancellationToken ct) =>
+        await FlagPublicationRequestAsync(libraryId, revision, ct) == 1;
+
+    private async Task<int> FlagPublicationRequestAsync(int libraryId, Guid? reviewedRevision, CancellationToken ct)
+    {
         if (context.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Library invalidation requires a caller-owned transaction.");
 
-        var now = DateTimeOffset.UtcNow;
-        var revision = Guid.NewGuid();
-        int updated = await context.Database.ExecuteSqlInterpolatedAsync($"""
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        bool isReviewed = reviewedRevision.HasValue;
+        // An accepted review keeps its revision until activation or a real input change.
+        var revision = reviewedRevision ?? Guid.NewGuid();
+        return await context.Database.ExecuteSqlInterpolatedAsync($"""
             UPDATE romd."Libraries"
-            SET "MaterializationRevision" = {revision},
-                "UpdatedAt" = GREATEST({now.ToUnixTimeMilliseconds()}, "LastMaterializedAt" + 1)
-            WHERE "Id" = {libraryId}
+            SET "NeedsMaterialization" = "NeedsMaterialization" OR {isReviewed},
+                "MaterializationRevision" = {revision},
+                "UpdatedAt" = GREATEST({now}, "LastMaterializedAt" + 1)
+            WHERE "Id" = {libraryId} AND (NOT {isReviewed} OR "MaterializationRevision" = {revision})
             """, ct);
-        return updated == 0 ? null : await GetByIdAsync(libraryId, ct);
     }
+
+    public async Task<IReadOnlyList<int>> GetHandpickedPlatformIdsAsync(IReadOnlyList<int> titleIds, CancellationToken ct) =>
+        await context.Titles.Where(title => titleIds.Contains(title.Id)).Select(title => title.PlatformId).Distinct().ToArrayAsync(ct);
 
     public async Task FlagAllForRematerializationAsync(CancellationToken ct = default)
     {
@@ -218,7 +235,8 @@ public sealed partial class LibraryRepository(RomdDbContext context) : ILibraryR
                     l.ConfigurationError);
 
                 return parsed.State == LibraryConfigurationState.Valid &&
-                       (parsed.Configuration.AllowedPlatformIds.Count == 0 ||
+                       (parsed.Configuration.TitleSelectionMode == LibraryTitleSelectionMode.IncludeOnly ||
+                        parsed.Configuration.AllowedPlatformIds.Count == 0 ||
                         parsed.Configuration.AllowedPlatformIds.Contains(platformId));
             })
             .Select(l => l.Id)

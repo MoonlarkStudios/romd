@@ -177,7 +177,9 @@ records an optional reason on new import outcomes. The additive
 `20261121040529_ServerImportInbox` migration records drop-folder activity and the
 file selection for each accepted job. The
 `20261121060000_RemoveServerImportFileHistory` migration removes the separate
-folder-wide file history. Current readiness is version 81.
+folder-wide file history. The additive `20261121200000_LibraryPublicationOutcome`
+migration records reviewed revisions and outcomes on library publication jobs.
+Current readiness is version 82.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

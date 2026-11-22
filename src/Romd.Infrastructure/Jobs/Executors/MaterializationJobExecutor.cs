@@ -20,16 +20,6 @@ public sealed class MaterializationJobExecutor(
             throw new InvalidOperationException($"Library {job.LibraryId} not found");
         }
 
-        // Projection activation and its flag clear commit together. A process can die after
-        // that commit but before the job's final checkpoint; replay must not advance the
-        // library generation a second time for already-converged work.
-        if (!library.NeedsRefresh)
-        {
-            logger.LogInformation("Library {LibraryId} is already materialized; completing job {JobId}",
-                library.Id, job.Id);
-            return;
-        }
-
         job.SetCurrentItem(library.Name);
         await context.CheckpointAsync(ct);
 
@@ -37,32 +27,6 @@ public sealed class MaterializationJobExecutor(
             "Executing materialization job for library '{Name}' (ID: {Id})",
             library.Name, library.Id);
 
-        var result = await materializationService.MaterializeAsync(library.Id, ct);
-
-        if (result.Outcome is MaterializationOutcome.Deferred)
-        {
-            job.MarkDeferred();
-            logger.LogInformation(
-                "Materialization job deferred for library '{Name}' (ID: {Id}); pending changes must settle before an admin refresh",
-                library.Name,
-                library.Id);
-            return;
-        }
-
-        job.SetTotalTitles(result.TotalTitleCount);
-        int includedTitleCount = result.TotalTitleCount - result.ExcludedTitleCount;
-        for (int i = 0; i < includedTitleCount; i++)
-            job.RecordIncluded();
-        for (int i = 0; i < result.ExcludedTitleCount; i++)
-            job.RecordExcluded();
-
-        await context.CheckpointAsync(CancellationToken.None);
-
-        logger.LogInformation(
-            "Materialization job complete for library '{Name}': {IncludedReleaseCount} releases included; {ExcludedTitleCount} titles excluded from {TotalTitleCount} total titles",
-            library.Name,
-            result.IncludedReleaseCount,
-            result.ExcludedTitleCount,
-            result.TotalTitleCount);
+        await materializationService.PublishForJobAsync(job, ct);
     }
 }

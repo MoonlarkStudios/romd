@@ -1,3 +1,5 @@
+using Romd.Domain.Jobs;
+
 namespace Romd.Admin.Application.Libraries;
 
 /// <summary>
@@ -9,6 +11,7 @@ public interface ILibraryMaterializationService
     ///     Materializes a single library: loads candidates, runs 1G1R, replaces materialized items.
     /// </summary>
     Task<MaterializationResult> MaterializeAsync(int libraryId, CancellationToken ct = default);
+    Task PublishForJobAsync(MaterializationJob job, CancellationToken ct = default);
 
     /// <summary>
     ///     Flags all libraries that include the given platform for rematerialization.

@@ -8,6 +8,32 @@ namespace Romd.Persistence.Queries;
 
 public sealed class LiveConsumerLibraryQuery(RomdDbContext context)
 {
+    internal async Task<LiveLibraryAssignment?> ReadAssignmentAsync(Guid userId, CancellationToken ct)
+    {
+        var row = await (from user in context.Users.AsNoTracking()
+                         where user.Id == userId && user.LibraryId != null
+                         join library in context.Libraries.AsNoTracking() on user.LibraryId equals library.Id
+                         select new
+                         {
+                             library.Id,
+                             library.Name,
+                             library.ConfigurationJson,
+                             library.ConfigurationState,
+                             library.ConfigurationError,
+                             library.NeedsMaterialization,
+                             library.LastMaterializedAt,
+                             library.MaterializationGeneration
+                         }).SingleOrDefaultAsync(ct);
+        if (row is null)
+            return null;
+        var config = LibraryEntity.DeserializeConfig(row.ConfigurationJson, row.ConfigurationState, row.ConfigurationError);
+        var state = config.State != LibraryConfigurationState.Valid ? "InvalidRules"
+            : row.NeedsMaterialization && row.LastMaterializedAt is null ? "NeedsPublication" : "Available";
+        return new(row.Id, row.Name, state, row.LastMaterializedAt, row.MaterializationGeneration);
+    }
+
+    internal sealed record LiveLibraryAssignment(int Id, string Name, string State, DateTimeOffset? PublishedAt, long Generation);
+
     public async Task<ConsumerLibraryReadResult<T>> ReadAsync<T>(
         ConsumerLibraryScope scope,
         Func<int, CancellationToken, Task<ConsumerLibraryProjectionResult<T>>> readProjection,
@@ -18,31 +44,8 @@ public sealed class LiveConsumerLibraryQuery(RomdDbContext context)
         // concurrent materialization cannot change the library between the two.
         await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
 
-        var liveLibrary = await (
-                from user in context.Users.AsNoTracking()
-                where user.Id == scope.UserId && user.LibraryId != null
-                join libraryEntity in context.Libraries.AsNoTracking()
-                    on user.LibraryId equals libraryEntity.Id
-                select new
-                {
-                    libraryEntity.Id,
-                    libraryEntity.ConfigurationJson,
-                    libraryEntity.ConfigurationState,
-                    libraryEntity.ConfigurationError,
-                    // Pending changes wait for an explicit refresh; the last published snapshot stays served.
-                    AwaitsFirstPublication = libraryEntity.NeedsMaterialization && libraryEntity.LastMaterializedAt == null
-                })
-            .SingleOrDefaultAsync(ct);
-
-        var configuration = liveLibrary is null
-            ? null
-            : LibraryEntity.DeserializeConfig(
-                liveLibrary.ConfigurationJson,
-                liveLibrary.ConfigurationState,
-                liveLibrary.ConfigurationError);
-        if (liveLibrary is null ||
-            liveLibrary.AwaitsFirstPublication ||
-            configuration?.State != LibraryConfigurationState.Valid)
+        var liveLibrary = await ReadAssignmentAsync(scope.UserId, ct);
+        if (liveLibrary is not { State: "Available" })
         {
             await transaction.CommitAsync(ct);
             return new ConsumerLibraryReadResult<T>.LibraryUnavailable();

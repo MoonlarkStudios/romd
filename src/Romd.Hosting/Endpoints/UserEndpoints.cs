@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Romd.Admin.Application.Users;
 using Romd.Admin.Application.Users.Commands.AssignDefaultLibraryToUsers;
 using Romd.Admin.Application.Users.Commands.AssignUserLibrary;
+using Romd.Admin.Application.Users.Queries.GetLibraryAccountAccess;
 using Romd.Admin.Application.Users.Commands.AssignUserRole;
 using Romd.Admin.Application.Users.Commands.CreateUser;
 using Romd.Admin.Application.Users.Commands.DeleteUser;
@@ -46,7 +47,8 @@ public static class UserEndpoints
         group.MapGet("{userId}", GetById)
             .WithName("GetUser")
             .Produces<User>()
-            .ProducesProblems(StatusCodes.Status404NotFound);
+            .ProducesProblems(StatusCodes.Status404NotFound)
+            .ETagOnlyRead();
 
         group.MapPost("", Create)
             .WithName("CreateUser")
@@ -76,13 +78,18 @@ public static class UserEndpoints
             .WithName("AssignUserLibrary")
             .Produces<User>()
             .ProducesProblems(StatusCodes.Status404NotFound)
-            .ProducesProblems(StatusCodes.Status400BadRequest)
-            .ProducesProblems(StatusCodes.Status409Conflict);
+            .ProducesProblems(StatusCodes.Status409Conflict)
+            .ConditionalWrite();
 
         group.MapPost("assign-default-library", AssignDefaultLibrary)
             .WithName("AssignDefaultLibraryToUsers")
             .Produces<AssignDefaultLibraryResponse>()
             .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status409Conflict);
+
+        group.MapGet("{userId}/library/access", async (Guid userId, Sqid? titleId,
+            IQueryHandler<GetLibraryAccountAccessQuery, LibraryAccountAccess> handler, CancellationToken ct) =>
+            ToResult(await handler.HandleAsync(new(userId, titleId?.Value), ct), value => Results.Ok(value)))
+            .WithName("GetLibraryAccountAccess").Produces<LibraryAccountAccess>().ProducesProblems(404);
 
         group.MapGet("{userId}/security", GetSecurity).WithName("GetAccountSecurity").Produces<AccountSecurity>().ProducesProblems(404);
         group.MapGet("{userId}/links", GetLinks).WithName("ListAccountLinks").Produces<Page<AccountLink>>().ProducesProblems(400, 404);
@@ -153,11 +160,12 @@ public static class UserEndpoints
 
     private static async Task<IResult> GetById(
         Guid userId,
+        HttpContext context,
         IQueryHandler<GetUserByIdQuery, ManagedUser> handler,
         CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(new GetUserByIdQuery(userId), cancellationToken);
-        return ToResult(result, user => Results.Ok(ToDto(user)));
+        return ToResult(result, user => WithAssignmentETag(user, context));
     }
 
     private static async Task<IResult> Create(
@@ -228,14 +236,24 @@ public static class UserEndpoints
     private static async Task<IResult> AssignLibrary(
         Guid userId,
         [FromBody] AssignLibraryRequest request,
+        HttpContext context,
         ICommandHandler<AssignUserLibraryCommand, ManagedUser> handler,
         CancellationToken cancellationToken)
     {
+        var condition = Preconditions.IfMatch(context, "Users");
+        if (condition.IsError)
+            return condition.Errors.ToProblem();
+
         var result = await handler.HandleAsync(
-            new AssignUserLibraryCommand(userId, request.LibraryId),
+            new AssignUserLibraryCommand(userId, request.LibraryId, condition.Value),
             cancellationToken);
-        return ToResult(result, user => Results.Ok(ToDto(user)));
+        return ToResult(result, user => WithAssignmentETag(user, context));
     }
+
+    private static IResult WithAssignmentETag(ManagedUser user, HttpContext context) =>
+        user.AssignmentRevision is { } revision
+            ? Results.Ok(ToDto(user)).WithETag(context, revision)
+            : Results.Ok(ToDto(user));
 
     private static async Task<IResult> AssignDefaultLibrary(
         AssignDefaultLibraryRequest request,
@@ -274,7 +292,7 @@ public static class UserEndpoints
             user.Roles,
             user.LibraryId.HasValue ? IdCoder.Encode(user.LibraryId.Value) : null,
             user.CreatedAt,
-            user.UpdatedAt, user.IsSuspended, user.RequiresActivation, user.LastSignedInAt);
+            user.UpdatedAt, user.IsSuspended, user.RequiresActivation, user.LastSignedInAt, user.AssignmentRevision);
 }
 
 public sealed record AssignDefaultLibraryResponse(int UpdatedCount);

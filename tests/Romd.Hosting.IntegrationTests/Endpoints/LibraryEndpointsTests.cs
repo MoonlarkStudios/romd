@@ -28,6 +28,8 @@ using Romd.Admin.Application.Libraries.Queries.GetLibraryGenreFacets;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryPlatformFacets;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleReleaseDiagnostics;
 using Romd.Admin.Application.Libraries.Queries.GetLibraryTitleVisibility;
+using Romd.Admin.Application.Libraries.Queries.GetLibraryPublicationStatus;
+using Romd.Admin.Application.Libraries.Queries.ReviewLibraryPublication;
 using Romd.Admin.Application.Libraries.Queries.ListLibraries;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
@@ -213,6 +215,7 @@ public sealed class LibraryEndpointsTests
             typeof(CancellationToken));
         AssertParameters("ForceMaterialize",
             typeof(Sqid),
+            typeof(Guid?),
             typeof(ICommandHandler<ForceMaterializeLibraryCommand, Guid>),
             typeof(CancellationToken));
         AssertParameters("GetPlatformFacets",
@@ -430,6 +433,7 @@ public sealed class LibraryEndpointsTests
         var result = await InvokeAsync(
             "ForceMaterialize",
             new Sqid(7),
+            null,
             handler,
             CancellationToken.None);
 
@@ -466,7 +470,9 @@ public sealed class LibraryEndpointsTests
             new("/libraries", "POST", "CreateLibrary", [201, 400], typeof(ContractLibrary)),
             new("/libraries/{libraryId}", "PATCH", "UpdateLibrary", [200, 400, 404], typeof(ContractLibrary)),
             new("/libraries/{libraryId}", "DELETE", "DeleteLibrary", [204, 404, 409], typeof(void)),
-            new("/libraries/{libraryId}/materialize", "POST", "MaterializeLibrary", [202, 404], typeof(JobReference)),
+            new("/libraries/{libraryId}/materialize", "POST", "MaterializeLibrary", [202, 404, 409], typeof(JobReference)),
+            new("/libraries/{libraryId}/publication", "GET", "GetLibraryPublicationStatus", [200, 404], typeof(LibraryPublicationStatus)),
+            new("/libraries/{libraryId}/publication/review", "GET", "ReviewLibraryPublication", [200, 404, 409], typeof(LibraryPublicationReview)),
             new("/libraries/{libraryId}/facets/systems", "GET", "ListLibrarySystemFacets", [200, 404], typeof(IEnumerable<LibraryFacet>)),
             new("/libraries/{libraryId}/facets/genres", "GET", "ListLibraryGenreFacets", [200, 400, 404], typeof(Page<LibraryFacet>)),
             new("/libraries/{libraryId}/collections", "GET", "ListLibraryCollections", [200, 400, 404], typeof(Page<LibraryCollection>)),
@@ -554,7 +560,7 @@ public sealed class LibraryEndpointsTests
             "Delete" => await InvokeMissingCommand<DeleteLibraryCommand, Deleted>(methodName, new Sqid(7)),
             "ForceMaterialize" => await InvokeMissingCommand<ForceMaterializeLibraryCommand, Guid>(
                 methodName,
-                new Sqid(7)),
+                new Sqid(7), null!),
             _ => throw new ArgumentOutOfRangeException(nameof(methodName))
         };
     }
@@ -612,6 +618,8 @@ public sealed class LibraryEndpointsTests
         services.AddSingleton(Substitute.For<IQueryHandler<
             GetLibraryTitleReleaseDiagnosticsQuery, Page<ContractLibraryTitleReleaseDiagnostics>>>());
         services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryTitleVisibilityQuery, LibraryTitleVisibility>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<GetLibraryPublicationStatusQuery, LibraryPublicationStatus>>());
+        services.AddSingleton(Substitute.For<IQueryHandler<ReviewLibraryPublicationQuery, LibraryPublicationReview>>());
     }
 
     private static async Task<IResult> InvokeAsync(string methodName, params object?[] args)

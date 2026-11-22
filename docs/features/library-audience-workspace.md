@@ -65,8 +65,11 @@ before leaving the workspace.
 publication and **Publish changes** after later imports, policy edits, or tracking
 changes. Consumers keep the previous published snapshot until publication succeeds.
 
-If publication fails, inspect **Jobs**. Repair any invalid configuration, let
-concurrent catalog or rule changes settle, and publish again.
+Review the change in owned games, assigned account count, and shelves that will
+become empty before confirming publication. If the inputs change, review the new
+impact before trying again. The library shows the latest publication job and its
+outcome. Repair invalid rules or wait for a catalog rebuild, then review and publish
+again when prompted.
 
 ## Arrange collections
 
@@ -77,8 +80,17 @@ here and are omitted from consumer shelves. See [Collections](collection-workspa
 
 ## Assign people and preview
 
-In **People**, choose **Assign a person**, or **Manage people and roles** to
-create an account. Reassignment changes the person's audience.
+In **People**, search by email to assign an account. Confirm the source and
+destination before moving someone. A move or unassignment ends the account's
+active sessions. Assigning a draft leaves the account waiting for its first
+publication. **Check access** reports the account's active audience and can check
+a specific game. Use **Manage people and roles** to create or activate an account.
+If an account changes while the confirmation is open, review its current
+assignment before proceeding. Admin API clients send the account ETag in
+`If-Match` on library assignment writes.
+
+The signed-in consumer web app refreshes when it observes a new publication.
+**Refresh library** on Home or Browse updates all library views and restarts paging.
 
 **Preview** shows the saved, owned games in the published audience, including
 collection order. Use **Filter by collection** to see an attached collection.

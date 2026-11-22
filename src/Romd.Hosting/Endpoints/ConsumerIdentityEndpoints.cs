@@ -1,6 +1,7 @@
 using Romd.Application.Common.Cqrs;
 using Romd.Consumer.Application.Auth.Queries.GetCurrentConsumerUser;
 using Romd.Consumer.Application.Libraries.Queries.GetCurrentLibraryContext;
+using Romd.Consumer.Application.Libraries.Queries.GetCurrentLibraryPublication;
 using Romd.Contracts.Consumer.Auth;
 using Romd.Contracts.Consumer.Libraries;
 using Romd.Host.Authorization;
@@ -25,6 +26,13 @@ public static class ConsumerIdentityEndpoints
             .Produces<LibraryContext>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status404NotFound);
+
+        group.MapGet("me/library/publication", async (
+            IQueryHandler<GetCurrentLibraryPublicationQuery, LibraryPublicationVersion> handler, CancellationToken ct) =>
+        {
+            var result = await handler.HandleAsync(new(), ct);
+            return result.IsError ? result.Errors.ToProblem() : Results.Ok(result.Value);
+        }).WithName("GetConsumerLibraryPublication").Produces<LibraryPublicationVersion>().Produces(401);
 
         return app;
     }

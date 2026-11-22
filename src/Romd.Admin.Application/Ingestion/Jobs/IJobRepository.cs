@@ -164,6 +164,7 @@ public interface IReplaceDatJobRepository : IJobRepository<ReplaceDatJob>
 public interface IMaterializationJobRepository : IJobRepository<MaterializationJob>
 {
     Task<MaterializationJob?> GetActiveForLibraryAsync(int libraryId, CancellationToken ct = default);
+    Task<MaterializationJob?> GetLatestForLibraryAsync(int libraryId, CancellationToken ct = default);
 
     /// <summary>
     ///     Stages a materialization job inside the required caller-owned transaction.

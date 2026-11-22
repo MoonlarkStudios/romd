@@ -36,6 +36,8 @@ public interface ILibraryRepository
     ///     Executes immediately within the required caller-owned transaction.
     /// </summary>
     Task<Library?> FlagForRematerializationAsync(int libraryId, CancellationToken ct = default);
+    Task<bool> FlagReviewedPublicationAsync(int libraryId, Guid revision, CancellationToken ct);
+    Task<IReadOnlyList<int>> GetHandpickedPlatformIdsAsync(IReadOnlyList<int> titleIds, CancellationToken ct);
     /// <summary>Marks additive ROM availability changes without revoking published access.</summary>
     Task MarkUpdatesAvailableByPlatformAsync(int platformId, CancellationToken ct = default);
     Task FlagAllForRematerializationAsync(CancellationToken ct = default);

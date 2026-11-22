@@ -28,6 +28,8 @@ import { useJob } from '../../hooks/api/useJobs';
 import { useJobOperations } from '../../hooks/useJobOperations';
 import { usePermissions } from '../../hooks/usePermissions';
 
+import { publicationOutcomeCopy } from '../Libraries/libraryRefresh';
+
 export function JobDetail() {
   const { jobId } = useParams();
   const location = useLocation();
@@ -308,8 +310,7 @@ export function JobDetail() {
               </Group>
               {job.phase === 'Deferred' && job.jobType === 'materialization' && (
                 <Alert color="gray">
-                  The catalog must finish rebuilding before this library can update. Library
-                  processing retries automatically when the catalog is ready.
+                  {publicationOutcomeCopy(job.phase, job.publicationOutcome)}
                 </Alert>
               )}
             </Stack>

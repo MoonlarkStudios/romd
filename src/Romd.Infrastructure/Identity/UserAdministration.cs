@@ -4,6 +4,7 @@ using OpenIddict.Abstractions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Users;
+using Romd.Application.Common.Concurrency;
 using Romd.Domain.Identity;
 using Romd.Persistence.Identity;
 using Romd.Persistence;
@@ -209,18 +210,26 @@ public sealed class UserAdministration(
         Guid userId,
         int? libraryId,
         DateTimeOffset updatedAt,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        RevisionPrecondition? precondition = null)
     {
         if (userId == SystemActor.UserId)
         {
             return UserErrors.ProtectedUser("The ROMD system account cannot be edited.");
         }
 
+        await AccountAccessGuard.LockAsync(dbContext, ct);
         var user = await FindUserAsync(userId, ct);
         if (user is null)
         {
             return UserErrors.NotFound();
         }
+
+        if (precondition is not null &&
+            !precondition.IsSatisfiedBy(ManagedUser.AssignmentRevisionFor(user.Id, user.ConcurrencyStamp, user.LibraryId)))
+            return Error.Custom(412, "Users.PreconditionFailed", "This account changed. Review its current assignment before continuing.");
+        if (user.LibraryId == libraryId)
+            return await ToManagedUserAsync(user, ct);
 
         await accountSessions.RevokeAsync(userId, null, null, audit.ActorId, "Account access changed", ct);
         await tokens.RevokeBySubjectAsync(userId.ToString(), ct);
@@ -319,11 +328,12 @@ public sealed class UserAdministration(
                    user.IsSuspended,
                    user.RequiresActivation,
                    user.LastSignedInAt,
+                   user.ConcurrencyStamp,
                    role == null ? null : role.Name);
     }
 
     private static IReadOnlyList<ManagedUser> Materialize(IReadOnlyList<UserRoleRow> rows) =>
-        rows.GroupBy(row => new { row.Id, row.Email, row.LibraryId, row.CreatedAt, row.UpdatedAt, row.IsSuspended, row.RequiresActivation, row.LastSignedInAt })
+        rows.GroupBy(row => new { row.Id, row.Email, row.LibraryId, row.CreatedAt, row.UpdatedAt, row.IsSuspended, row.RequiresActivation, row.LastSignedInAt, row.ConcurrencyStamp })
             .OrderBy(group => group.Key.Email)
             .Select(group => new ManagedUser(
                 group.Key.Id,
@@ -334,7 +344,8 @@ public sealed class UserAdministration(
                 group.Key.UpdatedAt,
                 group.Key.IsSuspended,
                 group.Key.RequiresActivation,
-                group.Key.LastSignedInAt))
+                group.Key.LastSignedInAt,
+                ManagedUser.AssignmentRevisionFor(group.Key.Id, group.Key.ConcurrencyStamp, group.Key.LibraryId)))
             .ToList();
 
     private static ManagedUser Map(RomdUser user, IReadOnlyList<string> roles) =>
@@ -347,7 +358,8 @@ public sealed class UserAdministration(
             user.UpdatedAt,
             user.IsSuspended,
             user.RequiresActivation,
-            user.LastSignedInAt);
+            user.LastSignedInAt,
+            ManagedUser.AssignmentRevisionFor(user.Id, user.ConcurrencyStamp, user.LibraryId));
 
     private sealed record UserRoleRow(
         Guid Id,
@@ -358,5 +370,6 @@ public sealed class UserAdministration(
         bool IsSuspended,
         bool RequiresActivation,
         DateTimeOffset? LastSignedInAt,
+        string? ConcurrencyStamp,
         string? RoleName);
 }

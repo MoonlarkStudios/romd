@@ -14,6 +14,10 @@ import {
 } from '@romd/consumer-api-client';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { collectConsumerPages } from '../services/collectConsumerPages';
+import {
+  ConsumerGameUnavailableError,
+  ConsumerLibraryUnavailableError,
+} from '../services/libraryErrors';
 import type { ConsumerTitleDetail } from '../types/consumerTitle';
 
 export interface ConsumerCatalogSearchParams {
@@ -52,6 +56,13 @@ export const consumerQueryKeys = {
     [
       'consumer',
       'title',
+      titleId,
+    ] as const,
+  playbackTitle: (accountId: string, titleId: string) =>
+    [
+      'consumer',
+      'playbackTitle',
+      accountId,
       titleId,
     ] as const,
   collections: (systemKey?: string) =>
@@ -93,12 +104,14 @@ export function useCurrentLibrary() {
     queryKey: consumerQueryKeys.currentLibrary,
     queryFn: async () => {
       const response = await getConsumerCurrentLibrary();
+      if (response.response?.status === 404) throw new ConsumerLibraryUnavailableError();
       if (response.error || !response.data) {
         throw new Error('Unable to load library context');
       }
 
       return response.data;
     },
+    retry: (attempt, error) => !(error instanceof ConsumerLibraryUnavailableError) && attempt < 1,
   });
 }
 
@@ -155,9 +168,20 @@ export function useCatalogSearch(params: ConsumerCatalogSearchParams, options?: 
   });
 }
 
-export function useTitleDetail(titleId: string | undefined) {
+export function useTitleDetail(
+  titleId: string | undefined,
+  options?: {
+    playbackAccountId: string;
+  },
+) {
+  const playbackAccountId = options?.playbackAccountId;
   return useQuery({
-    queryKey: consumerQueryKeys.title(titleId ?? ''),
+    queryKey: playbackAccountId
+      ? consumerQueryKeys.playbackTitle(playbackAccountId, titleId ?? '')
+      : consumerQueryKeys.title(titleId ?? ''),
+    // The player keeps these inputs for the mounted session and reads them again on return.
+    staleTime: playbackAccountId ? 'static' : undefined,
+    gcTime: playbackAccountId ? 0 : undefined,
     queryFn: async ({ signal }): Promise<ConsumerTitleDetail> => {
       if (!titleId) {
         throw new Error('Title ID is required');
@@ -177,6 +201,7 @@ export function useTitleDetail(titleId: string | undefined) {
         !response.data.media ||
         !response.data.releases
       ) {
+        if (response.response?.status === 404) throw new ConsumerGameUnavailableError();
         throw new Error('Unable to load title');
       }
 
@@ -221,9 +246,10 @@ export function useTitleDetail(titleId: string | undefined) {
   });
 }
 
-export function useCollections(systemKey?: string) {
+export function useCollections(systemKey?: string, enabled = true) {
   return useQuery({
     queryKey: consumerQueryKeys.collections(systemKey),
+    enabled,
     queryFn: ({ signal }) =>
       collectConsumerPages(async (cursor) => {
         const response = await listConsumerCollections({

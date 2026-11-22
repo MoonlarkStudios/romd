@@ -17,7 +17,7 @@ using LibraryConfiguration = Romd.Domain.Libraries.LibraryConfiguration;
 namespace Romd.Persistence.Repositories;
 
 /// <summary>Read-only comparison of two policies over one PostgreSQL snapshot.</summary>
-public sealed class LibraryDraftEvaluator : ILibraryDraftEvaluator
+public sealed partial class LibraryDraftEvaluator : ILibraryDraftEvaluator
 {
     internal const int DefaultTitleBatchSize = 2048;
     private readonly RomdDbContext context;

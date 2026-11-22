@@ -1,13 +1,11 @@
 import {
   Alert,
-  Avatar,
   Badge,
   Button,
   Group,
   Menu,
   Modal,
   NativeSelect,
-  Select,
   SimpleGrid,
   Skeleton,
   Stack,
@@ -25,9 +23,9 @@ import {
   IconRefresh,
   IconSettings,
   IconTrash,
-  IconUsers,
 } from '@tabler/icons-react';
-import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useDiscardEpoch } from '../../components/Administration/DraftGuard';
 import { UnsavedChanges } from '../../components/Administration/UnsavedChanges';
@@ -35,20 +33,22 @@ import { libraryInspectionPath, reviewReturnPath } from '../../components/Title/
 import { CurationHelp } from '../../components/Workspace/CurationHelp';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import { useExportLibrary } from '../../hooks/api/useExport';
-import { useJobs } from '../../hooks/api/useJobs';
+import { useJob, useJobs } from '../../hooks/api/useJobs';
 import { useLibraryAttachments } from '../../hooks/api/useLibraryExperience';
 import {
+  libraryManagementKeys,
   useDeleteLibrary,
-  useForceMaterializeLibrary,
   useLibrary,
 } from '../../hooks/api/useLibraryManagement';
-import { useAssignUserLibrary, useUsers } from '../../hooks/api/useUsers';
+import { useLibraryPublicationStatus } from '../../hooks/api/useLibraryPublication';
 import { archiveFormatLabel } from '../../utils/archiveFormats';
 import classes from './Libraries.module.css';
 import { LibraryCollections } from './LibraryCollections';
 import { LibraryDiagnostics } from './LibraryDiagnostics';
 import { LibraryGames } from './LibraryGames';
+import { LibraryPeople } from './LibraryPeople';
 import { LibraryPreview } from './LibraryPreview';
+import { LibraryPublicationProgress, LibraryPublishDialog } from './LibraryPublishDialog';
 import { LibraryRules } from './LibraryRules';
 import { awaitsFirstPublication, needsLibraryRefresh, publicationStatus } from './libraryRefresh';
 
@@ -59,120 +59,6 @@ const tabs = [
   'access',
   'preview',
 ] as const;
-
-function Audience({ libraryId }: { libraryId: string }) {
-  const users = useUsers();
-  const assign = useAssignUserLibrary();
-  const [selected, setSelected] = useState<string | null>(null);
-  const members = (users.data ?? []).filter((u) => u.libraryId === libraryId);
-  return (
-    <Stack
-      className={classes.panel}
-      gap="md"
-    >
-      <Group>
-        <IconUsers size={20} />
-        <Title order={3}>People in this audience</Title>
-      </Group>
-      <Text
-        size="sm"
-        c="dimmed"
-      >
-        Each person is assigned one library, wherever they play.
-      </Text>
-      {users.isError ? (
-        <Alert color="red">Could not load audience members.</Alert>
-      ) : users.isPending ? (
-        <Skeleton h={60} />
-      ) : members.length === 0 ? (
-        <Text
-          c="dimmed"
-          size="sm"
-        >
-          No one is assigned yet.
-        </Text>
-      ) : (
-        members.map((user) => (
-          <Group
-            key={user.id}
-            justify="space-between"
-          >
-            <Group>
-              <Avatar
-                color="gray"
-                radius="xl"
-              >
-                {user.email.slice(0, 1).toUpperCase()}
-              </Avatar>
-              <Text size="sm">{user.email}</Text>
-            </Group>
-            <Button
-              variant="subtle"
-              size="xs"
-              color="gray"
-              loading={assign.isPending}
-              onClick={() =>
-                assign.mutate({
-                  userId: user.id,
-                  libraryId: null,
-                })
-              }
-            >
-              Unassign
-            </Button>
-          </Group>
-        ))
-      )}
-      <Group align="end">
-        <Select
-          flex={1}
-          searchable
-          label="Assign a person"
-          placeholder="Choose a person"
-          data={(users.data ?? [])
-            .filter((u) => u.libraryId !== libraryId)
-            .map((u) => ({
-              value: u.id,
-              label: `${u.email}${u.libraryId ? ' · Move from another library' : ''}`,
-            }))}
-          value={selected}
-          onChange={setSelected}
-        />
-        <Button
-          {...workspaceActionProps}
-          disabled={!selected}
-          loading={assign.isPending}
-          onClick={async () => {
-            if (selected) {
-              try {
-                await assign.mutateAsync({
-                  userId: selected,
-                  libraryId,
-                });
-                setSelected(null);
-              } catch {
-                /* Visible error. */
-              }
-            }
-          }}
-        >
-          Assign
-        </Button>
-      </Group>
-      {assign.isError && <Alert color="red">{assign.error.message}</Alert>}
-      <Button
-        component={Link}
-        to="/users"
-        variant="subtle"
-        color="gray"
-        size="xs"
-        w="fit-content"
-      >
-        Manage people and roles
-      </Button>
-    </Stack>
-  );
-}
 
 export function LibraryWorkspace() {
   const { libraryId = '' } = useParams();
@@ -187,7 +73,47 @@ export function LibraryWorkspace() {
 function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
   const query = useLibrary(libraryId);
   const attachments = useLibraryAttachments(libraryId);
-  const rebuild = useForceMaterializeLibrary();
+  const cache = useQueryClient();
+  const publication = useLibraryPublicationStatus(libraryId);
+  const [reviewing, setReviewing] = useState(false);
+  const [acceptedId, setAcceptedId] = useState<string>();
+  const exact = useJob(acceptedId).data;
+  const latest = publication.data?.latestAttempt;
+  const displayedAttempt =
+    acceptedId && latest?.jobId !== acceptedId
+      ? {
+          jobId: acceptedId,
+          phase: exact?.phase ?? 'Pending',
+          isTerminal: exact?.isTerminal ?? false,
+          outcome: exact?.jobType === 'materialization' ? exact.publicationOutcome : null,
+        }
+      : latest;
+  const settledId = displayedAttempt?.isTerminal ? displayedAttempt.jobId : undefined;
+  useEffect(() => {
+    if (!acceptedId || !latest) return;
+    const historyCaughtUp = latest.jobId === acceptedId && latest.isTerminal;
+    const newerAttempt =
+      exact?.createdAt && Date.parse(latest.createdAt) > Date.parse(exact.createdAt);
+    if (historyCaughtUp || newerAttempt) setAcceptedId(undefined);
+  }, [
+    acceptedId,
+    exact?.createdAt,
+    latest,
+  ]);
+  useEffect(() => {
+    if (settledId) {
+      void cache.invalidateQueries({
+        queryKey: libraryManagementKeys.detail(libraryId),
+      });
+      void cache.invalidateQueries({
+        queryKey: libraryManagementKeys.previews(),
+      });
+    }
+  }, [
+    cache,
+    libraryId,
+    settledId,
+  ]);
   const jobs = useJobs();
   const exporter = useExportLibrary();
   const [exportFormat, setExportFormat] =
@@ -197,11 +123,7 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
     label: string;
   } | null>(null);
   const exportJob = (jobs.data ?? []).find((job) => job.id === queuedExport?.jobId);
-  const refreshing =
-    rebuild.isPending ||
-    (jobs.data ?? []).some(
-      (job) => job.jobType === 'materialization' && job.libraryId === libraryId && !job.isTerminal,
-    );
+  const refreshing = displayedAttempt?.isTerminal === false;
   const remove = useDeleteLibrary();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -368,7 +290,7 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
               leftSection={<IconRefresh size={17} />}
               loading={refreshing}
               disabled={dirty || library.configurationState !== 'Valid'}
-              onClick={() => rebuild.mutate(libraryId)}
+              onClick={() => setReviewing(true)}
             >
               {refreshing ? 'Publishing library…' : publishLabel}
             </Button>
@@ -454,24 +376,28 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
           {library.configurationError ?? 'Review and save the library rules to restore access.'}
         </Alert>
       )}
-      {library.configurationState === 'Valid' && (refreshing || status) && (
+      {library.configurationState === 'Valid' && !refreshing && status && (
         <Alert
-          color={refreshing ? 'blue' : 'yellow'}
+          color="yellow"
           mb="lg"
-          title={refreshing ? 'Publishing library…' : status}
+          title={status}
         >
           {!library.lastMaterializedAt
             ? 'Review the games in this draft, then publish it to make them available to its audience.'
             : 'Your audience keeps the published library until these changes are published.'}
         </Alert>
       )}
-      {rebuild.isError && (
-        <Alert
-          color="red"
-          mb="lg"
-        >
-          {rebuild.error.message}
-        </Alert>
+      <LibraryPublicationProgress attempt={displayedAttempt} />
+      {reviewing && (
+        <LibraryPublishDialog
+          libraryId={libraryId}
+          action={publishLabel}
+          close={() => setReviewing(false)}
+          accepted={(jobId) => {
+            setAcceptedId(jobId);
+            setReviewing(false);
+          }}
+        />
       )}
       <Tabs
         value={active}
@@ -664,7 +590,7 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
         />
       )}
       {active === 'collections' && <LibraryCollections libraryId={libraryId} />}
-      {active === 'access' && <Audience libraryId={libraryId} />}
+      {active === 'access' && <LibraryPeople library={library} />}
       {active === 'preview' && (
         <Stack gap="lg">
           <LibraryDiagnostics

@@ -4,11 +4,12 @@ using Microsoft.Extensions.Logging;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Libraries;
 using Romd.Application.Common.Cqrs;
+using Romd.Application.Common.Concurrency;
 using Romd.Application.Common.Ids;
 
 namespace Romd.Admin.Application.Users.Commands.AssignUserLibrary;
 
-public sealed record AssignUserLibraryCommand(Guid UserId, string? LibraryId) : ICommand<ManagedUser>;
+public sealed record AssignUserLibraryCommand(Guid UserId, string? LibraryId, RevisionPrecondition? Precondition = null) : ICommand<ManagedUser>;
 
 public sealed class AssignUserLibraryCommandHandler(
     IUserAdministration users,
@@ -62,7 +63,8 @@ public sealed class AssignUserLibraryCommandHandler(
                     command.UserId,
                     libraryId,
                     timeProvider.GetUtcNow(),
-                    token);
+                    token,
+                    command.Precondition);
                 if (result.IsError)
                 {
                     return result.Errors;

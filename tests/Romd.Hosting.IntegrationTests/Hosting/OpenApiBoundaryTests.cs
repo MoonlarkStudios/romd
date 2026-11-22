@@ -59,6 +59,7 @@ public sealed class OpenApiBoundaryTests
             ["/api/me/activity/play-sessions/{sessionId}"] = ["delete", "get", "put"],
             ["/api/me/activity/recently-played"] = ["get"],
             ["/api/me/library"] = ["get"],
+            ["/api/me/library/publication"] = ["get"],
             ["/api/me/library/systems"] = ["get"],
             ["/api/me/library/systems/{systemKey}"] = ["get"],
             ["/api/systems/{systemKey}/bios"] = ["get"],

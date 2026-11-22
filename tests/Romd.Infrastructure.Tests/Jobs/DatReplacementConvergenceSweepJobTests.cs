@@ -754,6 +754,9 @@ public sealed class DatReplacementConvergenceSweepJobTests : IDisposable
 
     private sealed class SweepLibraryMaterializationService(RomdDbContext context) : ILibraryMaterializationService
     {
+        public Task PublishForJobAsync(Romd.Domain.Jobs.MaterializationJob job, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public Task<MaterializationResult> MaterializeAsync(
             int libraryId,
             CancellationToken ct = default) => throw new NotSupportedException();
