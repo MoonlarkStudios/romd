@@ -11,7 +11,7 @@ using Romd.Admin.Application.Artwork.Settings;
 using Romd.Contracts.Management.Artwork;
 using Romd.Application.Common.Concurrency;
 
-namespace Romd.Infrastructure.Artwork;
+namespace Romd.Infrastructure.Providers.SteamGridDb;
 
 public sealed class SteamGridDbSettingsService : ISteamGridDbSettingsService, ISteamGridDbCredentials
 {

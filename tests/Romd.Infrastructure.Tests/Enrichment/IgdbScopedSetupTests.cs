@@ -11,16 +11,16 @@ using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
 using Romd.Infrastructure.Artwork;
-using Romd.Infrastructure.Enrichment;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 
 public sealed class IgdbScopedSetupTests
 {
     [Fact]
-    public async Task ProductionScopes_StreamSetupIsOnceAndArtworkSetupFollowsActualUse()
+    public async Task ProductionScopes_FetchAndArtworkBrowseSkipPlatformMapButIdentityResolutionUsesIt()
     {
         var protection = new EphemeralDataProtectionProvider();
         var stored = Settings(protection, "client", "secret");
@@ -51,7 +51,7 @@ public sealed class IgdbScopedSetupTests
         await metadata.InitializeAsync();
         int returned = 0;
 
-        await foreach (var (_, result) in metadata.EnrichAsync(Titles()))
+        await foreach (var (_, result) in metadata.FetchAsync(Titles()))
         {
             result.Outcome.ShouldBe(EnrichmentOutcome.Found);
             returned++;
@@ -59,7 +59,7 @@ public sealed class IgdbScopedSetupTests
 
         returned.ShouldBe(25);
         await store.Received(1).LoadAsync(Arg.Any<CancellationToken>());
-        await aliases.Received(1).GetProviderMappingsByShortNameAsync("igdb", Arg.Any<CancellationToken>());
+        await aliases.DidNotReceive().GetProviderMappingsByShortNameAsync("igdb", Arg.Any<CancellationToken>());
         for (int title = 0; title < 2; title++)
         {
             await using var scope = services.CreateAsyncScope();
@@ -70,20 +70,20 @@ public sealed class IgdbScopedSetupTests
 
             // Plain artwork browsing needs one runtime settings snapshot and no platform map.
             await store.Received(2 + title * 3).LoadAsync(Arg.Any<CancellationToken>());
-            await aliases.Received(1 + title).GetProviderMappingsByShortNameAsync("igdb", Arg.Any<CancellationToken>());
+            await aliases.Received(title).GetProviderMappingsByShortNameAsync("igdb", Arg.Any<CancellationToken>());
             (await identity.ResolveAsync("42", CancellationToken.None)).IsError.ShouldBeFalse();
-            await aliases.Received(2 + title).GetProviderMappingsByShortNameAsync("igdb", Arg.Any<CancellationToken>());
+            await aliases.Received(1 + title).GetProviderMappingsByShortNameAsync("igdb", Arg.Any<CancellationToken>());
             // Availability intentionally observes current configuration on every call.
             (await identity.GetAvailabilityAsync(CancellationToken.None)).Configured.ShouldBeTrue();
             (await identity.GetAvailabilityAsync(CancellationToken.None)).Configured.ShouldBeTrue();
         }
         await store.Received(7).LoadAsync(Arg.Any<CancellationToken>());
-        await aliases.Received(3).GetProviderMappingsByShortNameAsync("igdb", Arg.Any<CancellationToken>());
+        await aliases.Received(2).GetProviderMappingsByShortNameAsync("igdb", Arg.Any<CancellationToken>());
 
-        static async IAsyncEnumerable<EnrichmentContext> Titles()
+        static async IAsyncEnumerable<MetadataFetchRequest> Titles()
         {
             for (int title = 0; title < 25; title++)
-                yield return new EnrichmentContext { TitleName = "Game 42", PlatformShortName = "snes", ExistingExternalId = "42" };
+                yield return new("42", new() { TitleName = "Game 42", PlatformShortName = "snes" });
             await Task.CompletedTask;
         }
     }
@@ -167,22 +167,22 @@ public sealed class IgdbScopedSetupTests
         await using var services = BuildServices(handler, protection, store, aliases);
         await using var scope = services.CreateAsyncScope();
         var metadata = scope.ServiceProvider.GetRequiredService<IgdbMetadataProvider>();
-        var results = new List<(EnrichmentContext Context, EnrichmentResult Result)>();
+        var results = new List<(MetadataFetchRequest Request, EnrichmentResult Result)>();
 
-        await foreach (var pair in metadata.EnrichAsync(Batch()))
+        await foreach (var pair in metadata.FetchAsync(Batch()))
             results.Add(pair);
 
         queries.Count.ShouldBe(2);
         tokenRequests.ShouldBe(2);
         queries[1].ShouldBe(queries[0]);
         requests[1].ShouldNotBeSameAs(requests[0]);
-        results.Select(pair => pair.Context.ExistingExternalId).ShouldBe(Enumerable.Range(42, 10).Select(id => id.ToString()));
+        results.Select(pair => pair.Request.GameId).ShouldBe(Enumerable.Range(42, 10).Select(id => id.ToString()));
         results.ShouldAllBe(pair => pair.Result.Outcome == (permanentFailure ? EnrichmentOutcome.Error : EnrichmentOutcome.Found));
 
-        static async IAsyncEnumerable<EnrichmentContext> Batch()
+        static async IAsyncEnumerable<MetadataFetchRequest> Batch()
         {
             for (int index = 0; index < 10; index++)
-                yield return new EnrichmentContext { TitleName = $"Game {index}", PlatformShortName = "snes", ExistingExternalId = (42 + index).ToString() };
+                yield return new((42 + index).ToString(), new() { TitleName = $"Game {index}", PlatformShortName = "snes" });
             await Task.CompletedTask;
         }
     }

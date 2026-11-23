@@ -26,12 +26,10 @@ public sealed class EnrichmentContextFactory(
 
         var knownHashes = CollectOwnedHashes(evidence);
 
-        // ExistingExternalId is set per-provider in the orchestrator loop
         return new EnrichmentContext
         {
             TitleName = title.Name,
             PlatformShortName = platform.ShortName,
-            ExistingExternalId = null,
             Year = representative?.Year,
             Manufacturer = representative?.Manufacturer,
             Region = representative?.Region,

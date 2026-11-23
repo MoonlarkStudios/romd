@@ -63,9 +63,9 @@ public sealed class EnrichmentOrchestratorTests
         var result = await CreateOrchestrator(provider).EnrichTitleAsync(title, CreatePlatform());
 
         result.Enriched.ShouldBe(enriches);
-        provider.ReceivedContexts.Count.ShouldBe(trustedAtFetch is null ? 0 : 1);
+        provider.ReceivedRequests.Count.ShouldBe(trustedAtFetch is null ? 0 : 1);
         if (trustedAtFetch is not null)
-            provider.ReceivedContexts.Single().ExistingExternalId.ShouldBe(trustedAtFetch);
+            provider.ReceivedRequests.Single().GameId.ShouldBe(trustedAtFetch);
         // The identity service owns the association write; metadata must not create a duplicate child.
         title.ExternalIds.ShouldBeEmpty();
         if (enriches)
@@ -84,7 +84,7 @@ public sealed class EnrichmentOrchestratorTests
 
         var result = await CreateOrchestrator(providerA, providerB).EnrichTitleAsync(title, CreatePlatform());
 
-        providerA.ReceivedContexts.ShouldBeEmpty();
+        providerA.ReceivedRequests.ShouldBeEmpty();
         ShouldBeOutcome(result, OrchestrationResult.NotFound);
     }
 
@@ -98,7 +98,7 @@ public sealed class EnrichmentOrchestratorTests
 
         var result = await CreateOrchestrator(providerA, providerB).EnrichTitleAsync(title, CreatePlatform());
 
-        providerA.ReceivedContexts.ShouldBeEmpty();
+        providerA.ReceivedRequests.ShouldBeEmpty();
         await _identities.DidNotReceive().GetTrustedAsync(title.Id, "providerA", Arg.Any<CancellationToken>());
         result.Enriched.ShouldBeTrue();
         title.Description.ShouldBeNull();
@@ -115,8 +115,8 @@ public sealed class EnrichmentOrchestratorTests
 
         var result = await CreateOrchestrator(providerA, providerB).EnrichTitleAsync(title, CreatePlatform());
 
-        providerA.ReceivedContexts.Count.ShouldBe(1);
-        providerB.ReceivedContexts.Count.ShouldBe(1);
+        providerA.ReceivedRequests.Count.ShouldBe(1);
+        providerB.ReceivedRequests.Count.ShouldBe(1);
         result.Enriched.ShouldBeTrue();
         // Trusted identity acceptance authorizes the result regardless of the provider's own score.
         result.BestConfidence.ShouldBe(1f);
@@ -248,8 +248,8 @@ public sealed class EnrichmentOrchestratorTests
         var result = await CreateOrchestrator(providerA, providerB).EnrichTitleAsync(CreateTitle(), CreatePlatform());
 
         providerB.InitializeCount.ShouldBe(1);
-        providerB.ReceivedContexts.ShouldBeEmpty();
-        providerA.ReceivedContexts.Count.ShouldBe(1);
+        providerB.ReceivedRequests.ShouldBeEmpty();
+        providerA.ReceivedRequests.Count.ShouldBe(1);
         result.Enriched.ShouldBeTrue();
     }
 
@@ -262,7 +262,7 @@ public sealed class EnrichmentOrchestratorTests
 
         var result = await CreateOrchestrator(provider).EnrichTitleAsync(CreateTitle(), CreatePlatform());
 
-        provider.ReceivedContexts.Count.ShouldBe(1);
+        provider.ReceivedRequests.Count.ShouldBe(1);
         result.Enriched.ShouldBeTrue();
     }
 
@@ -596,7 +596,7 @@ public sealed class EnrichmentOrchestratorTests
 
         var results = await Collect(CreateOrchestrator(provider).EnrichStreamAsync(Stream(trusted, untrusted, suppressed)));
 
-        provider.ReceivedContexts.Select(x => x.TitleName).ShouldBe(["Trusted"]);
+        provider.ReceivedRequests.Select(x => x.Context.TitleName).ShouldBe(["Trusted"]);
         results.Select(x => x.Result.Enriched).ShouldBe([true, false, false]);
         await _identities.DidNotReceive().GetTrustedAsync(suppressed.Id, "providerA", Arg.Any<CancellationToken>());
     }

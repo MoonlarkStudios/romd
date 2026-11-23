@@ -70,7 +70,6 @@ using Romd.Domain.Jobs;
 using Romd.Domain.Libraries;
 using Romd.Domain.Taxonomy;
 using Romd.Infrastructure.Artwork;
-using Romd.Infrastructure.Artwork.SteamGridDb;
 using Romd.Infrastructure.Catalog;
 using Romd.Infrastructure.Dashboard;
 using Romd.Infrastructure.Dats;
@@ -106,6 +105,9 @@ using Romd.Persistence.Repositories;
 using Romd.Persistence.Repositories.Reconciliation;
 using Romd.Persistence.Search;
 using Romd.Persistence.Subscriptions;
+using Romd.Infrastructure.Providers.Igdb;
+using Romd.Infrastructure.Providers.SteamGridDb;
+using Romd.Infrastructure.Providers;
 
 namespace Romd.Infrastructure;
 
@@ -631,7 +633,7 @@ public static class DependencyInjection
         services.AddScoped<IArtworkCompletionStore>(sp => sp.GetRequiredService<Romd.Persistence.Artwork.ArtworkCompletionStore>());
         services.AddScoped<IArtworkCompletionAcceptance>(sp => sp.GetRequiredService<Romd.Persistence.Artwork.ArtworkCompletionStore>());
         services.AddScoped<IArtworkCompletionService, Romd.Admin.Application.Artwork.ArtworkCompletionService>();
-        services.AddHttpClient(AutomaticArtworkService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30))
+        services.AddHttpClient(IgdbArtworkProvider.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         return services;
     }

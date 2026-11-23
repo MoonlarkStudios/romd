@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Domain.Catalog;
 
-namespace Romd.Infrastructure.Artwork.SteamGridDb;
+namespace Romd.Infrastructure.Providers.SteamGridDb;
 
 /// <summary>
 /// Read-only SteamGridDB adapter. All transport redirects are disabled and CDN redirects

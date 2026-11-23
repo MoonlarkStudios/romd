@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -7,11 +8,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Titles.Enrichment;
-using Romd.Admin.Application.Titles.Matching;
 using Romd.Domain.Catalog;
 using Romd.Domain.Catalog.Ratings;
 
-namespace Romd.Infrastructure.Enrichment;
+namespace Romd.Infrastructure.Providers.Igdb;
 
 /// <summary>
 ///     IGDB metadata provider for fetching game metadata.
@@ -126,251 +126,135 @@ public sealed partial class IgdbMetadataProvider : IMetadataProvider
         !string.IsNullOrWhiteSpace(_options.ClientId) &&
         !string.IsNullOrWhiteSpace(_options.ClientSecret);
 
-    public async IAsyncEnumerable<(EnrichmentContext, EnrichmentResult)> EnrichAsync(
-        IAsyncEnumerable<EnrichmentContext> contexts,
+    public async IAsyncEnumerable<(MetadataFetchRequest Request, EnrichmentResult Result)> FetchAsync(
+        IAsyncEnumerable<MetadataFetchRequest> requests,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         await InitializeAsync(ct);
         if (!IsConfigured)
         {
-            await foreach (var context in contexts.WithCancellation(ct))
+            await foreach (var request in requests.WithCancellation(ct))
             {
-                yield return (context, EnrichmentResult.Error("IGDB is disabled or not configured. Check Admin Settings > Metadata Providers."));
+                yield return (request, EnrichmentResult.Error("IGDB is disabled or not configured. Check Admin Settings > Metadata Providers."));
             }
             yield break;
         }
-        var buffer = new List<EnrichmentContext>(MaxBatchSize);
-        var platformMap = await GetPlatformMapAsync(ct);
 
-        await foreach (var context in contexts.WithCancellation(ct))
+        var batch = new List<MetadataFetchRequest>(MaxBatchSize);
+        await foreach (var request in requests.WithCancellation(ct))
         {
-            // Unsupported platforms (without an existing external ID) yield immediately
-            if (context.ExistingExternalId == null && !platformMap.TryGetValue(context.PlatformShortName, out _))
-            {
-                _logger.LogDebug(
-                    "Platform '{Platform}' not mapped to IGDB, skipping",
-                    context.PlatformShortName);
-                yield return (context, EnrichmentResult.PlatformNotSupported());
+            batch.Add(request);
+            if (batch.Count < MaxBatchSize)
                 continue;
-            }
 
-            buffer.Add(context);
-
-            if (buffer.Count >= MaxBatchSize)
-            {
-                await foreach (var pair in FlushBatchAsync(buffer, ct))
-                {
-                    yield return pair;
-                }
-
-                buffer.Clear();
-            }
-        }
-
-        // Flush remaining
-        if (buffer.Count > 0)
-        {
-            await foreach (var pair in FlushBatchAsync(buffer, ct))
-            {
+            await foreach (var pair in FetchBatchAsync(batch, ct))
                 yield return pair;
-            }
+            batch.Clear();
+        }
+
+        if (batch.Count > 0)
+        {
+            await foreach (var pair in FetchBatchAsync(batch, ct))
+                yield return pair;
         }
     }
 
-    private async Task<EnrichmentResult> EnrichSingleCoreAsync(
-        EnrichmentContext context,
-        CancellationToken cancellationToken)
-    {
-        if (!IsConfigured)
-        {
-            return EnrichmentResult.Error("IGDB not configured");
-        }
-
-        try
-        {
-            await _rateLimiter.AcquireAsync(ProviderId, cancellationToken);
-
-            // If we have an existing external ID, fetch by ID (no platform filter needed)
-            if (context.ExistingExternalId != null)
-            {
-                return await FetchByIdAsync(context, cancellationToken);
-            }
-
-            // Otherwise, need platform mapping for search
-            var platformMap = await GetPlatformMapAsync(cancellationToken);
-            if (!platformMap.TryGetValue(context.PlatformShortName, out int igdbPlatformId))
-            {
-                return EnrichmentResult.PlatformNotSupported();
-            }
-
-            return await SearchAsync(context, igdbPlatformId, cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "Error enriching '{TitleName}' via IGDB",
-                context.TitleName);
-            return EnrichmentResult.Error(ex.Message);
-        }
-    }
-
-    private async IAsyncEnumerable<(EnrichmentContext, EnrichmentResult)> FlushBatchAsync(
-        List<EnrichmentContext> batch,
+    private async IAsyncEnumerable<(MetadataFetchRequest Request, EnrichmentResult Result)> FetchBatchAsync(
+        IReadOnlyList<MetadataFetchRequest> batch,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        if (!IsConfigured)
+        var query = new StringBuilder();
+        var gameIds = new long[batch.Count];
+        for (var index = 0; index < batch.Count; index++)
         {
-            foreach (var ctx in batch)
-            {
-                yield return (ctx, EnrichmentResult.Error("IGDB not configured"));
-            }
+            if (!long.TryParse(batch[index].GameId, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id <= 0)
+                continue;
 
-            yield break;
+            gameIds[index] = id;
+            query.AppendLine(CultureInfo.InvariantCulture, $$"""
+                query games "q{{index}}" {
+                    fields {{GameFields}};
+                    where id = {{id}};
+                    limit 1;
+                };
+                """);
         }
 
-        // Partition: fetch-by-ID contexts use multi-query, search contexts use individual requests
-        var fetchByIdContexts = new List<(int Index, EnrichmentContext Context)>();
-        var searchContexts = new List<EnrichmentContext>();
-
-        for (int i = 0; i < batch.Count; i++)
+        ILookup<string, MultiQueryResponse>? responses = null;
+        bool authenticationRejected = false;
+        if (query.Length > 0)
         {
-            var context = batch[i];
-            if (context.ExistingExternalId != null)
-            {
-                fetchByIdContexts.Add((i, context));
-            }
-            else
-            {
-                searchContexts.Add(context);
-            }
-        }
-
-        // --- Fetch-by-ID group: multi-query ---
-        var fetchResults = new Dictionary<int, (EnrichmentContext, EnrichmentResult)>();
-
-        if (fetchByIdContexts.Count > 0)
-        {
-            var queryBuilder = new StringBuilder();
-            foreach ((int idx, var context) in fetchByIdContexts)
-            {
-                queryBuilder.AppendLine($$"""
-                                          query games "q{{idx}}" {
-                                              fields {{GameFields}};
-                                              where id = {{context.ExistingExternalId}};
-                                          };
-                                          """);
-            }
-
-            string multiQueryString = queryBuilder.ToString();
-
-            _logger.LogInformation("IGDB multi-query ({Count} fetch-by-ID titles):\n{Query}",
-                fetchByIdContexts.Count, multiQueryString);
-
-            List<MultiQueryResponse>? responses = null;
-            bool authenticationRejected = false;
             try
             {
                 await _rateLimiter.AcquireAsync(ProviderId, ct);
-                responses = await SendMultiQueryAsync(multiQueryString, ct);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
+                responses = (await SendMultiQueryAsync(query.ToString(), ct)).ToLookup(x => x.Name, StringComparer.Ordinal);
             }
             catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                // The transport already refreshed authentication once. Replaying every member
-                // individually would multiply a permanent rejection across the whole batch.
+                // The transport already retried with fresh credentials. Repeating the batch
+                // as individual requests would multiply a permanent authentication failure.
                 authenticationRejected = true;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException)
             {
-                _logger.LogWarning(ex, "Multi-query request failed, falling back to individual fetch-by-ID requests");
+                _logger.LogWarning(ex, "IGDB multi-query failed. Retrying the same game IDs individually.");
             }
+        }
 
-            if (authenticationRejected)
-            {
-                foreach ((int idx, var context) in fetchByIdContexts)
-                    fetchResults[idx] = (context, EnrichmentResult.Error("IGDB authentication failed."));
-            }
-            else if (responses != null)
-            {
-                var responseMap = new Dictionary<string, List<JsonElement>>(responses.Count);
-                foreach (var r in responses)
-                {
-                    responseMap[r.Name] = r.Result;
-                }
-
-                foreach ((int idx, var context) in fetchByIdContexts)
-                {
-                    string queryName = $"q{idx}";
-                    if (responseMap.TryGetValue(queryName, out var games) && games.Count > 0)
-                    {
-                        fetchResults[idx] = (context, SelectBestMatch(context, games));
-                    }
-                    else
-                    {
-                        _logger.LogInformation(
-                            "No IGDB results found for '{GameName}' (ID: {ExternalId}) in multi-query",
-                            context.TitleName, context.ExistingExternalId);
-                        fetchResults[idx] = (context, EnrichmentResult.NotFound());
-                    }
-                }
-            }
+        for (var index = 0; index < batch.Count; index++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var request = batch[index];
+            var id = gameIds[index];
+            if (id == 0)
+                yield return (request, EnrichmentResult.Error("IGDB requires a positive numeric game ID."));
+            else if (authenticationRejected)
+                yield return (request, EnrichmentResult.Error("IGDB authentication failed."));
+            else if (responses is null)
+                yield return (request, await FetchGameAsync(request.Context, id, ct));
             else
             {
-                // Multi-query failed entirely — fall back to individual FetchByIdAsync
-                foreach ((int idx, var context) in fetchByIdContexts)
-                {
-                    fetchResults[idx] = (context, await EnrichSingleCoreAsync(context, ct));
-                }
+                var matches = responses[$"q{index}"];
+                var result = matches.Count() > 1
+                    ? EnrichmentResult.Error("IGDB returned duplicate batch results for a game ID.")
+                    : ReadFetchedGame(request.Context, id, matches.SingleOrDefault()?.Result);
+                yield return (request, result);
             }
         }
+    }
 
-        // --- Search group: individual requests (multi-query search doesn't work on IGDB) ---
-        var searchResults = new List<(EnrichmentContext, EnrichmentResult)>();
-        var platformMap = await GetPlatformMapAsync(ct);
-
-        foreach (var context in searchContexts)
+    private async Task<EnrichmentResult> FetchGameAsync(EnrichmentContext context, long id, CancellationToken ct)
+    {
+        try
         {
-            if (!platformMap.TryGetValue(context.PlatformShortName, out int igdbPlatformId))
-            {
-                searchResults.Add((context, EnrichmentResult.PlatformNotSupported()));
-                continue;
-            }
-
-            EnrichmentResult result;
-            try
-            {
-                await _rateLimiter.AcquireAsync(ProviderId, ct);
-                result = await SearchAsync(context, igdbPlatformId, ct);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Search failed for '{GameName}'", context.TitleName);
-                result = EnrichmentResult.Error(ex.Message);
-            }
-
-            searchResults.Add((context, result));
+            await _rateLimiter.AcquireAsync(ProviderId, ct);
+            var query = FormattableString.Invariant($"fields {GameFields}; where id = {id}; limit 1;");
+            return ReadFetchedGame(context, id, await SendIgdbRequestAsync("games", query, ct));
         }
-
-        // Yield results in original batch order: fetch-by-ID first (by index), then search contexts
-        foreach ((int idx, _) in fetchByIdContexts.OrderBy(x => x.Index))
+        catch (Exception ex) when (ex is HttpRequestException or IOException or JsonException)
         {
-            yield return fetchResults[idx];
+            _logger.LogWarning(ex, "Could not fetch IGDB game {GameId}", id);
+            return EnrichmentResult.Error("IGDB game lookup failed.");
         }
+    }
 
-        foreach (var pair in searchResults)
+    private EnrichmentResult ReadFetchedGame(EnrichmentContext context, long id, IReadOnlyList<JsonElement>? games)
+    {
+        if (games is not { Count: > 0 })
+            return EnrichmentResult.NotFound();
+        if (games.Count != 1 || games[0].ValueKind != JsonValueKind.Object ||
+            !games[0].TryGetProperty("id", out var returnedId) || returnedId.ValueKind != JsonValueKind.Number ||
+            !returnedId.TryGetInt64(out var actualId) || actualId != id)
+            return EnrichmentResult.Error("IGDB returned a game that does not match the requested ID.");
+
+        try
         {
-            yield return pair;
+            return MapToResult(context, games[0]);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or ArgumentOutOfRangeException)
+        {
+            _logger.LogWarning(ex, "Could not read IGDB game {GameId}", id);
+            return EnrichmentResult.Error("IGDB returned invalid game metadata.");
         }
     }
 
@@ -389,72 +273,6 @@ public sealed partial class IgdbMetadataProvider : IMetadataProvider
             body.Length, body.Length > 2000 ? body[..2000] + "..." : body);
 
         return JsonSerializer.Deserialize<List<MultiQueryResponse>>(body) ?? [];
-    }
-
-    private async Task<EnrichmentResult> SearchAsync(
-        EnrichmentContext context,
-        int igdbPlatformId,
-        CancellationToken cancellationToken)
-    {
-        string searchName = TitleNormalizer.ToSearchName(context.TitleName);
-        string query = $"""
-                        search "{EscapeQuery(searchName)}";
-                        fields {GameFields};
-                        where platforms = ({igdbPlatformId});
-                        limit 5;
-                        """;
-
-        var response = await SendIgdbRequestAsync("games", query, cancellationToken);
-        if (response is not null && response.Count > 0)
-        {
-            return SelectBestMatch(context, response);
-        }
-
-        // Fallback: wildcard name match (case-insensitive substring)
-        _logger.LogInformation(
-            "IGDB search returned no results for '{GameName}' (query: \"{SearchName}\"), trying wildcard fallback",
-            context.TitleName, searchName);
-
-        await _rateLimiter.AcquireAsync(ProviderId, cancellationToken);
-
-        string fallbackQuery = $"""
-                                fields {GameFields};
-                                where platforms = ({igdbPlatformId}) & name ~ *"{EscapeQuery(searchName)}"*;
-                                limit 5;
-                                """;
-
-        var fallbackResponse = await SendIgdbRequestAsync("games", fallbackQuery, cancellationToken);
-        if (fallbackResponse is not null && fallbackResponse.Count > 0)
-        {
-            _logger.LogInformation(
-                "IGDB wildcard fallback found {Count} result(s) for '{GameName}'",
-                fallbackResponse.Count, context.TitleName);
-            return SelectBestMatch(context, fallbackResponse);
-        }
-
-        _logger.LogInformation(
-            "No IGDB results found for '{GameName}' on platform {Platform} (search + wildcard)",
-            context.TitleName, igdbPlatformId);
-        return EnrichmentResult.NotFound();
-    }
-
-    private async Task<EnrichmentResult> FetchByIdAsync(
-        EnrichmentContext context,
-        CancellationToken cancellationToken)
-    {
-        string query = $"""
-                        fields {GameFields};
-                        where id = {context.ExistingExternalId};
-                        """;
-
-        var response = await SendIgdbRequestAsync("games", query, cancellationToken);
-        if (response is null || response.Count == 0)
-        {
-            return EnrichmentResult.NotFound();
-        }
-
-        var game = response[0];
-        return MapToResult(context, game);
     }
 
     private async Task<(string ClientId, IgdbAccessTokenCache.AccessToken Token)> GetAccessTokenAsync(CancellationToken cancellationToken)
@@ -499,22 +317,6 @@ public sealed partial class IgdbMetadataProvider : IMetadataProvider
             endpoint, body.Length, body.Length > 2000 ? body[..2000] + "..." : body);
 
         return JsonSerializer.Deserialize<List<JsonElement>>(body);
-    }
-
-    private EnrichmentResult SelectBestMatch(EnrichmentContext context, List<JsonElement> games)
-    {
-        EnrichmentResult? bestResult = null;
-
-        foreach (var game in games)
-        {
-            var result = MapToResult(context, game);
-            if (bestResult == null || result.MatchConfidence > bestResult.MatchConfidence)
-            {
-                bestResult = result;
-            }
-        }
-
-        return bestResult!;
     }
 
     private EnrichmentResult MapToResult(EnrichmentContext context, JsonElement game)

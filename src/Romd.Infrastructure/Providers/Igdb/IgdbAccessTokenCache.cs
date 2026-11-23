@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Romd.Infrastructure.Enrichment;
+namespace Romd.Infrastructure.Providers.Igdb;
 
 /// <summary>
 /// Shares Twitch authentication across scoped IGDB clients. One credential set is retained,

@@ -101,7 +101,7 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
                     continue;
                 }
 
-                var result = await provider.EnrichSingleAsync(context with { ExistingExternalId = trustedId },
+                var result = await provider.FetchSingleAsync(new(trustedId, context),
                     cancellationToken);
                 artworkResults.Add(new(provider.ProviderId, result));
                 await ApplyResultAsync(title, platform, provider.ProviderId, trustedId, result, tally,
@@ -169,8 +169,8 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
             // Provider-major: each provider streams the whole window before the next provider starts.
             foreach (var provider in enabledProviders)
             {
-                var contextToTitle = new Dictionary<EnrichmentContext, int>(ReferenceEqualityComparer.Instance);
-                var providerContexts = new List<EnrichmentContext>();
+                var requestToTitle = new Dictionary<MetadataFetchRequest, int>(ReferenceEqualityComparer.Instance);
+                var requests = new List<MetadataFetchRequest>();
 
                 foreach (var (titleId, (_, _, baseContext)) in titleContexts)
                 {
@@ -181,15 +181,15 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
                     var trustedId = await _identities.GetTrustedAsync(titleId, provider.ProviderId, cancellationToken);
                     if (trustedId is null)
                         continue;
-                    var providerContext = baseContext with { ExistingExternalId = trustedId };
-                    providerContexts.Add(providerContext);
-                    contextToTitle[providerContext] = titleId;
+                    var request = new MetadataFetchRequest(trustedId, baseContext);
+                    requests.Add(request);
+                    requestToTitle[request] = titleId;
                 }
 
-                await foreach (var (ctx, result) in provider.EnrichAsync(
-                                   ToAsyncEnumerable(providerContexts), cancellationToken))
+                await foreach (var (request, result) in provider.FetchAsync(
+                                   ToAsyncEnumerable(requests), cancellationToken))
                 {
-                    if (!contextToTitle.TryGetValue(ctx, out int titleId))
+                    if (!requestToTitle.TryGetValue(request, out int titleId))
                     {
                         continue;
                     }
@@ -199,7 +199,7 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
                     var tally = tallies[titleId];
                     try
                     {
-                        await ApplyResultAsync(title, platform, provider.ProviderId, ctx.ExistingExternalId!, result,
+                        await ApplyResultAsync(title, platform, provider.ProviderId, request.GameId, result,
                             tally, stagedMedia.For(titleId), cancellationToken);
                     }
                     catch (OperationCanceledException)
@@ -367,11 +367,11 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
         return tally.ToResult() with { ArtworkResults = artworkResults, StagedMedia = stagedMedia.HandOff(title.Id) };
     }
 
-    private static async IAsyncEnumerable<EnrichmentContext> ToAsyncEnumerable(IEnumerable<EnrichmentContext> contexts)
+    private static async IAsyncEnumerable<MetadataFetchRequest> ToAsyncEnumerable(IEnumerable<MetadataFetchRequest> requests)
     {
-        foreach (var context in contexts)
+        foreach (var request in requests)
         {
-            yield return context;
+            yield return request;
         }
 
         await Task.CompletedTask;

@@ -1,4 +1,4 @@
-namespace Romd.Infrastructure.Artwork;
+namespace Romd.Infrastructure.Providers.SteamGridDb;
 
 public sealed class SteamGridDbOptions
 {

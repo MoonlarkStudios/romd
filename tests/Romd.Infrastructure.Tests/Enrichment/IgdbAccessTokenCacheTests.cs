@@ -10,10 +10,10 @@ using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
 using Romd.Infrastructure.Artwork;
-using Romd.Infrastructure.Enrichment;
 using Romd.Infrastructure.Tests.Helpers;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 
@@ -256,7 +256,7 @@ public sealed class IgdbAccessTokenCacheTests
         {
             if (IsAuthentication(request))
                 return Task.FromResult(Token($"token-{++tokenRequests}"));
-            return Task.FromResult(++gameRequests == 1 ? new HttpResponseMessage(HttpStatusCode.Unauthorized) : Games());
+            return Task.FromResult(++gameRequests == 1 ? new HttpResponseMessage(HttpStatusCode.Unauthorized) : Games(request));
         }
         using var first = new TitleClient(Send, clock, cache);
         using var next = new TitleClient(Send, clock, cache);
@@ -286,16 +286,16 @@ public sealed class IgdbAccessTokenCacheTests
         using var client = new TitleClient(Send, clock, cache);
         var results = new List<EnrichmentResult>();
 
-        await foreach (var (_, result) in client.Metadata.EnrichAsync(OneTitle()))
+        await foreach (var (_, result) in client.Metadata.FetchAsync(OneTitle()))
             results.Add(result);
 
         results.ShouldHaveSingleItem().Outcome.ShouldBe(EnrichmentOutcome.Error);
         tokenRequests.ShouldBe(2);
         gameRequests.ShouldBe(2);
 
-        static async IAsyncEnumerable<EnrichmentContext> OneTitle()
+        static async IAsyncEnumerable<MetadataFetchRequest> OneTitle()
         {
-            yield return new EnrichmentContext { TitleName = "Game 42", PlatformShortName = "snes", ExistingExternalId = "42" };
+            yield return new("42", new() { TitleName = "Game 42", PlatformShortName = "snes" });
             await Task.CompletedTask;
         }
     }
@@ -407,6 +407,14 @@ public sealed class IgdbAccessTokenCacheTests
     {
         Content = new StringContent($$"""{"access_token":"{{token}}","expires_in":{{seconds}}}""", Encoding.UTF8, "application/json")
     };
+    private static HttpResponseMessage Games(HttpRequestMessage request) =>
+        request.RequestUri!.AbsolutePath.EndsWith("/multiquery", StringComparison.Ordinal)
+            ? new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""[{"name":"q0","result":[{"id":42,"name":"Game 42"}]}]""", Encoding.UTF8, "application/json")
+            }
+            : Games();
+
     private static HttpResponseMessage Games() => new(HttpStatusCode.OK)
     {
         Content = new StringContent("""[{"id":42,"name":"Game 42","slug":"game-42"}]""", Encoding.UTF8, "application/json")
@@ -437,8 +445,8 @@ public sealed class IgdbAccessTokenCacheTests
         public async Task<bool> RequestSucceedsAsync(string path) => path switch
         {
             "artwork" => !(await BrowseAsync()).IsError,
-            "metadata" => (await Metadata.EnrichSingleAsync(new EnrichmentContext
-            { TitleName = "Game 42", PlatformShortName = "snes" })).Outcome == EnrichmentOutcome.Found,
+            "metadata" => (await Metadata.FetchSingleAsync(new("42", new()
+            { TitleName = "Game 42", PlatformShortName = "snes" }))).Outcome == EnrichmentOutcome.Found,
             "identity" => !(await ((IProviderIdentityAdapter)Metadata).ResolveAsync("42", CancellationToken.None)).IsError,
             "steam" => !(await Metadata.GetSteamIdentityAsync("42", CancellationToken.None)).IsError,
             _ => throw new ArgumentOutOfRangeException(nameof(path))

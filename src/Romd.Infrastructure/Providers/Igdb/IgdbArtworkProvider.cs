@@ -3,12 +3,13 @@ using System.Globalization;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Domain.Catalog;
-using Romd.Infrastructure.Enrichment;
 
-namespace Romd.Infrastructure.Artwork;
+
+namespace Romd.Infrastructure.Providers.Igdb;
 
 public sealed class IgdbArtworkProvider(IgdbMetadataProvider metadata, IHttpClientFactory clients) : IArtworkProvider
 {
+    internal const string HttpClientName = "AutomaticIgdbArtwork";
     public ArtworkProviderCapabilities Capabilities { get; } = new("igdb", "IGDB",
         [new(ArtworkRole.Poster, [], []), new(ArtworkRole.Hero, [], []), new(ArtworkRole.Backdrop, [], [])], MediaTypes: [MediaType.Cover, MediaType.Background, MediaType.Screenshot]);
 
@@ -48,7 +49,7 @@ public sealed class IgdbArtworkProvider(IgdbMetadataProvider metadata, IHttpClie
             return ArtworkProviderErrors.InvalidRequest();
         if (!await IsAvailableAsync(ct))
             return ArtworkProviderErrors.NotConfigured();
-        using var client = clients.CreateClient(AutomaticArtworkService.HttpClientName);
+        using var client = clients.CreateClient(HttpClientName);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         const int limit = 32 * 1024 * 1024;

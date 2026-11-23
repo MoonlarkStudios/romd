@@ -3,9 +3,8 @@ using System.Text.Json;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Contracts.Management.MetadataProviders;
-using Romd.Infrastructure.Enrichment;
 
-namespace Romd.Infrastructure.Artwork.SteamGridDb;
+namespace Romd.Infrastructure.Providers.SteamGridDb;
 
 public sealed partial class SteamGridDbArtworkProvider
 {

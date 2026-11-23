@@ -13,7 +13,7 @@ internal sealed class FakeMetadataProvider(string providerId, Func<EnrichmentCon
     public bool UsesRuntimeConfiguration { get; set; }
     public int InitializeCount { get; private set; }
     public int StreamCount { get; private set; }
-    public List<EnrichmentContext> ReceivedContexts { get; } = [];
+    public List<MetadataFetchRequest> ReceivedRequests { get; } = [];
 
     /// <summary>Records provider-major ordering across fakes sharing one log.</summary>
     public List<string>? CallLog { get; init; }
@@ -24,17 +24,17 @@ internal sealed class FakeMetadataProvider(string providerId, Func<EnrichmentCon
         return Task.CompletedTask;
     }
 
-    public async IAsyncEnumerable<(EnrichmentContext Context, EnrichmentResult Result)> EnrichAsync(
-        IAsyncEnumerable<EnrichmentContext> contexts,
+    public async IAsyncEnumerable<(MetadataFetchRequest Request, EnrichmentResult Result)> FetchAsync(
+        IAsyncEnumerable<MetadataFetchRequest> requests,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         StreamCount++;
-        await foreach (var context in contexts.WithCancellation(ct))
+        await foreach (var request in requests.WithCancellation(ct))
         {
             ct.ThrowIfCancellationRequested();
-            ReceivedContexts.Add(context);
-            CallLog?.Add($"{ProviderId}:{context.TitleName}");
-            yield return (context, handler(context));
+            ReceivedRequests.Add(request);
+            CallLog?.Add($"{ProviderId}:{request.Context.TitleName}");
+            yield return (request, handler(request.Context));
         }
     }
 }

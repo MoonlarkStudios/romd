@@ -17,6 +17,7 @@ using Romd.Persistence.Entities;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.SteamGridDb;
 
 namespace Romd.Infrastructure.Tests.Artwork;
 

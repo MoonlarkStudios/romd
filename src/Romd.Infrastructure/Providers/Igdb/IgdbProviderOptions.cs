@@ -1,4 +1,4 @@
-namespace Romd.Infrastructure.Enrichment;
+namespace Romd.Infrastructure.Providers.Igdb;
 
 /// <summary>
 ///     Provider-specific credentials for Twitch/IGDB metadata enrichment.

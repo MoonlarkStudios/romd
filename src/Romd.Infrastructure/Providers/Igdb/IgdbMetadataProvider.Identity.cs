@@ -3,7 +3,7 @@ using System.Text.Json;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Contracts.Management.MetadataProviders;
 
-namespace Romd.Infrastructure.Enrichment;
+namespace Romd.Infrastructure.Providers.Igdb;
 
 public sealed partial class IgdbMetadataProvider : IProviderIdentityAdapter
 {
