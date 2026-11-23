@@ -44,7 +44,9 @@ public static class DatModelMapper
             parsed.IsBios,
             parsed.NameMetadata.Region,
             parsed.NameMetadata.Language,
-            parsed.NameMetadata.Revision);
+            parsed.NameMetadata.Revision,
+            parsed.DeclaredId,
+            parsed.CloneOfId);
 
         foreach (var rom in parsed.Roms)
         {

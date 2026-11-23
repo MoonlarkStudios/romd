@@ -1622,6 +1622,9 @@ namespace Romd.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("CloneOfId")
+                        .HasColumnType("text");
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("bigint");
 
@@ -1630,6 +1633,9 @@ namespace Romd.Persistence.Migrations
 
                     b.Property<int>("DatFileId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("DeclaredId")
+                        .HasColumnType("text");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)

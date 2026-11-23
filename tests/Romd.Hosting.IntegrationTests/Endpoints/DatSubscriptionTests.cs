@@ -68,7 +68,7 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
         string name = $"ROMD Enrollment Test - {systemId}";
         int initialCount = systemId == "snes" ? 2 : 1;
         string undumped = systemId == "snes" ? "<game name='Enrollment Undumped'><rom name='unknown.sfc' status='nodump'/></game>" : "";
-        byte[] Document(bool update) => Encoding.UTF8.GetBytes($"<datafile><header><name>{name}</name></header><game name='Enrollment One'><rom name='one.bin' size='1' crc='12345678'/></game>{undumped}{(update ? "<game name='Enrollment Two'><rom name='two.bin' size='2' crc='87654321'/></game>" : "")}</datafile>");
+        byte[] Document(bool update) => Encoding.UTF8.GetBytes($"<datafile><header><name>{name}</name></header><game name='Enrollment One' id='0001' cloneofid='external-parent'><rom name='one.bin' size='1' crc='12345678'/></game>{undumped}{(update ? "<game name='Enrollment Two'><rom name='two.bin' size='2' crc='87654321'/></game>" : "")}</datafile>");
         var fake = new CandidateClient { Result = Document(false), Catalogs = [new(catalogId, systemId, name, provider, "healthy", new string('a', 64), initialCount, initialCount, null)] };
         var (app, client) = Host(fake);
         using var appScope = app;
@@ -152,6 +152,9 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
         var details = (await detailsResponse.Content.ReadFromJsonAsync<Models.DatEntryChangeDetail>())!;
         details.Name.ShouldBe("Enrollment One");
         details.Change.ShouldBe("Added");
+        details.Fields.Single(f => f.Field == "DeclaredId").After.ShouldBe("0001");
+        details.Fields.Single(f => f.Field == "CloneOfId").After.ShouldBe("external-parent");
+        details.Fields.Single(f => f.Field == "ParentStatus").After.ShouldBe("Missing");
         details.Files.Items.Single().Fields.Single(f => f.Field == "Size").After.ShouldBe("1");
         var staleDetail = await client.GetAsync(Changes(subscription.Id, changes.Items[0].Id,
             ("activeSha256", first.ActiveSha256), ("candidateSha256", new string('0', 64))));
@@ -165,6 +168,9 @@ public sealed class DatSubscriptionTests(IntegrationTestFixture fixture)
         status.ActiveDatId.ShouldNotBeNull();
         var initial = await db.DatFiles.SingleAsync(d => d.Name == name && d.Lifecycle == "Active");
         initial.GameCount.ShouldBe(initialCount);
+        var installedEntry = await db.DatGames.SingleAsync(g => g.DatFileId == initial.Id && g.Name == "Enrollment One");
+        installedEntry.DeclaredId.ShouldBe("0001");
+        installedEntry.CloneOfId.ShouldBe("external-parent");
         (await client.GetByteArrayAsync($"/api/dats/{status.ActiveDatId}/download")).ShouldBe(Document(false));
         if (systemId == "snes")
             (await db.DatRoms.Where(r => db.DatGames.Any(g => g.Id == r.DatGameId && g.DatFileId == initial.Id) && r.Status == "nodump").CountAsync()).ShouldBe(1);

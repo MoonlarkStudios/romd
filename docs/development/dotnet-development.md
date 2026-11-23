@@ -179,7 +179,8 @@ file selection for each accepted job. The
 `20261121060000_RemoveServerImportFileHistory` migration removes the separate
 folder-wide file history. The additive `20261121200000_LibraryPublicationOutcome`
 migration records reviewed revisions and outcomes on library publication jobs.
-Current readiness is version 82.
+The additive `20261123000000_DatParentDeclarations` migration adds optional
+Logiqx entry and clone parent IDs to DAT entries. Current readiness is version 83.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

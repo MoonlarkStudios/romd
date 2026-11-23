@@ -265,6 +265,48 @@ public class LogiqxDatFormatTests
     }
 
     [Fact]
+    public async Task ParseGamesAsync_GameAndMachineDeclarations_PreservesRawReferences()
+    {
+        // Arrange
+        const string xml = """
+                           <datafile>
+                             <game name="Child" id="0007" cloneof="Parent" cloneofid="0003" romof="Device">
+                               <description>Child release</description>
+                             </game>
+                             <machine name="Parent" id="0003" />
+                             <machine name="Blank" id="" cloneof="" cloneofid="  " romof="Device" />
+                             <machine name="Padded" id=" 0003 " />
+                           </datafile>
+                           """;
+        using var stream = CreateStream(xml);
+
+        // Act
+        var games = await _format.ParseGamesAsync(stream, CancellationToken.None).ToListAsync();
+
+        // Assert
+        games.Count.ShouldBe(4);
+        games.ShouldAllBe(game => !game.IsError);
+
+        var child = games[0].Value;
+        child.DeclaredId.ShouldBe("0007");
+        child.CloneOf.ShouldBe("Parent");
+        child.CloneOfId.ShouldBe("0003");
+        child.RomOf.ShouldBe("Device");
+
+        var parent = games[1].Value;
+        parent.DeclaredId.ShouldBe("0003");
+        parent.CloneOf.ShouldBeNull();
+        parent.CloneOfId.ShouldBeNull();
+
+        var blank = games[2].Value;
+        blank.DeclaredId.ShouldBe(string.Empty);
+        blank.CloneOf.ShouldBe(string.Empty);
+        blank.CloneOfId.ShouldBe("  ");
+        blank.RomOf.ShouldBe("Device");
+        games[3].Value.DeclaredId.ShouldBe(" 0003 ");
+    }
+
+    [Fact]
     public async Task ParseGamesAsync_RomStatus_ParsesCorrectly()
     {
         // Arrange

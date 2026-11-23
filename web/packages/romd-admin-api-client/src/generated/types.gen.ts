@@ -632,7 +632,9 @@ export type DatGame = {
     description?: null | string;
     year?: null | string;
     manufacturer?: null | string;
+    declaredId?: null | string;
     cloneOf?: null | string;
+    cloneOfId?: null | string;
     romOf?: null | string;
     isBios?: boolean;
     roms?: Array<DatRom>;

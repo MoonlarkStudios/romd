@@ -25,7 +25,9 @@ public sealed class DatGame
         string? revision,
         string? developmentStatus,
         string? category,
+        string? declaredId,
         string? cloneOf,
+        string? cloneOfId,
         string? romOf,
         bool isBios,
         IEnumerable<DatRom> roms,
@@ -44,7 +46,9 @@ public sealed class DatGame
         Revision = revision;
         DevelopmentStatus = developmentStatus;
         Category = category;
+        DeclaredId = declaredId;
         CloneOf = cloneOf;
+        CloneOfId = cloneOfId;
         RomOf = romOf;
         IsBios = isBios;
         _roms.AddRange(roms);
@@ -68,8 +72,10 @@ public sealed class DatGame
 
     public bool IsBios { get; private set; }
 
-    // Parent/Clone relationships
+    // Declarations scoped to this DAT version. DeclaredId can differ from the entry's ROMD identity.
+    public string? DeclaredId { get; private set; }
     public string? CloneOf { get; private set; }
+    public string? CloneOfId { get; private set; }
     public string? RomOf { get; private set; }
 
     // Child collections (small per-game, safe to load)
@@ -92,7 +98,9 @@ public sealed class DatGame
         bool isBios = false,
         string? region = null,
         string? language = null,
-        string? revision = null)
+        string? revision = null,
+        string? declaredId = null,
+        string? cloneOfId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
@@ -108,7 +116,9 @@ public sealed class DatGame
             revision,
             null,
             category,
+            declaredId,
             cloneOf,
+            cloneOfId,
             romOf,
             isBios,
             [],
@@ -134,12 +144,14 @@ public sealed class DatGame
         string? romOf,
         bool isBios,
         IEnumerable<DatRom> roms,
-        IEnumerable<DatDisk> disks)
+        IEnumerable<DatDisk> disks,
+        string? declaredId = null,
+        string? cloneOfId = null)
     {
         return new DatGame(
             id, datFileId, name, description, year, manufacturer,
             region, language, revision, developmentStatus, category,
-            cloneOf, romOf, isBios, roms, disks);
+            declaredId, cloneOf, cloneOfId, romOf, isBios, roms, disks);
     }
 
     public void AddRom(DatRom rom) => _roms.Add(rom);

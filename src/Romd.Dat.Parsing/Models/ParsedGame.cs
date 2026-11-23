@@ -11,7 +11,9 @@ public sealed record ParsedGame
     public string? Description { get; init; }
     public string? Year { get; init; }
     public string? Manufacturer { get; init; }
+    public string? DeclaredId { get; init; }
     public string? CloneOf { get; init; }
+    public string? CloneOfId { get; init; }
     public string? RomOf { get; init; }
     public required ParsedNameMetadata NameMetadata { get; init; }
     public bool IsBios { get; init; }
