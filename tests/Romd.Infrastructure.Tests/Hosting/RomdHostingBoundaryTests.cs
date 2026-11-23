@@ -72,7 +72,7 @@ using Romd.Admin.Application.Users.Queries.ListUsers;
 using Romd.Contracts.Consumer.Auth;
 using Romd.Contracts.Consumer.Browse;
 using Romd.Contracts.Management.Collections;
-using Romd.Dat.Parsing;
+using Romd.Dat;
 using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Domain.Source.Rom;

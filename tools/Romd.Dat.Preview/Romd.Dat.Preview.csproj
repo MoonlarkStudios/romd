@@ -6,6 +6,6 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/Romd.Dat.Parsing/Romd.Dat.Parsing.csproj" />
+    <ProjectReference Include="../../src/Romd.Dat/Romd.Dat.csproj" />
   </ItemGroup>
 </Project>

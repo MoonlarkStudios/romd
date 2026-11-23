@@ -292,12 +292,12 @@
       "local": [
         "dotnet",
         "test",
-        "tests/Romd.Dat.Parsing.Tests/Romd.Dat.Parsing.Tests.csproj"
+        "tests/Romd.Dat.Tests/Romd.Dat.Tests.csproj"
       ],
       "ci": [
         "dotnet",
         "test",
-        "tests/Romd.Dat.Parsing.Tests/Romd.Dat.Parsing.Tests.csproj",
+        "tests/Romd.Dat.Tests/Romd.Dat.Tests.csproj",
         "--no-build",
         "--configuration",
         "Release",

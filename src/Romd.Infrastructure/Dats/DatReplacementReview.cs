@@ -1,13 +1,12 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Xml;
 using ErrorOr;
 using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Storage.Files;
-using Romd.Dat.Parsing;
-using Romd.Dat.Parsing.Models;
+using Romd.Dat;
+using Romd.Dat.Models;
 using Romd.Domain.Source.Dat;
 
 namespace Romd.Infrastructure.Dats;
@@ -214,13 +213,16 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             var files = new Dictionary<string, FileFact>(StringComparer.Ordinal);
             foreach (var rom in game.Roms)
             {
-                var facts = JsonSerializer.Serialize(rom);
-                if (declarations.UnknownSizes.Contains((game.Name, rom.Name)))
+                var facts = JsonSerializer.Serialize(new
                 {
-                    var fields = JsonNode.Parse(facts)!;
-                    fields["Size"] = null;
-                    facts = fields.ToJsonString();
-                }
+                    rom.Name,
+                    Size = rom.DeclaredSize,
+                    rom.Crc,
+                    rom.Md5,
+                    rom.Sha1,
+                    rom.Status,
+                    rom.Serial
+                });
                 if (!files.TryAdd("rom:" + rom.Name, new(facts, JsonSerializer.Serialize(new { rom.Crc, rom.Md5, rom.Sha1 }), rom.Sha1)))
                     throw new InvalidDocumentException("Duplicate file names within an entry cannot be reviewed safely.");
             }
@@ -252,7 +254,7 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
         return new(raw, Convert.ToHexStringLower(SHA256.HashData(raw)), header.Value.Name, header.Value.Version, entries);
     }
 
-    private static (int Entries, int Files, HashSet<(string Entry, string File)> UnknownSizes) ValidateXml(Stream stream, CancellationToken ct)
+    private static (int Entries, int Files) ValidateXml(Stream stream, CancellationToken ct)
     {
         using var reader = XmlReader.Create(stream, new XmlReaderSettings
         {
@@ -262,8 +264,6 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             MaxCharactersInDocument = MaximumBytes
         });
         int headerCount = 0, entries = 0, files = 0;
-        var unknownSizes = new HashSet<(string Entry, string File)>();
-        string? entryName = null;
         bool root = false;
         while (reader.Read())
         {
@@ -287,7 +287,6 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             {
                 if (reader.Depth != 1 || string.IsNullOrWhiteSpace(reader.GetAttribute("name")) || ++entries > MaximumEntries)
                     throw new InvalidDocumentException("Invalid or excessive catalog entries.");
-                entryName = reader.GetAttribute("name");
             }
             if (reader.Name is not ("rom" or "disk"))
                 continue;
@@ -297,8 +296,6 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             // original document; a present but malformed size is still invalid.
             var size = reader.GetAttribute("size");
             bool unknownSize = size is null && reader.GetAttribute("status") == "nodump";
-            if (reader.Name == "rom" && unknownSize && entryName is not null)
-                unknownSizes.Add((entryName, reader.GetAttribute("name")!));
             if (reader.Name == "rom" && !unknownSize && !long.TryParse(size, NumberStyles.None, CultureInfo.InvariantCulture, out _))
                 throw new InvalidDocumentException("Dumped ROMs need a valid non-negative size; only nodump records may omit it.");
             bool hasHash = false;
@@ -317,7 +314,7 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
         }
         if (!root || headerCount != 1)
             throw new InvalidDocumentException("A Logiqx catalog with one header is required.");
-        return (entries, files, unknownSizes);
+        return (entries, files);
     }
 
     private static DatReplacementPreview Compare(Document before, Document after, IEnumerable<DatEntryChange> changes)

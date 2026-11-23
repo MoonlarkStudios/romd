@@ -1,5 +1,5 @@
 using Romd.Admin.Application.Source.Dat;
-using Romd.Dat.Parsing.Models;
+using Romd.Dat.Models;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Dat;
 

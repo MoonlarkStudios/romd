@@ -7,8 +7,8 @@ using Romd.Admin.Application.Source.Dat.Commands.ApplyReviewedDatReplacement;
 using Romd.Domain.Jobs;
 using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Storage.Files;
-using Romd.Dat.Parsing;
-using Romd.Dat.Parsing.Formats.Logiqx;
+using Romd.Dat;
+using Romd.Dat.Formats.Logiqx;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Dats;
@@ -46,6 +46,30 @@ public sealed class DatReplacementReviewTests
             || call.GetMethodInfo().Name == "GetReviewTitleLinksAsync"
             || call.GetMethodInfo().Name == "GetReviewStoredRomsAsync");
         _storage.ReceivedCalls().ShouldAllBe(call => call.GetMethodInfo().Name == "RetrieveByIdAsync");
+    }
+
+    [Fact]
+    public async Task PreviewAsync_ExportedLogiqx_PreservesInstalledEntryAndFileFacts()
+    {
+        string original = Dat("""
+            <game name='Parent' id='0001'><rom name='zero.bin' size='0' status='nodump'/></game>
+            <game name='Clone' cloneofid='0001'><rom name='unknown.bin' status='nodump'/></game>
+            """);
+        var service = Service(original);
+        var parser = new DatParser([new LogiqxDatFormat(NullLogger<LogiqxDatFormat>.Instance)]);
+        using var source = Stream(original);
+        using var candidate = new MemoryStream();
+        var header = (await parser.ReadHeaderAsync(source)).Value;
+        await LogiqxDatWriter.WriteAsync(candidate, header, parser.StreamGamesAsync(source).Select(game => game.Value));
+        candidate.Position = 0;
+
+        var preview = (await service.PreviewAsync(0, candidate, default)).Value;
+
+        preview.CandidateSha256.ShouldNotBe(preview.ActiveSha256);
+        preview.CandidateFiles.ShouldBe(2);
+        preview.Changes.ShouldBeEmpty();
+        preview.FilesChanged.ShouldBe(0);
+        AssertReadOnly();
     }
 
     [Fact]

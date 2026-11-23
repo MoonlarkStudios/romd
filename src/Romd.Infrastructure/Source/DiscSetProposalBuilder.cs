@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using Romd.Dat.Parsing;
-using Romd.Dat.Parsing.Models;
+using Romd.Dat;
+using Romd.Dat.Models;
 using Romd.Domain.Catalog;
 
 namespace Romd.Infrastructure.Source;

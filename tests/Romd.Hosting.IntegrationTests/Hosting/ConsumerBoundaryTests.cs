@@ -76,7 +76,7 @@ public sealed class ConsumerBoundaryTests
                 "Romd.Admin.Application",
                 "Romd.Application.Common",
                 "Romd.Consumer.Application",
-                "Romd.Dat.Parsing",
+                "Romd.Dat",
                 "Romd.Media",
                 "Romd.Persistence",
                 "Romd.Storage"
