@@ -245,14 +245,25 @@ it('opens the removed-entry filter from the summary and moves focus to the resul
   );
 });
 
-it('opens one entry by its id with exact before and after file values', async () => {
+it('opens one entry by its id with exact relationship and file values', async () => {
   const user = userEvent.setup();
   const detail: DatEntryChangeDetail = {
     ...pins,
     id: discA.id,
     name: discA.name,
     change: 'Changed',
-    fields: [],
+    fields: [
+      {
+        field: 'CloneOfId',
+        before: '0001',
+        after: ' 0001 ',
+      },
+      {
+        field: 'ParentStatus',
+        before: 'Resolved',
+        after: 'Missing',
+      },
+    ],
     files: {
       items: [
         {
@@ -283,6 +294,12 @@ it('opens one entry by its id with exact before and after file values', async ()
     }),
   );
   expect(await screen.findByText('track.bin')).toBeVisible();
+  await user.click(screen.getByText('Entry metadata'));
+  expect(screen.getByText('Clone of (ID)')).toBeVisible();
+  expect(screen.getByText('0001')).toBeVisible();
+  expect(screen.getByText('" 0001 "')).toBeVisible();
+  expect(screen.getByText('Parent resolution')).toBeVisible();
+  expect(screen.getByText('Missing')).toBeVisible();
   await user.click(screen.getByText('Full values'));
   expect(screen.getByText('9007199254740994')).toBeVisible();
   expect(
