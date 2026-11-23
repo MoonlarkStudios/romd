@@ -611,7 +611,9 @@ public static class DependencyInjection
         services.AddScoped<SteamGridDbArtworkProvider>();
         services.AddScoped<IProviderIdentityAdapter, SteamGridDbIdentityAdapter>();
         services.AddScoped<IProviderIdentityAdapter>(sp => sp.GetRequiredService<IgdbMetadataProvider>());
-        services.AddScoped<ITitleProviderMatchStore, TitleProviderMatchStore>();
+        services.AddScoped<TitleProviderMatchStore>();
+        services.AddScoped<ITitleProviderMatchStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
+        services.AddScoped<IArtworkMatchAuthorizationStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
         services.AddScoped<ITitleProviderMatchService, TitleProviderMatchService>();
         services.AddScoped<ITitleEnrichmentEvidenceReader, TitleEnrichmentEvidenceReader>();
         services.AddScoped<IProviderIdentityStore, ProviderIdentityStore>();
@@ -693,6 +695,7 @@ public static class DependencyInjection
         services.AddHttpClient<IEnrichmentMediaStager, HttpEnrichmentMediaStager>();
         services.AddMemoryCache();
         services.AddSingleton<ArtworkCandidateFailureCache>();
+        services.AddScoped<IArtworkMatchAuthorizationService, ArtworkMatchAuthorizationService>();
         services.AddScoped<IAutomaticArtworkService, LinkedProviderArtworkService>();
         services.AddScoped<IArtworkIdentityBridge, SteamArtworkIdentityBridge>();
         services.AddScoped<IEnrichmentContextFactory, EnrichmentContextFactory>();

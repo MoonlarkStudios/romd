@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
+using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Application.Common.Concurrency;
@@ -12,7 +13,7 @@ using Romd.Persistence.Repositories;
 namespace Romd.Persistence.MetadataProviders;
 
 /// <summary>Detached match reads and staged database writes. The application owns the transaction.</summary>
-public sealed class TitleProviderMatchStore : ITitleProviderMatchStore
+public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, IArtworkMatchAuthorizationStore
 {
     private readonly RomdDbContext _db;
     private readonly TimeProvider _clock;

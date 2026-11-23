@@ -16,7 +16,7 @@ namespace Romd.Infrastructure.Artwork;
 
 /// <summary>Acquires missing roles in policy order using trusted provider identities.</summary>
 public sealed class LinkedProviderArtworkService(
-    IEnumerable<IArtworkProviderBrowser> browsers, IArtworkAssetSource source, ITitleProviderMatchService matches,
+    IEnumerable<IArtworkProviderBrowser> browsers, IArtworkAssetSource source, IArtworkMatchAuthorizationService matches,
     IArtworkAcquisitionStore acquisition, IArtworkCurationRepository curation, IArtworkImageProcessor processor,
     IFileStorageService files, IUnitOfWork unitOfWork, IOptions<EnrichmentOptions> options,
     IMemoryCache? candidateCache = null, ArtworkCandidateFailureCache? failureCache = null, TimeProvider? timeProvider = null) : IAutomaticArtworkService
@@ -30,7 +30,6 @@ public sealed class LinkedProviderArtworkService(
         IReadOnlyList<ProviderArtworkResult>? results = null)
     {
         Guid? titleRevision = null;
-        IReadOnlyList<TitleProviderMatch>? links = null;
         ProviderIdentityDiscoveryResult? discovery = null;
         var settings = await acquisition.GetSettingsAsync(ct);
         foreach (var role in Enum.GetValues<ArtworkRole>())
@@ -63,14 +62,12 @@ public sealed class LinkedProviderArtworkService(
             if (!enabled || !options.Value.DownloadMedia || !options.Value.MediaTypesToDownload.Contains(mediaType))
             { await Record("Disabled", null); continue; }
 
-            if (links is null)
+            if (titleRevision is null)
             {
                 discovery = await matches.DiscoverAsync(title.Id, context, ct);
-                var discovered = await matches.GetAsync(title.Id, ct);
-                if (discovered.IsError)
-                    return;
-                links = discovered.Value;
                 titleRevision = await acquisition.GetTitleRevisionAsync(title.Id, ct);
+                if (titleRevision is null)
+                    return;
             }
             var outcome = "ProviderDisabled";
             DateTimeOffset? retryAt = null;
@@ -88,28 +85,26 @@ public sealed class LinkedProviderArtworkService(
                     retryAt = retryAt is { } prior && prior < identityRetryAt ? prior : identityRetryAt;
                     continue;
                 }
-                var link = links.SingleOrDefault(x => x.ProviderId == providerId);
-                if (link is null)
+                var resolution = await matches.ReadAsync(title.Id, providerId, role, ct);
+                if (resolution is ArtworkMatchResolution.Blocked blocked)
+                {
+                    Remember(blocked.Reason.ToString());
                     continue;
-                if (!link.IsAvailable)
-                { Remember("ProviderUnconfigured"); continue; }
-                if (link.State == "Unlinked")
-                { Remember("Unlinked"); continue; }
-                if (link.State == "Unavailable")
-                { Remember("Failed"); continue; }
-                if (link.ExternalId is null || link.State is not ("Confirmed" or "AutoMatched"))
-                { Remember("NeedsMatch"); continue; }
+                }
+                if (resolution is not ArtworkMatchResolution.Authorized authorized)
+                    return;
+                var match = authorized.Match;
                 if (downloadsRemaining <= 0)
                     break;
                 var providerThrottled = false;
                 var providerDownloadsRemaining = Math.Min(MaxDownloadsPerProvider, downloadsRemaining);
                 try
                 {
-                    var emptyCacheKey = ("automatic-artwork-empty", title.Id, providerId, link.ExternalId,
-                        role, link.Revision, selection.Revision, settings.Revision);
+                    var emptyCacheKey = ("automatic-artwork-empty", title.Id, providerId, match.GameId,
+                        role, match.Revision, selection.Revision, settings.Revision);
                     if (candidateCache?.TryGetValue(emptyCacheKey, out _) == true)
                     { Remember("Unavailable"); continue; }
-                    var rejected = await acquisition.GetRejectedCandidatesAsync(title.Id, role, providerId, link.ExternalId, ct);
+                    var rejected = await acquisition.GetRejectedCandidatesAsync(title.Id, role, providerId, match.GameId, ct);
                     var excluded = await curation.GetExcludedUrlsAsync(title.Id, ct);
                     var seen = new HashSet<string>(StringComparer.Ordinal);
                     var sawEligible = false;
@@ -119,7 +114,7 @@ public sealed class LinkedProviderArtworkService(
                     // Provider order is retained within each role-specific preference tier.
                     for (var count = 0; count < MaxPagesPerProvider && providerDownloadsRemaining > 0; count++)
                     {
-                        var found = await ReadCandidatesAsync(browser, link.ExternalId, role, page, ct);
+                        var found = await ReadCandidatesAsync(browser, match.GameId, role, page, ct);
                         if (found.IsError)
                         {
                             searchFailed = true;
@@ -128,7 +123,7 @@ public sealed class LinkedProviderArtworkService(
                             break;
                         }
                         var ranked = found.Value.Items
-                            .Where(x => x.ProviderGameId == link.ExternalId && x.Role == role && seen.Add(x.ProviderAssetId))
+                            .Where(x => x.ProviderGameId == match.GameId && x.Role == role && seen.Add(x.ProviderAssetId))
                             .Where(x => !excluded.Contains(x.AssetUrl.AbsoluteUri) && !rejected.Contains(x.ProviderAssetId))
                             .Where(x => ArtworkCandidateRanking.IsSuitable(role, x.Width, x.Height))
                             .OrderBy(x => role == ArtworkRole.Backdrop
@@ -139,14 +134,14 @@ public sealed class LinkedProviderArtworkService(
                             sawEligible = true;
                             if (role == ArtworkRole.Backdrop && settings.ReviewBackdrops)
                             { Remember("NeedsReview"); break; }
-                            var key = new ArtworkCandidateFailureCache.ProviderKey(link.ExternalId, role, candidate.ProviderAssetId, candidate.AssetUrl.AbsoluteUri);
+                            var key = new ArtworkCandidateFailureCache.ProviderKey(match.GameId, role, candidate.ProviderAssetId, candidate.AssetUrl.AbsoluteUri);
                             if (failureCache?.Contains(providerId, key) == true)
                             { Remember("Failed"); continue; }
                             if (providerDownloadsRemaining <= 0)
                                 break;
                             providerDownloadsRemaining--;
                             downloadsRemaining--;
-                            var downloaded = await RetryAsync(() => source.DownloadAsync(providerId, link.ExternalId, candidate.ProviderAssetId,
+                            var downloaded = await RetryAsync(() => source.DownloadAsync(providerId, match.GameId, candidate.ProviderAssetId,
                                 role, candidate.AssetUrl.AbsoluteUri, ct), ct);
                             if (downloaded.IsError)
                             {
@@ -169,7 +164,7 @@ public sealed class LinkedProviderArtworkService(
                             await context.ExecuteOwnedMutationAsync(async token =>
                             {
                                 if (!await acquisition.LockMissingAsync(title.Id, role, selection.Revision, token) ||
-                                    await matches.GetLinkRevisionAsync(title.Id, providerId, link.ExternalId, token) != link.Revision ||
+                                    !await matches.IsCurrentAsync(title.Id, match, token) ||
                                     await acquisition.GetTitleRevisionAsync(title.Id, token) != titleRevision)
                                 { superseded = true; return; }
                                 var publication = await files.PublishStagedAsync(staged.Files, token);
@@ -177,7 +172,7 @@ public sealed class LinkedProviderArtworkService(
                                     await unitOfWork.FlushAsync(token);
                                 var content = staged.Retain(publication.ReadAfterFlush(), candidate.Attribution, candidate.SourcePageUrl);
                                 await curation.StageLocalAssetAsync(title.Id, role, providerId, content, token,
-                                    link.ExternalId, candidate.ProviderAssetId);
+                                    match.GameId, candidate.ProviderAssetId);
                                 await acquisition.RecordAsync(title.Id, role, "Updated", providerId, token, context.JobId);
                             }, ct);
                             outcome = superseded ? "Superseded" : "Updated";
