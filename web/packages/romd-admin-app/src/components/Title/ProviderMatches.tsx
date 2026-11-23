@@ -189,6 +189,7 @@ interface ProviderMatchPickerProps {
     loadingNextTitle: boolean;
     canContinueWithout: boolean;
     stale: boolean;
+    refreshAssessment: () => Promise<unknown>;
     onShowLatest: () => void;
     onDraftChange: (match: TitleProviderMatch | undefined) => void;
     onBusyChange: (busy: boolean) => void;
@@ -308,9 +309,15 @@ function ProviderMatchPickerContent({
         throw new Error(
           'This provider is no longer enabled. Close the picker and check provider settings.',
         );
+      // A new match revision cannot authorize a decision from the old assessment.
+      await review?.refreshAssessment();
       cache.setQueryData(providerMatchKeys.title(titleId), result.data);
       setMatch(latest);
       setSelected(null);
+      if (review) {
+        setMode('search');
+        setText(titleName);
+      }
       search.reset();
       setShowEvidence(true);
       save.reset();

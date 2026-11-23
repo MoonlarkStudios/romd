@@ -346,6 +346,11 @@ export function CatalogReviewFocus({
                 }
                 onDraftChange={onDraftChange}
                 onBusyChange={onProviderBusyChange}
+                refreshAssessment={() =>
+                  query.refetch({
+                    throwOnError: true,
+                  })
+                }
                 showLatest={() => {
                   setProviderDraft(undefined);
                   setPickerVersion((version) => version + 1);
@@ -420,6 +425,7 @@ function CatalogProviderDecision({
   staleIssue,
   onDraftChange,
   onBusyChange,
+  refreshAssessment,
   showLatest,
   skip,
   loadingNextTitle,
@@ -431,6 +437,7 @@ function CatalogProviderDecision({
   staleIssue: boolean;
   onDraftChange: (row: TitleProviderMatch | undefined) => void;
   onBusyChange: (busy: boolean) => void;
+  refreshAssessment: () => Promise<unknown>;
   showLatest: () => void;
   skip: () => void;
   loadingNextTitle: boolean;
@@ -439,6 +446,10 @@ function CatalogProviderDecision({
   const matches = useProviderMatches(assessment.titleId);
   const row = matches.data?.find((match) => match.providerId === requirementProviderId(issue));
   const shown = draftRow ?? row;
+  // These provider states are conclusive even if the queue still shows an older assessment.
+  const alreadyDecided =
+    row?.state === 'Confirmed' || row?.state === 'AutoMatched' || row?.state === 'Unlinked';
+  const resolved = alreadyDecided && !draftRow;
   if (!shown && matches.isPending)
     return (
       <Skeleton
@@ -446,23 +457,31 @@ function CatalogProviderDecision({
         aria-label="Loading provider candidates"
       />
     );
-  if (!shown?.isAvailable)
+  if (resolved || !shown?.isAvailable)
     return (
       <Stack
         align="start"
         gap="xs"
       >
-        <Alert color="yellow">
-          {matches.isError
-            ? 'Could not load this provider’s candidates.'
-            : 'This provider is currently unavailable.'}
+        <Alert
+          color={resolved ? 'blue' : 'yellow'}
+          role="status"
+        >
+          {resolved
+            ? 'This provider match has already been decided.'
+            : matches.isError
+              ? 'Could not load this provider’s candidates.'
+              : 'This provider is currently unavailable.'}
         </Alert>
         <Group gap="xs">
           <Button
             variant="light"
-            onClick={() => void matches.refetch()}
+            onClick={() => {
+              if (resolved) void refreshAssessment().catch(() => undefined);
+              else void matches.refetch();
+            }}
           >
-            Retry
+            {resolved ? 'Refresh review' : 'Retry'}
           </Button>
           <Button
             variant="subtle"
@@ -490,7 +509,10 @@ function CatalogProviderDecision({
         loadingNextTitle,
         canContinueWithout: issue.actions.includes('ContinueWithoutProvider'),
         stale:
-          staleIssue || (!!draftRow && (!row?.isAvailable || row.revision !== draftRow.revision)),
+          alreadyDecided ||
+          staleIssue ||
+          (!!draftRow && (!row?.isAvailable || row.revision !== draftRow.revision)),
+        refreshAssessment,
         onShowLatest: showLatest,
         onDraftChange,
         onBusyChange,

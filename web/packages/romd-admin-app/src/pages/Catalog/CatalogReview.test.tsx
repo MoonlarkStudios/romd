@@ -419,38 +419,65 @@ it('starts review, compares system releases, restores suggestions after lookup, 
   expect(saveDecision).toHaveBeenCalledTimes(1);
 });
 
-it('keeps the inspector open during a save and never offers to discard an in-flight write', async () => {
+it.each([
+  'match',
+  'opt-out',
+])('guards browser Back during a pending provider %s', async (kind) => {
   const { match, titles, metadataIssue } = mockProviderReview();
+  const optingOut = kind === 'opt-out';
   const started = vi.fn();
   let finish!: () => void;
   const pending = new Promise<void>((resolve) => {
     finish = resolve;
   });
+  const endpoint = `${api}/titles/chrono-trigger/provider-matches/igdb`;
   server.use(
-    http.put(`${api}/titles/chrono-trigger/provider-matches/igdb`, async ({ request }) => {
-      started(request.headers.get('If-Match'), await request.json());
+    (optingOut ? http.delete : http.put)(endpoint, async ({ request }) => {
+      started(request.headers.get('If-Match'), optingOut ? null : await request.json());
       await pending;
       return HttpResponse.json({
         ...match,
-        state: 'Confirmed',
-        externalId: '100',
+        state: optingOut ? 'Unlinked' : 'Confirmed',
+        externalId: optingOut ? null : '100',
         revision: 'match-2',
-        pendingJobId: 'work-1',
+        pendingJobId: optingOut ? null : 'work-1',
       });
     }),
   );
 
   const { user, router, panel, queryClient, candidate } = await openProviderReview();
-  await user.click(candidate);
-  await user.click(
-    panel.getByRole('button', {
-      name: 'Confirm match',
-    }),
-  );
+  if (optingOut) {
+    expect(candidate).not.toBeChecked();
+    await user.click(
+      panel.getByRole('button', {
+        name: 'Continue without IGDB',
+      }),
+    );
+    const optOut = screen.getByRole('dialog', {
+      name: 'Continue without IGDB?',
+    });
+    await user.click(
+      within(optOut).getByRole('button', {
+        name: 'Continue without IGDB',
+      }),
+    );
+  } else {
+    await user.click(candidate);
+    await user.click(
+      panel.getByRole('button', {
+        name: 'Confirm match',
+      }),
+    );
+  }
   await waitFor(() =>
-    expect(started).toHaveBeenCalledExactlyOnceWith('"match-1"', {
-      externalId: '100',
-    }),
+    expect(started).toHaveBeenCalledExactlyOnceWith(
+      '"match-1"',
+      optingOut
+        ? null
+        : {
+            externalId: '100',
+          },
+    ),
   );
   expect(
     panel.getByRole('button', {
@@ -464,9 +491,12 @@ it('keeps the inspector open during a save and never offers to discard an in-fli
   ).toBeDisabled();
   await user.keyboard('{Escape}');
   expect(router.state.location.search).toContain('title=chrono-trigger');
-  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('dialog', {
+      name: 'Discard unsaved changes?',
+    }),
+  ).not.toBeInTheDocument();
 
-  // The browser's Back button goes through the app-wide guard.
   await act(() => router.navigate(-1));
   const dialog = screen.getByRole('dialog', {
     name: 'Saving your changes',
@@ -489,23 +519,136 @@ it('keeps the inspector open during a save and never offers to discard an in-fli
       queryKey: enrichmentWorkspaceKeys.title('chrono-trigger'),
     }),
   );
-  expect(candidate).toBeChecked();
+  expect(candidate).toBeInTheDocument();
   finish();
   expect(
     await panel.findByRole('heading', {
-      name: 'Match confirmed',
+      name: optingOut ? 'Provider matching turned off' : 'Match confirmed',
     }),
   ).toHaveFocus();
-  expect(
-    panel.getByRole('link', {
-      name: 'View job',
-    }),
-  ).toHaveAttribute('href', '/jobs/work-1');
+  const job = panel.queryByRole('link', {
+    name: 'View job',
+  });
+  if (optingOut) expect(job).not.toBeInTheDocument();
+  else expect(job).toHaveAttribute('href', '/jobs/work-1');
   expect(
     panel.getByRole('button', {
       name: 'Preview next item',
     }),
   ).toBeEnabled();
+});
+
+it('reloads the assessment after a conflict and keeps resolved matches read-only if it lags', async () => {
+  const { match, titles, metadataIssue, saveDecision } = mockProviderReview();
+  const assessmentReload = vi.fn();
+  const unlink = vi.fn();
+  let linkConfirmedElsewhere = false;
+  let finishAssessment!: () => void;
+  const pendingAssessment = new Promise<void>((resolve) => {
+    finishAssessment = resolve;
+  });
+  server.use(
+    http.delete(`${api}/titles/chrono-trigger/provider-matches/igdb`, ({ request }) => {
+      unlink(request.headers.get('If-Match'));
+      linkConfirmedElsewhere = true;
+      return HttpResponse.json(
+        {
+          title: 'The provider match changed.',
+        },
+        {
+          status: 412,
+        },
+      );
+    }),
+    http.get(`${api}/titles/chrono-trigger/provider-matches`, () =>
+      HttpResponse.json([
+        linkConfirmedElsewhere
+          ? {
+              ...match,
+              state: 'Confirmed',
+              revision: 'match-2',
+              externalId: '100',
+            }
+          : match,
+      ]),
+    ),
+    http.get(`${api}/titles/chrono-trigger/enrichment-assessment`, async () => {
+      if (linkConfirmedElsewhere) {
+        assessmentReload();
+        await pendingAssessment;
+      }
+      return HttpResponse.json(titles[0]);
+    }),
+  );
+  const { user, panel } = await openProviderReview();
+  await user.click(
+    panel.getByRole('button', {
+      name: 'Continue without IGDB',
+    }),
+  );
+  const optOut = screen.getByRole('dialog', {
+    name: 'Continue without IGDB?',
+  });
+  await user.click(
+    within(optOut).getByRole('button', {
+      name: 'Continue without IGDB',
+    }),
+  );
+  expect(await within(optOut).findByText(/The provider match changed/)).toBeVisible();
+  await user.click(
+    within(optOut).getByRole('button', {
+      name: 'Cancel',
+    }),
+  );
+  await user.click(
+    panel.getByRole('button', {
+      name: 'Reload latest',
+    }),
+  );
+  await waitFor(() => expect(assessmentReload).toHaveBeenCalledTimes(1));
+  expect(
+    panel.getByRole('button', {
+      name: 'Continue without IGDB',
+    }),
+  ).toBeDisabled();
+  expect(
+    panel.getByRole('button', {
+      name: 'Confirm match',
+    }),
+  ).toBeDisabled();
+
+  finishAssessment();
+  expect(await panel.findByText('This provider match has already been decided.')).toBeVisible();
+  expect(panel.queryByRole('radio')).not.toBeInTheDocument();
+  expect(
+    panel.queryByRole('button', {
+      name: 'Continue without IGDB',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    panel.queryByRole('button', {
+      name: 'Confirm match',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    panel.getByRole('link', {
+      name: 'Open in title',
+    }),
+  ).toHaveAttribute('href', '/titles/chrono-trigger/metadata?requirement=Identity%3Aigdb&match=1');
+  expect(unlink).toHaveBeenCalledExactlyOnceWith('"match-1"');
+  expect(saveDecision).not.toHaveBeenCalled();
+
+  titles[0] = assessmentFixture(withRequirements(metadataIssue));
+  await user.click(
+    panel.getByRole('button', {
+      name: 'Refresh review',
+    }),
+  );
+  expect(
+    await panel.findByRole('link', {
+      name: 'Description',
+    }),
+  ).toBeVisible();
 });
 
 it('can continue without the provider, using the shown revision and leaving the next decision in place', async () => {
