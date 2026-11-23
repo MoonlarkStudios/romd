@@ -43,9 +43,9 @@ public sealed class LinkedProviderArtworkService(
             if (selection.Mode == ArtworkSelectionMode.Empty)
             { await Record("LeftEmpty", null); continue; }
             if (selection.Mode == ArtworkSelectionMode.Pinned || selection.PendingJobId is not null ||
-                gallery.Value.Any(x => x.Role == role && x.IsEligible) || role == ArtworkRole.Poster &&
-                (title.Media.Any(x => x.Type == MediaType.Cover) ||
-                    await acquisition.HasCurrentProvisionalPosterAsync(title.Id, ct)))
+                gallery.Value.Any(x => x.Role == role && x.IsEligible) ||
+                role == ArtworkRole.Poster && title.Media.Any(x => x.Type == MediaType.Cover) ||
+                await acquisition.HasCurrentProvisionalArtworkAsync(title.Id, role, ct))
             { await Record("AlreadyPresent", null); continue; }
             var enabled = role switch
             {

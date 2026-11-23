@@ -1,7 +1,6 @@
 using System.Text.Json;
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
-using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Application.Common.Concurrency;
@@ -13,7 +12,7 @@ using Romd.Persistence.Repositories;
 namespace Romd.Persistence.MetadataProviders;
 
 /// <summary>Detached match reads and staged database writes. The application owns the transaction.</summary>
-public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, IArtworkMatchAuthorizationStore
+public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, IProviderMatchAuthorizationStore
 {
     private readonly RomdDbContext _db;
     private readonly TimeProvider _clock;
@@ -99,7 +98,7 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
                 return ProviderMatchErrors.NotLinked;
             link.IsConfirmed = true;
         }
-        if (!unlink && link is not null && providerId == "steamgriddb")
+        if (!unlink && link is not null)
             await _db.ArtworkAssets.Where(asset => asset.TitleId == titleId && asset.IsProvisional &&
                 asset.SourceId == providerId && asset.ProviderGameId == link.ExternalId && !asset.IsRejected)
                 .ExecuteUpdateAsync(set => set.SetProperty(asset => asset.IsProvisional, false)
@@ -156,8 +155,8 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
             {
                 State = state,
                 ProvisionalGameId = state.ProviderId == "steamgriddb"
-                    ? ProviderIdentityDatabaseFunctions.ProvisionalPosterGame(titleId, state.ProviderId,
-                        ProviderIdentityPolicy.Version, ProvisionalPosterPolicy.Version)
+                    ? ProviderIdentityDatabaseFunctions.ProvisionalGame(titleId, state.ProviderId,
+                        ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version)
                     : null
             }).ToListAsync(ct);
         var layers = await _db.TitleMetadataLayers.Where(x => x.TitleId == titleId && ids.Contains(x.SourceId)).ToListAsync(ct);
@@ -180,8 +179,8 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
 
     private Task<string?> ReadProvisionalGameAsync(int titleId, string providerId, CancellationToken ct) =>
         providerId == "steamgriddb" ? _db.Titles.Where(title => title.Id == titleId)
-            .Select(title => ProviderIdentityDatabaseFunctions.ProvisionalPosterGame(title.Id, providerId,
-                ProviderIdentityPolicy.Version, ProvisionalPosterPolicy.Version)).SingleOrDefaultAsync(ct) : Task.FromResult<string?>(null);
+            .Select(title => ProviderIdentityDatabaseFunctions.ProvisionalGame(title.Id, providerId,
+                ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version)).SingleOrDefaultAsync(ct) : Task.FromResult<string?>(null);
 
     private static Guid Revision(TitleProviderMatchStateEntity? state, TitleExternalIdEntity? link, string? provisionalGameId = null) =>
         ProviderMatchRevisions.For(state?.Revision, link?.ExternalId, link?.IsConfirmed, provisionalGameId);

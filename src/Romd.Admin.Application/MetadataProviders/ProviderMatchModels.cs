@@ -40,7 +40,8 @@ public sealed record ProviderIdentityDecision(
     public string? ProvisionalGameId { get; init; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? PosterPolicyVersion { get; init; }
+    [JsonPropertyName("PosterPolicyVersion")]
+    public string? ProvisionalPolicyVersion { get; init; }
 }
 
 public sealed record ProviderIdentityFacts(string Name, IReadOnlyList<string> Names, IReadOnlyList<int> Years, IReadOnlyList<string> Platforms);

@@ -49,8 +49,8 @@ public sealed class ArtworkAssetEntity : EntityBase
         {
             t.HasCheckConstraint("CK_ArtworkAssets_Dimensions", "\"Width\" > 0 AND \"Height\" > 0");
             t.HasCheckConstraint("CK_ArtworkAssets_Role", "\"Role\" IN ('Poster', 'Hero', 'Logo', 'Backdrop')");
-            t.HasCheckConstraint("CK_ArtworkAssets_ProvisionalPoster",
-                """NOT "IsProvisional" OR (NOT "IsEligible" AND "Role" = 'Poster' AND "SourceId" = 'steamgriddb' AND "ProviderGameId" IS NOT NULL AND "ProviderAssetId" IS NOT NULL)""");
+            t.HasCheckConstraint("CK_ArtworkAssets_ProvisionalProvider",
+                """NOT "IsProvisional" OR (NOT "IsEligible" AND "ProviderGameId" IS NOT NULL AND "ProviderAssetId" IS NOT NULL)""");
         });
     }
 

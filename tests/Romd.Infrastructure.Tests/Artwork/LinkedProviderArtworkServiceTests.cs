@@ -40,7 +40,7 @@ public sealed class LinkedProviderArtworkServiceTests
             .Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
         var revision = Guid.NewGuid();
         var matches = Substitute.For<IArtworkMatchAuthorizationService>();
-        var authorization = new ArtworkMatchAuthorization("steamgriddb", "42", ArtworkRole.Logo, revision);
+        var authorization = new ArtworkMatchAuthorization(new("steamgriddb", "42", revision), ArtworkRole.Logo);
         matches.ReadAsync(1, "steamgriddb", ArtworkRole.Logo, Arg.Any<CancellationToken>())
             .Returns(new ArtworkMatchResolution.Authorized(authorization));
         matches.IsCurrentAsync(1, authorization, Arg.Any<CancellationToken>()).Returns(true);
@@ -91,7 +91,7 @@ public sealed class LinkedProviderArtworkServiceTests
         var matches = Substitute.For<IArtworkMatchAuthorizationService>();
         var originalRevision = Guid.NewGuid();
         matches.ReadAsync(1, Arg.Any<string>(), ArtworkRole.Poster, Arg.Any<CancellationToken>())
-            .Returns(call => new ArtworkMatchResolution.Authorized(new(call.Arg<string>(), "42", ArtworkRole.Poster, originalRevision)));
+            .Returns(call => new ArtworkMatchResolution.Authorized(new(new(call.Arg<string>(), "42", originalRevision), ArtworkRole.Poster)));
         var calls = new List<string>();
         var browsers = new[] { "igdb", "steamgriddb" }.Select(id =>
         {
@@ -122,7 +122,7 @@ public sealed class LinkedProviderArtworkServiceTests
         // A changed association must immediately search again, even within the empty-result cache window.
         var changedRevision = Guid.NewGuid();
         matches.ReadAsync(1, Arg.Any<string>(), ArtworkRole.Poster, Arg.Any<CancellationToken>())
-            .Returns(call => new ArtworkMatchResolution.Authorized(new(call.Arg<string>(), "43", ArtworkRole.Poster, changedRevision)));
+            .Returns(call => new ArtworkMatchResolution.Authorized(new(new(call.Arg<string>(), "43", changedRevision), ArtworkRole.Poster)));
         await service.FillAsync(title, platform, new JobContext(null, _ => Task.CompletedTask, default), default);
         calls.ShouldBe(["steamgriddb", "igdb"]);
         calls.Clear();

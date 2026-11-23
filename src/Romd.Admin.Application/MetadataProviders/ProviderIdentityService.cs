@@ -43,9 +43,9 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 : null;
             var cachedIgdbDependency = link?.Decision?.Dependencies?.FirstOrDefault(x => x.ProviderId == "igdb");
             var delay = link?.Decision?.State == "Unavailable" ? TimeSpan.FromMinutes(1) : TimeSpan.FromHours(6);
-            var needsPosterEvaluation = steamGridDb && link?.Decision is { State: "NeedsReview" or "NoMatch" } priorDecision &&
-                priorDecision.PosterPolicyVersion != ProvisionalPosterPolicy.Version;
-            if (!needsPosterEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
+            var needsProvisionalEvaluation = steamGridDb && link?.Decision is { State: "NeedsReview" or "NoMatch" } priorDecision &&
+                priorDecision.ProvisionalPolicyVersion != ProvisionalProviderMatchPolicy.Version;
+            if (!needsProvisionalEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
                 && link.LastAttempt > clock.GetUtcNow() - delay && (!steamGridDb || igdbDependency == cachedIgdbDependency))
                 continue;
             ArtworkBridgeMatch? bridged = null;
@@ -111,13 +111,13 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                     snapshot.DatFamily is { RequiresReview: false } && igdb?.TrustedGame is { } trustedGame &&
                     trustedGame.Id == igdb.GameId)
                 {
-                    provisionalGameId = ProvisionalPosterPolicy.SelectGame(snapshot.Facts, decision.Candidates,
+                    provisionalGameId = ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates,
                         PlatformYears(trustedGame, snapshot.Facts.Platforms));
                 }
                 decision = decision with
                 {
                     ProvisionalGameId = provisionalGameId,
-                    PosterPolicyVersion = ProvisionalPosterPolicy.Version
+                    ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version
                 };
             }
             decision = decision with { LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms) };

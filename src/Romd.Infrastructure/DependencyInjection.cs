@@ -613,7 +613,7 @@ public static class DependencyInjection
         services.AddScoped<IProviderIdentityAdapter>(sp => sp.GetRequiredService<IgdbMetadataProvider>());
         services.AddScoped<TitleProviderMatchStore>();
         services.AddScoped<ITitleProviderMatchStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
-        services.AddScoped<IArtworkMatchAuthorizationStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
+        services.AddScoped<IProviderMatchAuthorizationStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
         services.AddScoped<ProviderContributionRematerializer>();
         services.AddScoped<ITitleProviderMatchService, TitleProviderMatchService>();
         services.AddScoped<ITitleEnrichmentEvidenceReader, TitleEnrichmentEvidenceReader>();
