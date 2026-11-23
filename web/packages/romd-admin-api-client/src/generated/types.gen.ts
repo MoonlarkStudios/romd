@@ -2291,6 +2291,20 @@ export type ServerBuild = {
     revision: string;
 };
 
+export type ServerImportRetryFileGroup = {
+    count: number;
+    examples: Array<string>;
+};
+
+export type ServerImportRetryReview = {
+    revision: string;
+    isBusy: boolean;
+    ready: ServerImportRetryFileGroup;
+    changed: ServerImportRetryFileGroup;
+    missing: ServerImportRetryFileGroup;
+    unavailable: ServerImportRetryFileGroup;
+};
+
 export type ServerImportStatus = {
     directory: null | string;
     intervalMinutes: null | number;
@@ -2410,6 +2424,7 @@ export type StartMediaReconciliationSubjectRequest = {
 
 export type StartServerImport = {
     retryJobId?: null | string;
+    reviewedRevision?: null | string;
 };
 
 export type SteamGridDbSettings = {
@@ -5201,6 +5216,37 @@ export type StartServerImportResponses = {
 };
 
 export type StartServerImportResponse = StartServerImportResponses[keyof StartServerImportResponses];
+
+export type GetServerImportRetryData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/upload/server-folder/retries/{jobId}';
+};
+
+export type GetServerImportRetryErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type GetServerImportRetryError = GetServerImportRetryErrors[keyof GetServerImportRetryErrors];
+
+export type GetServerImportRetryResponses = {
+    /**
+     * OK
+     */
+    200: ServerImportRetryReview;
+};
+
+export type GetServerImportRetryResponse = GetServerImportRetryResponses[keyof GetServerImportRetryResponses];
 
 export type ListJobsData = {
     body?: never;
