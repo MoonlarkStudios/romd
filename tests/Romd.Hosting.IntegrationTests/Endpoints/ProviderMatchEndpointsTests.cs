@@ -10,6 +10,7 @@ using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Application.Common.Ids;
 using Contract = Romd.Contracts.Management.MetadataProviders;
+using Romd.Domain.Catalog;
 using Romd.Domain.Identity;
 using Romd.Hosting.IntegrationTests.Infrastructure;
 using Romd.Persistence;
@@ -186,6 +187,47 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         (unlinked.State, unlinked.ExternalId, unlinked.PendingJobId).ShouldBe(("Unlinked", null, null));
         unlink.Headers.ETag!.Tag.ShouldBe($"\"{unlinked.Revision}\"");
         (await ETagAsync(client, titleId)).ShouldBe(unlink.Headers.ETag.Tag);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Change_ConfirmedLink_TitleDetailImmediatelyUsesRemainingMetadata(bool replace)
+    {
+        await using var host = WithProvider();
+        var client = host.Client;
+        var titleId = await SeedTitleAsync(linkedGameId: "7");
+        var internalId = Sqid.Parse(titleId, null).Value;
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+            var title = await db.Titles.AsTracking().SingleAsync(row => row.Id == internalId);
+            title.Description = "Wrong game";
+            title.Genre = "Action";
+            var link = await db.TitleExternalIds.AsTracking().SingleAsync(row => row.TitleId == internalId);
+            link.IsConfirmed = true;
+            db.TitleMetadataLayers.AddRange(
+                TitleMetadataLayerEntity.FromDomain(TitleMetadataLayer.CreateNew(internalId, Provider,
+                    MetadataSourceType.Provider, new() { ProviderGameId = "7", Description = "Wrong game", Genre = "Action" },
+                    DateTimeOffset.UnixEpoch)),
+                TitleMetadataLayerEntity.FromDomain(TitleMetadataLayer.CreateNew(internalId, "user",
+                    MetadataSourceType.User, new() { Description = "Curated description" }, DateTimeOffset.UnixEpoch)));
+            await db.SaveChangesAsync();
+        }
+
+        using var request = Request(replace ? HttpMethod.Put : HttpMethod.Delete,
+            $"/api/titles/{titleId}/provider-matches/{Provider}", await ETagAsync(client, titleId),
+            replace ? new { externalId = "42" } : null);
+        using var response = await client.SendAsync(request);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var match = (await response.Content.ReadFromJsonAsync<Contract.TitleProviderMatch>()).ShouldNotBeNull();
+        match.State.ShouldBe(replace ? "Confirmed" : "Unlinked");
+        match.PendingJobId.HasValue.ShouldBe(replace);
+
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/api/titles/{titleId}");
+        detail.GetProperty("description").GetString().ShouldBe("Curated description");
+        if (detail.TryGetProperty("genre", out var genre))
+            genre.ValueKind.ShouldBe(JsonValueKind.Null);
     }
 
     [Fact]

@@ -81,7 +81,7 @@ public sealed partial class ProviderMatchPersistenceTests : IDisposable
     }
 
     [Fact]
-    public async Task Unlink_PreservesDataAndSuppressesRematching()
+    public async Task Unlink_RejectsStaleRevisionAndSuppressesRematching()
     {
         await Seed();
         await using var db = _database.CreateContext();

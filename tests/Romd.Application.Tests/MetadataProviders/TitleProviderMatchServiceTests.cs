@@ -3,7 +3,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using System.Text.Json;
 using Romd.Admin.Application.Common.Persistence;
+using Romd.Admin.Application.Libraries;
 using Romd.Admin.Application.MetadataProviders;
+using Romd.Admin.Application.Titles;
+using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Application.Common.Concurrency;
 using Romd.Domain.Catalog;
 using Shouldly;
@@ -16,6 +19,8 @@ public sealed class TitleProviderMatchServiceTests
     private readonly ITitleProviderMatchStore _store = Substitute.For<ITitleProviderMatchStore>();
     private readonly IProviderIdentityAdapter _provider = Substitute.For<IProviderIdentityAdapter>();
     private readonly IUnitOfWork _unit = Substitute.For<IUnitOfWork>();
+    private readonly ProviderContributionRematerializer _contributions = new(Substitute.For<ITitleAggregateReader>(),
+        Substitute.For<IMetadataRematerializer>(), Substitute.For<ITitleMetadataStore>(), Substitute.For<ILibraryRepository>());
     private readonly Transaction _transaction = new();
     private readonly Guid _revision = Guid.NewGuid();
     private readonly Guid _pending = Guid.NewGuid();
@@ -29,7 +34,7 @@ public sealed class TitleProviderMatchServiceTests
         _store.ExistsAsync(1, Arg.Any<CancellationToken>()).Returns(true);
         _store.ReadRevisionAsync(1, "provider", Arg.Any<CancellationToken>()).Returns(_revision);
         _store.StageChangeAsync(1, "provider", Arg.Any<RevisionPrecondition>(), Arg.Any<ProviderGame?>(),
-            Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Result.Success);
+            Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(new ProviderMatchChange(false));
         _store.FindPendingEnrichmentAsync(1, Arg.Any<CancellationToken>()).Returns(_pending);
         _store.ReadFactsAsync(1, Arg.Any<IReadOnlyCollection<string>>(), Arg.Any<CancellationToken>()).Returns(new TitleProviderMatchFacts(
             [TitleExternalId.CreateNew(1, "provider", "42", 1, createdAt: DateTimeOffset.UnixEpoch)], [], []));
@@ -149,7 +154,7 @@ public sealed class TitleProviderMatchServiceTests
         var identity = Substitute.For<IProviderIdentityStore>();
         _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(new ProviderGame("42", "Game", "https://provider.test/42"));
         var service = new TitleProviderMatchService(_store, [_provider, disabled], _unit, TimeProvider.System,
-            NullLogger<TitleProviderMatchService>.Instance, identityStore: identity);
+            NullLogger<TitleProviderMatchService>.Instance, _contributions, identityStore: identity);
 
         var result = await service.GetAsync(1, default);
 
@@ -168,7 +173,7 @@ public sealed class TitleProviderMatchServiceTests
         _provider.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(false, true));
         var identity = Substitute.For<IProviderIdentityStore>();
         var service = new TitleProviderMatchService(_store, [_provider], _unit, TimeProvider.System,
-            NullLogger<TitleProviderMatchService>.Instance, identityStore: identity);
+            NullLogger<TitleProviderMatchService>.Instance, _contributions, identityStore: identity);
 
         var result = await service.GetAsync(1, default);
 
@@ -189,7 +194,7 @@ public sealed class TitleProviderMatchServiceTests
         identity.ReadTrustedAsync(1, "provider", Arg.Any<CancellationToken>()).Returns(trustedGameId);
         _provider.ResolveAsync("42", Arg.Any<CancellationToken>()).Returns(new ProviderGame("42", "Game", "https://provider.test/42"));
         var service = new TitleProviderMatchService(_store, [_provider], _unit, TimeProvider.System,
-            NullLogger<TitleProviderMatchService>.Instance, identityStore: identity);
+            NullLogger<TitleProviderMatchService>.Instance, _contributions, identityStore: identity);
 
         var result = await service.GetAsync(1, "provider", default);
 
@@ -204,7 +209,7 @@ public sealed class TitleProviderMatchServiceTests
     private RevisionPrecondition Precondition() => RevisionPrecondition.For(_revision.ToString());
 
     private TitleProviderMatchService Create() => new(_store, [_provider], _unit, TimeProvider.System,
-        NullLogger<TitleProviderMatchService>.Instance);
+        NullLogger<TitleProviderMatchService>.Instance, _contributions);
 
     private sealed class Transaction : ITransaction
     {

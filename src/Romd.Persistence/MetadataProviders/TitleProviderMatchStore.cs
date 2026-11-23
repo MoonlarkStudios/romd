@@ -50,7 +50,7 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
         await _db.TitleExternalIds.SingleOrDefaultAsync(x => x.TitleId == titleId && x.Provider.ToLower() == providerId, ct),
         await ReadProvisionalGameAsync(titleId, providerId, ct));
 
-    public async Task<ErrorOr<Success>> StageChangeAsync(int titleId, string providerId,
+    public async Task<ErrorOr<ProviderMatchChange>> StageChangeAsync(int titleId, string providerId,
         RevisionPrecondition ifMatch, ProviderGame? game, bool unlink, CancellationToken ct)
     {
         RequireTransaction();
@@ -62,12 +62,15 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
         var state = await _db.Set<TitleProviderMatchStateEntity>().AsTracking().SingleOrDefaultAsync(x => x.TitleId == titleId && x.ProviderId == providerId, ct);
         if (!ifMatch.IsSatisfiedBy(Revision(state, link, await ReadProvisionalGameAsync(titleId, providerId, ct))))
             return ProviderMatchErrors.PreconditionFailed;
-        var changed = unlink || (game is not null && game.Id != link?.ExternalId);
+        var gameId = game?.Id;
+        var changed = unlink || (gameId is not null && gameId != link?.ExternalId);
+        bool requiresRematerialization = false;
         if (changed)
         {
             var pending = _db.Set<ArtworkImportJobEntity>().Where(x => x.TitleId == titleId && x.ProviderId == providerId).Select(x => x.Id);
             await _db.Set<ArtworkSelectionEntity>().Where(x => x.TitleId == titleId && x.PendingRequestId != null && pending.Contains(x.PendingRequestId.Value))
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.Revision, x => x.Revision + 1).SetProperty(x => x.PendingRequestId, (Guid?)null), ct);
+            requiresRematerialization = await WithdrawContributionsAsync(titleId, providerId, unlink ? null : gameId, ct);
         }
         if (state is null)
             _db.Add(state = new TitleProviderMatchStateEntity { TitleId = titleId, ProviderId = providerId });
@@ -114,7 +117,7 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
         }
         state.MatcherVersion = null;
         state.Revision = Guid.NewGuid();
-        return Result.Success;
+        return new ProviderMatchChange(requiresRematerialization);
     }
 
     public Task<Guid?> FindPendingEnrichmentAsync(int titleId, CancellationToken ct)

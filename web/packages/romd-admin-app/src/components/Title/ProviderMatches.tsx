@@ -488,6 +488,12 @@ function ProviderMatchPickerContent({
             ? `Selected: ${selected.name}`
             : 'Select a provider game to confirm this match.'}
         </Text>
+        {match.externalId && selected && selected.id !== match.externalId && (
+          <Text size="sm">
+            Replacing the match removes its metadata and automatic artwork. ROMD will fetch data for
+            the new match.
+          </Text>
+        )}
         <Group justify="end">
           <Button
             variant="default"
@@ -815,7 +821,7 @@ export function ProviderMatches({
                   size="xs"
                   c="orange"
                 >
-                  Metadata retained from a previous match
+                  Provider metadata needs a refresh
                 </Text>
               )}
               {row.state === 'Unlinked' && (
@@ -942,7 +948,8 @@ export function ProviderMatches({
           <Text size="sm">
             {unlinking?.decision?.provisionalGameId &&
               'ROMD will withdraw the provisional poster. '}
-            {unlinking?.externalId && 'ROMD retains metadata and artwork from the current match. '}
+            {unlinking?.externalId &&
+              'ROMD will remove metadata and automatic artwork from this match and keep your pinned artwork. '}
             Automatic matching for this provider will stay off until you link a source.
           </Text>
           {mutation.isError && <Alert color="red">{mutation.error.message}</Alert>}

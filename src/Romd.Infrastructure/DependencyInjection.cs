@@ -614,6 +614,7 @@ public static class DependencyInjection
         services.AddScoped<TitleProviderMatchStore>();
         services.AddScoped<ITitleProviderMatchStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
         services.AddScoped<IArtworkMatchAuthorizationStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
+        services.AddScoped<ProviderContributionRematerializer>();
         services.AddScoped<ITitleProviderMatchService, TitleProviderMatchService>();
         services.AddScoped<ITitleEnrichmentEvidenceReader, TitleEnrichmentEvidenceReader>();
         services.AddScoped<IProviderIdentityStore, ProviderIdentityStore>();

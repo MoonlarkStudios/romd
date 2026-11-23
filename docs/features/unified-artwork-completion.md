@@ -56,6 +56,11 @@ Confirm the suggested game to keep its poster, choose another game, or use
 **Reject provisional match** to withdraw it. A change in the supporting evidence
 also withdraws the provisional poster.
 
+Replacing or unlinking a provider match withdraws that match's metadata and
+automatic artwork. ROMD recomputes the title using the remaining sources.
+User metadata, gallery copies and pinned artwork remain available. A replacement
+queues new enrichment. Unlinking suppresses automatic matching for that provider.
+
 You can deliberately leave an artwork role empty or accept a missing metadata
 field when appropriate. These choices are retained and can be reversed later.
 Existing pins, hidden candidates and confirmed identities remain authoritative.

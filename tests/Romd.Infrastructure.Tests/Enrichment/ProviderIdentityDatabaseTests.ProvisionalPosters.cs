@@ -96,20 +96,24 @@ public sealed partial class ProviderIdentityDatabaseTests
         }
 
         (await store.ReadRevisionAsync(1, "steamgriddb", default)).ShouldNotBe(initialRevision);
-        var asset = await db.ArtworkAssets.SingleAsync();
+        var asset = await db.ArtworkAssets.SingleOrDefaultAsync();
         var poster = (await reader.ResolveAsync([1]))[1].Single(x => x.Role == ArtworkRole.Poster);
         var variant = await reader.FindVariantAsync(1, "large", "v1");
         (await store.ReadFactsAsync(1, ["steamgriddb"], default)).States.ShouldHaveSingleItem()
             .Decision.ShouldNotBeNull().ProvisionalGameId.ShouldBeNull();
-        asset.IsEligible.ShouldBe(scenario == "confirm");
         if (scenario == "confirm")
         {
+            asset.ShouldNotBeNull().IsEligible.ShouldBeTrue();
             asset.IsProvisional.ShouldBeFalse();
             poster.Asset.ShouldNotBeNull().Id.ShouldBe(asset.Id);
             variant.ShouldNotBeNull().IsProvisional.ShouldBeFalse();
         }
         else
         {
+            if (scenario is "replace" or "reject")
+                asset.ShouldBeNull();
+            else
+                asset.ShouldNotBeNull().IsEligible.ShouldBeFalse();
             poster.Asset.ShouldBeNull();
             variant.ShouldBeNull();
         }
