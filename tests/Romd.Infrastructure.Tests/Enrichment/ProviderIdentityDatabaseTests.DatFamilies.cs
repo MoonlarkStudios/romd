@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Enrichment;

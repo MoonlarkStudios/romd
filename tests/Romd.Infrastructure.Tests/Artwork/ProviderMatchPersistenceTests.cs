@@ -7,7 +7,6 @@ using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Persistence.Entities;
 using Romd.Persistence.MetadataProviders;
 using Romd.PostgreSql.TestSupport;

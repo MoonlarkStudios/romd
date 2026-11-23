@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Ingestion.Jobs;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 namespace Romd.Admin.Application.MetadataProviders;
 

@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Domain.Hashing;
 using Romd.Domain.ReferenceData;
@@ -16,6 +15,7 @@ using Romd.Persistence.MetadataProviders;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
+using Legacy = Romd.Contracts.Management.MetadataProviders;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 
@@ -57,19 +57,32 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadAsync_ProvidesReleaseDatesOnlyForTheCurrentlyTrustedIgdbGame()
+    public async Task ReadAsync_ReadsPreviouslyStoredIgdbGameAndDecisionIntoApplicationModels()
     {
         await using var db = _database.CreateContext();
         await Seed(db);
         await AddAutomatic(db, "igdb", "3192");
-        var game = new ProviderGame("3192", "Sonic the Hedgehog", "https://provider.test/game", Releases: [new(1991, "Genesis")]);
+        var game = new Legacy.ProviderGame("3192", "Sonic the Hedgehog", "https://provider.test/game",
+            Releases: [new(1991, "Genesis")]);
+        var decision = new Legacy.ProviderIdentityDecision("AutoAccepted", "Verified", "DAT",
+            await Fingerprint(db), [new(game, 120, true, ["Platform matches"], [])], [],
+            new("Sonic the Hedgehog", ["Sonic"], [1991], ["Genesis"]));
         string gameJson = JsonSerializer.Serialize(game);
+        string decisionJson = JsonSerializer.Serialize(decision);
         var states = db.Set<TitleProviderMatchStateEntity>().Where(state => state.ProviderId == "igdb");
-        await states.ExecuteUpdateAsync(update => update.SetProperty(state => state.GameJson, gameJson));
+        await states.ExecuteUpdateAsync(update => update.SetProperty(state => state.GameJson, gameJson)
+            .SetProperty(state => state.DecisionJson, decisionJson));
         var store = CreateFamilyStore(db);
 
         var snapshot = (await store.ReadAsync(1, default)).ShouldNotBeNull();
-        snapshot.Links.ShouldHaveSingleItem().TrustedGame.ShouldNotBeNull().Releases.ShouldBe([new(1991, "Genesis")]);
+        var link = snapshot.Links.ShouldHaveSingleItem();
+        link.TrustedGame.ShouldNotBeNull().Releases.ShouldBe([new(1991, "Genesis")]);
+        JsonSerializer.Serialize(link.TrustedGame).ShouldBe(gameJson);
+        JsonSerializer.Serialize(link.Decision).ShouldBe(decisionJson);
+        var storedMatch = (await new TitleProviderMatchStore(db, TimeProvider.System).ReadFactsAsync(1, ["igdb"], default))
+            .States.ShouldHaveSingleItem();
+        JsonSerializer.Serialize(storedMatch.Game).ShouldBe(gameJson);
+        JsonSerializer.Serialize(storedMatch.Decision).ShouldBe(decisionJson);
 
         await states.ExecuteUpdateAsync(update => update.SetProperty(state => state.SuppressAutomaticMatch, true));
         var suppressed = (await store.ReadAsync(1, default)).ShouldNotBeNull();

@@ -1,5 +1,4 @@
 using Romd.Admin.Application.Ingestion.Jobs;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 namespace Romd.Admin.Application.MetadataProviders;
 

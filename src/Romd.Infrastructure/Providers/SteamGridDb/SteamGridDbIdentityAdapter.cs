@@ -2,7 +2,6 @@ using ErrorOr;
 using Romd.Domain.Catalog;
 using Romd.Admin.Application.Artwork.Settings;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Contracts.Management.MetadataProviders;
 
 namespace Romd.Infrastructure.Providers.SteamGridDb;
 

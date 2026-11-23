@@ -5,7 +5,6 @@ using System.Text.Json;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Application.Common.Concurrency;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Shouldly;
 using Xunit;
