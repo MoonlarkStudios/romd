@@ -2018,6 +2018,7 @@ export type ProviderIdentityDecision = {
     candidates: Array<ProviderIdentityCandidate>;
     dependencies?: null | Array<ProviderIdentityDependency>;
     localEvidence?: null | ProviderIdentityFacts;
+    provisionalGameId?: null | string;
 };
 
 export type ProviderIdentityDependency = {

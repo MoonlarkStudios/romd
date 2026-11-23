@@ -220,6 +220,15 @@ publication checks trust directly in its existing mutation transaction. The new
 fingerprint encoding invalidates legacy automatic decisions for reassessment;
 explicit confirmations survive.
 
+An unlinked SteamGridDB candidate can provisionally supply a missing poster.
+The poster policy requires an unambiguous active DAT hash match, an exact
+edition-preserving name, and a trusted IGDB release year on the local system.
+The artwork worker checks an authorization scoped to the game, role, and
+decision revision when it publishes the variants. Presentation and file
+delivery recheck the underlying evidence. Provisional variants are served
+with `Cache-Control: no-store`. Confirmation of the selected SteamGridDB game
+promotes its retained poster in the same transaction as the provider link.
+
 Overlapping compatible completion requests share active title work through the
 existing durable item ledger. Automatic scope excludes active legacy work as well;
 explicit manual selections can still overlap legacy single/bulk enrichment jobs. Full enrichment can satisfy an artwork request;

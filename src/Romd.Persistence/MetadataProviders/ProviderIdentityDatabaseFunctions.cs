@@ -15,12 +15,17 @@ public static class ProviderIdentityDatabaseFunctions
     public static bool IsTrusted(int titleId, string providerId, string policyVersion) =>
         throw new InvalidOperationException("This function must be evaluated by PostgreSQL.");
 
+    public static string? ProvisionalPosterGame(int titleId, string providerId, string policyVersion, string posterPolicyVersion) =>
+        throw new InvalidOperationException("This function must be evaluated by PostgreSQL.");
+
     public static void Configure(ModelBuilder builder)
     {
         builder.HasDbFunction(typeof(ProviderIdentityDatabaseFunctions).GetMethod(nameof(Fingerprint))!)
             .HasName("provider_identity_fingerprint").HasSchema(PostgreSqlConfiguration.SchemaName);
         builder.HasDbFunction(typeof(ProviderIdentityDatabaseFunctions).GetMethod(nameof(IsTrusted))!)
             .HasName("provider_identity_trusted").HasSchema(PostgreSqlConfiguration.SchemaName);
+        builder.HasDbFunction(typeof(ProviderIdentityDatabaseFunctions).GetMethod(nameof(ProvisionalPosterGame))!)
+            .HasName("provider_provisional_poster_game").HasSchema(PostgreSqlConfiguration.SchemaName);
     }
 
 }

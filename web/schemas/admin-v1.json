@@ -26480,6 +26480,12 @@
                 "$ref": "#/components/schemas/ProviderIdentityFacts"
               }
             ]
+          },
+          "provisionalGameId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

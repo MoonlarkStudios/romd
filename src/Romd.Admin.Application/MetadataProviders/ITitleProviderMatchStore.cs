@@ -32,6 +32,11 @@ public interface ITitleProviderMatchStore
 
 public static class ProviderMatchRevisions
 {
-    public static Guid For(Guid? stateRevision, string? externalId, bool? confirmed) =>
-        new(SHA256.HashData(Encoding.UTF8.GetBytes($"{stateRevision}:{externalId}:{confirmed}"))[..16]);
+    public static Guid For(Guid? stateRevision, string? externalId, bool? confirmed, string? provisionalGameId = null)
+    {
+        var value = $"{stateRevision}:{externalId}:{confirmed}";
+        if (provisionalGameId is not null)
+            value += $":{provisionalGameId}";
+        return new(SHA256.HashData(Encoding.UTF8.GetBytes(value))[..16]);
+    }
 }

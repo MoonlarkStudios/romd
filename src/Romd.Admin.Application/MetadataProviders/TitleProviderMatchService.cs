@@ -240,7 +240,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
             (payload is null || (payload.ProviderGameId is { } origin
                 ? origin != link.ExternalId : state?.IdentityChanged == true));
         return new(adapter.Id, adapter.Name, availability.Configured, adapter.Capabilities,
-            ProviderMatchRevisions.For(state?.Revision, link?.ExternalId, link?.IsConfirmed), link is null ? (state?.SuppressAutomaticMatch == true ? "Unlinked" :
+            ProviderMatchRevisions.For(state?.Revision, link?.ExternalId, link?.IsConfirmed, state?.Decision?.ProvisionalGameId), link is null ? (state?.SuppressAutomaticMatch == true ? "Unlinked" :
                 state?.Evidence == "Provider search temporarily unavailable." ? "Unavailable" :
                 game is not null || state?.Evidence?.StartsWith("Multiple games", StringComparison.Ordinal) == true ? "NeedsReview" : state is not null ? "NoMatchFound" : "NeedsMatch") :
             link.IsConfirmed ? "Confirmed" : trustedGameId == link.ExternalId ? "AutoMatched" : "NeedsReview", link?.ExternalId, game,

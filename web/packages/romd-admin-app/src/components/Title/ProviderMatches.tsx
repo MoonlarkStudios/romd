@@ -196,7 +196,11 @@ function ProviderMatchPickerContent({
   const [conflicted, setConflicted] = useState(false);
   const [mode, setMode] = useState<'search' | 'resolve'>('search');
   const [text, setText] = useState(titleName);
-  const [selected, setSelected] = useState<ProviderGame | null>(null);
+  const [selected, setSelected] = useState<ProviderGame | null>(
+    () =>
+      row.decision?.candidates.find(({ game }) => game.id === row.decision?.provisionalGameId)
+        ?.game ?? null,
+  );
   const [showEvidence, setShowEvidence] = useState(true);
   const search = useProviderGameLookup(row.providerId);
   const save = useMutation({
@@ -251,7 +255,9 @@ function ProviderMatchPickerContent({
   });
   const [discarding, setDiscarding] = useState(false);
   const [reloading, setReloading] = useState(false);
-  const dirty = selected !== null || text !== (mode === 'search' ? titleName : '');
+  const dirty =
+    (selected !== null && selected.id !== match.decision?.provisionalGameId) ||
+    text !== (mode === 'search' ? titleName : '');
   const busy = save.isPending || reload.isPending;
   const requestClose = () => {
     if (busy) return;
@@ -752,6 +758,15 @@ export function ProviderMatches({
                     } as Record<string, string>
                   )[row.state] ?? row.state}
                 </Badge>
+                {row.decision?.provisionalGameId && (
+                  <Badge
+                    size="xs"
+                    variant="light"
+                    color="yellow"
+                  >
+                    Provisional poster match
+                  </Badge>
+                )}
               </Group>
               {row.externalId && (
                 <Group gap="xs">
@@ -854,14 +869,18 @@ export function ProviderMatches({
                   </Menu.Target>
                   <Menu.Dropdown>
                     <Menu.Item
-                      color={row.externalId ? 'red' : undefined}
+                      color={row.externalId || row.decision?.provisionalGameId ? 'red' : undefined}
                       leftSection={<IconUnlink size={16} />}
                       onClick={() => {
                         mutation.reset();
                         setUnlinking(row);
                       }}
                     >
-                      {row.externalId ? 'Unlink' : 'Continue without this provider'}
+                      {row.externalId
+                        ? 'Unlink'
+                        : row.decision?.provisionalGameId
+                          ? 'Reject provisional match'
+                          : 'Continue without this provider'}
                     </Menu.Item>
                   </Menu.Dropdown>
                 </Menu>
@@ -911,14 +930,18 @@ export function ProviderMatches({
         closeOnClickOutside={!mutation.isPending}
         withCloseButton={!mutation.isPending}
         title={
-          unlinking?.externalId
-            ? `Unlink ${unlinking.providerName}`
-            : `Continue without ${unlinking?.providerName}?`
+          unlinking?.decision?.provisionalGameId
+            ? 'Reject the provisional poster match?'
+            : unlinking?.externalId
+              ? `Unlink ${unlinking.providerName}`
+              : `Continue without ${unlinking?.providerName}?`
         }
         size="sm"
       >
         <Stack>
           <Text size="sm">
+            {unlinking?.decision?.provisionalGameId &&
+              'ROMD will withdraw the provisional poster. '}
             {unlinking?.externalId && 'ROMD retains metadata and artwork from the current match. '}
             Automatic matching for this provider will stay off until you link a source.
           </Text>
@@ -933,12 +956,18 @@ export function ProviderMatches({
             </Button>
             <Button
               {...workspaceActionProps}
-              color={unlinking?.externalId ? 'red' : undefined}
+              color={
+                unlinking?.externalId || unlinking?.decision?.provisionalGameId ? 'red' : undefined
+              }
               loading={mutation.isPending}
               disabled={disabled || mutation.error instanceof ProviderMatchConflictError}
               onClick={() => unlinking && decide(unlinking, true, () => setUnlinking(null))}
             >
-              {unlinking?.externalId ? 'Unlink match' : 'Continue without provider'}
+              {unlinking?.externalId
+                ? 'Unlink match'
+                : unlinking?.decision?.provisionalGameId
+                  ? 'Reject match'
+                  : 'Continue without provider'}
             </Button>
           </Group>
         </Stack>

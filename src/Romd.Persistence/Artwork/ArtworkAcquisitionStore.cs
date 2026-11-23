@@ -93,6 +93,10 @@ public sealed class ArtworkAcquisitionStore(RomdDbContext db, IArtworkCurationRe
         row.UpdatedAt = clock.GetUtcNow();
     }
 
+    public Task<bool> HasCurrentProvisionalPosterAsync(int titleId, CancellationToken ct) =>
+        db.ArtworkAssets.AvailableForPresentation().AnyAsync(x => x.TitleId == titleId &&
+            x.Role == ArtworkRole.Poster && x.IsProvisional, ct);
+
     public async Task<bool> LockMissingAsync(int titleId, ArtworkRole role, long revision, CancellationToken ct)
     {
         var locked = await curation.LockSelectionAsync(titleId, role,
@@ -105,7 +109,7 @@ public sealed class ArtworkAcquisitionStore(RomdDbContext db, IArtworkCurationRe
         var state = states.Value.Single(x => x.Role == role);
         if (state.Mode != ArtworkSelectionMode.Automatic || state.PendingJobId is not null)
             return false;
-        if (await db.ArtworkAssets.AnyAsync(x => x.TitleId == titleId && x.Role == role && x.IsEligible && !x.IsRejected, ct))
+        if (await db.ArtworkAssets.AvailableForPresentation().AnyAsync(x => x.TitleId == titleId && x.Role == role && !x.IsRejected, ct))
             return false;
         return true;
     }

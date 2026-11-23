@@ -70,7 +70,8 @@ public sealed class ArtworkTitleMerger(RomdDbContext context)
                             .SetProperty(candidate => candidate.Width, asset.Width)
                             .SetProperty(candidate => candidate.Height, asset.Height)
                             .SetProperty(candidate => candidate.ContentType, asset.ContentType)
-                            .SetProperty(candidate => candidate.IsEligible, true), ct);
+                            .SetProperty(candidate => candidate.IsEligible, true)
+                            .SetProperty(candidate => candidate.IsProvisional, false), ct);
                 }
                 await context.ArtworkAssets.Where(candidate => candidate.Id == asset.Id).ExecuteDeleteAsync(ct);
             }

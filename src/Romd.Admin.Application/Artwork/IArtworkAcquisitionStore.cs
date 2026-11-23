@@ -17,5 +17,6 @@ public interface IArtworkAcquisitionStore
     Task<Guid?> GetTitleRevisionAsync(int titleId, CancellationToken ct);
     Task<string?> GetProviderGameIdAsync(int titleId, string providerId, CancellationToken ct);
     // Caller holds a transaction; serializes against manual curation and other acquisitions.
+    Task<bool> HasCurrentProvisionalPosterAsync(int titleId, CancellationToken ct);
     Task<bool> LockMissingAsync(int titleId, ArtworkRole role, long revision, CancellationToken ct);
 }

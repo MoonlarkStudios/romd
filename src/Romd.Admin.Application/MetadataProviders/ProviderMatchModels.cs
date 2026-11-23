@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Romd.Admin.Application.MetadataProviders;
 
 /// <summary>The current provider association and its supporting decision for one title.</summary>
@@ -32,7 +34,14 @@ public sealed record ProviderIdentityDecision(
     string InputFingerprint,
     IReadOnlyList<ProviderIdentityCandidate> Candidates,
     IReadOnlyList<ProviderIdentityDependency>? Dependencies = null,
-    ProviderIdentityFacts? LocalEvidence = null);
+    ProviderIdentityFacts? LocalEvidence = null)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProvisionalGameId { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PosterPolicyVersion { get; init; }
+}
 
 public sealed record ProviderIdentityFacts(string Name, IReadOnlyList<string> Names, IReadOnlyList<int> Years, IReadOnlyList<string> Platforms);
 public sealed record ProviderIdentityDependency(string ProviderId, string GameId, Guid Revision);

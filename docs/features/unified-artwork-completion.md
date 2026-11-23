@@ -48,8 +48,13 @@ failure is different from a completed search that found no suitable image.
 Check the game, edition, system and year before accepting a match. Limited or
 ambiguous suggestions need review; search again or use an exact provider game ID
 or URL. A ranking score is not a probability that the match is correct.
-SteamGridDB suggestions require confirmation unless an independently trusted
-provider bridge establishes the identity.
+A verified provider bridge can establish a SteamGridDB identity automatically.
+For a missing poster, an edition-preserving name, an unambiguous active DAT
+hash match, and a corroborating IGDB release year on the title's platform can
+support a provisional SteamGridDB selection. The provider row stays in review.
+Confirm the suggested game to keep its poster, choose another game, or use
+**Reject provisional match** to withdraw it. A change in the supporting evidence
+also withdraws the provisional poster.
 
 You can deliberately leave an artwork role empty or accept a missing metadata
 field when appropriate. These choices are retained and can be reversed later.

@@ -4,7 +4,7 @@ using Romd.Domain.Catalog;
 
 namespace Romd.Admin.Application.Artwork.Providers;
 
-public sealed record ArtworkMatchAuthorization(string ProviderId, string GameId, ArtworkRole Role, Guid Revision);
+public sealed record ArtworkMatchAuthorization(string ProviderId, string GameId, ArtworkRole Role, Guid Revision, bool IsProvisional = false);
 
 public enum ArtworkMatchBlock { ProviderDisabled, ProviderUnconfigured, Unlinked, Failed, NeedsMatch }
 

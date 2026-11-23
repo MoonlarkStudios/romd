@@ -360,15 +360,24 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
     }
 
     public async Task StageLocalAssetAsync(int titleId, ArtworkRole role, string sourceId,
-        RetainedArtworkContent content, CancellationToken ct, string? providerGameId = null, string? providerAssetId = null)
+        RetainedArtworkContent content, CancellationToken ct, string? providerGameId = null, string? providerAssetId = null, bool provisional = false)
     {
         RequireTransaction();
         var version = content.Original.Hash.ToString();
-        var existing = await context.ArtworkAssets.Include(asset => asset.Variants).SingleOrDefaultAsync(asset =>
+        var existing = await context.ArtworkAssets.AsTracking().Include(asset => asset.Variants).SingleOrDefaultAsync(asset =>
             asset.TitleId == titleId && asset.Role == role && asset.SourceId == sourceId &&
             asset.ProviderAssetId == providerAssetId && asset.ContentVersion == version, ct);
         if (existing is { IsEligible: true })
             return;
+        if (existing is { IsProvisional: true } && existing.ProviderGameId == providerGameId)
+        {
+            if (!provisional)
+            {
+                existing.IsProvisional = false;
+                existing.IsEligible = true;
+            }
+            return;
+        }
         if (existing is not null)
             throw new InvalidOperationException("An incomplete local artwork asset cannot be published.");
         var entity = new ArtworkAssetEntity
@@ -385,7 +394,8 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
             ContentType = content.Original.ContentType,
             Width = content.Original.Width,
             Height = content.Original.Height,
-            IsEligible = true,
+            IsEligible = !provisional,
+            IsProvisional = provisional,
             CreatedAt = clock.GetUtcNow(),
             Variants = content.Variants.Select(file => new ArtworkVariantEntity
             {
@@ -506,6 +516,7 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
         asset.Attribution = content.Attribution;
         asset.SourcePageUrl = content.SourcePageUrl;
         asset.IsEligible = true;
+        asset.IsProvisional = false;
         // Replace incomplete variants in place to avoid duplicate tracked composite keys.
         foreach (var variant in content.Variants)
         {

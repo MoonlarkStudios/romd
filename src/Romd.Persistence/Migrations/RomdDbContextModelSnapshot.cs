@@ -617,6 +617,11 @@ namespace Romd.Persistence.Migrations
                     b.Property<bool>("IsEligible")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsProvisional")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsRejected")
                         .HasColumnType("boolean");
 
@@ -663,6 +668,8 @@ namespace Romd.Persistence.Migrations
                     b.ToTable("ArtworkAssets", "romd", t =>
                         {
                             t.HasCheckConstraint("CK_ArtworkAssets_Dimensions", "\"Width\" > 0 AND \"Height\" > 0");
+
+                            t.HasCheckConstraint("CK_ArtworkAssets_ProvisionalPoster", "NOT \"IsProvisional\" OR (NOT \"IsEligible\" AND \"Role\" = 'Poster' AND \"SourceId\" = 'steamgriddb' AND \"ProviderGameId\" IS NOT NULL AND \"ProviderAssetId\" IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_ArtworkAssets_Role", "\"Role\" IN ('Poster', 'Hero', 'Logo', 'Backdrop')");
                         });
