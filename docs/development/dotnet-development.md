@@ -200,7 +200,9 @@ file selection for each accepted job. The
 folder-wide file history. The additive `20261121200000_LibraryPublicationOutcome`
 migration records reviewed revisions and outcomes on library publication jobs.
 The additive `20261123000000_DatParentDeclarations` migration adds optional
-Logiqx entry and clone parent IDs to DAT entries. Current readiness is version 83.
+Logiqx entry and clone parent IDs to DAT entries. The additive
+`20261123010000_ActiveDatProviderIdentity` migration scopes the provider
+identity fingerprint to active DAT versions. Current readiness is version 84.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

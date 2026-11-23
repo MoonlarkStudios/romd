@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Titles.Enrichment;
+using Romd.Domain.Source.Dat;
 using Romd.Persistence.Queries;
 using Romd.Persistence;
 
@@ -17,9 +18,10 @@ public sealed class TitleEnrichmentEvidenceReader(RomdDbContext context) : ITitl
         var rows = await (
                 from link in context.EffectiveTitleSourceLinks().AsNoTracking()
                 join game in context.DatGames.AsNoTracking() on link.SourceEntryId equals game.SourceEntryId
+                join dat in context.DatFiles.AsNoTracking() on game.DatFileId equals dat.Id
                 join rom in context.DatRoms.AsNoTracking() on game.Id equals rom.DatGameId into gameRoms
                 from rom in gameRoms.DefaultIfEmpty()
-                where link.TitleId == titleId && !game.IsBios
+                where link.TitleId == titleId && dat.Lifecycle == nameof(DatFileLifecycle.Active) && !game.IsBios
                 orderby game.Id, rom.Id
                 select new
                 {
