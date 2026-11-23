@@ -59,7 +59,10 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 trusted, state?.Revision ?? Guid.Empty, state?.InputFingerprint, state?.LastAttemptAt,
                 state?.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecision>(decision) : null);
         }).ToArray();
-        return new(titleId, title.Revision, fingerprint, facts, rows);
+        return new(titleId, title.Revision, fingerprint, facts, rows)
+        {
+            DatFamily = await HashBackedDatFamilyReader.ReadAsync(db, titleId, ct)
+        };
     }
     public async Task<IStagedProviderIdentityDecision> StageDecisionAsync(ProviderIdentitySnapshot snapshot, string providerId, Guid expectedRevision,
         ProviderIdentityDecision decision, ProviderGame? accepted, CancellationToken ct)

@@ -90,7 +90,8 @@ public sealed class ConsumerBoundaryTests
             [
                 "Romd.Admin.Application",
                 "Romd.Application.Common",
-                "Romd.Consumer.Application"
+                "Romd.Consumer.Application",
+                "Romd.Dat"
             ],
             ["src/Romd.Storage/Romd.Storage.csproj"] =
             [

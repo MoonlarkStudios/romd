@@ -4,7 +4,17 @@ using Romd.Domain.Catalog;
 namespace Romd.Admin.Application.MetadataProviders;
 
 public sealed record ProviderIdentitySnapshot(int TitleId, Guid TitleRevision, string Fingerprint, IdentityFacts Facts,
-    IReadOnlyList<ProviderIdentityLink> Links);
+    IReadOnlyList<ProviderIdentityLink> Links)
+{
+    public DatFamilySearchEvidence? DatFamily { get; init; }
+}
+
+/// <summary>Hash-backed DAT names for discovery, or a requirement for curator review.</summary>
+public sealed record DatFamilySearchEvidence(IReadOnlyList<string> Names, bool RequiresReview)
+{
+    public static DatFamilySearchEvidence Ambiguous { get; } = new([], true);
+}
+
 public sealed record ProviderIdentityLink(string ProviderId, string? GameId, bool Confirmed, bool Suppressed,
     bool Trusted, Guid Revision, string? InputFingerprint, DateTimeOffset? LastAttempt, ProviderIdentityDecision? Decision);
 /// <summary>Provider-local retry hints. Callers decide whether alternatives satisfy their unfinished work.</summary>

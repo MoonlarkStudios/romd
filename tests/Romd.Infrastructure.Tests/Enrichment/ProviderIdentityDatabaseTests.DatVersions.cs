@@ -52,6 +52,19 @@ public sealed partial class ProviderIdentityDatabaseTests
         (await evidence.ReadAsync(1)).ShouldHaveSingleItem().Year.ShouldBe("1990");
         (await store.ReadTrustedAsync(1, "automatic", default)).ShouldBe("42");
 
+        await ActivateVersion(3);
+
+        var current = (await store.ReadAsync(1, default)).ShouldNotBeNull();
+        current.Facts.Years.ShouldBe([incomingYear]);
+        (await evidence.ReadAsync(1)).ShouldHaveSingleItem().Year.ShouldBe(incomingYear.ToString(CultureInfo.InvariantCulture));
+        bool factsChanged = incomingYear != 1990;
+        (current.Fingerprint != original.Fingerprint).ShouldBe(factsChanged);
+        (await store.ReadTrustedAsync(1, "automatic", default)).ShouldBe(factsChanged ? null : "42");
+        (await store.ReadTrustedAsync(1, "confirmed", default)).ShouldBe("84");
+    }
+
+    private async Task ActivateVersion(int versionId)
+    {
         await using var writer = _database.CreateContext();
         var activate = new ActivateDatVersionCommandHandler(
             new DatRepository(writer, TimeProvider.System),
@@ -62,16 +75,8 @@ public sealed partial class ProviderIdentityDatabaseTests
             TimeProvider.System,
             NullLogger<ActivateDatVersionCommandHandler>.Instance,
             new SourceLifecycleStore(writer));
-        var activated = await activate.HandleAsync(ActivateDatVersionCommand.Create(3, expectedActiveDatId: 1).Value);
+        var activated = await activate.HandleAsync(ActivateDatVersionCommand.Create(versionId, expectedActiveDatId: 1).Value);
         activated.IsError.ShouldBeFalse(activated.IsError ? activated.FirstError.Description : null);
-
-        var current = (await store.ReadAsync(1, default)).ShouldNotBeNull();
-        current.Facts.Years.ShouldBe([incomingYear]);
-        (await evidence.ReadAsync(1)).ShouldHaveSingleItem().Year.ShouldBe(incomingYear.ToString(CultureInfo.InvariantCulture));
-        bool factsChanged = incomingYear != 1990;
-        (current.Fingerprint != original.Fingerprint).ShouldBe(factsChanged);
-        (await store.ReadTrustedAsync(1, "automatic", default)).ShouldBe(factsChanged ? null : "42");
-        (await store.ReadTrustedAsync(1, "confirmed", default)).ShouldBe("84");
     }
 
     [Fact]
@@ -95,7 +100,8 @@ public sealed partial class ProviderIdentityDatabaseTests
         (await Trusted(db, "mixed")).ShouldBeFalse();
     }
 
-    private static async Task AddDatVersion(RomdDbContext db, int versionId, DatFileLifecycle lifecycle, int year)
+    private static async Task AddDatVersion(RomdDbContext db, int versionId, DatFileLifecycle lifecycle, int year,
+        int datSourceId = 1, int sourceEntryId = 1)
     {
         db.Files.Add(new FileEntityPersistence
         {
@@ -107,7 +113,7 @@ public sealed partial class ProviderIdentityDatabaseTests
         db.DatFiles.Add(new DatFileEntity
         {
             Id = versionId,
-            DatSourceId = 1,
+            DatSourceId = datSourceId,
             Name = "Test DAT",
             Description = "Test",
             Type = "NoIntro",
@@ -121,7 +127,7 @@ public sealed partial class ProviderIdentityDatabaseTests
         {
             Id = 100 + versionId,
             DatFileId = versionId,
-            SourceEntryId = 1,
+            SourceEntryId = sourceEntryId,
             Name = "Game",
             Year = year.ToString(CultureInfo.InvariantCulture)
         });

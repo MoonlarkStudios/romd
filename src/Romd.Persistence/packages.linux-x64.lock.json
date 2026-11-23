@@ -294,6 +294,13 @@
           "Romd.Contracts.Common": "[1.0.0, )"
         }
       },
+      "romd.dat": {
+        "type": "Project",
+        "dependencies": {
+          "ErrorOr": "[2.1.1, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
       "romd.domain": {
         "type": "Project"
       },
