@@ -5,9 +5,11 @@ using Romd.Application.Common.Security.Commands.StartAccountSession;
 using Romd.Application.Common.Cqrs;
 using System.Net;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Romd.Hosting.Security;
@@ -22,15 +24,17 @@ namespace Romd.Host.Endpoints;
 
 public static class OpenIddictEndpoints
 {
+    private const string _authorizePath = "/connect/authorize";
     private const string _appLoginClientClaim = "romd_login_client";
-    private const string _confirmedCodeField = "confirmed_code";
+    private const string _pairingConfirmationField = "pairing_confirmation";
+    private const string _pairingConfirmationPurpose = "ROMD.DevicePairing.Confirmation";
 
     public static IEndpointRouteBuilder MapRomdOpenIddictEndpoints(this IEndpointRouteBuilder app)
     {
         // The OAuth/OIDC protocol endpoints are driven by oidc-client-ts (SPAs) and the device flow
         // (console/mount) directly, never through the generated typed SDK, so they are excluded from the
         // OpenAPI description to keep the client free of dead operations.
-        app.MapGet("/connect/authorize", Authorize)
+        app.MapGet(_authorizePath, Authorize)
             .WithName("OpenIddictAuthorize")
             .ExcludeFromDescription()
             .AllowAnonymous();
@@ -157,9 +161,10 @@ public static class OpenIddictEndpoints
         IConsumerWebAppRegistrations registrations,
         CancellationToken ct)
     {
+        ProtectInteractivePage(context);
         string returnUrl = SanitizeReturnUrl(context.Request.Query["returnUrl"].FirstOrDefault());
         string message = await signInMessage.GetMessageAsync(ct);
-        var app = await surface.FindActiveWebAppAsync(ReadReturnClient(returnUrl), registrations, ct);
+        var app = await surface.FindActiveWebAppAsync(ReadReturnClient(returnUrl, context.Request.PathBase), registrations, ct);
 
         return Results.Content(RenderLoginPage(returnUrl, antiforgery.GetAndStoreTokens(context), message,
             error: null, isAdmin: surface.IsClientAllowed(RomdOpenIddictClients.AdminSpa), app), "text/html");
@@ -175,13 +180,14 @@ public static class OpenIddictEndpoints
         IConsumerWebAppRegistrations registrations,
         CancellationToken cancellationToken)
     {
+        ProtectInteractivePage(context);
         if (!await IsValidFormAsync(context, antiforgery))
             return Results.BadRequest();
         if (attempts.TryAcquireIp(context.Connection.RemoteIpAddress) is { } ipDelay)
             return Throttled(context, ipDelay);
         var form = await context.Request.ReadFormAsync(cancellationToken);
         string returnUrl = SanitizeReturnUrl(form["returnUrl"].FirstOrDefault());
-        string? returnClient = ReadReturnClient(returnUrl);
+        string? returnClient = ReadReturnClient(returnUrl, context.Request.PathBase);
         var app = await surface.FindActiveWebAppAsync(returnClient, registrations, cancellationToken);
         if (surface.AllowsRegisteredWebApps && ConsumerWebAppRegistration.IsClientId(returnClient) && app is null)
             return Results.BadRequest();
@@ -235,7 +241,7 @@ public static class OpenIddictEndpoints
             [OpenIddictServerAspNetCoreDefaults.AuthenticationScheme]);
     }
 
-    private static async Task<IResult> VerifyDeviceAuthorization(HttpContext context, IAntiforgery antiforgery)
+    private static async Task<IResult> VerifyDeviceAuthorization(HttpContext context, IAntiforgery antiforgery, IDataProtectionProvider protection)
     {
         var result = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         string? userCode = result.Properties?.GetTokenValue(OpenIddictServerAspNetCoreConstants.Tokens.UserCode)
@@ -243,7 +249,7 @@ public static class OpenIddictEndpoints
 
         var pairing = result is { Succeeded: true } ? result.Principal : null;
         string? error = pairing is null && !string.IsNullOrEmpty(userCode) ? "The device code is invalid or expired." : null;
-        return VerificationPage(context, antiforgery, userCode, pairing, error);
+        return VerificationPage(context, antiforgery, protection, userCode, pairing, error);
     }
 
     private static async Task<IResult> ApproveDeviceAuthorization(
@@ -252,6 +258,7 @@ public static class OpenIddictEndpoints
         RomdSurfaceAuthOptions surface,
         ICommandHandler<StartAccountSessionCommand, AccountSession> startSession,
         IAntiforgery antiforgery,
+        IDataProtectionProvider protection,
         AuthenticationAttemptLimiter attempts,
         CancellationToken cancellationToken)
     {
@@ -267,12 +274,11 @@ public static class OpenIddictEndpoints
         string? clientId = result.Principal?.GetClaim(Claims.ClientId);
         string? userCode = form[Parameters.UserCode].FirstOrDefault();
         if (!result.Succeeded || !surface.IsClientAllowed(clientId))
-            return VerificationPage(context, antiforgery, userCode, null, "The device code is invalid or expired.",
+            return VerificationPage(context, antiforgery, protection, userCode, null, "The device code is invalid or expired.",
                 StatusCodes.Status400BadRequest);
 
-        bool community = clientId == RomdOpenIddictClients.CommunityDevice;
-        if (community && form[_confirmedCodeField].FirstOrDefault() != userCode)
-            return VerificationPage(context, antiforgery, userCode, result.Principal);
+        if (!IsConfirmedCode(protection, form[_pairingConfirmationField].FirstOrDefault(), userCode))
+            return VerificationPage(context, antiforgery, protection, userCode, result.Principal);
 
         string login = form["login"].FirstOrDefault() ?? string.Empty;
         string password = form["password"].FirstOrDefault() ?? string.Empty;
@@ -289,20 +295,16 @@ public static class OpenIddictEndpoints
             ? null
             : await accountService.CreatePrincipalAsync(
                 user,
-                result.Principal!.GetScopes(),
+                DeviceGrantPermissions.ForPairing(clientId, result.Principal!.GetScopes()),
                 surface.Audience,
                 clientId!,
                 cancellationToken);
         if (principal is null)
-            return VerificationPage(context, antiforgery, userCode, result.Principal, "Invalid ROMD credentials.",
+            return VerificationPage(context, antiforgery, protection, userCode, result.Principal, "Invalid ROMD credentials.",
                 StatusCodes.Status401Unauthorized);
 
-        string deviceLabel = clientId switch
-        {
-            RomdOpenIddictClients.CommunityDevice => result.Principal!.GetClaim(CommunityDeviceAuthorization.LabelClaim) ?? "Community device",
-            RomdOpenIddictClients.Mount => "ROMD Mount",
-            _ => "Console"
-        };
+        string deviceLabel = result.Principal!.GetClaim(DevicePairingAuthorization.LabelClaim)
+            ?? DevicePairingAuthorization.DefaultLabel(clientId);
         var started = await startSession.HandleAsync(new(user!.Id, clientId!, deviceLabel, user.SecurityStamp!), cancellationToken);
         if (started.IsError)
             throw new InvalidOperationException("Account session creation unexpectedly returned an error.");
@@ -340,11 +342,12 @@ public static class OpenIddictEndpoints
             return ForbidWithError(Errors.InvalidGrant, "The token is no longer valid.");
         }
 
+        var approvedScopes = DeviceGrantPermissions.RestoreApprovedScopes(clientId, result.Principal!);
         var principal = await accountService.CreatePrincipalAsync(
             userId,
             request.IsRefreshTokenGrantType() && request.GetScopes() is { Length: > 0 } requested
-                ? result.Principal!.GetScopes().Intersect(requested, StringComparer.Ordinal)
-                : result.Principal!.GetScopes(),
+                ? approvedScopes.Intersect(requested, StringComparer.Ordinal)
+                : approvedScopes,
             surface.Audience,
             clientId!,
             cancellationToken);
@@ -355,16 +358,21 @@ public static class OpenIddictEndpoints
         var session = await sessions.ValidateAsync(Guid.Parse(userId), sessionId, principal.GetClaim(SessionClaims.AccountStamp)!, cancellationToken);
         if (session is null || session.ClientId != clientId)
             return ForbidWithError(Errors.InvalidGrant, "This session has ended. Sign in again.");
-        if (clientId != RomdOpenIddictClients.CommunityDevice && request.IsDeviceCodeGrantType() && request.GetParameter("device_name")?.ToString() is { Length: > 0 } device)
+        // Existing console and mount clients supply their hostname at exchange. Keep any label
+        // already shown at approval when the client supplied it at the start of pairing.
+        if (clientId is RomdOpenIddictClients.Console or RomdOpenIddictClients.Mount && request.IsDeviceCodeGrantType()
+            && session.Device == DevicePairingAuthorization.DefaultLabel(clientId)
+            && request.GetParameter("device_name")?.ToString() is { Length: > 0 } device)
             await sessions.SetDeviceAsync(Guid.Parse(userId), sessionId, device, cancellationToken);
         AttachSession(principal, session);
         return Results.SignIn(principal, authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
     }
 
-    private static string? ReadReturnClient(string returnUrl)
+    private static string? ReadReturnClient(string returnUrl, PathString pathBase)
     {
         int queryStart = returnUrl.IndexOf('?');
-        return queryStart > 0 && returnUrl[..queryStart] == "/connect/authorize"
+        string authorizePath = pathBase + _authorizePath;
+        return queryStart > 0 && returnUrl.AsSpan(0, queryStart).TrimEnd('/').Equals(authorizePath, StringComparison.OrdinalIgnoreCase)
             ? QueryHelpers.ParseQuery(returnUrl[queryStart..])["client_id"].FirstOrDefault()
             : null;
     }
@@ -447,11 +455,10 @@ public static class OpenIddictEndpoints
             """;
     }
 
-    private static IResult VerificationPage(HttpContext context, IAntiforgery antiforgery, string? userCode,
-        ClaimsPrincipal? pairing, string? error = null, int status = StatusCodes.Status200OK)
+    private static IResult VerificationPage(HttpContext context, IAntiforgery antiforgery,
+        IDataProtectionProvider protection, string? userCode, ClaimsPrincipal? pairing, string? error = null, int status = StatusCodes.Status200OK)
     {
-        context.Response.Headers.CacheControl = "no-store";
-        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+        ProtectInteractivePage(context);
         string antiforgeryField = RenderAntiforgeryField(antiforgery.GetAndStoreTokens(context));
         string code = WebUtility.HtmlEncode(userCode ?? "");
         string errorMarkup = error is null ? "" : $"""<p class="romd-auth-error" role="alert">{WebUtility.HtmlEncode(error)}</p>""";
@@ -473,9 +480,8 @@ public static class OpenIddictEndpoints
         }
         else
         {
-            string confirmation = pairing.GetClaim(Claims.ClientId) == RomdOpenIddictClients.CommunityDevice
-                ? RenderCommunityPairing(pairing, code)
-                : codeField;
+            string confirmation = RenderPairing(pairing, code,
+                protection.CreateProtector(_pairingConfirmationPurpose).Protect(userCode!));
             form = $$"""
                 <form method="post" action="/connect/verify" autocomplete="on">
                   {{antiforgeryField}}
@@ -513,25 +519,59 @@ public static class OpenIddictEndpoints
             """, "text/html", statusCode: status);
     }
 
-    private static string RenderCommunityPairing(ClaimsPrincipal pairing, string code)
+    private static string RenderPairing(ClaimsPrincipal pairing, string code, string confirmation)
     {
-        string label = WebUtility.HtmlEncode(pairing.GetClaim(CommunityDeviceAuthorization.LabelClaim) ?? "Community device");
-        string[] permissions = ConsumerGrantScopes.All.Where(pairing.HasScope).Select(scope => scope switch
-        {
-            ConsumerGrantScopes.Discovery => "Identify your ROMD account",
-            ConsumerGrantScopes.Library => "Browse your assigned library",
-            ConsumerGrantScopes.Releases => "View available releases",
-            ConsumerGrantScopes.Delivery => "Download content you can access",
-            _ => throw new InvalidOperationException("Unknown consumer permission.")
-        }).ToArray();
+        string? clientId = pairing.GetClaim(Claims.ClientId);
+        string label = WebUtility.HtmlEncode(pairing.GetClaim(DevicePairingAuthorization.LabelClaim)
+            ?? DevicePairingAuthorization.DefaultLabel(clientId));
+        string[] permissions = DeviceGrantPermissions.ForPairing(clientId, pairing.GetScopes())
+            .Select(scope => scope switch
+            {
+                ConsumerGrantScopes.Discovery => "Identify your ROMD account",
+                ConsumerGrantScopes.Library => "Browse your assigned library",
+                ConsumerGrantScopes.Releases => "View available releases",
+                ConsumerGrantScopes.Delivery => "Download content you can access",
+                ConsumerGrantScopes.PlaySessionSync => "Sync play sessions to your ROMD account",
+                ConsumerGrantScopes.VfsRead => "Mount your assigned library as a read-only drive when enabled",
+                Scopes.OpenId => "Verify your ROMD identity",
+                Scopes.Email => "Read your email address",
+                Scopes.Profile => "Read your ROMD username",
+                Scopes.Roles => "Read your consumer role",
+                Scopes.OfflineAccess => "Stay signed in on this device",
+                _ => null
+            }).OfType<string>().ToArray();
         string permissionList = permissions.Length == 0 ? "" : $"<ul><li>{string.Join("</li><li>", permissions)}</li></ul>";
         return $$"""
             <p class="romd-auth-description">Confirm that the device in front of you shows <strong>{{code}}</strong>.</p>
-            <p class="romd-auth-description">The app supplied the device label <strong>{{label}}</strong>.</p>
+            <p class="romd-auth-description">Device label <strong>{{label}}</strong></p>
             {{permissionList}}
             <input type="hidden" name="user_code" value="{{code}}">
-            <input type="hidden" name="{{_confirmedCodeField}}" value="{{code}}">
+            <input type="hidden" name="{{_pairingConfirmationField}}" value="{{WebUtility.HtmlEncode(confirmation)}}">
             """;
+    }
+
+    private static bool IsConfirmedCode(IDataProtectionProvider protection, string? confirmation, string? userCode)
+    {
+        if (string.IsNullOrEmpty(confirmation) || string.IsNullOrEmpty(userCode))
+            return false;
+
+        try
+        {
+            return protection.CreateProtector(_pairingConfirmationPurpose).Unprotect(confirmation) == userCode;
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+    }
+
+    private static void ProtectInteractivePage(HttpContext context)
+    {
+        var headers = context.Response.Headers;
+        headers.CacheControl = "no-store";
+        headers["Referrer-Policy"] = "no-referrer";
+        headers["Content-Security-Policy"] = "frame-ancestors 'none'";
+        headers["X-Frame-Options"] = "DENY";
     }
 
     private static string RenderAntiforgeryField(AntiforgeryTokenSet tokens) =>

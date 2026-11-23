@@ -45,8 +45,10 @@ OpenIddict application, authorization, scope, and token rows live in the applica
 The worker creates the signing key, seeds the built-in admin and consumer SPA
 clients, `romd-console`, `romd-mount`, and `romd-community-device`, and prunes
 expired tokens and authorizations on a daily schedule. The admin host accepts
-browser registrations and disablement. The worker reconciles pending
-registrations into public OpenIddict applications and marks them active.
+browser registrations and permanent disablement. PostgreSQL limits registration
+IDs to a dedicated namespace and gives the worker sole control over provisioning
+state. The worker reconciles pending registrations independently, records retryable
+failures, and marks successfully provisioned registrations active.
 The consumer host checks the same registration state for browser CORS,
 authorization, token exchange, and bearer token validation. Pending and
 disabled registrations fail those checks. Access tokens also bind to the host

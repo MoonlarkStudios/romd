@@ -126,12 +126,14 @@ public sealed class PostgreSqlSchemaProvisioner(
         BEGIN
             IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'romd_admin') THEN
                 REVOKE INSERT, UPDATE, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."OpenIddictApplications", {{PostgreSqlConfiguration.SchemaName}}."OpenIddictScopes" FROM romd_admin;
-                REVOKE UPDATE, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" FROM romd_admin;
+                REVOKE INSERT, UPDATE, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" FROM romd_admin;
+                GRANT INSERT ("ClientId", "DisplayName", "CallbackUri", "BrowserOrigin")
+                    ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" TO romd_admin;
                 GRANT UPDATE ("DisabledAt") ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" TO romd_admin;
             END IF;
             IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'romd_worker') THEN
                 REVOKE INSERT, UPDATE, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" FROM romd_worker;
-                GRANT UPDATE ("ProvisionedAt") ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" TO romd_worker;
+                GRANT UPDATE ("ProvisionedAt", "RetryProvisioningAt") ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" TO romd_worker;
             END IF;
         END
         $consumer_web_apps$;

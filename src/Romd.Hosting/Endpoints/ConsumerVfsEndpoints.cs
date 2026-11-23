@@ -26,6 +26,7 @@ public static class ConsumerVfsEndpoints
         }
 
         app.Map("/vfs/{**path}", HandleAsync)
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.VfsRead))
             .RequireAuthorization(VfsBasicAuthenticationHandler.PolicyName)
             .ExcludeFromDescription();
         return app;

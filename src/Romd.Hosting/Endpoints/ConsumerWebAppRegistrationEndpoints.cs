@@ -1,8 +1,10 @@
+using System.ComponentModel.DataAnnotations;
 using ErrorOr;
 using Romd.Admin.Application.ConsumerApps.Commands.DisableConsumerWebApp;
 using Romd.Admin.Application.ConsumerApps.Commands.RegisterConsumerWebApp;
 using Romd.Admin.Application.ConsumerApps.Queries.ListConsumerWebApps;
 using Romd.Application.Common.Cqrs;
+using Romd.Contracts.Common.Models;
 using Romd.Contracts.Management.ConsumerApps;
 using Romd.Host.Authorization;
 
@@ -15,14 +17,14 @@ public static class ConsumerWebAppRegistrationEndpoints
         var group = api.MapGroup("consumer-web-apps").WithTags("Consumer web apps")
             .RequireAuthorization(AuthorizationPolicies.RequireAdmin);
 
-        group.MapGet("", List).WithName("ListConsumerWebApps").Produces<IReadOnlyList<ConsumerWebApp>>();
+        group.MapGet("", List).WithName("ListConsumerWebApps").Produces<Page<ConsumerWebApp>>().ProducesProblems(400);
         group.MapPost("", Register).WithName("RegisterConsumerWebApp").ProducesCreated<ConsumerWebApp>().ProducesProblems(400);
         group.MapDelete("{clientId}", Disable).WithName("DisableConsumerWebApp").Produces(204).ProducesProblems(404);
     }
 
-    private static async Task<IResult> List(IQueryHandler<ListConsumerWebAppsQuery, IReadOnlyList<ConsumerWebApp>> handler,
-        CancellationToken ct) =>
-        (await handler.HandleAsync(new(), ct)).Match(Results.Ok, errors => errors.ToProblem());
+    private static async Task<IResult> List(IQueryHandler<ListConsumerWebAppsQuery, Page<ConsumerWebApp>> handler,
+        string? cursor = null, [Range(1, ListConsumerWebAppsQuery.MaxLimit)] int limit = 50, CancellationToken ct = default) =>
+        (await handler.HandleAsync(new(cursor, limit), ct)).Match(Results.Ok, errors => errors.ToProblem());
 
     private static async Task<IResult> Register(RegisterConsumerWebAppRequest request,
         ICommandHandler<RegisterConsumerWebAppCommand, ConsumerWebApp> handler, CancellationToken ct)

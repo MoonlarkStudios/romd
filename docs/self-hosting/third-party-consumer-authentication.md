@@ -13,6 +13,9 @@ from the member's currently assigned library.
    requested permissions, and select **Link device** after entering your ROMD
    credentials. The app finishes pairing when it next polls the server.
 
+The ROMD Console pairing screen includes permission to sync play sessions.
+You can view and clear synced play history from the ROMD consumer portal.
+
 ROMD shows the app and device names supplied by the client. Use the code to
 confirm the pairing. In the ROMD consumer portal, open the account menu and
 choose **Sign-in sessions** to identify and revoke a device. Revocation ends
@@ -27,7 +30,9 @@ that pairing immediately, including refresh. Other sessions stay signed in.
    non-default port, when used.
 3. Select **Register web app**. Wait for the registration to show **Active**,
    then copy its client ID into the app's deployment configuration. Use the
-   ROMD consumer address as the issuer.
+   ROMD consumer address as the issuer. If the registration shows **Setup failed**,
+   the worker will retry. Check the worker logs using the client ID if setup keeps
+   failing.
 4. Open the app and sign in. ROMD shows the registered app name and origin on
    the sign-in page.
 

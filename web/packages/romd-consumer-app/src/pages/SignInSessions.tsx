@@ -108,6 +108,7 @@ export function SignInSessions() {
               <Button
                 variant="light"
                 color="red"
+                aria-label={`Revoke ${session.device}`}
                 onClick={() => {
                   revoke.reset();
                   setSelected(session);

@@ -15,9 +15,16 @@ public sealed class ConsumerWebAppRegistrationStore(RomdDbContext db)
         db.ConsumerWebAppRegistrations.AnyAsync(item => item.BrowserOrigin == browserOrigin
             && item.ProvisionedAt != null && item.DisabledAt == null, ct);
 
-    public async Task<IReadOnlyList<ConsumerWebAppRegistration>> ListAsync(CancellationToken ct) =>
-        (await db.ConsumerWebAppRegistrations.OrderBy(item => item.DisplayName).ThenBy(item => item.ClientId).ToListAsync(ct))
-        .Select(item => item.ToRegistration()).ToArray();
+    public async Task<IReadOnlyList<ConsumerWebAppRegistration>> ListAsync(ConsumerWebAppPosition? after, int limit, CancellationToken ct)
+    {
+        IQueryable<ConsumerWebAppRegistrationEntity> rows = db.ConsumerWebAppRegistrations;
+        if (after is not null)
+            rows = rows.Where(item => string.Compare(item.DisplayName, after.DisplayName) > 0 ||
+                item.DisplayName == after.DisplayName && string.Compare(item.ClientId, after.ClientId) > 0);
+
+        return (await rows.OrderBy(item => item.DisplayName).ThenBy(item => item.ClientId).Take(limit).ToListAsync(ct))
+            .Select(item => item.ToRegistration()).ToArray();
+    }
 
     public void StageRegistration(ConsumerWebAppRegistration registration) =>
         db.ConsumerWebAppRegistrations.Add(new ConsumerWebAppRegistrationEntity
@@ -29,20 +36,33 @@ public sealed class ConsumerWebAppRegistrationStore(RomdDbContext db)
         });
 
     // A single conditional update makes disablement irreversible and safe against concurrent calls.
-    public async Task<bool> DisableAsync(string clientId, DateTimeOffset disabledAt, CancellationToken ct)
+    public async Task<bool> DisableStagedAsync(string clientId, DateTimeOffset disabledAt, CancellationToken ct)
     {
+        if (db.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("Disabling a consumer web app requires a transaction.");
+
         var registration = db.ConsumerWebAppRegistrations.Where(item => item.ClientId == clientId);
         return await registration.Where(item => item.DisabledAt == null)
                 .ExecuteUpdateAsync(set => set.SetProperty(item => item.DisabledAt, disabledAt), ct) == 1
             || await registration.AnyAsync(ct);
     }
 
-    public async Task<IReadOnlyList<ConsumerWebAppRegistration>> ListPendingAsync(CancellationToken ct) =>
-        (await db.ConsumerWebAppRegistrations.Where(item => item.ProvisionedAt == null && item.DisabledAt == null)
-            .OrderBy(item => item.ClientId).Take(50).ToListAsync(ct))
+    public async Task<IReadOnlyList<ConsumerWebAppRegistration>> ListPendingAsync(DateTimeOffset now, CancellationToken ct) =>
+        (await PendingRegistrations()
+            .Where(item => item.RetryProvisioningAt == null || item.RetryProvisioningAt <= now)
+            .OrderBy(item => item.RetryProvisioningAt != null).ThenBy(item => item.RetryProvisioningAt)
+            .ThenBy(item => item.ClientId).Take(50).ToListAsync(ct))
         .Select(item => item.ToRegistration()).ToArray();
 
     public Task MarkProvisionedAsync(string clientId, DateTimeOffset provisionedAt, CancellationToken ct) =>
-        db.ConsumerWebAppRegistrations.Where(item => item.ClientId == clientId && item.ProvisionedAt == null && item.DisabledAt == null)
-            .ExecuteUpdateAsync(set => set.SetProperty(item => item.ProvisionedAt, provisionedAt), ct);
+        PendingRegistrations().Where(item => item.ClientId == clientId)
+            .ExecuteUpdateAsync(set => set.SetProperty(item => item.ProvisionedAt, provisionedAt)
+                .SetProperty(item => item.RetryProvisioningAt, (DateTimeOffset?)null), ct);
+
+    public Task ScheduleProvisioningRetryAsync(string clientId, DateTimeOffset retryAt, CancellationToken ct) =>
+        PendingRegistrations().Where(item => item.ClientId == clientId)
+            .ExecuteUpdateAsync(set => set.SetProperty(item => item.RetryProvisioningAt, retryAt), ct);
+
+    private IQueryable<ConsumerWebAppRegistrationEntity> PendingRegistrations() =>
+        db.ConsumerWebAppRegistrations.Where(item => item.ProvisionedAt == null && item.DisabledAt == null);
 }

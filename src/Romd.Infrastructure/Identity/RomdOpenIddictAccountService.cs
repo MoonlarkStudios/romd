@@ -119,8 +119,9 @@ public sealed class RomdOpenIddictAccountService(
         string clientId,
         CancellationToken ct = default)
     {
-        bool thirdParty = RomdOpenIddictClients.IsThirdParty(clientId);
-        var roles = thirdParty ? [nameof(RomdRoleType.User)] : await GetUserRolesAsync(user.Id, ct);
+        bool scopedGrant = RomdOpenIddictClients.UsesConsumerPermissions(clientId);
+        var grantedScopes = scopes.ToImmutableArray();
+        var roles = scopedGrant ? [nameof(RomdRoleType.User)] : await GetUserRolesAsync(user.Id, ct);
         if (!IsEligibleForClient(roles, clientId))
         {
             return null;
@@ -134,19 +135,21 @@ public sealed class RomdOpenIddictAccountService(
         identity
             .SetClaim(Claims.Subject, user.Id.ToString())
             .SetClaim("romd_account_stamp", user.SecurityStamp)
-            .SetClaim(Claims.Email, thirdParty ? null : user.Email ?? string.Empty)
+            .SetClaim(Claims.Email, !scopedGrant || grantedScopes.Contains(Scopes.Email) ? user.Email ?? string.Empty : null)
             .SetClaim(Claims.Name, user.UserName ?? string.Empty)
             .SetClaim(Claims.PreferredUsername, user.UserName ?? string.Empty)
             .SetClaims(Claims.Role, roles.ToImmutableArray());
 
-        if (!thirdParty && user.LibraryId.HasValue)
+        if (!scopedGrant && user.LibraryId.HasValue)
         {
             identity.SetClaim("LibraryId", user.LibraryId.Value.ToString());
         }
 
         var principal = new ClaimsPrincipal(identity);
-        principal.SetScopes(scopes);
+        principal.SetScopes(grantedScopes);
         principal.SetResources(audience);
+        if (RomdOpenIddictClients.IsDevice(clientId))
+            principal.SetClaim(DeviceGrantPermissions.ConsentClaim, "true");
         principal.SetDestinations(GetDestinations);
 
         return principal;

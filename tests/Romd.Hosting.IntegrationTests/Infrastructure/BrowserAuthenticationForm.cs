@@ -20,6 +20,14 @@ internal static class BrowserAuthenticationForm
         {
             [match.Groups[1].Value] = WebUtility.HtmlDecode(match.Groups[2].Value)
         };
+        var confirmation = Regex.Match(html, @"name=""(pairing_confirmation)"" value=""([^""]+)""");
+        if (confirmation.Success)
+        {
+            var confirmedCode = Regex.Match(html, @"type=""hidden"" name=""user_code"" value=""([^""]+)""");
+            confirmedCode.Success.ShouldBeTrue();
+            form["user_code"] = WebUtility.HtmlDecode(confirmedCode.Groups[1].Value);
+            form[confirmation.Groups[1].Value] = WebUtility.HtmlDecode(confirmation.Groups[2].Value);
+        }
         return new FormUrlEncodedContent(form);
     }
 }

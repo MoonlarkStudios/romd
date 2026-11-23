@@ -370,6 +370,21 @@ namespace Romd.Persistence.Migrations
                     b.ToView("EnrichmentRequirementFacts", "romd");
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Enrichment.EnrichmentBatchMember", b =>
+                {
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("n");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("integer")
+                        .HasColumnName("x");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("EnrichmentBatchMembers", "romd");
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.AccountLinkEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1244,9 +1259,6 @@ namespace Romd.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<Guid>("VerificationId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("EntryPoint")
                         .IsRequired()
                         .HasMaxLength(240)
@@ -1269,6 +1281,9 @@ namespace Romd.Persistence.Migrations
 
                     b.Property<int>("RepresentationId")
                         .HasColumnType("integer");
+
+                    b.Property<Guid>("VerificationId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("LayoutId");
 
@@ -1462,6 +1477,55 @@ namespace Romd.Persistence.Migrations
                     b.HasKey("UserId");
 
                     b.ToTable("ConsumerUserSettings", "romd");
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.ConsumerWebAppRegistrationEntity", b =>
+                {
+                    b.Property<string>("ClientId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("BrowserOrigin")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("CallbackUri")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<long?>("DisabledAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("NULL");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<long?>("ProvisionedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("NULL");
+
+                    b.Property<long?>("RetryProvisioningAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("NULL");
+
+                    b.HasKey("ClientId");
+
+                    b.HasIndex("BrowserOrigin")
+                        .HasFilter(" \"ProvisionedAt\" IS NOT NULL AND \"DisabledAt\" IS NULL ");
+
+                    b.HasIndex("DisplayName", "ClientId");
+
+                    b.ToTable("ConsumerWebAppRegistrations", "romd", t =>
+                        {
+                            t.HasCheckConstraint("CK_ConsumerWebAppRegistrations_ClientId", " \"ClientId\" ~ '^romd-web-[0-9a-f]{32}$' ");
+                        });
                 });
 
             modelBuilder.Entity("Romd.Persistence.Entities.DatDiskEntity", b =>
@@ -4389,6 +4453,9 @@ namespace Romd.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<int?>("CatalogReleaseId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -4401,9 +4468,6 @@ namespace Romd.Persistence.Migrations
 
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid");
-
-                    b.Property<int?>("CatalogReleaseId")
-                        .HasColumnType("integer");
 
                     b.Property<int>("FileId")
                         .HasColumnType("integer");
@@ -4463,16 +4527,16 @@ namespace Romd.Persistence.Migrations
 
                     b.HasIndex("TitleId");
 
+                    b.HasIndex("TitleId", "Type", "CatalogReleaseId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TitleMedia_PreferredPerRelease")
+                        .HasFilter("\"IsPreferred\" AND \"CatalogReleaseId\" IS NOT NULL");
+
                     b.HasIndex("TitleId", "Type", "IsPrimary");
 
                     b.HasIndex("TitleId", "Type", "SourceId")
                         .IsUnique()
                         .HasFilter("\"SourceId\" <> 'user' AND \"SourceId\" NOT LIKE 'gallery:%'");
-
-                    b.HasIndex("TitleId", "Type", "CatalogReleaseId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_TitleMedia_PreferredPerRelease")
-                        .HasFilter("\"IsPreferred\" AND \"CatalogReleaseId\" IS NOT NULL");
 
                     b.ToTable("TitleMedia", "romd", t =>
                         {

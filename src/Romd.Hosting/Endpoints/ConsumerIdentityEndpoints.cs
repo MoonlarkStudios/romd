@@ -35,7 +35,9 @@ public static class ConsumerIdentityEndpoints
         {
             var result = await handler.HandleAsync(new(), ct);
             return result.IsError ? result.Errors.ToProblem() : Results.Ok(result.Value);
-        }).WithName("GetConsumerLibraryPublication").Produces<LibraryPublicationVersion>().Produces(401);
+        }).WithName("GetConsumerLibraryPublication")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Library))
+            .Produces<LibraryPublicationVersion>().Produces(401);
 
         return app;
     }

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Romd.Application.Common.Cqrs;
+using Romd.Application.Common.Security;
 using Romd.Consumer.Application.Activity.Commands.ClearPlayActivity;
 using Romd.Consumer.Application.Activity.Commands.DeletePlaySession;
 using Romd.Consumer.Application.Activity.Commands.UpsertPlaySession;
@@ -24,6 +25,7 @@ public static class ConsumerPlayActivityEndpoints
 
         group.MapPut("play-sessions/{sessionId:guid}", UpsertSession)
             .WithName("ReplaceConsumerPlaySession")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.PlaySessionSync))
             .Produces<PlaySession>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(

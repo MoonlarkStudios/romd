@@ -14,8 +14,7 @@ public static class ConsumerAccountEndpoints
     public static IEndpointRouteBuilder MapConsumerAccountEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("me")
-            .WithTags("Consumer Account")
-            .WithMetadata(new BrowserAccountOnly());
+            .WithTags("Consumer Account");
 
         group.MapPut("password", ChangePassword)
             .WithName("ReplaceConsumerPassword")

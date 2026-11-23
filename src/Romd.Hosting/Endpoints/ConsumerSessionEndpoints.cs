@@ -16,7 +16,7 @@ public static class ConsumerSessionEndpoints
     public static void MapConsumerSessionEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("me/sessions").WithTags("Consumer Account")
-            .WithMetadata(new BrowserAccountOnly()).RequireAuthorization(AuthorizationPolicies.RequireUser);
+            .RequireAuthorization(AuthorizationPolicies.RequireUser);
         group.MapGet("", List).WithName("ListConsumerSignInSessions")
             .Produces<Page<ConsumerSignInSession>>().ProducesProblems(400);
         group.MapDelete("{sessionId:guid}", Revoke).WithName("RevokeConsumerSignInSession")

@@ -13,7 +13,8 @@ public enum ConsumerWebAppStatus
 {
     Pending,
     Active,
-    Disabled
+    Disabled,
+    ProvisioningFailed
 }
 
 public sealed record RegisterConsumerWebAppRequest(

@@ -20,7 +20,6 @@ public static class ConsumerVfsConnectionEndpoints
     public static IEndpointRouteBuilder MapConsumerVfsConnectionEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("me/connections").WithTags("Consumer Connections")
-            .WithMetadata(new BrowserAccountOnly())
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
         group.AddEndpointFilter(async (context, next) =>
         {

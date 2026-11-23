@@ -1,33 +1,33 @@
 using System.Security.Claims;
 using OpenIddict.Abstractions;
 using OpenIddict.Server;
-using Romd.Application.Common.Security;
 using Romd.Infrastructure.Identity;
 
 namespace Romd.Host.Authorization;
 
-public sealed class CommunityDeviceAuthorization
+public sealed class DevicePairingAuthorization
     : IOpenIddictServerHandler<OpenIddictServerEvents.HandleDeviceAuthorizationRequestContext>
 {
     public const string LabelClaim = "romd_pairing_label";
 
     public ValueTask HandleAsync(OpenIddictServerEvents.HandleDeviceAuthorizationRequestContext context)
     {
-        if (context.Request.ClientId != RomdOpenIddictClients.CommunityDevice)
+        string? clientId = context.Request.ClientId;
+        if (!RomdOpenIddictClients.IsDevice(clientId))
             return ValueTask.CompletedTask;
 
         string app = ReadLabel("app_name");
         string device = ReadLabel("device_name");
         string label = (app, device) switch
         {
-            ("", "") => "Community device",
+            ("", "") => DefaultLabel(clientId),
             ("", _) => device,
             (_, "") => app,
             _ => $"{app} · {device}"
         };
 
         var principal = new ClaimsPrincipal(new ClaimsIdentity());
-        principal.SetScopes(context.Request.GetScopes());
+        principal.SetScopes(DeviceGrantPermissions.ForPairing(clientId, context.Request.GetScopes()));
         principal.SetClaim(LabelClaim, label);
         context.SignIn(principal);
         return ValueTask.CompletedTask;
@@ -38,4 +38,11 @@ public sealed class CommunityDeviceAuthorization
                 char.GetUnicodeCategory(character) is not System.Globalization.UnicodeCategory.Format)
             .Take(58).ToArray()).Trim();
     }
+
+    public static string DefaultLabel(string? clientId) => clientId switch
+    {
+        RomdOpenIddictClients.Console => "Console",
+        RomdOpenIddictClients.Mount => "ROMD Mount",
+        _ => "Community device"
+    };
 }

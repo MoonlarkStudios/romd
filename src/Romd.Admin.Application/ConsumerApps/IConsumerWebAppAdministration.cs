@@ -5,10 +5,12 @@ namespace Romd.Admin.Application.ConsumerApps;
 
 public interface IConsumerWebAppAdministration
 {
-    Task<IReadOnlyList<ConsumerWebAppRegistration>> ListAsync(CancellationToken ct);
+    Task<IReadOnlyList<ConsumerWebAppRegistration>> ListAsync(ConsumerWebAppPosition? after, int limit, CancellationToken ct);
     void StageRegistration(ConsumerWebAppRegistration registration);
-    Task<bool> DisableAsync(string clientId, DateTimeOffset disabledAt, CancellationToken ct);
+    Task<bool> DisableStagedAsync(string clientId, DateTimeOffset disabledAt, CancellationToken ct);
 }
+
+public sealed record ConsumerWebAppPosition(string DisplayName, string ClientId);
 
 internal static class ConsumerWebAppMapping
 {
@@ -18,5 +20,6 @@ internal static class ConsumerWebAppMapping
         registration.CallbackUri,
         registration.BrowserOrigin,
         registration.DisabledAt.HasValue ? ConsumerWebAppStatus.Disabled :
-            registration.IsActive ? ConsumerWebAppStatus.Active : ConsumerWebAppStatus.Pending);
+            registration.IsActive ? ConsumerWebAppStatus.Active :
+            registration.RetryProvisioningAt.HasValue ? ConsumerWebAppStatus.ProvisioningFailed : ConsumerWebAppStatus.Pending);
 }

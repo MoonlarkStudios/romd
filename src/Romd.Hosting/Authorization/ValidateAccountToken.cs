@@ -39,9 +39,9 @@ public sealed class ValidateAccountToken(
             return;
         }
 
-        if (RomdOpenIddictClients.IsThirdParty(session.ClientId))
-            principal.SetClaim(ThirdPartyConsumerAccessHandler.ThirdPartyClaim, "true");
-        if (session.ClientId is RomdOpenIddictClients.Console or RomdOpenIddictClients.CommunityDevice or RomdOpenIddictClients.Mount)
-            principal.SetClaim(ThirdPartyConsumerAccessHandler.DeviceClaim, "true");
+        if (RomdOpenIddictClients.UsesConsumerPermissions(session.ClientId))
+            principal.SetClaim(ThirdPartyConsumerAccessHandler.ScopedGrantClaim, "true");
+
+        principal.SetScopes(DeviceGrantPermissions.RestoreApprovedScopes(session.ClientId, principal));
     }
 }

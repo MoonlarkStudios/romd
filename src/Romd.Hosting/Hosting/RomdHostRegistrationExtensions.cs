@@ -298,11 +298,11 @@ public static class RomdHostRegistrationExtensions
                     options.SetDeviceAuthorizationEndpointUris("/connect/device")
                         .SetEndUserVerificationEndpointUris("/connect/verify")
                         .AllowDeviceAuthorizationFlow();
-                    options.RegisterScopes(ConsumerGrantScopes.All.ToArray());
+                    options.RegisterScopes(ConsumerGrantScopes.ThirdParty.Add(ConsumerGrantScopes.PlaySessionSync).Add(ConsumerGrantScopes.VfsRead).ToArray());
                     options.AddEventHandler<OpenIddictServerEvents.ValidateDeviceAuthorizationRequestContext>(builder =>
                         builder.UseScopedHandler<ValidateOAuthClient>().SetOrder(int.MinValue + 500));
                     options.AddEventHandler<OpenIddictServerEvents.HandleDeviceAuthorizationRequestContext>(builder =>
-                        builder.UseSingletonHandler<CommunityDeviceAuthorization>());
+                        builder.UseSingletonHandler<DevicePairingAuthorization>());
 
                 }
 

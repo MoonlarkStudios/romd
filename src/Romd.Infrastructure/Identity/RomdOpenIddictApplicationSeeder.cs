@@ -42,14 +42,21 @@ public sealed class RomdOpenIddictApplicationSeeder(
 
     private IEnumerable<OpenIddictApplicationDescriptor> BuildDescriptors()
     {
-        yield return BuildDeviceDescriptor(RomdOpenIddictClients.Console, "ROMD Console");
+        var console = BuildDeviceDescriptor(RomdOpenIddictClients.Console, "ROMD Console");
+        console.Permissions.UnionWith(ConsumerGrantScopes.ThirdParty.Select(scope => Permissions.Prefixes.Scope + scope));
+        console.Permissions.Add(Permissions.Prefixes.Scope + ConsumerGrantScopes.PlaySessionSync);
+        console.Permissions.Add(Permissions.Prefixes.Scope + ConsumerGrantScopes.VfsRead);
+        yield return console;
         var community = BuildDeviceDescriptor(RomdOpenIddictClients.CommunityDevice, "Community device");
         community.Permissions.Remove(Permissions.Scopes.Email);
         community.Permissions.Remove(Permissions.Scopes.Profile);
         community.Permissions.Remove(Permissions.Scopes.Roles);
-        community.Permissions.UnionWith(ConsumerGrantScopes.All.Select(scope => Permissions.Prefixes.Scope + scope));
+        community.Permissions.UnionWith(ConsumerGrantScopes.ThirdParty.Select(scope => Permissions.Prefixes.Scope + scope));
         yield return community;
-        yield return BuildDeviceDescriptor(RomdOpenIddictClients.Mount, "ROMD Mount");
+        var mount = BuildDeviceDescriptor(RomdOpenIddictClients.Mount, "ROMD Mount");
+        mount.Permissions.Add(Permissions.Prefixes.Scope + ConsumerGrantScopes.Discovery);
+        mount.Permissions.Add(Permissions.Prefixes.Scope + ConsumerGrantScopes.VfsRead);
+        yield return mount;
         yield return BuildSpaDescriptor(
             RomdOpenIddictClients.AdminSpa,
             "ROMD Admin",

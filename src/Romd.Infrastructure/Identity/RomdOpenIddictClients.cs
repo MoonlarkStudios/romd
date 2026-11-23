@@ -14,6 +14,10 @@ public static class RomdOpenIddictClients
     public const string CommunityDevice = "romd-community-device";
     public const string Mount = "romd-mount";
 
-    public static bool IsThirdParty(string? clientId) =>
-        clientId == CommunityDevice || ConsumerWebAppRegistration.IsClientId(clientId);
+    public static bool IsDevice(string? clientId) =>
+        clientId is CommunityDevice or Console or Mount;
+
+    public static bool UsesConsumerPermissions(string? clientId) =>
+        IsDevice(clientId) || ConsumerWebAppRegistration.IsClientId(clientId);
+
 }

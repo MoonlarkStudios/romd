@@ -9,5 +9,8 @@ public static class ConsumerGrantScopes
     public const string Releases = "romd:releases";
     public const string Delivery = "romd:delivery";
 
-    public static ImmutableArray<string> All { get; } = [Discovery, Library, Releases, Delivery];
+    public const string PlaySessionSync = "romd:play-session-sync";
+    public const string VfsRead = "romd:vfs-read";
+
+    public static ImmutableArray<string> ThirdParty { get; } = [Discovery, Library, Releases, Delivery];
 }

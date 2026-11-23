@@ -80,8 +80,9 @@ public static class TestAuthenticationExtensions
 
         services.AddAuthorization(options =>
         {
-            options.AddPolicy(Romd.Hosting.Vfs.VfsBasicAuthenticationHandler.PolicyName,
-                p => p.AddAuthenticationSchemes([.. schemes, Romd.Hosting.Vfs.VfsBasicAuthenticationHandler.SchemeName]).RequireAuthenticatedUser());
+            string vfsPolicy = Romd.Hosting.Vfs.VfsBasicAuthenticationHandler.PolicyName;
+            if (options.GetPolicy(vfsPolicy) is { } vfs)
+                options.AddPolicy(vfsPolicy, p => p.Combine(vfs).AddAuthenticationSchemes(TestAuthHandler.SchemeName));
             options.AddPolicy(AuthorizationPolicies.RequireUser, p => Configure(p, RomdRoleType.User, schemes));
             options.AddPolicy(AuthorizationPolicies.RequireContributor, p => Configure(p, RomdRoleType.Contributor, schemes));
             options.AddPolicy(AuthorizationPolicies.RequireManager, p => Configure(p, RomdRoleType.Manager, schemes));

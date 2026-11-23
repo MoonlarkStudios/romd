@@ -5,7 +5,7 @@ import {
   listConsumerWebApps,
   registerConsumerWebApp,
 } from '@romd/admin-api-client';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiError } from '../../components/Administration/apiError';
 
@@ -23,18 +23,32 @@ export function ConsumerWebApps() {
   const cache = useQueryClient();
   const [draft, setDraft] = useState(emptyDraft);
   const [selected, setSelected] = useState<ConsumerWebApp | null>(null);
+  const [cursors, setCursors] = useState<string[]>([]);
+  const cursor = cursors.at(-1);
   const apps = useQuery({
-    queryKey,
+    queryKey: [
+      ...queryKey,
+      cursor,
+    ],
+    placeholderData: keepPreviousData,
     queryFn: async ({ signal }) => {
       const response = await listConsumerWebApps({
         signal,
+        query: {
+          cursor,
+          limit: 25,
+        },
       });
       if (!response.data)
         throw new Error(apiError(response.error, 'Could not load consumer web apps.'));
       return response.data;
     },
-    refetchInterval: (query) =>
-      query.state.data?.some((app) => app.status === 'Pending') ? 2000 : false,
+    refetchInterval: (query) => {
+      const items = query.state.data?.items;
+      if (items?.some((app) => app.status === 'Pending')) return 2000;
+      if (items?.some((app) => app.status === 'ProvisioningFailed')) return 10000;
+      return false;
+    },
   });
   const refresh = () =>
     cache.invalidateQueries({
@@ -48,6 +62,7 @@ export function ConsumerWebApps() {
       });
       if (!response.data)
         throw new Error(apiError(response.error, 'Could not register the web app.'));
+      return response.data;
     },
     onSuccess: async () => {
       setDraft(emptyDraft);
@@ -93,7 +108,7 @@ export function ConsumerWebApps() {
           </Button>
         </Alert>
       )}
-      {apps.data?.map((app) => (
+      {apps.data?.items.map((app) => (
         <Stack
           key={app.clientId}
           gap={4}
@@ -103,15 +118,22 @@ export function ConsumerWebApps() {
               <Text fw={600}>{app.displayName}</Text>
               <Badge
                 variant="light"
-                color={app.status === 'Active' ? 'green' : 'gray'}
+                color={
+                  app.status === 'ProvisioningFailed'
+                    ? 'orange'
+                    : app.status === 'Active'
+                      ? 'green'
+                      : 'gray'
+                }
               >
-                {app.status}
+                {app.status === 'ProvisioningFailed' ? 'Setup failed' : app.status}
               </Badge>
             </Group>
             {app.status !== 'Disabled' && (
               <Button
                 variant="subtle"
                 color="red"
+                aria-label={`Disable ${app.displayName}`}
                 onClick={() => {
                   disable.reset();
                   setSelected(app);
@@ -121,6 +143,14 @@ export function ConsumerWebApps() {
               </Button>
             )}
           </Group>
+          {app.status === 'ProvisioningFailed' && (
+            <Text
+              c="dimmed"
+              size="sm"
+            >
+              The worker will retry automatically. Check the worker logs if setup keeps failing.
+            </Text>
+          )}
           <Text
             c="dimmed"
             size="sm"
@@ -147,6 +177,34 @@ export function ConsumerWebApps() {
           </Code>
         </Stack>
       ))}
+      {(cursor || apps.data?.hasNextPage) && (
+        <Group
+          justify="flex-end"
+          aria-label="Web app pages"
+        >
+          <Button
+            variant="default"
+            disabled={!cursor || apps.isPlaceholderData}
+            onClick={() => setCursors((current) => current.slice(0, -1))}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="default"
+            disabled={!apps.data?.hasNextPage || apps.isPlaceholderData}
+            onClick={() => {
+              const next = apps.data?.nextCursor;
+              if (next)
+                setCursors((current) => [
+                  ...current,
+                  next,
+                ]);
+            }}
+          >
+            Next
+          </Button>
+        </Group>
+      )}
       <Stack
         component="form"
         gap="sm"
@@ -195,6 +253,12 @@ export function ConsumerWebApps() {
             })
           }
         />
+        {register.data && (
+          <Alert role="status">
+            Registered {register.data.displayName}. Use client ID{' '}
+            <Code>{register.data.clientId}</Code> once the registration is active.
+          </Alert>
+        )}
         {register.isError && (
           <Alert
             color="red"
@@ -219,7 +283,10 @@ export function ConsumerWebApps() {
       >
         {selected && (
           <Stack>
-            <Text>Disable {selected.displayName} and end all of its ROMD sign-ins?</Text>
+            <Text>
+              Disable {selected.displayName} and end all of its ROMD sign-ins? To reconnect it,
+              register the app again with a new client ID.
+            </Text>
             {disable.isError && (
               <Alert
                 color="red"

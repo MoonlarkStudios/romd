@@ -2,18 +2,26 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using OpenIddict.Abstractions;
+using OpenIddict.Server;
 using Romd.Application.Common.Ids;
 using Romd.Contracts.Common.Models;
 using Romd.Contracts.Consumer.Account;
+using Romd.Contracts.Consumer.Activity;
 using Romd.Contracts.Consumer.Browse;
 using Romd.Contracts.Consumer.Releases;
 using Romd.Contracts.Management.ConsumerApps;
 using Romd.Domain.Identity;
 using Romd.Hosting.IntegrationTests.Infrastructure;
 using Romd.Infrastructure.Identity;
+using Romd.Persistence;
+using Romd.Persistence.Identity;
 using Shouldly;
 using Xunit;
 using DeliveryFixture = Romd.Hosting.IntegrationTests.Endpoints.ConsumerDeliveryEndpointsTests.ConsumerDeliveryFixture;
@@ -91,6 +99,230 @@ public sealed class ThirdPartyConsumerAuthenticationTests
     }
 
     [Fact]
+    public async Task PairConsole_LegacyClientRequest_CanSyncPlaySessionsWithNoHistoryOrAccountAccess()
+    {
+        await using var fixture = await DeliveryFixture.CreateAsync();
+        await fixture.SeedOpenIddictAsync();
+        var seed = await fixture.SeedDeliveryDataAsync();
+        await fixture.SeedCrossSurfaceDataAsync(seed);
+        await fixture.CreatePasswordUserAsync(Login, "player@example.com", Password, seed.LibraryId);
+        using var browser = fixture.Factory.CreateClient(BrowserOptions);
+
+        const string clientId = RomdOpenIddictClients.Console;
+        const string legacyScopes = "offline_access email profile roles";
+        var console = await PairAsync(browser, "Console", "Living room", legacyScopes, clientId,
+            "Sync play sessions to your ROMD account");
+        using var device = CreateConsumerClient(fixture, console.AccessToken);
+        await AssertLibraryAndContentAsync(device, seed);
+        (await device.GetAsync("/api/me")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        string history = "/api/me/activity/play-sessions";
+        string session = $"{history}/{Guid.NewGuid()}";
+        var play = new UpsertPlaySessionRequest
+        {
+            ClientId = "living-room",
+            TitleId = IdCoder.Encode(seed.OwnedTitleId),
+            ReleaseId = IdCoder.Encode(seed.OwnedReleaseId),
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-1)
+        };
+        using var saved = await device.PutAsJsonAsync(session, play);
+        saved.StatusCode.ShouldBe(HttpStatusCode.OK, await saved.Content.ReadAsStringAsync());
+        (await device.GetAsync(history)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await device.GetAsync(session)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await device.DeleteAsync(history)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await device.GetAsync("/api/me/settings")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        using var refresh = await RefreshAsync(browser, clientId, console.RefreshToken);
+        var refreshed = await ReadTokensAsync(refresh, requireRefresh: true);
+        using var refreshedDevice = CreateConsumerClient(fixture, refreshed.AccessToken);
+        (await refreshedDevice.PutAsJsonAsync(session, play)).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await refreshedDevice.DeleteAsync(history)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        var portalTokens = await FirstPartySignInAsync(browser);
+        using var portal = CreateConsumerClient(fixture, portalTokens.AccessToken);
+        var historyPage = (await portal.GetFromJsonAsync<Page<PlaySession>>(history)).ShouldNotBeNull();
+        historyPage.Items.ShouldHaveSingleItem().ClientId.ShouldBe("living-room");
+    }
+
+    [Fact]
+    public async Task ConsoleTokens_FromBeforeScopedDeviceGrants_KeepCompatibleAccessAndStayDownscopedAfterRefresh()
+    {
+        await using var fixture = await DeliveryFixture.CreateAsync();
+        await fixture.SeedOpenIddictAsync();
+        var seed = await fixture.SeedDeliveryDataAsync();
+        await fixture.CreatePasswordUserAsync(Login, "player@example.com", Password, seed.LibraryId);
+
+        // Issue the previous token shape using the same issuer keys and stored account session.
+        // The verification host itself has no test handler that modifies grants.
+        using var legacyFactory = fixture.Factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddOpenIddict().AddServer(options => options
+                .AddEventHandler<OpenIddictServerEvents.ProcessSignInContext>(handler => handler.UseInlineHandler(context =>
+                {
+                    if (context.EndpointType == OpenIddictServerEndpointType.Token)
+                    {
+                        var principal = context.Principal!;
+                        principal.SetClaim(DeviceGrantPermissions.ConsentClaim, (string?)null);
+                        principal.SetScopes(["offline_access", "email", "profile", "roles"]);
+                    }
+
+                    return ValueTask.CompletedTask;
+                }).SetOrder(int.MinValue + 1000)))));
+        using var legacyBrowser = legacyFactory.CreateClient(BrowserOptions);
+        const string clientId = RomdOpenIddictClients.Console;
+        var legacy = await PairAsync(legacyBrowser, "Console", "Legacy", "offline_access email profile roles", clientId);
+        using var legacyDevice = CreateConsumerClient(fixture, legacy.AccessToken);
+        (await legacyDevice.GetAsync("/api/catalog")).StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await legacyDevice.DeleteAsync("/api/me/activity/play-sessions")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+        using var browser = fixture.Factory.CreateClient(BrowserOptions);
+        using var refresh = await RefreshAsync(browser, clientId, legacy.RefreshToken);
+        var refreshed = await ReadTokensAsync(refresh);
+        using var refreshedDevice = CreateConsumerClient(fixture, refreshed.AccessToken);
+        (await refreshedDevice.GetAsync("/api/catalog")).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        using var downgrade = await RefreshAsync(browser, clientId, refreshed.RefreshToken, scopes: "offline_access");
+        var reduced = await ReadTokensAsync(downgrade);
+        using var secondRefresh = await RefreshAsync(browser, clientId, reduced.RefreshToken);
+        var stillReduced = await ReadTokensAsync(secondRefresh);
+        foreach (string accessToken in new[] { reduced.AccessToken, stillReduced.AccessToken })
+        {
+            using var device = CreateConsumerClient(fixture, accessToken);
+            (await device.GetAsync("/api/catalog")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        }
+    }
+
+    [Fact]
+    public async Task DevelopmentMount_RespectsApprovedMountPermissionAndRejectsCommunityDeviceGrant()
+    {
+        await using var fixture = await DeliveryFixture.CreateAsync();
+        await fixture.SeedOpenIddictAsync();
+        var seed = await fixture.SeedDeliveryDataAsync();
+        await fixture.CreatePasswordUserAsync(Login, "player@example.com", Password, seed.LibraryId);
+        using var host = fixture.Factory.WithWebHostBuilder(builder => builder
+            .UseSetting("Romd:Vfs:Enabled", "true")
+            .UseSetting("Romd:Vfs:AllowDevelopmentBearer", "true"));
+        using var browser = host.CreateClient(BrowserOptions);
+        var mount = await PairAsync(browser, "Mount", "First", "offline_access email profile roles", RomdOpenIddictClients.Mount,
+            "Mount your assigned library as a read-only drive");
+        var community = await PairAsync(browser, "Community", "Second", AllConsumerScopes);
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/vfs/library/");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", mount.AccessToken);
+        (await browser.SendAsync(request)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        using var denied = new HttpRequestMessage(HttpMethod.Options, "/vfs/library/");
+        denied.Headers.Authorization = new AuthenticationHeaderValue("Bearer", community.AccessToken);
+        (await browser.SendAsync(denied)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    [Theory]
+    [InlineData(RomdOpenIddictClients.Console)]
+    [InlineData(RomdOpenIddictClients.Mount)]
+    public async Task PairDevice_BuiltInIdWithLimitedConsent_DoesNotGainOtherPermissions(string clientId)
+    {
+        await using var fixture = await DeliveryFixture.CreateAsync();
+        await fixture.SeedOpenIddictAsync();
+        var seed = await fixture.SeedDeliveryDataAsync();
+        await fixture.CreatePasswordUserAsync(Login, "player@example.com", Password, seed.LibraryId);
+        using var browser = fixture.Factory.CreateClient(BrowserOptions);
+        var tokens = await PairAsync(browser, "Example app", "Device", "offline_access romd:discovery", clientId,
+            "Identify your ROMD account");
+
+        using var refresh = await RefreshAsync(browser, clientId, tokens.RefreshToken);
+        var refreshed = await ReadTokensAsync(refresh, requireRefresh: true);
+        foreach (string accessToken in new[] { tokens.AccessToken, refreshed.AccessToken })
+        {
+            using var device = CreateConsumerClient(fixture, accessToken);
+            (await device.GetAsync("/api/me")).StatusCode.ShouldBe(HttpStatusCode.OK);
+            (await device.GetAsync("/api/catalog")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+            (await device.GetAsync("/api/me/activity/play-sessions")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+            (await device.DeleteAsync("/api/me/activity/play-sessions")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+            using var request = await device.PutAsJsonAsync($"/api/me/activity/play-sessions/{Guid.NewGuid()}", new { });
+            request.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        }
+    }
+
+    [Fact]
+    public async Task PairDevice_ConsentForOneCode_CannotBeAppliedToAnotherCode()
+    {
+        await using var fixture = await DeliveryFixture.CreateAsync();
+        await fixture.SeedOpenIddictAsync();
+        using var browser = fixture.Factory.CreateClient(BrowserOptions);
+        var first = await RequestDeviceCodeAsync(browser, RomdOpenIddictClients.Console,
+            "openid email offline_access romd:discovery", "Example", "First");
+        using var verification = await browser.GetAsync($"/connect/verify?user_code={Uri.EscapeDataString(ReadString(first, "user_code"))}");
+        AssertUnframed(verification);
+        var preview = await verification.Content.ReadAsStringAsync();
+        preview.ShouldContain("Read your email address");
+        preview.ShouldContain("Stay signed in on this device");
+        preview.ShouldContain("Verify your ROMD identity");
+        var second = await RequestDeviceCodeAsync(browser, RomdOpenIddictClients.Console, "romd:library", "Example", "Second");
+
+        using var form = await BrowserAuthenticationForm.CreateAsync(browser, "/connect/verify", new Dictionary<string, string>
+        {
+            ["user_code"] = ReadString(first, "user_code"),
+            ["login"] = Login,
+            ["password"] = Password
+        });
+        var fields = QueryHelpers.ParseQuery(await form.ReadAsStringAsync())
+            .ToDictionary(field => field.Key, field => field.Value.ToString(), StringComparer.Ordinal);
+        fields["user_code"] = ReadString(second, "user_code");
+        using var approval = await browser.PostAsync("/connect/verify", Form(fields));
+        approval.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var page = await approval.Content.ReadAsStringAsync();
+        page.ShouldContain("Browse your assigned library");
+        page.ShouldNotContain("Identify your ROMD account");
+        page.ShouldNotContain("Read your email address");
+        using var pending = await ExchangeDeviceCodeAsync(browser, RomdOpenIddictClients.Console, second);
+        ReadString(await ReadObjectAsync(pending), "error").ShouldBe("authorization_pending");
+    }
+
+    [Fact]
+    public async Task ListRegistrations_FailedProvisioningIsVisibleAndIndependent_PagesByStableCursor()
+    {
+        await using var fixture = await DeliveryFixture.CreateAsync();
+        var seed = await fixture.SeedDeliveryDataAsync();
+        var user = await fixture.CreatePasswordUserAsync(Login, "player@example.com", Password, seed.LibraryId);
+        using var adminHost = fixture.CreateAdminHost();
+        using var admin = adminHost.CreateClient();
+        admin.WithTestUser(user.Id, user.Email!, [RomdRoleType.Admin]);
+
+        await using var workers = fixture.CreateWorkerIdentityServices();
+        const string failedId = "romd-web-00000000000000000000000000000000";
+        string displayName = new('界', 120);
+        string retryOrigin = "https://failed.example";
+        await using (var scope = workers.CreateAsyncScope())
+        {
+            var store = scope.ServiceProvider.GetRequiredService<ConsumerWebAppRegistrationStore>();
+            store.StageRegistration(new(failedId, displayName, "unparseable uri", retryOrigin, null, null, null));
+            await scope.ServiceProvider.GetRequiredService<RomdDbContext>().SaveChangesAsync();
+        }
+
+        using var created = await admin.PostAsJsonAsync(Registrations, Registration(BrowserOrigin) with { DisplayName = displayName });
+        created.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var valid = (await created.Content.ReadFromJsonAsync<ConsumerWebApp>(ConsumerDeliveryEndpointsTests.ConsumerJsonOptions)).ShouldNotBeNull();
+        using var worker = new ConsumerWebAppProvisioningWorker(workers.GetRequiredService<IServiceScopeFactory>(),
+            TimeProvider.System, workers.GetRequiredService<ILogger<ConsumerWebAppProvisioningWorker>>());
+        await worker.StartAsync(default);
+        await WaitForRegistrationsAsync(admin, valid.ClientId);
+        await worker.StopAsync(default);
+
+        var firstPage = await GetRegistrationPageAsync(admin, $"{Registrations}?limit=1");
+        firstPage.HasNextPage.ShouldBeTrue();
+        firstPage.NextCursor.ShouldNotBeNullOrWhiteSpace();
+        var failed = firstPage.Items.ShouldHaveSingleItem();
+        failed.ClientId.ShouldBe(failedId);
+        failed.Status.ShouldBe(ConsumerWebAppStatus.ProvisioningFailed);
+        var nextPage = await GetRegistrationPageAsync(admin, $"{Registrations}?limit=1&cursor={Uri.EscapeDataString(firstPage.NextCursor)}");
+        nextPage.HasNextPage.ShouldBeFalse();
+        nextPage.Items.ShouldHaveSingleItem().ClientId.ShouldBe(valid.ClientId);
+        (await admin.GetAsync($"{Registrations}?cursor=invalid")).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await admin.GetAsync($"{Registrations}?limit=101")).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        using var consumer = fixture.Factory.CreateClient(BrowserOptions);
+        (await PreflightAsync(consumer, retryOrigin)).Headers.Contains("Access-Control-Allow-Origin").ShouldBeFalse();
+        (await admin.DeleteAsync($"{Registrations}/{failedId}")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+        (await admin.DeleteAsync($"{Registrations}/{failedId}")).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
     public async Task RegisteredSpa_UsesExactCallbackAndOrigin_AndDisableInvalidatesTokensAndPendingCode()
     {
         await using var fixture = await DeliveryFixture.CreateAsync();
@@ -116,6 +348,7 @@ public sealed class ThirdPartyConsumerAuthenticationTests
         using var browser = fixture.Factory.CreateClient(BrowserOptions);
 
         var attempt = CreateAuthorization(primary);
+        attempt = attempt with { Url = attempt.Url.Replace("/connect/authorize?", "/CONNECT/AUTHORIZE/?", StringComparison.Ordinal) };
         (await browser.GetAsync(attempt.Url)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         (await PreflightAsync(browser, BrowserOrigin)).Headers.Contains("Access-Control-Allow-Origin").ShouldBeFalse();
 
@@ -230,39 +463,52 @@ public sealed class ThirdPartyConsumerAuthenticationTests
         ReadTokens(await OidcAuthorizationCodeFlow.RunAsync(browser, RomdOpenIddictClients.ConsumerSpa,
             "http://localhost:5174/auth/callback", Login, Password));
 
-    private static async Task<Tokens> PairAsync(HttpClient browser, string appName, string deviceName, string scopes)
+    private static async Task<Tokens> PairAsync(HttpClient browser, string appName, string deviceName, string scopes,
+        string clientId = RomdOpenIddictClients.CommunityDevice, string? requiredPermission = null)
     {
-        using var pairing = await browser.PostAsync("/connect/device", Form(new()
-        {
-            ["client_id"] = RomdOpenIddictClients.CommunityDevice,
-            ["scope"] = scopes,
-            ["app_name"] = appName,
-            ["device_name"] = deviceName
-        }));
-        pairing.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var device = await ReadObjectAsync(pairing);
+        var device = await RequestDeviceCodeAsync(browser, clientId, scopes, appName, deviceName);
         string code = ReadString(device, "user_code");
         string verification = $"/connect/verify?user_code={Uri.EscapeDataString(code)}";
         var page = await browser.GetStringAsync(verification);
         WebUtility.HtmlDecode(page).ShouldContain($"{appName} · {deviceName}");
         page.ShouldContain("Confirm that the device in front of you shows");
+        if (requiredPermission is not null)
+            page.ShouldContain(requiredPermission);
+
         using var form = await BrowserAuthenticationForm.CreateAsync(browser, "/connect/verify", new Dictionary<string, string>
         {
             ["user_code"] = code,
-            ["confirmed_code"] = code,
             ["login"] = Login,
             ["password"] = Password
         });
         (await browser.PostAsync("/connect/verify", form)).StatusCode.ShouldBe(HttpStatusCode.Redirect);
-        using var token = await browser.PostAsync("/connect/token", Form(new()
+        using var token = await ExchangeDeviceCodeAsync(browser, clientId, device);
+        return await ReadTokensAsync(token, requireRefresh: scopes.Contains("offline_access", StringComparison.Ordinal));
+    }
+
+    private static async Task<Dictionary<string, JsonElement>> RequestDeviceCodeAsync(
+        HttpClient browser, string clientId, string scopes, string appName, string deviceName)
+    {
+        using var pairing = await browser.PostAsync("/connect/device", Form(new()
         {
-            ["client_id"] = RomdOpenIddictClients.CommunityDevice,
+            ["client_id"] = clientId,
+            ["scope"] = scopes,
+            ["app_name"] = appName,
+            ["device_name"] = deviceName
+        }));
+        pairing.StatusCode.ShouldBe(HttpStatusCode.OK, await pairing.Content.ReadAsStringAsync());
+        return await ReadObjectAsync(pairing);
+    }
+
+    private static Task<HttpResponseMessage> ExchangeDeviceCodeAsync(HttpClient browser, string clientId,
+        Dictionary<string, JsonElement> device) =>
+        browser.PostAsync("/connect/token", Form(new()
+        {
+            ["client_id"] = clientId,
             ["grant_type"] = "urn:ietf:params:oauth:grant-type:device_code",
             ["device_code"] = ReadString(device, "device_code"),
             ["device_name"] = "Cannot relabel after approval"
         }));
-        return await ReadTokensAsync(token, requireRefresh: scopes.Contains("offline_access", StringComparison.Ordinal));
-    }
 
     private static RegisterConsumerWebAppRequest Registration(string origin) => new($"App {new Uri(origin).Host}", origin + "/callback", origin);
 
@@ -279,13 +525,15 @@ public sealed class ThirdPartyConsumerAuthenticationTests
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(100));
         do
         {
-            var registrations = await admin.GetFromJsonAsync<ConsumerWebApp[]>(Registrations,
-                ConsumerDeliveryEndpointsTests.ConsumerJsonOptions, timeout.Token);
-            if (ids.All(id => registrations?.Any(app => app.ClientId == id && app.Status == ConsumerWebAppStatus.Active) == true))
+            var registrations = await GetRegistrationPageAsync(admin, Registrations, timeout.Token);
+            if (ids.All(id => registrations.Items.Any(app => app.ClientId == id && app.Status == ConsumerWebAppStatus.Active)))
                 return;
         }
         while (await timer.WaitForNextTickAsync(timeout.Token));
     }
+
+    private static async Task<Page<ConsumerWebApp>> GetRegistrationPageAsync(HttpClient admin, string path, CancellationToken ct = default) =>
+        (await admin.GetFromJsonAsync<Page<ConsumerWebApp>>(path, ConsumerDeliveryEndpointsTests.ConsumerJsonOptions, ct)).ShouldNotBeNull();
 
     private static Authorization CreateAuthorization(ConsumerWebApp app, string method = "S256", string? scopes = null)
     {
@@ -307,6 +555,8 @@ public sealed class ThirdPartyConsumerAuthenticationTests
             return existing;
         }
 
+        using var loginPage = await browser.GetAsync(initial.Headers.Location);
+        AssertUnframed(loginPage);
         using var form = await BrowserAuthenticationForm.CreateAsync(browser, initial.Headers.Location.OriginalString, new Dictionary<string, string>
         {
             ["returnUrl"] = authorization.Url,
@@ -333,13 +583,19 @@ public sealed class ThirdPartyConsumerAuthenticationTests
             ["code"] = code
         }, origin);
 
-    private static Task<HttpResponseMessage> RefreshAsync(HttpClient browser, string clientId, string refreshToken, string? origin = null) =>
-        TokenRequestAsync(browser, new()
+    private static Task<HttpResponseMessage> RefreshAsync(HttpClient browser, string clientId, string refreshToken,
+        string? origin = null, string? scopes = null)
+    {
+        Dictionary<string, string> values = new()
         {
             ["client_id"] = clientId,
             ["grant_type"] = "refresh_token",
             ["refresh_token"] = refreshToken
-        }, origin);
+        };
+        if (scopes is not null)
+            values["scope"] = scopes;
+        return TokenRequestAsync(browser, values, origin);
+    }
 
     private static async Task<HttpResponseMessage> TokenRequestAsync(HttpClient browser, Dictionary<string, string> values, string? origin)
     {
@@ -355,6 +611,12 @@ public sealed class ThirdPartyConsumerAuthenticationTests
         request.Headers.Add("Origin", origin);
         request.Headers.Add("Access-Control-Request-Method", "POST");
         return await browser.SendAsync(request);
+    }
+
+    private static void AssertUnframed(HttpResponseMessage response)
+    {
+        response.Headers.GetValues("Content-Security-Policy").ShouldBe(["frame-ancestors 'none'"]);
+        response.Headers.GetValues("X-Frame-Options").ShouldBe(["DENY"]);
     }
 
     private static void AssertCors(HttpResponseMessage response, string origin)
