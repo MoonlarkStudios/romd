@@ -57,6 +57,33 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadAsync_ProvidesReleaseDatesOnlyForTheCurrentlyTrustedIgdbGame()
+    {
+        await using var db = _database.CreateContext();
+        await Seed(db);
+        await AddAutomatic(db, "igdb", "3192");
+        var game = new ProviderGame("3192", "Sonic the Hedgehog", "https://provider.test/game", Releases: [new(1991, "Genesis")]);
+        string gameJson = JsonSerializer.Serialize(game);
+        var states = db.Set<TitleProviderMatchStateEntity>().Where(state => state.ProviderId == "igdb");
+        await states.ExecuteUpdateAsync(update => update.SetProperty(state => state.GameJson, gameJson));
+        var store = CreateFamilyStore(db);
+
+        var snapshot = (await store.ReadAsync(1, default)).ShouldNotBeNull();
+        snapshot.Links.ShouldHaveSingleItem().TrustedGame.ShouldNotBeNull().Releases.ShouldBe([new(1991, "Genesis")]);
+
+        await states.ExecuteUpdateAsync(update => update.SetProperty(state => state.SuppressAutomaticMatch, true));
+        var suppressed = (await store.ReadAsync(1, default)).ShouldNotBeNull();
+        suppressed.Links.ShouldHaveSingleItem().TrustedGame.ShouldBeNull();
+
+        await states.ExecuteUpdateAsync(update => update.SetProperty(state => state.SuppressAutomaticMatch, false));
+        await db.TitleExternalIds.ExecuteUpdateAsync(update => update.SetProperty(link => link.IsConfirmed, true)
+            .SetProperty(link => link.ExternalId, "42"));
+        var mismatched = (await store.ReadAsync(1, default)).ShouldNotBeNull().Links.ShouldHaveSingleItem();
+        mismatched.Trusted.ShouldBeTrue();
+        mismatched.TrustedGame.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task Trust_ChangedPolicyVersion_InvalidatesAutomaticTrustButPreservesConfirmation()
     {
         await using var db = _database.CreateContext();

@@ -2,6 +2,10 @@ using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using Romd.Admin.Application.MetadataProviders;
+using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Enrichment;
@@ -18,6 +22,46 @@ namespace Romd.Infrastructure.Tests.Enrichment;
 public sealed partial class ProviderIdentityDatabaseTests
 {
     private static readonly Sha1 FamilyRomSha1 = Sha1.FromBytes(HashBytes(Sha1.ByteLength, 50));
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DiscoverAsync_RenamedClone_CanonicalProviderGameRequiresHashBackedFamilySearch(bool linked)
+    {
+        await using var db = _database.CreateContext();
+        await Seed(db);
+        await AddFamilyRom(db);
+        AddFamilyRelease(db, 1, 3, "Original Release (USA)", declaredId: "root");
+        await db.DatGames.Where(game => game.Id == 1)
+            .ExecuteUpdateAsync(update => update.SetProperty(game => game.CloneOfId, "root"));
+        db.DatRoms.Add(MatchedRom(1, linked: false));
+        await db.SaveChangesAsync();
+        if (linked)
+            await new DatRepository(db, TimeProvider.System).LinkDatRomsToRomFileAsync(FamilyRomSha1, 50);
+
+        var provider = Substitute.For<IProviderIdentityAdapter>();
+        provider.Id.Returns("igdb");
+        provider.Capabilities.Returns(["metadata"]);
+        provider.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
+        var game = new ProviderGame("42", "Original Release", "https://provider.test/game", Year: 1990, Platforms: ["Test"], Aliases: ["Game"]);
+        var queries = new List<string>();
+        provider.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            string query = call.ArgAt<string>(0);
+            queries.Add(query);
+            return new ProviderGameSearchResult(query == "ORIGINAL RELEASE" ? [game] : [], ProviderGameSearchCompleteness.Complete, 500);
+        });
+        var store = CreateFamilyStore(db);
+        var identity = new ProviderIdentityService(store, [provider], [], TimeProvider.System, new EfUnitOfWork(db),
+            NullLogger<ProviderIdentityService>.Instance);
+
+        await identity.DiscoverAsync(1, null, default);
+
+        queries.ShouldBe(linked ? ["GAME", "ORIGINAL RELEASE"] : ["GAME"]);
+        (await store.ReadTrustedAsync(1, "igdb", default)).ShouldBe(linked ? "42" : null);
+        var snapshot = (await store.ReadAsync(1, default)).ShouldNotBeNull();
+        snapshot.Links.ShouldHaveSingleItem().Decision.ShouldNotBeNull().State.ShouldBe(linked ? "AutoAccepted" : "NoMatch");
+    }
 
     [Fact]
     public async Task ReadAsync_StoredSha1MatchesConvergeOnRoot_UsesMatchedReleaseAndRootNames()

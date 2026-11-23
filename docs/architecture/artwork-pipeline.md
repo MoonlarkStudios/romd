@@ -77,6 +77,14 @@ page URL. SteamGridDB suggestions alone therefore require curator confirmation;
 an independently trusted bridge remains usable. Editing the query or switching
 provider or lookup mode discards the previous suggestions and selection.
 
+SteamGridDB review uses release years for the title's platform from the currently
+trusted IGDB game's stored evidence. A year match breaks a tie in the existing
+candidate scores and appears in the candidate's supporting signals. The years
+stay separate from local release facts and direct search still requires curator
+confirmation. Automatic SteamGridDB acceptance requires a verified ID bridge.
+Discovery refreshes cached review when the trusted IGDB association changes or
+loses trust.
+
 Decisions retain candidates, reasons, policy version, input fingerprint, and any
 trusted bridge dependency. Input/policy changes invalidate automatic trust;
 bridge trust requires the source game and association revision to remain current.

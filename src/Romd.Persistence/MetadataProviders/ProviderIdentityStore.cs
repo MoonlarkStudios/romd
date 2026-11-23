@@ -55,9 +55,15 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
             var link = links.SingleOrDefault(x => x.Provider == provider);
             var state = states.SingleOrDefault(x => x.ProviderId == provider);
             var trusted = trust.GetValueOrDefault(provider);
+            var game = provider == "igdb" && trusted && state?.GameJson is { } json
+                ? JsonSerializer.Deserialize<ProviderGame>(json)
+                : null;
             return new ProviderIdentityLink(provider, link?.ExternalId, link?.IsConfirmed == true, state?.SuppressAutomaticMatch == true,
                 trusted, state?.Revision ?? Guid.Empty, state?.InputFingerprint, state?.LastAttemptAt,
-                state?.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecision>(decision) : null);
+                state?.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecision>(decision) : null)
+            {
+                TrustedGame = game?.Id == link?.ExternalId ? game : null
+            };
         }).ToArray();
         return new(titleId, title.Revision, fingerprint, facts, rows)
         {
