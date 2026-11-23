@@ -12,7 +12,7 @@ import {
   Title,
 } from '@mantine/core';
 import type { EnrichmentAssessment } from '@romd/admin-api-client';
-import { IconSearch, IconSparkles } from '@tabler/icons-react';
+import { IconArrowLeft, IconArrowRight, IconSearch, IconSparkles } from '@tabler/icons-react';
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { EnrichmentLauncher } from '../../components/Enrichment/EnrichmentLauncher';
@@ -48,6 +48,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import classes from './Catalog.module.css';
 import { CatalogInspector, catalogInspectorId } from './CatalogInspector';
 import { CatalogLinkedTitle } from './CatalogLinkedTitle';
+import { CatalogReviewFocus } from './CatalogReviewFocus';
 import { CatalogPreviewButton } from './CatalogRow';
 import { rememberCatalogPosition, useRestoreCatalogPosition } from './catalogNavigation';
 import { reviewState } from './catalogReviewNavigation';
@@ -103,6 +104,7 @@ export function CatalogReview() {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const state = reviewState(params.get('state'));
+  const focusedReview = state === 'NeedsReview';
   const search = params.get('q') ?? '';
   const systemKey = params.get('systemKey') || undefined;
   const titleId = params.get('title');
@@ -132,6 +134,8 @@ export function CatalogReview() {
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [pagingError, setPagingError] = useState(false);
   const paging = useRef(false);
+  const focusDecision = useRef(false);
+  const lastSelection = useRef<string>(undefined);
   const queuePosition = useRef({
     key: location.key,
     locked: false,
@@ -153,7 +157,7 @@ export function CatalogReview() {
   const liveIndex = rows.findIndex((row) => row.titleId === titleId);
   const active = rows[liveIndex];
   const linked = useEnrichmentAssessment(
-    size.measured && !size.wide && !active ? (titleId ?? undefined) : undefined,
+    !focusedReview && size.measured && !size.wide && !active ? (titleId ?? undefined) : undefined,
   );
   const linkedAssessment = linked.data ?? active;
   const linkedRequirement =
@@ -189,7 +193,7 @@ export function CatalogReview() {
   const preview = useInspectorSelection({
     param: 'title',
     ids: visible.map((item) => item.titleId),
-    wide: size.wide,
+    wide: size.wide || focusedReview,
     allowUnlisted: true,
     panelId: catalogInspectorId,
     canChange: () => !queuePosition.current.locked,
@@ -199,7 +203,33 @@ export function CatalogReview() {
     ],
   });
   const index = visible.findIndex((row) => row.titleId === titleId);
+  const openReview = (id: string, trigger?: HTMLElement) => {
+    focusDecision.current = focusedReview;
+    preview.select(id, focusedReview ? undefined : trigger);
+  };
   const canAdvance = index < visible.length - 1 || query.hasNextPage;
+  const loadingNextTitle = index >= visible.length - 1 && query.hasNextPage && query.isFetching;
+  const singleDecision = focusedReview && size.measured && !size.wide && !!preview.selectedId;
+  useLayoutEffect(() => {
+    if (!preview.selectedId && lastSelection.current) {
+      focusReviewRow(list.current, lastSelection.current);
+    } else if (preview.selectedId && focusDecision.current) {
+      const panel = document.getElementById(catalogInspectorId);
+      panel?.focus({
+        preventScroll: true,
+      });
+      if (!size.wide)
+        window.scrollTo({
+          top: 0,
+          behavior: 'instant',
+        });
+    }
+    lastSelection.current = preview.selectedId;
+    focusDecision.current = false;
+  }, [
+    preview.selectedId,
+    size.wide,
+  ]);
   const titleParams = (id: string) => {
     const next = new URLSearchParams(params);
     if (id !== titleId) {
@@ -224,15 +254,17 @@ export function CatalogReview() {
       preventScrollReset: true,
     });
   };
-  const advance = async () => {
+  const advance = async (fromDecision = false) => {
     if (queuePosition.current.locked || paging.current) return;
     const select = (id: string) => {
-      if (size.wide) {
+      if (size.wide || focusedReview) {
+        focusDecision.current = fromDecision;
         preview.select(id);
-        requestAnimationFrame(() => focusReviewRow(list.current, id));
+        if (!fromDecision) requestAnimationFrame(() => focusReviewRow(list.current, id));
       } else {
         setParams(titleParams(id), {
           replace: true,
+          state: location.state,
           preventScrollReset: true,
         });
       }
@@ -263,10 +295,15 @@ export function CatalogReview() {
   const review = () => {
     if (decisionOpen) return;
     const inspector = document.getElementById(catalogInspectorId);
-    (
+    const action =
       inspector?.querySelector<HTMLElement>('[data-review-primary]') ??
-      inspector?.querySelector<HTMLElement>('[data-review-link]')
-    )?.click();
+      inspector?.querySelector<HTMLElement>('[data-review-link]');
+    if (action) action.click();
+    else
+      (
+        inspector?.querySelector<HTMLElement>('[data-provider-candidate]:not(:disabled)') ??
+        inspector
+      )?.focus();
   };
   const onQueueKeyDown = (event: KeyboardEvent<HTMLTableElement>) => {
     if (
@@ -322,13 +359,198 @@ export function CatalogReview() {
   useRestoreCatalogPosition(returnPath, !query.isPending && size.measured);
 
   return (
-    <div ref={size.ref}>
+    <div
+      ref={size.ref}
+      data-review-single={singleDecision || undefined}
+    >
       <div ref={shortcutRoot}>
+        {returnToReceipt && (
+          <Anchor
+            component={Link}
+            to={returnToReceipt}
+            size="sm"
+            display="block"
+            w="fit-content"
+            mb="xs"
+          >
+            Back to import results
+          </Anchor>
+        )}
+        {singleDecision ? (
+          <Button
+            className={classes.reviewBack}
+            variant="subtle"
+            color="gray"
+            leftSection={<IconArrowLeft size={16} />}
+            onClick={preview.close}
+          >
+            Back to review queue
+          </Button>
+        ) : (
+          <div className={classes.reviewToolbar}>
+            <NativeSelect
+              className={classes.reviewFilter}
+              label="Queue state"
+              value={state}
+              data={states}
+              onChange={(event) =>
+                changeFilters({
+                  state: event.currentTarget.value,
+                })
+              }
+            />
+            <NativeSelect
+              className={classes.reviewFilter}
+              label="System"
+              value={systemKey ?? ''}
+              data={[
+                {
+                  value: '',
+                  label: 'All systems',
+                },
+                ...(systemKey && !platforms.data?.some((platform) => platform.key === systemKey)
+                  ? [
+                      {
+                        value: systemKey,
+                        label: systemKey,
+                      },
+                    ]
+                  : []),
+                ...(platforms.data ?? []).map((platform) => ({
+                  value: platform.key,
+                  label: platform.name,
+                })),
+              ]}
+              onChange={(event) =>
+                changeFilters({
+                  systemKey: event.currentTarget.value,
+                })
+              }
+            />
+            <form
+              className={classes.reviewSearch}
+              onSubmit={(event) => {
+                event.preventDefault();
+                const value = new FormData(event.currentTarget).get('q');
+                changeFilters({
+                  q: typeof value === 'string' ? value.trim() : '',
+                });
+              }}
+            >
+              <TextInput
+                name="q"
+                key={search}
+                defaultValue={search}
+                label="Find a title in review"
+                leftSection={<IconSearch size={16} />}
+                placeholder="Search the queue…"
+                maxLength={200}
+              />
+              <Button
+                type="submit"
+                variant="default"
+              >
+                Search
+              </Button>
+              {search && (
+                <Button
+                  variant="subtle"
+                  onClick={() =>
+                    changeFilters({
+                      q: '',
+                    })
+                  }
+                >
+                  Clear
+                </Button>
+              )}
+            </form>
+            <Group
+              gap="xs"
+              className={classes.reviewTools}
+            >
+              {size.wide && (
+                <Button
+                  variant="subtle"
+                  size="compact-sm"
+                  onClick={() => setShortcutsOpened(true)}
+                >
+                  Keyboard shortcuts{' '}
+                  <Kbd
+                    ml={6}
+                    size="xs"
+                  >
+                    ?
+                  </Kbd>
+                </Button>
+              )}
+              <Button
+                {...workspaceActionProps}
+                variant="light"
+                size="compact-sm"
+                leftSection={<IconSparkles size={16} />}
+                onClick={() => setLaunching(true)}
+              >
+                Enrich titles
+              </Button>
+            </Group>
+          </div>
+        )}
         <InspectorLayout
           wide={size.wide}
+          narrow={focusedReview ? 'stack' : 'hide'}
+          width={
+            focusedReview && size.wide
+              ? `${Math.min(Math.round(size.width * 0.56), 736)}px`
+              : undefined
+          }
           animateList={visible.length < 500}
           inspector={
-            preview.selectedId && (
+            preview.selectedId &&
+            (focusedReview ? (
+              <CatalogReviewFocus
+                key={preview.selectedId}
+                titleId={preview.selectedId}
+                fallback={active ?? departed?.row}
+                requirementKey={requirement}
+                returnPath={returnPath}
+                libraryPath={
+                  canManageUsers ? libraryInspectionPath(preview.selectedId, returnPath) : undefined
+                }
+                onViewBlocked={() =>
+                  changeFilters(
+                    {
+                      state: 'Blocked',
+                    },
+                    true,
+                  )
+                }
+                close={preview.close}
+                previous={index > 0 ? () => preview.move(-1) : undefined}
+                next={canAdvance ? () => void advance(true) : undefined}
+                skip={canAdvance ? () => void advance(true) : preview.close}
+                loadingNextTitle={loadingNextTitle}
+                nextTitleError={pagingError}
+                selectRequirement={(key) => {
+                  const next = new URLSearchParams(params);
+                  next.set('requirement', key);
+                  next.delete('role');
+                  setParams(next, {
+                    replace: true,
+                    state: location.state,
+                    preventScrollReset: true,
+                  });
+                }}
+                onDecisionOpen={setDecisionOpen}
+                onDecisionSaved={() => {
+                  const id = preview.selectedId;
+                  requestAnimationFrame(() => {
+                    if (size.wide && id) focusReviewRow(list.current, id);
+                    else document.getElementById(catalogInspectorId)?.focus();
+                  });
+                }}
+              />
+            ) : (
               <CatalogInspector
                 key={preview.selectedId}
                 titleId={preview.selectedId}
@@ -340,27 +562,6 @@ export function CatalogReview() {
                 fallbackAssessment={active}
                 renderRequirements={(assessment, refresh) => (
                   <Stack gap="sm">
-                    {state === 'NeedsReview' &&
-                      !assessment.needsReview &&
-                      assessment.hasOperationalBlocker && (
-                        <Button
-                          variant="subtle"
-                          size="compact-sm"
-                          style={{
-                            alignSelf: 'flex-start',
-                          }}
-                          onClick={() =>
-                            changeFilters(
-                              {
-                                state: 'Blocked',
-                              },
-                              true,
-                            )
-                          }
-                        >
-                          View blocked queue
-                        </Button>
-                      )}
                     <RequirementReview
                       assessment={assessment}
                       view={state}
@@ -395,36 +596,20 @@ export function CatalogReview() {
                           Inspect in a library
                         </Button>
                       )}
-                      {state === 'NeedsReview' && !assessment.needsReview && canAdvance && (
-                        <Button
-                          variant="light"
-                          size="compact-sm"
-                          onClick={() => void advance()}
-                        >
-                          Next review
-                        </Button>
-                      )}
                     </Group>
                   </Stack>
                 )}
               />
-            )
+            ))
           }
         >
-          <Stack gap="sm">
-            {returnToReceipt && (
-              <Anchor
-                component={Link}
-                to={returnToReceipt}
-                size="sm"
-                style={{
-                  alignSelf: 'flex-start',
-                }}
-              >
-                Back to import results
-              </Anchor>
-            )}
-            {size.measured &&
+          <Stack
+            gap="sm"
+            hidden={singleDecision}
+            className={classes.reviewQueue}
+          >
+            {!focusedReview &&
+              size.measured &&
               !size.wide &&
               titleId &&
               (!active && linked.isPending ? (
@@ -443,7 +628,7 @@ export function CatalogReview() {
                   actionLabel={linkedRequirement ? 'Open linked review' : undefined}
                 />
               ))}
-            {size.measured && !size.wide && titleId && canAdvance && (
+            {!focusedReview && size.measured && !size.wide && titleId && canAdvance && (
               <Button
                 variant="subtle"
                 size="compact-sm"
@@ -455,84 +640,11 @@ export function CatalogReview() {
                 Next review
               </Button>
             )}
-            <div className={classes.toolbar}>
-              <NativeSelect
-                label="Queue state"
-                value={state}
-                data={states}
-                onChange={(event) =>
-                  changeFilters({
-                    state: event.currentTarget.value,
-                  })
-                }
-              />
-              <NativeSelect
-                label="System"
-                value={systemKey ?? ''}
-                data={[
-                  {
-                    value: '',
-                    label: 'All systems',
-                  },
-                  ...(systemKey && !platforms.data?.some((platform) => platform.key === systemKey)
-                    ? [
-                        {
-                          value: systemKey,
-                          label: systemKey,
-                        },
-                      ]
-                    : []),
-                  ...(platforms.data ?? []).map((platform) => ({
-                    value: platform.key,
-                    label: platform.name,
-                  })),
-                ]}
-                onChange={(event) =>
-                  changeFilters({
-                    systemKey: event.currentTarget.value,
-                  })
-                }
-              />
-              <form
-                className={classes.reviewSearch}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const value = new FormData(event.currentTarget).get('q');
-                  changeFilters({
-                    q: typeof value === 'string' ? value.trim() : '',
-                  });
-                }}
-              >
-                <TextInput
-                  name="q"
-                  key={search}
-                  defaultValue={search}
-                  label="Find a title in review"
-                  leftSection={<IconSearch size={16} />}
-                  placeholder="Search the queue…"
-                  maxLength={200}
-                />
-                <Button
-                  type="submit"
-                  variant="default"
-                >
-                  Search
-                </Button>
-                {search && (
-                  <Button
-                    variant="subtle"
-                    onClick={() =>
-                      changeFilters({
-                        q: '',
-                      })
-                    }
-                  >
-                    Clear
-                  </Button>
-                )}
-              </form>
-            </div>
-            <Group justify="space-between">
+            <Group
+              justify="space-between"
+              gap="xs"
+              mih={focusedReview ? 32 : undefined}
+            >
               <Text
                 c="dimmed"
                 size="xs"
@@ -544,32 +656,16 @@ export function CatalogReview() {
                     ? `${count.toLocaleString()} ${count === 1 ? 'title' : 'titles'} in this view`
                     : `${rows.length}${query.hasNextPage ? '+' : ''} ${rows.length === 1 && !query.hasNextPage ? 'title' : 'titles'}`}
               </Text>
-              <Group gap="xs">
-                {size.wide && (
-                  <Button
-                    variant="subtle"
-                    size="compact-sm"
-                    onClick={() => setShortcutsOpened(true)}
-                  >
-                    Keyboard shortcuts{' '}
-                    <Kbd
-                      ml={6}
-                      size="xs"
-                    >
-                      ?
-                    </Kbd>
-                  </Button>
-                )}
+              {focusedReview && !preview.selectedId && rows[0] && (
                 <Button
                   {...workspaceActionProps}
-                  variant="light"
                   size="compact-sm"
-                  leftSection={<IconSparkles size={16} />}
-                  onClick={() => setLaunching(true)}
+                  rightSection={<IconArrowRight size={15} />}
+                  onClick={() => openReview(rows[0].titleId)}
                 >
-                  Enrich titles
+                  Start review
                 </Button>
-              </Group>
+              )}
             </Group>
             {query.isError && (
               <Alert
@@ -584,7 +680,7 @@ export function CatalogReview() {
                 </Button>
               </Alert>
             )}
-            {pagingError && (
+            {pagingError && (!focusedReview || !preview.selectedId) && (
               <Alert color="red">
                 Could not load the next title.{' '}
                 <Button
@@ -626,34 +722,70 @@ export function CatalogReview() {
                 <table
                   ref={list}
                   className={classes.table}
+                  data-focused-review={focusedReview || undefined}
                   aria-label="Titles in the review queue"
                   onKeyDown={onQueueKeyDown}
                 >
                   <thead>
                     <tr>
-                      <th scope="col">Title</th>
-                      <th
-                        scope="col"
-                        className={classes.reviewStatus}
-                      >
-                        Status
+                      <th scope="col">
+                        {focusedReview ? (
+                          <div className={classes.reviewColumnLabels}>
+                            <span>Title</span>
+                            <span className={classes.reviewDecisionLabel}>Decision</span>
+                          </div>
+                        ) : (
+                          'Title'
+                        )}
                       </th>
+                      {!focusedReview && (
+                        <th
+                          scope="col"
+                          className={classes.reviewStatus}
+                        >
+                          Status
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {visible.map((item) => {
                       const row = currentRequirement(item.requirements, state);
+                      const issueLabel =
+                        row?.kind === 'Identity' && row.cause === 'MatchDecisionRequired'
+                          ? `${requirementSubjectLabel(row)} match`
+                          : row && requirementCopy(row);
+                      const decision = (
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                          className={classes.reviewIssue}
+                        >
+                          {item === departed?.row
+                            ? noLongerInViewLabel
+                            : focusedReview
+                              ? issueLabel
+                              : row && requirementCopy(row)}
+                        </Text>
+                      );
                       const to =
-                        !size.wide && row
+                        !focusedReview && !size.wide && row
                           ? titleRequirementPath(item.titleId, row)
                           : titleSectionPath(item.titleId);
+                      const editorReturnPath = size.wide
+                        ? returnPath
+                        : `${location.pathname}?${titleParams(item.titleId)}`;
                       return (
                         <tr
                           key={item.titleId}
                           {...preview.rowProps(item.titleId)}
                         >
                           <td>
-                            <div className={classes.titleContent}>
+                            <div
+                              className={
+                                focusedReview ? classes.reviewQueueRow : classes.titleContent
+                              }
+                            >
                               {item.thumbnailUrl && (
                                 <img
                                   loading="lazy"
@@ -663,17 +795,17 @@ export function CatalogReview() {
                                   alt=""
                                 />
                               )}
-                              <div>
+                              <div className={classes.reviewTitleIdentity}>
                                 <Link
                                   className={`${classes.titleLink} ${classes.name}`}
-                                  data-stretch={!size.wide || undefined}
+                                  data-stretch={(!focusedReview && !size.wide) || undefined}
                                   to={to}
                                   state={{
-                                    catalogReturnTo: size.wide
-                                      ? returnPath
-                                      : `${location.pathname}?${titleParams(item.titleId)}`,
+                                    catalogReturnTo: editorReturnPath,
                                   }}
-                                  onClick={(event) => rememberCatalogPosition(returnPath, event)}
+                                  onClick={(event) =>
+                                    rememberCatalogPosition(editorReturnPath, event)
+                                  }
                                 >
                                   {item.titleName}
                                 </Link>
@@ -683,48 +815,44 @@ export function CatalogReview() {
                                 >
                                   {item.platformName}
                                 </Text>
-                                <Text
-                                  size="xs"
-                                  c="dimmed"
-                                >
-                                  {item === departed?.row
-                                    ? noLongerInViewLabel
-                                    : row && requirementCopy(row)}
-                                </Text>
+                                {!focusedReview && decision}
                               </div>
+                              {focusedReview && decision}
                             </div>
-                            {size.wide && (
+                            {(size.wide || focusedReview) && (
                               <CatalogPreviewButton
                                 name={item.titleName}
                                 active={preview.selectedId === item.titleId}
-                                onClick={(event) =>
-                                  preview.selectedId === item.titleId
-                                    ? preview.close()
-                                    : preview.select(item.titleId, event.currentTarget)
-                                }
+                                review={focusedReview}
+                                onClick={(event) => {
+                                  if (preview.selectedId === item.titleId) preview.close();
+                                  else openReview(item.titleId, event.currentTarget);
+                                }}
                               />
                             )}
                           </td>
-                          <td className={classes.reviewStatus}>
-                            <Stack gap={4}>
-                              {item !== departed?.row && (
-                                <TitleStatusChips
-                                  flags={item}
-                                  label={`${item.titleName} status`}
-                                />
-                              )}
-                              {item !== departed?.row && (
-                                <Text
-                                  size="xs"
-                                  c="dimmed"
-                                >
-                                  {outstandingLabel(
-                                    outstandingRequirements(item.requirements).length,
-                                  )}
-                                </Text>
-                              )}
-                            </Stack>
-                          </td>
+                          {!focusedReview && (
+                            <td className={classes.reviewStatus}>
+                              <Stack gap={4}>
+                                {item !== departed?.row && (
+                                  <TitleStatusChips
+                                    flags={item}
+                                    label={`${item.titleName} status`}
+                                  />
+                                )}
+                                {item !== departed?.row && (
+                                  <Text
+                                    size="xs"
+                                    c="dimmed"
+                                  >
+                                    {outstandingLabel(
+                                      outstandingRequirements(item.requirements).length,
+                                    )}
+                                  </Text>
+                                )}
+                              </Stack>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}

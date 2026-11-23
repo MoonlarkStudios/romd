@@ -41,6 +41,7 @@ export function RequirementReview({
   currentKey,
   view = 'All',
   heading,
+  onlyCurrent,
   navigationState,
   reviewReturnTo,
   onOpenEditor,
@@ -52,6 +53,7 @@ export function RequirementReview({
   currentKey?: string;
   view?: WorkbenchView;
   heading?: boolean;
+  onlyCurrent?: boolean;
   navigationState?: unknown;
   reviewReturnTo?: string;
   onOpenEditor?: MouseEventHandler<HTMLAnchorElement>;
@@ -161,6 +163,7 @@ export function RequirementReview({
       )}
       <RequirementList
         heading={heading}
+        onlyCurrent={onlyCurrent}
         assessment={assessment}
         currentKey={currentKey}
         state={navigationState}

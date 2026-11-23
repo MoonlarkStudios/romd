@@ -3,6 +3,7 @@ import {
   client,
   type EnrichmentWorkbenchCounts,
   type SetEnrichmentOmissionRequest,
+  type TitleProviderMatch,
 } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { screen, within } from '@testing-library/react';
@@ -37,6 +38,291 @@ beforeEach(() => {
     baseUrl: 'http://localhost',
   });
 });
+
+it('starts review, compares system releases, restores suggestions after lookup, and continues', async () => {
+  const api = 'http://localhost/api';
+  const matchIssue = unsatisfied('Identity:igdb', 'NeedsReview', 'MatchDecisionRequired', [
+    'ReviewProvider',
+  ]);
+  const metadataIssue = unsatisfied('Metadata:Description', 'NeedsReview', 'NotProvided', [
+    'ReviewMetadata',
+  ]);
+  const titles = [
+    assessmentFixture(withRequirements(matchIssue, metadataIssue)),
+    assessmentFixture(withRequirements(matchIssue), {
+      titleId: 'earthbound',
+      titleName: 'EarthBound',
+    }),
+    assessmentFixture(withRequirements(matchIssue), {
+      titleId: 'metroid',
+      titleName: 'Super Metroid',
+    }),
+  ];
+  const record = {
+    id: '100',
+    name: 'Original game',
+    url: 'https://example.com/original',
+    year: 1990,
+    platforms: [
+      'Super Nintendo',
+    ],
+    releases: [
+      {
+        year: 1990,
+        platform: 'Arcade',
+      },
+      {
+        year: 1995,
+        platform: '  SUPER Nintendo ',
+      },
+      {
+        year: 1995,
+        platform: 'Super Nintendo',
+      },
+    ],
+  };
+  const release = {
+    id: '101',
+    name: 'Modern rerelease',
+    url: 'https://example.com/modern',
+    year: 2025,
+    platforms: [
+      'Windows',
+    ],
+  };
+  const match: TitleProviderMatch = {
+    providerId: 'igdb',
+    providerName: 'IGDB',
+    isAvailable: true,
+    capabilities: [
+      'metadata',
+    ],
+    revision: 'match-1',
+    state: 'NeedsReview',
+    externalId: null,
+    game: null,
+    confidence: null,
+    lastError: null,
+    metadataNeedsRefresh: false,
+    decision: {
+      state: 'Ambiguous',
+      explanation: 'Two related games',
+      provenance: 'ProviderSearch',
+      inputFingerprint: 'local-1',
+      candidates: [
+        {
+          game: record,
+          score: 90,
+          eligible: true,
+          evidence: [
+            'Matching system',
+          ],
+          conflicts: [],
+        },
+        {
+          game: release,
+          score: 75,
+          eligible: false,
+          evidence: [],
+          conflicts: [
+            'Different system',
+          ],
+        },
+      ],
+    },
+  };
+  const saveDecision = vi.fn();
+  server.use(
+    http.get(`${api}/systems`, () => HttpResponse.json(finalPage([]))),
+    http.get(`${api}/enrichment/workbench/stats`, () =>
+      HttpResponse.json<EnrichmentWorkbenchCounts>({
+        total: 3,
+        needsReview: 3,
+        automatic: 0,
+        processing: 0,
+        blocked: 0,
+      }),
+    ),
+    http.get(`${api}/enrichment/workbench`, () => HttpResponse.json(finalPage(titles))),
+    http.get(`${api}/titles/:id/enrichment-assessment`, ({ params }) =>
+      HttpResponse.json(titles.find((title) => title.titleId === params.id)),
+    ),
+    http.get(`${api}/titles/:id/provider-matches`, () =>
+      HttpResponse.json([
+        match,
+      ]),
+    ),
+    http.get(`${api}/metadata-providers/igdb/games`, ({ request }) =>
+      HttpResponse.json({
+        items:
+          new URL(request.url).searchParams.get('query') === 'Empty search'
+            ? []
+            : [
+                release,
+              ],
+        limit: 50,
+        completeness: 'Complete',
+      }),
+    ),
+    http.get(`${api}/titles/:id/artwork`, () =>
+      HttpResponse.json({
+        roles: [],
+        revision: 'art-1',
+      }),
+    ),
+    http.put(`${api}/titles/chrono-trigger/provider-matches/igdb`, async ({ request }) => {
+      saveDecision(request.headers.get('If-Match'), await request.json());
+      titles[0] = assessmentFixture(withRequirements(metadataIssue), {
+        hasActiveWork: true,
+      });
+      return HttpResponse.json({
+        ...match,
+        game: record,
+        externalId: record.id,
+        pendingJobId: 'work-1',
+      });
+    }),
+  );
+  const user = userEvent.setup();
+  render(<Catalog />, {
+    auth: {
+      user: authFixtures.currentUser,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      retry: async () => {},
+      login: async () => {},
+      logout: async () => {},
+    },
+    routerOptions: {
+      initialEntries: [
+        '/catalog?view=review',
+      ],
+    },
+  });
+
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Start review',
+    }),
+  );
+  const review = within(
+    await screen.findByRole('complementary', {
+      name: 'Chrono Trigger',
+    }),
+  );
+  expect(await review.findByText('Different system')).toBeVisible();
+  expect(review.getByText('Super Nintendo release · 1995')).toBeVisible();
+  expect(review.getByText('First released 1990')).toBeVisible();
+  const original = review.getByRole('radio', {
+    name: 'Select Original game',
+  });
+  screen
+    .getByRole('button', {
+      name: 'Review Chrono Trigger',
+    })
+    .focus();
+  await user.keyboard('{Enter}');
+  expect(original).toHaveFocus();
+
+  const findAnother = review.getByText('Find another match');
+  await user.click(findAnother);
+  await user.click(
+    review.getByRole('button', {
+      name: 'Search provider games',
+    }),
+  );
+  expect(await review.findByText('1 match found')).toBeVisible();
+  expect(
+    review.getByRole('radio', {
+      name: 'Select Modern rerelease',
+    }),
+  ).toBeVisible();
+  expect(review.queryByText('Different system')).not.toBeInTheDocument();
+  const search = review.getByRole('textbox', {
+    name: 'Game name',
+  });
+  await user.clear(search);
+  await user.type(search, 'Empty search');
+  await user.click(
+    review.getByRole('button', {
+      name: 'Search provider games',
+    }),
+  );
+  expect(await review.findByText('No matches found')).toBeVisible();
+  expect(original).not.toBeInTheDocument();
+  await user.click(
+    review.getByRole('button', {
+      name: 'Show original suggestions',
+    }),
+  );
+  expect(findAnother).toHaveFocus();
+  expect(
+    review.getByRole('radio', {
+      name: 'Select Original game',
+    }),
+  ).not.toBeChecked();
+  expect(
+    review.getByRole('button', {
+      name: 'Confirm match',
+    }),
+  ).toBeDisabled();
+  await user.click(
+    review.getByRole('radio', {
+      name: 'Select Original game',
+    }),
+  );
+  await user.click(
+    review.getByRole('button', {
+      name: 'Confirm match',
+    }),
+  );
+  expect(
+    await review.findByRole('heading', {
+      name: 'Match confirmed',
+    }),
+  ).toHaveFocus();
+  expect(saveDecision).toHaveBeenCalledExactlyOnceWith('"match-1"', {
+    externalId: '100',
+  });
+  await user.click(
+    review.getByRole('button', {
+      name: 'Next decision',
+    }),
+  );
+  expect(
+    await review.findByRole('link', {
+      name: 'Description',
+    }),
+  ).toBeVisible();
+  await user.click(
+    review.getByRole('button', {
+      name: 'Skip for now',
+    }),
+  );
+
+  const next = within(
+    await screen.findByRole('complementary', {
+      name: 'EarthBound',
+    }),
+  );
+  await user.click(
+    await next.findByRole('button', {
+      name: 'Skip for now',
+    }),
+  );
+  expect(
+    await screen.findByRole('complementary', {
+      name: 'Super Metroid',
+    }),
+  ).toHaveFocus();
+  expect(
+    screen.getByRole('button', {
+      name: 'Review EarthBound',
+    }),
+  ).toBeVisible();
+  expect(saveDecision).toHaveBeenCalledTimes(1);
+});
 afterEach(() => {
   client.setConfig({
     baseUrl: '',
@@ -61,6 +347,7 @@ it('updates the checklist, queue, count and Catalog row after a Needs review dec
   const saveDecision = vi.fn();
   server.use(
     http.get(`${api}/system-setup`, () => HttpResponse.json(finalPage([]))),
+    http.get(`${api}/systems`, () => HttpResponse.json(finalPage([]))),
     http.get(`${api}/catalog/stats`, () =>
       HttpResponse.json({
         totalCount: 1,
@@ -203,7 +490,7 @@ it('updates the checklist, queue, count and Catalog row after a Needs review dec
   );
   await user.click(
     queue.getByRole('button', {
-      name: 'Preview Chrono Trigger',
+      name: 'Review Chrono Trigger',
     }),
   );
   const inspector = within(

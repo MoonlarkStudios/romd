@@ -19,6 +19,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import {
+  confirmTitleProviderMatch,
   listTitleProviderMatches,
   type ProviderExternalId,
   type ProviderGame,
@@ -26,9 +27,9 @@ import {
   type TitleProviderMatch,
 } from '@romd/admin-api-client';
 import { useReferenceCatalog } from '@romd/consumer-ui';
-import { IconDots, IconExternalLink, IconSearch, IconUnlink } from '@tabler/icons-react';
+import { IconDots, IconExternalLink, IconPhoto, IconSearch, IconUnlink } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { invalidateTitle, providerMatchKeys } from '../../hooks/api/titleCache';
 import { ifMatch } from '../../hooks/api/titleConflict';
 import { useProviderGameLookup } from '../../hooks/api/useProviderGameLookup';
@@ -54,6 +55,20 @@ function usePlatformLabels() {
       ),
     ),
   ];
+}
+
+function platformNameKey(name: string) {
+  return name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function releaseYearsOnSystem(game: ProviderGame, matchesSystem: (platform: string) => boolean) {
+  const years = new Set<number>();
+  for (const { platform, year } of game.releases ?? []) {
+    if (platform && year != null && matchesSystem(platform)) years.add(year);
+  }
+  return [
+    ...years,
+  ].sort((left, right) => left - right);
 }
 
 function GamePreview({ game, showDetails = true }: { game: ProviderGame; showDetails?: boolean }) {
@@ -162,8 +177,14 @@ interface ProviderMatchPickerProps {
   titleId: string;
   titleName: string;
   row: TitleProviderMatch;
-  onClose: (saved: boolean) => void;
+  onClose: (saved: boolean, match?: TitleProviderMatch) => void;
   inline?: boolean;
+  review?: {
+    platformName: string;
+    thumbnailUrl?: string | null;
+    onSkip: () => void;
+    loadingNextTitle: boolean;
+  };
 }
 
 /** `onClose(true)` follows a confirmed match; any other close leaves the match unchanged. */
@@ -182,8 +203,10 @@ function ProviderMatchPickerContent({
   row,
   onClose,
   inline = false,
+  review,
 }: ProviderMatchPickerProps) {
   const platformLabels = usePlatformLabels();
+  const candidateEvidence = useId();
   const cache = useQueryClient();
   const mounted = useRef(true);
   useEffect(() => {
@@ -198,21 +221,28 @@ function ProviderMatchPickerContent({
   const [text, setText] = useState(titleName);
   const [selected, setSelected] = useState<ProviderGame | null>(null);
   const [showEvidence, setShowEvidence] = useState(true);
+  const lookupDisclosure = useRef<HTMLDetailsElement>(null);
   const search = useProviderGameLookup(row.providerId);
   const save = useMutation({
     mutationFn: async () => {
       if (!selected) return;
       // The revision of the match this picker showed: a stale one is 412, never a silent overwrite.
-      const result = await replaceTitleProviderMatch({
+      const input = {
         path: {
           titleId,
           providerId: row.providerId,
         },
         headers: ifMatch(match.revision),
-        body: {
-          externalId: selected.id,
-        },
-      });
+      };
+      const result =
+        review && selected.id === match.externalId
+          ? await confirmTitleProviderMatch(input)
+          : await replaceTitleProviderMatch({
+              ...input,
+              body: {
+                externalId: selected.id,
+              },
+            });
       if (result.error || !result.data) {
         setConflicted(result.response?.status === 412);
         throw new Error(
@@ -222,8 +252,10 @@ function ProviderMatchPickerContent({
         );
       }
       storeProviderMatch(cache, titleId, result.data);
+      // A refreshed queue can drop a resolved issue before the picker receives the save result.
+      if (review && mounted.current) onClose(true, result.data);
       await invalidateTitle(cache, titleId);
-      if (mounted.current) onClose(true);
+      if (!review && mounted.current) onClose(true, result.data);
     },
   });
   const reload = useMutation({
@@ -265,20 +297,34 @@ function ProviderMatchPickerContent({
           match.game,
         ]
       : [];
-  const candidates = search.data?.items ?? (showEvidence ? persistedCandidates : []);
+  const candidates = search.data?.items ?? (showEvidence || review ? persistedCandidates : []);
+  const resultCount = search.data?.items.length;
   const completeness = search.data?.search?.completeness;
   const local = match.decision?.localEvidence;
-  const content = (
-    <Stack gap="sm">
-      <UnsavedChanges
-        dirty={dirty && !save.isSuccess}
-        description="Your provider match choice has not been confirmed."
-      />
-      <Text size="sm">
-        Local title: {local?.name ?? titleName} ·{' '}
-        {local?.platforms.length ? local.platforms.join(' / ') : 'platform unknown'} ·{' '}
-        {local?.years.length ? local.years.join(', ') : 'year unknown'}
-      </Text>
+  const localPlatforms = new Set(
+    [
+      review?.platformName ?? '',
+      ...(local?.platforms ?? []),
+    ].map(platformNameKey),
+  );
+  const matchesLocalSystem = (platform: string) =>
+    localPlatforms.has(platformNameKey(platform)) ||
+    platformLabels([
+      platform,
+    ]).some((name) => localPlatforms.has(platformNameKey(name)));
+  const showSuggestions = () => {
+    setMode('search');
+    setText(titleName);
+    setSelected(null);
+    setShowEvidence(true);
+    search.reset();
+    if (lookupDisclosure.current) {
+      lookupDisclosure.current.open = false;
+      lookupDisclosure.current.querySelector('summary')?.focus();
+    }
+  };
+  const lookup = (
+    <Stack gap="xs">
       <SegmentedControl
         disabled={busy}
         value={mode}
@@ -348,7 +394,45 @@ function ProviderMatchPickerContent({
         </Group>
       </form>
       {search.error && <Alert color="red">{search.error.message}</Alert>}
-      {match.decision && (
+    </Stack>
+  );
+  const content = (
+    <Stack gap="sm">
+      <UnsavedChanges
+        dirty={dirty && !save.isSuccess}
+        description="Your provider match choice has not been confirmed."
+      />
+      {review ? (
+        <div className={classes.localGame}>
+          <MatchCover url={review.thumbnailUrl} />
+          <div>
+            <Text
+              size="xs"
+              c="dimmed"
+            >
+              Your catalog
+            </Text>
+            <Text fw={600}>{local?.name ?? titleName}</Text>
+            <Text
+              size="sm"
+              c="dimmed"
+            >
+              {review.platformName} ·{' '}
+              {local?.years.length ? local.years.join(', ') : 'Year unknown'}
+            </Text>
+          </div>
+        </div>
+      ) : (
+        <>
+          <Text size="sm">
+            Local title: {local?.name ?? titleName} ·{' '}
+            {local?.platforms.length ? local.platforms.join(' / ') : 'platform unknown'} ·{' '}
+            {local?.years.length ? local.years.join(', ') : 'year unknown'}
+          </Text>
+          {lookup}
+        </>
+      )}
+      {!review && match.decision && (
         <details>
           <summary>Match evidence</summary>
           <Text size="sm">{match.decision.explanation}</Text>
@@ -360,6 +444,44 @@ function ProviderMatchPickerContent({
           </Text>
         </details>
       )}
+      {review && (
+        <details
+          className={classes.reviewLookup}
+          ref={lookupDisclosure}
+          open={!persistedCandidates.length || undefined}
+        >
+          <summary>{persistedCandidates.length ? 'Find another match' : 'Find a match'}</summary>
+          {lookup}
+        </details>
+      )}
+      {review && resultCount !== undefined && (
+        <Group
+          justify="space-between"
+          gap="xs"
+        >
+          <Text
+            size="xs"
+            c="dimmed"
+            role="status"
+          >
+            {resultCount === 0
+              ? 'No matches found'
+              : resultCount === 1
+                ? '1 match found'
+                : `${resultCount} matches found`}
+          </Text>
+          {persistedCandidates.length > 0 && (
+            <Button
+              variant="subtle"
+              size="compact-sm"
+              onClick={showSuggestions}
+              disabled={busy}
+            >
+              Show original suggestions
+            </Button>
+          )}
+        </Group>
+      )}
       {search.data?.search && completeness !== 'Complete' && (
         <Alert color="blue">
           {completeness === 'ProviderLimited'
@@ -368,7 +490,7 @@ function ProviderMatchPickerContent({
           Refine your search or enter a game ID or URL.
         </Alert>
       )}
-      {search.data?.items.length === 0 && (
+      {!review && resultCount === 0 && (
         <Text
           c="dimmed"
           size="sm"
@@ -378,83 +500,178 @@ function ProviderMatchPickerContent({
             : 'No suggestions returned; more matches may exist.'}
         </Text>
       )}
-      <Radio.Group
-        label="Provider candidates"
-        value={selected?.id ?? ''}
-        onChange={(id) => setSelected(candidates.find((game) => game.id === id) ?? null)}
-      >
-        <Stack
-          gap={0}
-          className={classes.candidates}
+      {(candidates.length > 0 || !review) && (
+        <Radio.Group
+          label={review && search.data ? 'Provider search results' : 'Provider candidates'}
+          value={selected?.id ?? ''}
+          onChange={(id) => setSelected(candidates.find((game) => game.id === id) ?? null)}
         >
-          {candidates.map((game) => {
-            const evidence = match.decision?.candidates.find(
-              (candidate) => candidate.game.id === game.id,
-            );
-            return (
-              <div
-                key={game.id}
-                className={classes.candidate}
-                data-selected={selected?.id === game.id || undefined}
-              >
-                <Radio
-                  value={game.id}
-                  label={`Select ${game.name}`}
-                  disabled={busy || search.isPending || conflicted}
-                />
-                <div className={classes.preview}>
-                  <GamePreview
-                    game={game}
-                    showDetails={false}
-                  />
-                  <Text
-                    size="xs"
-                    c="dimmed"
+          <Stack
+            gap={review ? 'xs' : 0}
+            className={review ? classes.reviewCandidates : classes.candidates}
+          >
+            {candidates.map((game) => {
+              const evidence = search.data
+                ? undefined
+                : match.decision?.candidates.find((candidate) => candidate.game.id === game.id);
+              if (review) {
+                const systemYears = releaseYearsOnSystem(game, matchesLocalSystem);
+                const candidatePlatforms = platformLabels(game.platforms);
+                return (
+                  <div
+                    key={game.id}
+                    className={classes.reviewCandidate}
+                    data-selected={selected?.id === game.id || undefined}
                   >
-                    Provider evidence:{' '}
-                    {game.platforms?.length
-                      ? platformLabels(game.platforms).join(' / ')
-                      : 'platform unknown'}{' '}
-                    · {game.year ?? 'year unknown'}
-                  </Text>
-                  {showEvidence &&
-                    evidence?.evidence.map((value) => (
-                      <Text
-                        key={value}
-                        size="xs"
-                        c="dimmed"
+                    <Radio
+                      value={game.id}
+                      aria-label={`Select ${game.name}`}
+                      aria-describedby={`${candidateEvidence}-${game.id}`}
+                      data-provider-candidate
+                      disabled={busy || search.isPending || conflicted}
+                      label={
+                        <span className={classes.candidateLabel}>
+                          <MatchCover url={game.thumbnailUrl} />
+                          <span className={classes.candidateText}>
+                            <Text
+                              component="span"
+                              fw={600}
+                              className={classes.candidateTitle}
+                            >
+                              {game.name}
+                            </Text>
+                            <span
+                              id={`${candidateEvidence}-${game.id}`}
+                              className={classes.candidateText}
+                            >
+                              <Text
+                                component="span"
+                                size="sm"
+                                c="dimmed"
+                              >
+                                {systemYears.length
+                                  ? `${review.platformName} release · ${systemYears.join(', ')}`
+                                  : `${candidatePlatforms.join(' / ') || 'Platform unknown'} · ${game.year ? `First released ${game.year}` : 'Year unknown'}`}
+                              </Text>
+                              {systemYears.length > 0 &&
+                                game.year != null &&
+                                !systemYears.includes(game.year) && (
+                                  <Text
+                                    component="span"
+                                    size="xs"
+                                    c="dimmed"
+                                  >
+                                    First released {game.year}
+                                  </Text>
+                                )}
+                              {evidence?.conflicts.map((value) => (
+                                <Text
+                                  key={value}
+                                  component="span"
+                                  size="xs"
+                                  c="orange"
+                                >
+                                  {value}
+                                </Text>
+                              ))}
+                              {evidence?.evidence.map((value) => (
+                                <Text
+                                  key={value}
+                                  component="span"
+                                  size="xs"
+                                  c="dimmed"
+                                >
+                                  {value}
+                                </Text>
+                              ))}
+                            </span>
+                          </span>
+                        </span>
+                      }
+                    />
+                    {game.url && (
+                      <Anchor
+                        className={classes.candidateLink}
+                        href={game.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Open ${game.name} on ${row.providerName}`}
                       >
-                        {value}
-                      </Text>
-                    ))}
-                  {showEvidence &&
-                    evidence?.conflicts.map((value) => (
-                      <Text
-                        key={value}
-                        size="xs"
-                        c="orange"
-                      >
-                        Conflict: {value}
-                      </Text>
-                    ))}
-                  {selected?.id === game.id && (
-                    <Badge
+                        <IconExternalLink
+                          size={16}
+                          aria-hidden="true"
+                        />
+                      </Anchor>
+                    )}
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={game.id}
+                  className={classes.candidate}
+                  data-selected={selected?.id === game.id || undefined}
+                >
+                  <Radio
+                    value={game.id}
+                    label={`Select ${game.name}`}
+                    disabled={busy || search.isPending || conflicted}
+                  />
+                  <div className={classes.preview}>
+                    <GamePreview
+                      game={game}
+                      showDetails={false}
+                    />
+                    <Text
                       size="xs"
-                      variant="light"
+                      c="dimmed"
                     >
-                      Selected
-                    </Badge>
-                  )}
+                      Provider evidence:{' '}
+                      {game.platforms?.length
+                        ? platformLabels(game.platforms).join(' / ')
+                        : 'platform unknown'}{' '}
+                      · {game.year ?? 'year unknown'}
+                    </Text>
+                    {showEvidence &&
+                      evidence?.evidence.map((value) => (
+                        <Text
+                          key={value}
+                          size="xs"
+                          c="dimmed"
+                        >
+                          {value}
+                        </Text>
+                      ))}
+                    {showEvidence &&
+                      evidence?.conflicts.map((value) => (
+                        <Text
+                          key={value}
+                          size="xs"
+                          c="orange"
+                        >
+                          Conflict: {value}
+                        </Text>
+                      ))}
+                    {selected?.id === game.id && (
+                      <Badge
+                        size="xs"
+                        variant="light"
+                      >
+                        Selected
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </Stack>
-      </Radio.Group>
+              );
+            })}
+          </Stack>
+        </Radio.Group>
+      )}
       <Stack
         gap="xs"
         className={classes.actions}
-        data-inline={inline || undefined}
+        data-inline={(inline && !review) || undefined}
+        data-review={!!review || undefined}
       >
         {save.isError && <Alert color="red">{save.error.message}</Alert>}
         {conflicted && (
@@ -474,21 +691,28 @@ function ProviderMatchPickerContent({
             to confirm your choice.
           </Alert>
         )}
-        <Text
-          size="sm"
-          role="status"
-        >
-          {selected
-            ? `Selected: ${selected.name}`
-            : 'Select a provider game to confirm this match.'}
-        </Text>
-        <Group justify="end">
-          <Button
-            variant="default"
-            disabled={busy}
-            onClick={requestClose}
+        {!review && (
+          <Text
+            size="sm"
+            role="status"
           >
-            Cancel
+            {selected
+              ? `Selected: ${selected.name}`
+              : 'Select a provider game to confirm this match.'}
+          </Text>
+        )}
+        <Group
+          justify={review ? 'space-between' : 'end'}
+          gap="xs"
+        >
+          <Button
+            variant={review ? 'subtle' : 'default'}
+            color={review ? 'gray' : undefined}
+            disabled={busy}
+            loading={review?.loadingNextTitle}
+            onClick={review?.onSkip ?? requestClose}
+          >
+            {review ? 'Skip for now' : 'Cancel'}
           </Button>
           <Button
             {...workspaceActionProps}
@@ -498,7 +722,7 @@ function ProviderMatchPickerContent({
             loading={save.isPending}
             onClick={() => save.mutate()}
           >
-            {selected ? `Confirm ${selected.name}` : 'Confirm match'}
+            {review || !selected ? 'Confirm match' : `Confirm ${selected.name}`}
           </Button>
         </Group>
       </Stack>
@@ -561,7 +785,9 @@ function ProviderMatchPickerContent({
   );
   return (
     <>
-      {inline ? (
+      {review ? (
+        content
+      ) : inline ? (
         <Stack>
           <Text className={`romd-card-title ${classes.pickerHeading}`}>
             Match {row.providerName}
@@ -584,6 +810,26 @@ function ProviderMatchPickerContent({
       {discardDialog}
       {reloadDialog}
     </>
+  );
+}
+
+function MatchCover({ url }: { url?: string | null }) {
+  return (
+    <span className={classes.matchCover}>
+      {url ? (
+        <Image
+          src={url}
+          alt=""
+          fit="cover"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <IconPhoto
+          size={18}
+          aria-hidden="true"
+        />
+      )}
+    </span>
   );
 }
 

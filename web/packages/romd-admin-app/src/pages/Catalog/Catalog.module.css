@@ -68,6 +68,49 @@
 
 .reviewSearch { display: flex; flex: 1 1 19rem; align-items: end; gap: var(--mantine-spacing-xs); }
 .reviewSearch > :first-child { flex: 1; min-inline-size: 0; }
+.reviewToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--mantine-spacing-sm);
+  margin-block-end: var(--mantine-spacing-md);
+}
+.reviewFilter { flex: 0 1 12rem; min-inline-size: min(12rem, 100%); }
+.reviewToolbar .reviewSearch { max-inline-size: 34rem; }
+.reviewTools { margin-inline-start: auto; min-block-size: 2.25rem; align-items: center; }
+.reviewBack { margin-block-end: var(--mantine-spacing-xs); padding-inline: 0; }
+.catalogPage:has([data-review-single]) :is(.catalogHeading, .catalogViews) { display: none; }
+.reviewQueue[hidden] { display: none; }
+.table[data-focused-review] :is(th, td) { padding-inline: var(--mantine-spacing-sm) 6.25rem; }
+.table[data-focused-review] th { position: static; }
+.reviewQueueRow {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  grid-template-areas: 'cover title' 'cover decision';
+  align-items: center;
+  column-gap: var(--mantine-spacing-sm);
+}
+.reviewQueueRow .reviewPoster { grid-area: cover; }
+.reviewQueueRow .reviewTitleIdentity { grid-area: title; }
+.reviewQueueRow .reviewIssue { grid-area: decision; overflow-wrap: anywhere; }
+.reviewDecisionLabel { display: none; }
+@container inspector-list (width >= 46rem) {
+  .reviewQueueRow { grid-template-columns: 2rem minmax(0, 1fr) minmax(0, 38%); grid-template-areas: 'cover title decision'; min-block-size: 2.75rem; }
+  .reviewColumnLabels { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 38%); }
+  .reviewDecisionLabel { display: inline; }
+}
+.reviewTriggerLabel {
+  position: absolute;
+  inset-inline-end: var(--mantine-spacing-sm);
+  inset-block-start: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--mantine-color-anchor);
+  font-size: var(--mantine-font-size-xs);
+}
+.previewButton[data-review-trigger]:hover .reviewTriggerLabel { text-decoration: underline; }
 .reviewPoster { inline-size: 2rem; block-size: 2.75rem; flex: 0 0 auto; object-fit: cover; border-radius: var(--mantine-radius-xs); }
 .reviewStatus { inline-size: 30%; }
 .reviewEmpty { border: 1px solid var(--romd-portal-border); border-radius: var(--mantine-radius-md); padding: var(--mantine-spacing-xl); }
