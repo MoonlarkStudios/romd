@@ -20,6 +20,7 @@ import {
 } from '@mantine/core';
 import {
   confirmTitleProviderMatch,
+  deleteTitleProviderMatch,
   listTitleProviderMatches,
   type ProviderExternalId,
   type ProviderGame,
@@ -29,7 +30,7 @@ import {
 import { useReferenceCatalog } from '@romd/consumer-ui';
 import { IconDots, IconExternalLink, IconPhoto, IconSearch, IconUnlink } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { invalidateTitle, providerMatchKeys } from '../../hooks/api/titleCache';
 import { ifMatch } from '../../hooks/api/titleConflict';
 import { useProviderGameLookup } from '../../hooks/api/useProviderGameLookup';
@@ -41,6 +42,8 @@ import {
 } from '../../hooks/api/useProviderMatches';
 import { UnsavedChanges } from '../Administration/UnsavedChanges';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
+import { DecisionConfirmation } from './DecisionConfirmation';
+import { continueWithoutProviderConfirmation } from './enrichmentPresentation';
 import { sourceLabel } from './metadataDraft';
 import classes from './ProviderMatches.module.css';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
@@ -184,10 +187,24 @@ interface ProviderMatchPickerProps {
     thumbnailUrl?: string | null;
     onSkip: () => void;
     loadingNextTitle: boolean;
+    canContinueWithout: boolean;
+    stale: boolean;
+    onShowLatest: () => void;
+    onDraftChange: (match: TitleProviderMatch | undefined) => void;
+    onBusyChange: (busy: boolean) => void;
   };
 }
 
-/** `onClose(true)` follows a confirmed match; any other close leaves the match unchanged. */
+type ProviderDecision =
+  | {
+      kind: 'match';
+      externalId: string;
+    }
+  | {
+      kind: 'continue';
+    };
+
+/** `onClose(true)` follows an accepted decision. */
 export function ProviderMatchPicker(props: ProviderMatchPickerProps) {
   return (
     <ProviderMatchPickerContent
@@ -216,6 +233,14 @@ function ProviderMatchPickerContent({
     };
   }, []);
   const [match, setMatch] = useState(row);
+  const inReview = !!review;
+  useLayoutEffect(() => {
+    // Catalog holds the displayed revision while a decision is being edited or saved.
+    if (inReview) setMatch(row);
+  }, [
+    inReview,
+    row,
+  ]);
   const [conflicted, setConflicted] = useState(false);
   const [mode, setMode] = useState<'search' | 'resolve'>('search');
   const [text, setText] = useState(titleName);
@@ -223,9 +248,10 @@ function ProviderMatchPickerContent({
   const [showEvidence, setShowEvidence] = useState(true);
   const lookupDisclosure = useRef<HTMLDetailsElement>(null);
   const search = useProviderGameLookup(row.providerId);
+  const [continuingWithout, setContinuingWithout] = useState(false);
+  const [submitting, setSubmitting] = useState<ProviderDecision['kind']>();
   const save = useMutation({
-    mutationFn: async () => {
-      if (!selected) return;
+    mutationFn: async (decision: ProviderDecision) => {
       // The revision of the match this picker showed: a stale one is 412, never a silent overwrite.
       const input = {
         path: {
@@ -235,20 +261,22 @@ function ProviderMatchPickerContent({
         headers: ifMatch(match.revision),
       };
       const result =
-        review && selected.id === match.externalId
-          ? await confirmTitleProviderMatch(input)
-          : await replaceTitleProviderMatch({
-              ...input,
-              body: {
-                externalId: selected.id,
-              },
-            });
+        decision.kind === 'continue'
+          ? await deleteTitleProviderMatch(input)
+          : review && decision.externalId === match.externalId
+            ? await confirmTitleProviderMatch(input)
+            : await replaceTitleProviderMatch({
+                ...input,
+                body: {
+                  externalId: decision.externalId,
+                },
+              });
       if (result.error || !result.data) {
         setConflicted(result.response?.status === 412);
         throw new Error(
           result.response?.status === 412
             ? 'The provider match changed. Reload the current match, then select and confirm your choice again.'
-            : 'The match could not be saved. Check the provider configuration or try again.',
+            : 'The provider decision could not be saved. Try again.',
         );
       }
       storeProviderMatch(cache, titleId, result.data);
@@ -258,6 +286,14 @@ function ProviderMatchPickerContent({
       if (!review && mounted.current) onClose(true, result.data);
     },
   });
+  const submit = async (decision: ProviderDecision) => {
+    setSubmitting(decision.kind);
+    try {
+      await save.mutateAsync(decision);
+    } finally {
+      setSubmitting(undefined);
+    }
+  };
   const reload = useMutation({
     mutationFn: async () => {
       const result = await listTitleProviderMatches({
@@ -284,7 +320,30 @@ function ProviderMatchPickerContent({
   const [discarding, setDiscarding] = useState(false);
   const [reloading, setReloading] = useState(false);
   const dirty = selected !== null || text !== (mode === 'search' ? titleName : '');
-  const busy = save.isPending || reload.isPending;
+  const saving = submitting !== undefined;
+  const busy = saving || reload.isPending;
+  const draft = dirty || continuingWithout || busy ? match : undefined;
+  const onDraftChange = review?.onDraftChange;
+  const onBusyChange = review?.onBusyChange;
+  const decisionOpen = busy || continuingWithout || reloading;
+  useLayoutEffect(() => {
+    onDraftChange?.(draft);
+  }, [
+    draft,
+    onDraftChange,
+  ]);
+  useLayoutEffect(() => {
+    onBusyChange?.(decisionOpen);
+    return () => onBusyChange?.(false);
+  }, [
+    decisionOpen,
+    onBusyChange,
+  ]);
+  const stale = !!review?.stale && !saving;
+  const inputsLocked = busy || stale;
+  const continueWithout = review?.canContinueWithout
+    ? continueWithoutProviderConfirmation(row.providerId)
+    : undefined;
   const requestClose = () => {
     if (busy) return;
     if (dirty) setDiscarding(true);
@@ -326,7 +385,7 @@ function ProviderMatchPickerContent({
   const lookup = (
     <Stack gap="xs">
       <SegmentedControl
-        disabled={busy}
+        disabled={inputsLocked}
         value={mode}
         onChange={(value) => {
           const nextMode = value === 'resolve' ? 'resolve' : 'search';
@@ -350,7 +409,7 @@ function ProviderMatchPickerContent({
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (!busy && !search.isPending && text.trim()) {
+          if (!inputsLocked && !search.isPending && text.trim()) {
             setSelected(null);
             setShowEvidence(false);
             void search.lookup(text.trim(), mode);
@@ -363,7 +422,7 @@ function ProviderMatchPickerContent({
         >
           <TextInput
             data-autofocus
-            disabled={busy}
+            disabled={inputsLocked}
             label={mode === 'search' ? 'Game name' : 'Provider ID or page URL'}
             value={text}
             onChange={(event) => {
@@ -386,7 +445,7 @@ function ProviderMatchPickerContent({
               variant="filled"
               aria-label={mode === 'search' ? 'Search provider games' : 'Look up provider game'}
               loading={search.isPending}
-              disabled={busy || !text.trim()}
+              disabled={inputsLocked || !text.trim()}
             >
               <IconSearch size={18} />
             </ActionIcon>
@@ -399,7 +458,8 @@ function ProviderMatchPickerContent({
   const content = (
     <Stack gap="sm">
       <UnsavedChanges
-        dirty={dirty && !save.isSuccess}
+        dirty={(dirty || (continuingWithout && save.isError)) && !save.isSuccess}
+        saving={inReview && saving}
         description="Your provider match choice has not been confirmed."
       />
       {review ? (
@@ -475,7 +535,7 @@ function ProviderMatchPickerContent({
               variant="subtle"
               size="compact-sm"
               onClick={showSuggestions}
-              disabled={busy}
+              disabled={inputsLocked}
             >
               Show original suggestions
             </Button>
@@ -528,7 +588,7 @@ function ProviderMatchPickerContent({
                       aria-label={`Select ${game.name}`}
                       aria-describedby={`${candidateEvidence}-${game.id}`}
                       data-provider-candidate
-                      disabled={busy || search.isPending || conflicted}
+                      disabled={inputsLocked || search.isPending || conflicted}
                       label={
                         <span className={classes.candidateLabel}>
                           <MatchCover url={game.thumbnailUrl} />
@@ -667,14 +727,48 @@ function ProviderMatchPickerContent({
           </Stack>
         </Radio.Group>
       )}
+      {!stale && continueWithout && (
+        <Button
+          variant="subtle"
+          size="compact-sm"
+          w="fit-content"
+          disabled={busy || conflicted}
+          onClick={() => {
+            save.reset();
+            setContinuingWithout(true);
+          }}
+        >
+          {continueWithout.confirmLabel}
+        </Button>
+      )}
       <Stack
         gap="xs"
         className={classes.actions}
         data-inline={(inline && !review) || undefined}
         data-review={!!review || undefined}
       >
-        {save.isError && <Alert color="red">{save.error.message}</Alert>}
-        {conflicted && (
+        {stale && review && (
+          <Alert
+            color="yellow"
+            title="This provider decision changed"
+            role="status"
+          >
+            Show the latest status to clear this draft and review what changed.
+          </Alert>
+        )}
+        {review && submitting === 'match' && (
+          <Text
+            role="status"
+            size="sm"
+            c="dimmed"
+          >
+            Saving provider decision…
+          </Text>
+        )}
+        {!stale && save.isError && !continuingWithout && (
+          <Alert color="red">{save.error.message}</Alert>
+        )}
+        {!stale && conflicted && !continuingWithout && (
           <Button
             {...workspaceActionProps}
             variant="light"
@@ -684,8 +778,8 @@ function ProviderMatchPickerContent({
             Reload latest
           </Button>
         )}
-        {reload.isError && <Alert color="red">{reload.error.message}</Alert>}
-        {reload.isSuccess && (
+        {!stale && reload.isError && <Alert color="red">{reload.error.message}</Alert>}
+        {!stale && reload.isSuccess && (
           <Alert color="blue">
             Current match: {match.game?.name ?? match.externalId ?? 'No linked game'}. Select a game
             to confirm your choice.
@@ -708,22 +802,37 @@ function ProviderMatchPickerContent({
           <Button
             variant={review ? 'subtle' : 'default'}
             color={review ? 'gray' : undefined}
+            className={review ? classes.skip : undefined}
             disabled={busy}
             loading={review?.loadingNextTitle}
             onClick={review?.onSkip ?? requestClose}
           >
             {review ? 'Skip for now' : 'Cancel'}
           </Button>
-          <Button
-            {...workspaceActionProps}
-            disabled={
-              !selected || conflicted || !match.isAvailable || reload.isPending || search.isPending
-            }
-            loading={save.isPending}
-            onClick={() => save.mutate()}
-          >
-            {review || !selected ? 'Confirm match' : `Confirm ${selected.name}`}
-          </Button>
+          {stale && review ? (
+            <Button
+              {...workspaceActionProps}
+              disabled={busy}
+              onClick={review.onShowLatest}
+            >
+              Show latest status
+            </Button>
+          ) : (
+            <Button
+              {...workspaceActionProps}
+              disabled={!selected || conflicted || !match.isAvailable || busy || search.isPending}
+              loading={submitting === 'match'}
+              onClick={() => {
+                if (selected)
+                  void submit({
+                    kind: 'match',
+                    externalId: selected.id,
+                  }).catch(() => undefined);
+              }}
+            >
+              {review || !selected ? 'Confirm match' : `Confirm ${selected.name}`}
+            </Button>
+          )}
         </Group>
       </Stack>
     </Stack>
@@ -809,6 +918,29 @@ function ProviderMatchPickerContent({
       )}
       {discardDialog}
       {reloadDialog}
+      {continueWithout && (
+        <DecisionConfirmation
+          copy={
+            continuingWithout
+              ? stale
+                ? {
+                    ...continueWithout,
+                    message: 'This decision changed. Close this dialog to see the latest status.',
+                  }
+                : continueWithout
+              : undefined
+          }
+          confirmDisabled={stale || conflicted}
+          onCancel={() => setContinuingWithout(false)}
+          onConfirm={() =>
+            submit({
+              kind: 'continue',
+            })
+          }
+          onConfirmed={() => setContinuingWithout(false)}
+          returnFocusAfterConfirm={false}
+        />
+      )}
     </>
   );
 }

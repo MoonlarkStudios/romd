@@ -11,6 +11,7 @@ interface InspectorPanelProps {
   children: ReactNode;
   footer?: ReactNode;
   onClose: () => void;
+  closeDisabled?: boolean;
   navigation?: {
     onPrevious?: () => void;
     onNext?: () => void;
@@ -24,6 +25,7 @@ export function InspectorPanel({
   children,
   footer,
   onClose,
+  closeDisabled,
   navigation,
 }: InspectorPanelProps) {
   const headingId = useId();
@@ -75,6 +77,7 @@ export function InspectorPanel({
             variant="subtle"
             color="gray"
             aria-label="Close inspector"
+            disabled={closeDisabled}
             onClick={onClose}
           >
             <IconX size={17} />

@@ -12,7 +12,12 @@ import {
 } from 'react';
 import { UNSAFE_DataRouterContext, useBlocker } from 'react-router';
 
-type Drafts = ReadonlyMap<string, string>;
+interface Draft {
+  description: string;
+  saving: boolean;
+}
+
+type Drafts = ReadonlyMap<string, Draft>;
 
 export interface DraftGuard {
   hasDraft: boolean;
@@ -22,7 +27,7 @@ export interface DraftGuard {
 }
 
 interface DraftRegistry extends DraftGuard {
-  register: (id: string, description: string) => () => void;
+  register: (id: string, draft: Draft) => () => void;
   discardEpoch: number;
 }
 
@@ -66,16 +71,23 @@ export function useDiscardEpoch(): number {
   return useContext(DraftGuardContext)?.discardEpoch ?? 0;
 }
 
-export function useDraft(dirty: boolean, description: string) {
+export function useDraft(dirty: boolean, description: string, saving = false) {
   const id = useId();
   const register = useContext(DraftGuardContext)?.register;
   useEffect(
-    () => (dirty && register ? register(id, description) : undefined),
+    () =>
+      register && (dirty || saving)
+        ? register(id, {
+            description,
+            saving,
+          })
+        : undefined,
     [
       dirty,
       description,
       id,
       register,
+      saving,
     ],
   );
 }
@@ -100,6 +112,8 @@ function RouterDraftGuard({ children }: { children: ReactNode }) {
     }, []),
   );
   const hasDraft = drafts.size > 0;
+  const registeredDrafts = Array.from(drafts.values());
+  const saving = registeredDrafts.some((draft) => draft.saving);
 
   // A pending save can clear the last draft after navigation was blocked. Continue the
   // requested action without asking to discard changes that have already been saved.
@@ -135,12 +149,12 @@ function RouterDraftGuard({ children }: { children: ReactNode }) {
     hasDraft,
   ]);
 
-  const register = useCallback((id: string, description: string) => {
+  const register = useCallback((id: string, draft: Draft) => {
     const publish = (next: Drafts) => {
       live.current = next;
       setDrafts(next);
     };
-    publish(new Map(live.current).set(id, description));
+    publish(new Map(live.current).set(id, draft));
     return () => {
       const next = new Map(live.current);
       next.delete(id);
@@ -214,7 +228,7 @@ function RouterDraftGuard({ children }: { children: ReactNode }) {
     ],
   );
   const descriptions = [
-    ...new Set(drafts.values()),
+    ...new Set(registeredDrafts.map((draft) => draft.description)),
   ];
   return (
     <DraftGuardContext.Provider value={guard}>
@@ -222,27 +236,31 @@ function RouterDraftGuard({ children }: { children: ReactNode }) {
       <Modal
         opened={blocker.state === 'blocked' || confirming}
         onClose={() => settle(false)}
-        title="Discard unsaved changes?"
+        title={saving ? 'Saving your changes' : 'Discard unsaved changes?'}
         centered
         returnFocus={!discarded}
       >
         <Stack>
-          {descriptions.map((description) => (
-            <Text key={description}>{description}</Text>
-          ))}
+          {saving ? (
+            <Text>The save is already in progress. You can stay here to see the result.</Text>
+          ) : (
+            descriptions.map((description) => <Text key={description}>{description}</Text>)
+          )}
           <Group justify="flex-end">
             <Button
               variant="default"
               onClick={() => settle(false)}
             >
-              Keep editing
+              {saving ? 'Stay here' : 'Keep editing'}
             </Button>
-            <Button
-              color="red"
-              onClick={() => settle(true)}
-            >
-              Discard
-            </Button>
+            {!saving && (
+              <Button
+                color="red"
+                onClick={() => settle(true)}
+              >
+                Discard
+              </Button>
+            )}
           </Group>
         </Stack>
       </Modal>

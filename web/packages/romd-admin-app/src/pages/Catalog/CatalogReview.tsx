@@ -132,6 +132,7 @@ export function CatalogReview() {
   const [launching, setLaunching] = useState(false);
   const [shortcutsOpened, setShortcutsOpened] = useState(false);
   const [decisionOpen, setDecisionOpen] = useState(false);
+  const [providerBusy, setProviderBusy] = useState(false);
   const [pagingError, setPagingError] = useState(false);
   const paging = useRef(false);
   const focusDecision = useRef(false);
@@ -165,7 +166,7 @@ export function CatalogReview() {
   useLayoutEffect(() => {
     queuePosition.current = {
       key: location.key,
-      locked: !size.measured || decisionOpen || launching,
+      locked: !size.measured || decisionOpen || providerBusy || launching,
     };
     if (active)
       remembered.current = {
@@ -204,6 +205,7 @@ export function CatalogReview() {
   });
   const index = visible.findIndex((row) => row.titleId === titleId);
   const openReview = (id: string, trigger?: HTMLElement) => {
+    if (queuePosition.current.locked) return;
     focusDecision.current = focusedReview;
     preview.select(id, focusedReview ? undefined : trigger);
   };
@@ -240,6 +242,7 @@ export function CatalogReview() {
     return next;
   };
   const changeFilters = (values: Record<string, string>, keepTitle = false) => {
+    if (providerBusy) return;
     const next = new URLSearchParams(params);
     for (const [name, value] of Object.entries(values)) {
       if (value) next.set(name, value);
@@ -293,7 +296,7 @@ export function CatalogReview() {
     }
   };
   const review = () => {
-    if (decisionOpen) return;
+    if (queuePosition.current.locked) return;
     const inspector = document.getElementById(catalogInspectorId);
     const action =
       inspector?.querySelector<HTMLElement>('[data-review-primary]') ??
@@ -383,6 +386,7 @@ export function CatalogReview() {
             color="gray"
             leftSection={<IconArrowLeft size={16} />}
             onClick={preview.close}
+            disabled={providerBusy}
           >
             Back to review queue
           </Button>
@@ -391,6 +395,7 @@ export function CatalogReview() {
             <NativeSelect
               className={classes.reviewFilter}
               label="Queue state"
+              disabled={providerBusy}
               value={state}
               data={states}
               onChange={(event) =>
@@ -402,6 +407,7 @@ export function CatalogReview() {
             <NativeSelect
               className={classes.reviewFilter}
               label="System"
+              disabled={providerBusy}
               value={systemKey ?? ''}
               data={[
                 {
@@ -442,6 +448,7 @@ export function CatalogReview() {
                 key={search}
                 defaultValue={search}
                 label="Find a title in review"
+                disabled={providerBusy}
                 leftSection={<IconSearch size={16} />}
                 placeholder="Search the queue…"
                 maxLength={200}
@@ -449,12 +456,14 @@ export function CatalogReview() {
               <Button
                 type="submit"
                 variant="default"
+                disabled={providerBusy}
               >
                 Search
               </Button>
               {search && (
                 <Button
                   variant="subtle"
+                  disabled={providerBusy}
                   onClick={() =>
                     changeFilters({
                       q: '',
@@ -489,6 +498,7 @@ export function CatalogReview() {
                 variant="light"
                 size="compact-sm"
                 leftSection={<IconSparkles size={16} />}
+                disabled={providerBusy}
                 onClick={() => setLaunching(true)}
               >
                 Enrich titles
@@ -542,6 +552,8 @@ export function CatalogReview() {
                   });
                 }}
                 onDecisionOpen={setDecisionOpen}
+                providerBusy={providerBusy}
+                onProviderBusyChange={setProviderBusy}
                 onDecisionSaved={() => {
                   const id = preview.selectedId;
                   requestAnimationFrame(() => {

@@ -1,8 +1,13 @@
 import { Alert, Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core';
-import type { EnrichmentAssessment, EnrichmentRequirement } from '@romd/admin-api-client';
+import type {
+  EnrichmentAssessment,
+  EnrichmentRequirement,
+  TitleProviderMatch,
+} from '@romd/admin-api-client';
 import { IconArrowRight, IconCheck } from '@tabler/icons-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { useDiscardEpoch } from '../../components/Administration/DraftGuard';
 import {
   outstandingRequirements,
   requirementCopy,
@@ -35,6 +40,16 @@ interface CatalogReviewFocusProps {
   selectRequirement: (key: string) => void;
   onDecisionOpen: (open: boolean) => void;
   onDecisionSaved: () => void;
+  providerBusy: boolean;
+  onProviderBusyChange: (busy: boolean) => void;
+}
+
+function isProviderDecision(issue: EnrichmentRequirement) {
+  return (
+    issue.kind === 'Identity' &&
+    issue.state === 'NeedsReview' &&
+    issue.actions.includes('ReviewProvider')
+  );
 }
 
 export function CatalogReviewFocus({
@@ -53,12 +68,22 @@ export function CatalogReviewFocus({
   selectRequirement,
   onDecisionOpen,
   onDecisionSaved,
+  providerBusy,
+  onProviderBusyChange,
 }: CatalogReviewFocusProps) {
   const query = useEnrichmentAssessment(titleId);
   const assessment = query.data ?? fallback;
   const [confirmed, setConfirmed] = useState<{
     key: string;
+    withoutProvider: boolean;
     jobId?: string | null;
+  }>();
+  const discardEpoch = useDiscardEpoch();
+  const [pickerVersion, setPickerVersion] = useState(0);
+  const [providerDraft, setProviderDraft] = useState<{
+    issue: EnrichmentRequirement;
+    row: TitleProviderMatch;
+    discardEpoch: number;
   }>();
   const confirmationHeading = useRef<HTMLHeadingElement>(null);
   useLayoutEffect(() => {
@@ -70,13 +95,35 @@ export function CatalogReviewFocus({
   const decisions = outstanding.filter(
     (row) => row.state === 'NeedsReview' && row.key !== confirmed?.key,
   );
-  const current = outstanding.find((row) => row.key === requirementKey) ?? decisions[0];
+  const draft = providerDraft?.discardEpoch === discardEpoch ? providerDraft : undefined;
+  const current =
+    draft?.issue ?? outstanding.find((row) => row.key === requirementKey) ?? decisions[0];
   const otherDecisions = decisions.filter((row) => row.key !== current?.key);
-  const reviewingMatch = current?.kind === 'Identity' && current.actions.includes('ReviewProvider');
+  const onDraftChange = useCallback(
+    (row: TitleProviderMatch | undefined) => {
+      setProviderDraft(
+        current && row
+          ? {
+              issue: current,
+              row,
+              discardEpoch,
+            }
+          : undefined,
+      );
+    },
+    [
+      current,
+      discardEpoch,
+    ],
+  );
   const navigationState = {
     catalogReturnTo: returnPath,
   };
   const openEditor: React.MouseEventHandler<HTMLAnchorElement> = (event) => {
+    if (providerBusy) {
+      event.preventDefault();
+      return;
+    }
     rememberCatalogPosition(returnPath, event);
   };
   const chooseRequirement = (key: string) => {
@@ -89,9 +136,10 @@ export function CatalogReviewFocus({
       id={catalogInspectorId}
       title={assessment?.titleName ?? 'Title review'}
       onClose={close}
+      closeDisabled={providerBusy}
       navigation={{
-        onPrevious: previous,
-        onNext: loadingNextTitle ? undefined : next,
+        onPrevious: providerBusy ? undefined : previous,
+        onNext: loadingNextTitle || providerBusy ? undefined : next,
       }}
       footer={
         assessment && (
@@ -107,6 +155,7 @@ export function CatalogReviewFocus({
                   : titleSectionPath(titleId)
               }
               state={navigationState}
+              aria-disabled={providerBusy || undefined}
               onClick={openEditor}
               {...workspaceActionProps}
               variant="subtle"
@@ -118,6 +167,7 @@ export function CatalogReviewFocus({
               <Button
                 component={Link}
                 to={libraryPath}
+                aria-disabled={providerBusy || undefined}
                 onClick={openEditor}
                 variant="subtle"
                 size="compact-sm"
@@ -129,6 +179,7 @@ export function CatalogReviewFocus({
               <Button
                 variant="subtle"
                 size="compact-sm"
+                disabled={providerBusy}
                 onClick={onViewBlocked}
               >
                 View blocked queue
@@ -150,6 +201,7 @@ export function CatalogReviewFocus({
                     key={issue.key}
                     variant="light"
                     size="compact-sm"
+                    disabled={providerBusy}
                     onClick={() => chooseRequirement(issue.key)}
                   >
                     {requirementSubjectLabel(issue)}
@@ -197,6 +249,7 @@ export function CatalogReviewFocus({
           <Button
             variant="subtle"
             size="compact-sm"
+            disabled={providerBusy}
             onClick={next}
           >
             Try again
@@ -221,14 +274,16 @@ export function CatalogReviewFocus({
                   ref={confirmationHeading}
                   tabIndex={-1}
                 >
-                  Match confirmed
+                  {confirmed.withoutProvider ? 'Provider matching turned off' : 'Match confirmed'}
                 </Title>
               </Group>
               <Text
                 size="sm"
                 c="dimmed"
               >
-                Follow-up enrichment was queued. You can keep reviewing.
+                {confirmed.withoutProvider
+                  ? 'You can link this provider later from the title.'
+                  : 'Follow-up enrichment was queued. You can keep reviewing.'}
               </Text>
               <Group
                 gap="xs"
@@ -253,7 +308,7 @@ export function CatalogReviewFocus({
                 </Button>
               </Group>
             </Stack>
-          ) : reviewingMatch && current ? (
+          ) : current && isProviderDecision(current) ? (
             <Stack gap="sm">
               <div>
                 <Title
@@ -281,17 +336,31 @@ export function CatalogReviewFocus({
                 )}
               </div>
               <CatalogProviderDecision
-                key={current.key}
+                key={`${current.key}:${discardEpoch}:${pickerVersion}`}
                 assessment={assessment}
                 issue={current}
+                draftRow={draft?.row}
+                staleIssue={
+                  !!draft &&
+                  !decisions.some((row) => row.key === current.key && isProviderDecision(row))
+                }
+                onDraftChange={onDraftChange}
+                onBusyChange={onProviderBusyChange}
+                showLatest={() => {
+                  setProviderDraft(undefined);
+                  setPickerVersion((version) => version + 1);
+                  document.getElementById(catalogInspectorId)?.focus();
+                }}
                 skip={skip}
                 loadingNextTitle={loadingNextTitle}
-                confirm={(jobId) =>
+                confirm={(match) => {
+                  setProviderDraft(undefined);
                   setConfirmed({
                     key: current.key,
-                    jobId,
-                  })
-                }
+                    withoutProvider: match.state === 'Unlinked',
+                    jobId: match.pendingJobId,
+                  });
+                }}
               />
             </Stack>
           ) : (
@@ -347,26 +416,37 @@ export function CatalogReviewFocus({
 function CatalogProviderDecision({
   assessment,
   issue,
+  draftRow,
+  staleIssue,
+  onDraftChange,
+  onBusyChange,
+  showLatest,
   skip,
   loadingNextTitle,
   confirm,
 }: {
   assessment: EnrichmentAssessment;
   issue: EnrichmentRequirement;
+  draftRow?: TitleProviderMatch;
+  staleIssue: boolean;
+  onDraftChange: (row: TitleProviderMatch | undefined) => void;
+  onBusyChange: (busy: boolean) => void;
+  showLatest: () => void;
   skip: () => void;
   loadingNextTitle: boolean;
-  confirm: (jobId: string | null | undefined) => void;
+  confirm: (match: TitleProviderMatch) => void;
 }) {
   const matches = useProviderMatches(assessment.titleId);
   const row = matches.data?.find((match) => match.providerId === requirementProviderId(issue));
-  if (matches.isPending)
+  const shown = draftRow ?? row;
+  if (!shown && matches.isPending)
     return (
       <Skeleton
         h={160}
         aria-label="Loading provider candidates"
       />
     );
-  if (matches.isError || !row?.isAvailable)
+  if (!shown?.isAvailable)
     return (
       <Stack
         align="start"
@@ -399,15 +479,21 @@ function CatalogProviderDecision({
     <ProviderMatchPicker
       titleId={assessment.titleId}
       titleName={assessment.titleName}
-      row={row}
+      row={shown}
       onClose={(saved, match) => {
-        if (saved) confirm(match?.pendingJobId);
+        if (saved && match) confirm(match);
       }}
       review={{
         platformName: assessment.platformName,
         thumbnailUrl: assessment.thumbnailUrl,
         onSkip: skip,
         loadingNextTitle,
+        canContinueWithout: issue.actions.includes('ContinueWithoutProvider'),
+        stale:
+          staleIssue || (!!draftRow && (!row?.isAvailable || row.revision !== draftRow.revision)),
+        onShowLatest: showLatest,
+        onDraftChange,
+        onBusyChange,
       }}
     />
   );

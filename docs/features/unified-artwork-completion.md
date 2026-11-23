@@ -23,8 +23,15 @@ URL, then **Show original suggestions** to return to the original candidates.
 
 Confirming a match queues follow-up enrichment. Continue with **Next decision**
 or **Next title**, or choose **View job** to follow the run. **Skip for now**
-leaves the decision open. **Open in title** goes to the relevant Title section,
-and Back restores your queue search and selected title.
+leaves the decision open. Use **Continue without IGDB** or the equivalent
+provider action to turn off automatic matching for this title. You can link
+the provider later from the Title page.
+
+Navigation pauses while a provider decision is saving. If the decision changes
+while you are editing, your selection stays visible. Choose **Show latest
+status** to clear the draft and review the updated decision. **Open in title**
+goes to the relevant Title section, and Back restores your queue search and
+selected title.
 
 On desktop, use Up and Down from a review row to move through titles and Enter
 to enter the decision. Escape closes the panel. On narrow screens the decision

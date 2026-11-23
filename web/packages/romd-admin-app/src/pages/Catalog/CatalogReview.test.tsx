@@ -1,3 +1,4 @@
+import { MantineProvider } from '@mantine/core';
 import {
   type CatalogTitle,
   client,
@@ -5,12 +6,19 @@ import {
   type SetEnrichmentOmissionRequest,
   type TitleProviderMatch,
 } from '@romd/admin-api-client';
+import { CatalogFixture } from '@romd/consumer-ui/testing';
+import { adminCssVariablesResolver } from '@romd/foundation/theme';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { screen, within } from '@testing-library/react';
+import { act, render as renderRaw, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { DraftGuardProvider } from '../../components/Administration/DraftGuard';
+import { AuthContext } from '../../contexts/AuthContext';
+import { providerMatchKeys } from '../../hooks/api/titleCache';
 import { catalogSearchKeys } from '../../hooks/api/useCatalogSearch';
+import { enrichmentWorkspaceKeys } from '../../hooks/api/useEnrichmentWorkspace';
 import { authFixtures } from '../../test/msw/fixtures/auth';
 import {
   assessmentFixture,
@@ -22,6 +30,7 @@ import {
 import { server } from '../../test/msw/server';
 import { render } from '../../test/utils/render';
 import { finalPage } from '../../test/workspacePages';
+import { theme } from '../../theme';
 import { Catalog } from './index';
 
 vi.mock('@mantine/hooks', async (importOriginal) => ({
@@ -39,10 +48,12 @@ beforeEach(() => {
   });
 });
 
-it('starts review, compares system releases, restores suggestions after lookup, and continues', async () => {
-  const api = 'http://localhost/api';
+const api = 'http://localhost/api';
+
+function mockProviderReview() {
   const matchIssue = unsatisfied('Identity:igdb', 'NeedsReview', 'MatchDecisionRequired', [
     'ReviewProvider',
+    'ContinueWithoutProvider',
   ]);
   const metadataIssue = unsatisfied('Metadata:Description', 'NeedsReview', 'NotProvided', [
     'ReviewMetadata',
@@ -183,6 +194,90 @@ it('starts review, compares system releases, restores suggestions after lookup, 
       });
     }),
   );
+  return {
+    titles,
+    match,
+    metadataIssue,
+    saveDecision,
+  };
+}
+
+async function openProviderReview() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+  const router = createMemoryRouter(
+    [
+      {
+        path: '/catalog',
+        element: (
+          <DraftGuardProvider>
+            <Catalog />
+          </DraftGuardProvider>
+        ),
+      },
+    ],
+    {
+      initialEntries: [
+        '/catalog?view=review',
+        '/catalog?view=review&q=Chrono',
+      ],
+    },
+  );
+  renderRaw(
+    <MantineProvider
+      cssVariablesResolver={adminCssVariablesResolver}
+      theme={theme}
+      env="test"
+    >
+      <QueryClientProvider client={queryClient}>
+        <AuthContext.Provider
+          value={{
+            user: authFixtures.currentUser,
+            isAuthenticated: true,
+            isLoading: false,
+            error: null,
+            retry: async () => {},
+            login: async () => {},
+            logout: async () => {},
+          }}
+        >
+          <CatalogFixture>
+            <RouterProvider router={router} />
+          </CatalogFixture>
+        </AuthContext.Provider>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Start review',
+    }),
+  );
+  const inspector = await screen.findByRole('complementary', {
+    name: 'Chrono Trigger',
+  });
+  const panel = within(inspector);
+  const candidate = await panel.findByRole('radio', {
+    name: 'Select Original game',
+  });
+  return {
+    user,
+    queryClient,
+    router,
+    panel,
+    inspector,
+    candidate,
+  };
+}
+
+it('starts review, compares system releases, restores suggestions after lookup, and continues', async () => {
+  const { saveDecision } = mockProviderReview();
   const user = userEvent.setup();
   render(<Catalog />, {
     auth: {
@@ -323,6 +418,225 @@ it('starts review, compares system releases, restores suggestions after lookup, 
   ).toBeVisible();
   expect(saveDecision).toHaveBeenCalledTimes(1);
 });
+
+it('keeps the inspector open during a save and never offers to discard an in-flight write', async () => {
+  const { match, titles, metadataIssue } = mockProviderReview();
+  const started = vi.fn();
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  server.use(
+    http.put(`${api}/titles/chrono-trigger/provider-matches/igdb`, async ({ request }) => {
+      started(request.headers.get('If-Match'), await request.json());
+      await pending;
+      return HttpResponse.json({
+        ...match,
+        state: 'Confirmed',
+        externalId: '100',
+        revision: 'match-2',
+        pendingJobId: 'work-1',
+      });
+    }),
+  );
+
+  const { user, router, panel, queryClient, candidate } = await openProviderReview();
+  await user.click(candidate);
+  await user.click(
+    panel.getByRole('button', {
+      name: 'Confirm match',
+    }),
+  );
+  await waitFor(() =>
+    expect(started).toHaveBeenCalledExactlyOnceWith('"match-1"', {
+      externalId: '100',
+    }),
+  );
+  expect(
+    panel.getByRole('button', {
+      name: 'Preview next item',
+    }),
+  ).toBeDisabled();
+  expect(
+    panel.getByRole('button', {
+      name: 'Close inspector',
+    }),
+  ).toBeDisabled();
+  await user.keyboard('{Escape}');
+  expect(router.state.location.search).toContain('title=chrono-trigger');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+  // The browser's Back button goes through the app-wide guard.
+  await act(() => router.navigate(-1));
+  const dialog = screen.getByRole('dialog', {
+    name: 'Saving your changes',
+  });
+  expect(
+    within(dialog).queryByRole('button', {
+      name: 'Discard',
+    }),
+  ).not.toBeInTheDocument();
+  await user.click(
+    within(dialog).getByRole('button', {
+      name: 'Stay here',
+    }),
+  );
+
+  // A refresh may observe the server's commit before its response reaches the picker.
+  titles[0] = assessmentFixture(withRequirements(metadataIssue));
+  await act(() =>
+    queryClient.invalidateQueries({
+      queryKey: enrichmentWorkspaceKeys.title('chrono-trigger'),
+    }),
+  );
+  expect(candidate).toBeChecked();
+  finish();
+  expect(
+    await panel.findByRole('heading', {
+      name: 'Match confirmed',
+    }),
+  ).toHaveFocus();
+  expect(
+    panel.getByRole('link', {
+      name: 'View job',
+    }),
+  ).toHaveAttribute('href', '/jobs/work-1');
+  expect(
+    panel.getByRole('button', {
+      name: 'Preview next item',
+    }),
+  ).toBeEnabled();
+});
+
+it('can continue without the provider, using the shown revision and leaving the next decision in place', async () => {
+  const { match, titles, metadataIssue } = mockProviderReview();
+  const unlink = vi.fn();
+  server.use(
+    http.delete(`${api}/titles/chrono-trigger/provider-matches/igdb`, ({ request }) => {
+      unlink(request.headers.get('If-Match'));
+      titles[0] = assessmentFixture(withRequirements(metadataIssue));
+      return HttpResponse.json({
+        ...match,
+        state: 'Unlinked',
+        decision: null,
+        revision: 'match-2',
+      });
+    }),
+  );
+  const { user, panel } = await openProviderReview();
+  const action = panel.getByRole('button', {
+    name: 'Continue without IGDB',
+  });
+  await user.click(action);
+  const dialog = screen.getByRole('dialog', {
+    name: 'Continue without IGDB?',
+  });
+  await user.click(
+    within(dialog).getByRole('button', {
+      name: 'Cancel',
+    }),
+  );
+  expect(unlink).not.toHaveBeenCalled();
+  expect(dialog).not.toBeInTheDocument();
+  await user.click(action);
+  const reopened = screen.getByRole('dialog', {
+    name: 'Continue without IGDB?',
+  });
+  await user.click(
+    within(reopened).getByRole('button', {
+      name: 'Continue without IGDB',
+    }),
+  );
+  expect(
+    await panel.findByRole('heading', {
+      name: 'Provider matching turned off',
+    }),
+  ).toHaveFocus();
+  expect(unlink).toHaveBeenCalledExactlyOnceWith('"match-1"');
+  expect(
+    panel.queryByRole('link', {
+      name: 'View job',
+    }),
+  ).not.toBeInTheDocument();
+  await user.click(
+    panel.getByRole('button', {
+      name: 'Next decision',
+    }),
+  );
+  expect(
+    await panel.findByRole('link', {
+      name: 'Description',
+    }),
+  ).toBeVisible();
+});
+
+it.each([
+  'assessment',
+  'provider',
+])('keeps a draft visible until the curator acknowledges a changed %s', async (changed) => {
+  const { match, titles, metadataIssue, saveDecision } = mockProviderReview();
+  const { user, panel, inspector, candidate, queryClient } = await openProviderReview();
+  await user.click(candidate);
+  if (changed === 'assessment') {
+    titles[0] = assessmentFixture(withRequirements(metadataIssue));
+    await act(() =>
+      queryClient.invalidateQueries({
+        queryKey: enrichmentWorkspaceKeys.title('chrono-trigger'),
+      }),
+    );
+  } else {
+    await act(() => {
+      queryClient.setQueryData(providerMatchKeys.title('chrono-trigger'), [
+        {
+          ...match,
+          revision: 'match-2',
+        },
+      ]);
+    });
+  }
+  expect(await panel.findByText('This provider decision changed')).toBeVisible();
+  expect(candidate).toBeChecked();
+  expect(candidate).toBeDisabled();
+  expect(
+    panel.queryByRole('button', {
+      name: 'Confirm match',
+    }),
+  ).not.toBeInTheDocument();
+  await user.click(
+    panel.getByRole('button', {
+      name: 'Show latest status',
+    }),
+  );
+  expect(inspector).toHaveFocus();
+  expect(saveDecision).not.toHaveBeenCalled();
+  if (changed === 'assessment') {
+    expect(
+      await panel.findByRole('link', {
+        name: 'Description',
+      }),
+    ).toBeVisible();
+  } else {
+    const fresh = await panel.findByRole('radio', {
+      name: 'Select Original game',
+    });
+    expect(fresh).not.toBeChecked();
+    await user.click(fresh);
+    await user.click(
+      panel.getByRole('button', {
+        name: 'Confirm match',
+      }),
+    );
+    await waitFor(() =>
+      expect(saveDecision).toHaveBeenCalledExactlyOnceWith('"match-2"', {
+        externalId: '100',
+      }),
+    );
+    await panel.findByRole('heading', {
+      name: 'Match confirmed',
+    });
+  }
+});
+
 afterEach(() => {
   client.setConfig({
     baseUrl: '',

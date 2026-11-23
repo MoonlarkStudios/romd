@@ -12,12 +12,14 @@ export function DecisionConfirmation({
   onCancel,
   onConfirm,
   onConfirmed,
+  confirmDisabled = false,
   returnFocusAfterConfirm = true,
 }: {
   copy: DecisionConfirmationCopy | undefined;
   onCancel: () => void;
   onConfirm: () => Promise<unknown>;
   onConfirmed: () => void;
+  confirmDisabled?: boolean;
   returnFocusAfterConfirm?: boolean;
 }) {
   const [pending, setPending] = useState(false);
@@ -79,6 +81,7 @@ export function DecisionConfirmation({
           </Button>
           <Button
             {...workspaceActionProps}
+            disabled={confirmDisabled}
             loading={pending}
             onClick={() => void confirm()}
           >
