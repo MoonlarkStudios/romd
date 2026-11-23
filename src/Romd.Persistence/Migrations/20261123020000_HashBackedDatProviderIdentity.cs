@@ -10,8 +10,8 @@ public sealed class HashBackedDatProviderIdentity : Migration
     protected override void Up(MigrationBuilder migrationBuilder)
     {
         migrationBuilder.Sql("""
-            CREATE INDEX "IX_DatGames_DatFileId_DeclaredId_Id"
-            ON romd."DatGames" ("DatFileId", "DeclaredId", "Id") WHERE "DeclaredId" IS NOT NULL;
+            CREATE INDEX "IX_DatGames_DatFileId_DeclaredIdDigest_Id"
+            ON romd."DatGames" ("DatFileId", md5("DeclaredId"), "Id") WHERE "DeclaredId" IS NOT NULL;
 
             CREATE FUNCTION romd.provider_identity_dat_matches(title_id integer)
              RETURNS TABLE ("DatFileId" integer, "GameId" integer, "RomFileId" integer)
@@ -56,7 +56,7 @@ public sealed class HashBackedDatProviderIdentity : Migration
         migrationBuilder.Sql(FingerprintSql(string.Empty));
         migrationBuilder.Sql("""
             DROP FUNCTION romd.provider_identity_dat_matches(integer);
-            DROP INDEX romd."IX_DatGames_DatFileId_DeclaredId_Id";
+            DROP INDEX romd."IX_DatGames_DatFileId_DeclaredIdDigest_Id";
             """);
     }
 

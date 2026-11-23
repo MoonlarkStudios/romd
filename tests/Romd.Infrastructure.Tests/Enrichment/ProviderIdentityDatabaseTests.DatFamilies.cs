@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -161,8 +162,8 @@ public sealed partial class ProviderIdentityDatabaseTests
         await using var db = _database.CreateContext();
         await Seed(db);
         await AddFamilyRom(db);
-        AddFamilyRelease(db, 1, 4, "Published root");
-        await db.DatGames.Where(g => g.Id == 1).ExecuteUpdateAsync(update => update.SetProperty(g => g.CloneOf, "Published root"));
+        AddFamilyRelease(db, 1, 4, "Published root", declaredId: "family-root");
+        await db.DatGames.Where(g => g.Id == 1).ExecuteUpdateAsync(update => update.SetProperty(g => g.CloneOfId, "family-root"));
         db.DatRoms.Add(MatchedRom(1));
         await db.SaveChangesAsync();
         var store = CreateFamilyStore(db);
@@ -171,8 +172,8 @@ public sealed partial class ProviderIdentityDatabaseTests
         await AddAutomatic(db, "a", "42");
 
         await AddDatVersion(db, 2, DatFileLifecycle.PendingActivation, 1990);
-        AddFamilyRelease(db, 2, 5, "Pending root");
-        await db.DatGames.Where(g => g.Id == 102).ExecuteUpdateAsync(update => update.SetProperty(g => g.CloneOf, "Pending root"));
+        AddFamilyRelease(db, 2, 5, "Pending root", declaredId: "family-root");
+        await db.DatGames.Where(g => g.Id == 102).ExecuteUpdateAsync(update => update.SetProperty(g => g.CloneOfId, "family-root"));
         db.DatRoms.Add(MatchedRom(102));
         await db.SaveChangesAsync();
 
@@ -192,7 +193,7 @@ public sealed partial class ProviderIdentityDatabaseTests
     }
 
     [Fact]
-    public async Task Provision_WithExistingHashMatch_InvalidatesPreviousAutomaticDecision()
+    public async Task Provision_WithExistingHashMatchAndLongParentId_ResolvesFamilyAndInvalidatesPreviousDecision()
     {
         await using var database = PostgreSqlTestDatabase.CreateEmpty();
         await using var db = database.CreateContext();
@@ -201,6 +202,11 @@ public sealed partial class ProviderIdentityDatabaseTests
         await migrator.MigrateAsync(previousMigration);
         await Seed(db);
         await AddFamilyRom(db);
+        // Existing custom DAT identifiers can be longer than a B-tree index value.
+        string declaredId = string.Concat(Enumerable.Range(1, 128)
+            .Select(index => Convert.ToHexString(SHA256.HashData(BitConverter.GetBytes(index)))));
+        AddFamilyRelease(db, 1, 3, "Root", declaredId: declaredId);
+        await db.DatGames.Where(g => g.Id == 1).ExecuteUpdateAsync(update => update.SetProperty(g => g.CloneOfId, declaredId));
         db.DatRoms.Add(MatchedRom(1));
         await db.SaveChangesAsync();
         await AddAutomatic(db, "a", "42");
@@ -209,7 +215,7 @@ public sealed partial class ProviderIdentityDatabaseTests
         await database.ProvisionAsync();
 
         var upgraded = (await CreateFamilyStore(db).ReadAsync(1, default)).ShouldNotBeNull();
-        upgraded.DatFamily.ShouldNotBeNull().Names.ShouldBe(["Game"]);
+        upgraded.DatFamily.ShouldNotBeNull().Names.ShouldBe(["Root", "Game"]);
         upgraded.Fingerprint.ShouldNotBe(previous);
         (await Trusted(db, "a")).ShouldBeFalse();
 

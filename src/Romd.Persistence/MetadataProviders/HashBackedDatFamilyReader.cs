@@ -20,6 +20,7 @@ internal static class HashBackedDatFamilyReader
         int[] gameIds = matches.Select(match => match.GameId).ToArray();
         // Fetch only declarations reachable from the matched releases. Two hits for a
         // reference are enough to establish ambiguity. UNION visits each entry once.
+        // The digest keeps unrestricted IDs indexable; full equality resolves references.
         var entries = await db.Database.SqlQuery<Entry>($"""
             WITH RECURSIVE ancestry("Id") AS (
                 SELECT unnest({gameIds})
@@ -35,7 +36,9 @@ internal static class HashBackedDatFamilyReader
                     UNION
                     (SELECT g."Id"
                      FROM romd."DatGames" g
-                     WHERE g."DatFileId" = child."DatFileId" AND g."DeclaredId" = child."CloneOfId"
+                     WHERE g."DatFileId" = child."DatFileId"
+                       AND md5(g."DeclaredId") = md5(child."CloneOfId")
+                       AND g."DeclaredId" = child."CloneOfId"
                      ORDER BY g."Id" LIMIT 2)
                 ) parent
             )
