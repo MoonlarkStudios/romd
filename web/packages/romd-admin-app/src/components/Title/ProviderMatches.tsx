@@ -531,9 +531,7 @@ function ProviderMatchPickerContent({
           </Button>
           <Button
             {...workspaceActionProps}
-            disabled={
-              !selected || conflicted || !match.isAvailable || busy || search.isPending
-            }
+            disabled={!selected || conflicted || !match.isAvailable || busy || search.isPending}
             loading={save.isPending && save.variables !== null}
             onClick={() => selected && save.mutate(selected.id)}
           >
