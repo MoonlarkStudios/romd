@@ -16,6 +16,7 @@ using Romd.Admin.Application.Titles.Commands.SetTitleTracked;
 using Romd.Admin.Application.Titles.Commands.TriggerTitleEnrichment;
 using Romd.Admin.Application.Titles.Commands.UpdateUserMetadata;
 using Romd.Admin.Application.Titles.Commands.UploadTitleMedia;
+using Romd.Admin.Application.Titles.Queries.GetDatTitleGrouping;
 using Romd.Admin.Application.Titles.Queries.GetTitleSourceReferences;
 using Romd.Admin.Application.Titles.Queries.OpenTitleMedia;
 using Romd.Admin.Application.Titles.ReadModels;
@@ -164,6 +165,7 @@ public static class TitleEndpoints
             .WithName("GetDatTitleGrouping")
             .WithDescription("Review another title linked through the active, hash-verified DAT clone family.")
             .Produces<DatTitleGroupingReview>()
+            .ProducesProblems(StatusCodes.Status404NotFound)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
         group.MapPost("{titleId}/merge", MergeTitles)
@@ -581,9 +583,12 @@ public static class TitleEndpoints
             cancellationToken));
 
     private static async Task<IResult> GetDatTitleGrouping(
-        Sqid titleId, IDatTitleGroupingReader reader, CancellationToken cancellationToken)
+        Sqid titleId, IQueryHandler<GetDatTitleGroupingQuery, DatTitleGroupingRead> handler, CancellationToken cancellationToken)
     {
-        var evidence = await reader.ReadAsync(titleId, cancellationToken);
+        var result = await handler.HandleAsync(new(titleId), cancellationToken);
+        if (result.IsError)
+            return result.Errors.ToProblem();
+        var evidence = result.Value.Suggestion;
         return Results.Ok(new DatTitleGroupingReview(evidence is null ? null : new(
             IdCoder.Encode(evidence.ParentTitleId), evidence.ParentTitleName, evidence.ParentTitleRevision.ToString(),
             evidence.CloneTitleRevision.ToString(), evidence.DatName, evidence.DatVersion,

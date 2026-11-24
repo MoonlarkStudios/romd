@@ -23,7 +23,7 @@ public sealed partial class ProviderIdentityDatabaseTests
         await using var db = _database.CreateContext();
         await SeedParentFamilyAsync(db, "Streets of Rage 2", "Streets of Rage II (Japan, Europe)");
         var reader = new DatTitleGroupingReader(db);
-        var review = (await reader.ReadAsync(1, default)).ShouldNotBeNull();
+        var review = (await reader.ReadAsync(1, default)).ShouldNotBeNull().Suggestion.ShouldNotBeNull();
         review.ParentTitleId.ShouldBe(2);
         review.ReleaseNames.ShouldBe(["Streets of Rage II (Japan, Europe)", "Streets of Rage 2 (USA)"]);
         var repository = new TitleRepository(db);

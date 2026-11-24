@@ -1,4 +1,3 @@
-using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
@@ -10,22 +9,14 @@ namespace Romd.Persistence.Catalog;
 
 public sealed class DatTitleGroupingReader(RomdDbContext db) : IDatTitleGroupingReader
 {
-    public async Task<DatTitleGroupingEvidence?> ReadAsync(int cloneTitleId, CancellationToken cancellationToken)
+    public async Task<DatTitleGroupingRead?> ReadAsync(int cloneTitleId, CancellationToken cancellationToken)
     {
-        if (db.Database.CurrentTransaction is not null)
-            return await ReadCurrentAsync(cloneTitleId, cancellationToken);
+        if (!await db.Titles.AnyAsync(title => title.Id == cloneTitleId, cancellationToken))
+            return null;
 
-        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
-        var evidence = await ReadCurrentAsync(cloneTitleId, cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return evidence;
-    }
-
-    private async Task<DatTitleGroupingEvidence?> ReadCurrentAsync(int cloneTitleId, CancellationToken cancellationToken)
-    {
         var family = await HashBackedDatFamilyReader.ReadAsync(db, cloneTitleId, cancellationToken);
         if (family?.Parent is not { } parent)
-            return null;
+            return new(null);
 
         var match = await (from clone in db.Titles
                            from target in db.Titles
@@ -45,10 +36,10 @@ public sealed class DatTitleGroupingReader(RomdDbContext db) : IDatTitleGrouping
                                ParentEvidence = ProviderIdentityDatabaseFunctions.Fingerprint(target.Id, ProviderIdentityPolicy.Version)
                            }).SingleOrDefaultAsync(cancellationToken);
         if (match is null)
-            return null;
+            return new(null);
 
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             $"{cloneTitleId}:{match.Id}:{parent.DatFileId}:{parent.GameId}:{match.CloneEvidence}:{match.ParentEvidence}")));
-        return new(match.Id, match.Name, match.ParentRevision, match.CloneRevision, match.DatName, match.Version, family.Names, fingerprint);
+        return new(new(match.Id, match.Name, match.ParentRevision, match.CloneRevision, match.DatName, match.Version, family.Names, fingerprint));
     }
 }

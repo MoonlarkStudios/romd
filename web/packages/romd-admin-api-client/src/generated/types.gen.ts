@@ -7552,6 +7552,10 @@ export type GetDatTitleGroupingErrors = {
      * Bad Request
      */
     400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
 };
 
 export type GetDatTitleGroupingError = GetDatTitleGroupingErrors[keyof GetDatTitleGroupingErrors];

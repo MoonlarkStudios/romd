@@ -11,11 +11,11 @@ public sealed partial class TitleRepository
         await CatalogTopologyFence.AcquireAsync(_context, cancellationToken);
 
         var reader = new DatTitleGroupingReader(_context);
-        var source = await reader.ReadAsync(sourceTitleId, cancellationToken);
+        var source = (await reader.ReadAsync(sourceTitleId, cancellationToken))?.Suggestion;
         if (source?.ParentTitleId == targetTitleId && source.Fingerprint == evidence)
             return true;
 
-        var target = await reader.ReadAsync(targetTitleId, cancellationToken);
+        var target = (await reader.ReadAsync(targetTitleId, cancellationToken))?.Suggestion;
         return target?.ParentTitleId == sourceTitleId && target.Fingerprint == evidence;
     }
 
