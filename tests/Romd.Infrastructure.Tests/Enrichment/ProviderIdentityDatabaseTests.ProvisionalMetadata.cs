@@ -101,8 +101,11 @@ public sealed partial class ProviderIdentityDatabaseTests
         var (game, match) = await SeedProvisionalMetadataMatchAsync(db);
         db.TitleContentRatings.Add(TitleContentRatingEntity.FromDomain(1, new ContentRating
         {
-            Board = RatingBoard.Esrb, Code = "T", Designation = RatingDesignation.Rated,
-            MinimumAge = 13, SourceId = "user"
+            Board = RatingBoard.Esrb,
+            Code = "T",
+            Designation = RatingDesignation.Rated,
+            MinimumAge = 13,
+            SourceId = "user"
         }));
         await db.SaveChangesAsync();
         var titles = new TitleRepository(db);
