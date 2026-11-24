@@ -75,21 +75,19 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
 
     private async Task<DatParentMatchEvidence?> ReadDatParentAsync(int childId, DatParentRelease release, CancellationToken ct)
     {
-        var parent = await db.Database.SqlQuery<ParentAssociation>($"""
-            SELECT t."Id" AS "TitleId", t."Name" AS "TitleName", link."ExternalId" AS "GameId",
-                coalesce(state."Revision", {Guid.Empty}) AS "Revision"
-            FROM romd."Titles" t
-            JOIN romd."TitleExternalIds" link ON link."TitleId" = t."Id" AND link."Provider" = 'steamgriddb'
-            LEFT JOIN romd."TitleProviderMatchStates" state ON state."TitleId" = t."Id" AND state."ProviderId" = link."Provider"
-            WHERE t."Id" = romd.provider_identity_dat_parent_title({release.DatFileId}, {release.GameId})
-              AND t."Id" <> {childId}
-              AND romd.provider_identity_trusted(t."Id", link."Provider", {ProviderIdentityPolicy.Version})
-            """).SingleOrDefaultAsync(ct);
+        var parent = await (from title in db.Titles
+                            join link in db.TitleExternalIds on title.Id equals link.TitleId
+                            where title.Id != childId && link.Provider == "steamgriddb"
+                                && title.Id == ProviderIdentityDatabaseFunctions.DatParentTitle(release.DatFileId, release.GameId)
+                                && ProviderIdentityDatabaseFunctions.IsTrusted(title.Id, link.Provider, ProviderIdentityPolicy.Version)
+                            let revision = db.Set<TitleProviderMatchStateEntity>()
+                                .Where(state => state.TitleId == title.Id && state.ProviderId == link.Provider)
+                                .Select(state => (Guid?)state.Revision).FirstOrDefault() ?? Guid.Empty
+                            select new { TitleId = title.Id, TitleName = title.Name, GameId = link.ExternalId, Revision = revision })
+            .SingleOrDefaultAsync(ct);
         return parent is null ? null : new(new(parent.TitleId, release.DatFileId, release.GameId, parent.GameId, parent.Revision),
             parent.TitleName, release.Name);
     }
-
-    private sealed record ParentAssociation(int TitleId, string TitleName, string GameId, Guid Revision);
 
     public async Task<IStagedProviderIdentityDecision> StageDecisionAsync(ProviderIdentitySnapshot snapshot, string providerId, Guid expectedRevision,
         ProviderIdentityDecision decision, ProviderGame? accepted, CancellationToken ct)
