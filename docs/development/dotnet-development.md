@@ -215,8 +215,9 @@ metadata and checks its evidence during presentation. The additive
 `20261124000000_DatParentProviderIdentity` migration validates inherited
 provider identities and the artwork they authorize. The additive
 `20261124010000_ArtworkPlatformAliasEvidence` migration validates the
-ROMD-owned system aliases used for artwork release-year matches. Current
-readiness is version 90.
+ROMD-owned system aliases used for artwork release-year matches. The additive
+`20261124201434_TitleLookupNames` migration stores curator-managed search names
+on titles. Current readiness is version 91.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

@@ -63,6 +63,9 @@ public static class CatalogErrors
     public static Error DatGroupingChanged() =>
         Error.Conflict("Titles.DatGroupingChanged", "The verified DAT family changed. Reload the grouping review.");
 
+    public static Error InvalidLookupNames(string reason) =>
+        Error.Validation("Titles.InvalidLookupNames", reason, new Dictionary<string, object> { ["field"] = "names" });
+
     public static Error TitleUpdateFailed() =>
         Error.Failure("Catalog.TitleUpdateFailed", "Title update failed");
 

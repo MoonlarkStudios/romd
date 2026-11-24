@@ -330,7 +330,7 @@ public sealed partial class ConsumerBrowseRepository(
 
     private IQueryable<TitleEntity> MatchTitleOrReleaseName(IQueryable<TitleEntity> titles, int libraryId, string text)
     {
-        var displayMatches = SearchQuery.MatchTitles(titles, text).Select(title => title.Id);
+        var titleMatches = SearchQuery.MatchTitles(titles, context.TitleLookupNames, text).Select(title => title.Id);
         var releaseNameMatches =
             from game in SearchQuery.MatchGames(context.DatGames.Where(game => !game.IsBios), text)
             join dat in context.DatFiles on game.DatFileId equals dat.Id
@@ -341,7 +341,7 @@ public sealed partial class ConsumerBrowseRepository(
                   && release.LibraryId == libraryId && release.IsOwned && release.IsExposed
             select release.TitleId;
 
-        var matchingTitleIds = displayMatches.Union(releaseNameMatches);
+        var matchingTitleIds = titleMatches.Union(releaseNameMatches);
         return titles.Where(title => matchingTitleIds.Contains(title.Id));
     }
 

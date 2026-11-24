@@ -43,6 +43,10 @@ public sealed partial class TitleRepositoryTests
         db.Collections.AddRange(
             new CollectionEntity { Id = 1, Name = "Regional editions" },
             new CollectionEntity { Id = 2, Name = "Shared shelf" });
+        db.TitleLookupNames.AddRange(
+            new TitleLookupNameEntity { TitleId = 1, Name = "Alias from source", SearchDocument = "alias from source" },
+            new TitleLookupNameEntity { TitleId = 1, Name = "Shared alias", SearchDocument = "shared alias" },
+            new TitleLookupNameEntity { TitleId = 2, Name = "Shared Alias", SearchDocument = "shared alias" });
         db.CollectionItems.AddRange(
             new CollectionItemEntity { Id = 31, CollectionId = 1, TitleId = 1, SortOrder = 6, Note = "Keep this edition", AddedAt = startedAt },
             new CollectionItemEntity { Id = 32, CollectionId = 2, TitleId = 1, SortOrder = 4, Note = "Add this note", AddedAt = startedAt },
@@ -72,5 +76,8 @@ public sealed partial class TitleRepositoryTests
         items[0].Note.ShouldBe("Keep this edition");
         items[1].SortOrder.ShouldBe(8);
         items[1].Note.ShouldBe("Add this note");
+        var lookupNames = await db.TitleLookupNames.OrderBy(name => name.SearchDocument).ToArrayAsync();
+        lookupNames.Select(name => name.Name).ShouldBe(["Alias from source", "Shared Alias"]);
+        lookupNames.ShouldAllBe(name => name.TitleId == 2);
     }
 }
