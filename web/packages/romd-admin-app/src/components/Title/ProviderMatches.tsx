@@ -230,7 +230,7 @@ function ProviderMatchPickerContent({
         setRejecting(false);
         throw new Error(
           result.response?.status === 412
-            ? 'The provider match changed. Reload the current match, then select and confirm your choice again.'
+            ? 'The provider match changed. Reload the current match before deciding again.'
             : 'The match could not be updated. Check the provider configuration or try again.',
         );
       }
