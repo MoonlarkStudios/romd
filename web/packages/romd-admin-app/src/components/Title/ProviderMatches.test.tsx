@@ -1812,7 +1812,9 @@ const sonic = {
   name: 'Sonic the Hedgehog',
   year: 1991,
   platforms: [
+    'Arcade',
     'Genesis',
+    'iOS',
   ],
 };
 const sonicReview: TitleProviderMatch = {
@@ -1830,6 +1832,16 @@ const sonicReview: TitleProviderMatch = {
     provenance: 'DAT',
     inputFingerprint: 'fingerprint',
     provisionalGameId: sonic.id,
+    localEvidence: {
+      name: 'Sonic The Hedgehog',
+      names: [],
+      years: [
+        1991,
+      ],
+      platforms: [
+        'Genesis',
+      ],
+    },
     candidates: [
       {
         game: sonic,
@@ -1911,8 +1923,21 @@ it.each([
       name: 'Provisional match review',
     }),
   );
-  expect(panel.getByText('Why ROMD picked Sonic the Hedgehog')).toBeVisible();
+  expect(
+    panel.getByRole('link', {
+      name: 'Sonic the Hedgehog',
+    }),
+  ).toHaveAttribute('href', sonic.url);
+  expect(panel.getByText(/Genesis · 1991 · IGDB #3192/)).toBeVisible();
+  expect(panel.queryByText(/Arcade|iOS/)).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('textbox', {
+      name: 'Game name',
+    }),
+  ).not.toBeInTheDocument();
+  await user.click(panel.getByText('Why ROMD picked this match'));
   expect(panel.getByText('Platform release matches.')).toBeVisible();
+  await user.click(panel.getByText('Provisional description'));
   expect(panel.getByText('Sonic races across South Island.')).toBeVisible();
   expect(panel.getByText('ESRB rating')).toBeVisible();
   expect(
@@ -1926,6 +1951,56 @@ it.each([
   expect(panel.getByText(/turn off automatic matching/)).toBeVisible();
   if (action === 'replace') {
     await user.click(
+      screen.getByRole('button', {
+        name: 'Find a replacement',
+      }),
+    );
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Game name',
+      }),
+    ).toHaveFocus();
+    expect(
+      screen.queryByRole('region', {
+        name: 'Provisional match review',
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('radio', {
+        name: 'Select The matching game',
+      }),
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('The matching game · IGDB #42');
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Back to suggestion',
+      }),
+    );
+    expect(
+      within(
+        screen.getByRole('region', {
+          name: 'Provisional match review',
+        }),
+      ).getByRole('link', {
+        name: 'Sonic the Hedgehog',
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'Confirm match',
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'Find a replacement',
+      }),
+    ).toHaveFocus();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Find a replacement',
+      }),
+    );
+    await user.click(
       screen.getByRole('radio', {
         name: 'Select The matching game',
       }),
@@ -1933,7 +2008,7 @@ it.each([
     expect(screen.getByText(/Replacing the match removes/)).toBeVisible();
     await user.click(
       screen.getByRole('button', {
-        name: 'Replace with The matching game',
+        name: 'Replace match',
       }),
     );
   } else if (action === 'reject') {
@@ -1956,7 +2031,7 @@ it.each([
   } else {
     await user.click(
       screen.getByRole('button', {
-        name: 'Confirm Sonic the Hedgehog',
+        name: 'Confirm match',
       }),
     );
   }
@@ -2004,12 +2079,19 @@ it('withdraws the preview on a stale DAT response and requires a fresh choice af
   );
   await user.click(
     screen.getByRole('button', {
-      name: 'Confirm Sonic the Hedgehog',
+      name: 'Confirm match',
     }),
   );
   const reload = await screen.findByRole('button', {
     name: 'Reload latest',
   });
+  expect(reload).toHaveFocus();
+  expect(screen.getByText('The match changed')).toBeVisible();
+  expect(
+    screen.queryByRole('button', {
+      name: 'Reject provisional match',
+    }),
+  ).not.toBeInTheDocument();
   expect(screen.queryByText('Sonic races across South Island.')).not.toBeInTheDocument();
   expect(
     screen.queryByRole('img', {
@@ -2017,20 +2099,16 @@ it('withdraws the preview on a stale DAT response and requires a fresh choice af
     }),
   ).not.toBeInTheDocument();
   expect(
-    screen.getByRole('button', {
-      name: 'Confirm Sonic the Hedgehog',
+    screen.queryByRole('button', {
+      name: 'Confirm match',
     }),
-  ).toBeDisabled();
+  ).not.toBeInTheDocument();
   await user.click(reload);
-  await user.click(
-    within(
-      screen.getByRole('dialog', {
-        name: 'Reload the latest match?',
-      }),
-    ).getByRole('button', {
-      name: 'Reload latest',
+  expect(
+    screen.queryByRole('dialog', {
+      name: 'Reload the latest match?',
     }),
-  );
+  ).not.toBeInTheDocument();
   expect(await screen.findByText('Provisional evidence changed')).toBeVisible();
   expect(
     screen.queryByRole('radio', {

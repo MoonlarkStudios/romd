@@ -178,6 +178,13 @@ export function ProviderMatchPicker(props: ProviderMatchPickerProps) {
   );
 }
 
+function provisionalGame(match: TitleProviderMatch) {
+  return (
+    match.decision?.candidates.find(({ game }) => game.id === match.decision?.provisionalGameId)
+      ?.game ?? null
+  );
+}
+
 function ProviderMatchPickerContent({
   titleId,
   titleName,
@@ -198,11 +205,28 @@ function ProviderMatchPickerContent({
   const [conflicted, setConflicted] = useState(false);
   const [mode, setMode] = useState<'search' | 'resolve'>('search');
   const [text, setText] = useState(titleName);
-  const [selected, setSelected] = useState<ProviderGame | null>(
-    () =>
-      row.decision?.candidates.find(({ game }) => game.id === row.decision?.provisionalGameId)
-        ?.game ?? null,
+  const [selected, setSelected] = useState(() =>
+    row.provisionalReview ? null : provisionalGame(row),
   );
+  const [choosingAlternative, setChoosingAlternative] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const reloadControl = useRef<HTMLButtonElement>(null);
+  const replacementControl = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+  useEffect(() => {
+    if (conflicted) {
+      reloadControl.current?.focus();
+      returnFocus.current = true;
+    } else if (choosingAlternative) {
+      searchInput.current?.focus();
+    } else if (returnFocus.current) {
+      (replacementControl.current ?? searchInput.current)?.focus();
+      returnFocus.current = false;
+    }
+  }, [
+    choosingAlternative,
+    conflicted,
+  ]);
   const [showEvidence, setShowEvidence] = useState(true);
   const [rejecting, setRejecting] = useState(false);
   const search = useProviderGameLookup(row.providerId);
@@ -255,7 +279,10 @@ function ProviderMatchPickerContent({
         );
       cache.setQueryData(providerMatchKeys.title(titleId), result.data);
       setMatch(latest);
+      setChoosingAlternative(false);
       setSelected(null);
+      setMode('search');
+      setText(titleName);
       search.reset();
       setShowEvidence(true);
       save.reset();
@@ -271,9 +298,22 @@ function ProviderMatchPickerContent({
   const currentProposal = match.decision?.provisionalGameId;
   const expired = match.provisionalReview?.evidenceCurrent === false;
   const evidenceCurrent = !conflicted && !expired;
+  const suggestedGame = match.provisionalReview?.evidenceCurrent ? provisionalGame(match) : null;
+  const reviewingSuggestion = !!suggestedGame && evidenceCurrent && !choosingAlternative;
+  const target = reviewingSuggestion ? suggestedGame : selected;
   const useStoredEvidence = showEvidence && evidenceCurrent;
-  const previousGame = match.externalId ?? currentProposal;
+  const previousGame = match.externalId ?? (evidenceCurrent ? currentProposal : undefined);
   const replacing = selected !== null && previousGame != null && selected.id !== previousGame;
+  const switchReview = (findAlternative: boolean) => {
+    returnFocus.current = !findAlternative;
+    setChoosingAlternative(findAlternative);
+    setSelected(null);
+    setMode('search');
+    setText(titleName);
+    setShowEvidence(true);
+    save.reset();
+    search.reset();
+  };
   const requestClose = () => {
     if (busy) return;
     if (dirty) setDiscarding(true);
@@ -286,21 +326,21 @@ function ProviderMatchPickerContent({
           match.game,
         ]
       : [];
-  const candidates = search.data?.items ?? (useStoredEvidence ? persistedCandidates : []);
+  const candidates =
+    search.data?.items ??
+    (useStoredEvidence
+      ? persistedCandidates.filter((game) => !choosingAlternative || game.id !== suggestedGame?.id)
+      : []);
   const completeness = search.data?.search?.completeness;
   const local = evidenceCurrent ? match.decision?.localEvidence : undefined;
-  const content = (
-    <Stack gap="sm">
-      <UnsavedChanges
-        dirty={dirty && !save.isSuccess}
-        description="Your provider match choice has not been confirmed."
-      />
-      <Text size="sm">
-        Local title: {local?.name ?? titleName} ·{' '}
-        {local?.platforms.length ? local.platforms.join(' / ') : 'platform unknown'} ·{' '}
-        {local?.years.length ? local.years.join(', ') : 'year unknown'}
-      </Text>
-      {!conflicted && <ProvisionalMatchPreview match={match} />}
+  const providerPlatforms = suggestedGame?.platforms ?? [];
+  const localPlatformKeys = new Set(local?.platforms.map((system) => system.toLowerCase()));
+  const proposedPlatforms =
+    providerPlatforms.length === 1
+      ? providerPlatforms
+      : providerPlatforms.filter((system) => localPlatformKeys.has(system.toLowerCase()));
+  const lookup = (
+    <>
       <SegmentedControl
         disabled={busy}
         value={mode}
@@ -339,6 +379,7 @@ function ProviderMatchPickerContent({
         >
           <TextInput
             data-autofocus
+            ref={searchInput}
             disabled={busy}
             label={mode === 'search' ? 'Game name' : 'Provider ID or page URL'}
             value={text}
@@ -354,19 +395,33 @@ function ProviderMatchPickerContent({
               minWidth: 0,
             }}
           />
-          <Tooltip label={mode === 'search' ? 'Search games' : 'Look up game'}>
-            <ActionIcon
+          {choosingAlternative ? (
+            <Button
               {...workspaceActionProps}
               type="submit"
-              size="lg"
-              variant="filled"
+              size="sm"
+              variant="light"
               aria-label={mode === 'search' ? 'Search provider games' : 'Look up provider game'}
-              loading={search.isPending}
               disabled={busy || !text.trim()}
+              loading={search.isPending}
             >
-              <IconSearch size={18} />
-            </ActionIcon>
-          </Tooltip>
+              {mode === 'search' ? 'Search' : 'Look up'}
+            </Button>
+          ) : (
+            <Tooltip label={mode === 'search' ? 'Search games' : 'Look up game'}>
+              <ActionIcon
+                {...workspaceActionProps}
+                type="submit"
+                size="lg"
+                variant="filled"
+                aria-label={mode === 'search' ? 'Search provider games' : 'Look up provider game'}
+                loading={search.isPending}
+                disabled={busy || !text.trim()}
+              >
+                <IconSearch size={18} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </Group>
       </form>
       {search.error && <Alert color="red">{search.error.message}</Alert>}
@@ -400,119 +455,181 @@ function ProviderMatchPickerContent({
             : 'No suggestions returned; more matches may exist.'}
         </Text>
       )}
-      <Radio.Group
-        label="Provider candidates"
-        value={selected?.id ?? ''}
-        onChange={(id) => setSelected(candidates.find((game) => game.id === id) ?? null)}
-      >
-        <Stack
-          gap={0}
-          className={classes.candidates}
+      {candidates.length > 0 && (
+        <Radio.Group
+          label="Provider candidates"
+          value={selected?.id ?? ''}
+          onChange={(id) => setSelected(candidates.find((game) => game.id === id) ?? null)}
         >
-          {candidates.map((game) => {
-            const evidence = match.decision?.candidates.find(
-              (candidate) => candidate.game.id === game.id,
-            );
-            return (
-              <div
-                key={game.id}
-                className={classes.candidate}
-                data-selected={selected?.id === game.id || undefined}
-              >
-                <Radio
-                  value={game.id}
-                  label={`Select ${game.name}`}
-                  disabled={busy || search.isPending || conflicted}
-                />
-                <div className={classes.preview}>
-                  <GamePreview
-                    game={game}
-                    showDetails={false}
-                  />
-                  <Text
-                    size="xs"
-                    c="dimmed"
-                  >
-                    Provider evidence:{' '}
-                    {game.platforms?.length
-                      ? platformLabels(game.platforms).join(' / ')
-                      : 'platform unknown'}{' '}
-                    · {game.year ?? 'year unknown'}
-                  </Text>
-                  {useStoredEvidence &&
-                    (!match.provisionalReview || game.id !== currentProposal) &&
-                    evidence?.evidence.map((value) => (
-                      <Text
-                        key={value}
-                        size="xs"
-                        c="dimmed"
-                      >
-                        {value}
-                      </Text>
-                    ))}
-                  {useStoredEvidence &&
-                    evidence?.conflicts.map((value) => (
-                      <Text
-                        key={value}
-                        size="xs"
-                        c="orange"
-                      >
-                        Conflict: {value}
-                      </Text>
-                    ))}
-                  {selected?.id === game.id && (
-                    <Badge
-                      size="xs"
-                      variant="light"
-                    >
-                      Selected
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </Stack>
-      </Radio.Group>
-      <Stack
-        gap="xs"
-        className={classes.actions}
-        data-inline={inline || undefined}
-      >
-        {save.isError && <Alert color="red">{save.error.message}</Alert>}
-        {conflicted && (
-          <Button
-            {...workspaceActionProps}
-            variant="light"
-            loading={reload.isPending}
-            onClick={() => (selected ? setReloading(true) : reload.mutate())}
+          <Stack
+            gap={0}
+            className={classes.candidates}
           >
-            Reload latest
-          </Button>
-        )}
-        {reload.isError && <Alert color="red">{reload.error.message}</Alert>}
-        {reload.isSuccess && !expired && (
-          <Alert color="blue">
-            Current match: {match.game?.name ?? match.externalId ?? 'No linked game'}. Select a game
-            to confirm your choice.
-          </Alert>
-        )}
+            {candidates.map((game) => {
+              const evidence = match.decision?.candidates.find(
+                (candidate) => candidate.game.id === game.id,
+              );
+              return (
+                <div
+                  key={game.id}
+                  className={classes.candidate}
+                  data-selected={selected?.id === game.id || undefined}
+                >
+                  <Radio
+                    value={game.id}
+                    label={`Select ${game.name}`}
+                    disabled={busy || search.isPending || conflicted}
+                  />
+                  <div className={classes.preview}>
+                    <GamePreview
+                      game={game}
+                      showDetails={false}
+                    />
+                    <Text
+                      size="xs"
+                      c="dimmed"
+                    >
+                      Provider evidence:{' '}
+                      {game.platforms?.length
+                        ? platformLabels(game.platforms).join(' / ')
+                        : 'platform unknown'}{' '}
+                      · {game.year ?? 'year unknown'}
+                    </Text>
+                    {useStoredEvidence &&
+                      (!match.provisionalReview || game.id !== currentProposal) &&
+                      evidence?.evidence.map((value) => (
+                        <Text
+                          key={value}
+                          size="xs"
+                          c="dimmed"
+                        >
+                          {value}
+                        </Text>
+                      ))}
+                    {useStoredEvidence &&
+                      evidence?.conflicts.map((value) => (
+                        <Text
+                          key={value}
+                          size="xs"
+                          c="orange"
+                        >
+                          Conflict: {value}
+                        </Text>
+                      ))}
+                    {selected?.id === game.id && (
+                      <Badge
+                        size="xs"
+                        variant="light"
+                      >
+                        Selected
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </Stack>
+        </Radio.Group>
+      )}
+    </>
+  );
+  const content = (
+    <Stack
+      gap="sm"
+      className={inline ? undefined : classes.pickerScroll}
+    >
+      <UnsavedChanges
+        dirty={dirty && !save.isSuccess}
+        description="Your provider match choice has not been confirmed."
+      />
+      {conflicted ? (
+        <Alert
+          color="yellow"
+          title="The match changed"
+        >
+          Reload the current match before deciding again.
+        </Alert>
+      ) : reviewingSuggestion || expired ? (
+        <ProvisionalMatchPreview
+          match={match}
+          localTitle={local?.name ?? titleName}
+          localSystems={platformLabels(local?.platforms)}
+          proposedSystems={platformLabels(proposedPlatforms)}
+        />
+      ) : (
+        <Text size="sm">
+          {choosingAlternative && suggestedGame ? (
+            <>Current suggestion: {suggestedGame.name}</>
+          ) : (
+            <>
+              Local title: {local?.name ?? titleName} ·{' '}
+              {local?.platforms.length
+                ? platformLabels(local.platforms).join(' / ')
+                : 'platform unknown'}{' '}
+              · {local?.years.length ? local.years.join(', ') : 'year unknown'}
+            </>
+          )}
+        </Text>
+      )}
+      {!conflicted && !reviewingSuggestion && lookup}
+      {save.isError && !conflicted && <Alert color="red">{save.error.message}</Alert>}
+      {reload.isError && <Alert color="red">{reload.error.message}</Alert>}
+      {reload.isSuccess && !expired && !reviewingSuggestion && (
+        <Alert color="blue">
+          Current match: {match.game?.name ?? match.externalId ?? 'No linked game'}. Select a game
+          to confirm your choice.
+        </Alert>
+      )}
+      {!reviewingSuggestion && (!conflicted || (dirty && selected)) && (
         <Text
           size="sm"
           role="status"
         >
           {selected
-            ? `Selected: ${selected.name}`
+            ? choosingAlternative
+              ? `Selected: ${selected.name} · ${match.providerName} #${selected.id}`
+              : `Selected: ${selected.name}`
             : 'Select a provider game to confirm this match.'}
         </Text>
-        {replacing && (
-          <Text size="sm">
-            Replacing the match removes its metadata and automatic artwork. ROMD will fetch data for
-            the new match and keep your edits and pinned artwork.
-          </Text>
-        )}
-        <Group justify="end">
-          {currentProposal && !conflicted && (
+      )}
+      {replacing && !conflicted && (
+        <Text size="sm">
+          Replacing the match removes its metadata and automatic artwork. ROMD will fetch data for
+          the new match and keep your edits and pinned artwork.
+        </Text>
+      )}
+    </Stack>
+  );
+  const actions = (
+    <Stack
+      className={classes.actions}
+      data-inline={inline || undefined}
+    >
+      <Group
+        className={classes.pickerButtons}
+        justify="space-between"
+      >
+        <Group gap="xs">
+          {reviewingSuggestion && (
+            <Button
+              ref={replacementControl}
+              variant="subtle"
+              disabled={busy}
+              onClick={() => switchReview(true)}
+            >
+              Find a replacement
+            </Button>
+          )}
+          {choosingAlternative && !conflicted && (
+            <Button
+              variant="subtle"
+              onClick={() => switchReview(false)}
+              disabled={busy}
+            >
+              Back to suggestion
+            </Button>
+          )}
+          {currentProposal && evidenceCurrent && !choosingAlternative && (
             <Button
               variant="subtle"
               color="red"
@@ -522,6 +639,12 @@ function ProviderMatchPickerContent({
               Reject provisional match
             </Button>
           )}
+        </Group>
+        <Group
+          gap="xs"
+          wrap="wrap"
+          justify="end"
+        >
           <Button
             variant="default"
             disabled={busy}
@@ -529,18 +652,31 @@ function ProviderMatchPickerContent({
           >
             Cancel
           </Button>
-          <Button
-            {...workspaceActionProps}
-            disabled={!selected || conflicted || !match.isAvailable || busy || search.isPending}
-            loading={save.isPending && save.variables !== null}
-            onClick={() => selected && save.mutate(selected.id)}
-          >
-            {selected
-              ? `${replacing && currentProposal ? 'Replace with' : 'Confirm'} ${selected.name}`
-              : 'Confirm match'}
-          </Button>
+          {conflicted ? (
+            <Button
+              {...workspaceActionProps}
+              ref={reloadControl}
+              loading={reload.isPending}
+              onClick={() => (dirty ? setReloading(true) : reload.mutate())}
+            >
+              Reload latest
+            </Button>
+          ) : (
+            <Button
+              {...workspaceActionProps}
+              disabled={!target || !match.isAvailable || busy || search.isPending}
+              loading={save.isPending && save.variables !== null}
+              onClick={() => target && save.mutate(target.id)}
+            >
+              {choosingAlternative && replacing
+                ? 'Replace match'
+                : reviewingSuggestion || !target
+                  ? 'Confirm match'
+                  : `Confirm ${target.name}`}
+            </Button>
+          )}
         </Group>
-      </Stack>
+      </Group>
     </Stack>
   );
   const discardDialog = (
@@ -606,6 +742,7 @@ function ProviderMatchPickerContent({
             Match {row.providerName}
           </Text>
           {content}
+          {actions}
         </Stack>
       ) : (
         <Modal
@@ -616,8 +753,14 @@ function ProviderMatchPickerContent({
           withCloseButton={!busy}
           title={`Match ${row.providerName}`}
           size="lg"
+          classNames={{
+            content: classes.pickerDialog,
+            header: classes.pickerHeader,
+            body: classes.pickerBody,
+          }}
         >
           {content}
+          {actions}
         </Modal>
       )}
       {discardDialog}
