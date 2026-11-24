@@ -52,6 +52,11 @@ public sealed class TitlePortArchitectureTests
             "Task<Boolean> LockAsync(Int32 titleId, CancellationToken cancellationToken)",
             "Task<Nullable<Guid>> LockRevisionAsync(Int32 titleId, CancellationToken cancellationToken)"
         ],
+        [typeof(ITitleLookupNameStore)] =
+        [
+            "Task<TitleLookupNameSnapshot> ReadAsync(Int32 titleId, CancellationToken cancellationToken)",
+            "Task<TitleLookupNameSnapshot> StageReplacementAsync(Int32 titleId, Guid currentRevision, IReadOnlyList<TitleLookupName> names, CancellationToken cancellationToken)"
+        ],
         [typeof(ITitleMediaStore)] =
         [
             "Task<StagedMediaAppend> AddUserMediaStagedAsync(TitleMedia media, CancellationToken cancellationToken)",
