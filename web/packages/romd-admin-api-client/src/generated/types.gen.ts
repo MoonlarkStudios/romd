@@ -2039,6 +2039,34 @@ export type ProviderRelease = {
     platform: null | string;
 };
 
+export type ProvisionalMatchArtwork = {
+    role: string;
+    previewUrl: null | string;
+};
+
+export type ProvisionalMatchRating = {
+    board: string;
+    code: string;
+};
+
+export type ProvisionalMatchReview = {
+    gameId: string;
+    evidenceCurrent: boolean;
+    fields: null | ProvisionalMetadataFields;
+    ratings: Array<ProvisionalMatchRating>;
+    artwork: Array<ProvisionalMatchArtwork>;
+};
+
+export type ProvisionalMetadataFields = {
+    description: null | string;
+    publisher: null | string;
+    developer: null | string;
+    genre: null | string;
+    releaseDate: null | string;
+    players: null | number;
+    rating: null | number;
+};
+
 export type PublishedDatCatalog = {
     catalogId: string;
     systemId: string;
@@ -2661,6 +2689,7 @@ export type TitleProviderMatch = {
     matcherVersion?: null | string;
     decision?: null | ProviderIdentityDecision;
     pendingJobId?: null | string;
+    provisionalReview?: null | ProvisionalMatchReview;
 };
 
 export type TitleRelease = {

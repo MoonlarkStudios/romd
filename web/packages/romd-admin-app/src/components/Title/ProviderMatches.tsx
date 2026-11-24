@@ -19,6 +19,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import {
+  deleteTitleProviderMatch,
   listTitleProviderMatches,
   type ProviderExternalId,
   type ProviderGame,
@@ -42,6 +43,7 @@ import { UnsavedChanges } from '../Administration/UnsavedChanges';
 import { workspaceActionProps } from '../Workspace/workspaceActions';
 import { sourceLabel } from './metadataDraft';
 import classes from './ProviderMatches.module.css';
+import { ProvisionalMatchPreview } from './ProvisionalMatchPreview';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
 
 /** Render local mapping keys as readable system names alongside provider labels. */
@@ -166,7 +168,7 @@ interface ProviderMatchPickerProps {
   inline?: boolean;
 }
 
-/** `onClose(true)` follows a confirmed match; any other close leaves the match unchanged. */
+/** `onClose(true)` follows a saved provider decision. */
 export function ProviderMatchPicker(props: ProviderMatchPickerProps) {
   return (
     <ProviderMatchPickerContent
@@ -202,27 +204,34 @@ function ProviderMatchPickerContent({
         ?.game ?? null,
   );
   const [showEvidence, setShowEvidence] = useState(true);
+  const [rejecting, setRejecting] = useState(false);
   const search = useProviderGameLookup(row.providerId);
   const save = useMutation({
-    mutationFn: async () => {
-      if (!selected) return;
+    mutationFn: async (externalId: string | null) => {
       // The revision of the match this picker showed: a stale one is 412, never a silent overwrite.
-      const result = await replaceTitleProviderMatch({
+      const input = {
         path: {
           titleId,
           providerId: row.providerId,
         },
         headers: ifMatch(match.revision),
-        body: {
-          externalId: selected.id,
-        },
-      });
+      };
+      const result =
+        externalId === null
+          ? await deleteTitleProviderMatch(input)
+          : await replaceTitleProviderMatch({
+              ...input,
+              body: {
+                externalId,
+              },
+            });
       if (result.error || !result.data) {
         setConflicted(result.response?.status === 412);
+        setRejecting(false);
         throw new Error(
           result.response?.status === 412
             ? 'The provider match changed. Reload the current match, then select and confirm your choice again.'
-            : 'The match could not be saved. Check the provider configuration or try again.',
+            : 'The match could not be updated. Check the provider configuration or try again.',
         );
       }
       storeProviderMatch(cache, titleId, result.data);
@@ -259,6 +268,12 @@ function ProviderMatchPickerContent({
     (selected !== null && selected.id !== match.decision?.provisionalGameId) ||
     text !== (mode === 'search' ? titleName : '');
   const busy = save.isPending || reload.isPending;
+  const currentProposal = match.decision?.provisionalGameId;
+  const expired = match.provisionalReview?.evidenceCurrent === false;
+  const evidenceCurrent = !conflicted && !expired;
+  const useStoredEvidence = showEvidence && evidenceCurrent;
+  const previousGame = match.externalId ?? currentProposal;
+  const replacing = selected !== null && previousGame != null && selected.id !== previousGame;
   const requestClose = () => {
     if (busy) return;
     if (dirty) setDiscarding(true);
@@ -271,9 +286,9 @@ function ProviderMatchPickerContent({
           match.game,
         ]
       : [];
-  const candidates = search.data?.items ?? (showEvidence ? persistedCandidates : []);
+  const candidates = search.data?.items ?? (useStoredEvidence ? persistedCandidates : []);
   const completeness = search.data?.search?.completeness;
-  const local = match.decision?.localEvidence;
+  const local = evidenceCurrent ? match.decision?.localEvidence : undefined;
   const content = (
     <Stack gap="sm">
       <UnsavedChanges
@@ -285,6 +300,7 @@ function ProviderMatchPickerContent({
         {local?.platforms.length ? local.platforms.join(' / ') : 'platform unknown'} ·{' '}
         {local?.years.length ? local.years.join(', ') : 'year unknown'}
       </Text>
+      {!conflicted && <ProvisionalMatchPreview match={match} />}
       <SegmentedControl
         disabled={busy}
         value={mode}
@@ -354,7 +370,7 @@ function ProviderMatchPickerContent({
         </Group>
       </form>
       {search.error && <Alert color="red">{search.error.message}</Alert>}
-      {match.decision && (
+      {match.decision && useStoredEvidence && !match.provisionalReview && (
         <details>
           <summary>Match evidence</summary>
           <Text size="sm">{match.decision.explanation}</Text>
@@ -423,7 +439,8 @@ function ProviderMatchPickerContent({
                       : 'platform unknown'}{' '}
                     · {game.year ?? 'year unknown'}
                   </Text>
-                  {showEvidence &&
+                  {useStoredEvidence &&
+                    (!match.provisionalReview || game.id !== currentProposal) &&
                     evidence?.evidence.map((value) => (
                       <Text
                         key={value}
@@ -433,7 +450,7 @@ function ProviderMatchPickerContent({
                         {value}
                       </Text>
                     ))}
-                  {showEvidence &&
+                  {useStoredEvidence &&
                     evidence?.conflicts.map((value) => (
                       <Text
                         key={value}
@@ -474,7 +491,7 @@ function ProviderMatchPickerContent({
           </Button>
         )}
         {reload.isError && <Alert color="red">{reload.error.message}</Alert>}
-        {reload.isSuccess && (
+        {reload.isSuccess && !expired && (
           <Alert color="blue">
             Current match: {match.game?.name ?? match.externalId ?? 'No linked game'}. Select a game
             to confirm your choice.
@@ -488,13 +505,23 @@ function ProviderMatchPickerContent({
             ? `Selected: ${selected.name}`
             : 'Select a provider game to confirm this match.'}
         </Text>
-        {match.externalId && selected && selected.id !== match.externalId && (
+        {replacing && (
           <Text size="sm">
             Replacing the match removes its metadata and automatic artwork. ROMD will fetch data for
-            the new match.
+            the new match and keep your edits and pinned artwork.
           </Text>
         )}
         <Group justify="end">
+          {currentProposal && !conflicted && (
+            <Button
+              variant="subtle"
+              color="red"
+              disabled={busy || !match.isAvailable}
+              onClick={() => setRejecting(true)}
+            >
+              Reject provisional match
+            </Button>
+          )}
           <Button
             variant="default"
             disabled={busy}
@@ -505,12 +532,14 @@ function ProviderMatchPickerContent({
           <Button
             {...workspaceActionProps}
             disabled={
-              !selected || conflicted || !match.isAvailable || reload.isPending || search.isPending
+              !selected || conflicted || !match.isAvailable || busy || search.isPending
             }
-            loading={save.isPending}
-            onClick={() => save.mutate()}
+            loading={save.isPending && save.variables !== null}
+            onClick={() => selected && save.mutate(selected.id)}
           >
-            {selected ? `Confirm ${selected.name}` : 'Confirm match'}
+            {selected
+              ? `${replacing && currentProposal ? 'Replace with' : 'Confirm'} ${selected.name}`
+              : 'Confirm match'}
           </Button>
         </Group>
       </Stack>
@@ -584,8 +613,8 @@ function ProviderMatchPickerContent({
         <Modal
           opened
           onClose={requestClose}
-          closeOnEscape={!busy && !discarding && !reloading}
-          closeOnClickOutside={!busy && !discarding && !reloading}
+          closeOnEscape={!busy && !discarding && !reloading && !rejecting}
+          closeOnClickOutside={!busy && !discarding && !reloading && !rejecting}
           withCloseButton={!busy}
           title={`Match ${row.providerName}`}
           size="lg"
@@ -595,6 +624,40 @@ function ProviderMatchPickerContent({
       )}
       {discardDialog}
       {reloadDialog}
+      <Modal
+        opened={rejecting}
+        onClose={() => setRejecting(false)}
+        title="Reject the provisional match?"
+        closeOnEscape={!save.isPending}
+        closeOnClickOutside={!save.isPending}
+        withCloseButton={!save.isPending}
+        size="sm"
+      >
+        <Stack>
+          <Text size="sm">
+            ROMD will withdraw this match’s provisional fields and artwork. User edits and pinned
+            artwork are kept. Automatic matching for this provider will stay off until you link a
+            source.
+          </Text>
+          <Group justify="end">
+            <Button
+              variant="default"
+              disabled={save.isPending}
+              onClick={() => setRejecting(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              {...workspaceActionProps}
+              color="red"
+              loading={save.isPending}
+              onClick={() => save.mutate(null)}
+            >
+              Reject match
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </>
   );
 }
@@ -800,12 +863,14 @@ export function ProviderMatches({
                   Provider configuration required
                 </Text>
               )}
-              {row.evidence && (
+              {(row.evidence || row.provisionalReview?.evidenceCurrent === false) && (
                 <Text
                   size="xs"
                   c="dimmed"
                 >
-                  {row.evidence}
+                  {row.provisionalReview?.evidenceCurrent === false
+                    ? 'The provisional evidence changed. Review the match again.'
+                    : row.evidence}
                 </Text>
               )}
               {row.lastError && (

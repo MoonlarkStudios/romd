@@ -19,7 +19,7 @@ public static class ArtworkContractMapping
                 .ThenBy(variant => variant.Name, StringComparer.Ordinal)
                 .Select(variant => new ContractArtworkVariant(
                     variant.Name,
-                    $"/artwork/{assetId}/{Uri.EscapeDataString(variant.Name)}/{Uri.EscapeDataString(variant.ContentVersion)}",
+                    VariantUrl(assetId, variant.Name, variant.ContentVersion),
                     variant.ContentVersion,
                     variant.ContentType,
                     variant.Width,
@@ -38,4 +38,7 @@ public static class ArtworkContractMapping
             mediaId is null ? null : $"/media/{mediaId}", null, null, null, null,
             resolution.Fit.ToString(), resolution.FallbackReason.ToString(), []);
     }
+
+    public static string VariantUrl(string assetId, string name, string contentVersion) =>
+        $"/artwork/{assetId}/{Uri.EscapeDataString(name)}/{Uri.EscapeDataString(contentVersion)}";
 }

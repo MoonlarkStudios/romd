@@ -64,6 +64,12 @@ current. Existing published fields and ratings have priority. Library access
 rules use published metadata. Confirm the game to promote its metadata and
 recompute affected library rules.
 
+Open **Review match** to see why ROMD selected the game, which fields it
+currently fills, and previews of its retained provisional artwork. The review
+explains what confirmation, replacement, and rejection do. If the evidence
+changes as you work, reload the match before making a new choice. The expired
+review shows that ROMD withdrew its provisional contributions.
+
 Replacing or unlinking a provider match withdraws that match's metadata and
 automatic artwork. ROMD recomputes the title using the remaining sources.
 User metadata, gallery copies and pinned artwork remain available. A replacement

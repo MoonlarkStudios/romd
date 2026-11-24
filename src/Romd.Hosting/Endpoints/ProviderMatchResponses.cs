@@ -1,4 +1,6 @@
 using Romd.Admin.Application.MetadataProviders;
+using Romd.Application.Common.Artwork;
+using Romd.Application.Common.Ids;
 using Contract = Romd.Contracts.Management.MetadataProviders;
 
 namespace Romd.Host.Endpoints;
@@ -16,7 +18,16 @@ internal static class ProviderMatchResponses
         new(match.ProviderId, match.ProviderName, match.IsAvailable, match.Capabilities, match.Revision, match.State,
             match.ExternalId, match.Game?.ToContract(), match.Confidence, match.LastError, match.MetadataNeedsRefresh,
             match.Evidence, match.MatcherVersion, match.Decision is { } decision ? ToContract(decision) : null,
-            match.PendingJobId);
+            match.PendingJobId, match.ProvisionalReview is { } review ? ToContract(review) : null);
+
+    private static Contract.ProvisionalMatchReview ToContract(ProvisionalMatchReview review) =>
+        new(review.GameId, review.EvidenceCurrent,
+            review.Fields is { } fields ? new(fields.Description, fields.Publisher, fields.Developer, fields.Genre,
+                fields.ReleaseDate, fields.Players, fields.Rating) : null,
+            review.Ratings.Select(rating => new Contract.ProvisionalMatchRating(rating.Board.ToString(), rating.Code)).ToArray(),
+            review.Artwork.Select(artwork => new Contract.ProvisionalMatchArtwork(artwork.Role.ToString(),
+                artwork is { Variant: { } variant, Version: { } version }
+                    ? ArtworkContractMapping.VariantUrl(IdCoder.Encode(artwork.AssetId), variant, version) : null)).ToArray());
 
     private static Contract.ProviderGameSearchCompleteness ToContract(ProviderGameSearchCompleteness completeness) =>
         completeness switch

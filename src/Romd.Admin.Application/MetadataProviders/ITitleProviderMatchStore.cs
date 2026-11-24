@@ -9,7 +9,7 @@ namespace Romd.Admin.Application.MetadataProviders;
 
 public sealed record ProviderMatchState(string ProviderId, Guid Revision, bool SuppressAutomaticMatch,
     bool IdentityChanged, string? Evidence, string? MatcherVersion, ProviderGame? Game,
-    ProviderIdentityDecision? Decision);
+    ProviderIdentityDecision? Decision, ProvisionalMatchReview? ProvisionalReview = null);
 public sealed record TitleProviderMatchFacts(IReadOnlyList<TitleExternalId> Links,
     IReadOnlyList<ProviderMatchState> States, IReadOnlyList<TitleMetadataLayer> Layers);
 public sealed record ProviderMatchChange(bool RequiresRematerialization);

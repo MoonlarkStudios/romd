@@ -39,6 +39,9 @@
 .match:last-child { border-bottom: 0; }
 .matchBody { flex: 1 1 12rem; min-inline-size: 0; }
 .recordName { overflow-wrap: anywhere; min-inline-size: 0; }
+.evidenceList { margin: 0; padding-inline-start: var(--mantine-spacing-lg); }
+.contributionFields { display: grid; gap: var(--mantine-spacing-xs); margin: 0; }
+.contributionFields dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 @container provider-matches (max-width: 30em) { .match { padding-block: var(--mantine-spacing-xs); } }
 @container provider-matches (max-width: 30em) {
   .matchBody { flex-basis: 8.5rem; }

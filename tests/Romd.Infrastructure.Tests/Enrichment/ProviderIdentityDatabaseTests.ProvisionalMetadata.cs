@@ -29,6 +29,15 @@ public sealed partial class ProviderIdentityDatabaseTests
     {
         await using var db = _database.CreateContext();
         var (game, match) = await SeedProvisionalMetadataMatchAsync(db);
+        var poster = ProvisionalAsset(game.Id, ArtworkRole.Poster, 1);
+        poster.SourceId = "igdb";
+        var otherGame = ProvisionalAsset("different-game", ArtworkRole.Hero, 2);
+        otherGame.SourceId = "igdb";
+        var rejected = ProvisionalAsset(game.Id, ArtworkRole.Logo, 3);
+        rejected.SourceId = "igdb";
+        rejected.IsRejected = true;
+        db.ArtworkAssets.AddRange(poster, otherGame, rejected);
+        await db.SaveChangesAsync();
         var adapter = Substitute.For<IProviderIdentityAdapter>();
         adapter.Id.Returns("igdb");
         adapter.Name.Returns("IGDB");
@@ -67,18 +76,47 @@ public sealed partial class ProviderIdentityDatabaseTests
         var current = (await matches.GetAsync(1, "igdb", default)).Value;
         current.State.ShouldBe("NeedsReview");
         current.ExternalId.ShouldBeNull();
+        var review = current.ProvisionalReview.ShouldNotBeNull();
+        review.GameId.ShouldBe(game.Id);
+        review.EvidenceCurrent.ShouldBeTrue();
+        var fields = review.Fields.ShouldNotBeNull();
+        fields.Description.ShouldBeNull();
+        fields.Genre.ShouldBe("Provisional genre");
+        fields.ReleaseDate.ShouldBe(new DateOnly(1994, 10, 1));
+        review.Ratings.ShouldHaveSingleItem().ShouldBe(new(RatingBoard.Pegi, "PEGI 12"));
+        review.Artwork.ShouldHaveSingleItem().ShouldBe(new(ArtworkRole.Poster, 1, "large", "v1"));
         var ifMatch = RevisionPrecondition.For(current.Revision.ToString());
 
         if (action == "stale DAT")
+        {
             await db.CatalogSources.ExecuteUpdateAsync(update => update.SetProperty(source => source.Status, "Paused"));
+            var refreshed = (await matches.GetAsync(1, "igdb", default)).Value;
+            refreshed.Revision.ShouldNotBe(current.Revision);
+            refreshed.Decision!.ProvisionalGameId.ShouldBeNull();
+            var expired = refreshed.ProvisionalReview.ShouldNotBeNull();
+            expired.EvidenceCurrent.ShouldBeFalse();
+            expired.Fields.ShouldBeNull();
+            expired.Ratings.ShouldBeEmpty();
+            expired.Artwork.ShouldBeEmpty();
+            (await matches.SetAsync(1, "igdb", selected.Id, ifMatch, default)).FirstError.ShouldBe(ProviderMatchErrors.PreconditionFailed);
+            (await matches.UnlinkAsync(1, "igdb", ifMatch, default)).FirstError.ShouldBe(ProviderMatchErrors.PreconditionFailed);
+        }
         else if (action == "new revision")
+        {
             await db.Set<TitleProviderMatchStateEntity>().ExecuteUpdateAsync(update => update.SetProperty(state => state.Revision, Guid.NewGuid()));
+            var refreshed = (await matches.GetAsync(1, "igdb", default)).Value;
+            var updated = refreshed.ProvisionalReview.ShouldNotBeNull();
+            updated.EvidenceCurrent.ShouldBeTrue();
+            updated.Fields.ShouldBeNull();
+            updated.Ratings.ShouldBeEmpty();
+        }
         else
         {
             var changed = action == "reject"
                 ? await matches.UnlinkAsync(1, "igdb", ifMatch, default)
                 : await matches.SetAsync(1, "igdb", selected.Id, ifMatch, default);
             changed.IsError.ShouldBeFalse();
+            changed.Value.ProvisionalReview.ShouldBeNull();
         }
 
         db.ChangeTracker.Clear();
