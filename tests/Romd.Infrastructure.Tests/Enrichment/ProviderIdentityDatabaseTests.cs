@@ -224,6 +224,42 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
     }
 
     [Fact]
+    public async Task DiscoverAsync_SteamGridDbTitleYearMatch_RequiresCurrentIgdbAssociation()
+    {
+        await using var db = _database.CreateContext();
+        await Seed(db);
+        await db.DatGames.Where(game => !game.IsBios).ExecuteUpdateAsync(update => update.SetProperty(game => game.Year, (string?)null));
+        var revision = await AddAutomatic(db, "igdb", "3192");
+        var igdb = new ProviderGame("3192", "Game", "https://provider.test/game", Releases: [new(1991, "Test")]);
+        var igdbJson = JsonSerializer.Serialize(igdb);
+        var states = db.Set<TitleProviderMatchStateEntity>();
+        await states.Where(state => state.ProviderId == "igdb")
+            .ExecuteUpdateAsync(update => update.SetProperty(state => state.GameJson, igdbJson));
+        var provider = Substitute.For<IProviderIdentityAdapter>();
+        provider.Id.Returns("steamgriddb");
+        provider.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+        provider.Capabilities.Returns(["artwork"]);
+        provider.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
+        provider.SearchAsync("GAME", Arg.Any<CancellationToken>()).Returns(new ProviderGameSearchResult(
+            [new("1", "Game", "https://provider.test/game", Year: 2006), new("35571", "Game", "https://provider.test/game", Year: 1991)],
+            ProviderGameSearchCompleteness.ProviderLimited, 100));
+        var store = CreateFamilyStore(db);
+        var service = new ProviderIdentityService(store, [provider], [], TimeProvider.System, new EfUnitOfWork(db),
+            NullLogger<ProviderIdentityService>.Instance);
+
+        await service.DiscoverAsync(1, null, default);
+
+        (await store.ReadTrustedAsync(1, "steamgriddb", default)).ShouldBe("35571");
+        var snapshot = (await store.ReadAsync(1, default)).ShouldNotBeNull();
+        snapshot.Links.Single(link => link.ProviderId == "steamgriddb").Decision.ShouldNotBeNull()
+            .Dependencies.ShouldNotBeNull().ShouldHaveSingleItem().ShouldBe(new("igdb", "3192", revision));
+        var updatedRevision = Guid.NewGuid();
+        await states.Where(state => state.ProviderId == "igdb")
+            .ExecuteUpdateAsync(update => update.SetProperty(state => state.Revision, updatedRevision));
+        (await store.ReadTrustedAsync(1, "steamgriddb", default)).ShouldBeNull();
+    }
+
+    [Fact]
     public async Task Snapshot_BindsFactsAndFingerprintToSameDatabaseSnapshot()
     {
         await using var db = _database.CreateContext();

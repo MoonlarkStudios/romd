@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Application.Common.Concurrency;
 using Romd.Domain.Catalog;
@@ -19,6 +21,7 @@ public sealed partial class ProviderIdentityDatabaseTests
 {
     [Theory]
     [InlineData("confirm")]
+    [InlineData("automatic match")]
     [InlineData("reject")]
     [InlineData("replace")]
     [InlineData("IGDB revision")]
@@ -51,6 +54,22 @@ public sealed partial class ProviderIdentityDatabaseTests
         else if (scenario == "IGDB revision")
             await db.Set<TitleProviderMatchStateEntity>().Where(state => state.ProviderId == "igdb")
                 .ExecuteUpdateAsync(update => update.SetProperty(state => state.Revision, Guid.NewGuid()));
+        else if (scenario == "automatic match")
+        {
+            var provider = Substitute.For<IProviderIdentityAdapter>();
+            provider.Id.Returns("steamgriddb");
+            provider.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+            provider.Capabilities.Returns(["artwork"]);
+            provider.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
+            provider.SearchAsync("GAME", Arg.Any<CancellationToken>()).Returns(new ProviderGameSearchResult(
+                [game], ProviderGameSearchCompleteness.ProviderLimited, 100));
+            var service = new ProviderIdentityService(CreateFamilyStore(db), [provider], [], TimeProvider.System, new EfUnitOfWork(db),
+                NullLogger<ProviderIdentityService>.Instance);
+
+            await service.DiscoverAsync(1, null, default);
+
+            (await service.GetTrustedAsync(1, "steamgriddb", default)).ShouldBe(game.Id);
+        }
         else
         {
             var ifMatch = RevisionPrecondition.For(initialRevision.ToString());
@@ -68,7 +87,7 @@ public sealed partial class ProviderIdentityDatabaseTests
         var artwork = (await reader.ResolveAsync([1]))[1];
         (await store.ReadFactsAsync(1, ["steamgriddb"], default)).States.ShouldHaveSingleItem()
             .Decision.ShouldNotBeNull().ProvisionalGameId.ShouldBeNull();
-        if (scenario == "confirm")
+        if (scenario is "confirm" or "automatic match")
         {
             assets.Length.ShouldBe(roles.Length);
             assets.ShouldAllBe(asset => asset.IsEligible && !asset.IsProvisional);

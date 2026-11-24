@@ -6,6 +6,7 @@ using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
+using Romd.Persistence.Artwork;
 using Romd.Persistence.Entities;
 namespace Romd.Persistence.MetadataProviders;
 
@@ -125,8 +126,14 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 state.Evidence = "Existing automatic association conflicts with current evidence. Review required.";
                 state.DecisionJson = JsonSerializer.Serialize(decision with { State = "NeedsReview", Explanation = state.Evidence });
             }
-            else if (accepted is not null && link is null)
-                db.Add(TitleExternalIdEntity.FromDomain(TitleExternalId.CreateNew(snapshot.TitleId, providerId, accepted.Id, 1, clock.GetUtcNow())));
+            else if (accepted is not null)
+            {
+                if (link is null)
+                    db.Add(TitleExternalIdEntity.FromDomain(TitleExternalId.CreateNew(snapshot.TitleId, providerId, accepted.Id, 1, clock.GetUtcNow())));
+                if (providerId == "steamgriddb" && snapshot.Links.SingleOrDefault(x => x.ProviderId == providerId)
+                        ?.Decision?.ProvisionalGameId == accepted.Id)
+                    await db.ArtworkAssets.PromoteProvisionalAsync(snapshot.TitleId, providerId, accepted.Id, ct);
+            }
             return Receipt(true);
         }
         catch (Exception primaryFailure)
