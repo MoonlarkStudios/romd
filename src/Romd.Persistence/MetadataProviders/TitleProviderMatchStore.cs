@@ -125,7 +125,8 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
                     State = unlink ? "Unlinked" : "Confirmed",
                     Explanation = state.Evidence,
                     ProvisionalGameId = null,
-                    DatParentMatch = null
+                    DatParentMatch = null,
+                    ArtworkPlatformAliases = null
                 });
         }
         state.MatcherVersion = null;

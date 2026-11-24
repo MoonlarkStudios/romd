@@ -24,16 +24,22 @@ public sealed class DatParentProviderIdentity : Migration
                 );
             $function$;
             """);
-        migrationBuilder.Sql(TrustWalkSql(
-            ParentCheck,
+        migrationBuilder.Sql(TrustWalkWithDatParent());
+        migrationBuilder.Sql(CreateArtworkCurrent("CREATE", "? 'DatParentMatch'"));
+    }
+
+    internal static string TrustWalkWithDatParent(string extraEvidenceCheck = "") =>
+        TrustWalkSql(
+            extraEvidenceCheck.Length == 0 ? ParentCheck : ParentCheck + "\n" + extraEvidenceCheck,
             """
               parent_match jsonb;
               parent_title integer;
               parent_revision uuid;
             """,
-            "concat(title_id, ':', provider_id)"));
-        migrationBuilder.Sql("""
-            CREATE FUNCTION romd.provider_identity_artwork_current(title_id integer, game_id text, policy_version text)
+            "concat(title_id, ':', provider_id)");
+
+    internal static string CreateArtworkCurrent(string create, string proofPredicate) => $$"""
+            {{create}} FUNCTION romd.provider_identity_artwork_current(title_id integer, game_id text, policy_version text)
              RETURNS boolean
              LANGUAGE sql STABLE
             AS $function$
@@ -43,12 +49,11 @@ public sealed class DatParentProviderIdentity : Migration
                 JOIN romd."TitleExternalIds" link ON link."TitleId" = state."TitleId" AND link."Provider" = state."ProviderId"
                 WHERE state."TitleId" = title_id AND state."ProviderId" = 'steamgriddb'
                   AND link."ExternalId" = game_id AND NOT link."IsConfirmed"
-                  AND state."DecisionJson"::jsonb ? 'DatParentMatch'
+                  AND state."DecisionJson"::jsonb {{proofPredicate}}
                   AND NOT romd.provider_identity_trusted(title_id, 'steamgriddb', policy_version)
               );
             $function$;
-            """);
-    }
+            """;
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {

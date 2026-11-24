@@ -65,6 +65,12 @@ public sealed record ProviderIdentityDecision(
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DatParentMatch? EvaluatedDatParent { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ArtworkPlatformAlias>? ArtworkPlatformAliases { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ArtworkPlatformAlias>? EvaluatedArtworkPlatformAliases { get; init; }
 }
 
 public sealed record ProviderIdentityFacts(string Name, IReadOnlyList<string> Names, IReadOnlyList<int> Years, IReadOnlyList<string> Platforms);

@@ -6,6 +6,8 @@ using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
+using Romd.Domain.ReferenceData;
+using Romd.Domain.Source.Platform;
 using Romd.Persistence.Artwork;
 using Romd.Persistence.Entities;
 namespace Romd.Persistence.MetadataProviders;
@@ -69,9 +71,17 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
         return new(titleId, title.Revision, fingerprint, facts, rows)
         {
             DatFamily = family,
-            DatParent = family?.Parent is { } parent ? await ReadDatParentAsync(titleId, parent, ct) : null
+            DatParent = family?.Parent is { } parent ? await ReadDatParentAsync(titleId, parent, ct) : null,
+            ArtworkPlatformAliases = await ReadArtworkPlatformAliasesAsync(titleId, ct)
         };
     }
+
+    private Task<ArtworkPlatformAlias[]> ReadArtworkPlatformAliasesAsync(int titleId, CancellationToken ct) =>
+        (from title in db.Titles
+         join alias in db.PlatformAliases on title.PlatformId equals alias.PlatformId
+         where title.Id == titleId && alias.Type == PlatformAliasType.Name && alias.Ownership == ReferenceOwnership.Romd
+         orderby alias.Id
+         select new ArtworkPlatformAlias(alias.Id, alias.Value)).ToArrayAsync(ct);
 
     private async Task<DatParentMatchEvidence?> ReadDatParentAsync(int childId, DatParentRelease release, CancellationToken ct)
     {
@@ -110,6 +120,10 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 .Select(x => ProviderIdentityDatabaseFunctions.Fingerprint(x.Id, ProviderIdentityPolicy.Version)).SingleAsync(ct);
             if (fingerprint != snapshot.Fingerprint)
                 return Receipt(false);
+            if (decision.ArtworkPlatformAliases is { } aliases &&
+                (providerId != "steamgriddb" || accepted is null || !aliases.SequenceEqual(snapshot.ArtworkPlatformAliases) ||
+                    !aliases.SequenceEqual(await ReadArtworkPlatformAliasesAsync(snapshot.TitleId, ct))))
+                return Receipt(false);
             if (decision.DatParentMatch is { } inherited &&
                 (providerId != "steamgriddb" || accepted?.Id != inherited.GameId || inherited != snapshot.DatParent?.Match ||
                     snapshot.DatFamily?.Parent is not { } parent ||
@@ -136,8 +150,12 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 db.Add(state = new TitleProviderMatchStateEntity { TitleId = snapshot.TitleId, ProviderId = providerId });
             var prior = snapshot.Links.SingleOrDefault(x => x.ProviderId == providerId)?.Decision;
             // The retained association still governs its artwork when rediscovery cannot establish trust.
-            if (link is not null && accepted?.Id != link.ExternalId && prior?.DatParentMatch is { } previousParent)
-                decision = decision with { DatParentMatch = previousParent };
+            if (link is not null && accepted?.Id != link.ExternalId && prior is not null)
+                decision = decision with
+                {
+                    DatParentMatch = prior.DatParentMatch ?? decision.DatParentMatch,
+                    ArtworkPlatformAliases = prior.ArtworkPlatformAliases ?? decision.ArtworkPlatformAliases
+                };
             state.DecisionJson = JsonSerializer.Serialize(decision);
             state.InputFingerprint = snapshot.Fingerprint;
             state.Evidence = decision.Explanation;
