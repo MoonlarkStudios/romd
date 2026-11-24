@@ -211,8 +211,10 @@ posters and checks that the provider decision still authorizes their display.
 The additive `20261123040000_ProvisionalProviderArtwork` migration extends
 that authorization to the other supported artwork roles. The additive
 `20261123050000_ProvisionalTitleMetadata` migration stores provisional
-metadata and checks its evidence during presentation. Current readiness is
-version 88.
+metadata and checks its evidence during presentation. The additive
+`20261124000000_DatParentProviderIdentity` migration validates inherited
+provider identities and the artwork they authorize. Current readiness is
+version 89.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

@@ -65,11 +65,32 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 TrustedGame = game?.Id == link?.ExternalId ? game : null
             };
         }).ToArray();
+        var family = await HashBackedDatFamilyReader.ReadAsync(db, titleId, ct);
         return new(titleId, title.Revision, fingerprint, facts, rows)
         {
-            DatFamily = await HashBackedDatFamilyReader.ReadAsync(db, titleId, ct)
+            DatFamily = family,
+            DatParent = family?.Parent is { } parent ? await ReadDatParentAsync(titleId, parent, ct) : null
         };
     }
+
+    private async Task<DatParentMatchEvidence?> ReadDatParentAsync(int childId, DatParentRelease release, CancellationToken ct)
+    {
+        var parent = await db.Database.SqlQuery<ParentAssociation>($"""
+            SELECT t."Id" AS "TitleId", t."Name" AS "TitleName", link."ExternalId" AS "GameId",
+                coalesce(state."Revision", {Guid.Empty}) AS "Revision"
+            FROM romd."Titles" t
+            JOIN romd."TitleExternalIds" link ON link."TitleId" = t."Id" AND link."Provider" = 'steamgriddb'
+            LEFT JOIN romd."TitleProviderMatchStates" state ON state."TitleId" = t."Id" AND state."ProviderId" = link."Provider"
+            WHERE t."Id" = romd.provider_identity_dat_parent_title({release.DatFileId}, {release.GameId})
+              AND t."Id" <> {childId}
+              AND romd.provider_identity_trusted(t."Id", link."Provider", {ProviderIdentityPolicy.Version})
+            """).SingleOrDefaultAsync(ct);
+        return parent is null ? null : new(new(parent.TitleId, release.DatFileId, release.GameId, parent.GameId, parent.Revision),
+            parent.TitleName, release.Name);
+    }
+
+    private sealed record ParentAssociation(int TitleId, string TitleName, string GameId, Guid Revision);
+
     public async Task<IStagedProviderIdentityDecision> StageDecisionAsync(ProviderIdentitySnapshot snapshot, string providerId, Guid expectedRevision,
         ProviderIdentityDecision decision, ProviderGame? accepted, CancellationToken ct)
     {
@@ -91,6 +112,11 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 .Select(x => ProviderIdentityDatabaseFunctions.Fingerprint(x.Id, ProviderIdentityPolicy.Version)).SingleAsync(ct);
             if (fingerprint != snapshot.Fingerprint)
                 return Receipt(false);
+            if (decision.DatParentMatch is { } inherited &&
+                (providerId != "steamgriddb" || accepted?.Id != inherited.GameId || inherited != snapshot.DatParent?.Match ||
+                    snapshot.DatFamily?.Parent is not { } parent ||
+                    (await ReadDatParentAsync(snapshot.TitleId, parent, ct))?.Match != inherited))
+                return Receipt(false);
             var currentLinks = await db.TitleExternalIds.Where(x => x.TitleId == snapshot.TitleId)
                 .Select(x => new
                 {
@@ -110,6 +136,10 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 return Receipt(false);
             if (state is null)
                 db.Add(state = new TitleProviderMatchStateEntity { TitleId = snapshot.TitleId, ProviderId = providerId });
+            var prior = snapshot.Links.SingleOrDefault(x => x.ProviderId == providerId)?.Decision;
+            // The retained association still governs its artwork when rediscovery cannot establish trust.
+            if (link is not null && accepted?.Id != link.ExternalId && prior?.DatParentMatch is { } previousParent)
+                decision = decision with { DatParentMatch = previousParent };
             state.DecisionJson = JsonSerializer.Serialize(decision);
             state.InputFingerprint = snapshot.Fingerprint;
             state.Evidence = decision.Explanation;
@@ -130,8 +160,7 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
             {
                 if (link is null)
                     db.Add(TitleExternalIdEntity.FromDomain(TitleExternalId.CreateNew(snapshot.TitleId, providerId, accepted.Id, 1, clock.GetUtcNow())));
-                if (providerId == "steamgriddb" && snapshot.Links.SingleOrDefault(x => x.ProviderId == providerId)
-                        ?.Decision?.ProvisionalGameId == accepted.Id)
+                if (providerId == "steamgriddb" && prior?.ProvisionalGameId == accepted.Id)
                     await db.ArtworkAssets.PromoteProvisionalAsync(snapshot.TitleId, providerId, accepted.Id, ct);
             }
             return Receipt(true);

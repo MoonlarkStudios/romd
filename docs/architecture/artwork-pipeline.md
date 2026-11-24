@@ -73,17 +73,16 @@ invalidate explicit confirmations or remove retained artwork.
 The match picker presents bounded suggestions and their coverage. IGDB searches
 explore at most 500 raw results; SteamGridDB autocomplete has no continuation or
 completeness guarantee. Refine a limited search or switch to an exact game id or
-page URL. SteamGridDB suggestions alone therefore require curator confirmation;
-an independently trusted bridge remains usable. Editing the query or switching
+page URL. Curators can confirm a suggestion or supply an exact game ID.
+Editing the query or switching
 provider or lookup mode discards the previous suggestions and selection.
 
 SteamGridDB review uses release years for the title's platform from the currently
 trusted IGDB game's stored evidence. A year match breaks a tie in the existing
-candidate scores and appears in the candidate's supporting signals. The years
-stay separate from local release facts and direct search still requires curator
-confirmation. Automatic SteamGridDB acceptance requires a verified ID bridge.
-Discovery refreshes cached review when the trusted IGDB association changes or
-loses trust.
+candidate scores and appears in the candidate's supporting signals. Discovery
+can automatically accept a verified ID bridge or a unique exact title with a
+release year corroborated by the local catalog or the trusted IGDB release.
+Discovery refreshes cached review when the trusted IGDB association changes.
 
 Decisions retain candidates, reasons, policy version, input fingerprint, and any
 trusted bridge dependency. Input/policy changes invalidate automatic trust;
@@ -208,6 +207,14 @@ and matched release names extend the bounded provider search. Provider identity
 still uses the usual name, edition, platform, and year checks. Invalid clone
 ancestry or competing families or DAT versions send candidates to curator
 review. Explicit provider confirmation still takes precedence.
+
+After a verified ID bridge is tried, SteamGridDB can inherit an accepted
+match from the title linked to the family root. The clone and root title must
+each have a verified ROM match in the same active DAT version, and conflicting
+title or edition evidence requires review. The decision pins the parent
+title, DAT release, provider game ID and association revision. Changing the
+parent match or losing the active DAT evidence withdraws automatic trust
+and hides artwork that depends on it.
 
 The fingerprint records the active version, release, and ROM IDs for the
 hash-backed matches. The version pins its parsed clone declarations. Staging

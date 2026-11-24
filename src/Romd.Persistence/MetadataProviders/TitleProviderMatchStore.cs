@@ -120,7 +120,13 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
         {
             var decision = JsonSerializer.Deserialize<ProviderIdentityDecision>(priorDecision);
             if (decision is not null)
-                state.DecisionJson = JsonSerializer.Serialize(decision with { State = unlink ? "Unlinked" : "Confirmed", Explanation = state.Evidence, ProvisionalGameId = null });
+                state.DecisionJson = JsonSerializer.Serialize(decision with
+                {
+                    State = unlink ? "Unlinked" : "Confirmed",
+                    Explanation = state.Evidence,
+                    ProvisionalGameId = null,
+                    DatParentMatch = null
+                });
         }
         state.MatcherVersion = null;
         state.Revision = Guid.NewGuid();

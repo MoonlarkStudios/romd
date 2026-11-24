@@ -15,8 +15,12 @@ internal static class ArtworkPresentationAssets
             .ExecuteUpdateAsync(set => set.SetProperty(asset => asset.IsProvisional, false)
                 .SetProperty(asset => asset.IsEligible, true), ct);
 
+    internal static IQueryable<ArtworkAssetEntity> WithCurrentProviderAssociation(this IQueryable<ArtworkAssetEntity> assets) =>
+        assets.Where(asset => asset.SourceId != "steamgriddb" || asset.ProviderGameId == null ||
+            ProviderIdentityDatabaseFunctions.IsArtworkCurrent(asset.TitleId, asset.ProviderGameId, ProviderIdentityPolicy.Version));
+
     internal static IQueryable<ArtworkAssetEntity> AvailableForPresentation(this IQueryable<ArtworkAssetEntity> assets) =>
-        assets.Where(asset => asset.IsEligible || asset.IsProvisional && !asset.IsRejected &&
+        assets.WithCurrentProviderAssociation().Where(asset => asset.IsEligible || asset.IsProvisional && !asset.IsRejected &&
             asset.ProviderGameId != null &&
             (asset.SourceId == "igdb"
                 ? ProviderIdentityDatabaseFunctions.ProvisionalMetadataGame(asset.TitleId, asset.SourceId,
