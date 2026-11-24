@@ -184,7 +184,10 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
             if (changed.IsError)
                 return changed.Errors;
             if (changed.Value.RequiresRematerialization)
+            {
+                await _unitOfWork.FlushAsync(token);
                 await _contributions.StageAsync(titleId, token);
+            }
             Guid? pendingJobId = unlink ? null : await QueueFollowUpAsync(titleId, token);
             await _unitOfWork.FlushAsync(token);
             return BuildRow(provider.Adapter, provider.Availability,

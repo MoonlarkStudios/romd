@@ -10,6 +10,9 @@ internal static class ArtworkPresentationAssets
     internal static IQueryable<ArtworkAssetEntity> AvailableForPresentation(this IQueryable<ArtworkAssetEntity> assets) =>
         assets.Where(asset => asset.IsEligible || asset.IsProvisional && !asset.IsRejected &&
             asset.ProviderGameId != null &&
-            ProviderIdentityDatabaseFunctions.ProvisionalGame(asset.TitleId, asset.SourceId,
-                ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version) == asset.ProviderGameId);
+            (asset.SourceId == "igdb"
+                ? ProviderIdentityDatabaseFunctions.ProvisionalMetadataGame(asset.TitleId, asset.SourceId,
+                    ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.MetadataVersion)
+                : ProviderIdentityDatabaseFunctions.ProvisionalGame(asset.TitleId, asset.SourceId,
+                    ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version)) == asset.ProviderGameId);
 }

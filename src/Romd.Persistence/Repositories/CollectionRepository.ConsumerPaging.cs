@@ -5,6 +5,7 @@ using Romd.Consumer.Application.Browse;
 using Romd.Consumer.Application.Browse.ReadModels;
 using Romd.Consumer.Application.Collections;
 using Romd.Consumer.Application.Libraries;
+using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Queries;
 
@@ -99,7 +100,7 @@ public sealed partial class CollectionRepository
             .Where(i => i.CollectionId == collectionId)
             .Where(i => OwnedMaterializedLibraryTitles(libraryId).Any(title => title.TitleId == i.TitleId))
             .Join(
-                context.Titles.AsNoTracking(),
+                context.PresentedTitles(),
                 i => i.TitleId,
                 t => t.Id,
                 (i, t) => new { Item = i, Title = t })

@@ -59,17 +59,27 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
             return CatalogErrors.TitleNotFound();
         var link = await _db.TitleExternalIds.AsTracking().SingleOrDefaultAsync(x => x.TitleId == titleId && x.Provider.ToLower() == providerId, ct);
         var state = await _db.Set<TitleProviderMatchStateEntity>().AsTracking().SingleOrDefaultAsync(x => x.TitleId == titleId && x.ProviderId == providerId, ct);
-        if (!ifMatch.IsSatisfiedBy(Revision(state, link, await ReadProvisionalGameAsync(titleId, providerId, ct))))
+        var provisionalGameId = await ReadProvisionalGameAsync(titleId, providerId, ct);
+        if (!ifMatch.IsSatisfiedBy(Revision(state, link, provisionalGameId)))
             return ProviderMatchErrors.PreconditionFailed;
         var gameId = game?.Id;
         var changed = unlink || (gameId is not null && gameId != link?.ExternalId);
         bool requiresRematerialization = false;
+        var provisionalMetadata = !unlink && gameId is not null && gameId == provisionalGameId && state is not null
+            ? await ReadPromotableMetadataAsync(titleId, providerId, gameId, state.Revision, ct)
+            : null;
         if (changed)
         {
             var pending = _db.Set<ArtworkImportJobEntity>().Where(x => x.TitleId == titleId && x.ProviderId == providerId).Select(x => x.Id);
             await _db.Set<ArtworkSelectionEntity>().Where(x => x.TitleId == titleId && x.PendingRequestId != null && pending.Contains(x.PendingRequestId.Value))
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.Revision, x => x.Revision + 1).SetProperty(x => x.PendingRequestId, (Guid?)null), ct);
             requiresRematerialization = await WithdrawContributionsAsync(titleId, providerId, unlink ? null : gameId, ct);
+        }
+        if (provisionalMetadata is not null)
+        {
+            _db.TitleMetadataLayers.Add(TitleMetadataLayerEntity.FromDomain(
+                TitleMetadataLayer.CreateNew(titleId, providerId, MetadataSourceType.Provider, provisionalMetadata, _clock.GetUtcNow())));
+            requiresRematerialization = true;
         }
         if (state is null)
             _db.Add(state = new TitleProviderMatchStateEntity { TitleId = titleId, ProviderId = providerId });
@@ -157,7 +167,10 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
                 ProvisionalGameId = state.ProviderId == "steamgriddb"
                     ? ProviderIdentityDatabaseFunctions.ProvisionalGame(titleId, state.ProviderId,
                         ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version)
-                    : null
+                    : state.ProviderId == "igdb"
+                        ? ProviderIdentityDatabaseFunctions.ProvisionalMetadataGame(titleId, state.ProviderId,
+                            ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.MetadataVersion)
+                        : null
             }).ToListAsync(ct);
         var layers = await _db.TitleMetadataLayers.Where(x => x.TitleId == titleId && ids.Contains(x.SourceId)).ToListAsync(ct);
         return new(links.Select(x => x.ToDomain()).ToArray(), states.Select(row =>
@@ -178,9 +191,16 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
     }
 
     private Task<string?> ReadProvisionalGameAsync(int titleId, string providerId, CancellationToken ct) =>
-        providerId == "steamgriddb" ? _db.Titles.Where(title => title.Id == titleId)
-            .Select(title => ProviderIdentityDatabaseFunctions.ProvisionalGame(title.Id, providerId,
-                ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version)).SingleOrDefaultAsync(ct) : Task.FromResult<string?>(null);
+        providerId switch
+        {
+            "steamgriddb" => _db.Titles.Where(title => title.Id == titleId)
+                .Select(title => ProviderIdentityDatabaseFunctions.ProvisionalGame(title.Id, providerId,
+                    ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version)).SingleOrDefaultAsync(ct),
+            "igdb" => _db.Titles.Where(title => title.Id == titleId)
+                .Select(title => ProviderIdentityDatabaseFunctions.ProvisionalMetadataGame(title.Id, providerId,
+                    ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.MetadataVersion)).SingleOrDefaultAsync(ct),
+            _ => Task.FromResult<string?>(null)
+        };
 
     private static Guid Revision(TitleProviderMatchStateEntity? state, TitleExternalIdEntity? link, string? provisionalGameId = null) =>
         ProviderMatchRevisions.For(state?.Revision, link?.ExternalId, link?.IsConfirmed, provisionalGameId);

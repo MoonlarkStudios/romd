@@ -21,6 +21,7 @@ public sealed class EnrichmentOrchestratorTests
 {
     private readonly IEnrichmentContextFactory _contexts = Substitute.For<IEnrichmentContextFactory>();
     private readonly IProviderIdentityService _identities = Substitute.For<IProviderIdentityService>();
+    private readonly IProviderMatchAuthorizationStore _authorizations = Substitute.For<IProviderMatchAuthorizationStore>();
     private readonly ITitleProviderMatchService _matches = Substitute.For<ITitleProviderMatchService>();
     private readonly IArtworkCurationRepository _curation = Substitute.For<IArtworkCurationRepository>();
     private readonly IPlatformFieldDefaultRepository _platformDefaults = Substitute.For<IPlatformFieldDefaultRepository>();
@@ -86,6 +87,43 @@ public sealed class EnrichmentOrchestratorTests
 
         providerA.ReceivedRequests.ShouldBeEmpty();
         ShouldBeOutcome(result, OrchestrationResult.NotFound);
+    }
+
+    [Theory]
+    [InlineData(false, "42")]
+    [InlineData(false, "other")]
+    [InlineData(true, "42")]
+    [InlineData(true, "other")]
+    public async Task ProvisionalIgdbFetch_StagesOnlyTheAuthorizedGame(bool bulk, string returnedGame)
+    {
+        var title = CreateTitle();
+        var match = new ProviderMatchAuthorization("igdb", "42", Guid.NewGuid(), IsProvisional: true);
+        _identities.GetTrustedAsync(title.Id, match.ProviderId, Arg.Any<CancellationToken>()).Returns((string?)null);
+        _authorizations.ReadAuthorizationAsync(title.Id, match.ProviderId, Arg.Any<CancellationToken>())
+            .Returns(new ProviderMatchAuthorizationResult.Authorized(match));
+        var provider = Found(match.ProviderId, returnedGame, new EnrichmentData { Description = "Provisional description" });
+        var orchestrator = CreateOrchestrator(provider);
+
+        var result = bulk
+            ? (await orchestrator.EnrichStreamAsync(Stream(title)).SingleAsync()).Result
+            : await orchestrator.EnrichTitleAsync(title, CreatePlatform());
+        await using var staged = result;
+
+        provider.ReceivedRequests.ShouldHaveSingleItem().GameId.ShouldBe(match.GameId);
+        result.Enriched.ShouldBeFalse();
+        result.ArtworkResults.ShouldBeEmpty();
+        title.MetadataLayers.ShouldBeEmpty();
+        title.Description.ShouldBeNull();
+        if (returnedGame == match.GameId)
+        {
+            var provisional = result.ProvisionalMetadata.ShouldHaveSingleItem();
+            provisional.Match.ShouldBe(match);
+            provisional.Payload.Description.ShouldBe("Provisional description");
+        }
+        else
+        {
+            result.ProvisionalMetadata.ShouldBeEmpty();
+        }
     }
 
     [Fact]
@@ -655,7 +693,7 @@ public sealed class EnrichmentOrchestratorTests
         _stager,
         _curation,
         Options.Create(_options),
-        NullLogger<EnrichmentOrchestrator>.Instance, TimeProvider.System);
+        NullLogger<EnrichmentOrchestrator>.Instance, TimeProvider.System, _authorizations);
 
     private static void ShouldBeOutcome(OrchestrationResult actual, OrchestrationResult expected)
     {

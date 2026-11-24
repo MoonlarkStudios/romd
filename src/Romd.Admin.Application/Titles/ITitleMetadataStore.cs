@@ -1,3 +1,4 @@
+using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
 
 namespace Romd.Admin.Application.Titles;
@@ -16,6 +17,9 @@ public interface ITitleMetadataStore
     ///     the snapshot are never deleted. The caller owns the flush and commit.
     /// </summary>
     Task ApplyEnrichmentStagedAsync(Title title, CancellationToken cancellationToken = default);
+
+    /// <summary>Stages only provisional contributions the current match still authorizes.</summary>
+    Task StageProvisionalMetadataAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results, CancellationToken cancellationToken = default);
 
     /// <summary>
     ///     Stages rematerialized metadata, provenance, field overrides, primary-media selection,

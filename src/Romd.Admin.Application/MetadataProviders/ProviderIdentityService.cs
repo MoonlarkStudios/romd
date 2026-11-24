@@ -35,6 +35,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 continue;
             bool datRequiresReview = snapshot.DatFamily?.RequiresReview == true;
             bool steamGridDb = adapter.Id == "steamgriddb";
+            bool igdbMetadata = adapter.Id == "igdb";
             var igdb = steamGridDb && !datRequiresReview
                 ? snapshot.Links.SingleOrDefault(x => x is { ProviderId: "igdb", Trusted: true, Suppressed: false, GameId: not null })
                 : null;
@@ -43,8 +44,11 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 : null;
             var cachedIgdbDependency = link?.Decision?.Dependencies?.FirstOrDefault(x => x.ProviderId == "igdb");
             var delay = link?.Decision?.State == "Unavailable" ? TimeSpan.FromMinutes(1) : TimeSpan.FromHours(6);
-            var needsProvisionalEvaluation = steamGridDb && link?.Decision is { State: "NeedsReview" or "NoMatch" } priorDecision &&
-                priorDecision.ProvisionalPolicyVersion != ProvisionalProviderMatchPolicy.Version;
+            var provisionalPolicyVersion = steamGridDb ? ProvisionalProviderMatchPolicy.Version :
+                igdbMetadata ? ProvisionalProviderMatchPolicy.MetadataVersion : null;
+            var needsProvisionalEvaluation = provisionalPolicyVersion is not null &&
+                link?.Decision is { State: "NeedsReview" or "NoMatch" } priorDecision &&
+                priorDecision.ProvisionalPolicyVersion != provisionalPolicyVersion;
             if (!needsProvisionalEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
                 && link.LastAttempt > clock.GetUtcNow() - delay && (!steamGridDb || igdbDependency == cachedIgdbDependency))
                 continue;
@@ -119,6 +123,29 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                     ProvisionalGameId = provisionalGameId,
                     ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version
                 };
+            }
+            if (igdbMetadata && bridged is null && !found.IsError)
+            {
+                string? provisionalGameId = null;
+                if (link?.GameId is null && found.Value.Consistent && snapshot.DatFamily is { RequiresReview: false } &&
+                    (decision.State == "NeedsReview" || accepted is not null && snapshot.Facts.Years.Count == 0))
+                {
+                    provisionalGameId = ProvisionalProviderMatchPolicy.SelectMetadataGame(snapshot.Facts, decision.Candidates);
+                }
+                decision = decision with
+                {
+                    ProvisionalGameId = provisionalGameId,
+                    ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.MetadataVersion
+                };
+                if (provisionalGameId is not null)
+                {
+                    accepted = null;
+                    decision = decision with
+                    {
+                        State = "NeedsReview",
+                        Explanation = "The active DAT ROM match and the provider release support use of this game provisionally. Confirm the provider identity to apply it to library rules."
+                    };
+                }
             }
             decision = decision with { LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms) };
             await PersistDecisionAsync(snapshot, adapter.Id, link?.Revision ?? Guid.Empty, decision, accepted, owner, ct);

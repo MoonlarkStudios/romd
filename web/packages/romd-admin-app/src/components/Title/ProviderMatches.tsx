@@ -947,7 +947,7 @@ export function ProviderMatches({
         <Stack>
           <Text size="sm">
             {unlinking?.decision?.provisionalGameId &&
-              'ROMD will withdraw the artwork from the provisional match. '}
+              'ROMD will withdraw contributions from the provisional match and keep your pinned artwork. '}
             {unlinking?.externalId &&
               'ROMD will remove metadata and automatic artwork from this match and keep your pinned artwork. '}
             Automatic matching for this provider will stay off until you link a source.

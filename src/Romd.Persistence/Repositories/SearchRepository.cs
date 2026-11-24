@@ -10,6 +10,7 @@ using Romd.Admin.Application.Search.ReadModels;
 using Romd.Domain.Catalog;
 using Romd.Domain.Catalog.Ratings;
 using Romd.Domain.Source.Dat;
+using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Extensions;
 using Romd.Persistence.Queries;
@@ -316,8 +317,8 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
         string? tsQuery = useSearch ? SearchQuery.ToTsQueryText(query!, allowOmittedPossessive: true) : null;
 
         var baseQuery = useSearch
-            ? SearchQuery.MatchTitleQuery(context.Titles.AsNoTracking(), tsQuery)
-            : context.Titles.AsNoTracking();
+            ? SearchQuery.MatchTitleQuery(context.PresentedTitles(), tsQuery)
+            : context.PresentedTitles();
 
         // Apply filters (platform, genre, local payload)
         var availability = await EnrichmentProviderAvailability.ReadAsync(identityAdapters ?? [], cancellationToken);
@@ -385,15 +386,15 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
     {
         var titles = ApplyTitleFilters(
             string.IsNullOrWhiteSpace(query)
-                ? context.Titles
-                : SearchQuery.MatchTitles(context.Titles, query, allowOmittedPossessive: true),
+                ? context.PresentedTitles()
+                : SearchQuery.MatchTitles(context.PresentedTitles(), query, allowOmittedPossessive: true),
             filters, availability);
         if (filters.ReleaseCompleteness == ReleaseCompletenessFilter.All)
             return titles;
         // Operation scopes must select the same DAT-release buckets as catalog pages. Reuse
         // the catalog projection and predicate; title-level HasLocalPayload is a different fact.
         var matchingIds = ApplyReleaseCompletenessFilter(
-            ProjectToRankedCatalogTitles(context.Titles, null), filters.ReleaseCompleteness).Select(row => row.Item.Id);
+            ProjectToRankedCatalogTitles(context.PresentedTitles(), null), filters.ReleaseCompleteness).Select(row => row.Item.Id);
         return titles.Where(title => matchingIds.Contains(title.Id));
     }
 
@@ -723,7 +724,7 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
 
     private async Task<IReadOnlyList<FacetItemData>> AggregateGenresAsync(CancellationToken ct)
     {
-        return await context.Titles
+        return await context.PresentedTitles()
             .Where(t => t.Genre != null)
             .GroupBy(t => t.Genre!)
             .Select(g => new FacetItemData { Value = g.Key, Count = g.Count() })
@@ -734,7 +735,7 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
 
     private async Task<IReadOnlyList<FacetItemData>> AggregateYearsAsync(CancellationToken ct)
     {
-        return await context.Titles
+        return await context.PresentedTitles()
             .Where(t => t.ReleaseDate != null)
             .GroupBy(t => t.ReleaseDate!.Value.Year)
             .Select(g => new FacetItemData { Value = g.Key.ToString(), Count = g.Count() })
@@ -744,7 +745,7 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
 
     private async Task<IReadOnlyList<FacetItemData>> AggregateManufacturersAsync(CancellationToken ct)
     {
-        return await context.Titles
+        return await context.PresentedTitles()
             .Where(t => t.Publisher != null)
             .GroupBy(t => t.Publisher!)
             .Select(g => new FacetItemData { Value = g.Key, Count = g.Count() })
@@ -783,7 +784,7 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
 
     private async Task<IReadOnlyList<FacetItemData>> AggregateContentRatingsAsync(CancellationToken ct)
     {
-        var facets = await context.TitleContentRatings
+        var facets = await context.PresentedRatings()
             .GroupBy(r => new { r.Board, r.Code })
             .Select(g => new { g.Key.Board, g.Key.Code, Count = g.Count() })
             .OrderByDescending(f => f.Count)

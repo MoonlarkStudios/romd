@@ -220,14 +220,16 @@ publication checks trust directly in its existing mutation transaction. The new
 fingerprint encoding invalidates legacy automatic decisions for reassessment;
 explicit confirmations survive.
 
-An unlinked SteamGridDB candidate can provisionally supply missing artwork.
-The provider match policy requires an unambiguous active DAT hash match, an exact
-edition-preserving name, and a trusted IGDB release year on the local system.
-The artwork worker checks the current provider game and decision revision
-when it publishes variants for a role. Role settings govern acquisition. Presentation and file
-delivery recheck the underlying evidence. Provisional variants are served
-with `Cache-Control: no-store`. Confirmation of the selected SteamGridDB game
-promotes its retained artwork in the same transaction as the provider link.
+A current provisional SteamGridDB or IGDB match can supply missing artwork.
+Both policies require an unambiguous active DAT hash match and an exact name
+that preserves the edition. The SteamGridDB policy also requires a year from
+a trusted IGDB release on the local system. The IGDB policy requires the
+candidate itself to supply release evidence for that system. The artwork worker
+checks the current provider game and decision revision before publishing
+variants for a role. Role settings govern acquisition. Presentation and file
+delivery recheck the evidence and serve provisional variants with
+`Cache-Control: no-store`. Confirmation promotes retained artwork for the selected
+game in the same transaction as the provider link.
 
 Overlapping compatible completion requests share active title work through the
 existing durable item ledger. Automatic scope excludes active legacy work as well;

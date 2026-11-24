@@ -63,9 +63,10 @@ public sealed class BulkEnrichmentTitleProcessor(
         Platform platform, OrchestrationResult result, IReadOnlySet<int> originalMediaFileIds)
     {
         var ct = context.CancellationToken;
-        // Persist identities before acquisition can authorize them. Keep the title
+        bool hasProviderMetadata = result.Enriched || result.ProvisionalMetadata.Count > 0;
+        // Persist provider contributions before artwork acquisition can defer. Keep the title
         // nonterminal until artwork finishes so crash recovery revisits this title.
-        if (result.Enriched)
+        if (hasProviderMetadata)
         {
             await context.ExecuteOwnedMutationAsync(async token =>
             {
@@ -79,8 +80,10 @@ public sealed class BulkEnrichmentTitleProcessor(
                     title.AttachPublishedMedia(result.StagedMedia, publication.ReadAfterFlush(), clock.GetUtcNow());
                 }
                 await titleMetadata.ApplyEnrichmentStagedAsync(title, token);
-                // Fence any publication based on the old metadata before artwork can defer.
-                await materializationService.FlagAffectedLibrariesAsync(platform.Id, token);
+                if (result.ProvisionalMetadata.Count > 0)
+                    await titleMetadata.StageProvisionalMetadataAsync(title, result.ProvisionalMetadata, token);
+                if (result.Enriched)
+                    await materializationService.FlagAffectedLibrariesAsync(platform.Id, token);
             }, ct);
             title = await titleAggregates.GetAggregateAsync(title.Id, ct)
                 ?? throw new InvalidOperationException("Title was removed during enrichment.");
@@ -92,7 +95,7 @@ public sealed class BulkEnrichmentTitleProcessor(
         ApplyTitleResult(title, result, occurredAt);
         await context.ExecuteOwnedMutationAsync(async mutationCt =>
         {
-            if (result.Enriched)
+            if (hasProviderMetadata)
                 await titleMetadata.UpdateMaterializedMetadataStagedAsync(title, mutationCt);
             else
             {
@@ -161,6 +164,10 @@ public sealed class BulkEnrichmentTitleProcessor(
                 title.MarkEnrichmentLowConfidence(occurredAt);
             }
         }
+        else if (result.ProvisionalMetadata.Count > 0)
+        {
+            title.MarkEnrichmentLowConfidence(occurredAt);
+        }
         else if (result.AllErrored)
         {
             title.MarkEnrichmentFailed(occurredAt);
@@ -173,7 +180,7 @@ public sealed class BulkEnrichmentTitleProcessor(
 
     private static void RecordResult(BulkEnrichmentJob job, Title title, OrchestrationResult result, DateTimeOffset occurredAt)
     {
-        if (result.Enriched)
+        if (result.Enriched || result.ProvisionalMetadata.Count > 0)
             job.RecordEnriched();
         else if (result.AllErrored)
             job.RecordFailed(title.Id, title.Name, "All providers failed", JobErrorReason.ProviderError, occurredAt);
