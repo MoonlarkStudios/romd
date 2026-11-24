@@ -11,7 +11,7 @@ namespace Romd.Persistence.Repositories;
 
 public sealed partial class TitleRepository
 {
-    public async Task StageProvisionalMetadataAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results,
+    public async Task ApplyProvisionalMetadataStagedAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results,
         CancellationToken cancellationToken = default)
     {
         RequireTransaction();

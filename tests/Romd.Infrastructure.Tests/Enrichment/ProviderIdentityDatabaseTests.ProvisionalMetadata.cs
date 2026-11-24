@@ -43,7 +43,7 @@ public sealed partial class ProviderIdentityDatabaseTests
 
         await using (var transaction = await db.Database.BeginTransactionAsync())
         {
-            await titles.StageProvisionalMetadataAsync(title, [stored]);
+            await titles.ApplyProvisionalMetadataStagedAsync(title, [stored]);
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
         }
@@ -117,7 +117,7 @@ public sealed partial class ProviderIdentityDatabaseTests
 
         await using (var transaction = await db.Database.BeginTransactionAsync())
         {
-            await titles.StageProvisionalMetadataAsync(title, [new(match, payload)]);
+            await titles.ApplyProvisionalMetadataStagedAsync(title, [new(match, payload)]);
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
         }
@@ -139,7 +139,7 @@ public sealed partial class ProviderIdentityDatabaseTests
 
         await using (var transaction = await db.Database.BeginTransactionAsync())
         {
-            await titles.StageProvisionalMetadataAsync(title, [new(match, Payload(game.Id))]);
+            await titles.ApplyProvisionalMetadataStagedAsync(title, [new(match, Payload(game.Id))]);
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
         }

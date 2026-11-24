@@ -81,7 +81,7 @@ public sealed class BulkEnrichmentTitleProcessor(
                 }
                 await titleMetadata.ApplyEnrichmentStagedAsync(title, token);
                 if (result.ProvisionalMetadata.Count > 0)
-                    await titleMetadata.StageProvisionalMetadataAsync(title, result.ProvisionalMetadata, token);
+                    await titleMetadata.ApplyProvisionalMetadataStagedAsync(title, result.ProvisionalMetadata, token);
                 if (result.Enriched)
                     await materializationService.FlagAffectedLibrariesAsync(platform.Id, token);
             }, ct);

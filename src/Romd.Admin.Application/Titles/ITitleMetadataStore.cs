@@ -19,7 +19,7 @@ public interface ITitleMetadataStore
     Task ApplyEnrichmentStagedAsync(Title title, CancellationToken cancellationToken = default);
 
     /// <summary>Stages only provisional contributions the current match still authorizes.</summary>
-    Task StageProvisionalMetadataAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results, CancellationToken cancellationToken = default);
+    Task ApplyProvisionalMetadataStagedAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results, CancellationToken cancellationToken = default);
 
     /// <summary>
     ///     Stages rematerialized metadata, provenance, field overrides, primary-media selection,

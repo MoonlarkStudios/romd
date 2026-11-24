@@ -106,7 +106,7 @@ public sealed class TitleEnrichmentPipeline(
 
             await titleMetadata.ApplyEnrichmentStagedAsync(title, mutationCt);
             if (result.ProvisionalMetadata.Count > 0)
-                await titleMetadata.StageProvisionalMetadataAsync(title, result.ProvisionalMetadata, mutationCt);
+                await titleMetadata.ApplyProvisionalMetadataStagedAsync(title, result.ProvisionalMetadata, mutationCt);
             // A step that ran without an execution error succeeded, even when it found nothing. Only a
             // completion run has an item for this title; other jobs record nothing.
             if (context.JobId is { } jobId)

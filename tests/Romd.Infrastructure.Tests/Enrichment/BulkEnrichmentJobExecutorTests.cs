@@ -630,7 +630,7 @@ public class BulkEnrichmentJobExecutorTests : IDisposable
                 ? Task.FromException(new IOException("metadata write failed"))
                 : Task.CompletedTask;
 
-        public Task StageProvisionalMetadataAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results,
+        public Task ApplyProvisionalMetadataStagedAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results,
             CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task UpdateMaterializedMetadataStagedAsync(Title title, CancellationToken cancellationToken = default) =>
