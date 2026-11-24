@@ -1089,6 +1089,7 @@ public static class DependencyInjection
         services.AddScoped<ITitleRowLock>(sp => sp.GetRequiredService<TitleRepository>());
         services.AddScoped<ITitleMediaStore>(sp => sp.GetRequiredService<TitleRepository>());
         services.AddScoped<ITitleMergeStore>(sp => sp.GetRequiredService<TitleRepository>());
+        services.AddScoped<IDatTitleGroupingReader, Romd.Persistence.Catalog.DatTitleGroupingReader>();
         services.AddScoped<ITitleCreationStore>(sp => sp.GetRequiredService<TitleRepository>());
         services.AddScoped<ITitleOrphanCleanup, TitleOrphanRepository>();
         // Read roles share one scoped adapter; none of them exposes a title write.

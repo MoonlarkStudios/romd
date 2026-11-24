@@ -61,6 +61,7 @@ vi.mock('@romd/admin-api-client', async () => {
       error: undefined,
     }),
     getCatalogFilters: vi.fn(),
+    getDatTitleGrouping: vi.fn(),
     getTitleEnrichmentAssessment: vi.fn(),
     getAdminCatalogSnapshot: vi.fn(),
     getTitle: vi.fn(),
@@ -83,6 +84,7 @@ import {
   confirmTitleProviderMatch,
   getAdminCatalogSnapshot,
   getCatalogFilters,
+  getDatTitleGrouping,
   getTitle,
   getTitleArtwork,
   getTitleEnrichmentAssessment,
@@ -1254,6 +1256,82 @@ describe('TitleDetail', () => {
 
     expect(await screen.findByText('Merge title...')).toBeInTheDocument();
     expect(screen.getByText('Move release...')).toBeInTheDocument();
+  });
+
+  it('previews DAT family names and waits for the operator to approve the reviewed grouping', async () => {
+    const user = userEvent.setup();
+    const clone = {
+      ...title,
+      name: 'Streets of Rage 2',
+    };
+    mockGetTitle.mockResolvedValue({
+      data: clone,
+      error: undefined,
+    });
+    vi.mocked(getDatTitleGrouping).mockResolvedValue({
+      data: {
+        suggestion: {
+          parentTitleId: 'parent',
+          parentTitleName: 'Streets of Rage II',
+          parentTitleRevision: 'reviewed-parent',
+          cloneTitleRevision: 'reviewed-clone',
+          datName: 'Mega Drive',
+          datVersion: 'version-2',
+          releaseNames: [
+            'Streets of Rage II (Japan, Europe)',
+            'Streets of Rage 2 (USA)',
+          ],
+          evidence: 'active-dat-evidence',
+        },
+      },
+    } as Awaited<ReturnType<typeof getDatTitleGrouping>>);
+    mockMergeTitles.mockResolvedValue({
+      data: clone,
+      error: undefined,
+    });
+    renderTitleDetail();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Title actions',
+      }),
+    );
+    await user.click(await screen.findByText('Review DAT family…'));
+    const review = await screen.findByRole('dialog', {
+      name: 'Review DAT title grouping',
+    });
+    expect(
+      await within(review).findByText('Streets of Rage II (Japan, Europe)'),
+    ).toBeInTheDocument();
+    expect(within(review).getByText('Streets of Rage 2 (USA)')).toBeInTheDocument();
+    expect(
+      within(review).getByRole('combobox', {
+        name: 'Title to keep',
+      }),
+    ).toHaveValue('Streets of Rage 2');
+    expect(mockMergeTitles).not.toHaveBeenCalled();
+
+    await user.click(
+      within(review).getByRole('button', {
+        name: 'Group titles',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockMergeTitles).toHaveBeenCalledWith({
+        path: {
+          titleId: clone.id,
+        },
+        headers: {
+          'If-Match': '"reviewed-clone"',
+        },
+        body: {
+          sourceTitleId: 'parent',
+          sourceTitleRevision: 'reviewed-parent',
+          datGroupingEvidence: 'active-dat-evidence',
+        },
+      }),
+    );
   });
 
   it('merges against the target the form loaded on selection, never one read at click time', async () => {

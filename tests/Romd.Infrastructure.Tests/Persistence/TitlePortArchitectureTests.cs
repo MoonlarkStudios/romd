@@ -65,7 +65,9 @@ public sealed class TitlePortArchitectureTests
             "Task ApplyMergeStagedAsync(Title target, Title source, CancellationToken cancellationToken)",
             "Task<IReadOnlyList<String>> GetUnlinkedProvidersAsync(Int32 titleId, CancellationToken cancellationToken)",
             "Task DeleteAbsorbedSourceAsync(Int32 sourceTitleId, CancellationToken cancellationToken)",
-            "Task StageArtworkMergeAsync(Int32 sourceTitleId, Int32 targetTitleId, CancellationToken cancellationToken)"
+            "Task StageArtworkMergeAsync(Int32 sourceTitleId, Int32 targetTitleId, CancellationToken cancellationToken)",
+            "Task<Boolean> ValidateDatGroupingAsync(Int32 sourceTitleId, Int32 targetTitleId, String evidence, CancellationToken cancellationToken)",
+            "Task ReassignTitleReferencesAsync(Int32 sourceTitleId, Int32 targetTitleId, CancellationToken cancellationToken)"
         ],
         [typeof(ITitleCreationStore)] =
         [

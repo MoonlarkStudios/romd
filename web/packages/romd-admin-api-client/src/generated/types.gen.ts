@@ -691,6 +691,21 @@ export type DatRom = {
     status?: null | string;
 };
 
+export type DatTitleGroupingReview = {
+    suggestion: null | DatTitleGroupingSuggestion;
+};
+
+export type DatTitleGroupingSuggestion = {
+    parentTitleId: string;
+    parentTitleName: string;
+    parentTitleRevision: string;
+    cloneTitleRevision: string;
+    datName: string;
+    datVersion: null | string;
+    releaseNames: Array<string>;
+    evidence: string;
+};
+
 export type DecideDiscSetRequest = {
     decision: string;
     name: null | string;
@@ -1490,6 +1505,7 @@ export type MergeTaxonomyRequest = {
 export type MergeTitlesRequest = {
     sourceTitleId: string;
     sourceTitleRevision: string;
+    datGroupingEvidence?: null | string;
 };
 
 export type MetadataLayer = {
@@ -7521,6 +7537,33 @@ export type UpdateTitleMediaResponses = {
 };
 
 export type UpdateTitleMediaResponse = UpdateTitleMediaResponses[keyof UpdateTitleMediaResponses];
+
+export type GetDatTitleGroupingData = {
+    body?: never;
+    path: {
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/titles/{titleId}/dat-grouping';
+};
+
+export type GetDatTitleGroupingErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type GetDatTitleGroupingError = GetDatTitleGroupingErrors[keyof GetDatTitleGroupingErrors];
+
+export type GetDatTitleGroupingResponses = {
+    /**
+     * OK
+     */
+    200: DatTitleGroupingReview;
+};
+
+export type GetDatTitleGroupingResponse = GetDatTitleGroupingResponses[keyof GetDatTitleGroupingResponses];
 
 export type MergeTitlesData = {
     body: MergeTitlesRequest;

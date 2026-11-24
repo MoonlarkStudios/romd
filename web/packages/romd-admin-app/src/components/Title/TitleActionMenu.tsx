@@ -18,6 +18,7 @@ import type {
 import { useTitleDetail } from '../../hooks/api/useTitleDetail';
 import { usePermissions } from '../../hooks/usePermissions';
 import { TitleSearchSelect } from '../TitleSearchSelect';
+import { DatTitleGroupingForm } from './DatTitleGroupingForm';
 
 interface TitleActionMenuProps {
   title: TitleDetail;
@@ -28,6 +29,7 @@ export function TitleActionMenu({ title, titleId }: TitleActionMenuProps) {
   const { canManageTitles } = usePermissions();
   const [mergeOpened, mergeDisclosure] = useDisclosure(false);
   const [moveOpened, moveDisclosure] = useDisclosure(false);
+  const [groupOpened, groupDisclosure] = useDisclosure(false);
 
   if (!canManageTitles) {
     return null;
@@ -62,6 +64,7 @@ export function TitleActionMenu({ title, titleId }: TitleActionMenuProps) {
             Move release...
           </Menu.Item>
           <Menu.Divider />
+          <Menu.Item onClick={groupDisclosure.open}>Review DAT family…</Menu.Item>
           <Menu.Item
             color="red"
             leftSection={<IconArrowsSplit size={14} />}
@@ -83,6 +86,20 @@ export function TitleActionMenu({ title, titleId }: TitleActionMenuProps) {
           currentTitle={title}
           onClose={mergeDisclosure.close}
         />
+      </Modal>
+
+      <Modal
+        opened={groupOpened}
+        onClose={groupDisclosure.close}
+        title="Review DAT title grouping"
+        centered
+      >
+        {groupOpened && (
+          <DatTitleGroupingForm
+            title={title}
+            onClose={groupDisclosure.close}
+          />
+        )}
       </Modal>
 
       <Modal
