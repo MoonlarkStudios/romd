@@ -75,6 +75,7 @@ public sealed partial class ProviderIdentityDatabaseTests
     [InlineData("no declaration")]
     [InlineData("parent hash removed")]
     [InlineData("preview")]
+    [InlineData("non-game category")]
     public async Task DiscoverAsync_UnverifiedParentFamily_StaysInReview(string scenario)
     {
         await using var db = _database.CreateContext();
@@ -94,6 +95,10 @@ public sealed partial class ProviderIdentityDatabaseTests
             case "preview":
                 await db.DatGames.Where(entry => entry.Id == 1)
                     .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.Name, "Super Mario World (USA) (beta)"));
+                break;
+            case "non-game category":
+                await db.DatGames.Where(entry => entry.Id == 3)
+                    .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.Category, "Applications"));
                 break;
         }
         var adapter = SteamGridDbParentAdapter(game);
@@ -156,9 +161,10 @@ public sealed partial class ProviderIdentityDatabaseTests
         await db.DatGames.Where(entry => entry.Id == 1).ExecuteUpdateAsync(set => set
             .SetProperty(entry => entry.CloneOfId, "parent")
             .SetProperty(entry => entry.Year, (string?)null)
+            .SetProperty(entry => entry.Category, "Games")
             .SetProperty(entry => entry.DevelopmentStatus, "Stable")
             .SetProperty(entry => entry.Name, title + " (USA)"));
-        AddFamilyRelease(db, 1, 3, parentRelease, declaredId: "parent");
+        AddFamilyRelease(db, 1, 3, parentRelease, declaredId: "parent").Category = "Games";
         db.Titles.Add(new TitleEntity { Id = 2, PlatformId = 1, Name = parentRelease, NormalizedName = "parent", EnrichmentStatus = "None" });
         db.TitleSourceLinks.Add(new TitleSourceLinkEntity { TitleId = 2, SourceEntryId = 3 });
         db.DatRoms.Add(MatchedRom(1));

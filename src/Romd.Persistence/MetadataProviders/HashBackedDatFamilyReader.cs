@@ -91,7 +91,7 @@ internal static class HashBackedDatFamilyReader
     }
 
     private static bool IsRetailRelease(Entry entry) =>
-        (entry.Category is null || string.Equals(entry.Category, "Game", StringComparison.OrdinalIgnoreCase)) &&
+        (entry.Category?.ToUpperInvariant() is null or "GAME" or "GAMES") &&
         (entry.DevelopmentStatus is null || string.Equals(entry.DevelopmentStatus, "Stable", StringComparison.OrdinalIgnoreCase)) &&
         DatNameParser.Parse(entry.Name).Revision?.ToUpperInvariant() is not ("BETA" or "ALPHA" or "PROTO" or "DEMO" or "SAMPLE");
 
