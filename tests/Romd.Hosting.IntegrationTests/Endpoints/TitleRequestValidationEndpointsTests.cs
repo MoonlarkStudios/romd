@@ -56,7 +56,24 @@ public sealed class TitleRequestValidationEndpointsTests(IntegrationTestFixture 
         using var unchanged = await ReplaceAsync(["Postal Neon Quádrant"], saved.Revision);
         unchanged.EnsureSuccessStatusCode();
         unchanged.Headers.ETag.ShouldNotBeNull().Tag.ShouldBe($"\"{saved.Revision}\"");
-        using var removed = await ReplaceAsync([], saved.Revision);
+
+        using var expanded = await ReplaceAsync(["Postal Neon Quádrant", "Salmon Sapphire"], saved.Revision);
+        expanded.EnsureSuccessStatusCode();
+        var both = (await expanded.Content.ReadFromJsonAsync<TitleLookupNames>()).ShouldNotBeNull();
+        both.Names.ShouldBe(["Postal Neon Quádrant", "Salmon Sapphire"]);
+        both.Revision.ShouldNotBe(saved.Revision);
+
+        using var edited = await ReplaceAsync(["Postal Neon Quadrant"], both.Revision);
+        edited.EnsureSuccessStatusCode();
+        var updated = (await client.GetFromJsonAsync<TitleLookupNames>(namesPath)).ShouldNotBeNull();
+        updated.Names.ShouldBe(["Postal Neon Quadrant"]);
+        updated.Revision.ShouldNotBe(both.Revision);
+        var stillFound = await client.GetFromJsonAsync<JsonElement>("/api/catalog?query=postal%20neon%20quadr");
+        stillFound.GetProperty("items").EnumerateArray().Single().GetProperty("id").GetString().ShouldBe(titleId);
+        var noLongerFound = await client.GetFromJsonAsync<JsonElement>("/api/catalog?query=salmon%20sapphire");
+        noLongerFound.GetProperty("items").GetArrayLength().ShouldBe(0);
+
+        using var removed = await ReplaceAsync([], updated.Revision);
         removed.EnsureSuccessStatusCode();
         var after = await client.GetFromJsonAsync<JsonElement>("/api/catalog?query=postal%20neon%20quadr");
         after.GetProperty("items").GetArrayLength().ShouldBe(0);
