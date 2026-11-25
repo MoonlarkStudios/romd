@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
@@ -126,6 +127,72 @@ public sealed partial class ProviderIdentityDatabaseTests
         ratings.Count.ShouldBe(2);
         ratings.Single(value => value.Board == (int)RatingBoard.Esrb).Code.ShouldBe("T");
         ratings.Single(value => value.Board == (int)RatingBoard.Pegi).Code.ShouldBe("PEGI 12");
+    }
+
+    [Theory]
+    [InlineData("equivalent match", true)]
+    [InlineData("different game", false)]
+    [InlineData("changed DAT evidence", false)]
+    [InlineData("outdated payload revision", false)]
+    public async Task ProvisionalMetadata_ArtworkIdentityRefreshPreservesOnlyReverifiedPayload(string change, bool preservesPayload)
+    {
+        await using var db = _database.CreateContext();
+        await Seed(db);
+        await AddFamilyRom(db);
+        db.DatRoms.Add(MatchedRom(1));
+        await db.SaveChangesAsync();
+        db.ChangeTracker.Clear();
+
+        var game = new ProviderGame("42", "Game", "https://provider.test/game", Platforms: ["Test"], Releases: [new(1990, "Test")]);
+        var adapter = Substitute.For<IProviderIdentityAdapter>();
+        adapter.Id.Returns("igdb");
+        adapter.Capabilities.Returns(["metadata"]);
+        adapter.GetAvailabilityAsync(default).Returns(new ProviderAvailability(true, true));
+        adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(_ =>
+            new ProviderGameSearchResult([game], ProviderGameSearchCompleteness.ProviderLimited, 50));
+        var store = CreateFamilyStore(db);
+        var identity = new ProviderIdentityService(store, [adapter], [], TimeProvider.System, new EfUnitOfWork(db),
+            NullLogger<ProviderIdentityService>.Instance);
+        await identity.DiscoverAsync(1, null, default);
+        var before = (await store.ReadAsync(1, default)).ShouldNotBeNull().Links.ShouldHaveSingleItem();
+        before.Decision.ShouldNotBeNull().ProvisionalGameId.ShouldBe(game.Id);
+        var authorization = new ProviderMatchAuthorization("igdb", game.Id, before.Revision, IsProvisional: true);
+        var titles = new TitleRepository(db);
+        var title = (await titles.GetAggregateAsync(1)).ShouldNotBeNull();
+        await using (var transaction = await db.Database.BeginTransactionAsync())
+        {
+            await titles.ApplyProvisionalMetadataStagedAsync(title, [new(authorization, Payload(game.Id))]);
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        var detailReader = new TitleDetailReader(db);
+        (await detailReader.GetDetailAsync(1)).ShouldNotBeNull().Genre.ShouldBe("Provisional genre");
+
+        await db.Set<TitleProviderMatchStateEntity>().ExecuteUpdateAsync(update =>
+            update.SetProperty(state => state.LastAttemptAt, DateTimeOffset.UnixEpoch));
+        if (change == "different game")
+            game = game with { Id = "43" };
+        else if (change == "changed DAT evidence")
+            await db.DatGames.Where(release => release.Id == 1).ExecuteUpdateAsync(update =>
+                update.SetProperty(release => release.Name, "Game (World)"));
+        else if (change == "outdated payload revision")
+            await db.Set<TitleProviderMatchStateEntity>().ExecuteUpdateAsync(update =>
+                update.SetProperty(state => state.Revision, Guid.NewGuid()));
+        db.ChangeTracker.Clear();
+
+        // Artwork refresh rediscovers identity without fetching text again.
+        await identity.DiscoverAsync(1, null, default);
+
+        var after = (await store.ReadAsync(1, default)).ShouldNotBeNull().Links.ShouldHaveSingleItem();
+        after.Revision.ShouldNotBe(before.Revision);
+        (after.InputFingerprint == before.InputFingerprint).ShouldBe(change != "changed DAT evidence");
+        after.Decision.ShouldNotBeNull().ProvisionalGameId.ShouldBe(game.Id);
+        var detail = (await detailReader.GetDetailAsync(1)).ShouldNotBeNull();
+        detail.Genre.ShouldBe(preservesPayload ? "Provisional genre" : null);
+        detail.ContentRatings.Count.ShouldBe(preservesPayload ? 1 : 0);
+        (await db.Set<TitleProvisionalMetadataEntity>().SingleAsync()).MatchRevision
+            .ShouldBe(preservesPayload ? after.Revision : before.Revision);
+        (await db.Titles.SingleAsync()).Genre.ShouldBeNull();
     }
 
     [Fact]
