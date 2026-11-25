@@ -51,7 +51,7 @@ ROMD invokes the companion repository's `distribution candidate` command using
 URLs, root, or catalog identity. This reuses go-tuf/v2 verification rather than
 introducing a second TUF implementation. The standard admin, admin-dev, and worker Docker
 targets include the reader built from
-[companion revision `78a554b`](https://github.com/MoonlarkStudios/romd-dat-catalogs/commit/78a554bc90f667c5846bd308f4ab418b5c63a95b).
+[companion revision `35a3467`](https://github.com/MoonlarkStudios/romd-dat-catalogs/commit/35a3467262562969a47211be9b650c3481dbf2f8).
 The Go build image, source archive, and original public trust root are pinned by
 hash. ROMD builds the pinned source with the security-serviced Go 1.27.4
 compiler; the pinned source revision and public trust root remain independent
@@ -91,6 +91,20 @@ publishing, up to three times per request. Each retry uses the same URL and trus
 cache. Signature, expiry, rollback, and integrity failures still stop the check.
 The process has a two-minute deadline and downloaded candidates are size/hash
 checked again before ROMD's semantic validation.
+
+### Independent mirror monitoring
+
+The packaged reader also provides `monitor` for an external scheduler. It
+verifies the signed directory and a Genesis DAT with its own persistent cache.
+The report includes the authenticated publication version and timestamp expiry,
+plus the provider's refresh status. It exits nonzero after two consecutive
+verification failures, within 12 hours of expiry, or when TUF rejects expired
+metadata. Run it on a separate scheduler so it can report problems when the
+publisher misses a scheduled run. The
+[companion monitor runbook](https://github.com/MoonlarkStudios/romd-dat-catalogs/blob/35a3467262562969a47211be9b650c3481dbf2f8/docs/deployment.md#independent-mirror-monitoring)
+includes the Linux service, timer, and alert configuration.
+
+### Private bundles
 
 For a private local trial, set `DatSubscriptions__BundlePath` and clear
 `DatSubscriptions__Site` (the standard image supplies a default).
