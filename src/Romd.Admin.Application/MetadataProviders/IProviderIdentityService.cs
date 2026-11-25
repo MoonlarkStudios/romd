@@ -16,7 +16,10 @@ public sealed record DatFamilySearchEvidence(IReadOnlyList<string> Names, bool R
 }
 
 public sealed record ProviderIdentityLink(string ProviderId, string? GameId, bool Confirmed, bool Suppressed,
-    bool Trusted, Guid Revision, string? InputFingerprint, DateTimeOffset? LastAttempt, ProviderIdentityDecision? Decision);
+    bool Trusted, Guid Revision, string? InputFingerprint, DateTimeOffset? LastAttempt, ProviderIdentityDecision? Decision)
+{
+    public ProviderGame? TrustedGame { get; init; }
+}
 /// <summary>Provider-local retry hints. Callers decide whether alternatives satisfy their unfinished work.</summary>
 public sealed record ProviderIdentityDiscoveryResult(IReadOnlyDictionary<string, DateTimeOffset> RetryAfterByProvider)
 {

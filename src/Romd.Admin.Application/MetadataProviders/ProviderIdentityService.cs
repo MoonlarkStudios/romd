@@ -34,12 +34,21 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             var available = await adapter.GetAvailabilityAsync(ct);
             if (!available.Enabled || !available.Configured)
                 continue;
+            bool datRequiresReview = snapshot.DatFamily?.RequiresReview == true;
+            bool steamGridDb = adapter.Id == "steamgriddb";
+            var igdb = steamGridDb && !datRequiresReview
+                ? snapshot.Links.SingleOrDefault(x => x is { ProviderId: "igdb", Trusted: true, Suppressed: false, GameId: not null })
+                : null;
+            var igdbDependency = igdb?.GameId is { } igdbGameId
+                ? new ProviderIdentityDependency(igdb.ProviderId, igdbGameId, igdb.Revision)
+                : null;
+            var cachedIgdbDependency = link?.Decision?.Dependencies?.FirstOrDefault(x => x.ProviderId == "igdb");
             var delay = link?.Decision?.State == "Unavailable" ? TimeSpan.FromMinutes(1) : TimeSpan.FromHours(6);
-            if (link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint && link.LastAttempt > clock.GetUtcNow() - delay)
+            if (link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
+                && link.LastAttempt > clock.GetUtcNow() - delay && (!steamGridDb || igdbDependency == cachedIgdbDependency))
                 continue;
             ArtworkBridgeMatch? bridged = null;
-            ProviderIdentityDependency? dependency = null;
-            bool datRequiresReview = snapshot.DatFamily?.RequiresReview == true;
+            ProviderIdentityDependency? dependency = igdbDependency;
             foreach (var bridge in bridges.Where(x => !datRequiresReview && x.TargetProviderId == adapter.Id))
             {
                 var source = snapshot.Links.SingleOrDefault(x => x.ProviderId == bridge.SourceProviderId && x.Trusted && !x.Suppressed);
@@ -62,24 +71,36 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             ProviderIdentityDecision decision;
             ProviderGame? accepted = null;
             if (found.IsError)
-                decision = new("Unavailable", "Provider search temporarily unavailable.", snapshot.Facts.Provenance, snapshot.Fingerprint, []);
+                decision = new("Unavailable", "Provider search temporarily unavailable.", snapshot.Facts.Provenance, snapshot.Fingerprint,
+                    [], dependency is null ? null : [dependency]);
             else
             {
                 var candidates = found.Value.Games.Select(game => new IdentityCandidate(game.Id, game.Name, game.Aliases ?? [],
                     RelevantYears(game, snapshot.Facts.Platforms), game.Platforms ?? [])).ToArray();
-                // A bridge requires a currently trusted source; retaining its dependency in the input fingerprint fences changes.
+                // Bridge trust is tied to the source game and its association revision.
                 var evidence = new IdentitySearchEvidence(candidates, found.Value.Complete,
                     bridged is null ? null : new TrustedIdentityBridgeEvidence(bridged.Game.Id, bridged.Evidence));
                 var evaluation = ProviderIdentityPolicy.Decide(snapshot.Facts, evidence, adapter.IdentityScope);
-                if (!datRequiresReview && evaluation is IdentityDecision.AutoAccepted match)
+                bool requiresVerifiedBridge = steamGridDb && bridged is null;
+                if (!datRequiresReview && !requiresVerifiedBridge && evaluation is IdentityDecision.AutoAccepted match)
                     accepted = found.Value.Games.Single(x => x.Id == match.CandidateId);
+                var ranked = evaluation.Candidates.Select(x => new ProviderIdentityCandidate(
+                    found.Value.Games.Single(g => g.Id == x.CandidateId), x.Score, x.Eligible, x.Evidence, x.Conflicts)).ToArray();
+                if (requiresVerifiedBridge && igdb?.TrustedGame is { } trustedGame && trustedGame.Id == igdb.GameId)
+                    ranked = RankArtworkReviewByPlatformYear(ranked, trustedGame, snapshot.Facts.Platforms);
                 decision = new(evaluation.State, evaluation.Explanation, snapshot.Facts.Provenance, snapshot.Fingerprint,
-                    evaluation.Candidates.Select(x => new ProviderIdentityCandidate(found.Value.Games.Single(g => g.Id == x.CandidateId), x.Score, x.Eligible, x.Evidence, x.Conflicts)).ToArray(), dependency is null ? [] : [dependency]);
+                    ranked, dependency is null ? [] : [dependency]);
                 if (datRequiresReview)
                     decision = decision with
                     {
                         State = "NeedsReview",
                         Explanation = "The stored ROM matches do not identify a single resolved clone family in an active DAT. Confirm a provider game identity."
+                    };
+                else if (requiresVerifiedBridge && evaluation is IdentityDecision.AutoAccepted)
+                    decision = decision with
+                    {
+                        State = "NeedsReview",
+                        Explanation = "Automatic SteamGridDB matching requires a verified provider ID bridge. Confirm a provider game identity."
                     };
             }
             decision = decision with { LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms) };
@@ -179,11 +200,34 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
         (first.Releases ?? []).Select(x => (x.Year, x.Platform)).ToHashSet()
             .SetEquals((next.Releases ?? []).Select(x => (x.Year, x.Platform)));
 
+    private static ProviderIdentityCandidate[] RankArtworkReviewByPlatformYear(
+        ProviderIdentityCandidate[] candidates, ProviderGame trustedGame, IReadOnlyList<string> platforms)
+    {
+        var years = PlatformYears(trustedGame, platforms).Where(year => year is >= 1900 and <= 2200).ToHashSet();
+        // Keep identity scores intact. Year evidence breaks ties among review candidates.
+        return candidates.Select(candidate => (Candidate: candidate,
+                YearMatches: candidate.Conflicts.Count == 0 && candidate.Game.Year is { } year && years.Contains(year)))
+            .OrderByDescending(result => result.Candidate.Score)
+            .ThenByDescending(result => result.YearMatches)
+            .Select(result => result.YearMatches
+                ? result.Candidate with
+                {
+                    Evidence = [.. result.Candidate.Evidence, "Release year matches the trusted IGDB game on the local platform."]
+                }
+                : result.Candidate)
+            .ToArray();
+    }
+
     private static IReadOnlyList<int> RelevantYears(ProviderGame game, IReadOnlyList<string> platforms)
     {
-        var names = platforms.Select(ArtworkIdentityMatcher.Normalize).ToHashSet();
-        var releases = game.Releases?.Where(x => x.Year is not null && x.Platform is not null && names.Contains(ArtworkIdentityMatcher.Normalize(x.Platform)))
-            .Select(x => x.Year!.Value).Distinct().ToArray();
-        return releases is { Length: > 0 } ? releases : game.Year is { } year ? [year] : [];
+        var releases = PlatformYears(game, platforms);
+        return releases.Length > 0 ? releases : game.Year is { } year ? [year] : [];
+    }
+
+    private static int[] PlatformYears(ProviderGame game, IReadOnlyList<string> platforms)
+    {
+        var names = platforms.Select(ArtworkIdentityMatcher.Normalize).ToHashSet(StringComparer.Ordinal);
+        return game.Releases?.Where(x => x.Year is not null && x.Platform is not null && names.Contains(ArtworkIdentityMatcher.Normalize(x.Platform)))
+            .Select(x => x.Year!.Value).Distinct().ToArray() ?? [];
     }
 }

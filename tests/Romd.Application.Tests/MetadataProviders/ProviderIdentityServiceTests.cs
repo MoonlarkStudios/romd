@@ -30,9 +30,10 @@ public sealed partial class ProviderIdentityServiceTests
         Func<string, ErrorOr<IReadOnlyList<ProviderGame>>> search,
         IReadOnlyList<ProviderIdentityLink>? links = null, IReadOnlyList<IArtworkIdentityBridge>? bridges = null,
         ProviderGameSearchCompleteness completeness = ProviderGameSearchCompleteness.Complete,
-        DatFamilySearchEvidence? datFamily = null)
+        DatFamilySearchEvidence? datFamily = null, string providerId = "provider",
+        IReadOnlyList<int>? years = null, IReadOnlyList<string>? platforms = null)
     {
-        _adapter.Id.Returns("provider");
+        _adapter.Id.Returns(providerId);
         _adapter.Capabilities.Returns(new[] { "metadata" });
         _adapter.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
         _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
@@ -43,9 +44,9 @@ public sealed partial class ProviderIdentityServiceTests
             return result.IsError ? (ErrorOr<ProviderGameSearchResult>)result.Errors : new ProviderGameSearchResult(result.Value, completeness, 500);
         });
         _store.ReadAsync(1, Arg.Any<CancellationToken>()).Returns(new ProviderIdentitySnapshot(1, Guid.NewGuid(), "fingerprint",
-            new(name, aliases, [1994], ["SNES"], "catalog"), links ?? [])
+            new(name, aliases, years ?? [1994], platforms ?? ["SNES"], "catalog"), links ?? [])
         { DatFamily = datFamily });
-        _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), "provider", Guid.Empty,
+        _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), providerId, Guid.Empty,
             Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
             _decision = call.ArgAt<ProviderIdentityDecision>(3);
