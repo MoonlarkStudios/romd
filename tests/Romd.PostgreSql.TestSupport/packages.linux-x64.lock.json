@@ -343,6 +343,13 @@
           "Romd.Contracts.Common": "[1.0.0, )"
         }
       },
+      "romd.dat": {
+        "type": "Project",
+        "dependencies": {
+          "ErrorOr": "[2.1.1, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.13, )"
+        }
+      },
       "romd.domain": {
         "type": "Project"
       },
@@ -357,7 +364,8 @@
           "OpenIddict.EntityFrameworkCore": "[7.7.2, )",
           "Romd.Admin.Application": "[1.0.0, )",
           "Romd.Application.Common": "[1.0.0, )",
-          "Romd.Consumer.Application": "[1.0.0, )"
+          "Romd.Consumer.Application": "[1.0.0, )",
+          "Romd.Dat": "[1.0.0, )"
         }
       },
       "ErrorOr": {

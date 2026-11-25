@@ -111,6 +111,9 @@ public sealed class PersistenceBoundaryArchitectureTests
         // Fixed IGDB singleton row lock serializes settings compare-and-update inside the command transaction;
         // reload and expected-revision recheck prevent stale credential/test writes.
         Sql(Persistence + "MetadataProviders/IgdbProviderSettingsStore.cs", "IgdbProviderSettingsStore", "LockAsync", "ExecuteSqlRawAsync"),
+        // Read the same parameterized SHA-1 matches as the trust fingerprint and
+        // walk their clone references within the provider snapshot transaction.
+        Sql(Persistence + "MetadataProviders/HashBackedDatFamilyReader.cs", "HashBackedDatFamilyReader", "ReadAsync", "SqlQuery", count: 2),
         // Serializes retryable session upserts for one user inside the application-owned transaction.
         Sql(Persistence + "PlayActivityUnitOfWork.cs", "PlayActivityUnitOfWork", "BeginAsync", "ExecuteSqlInterpolatedAsync"),
         // Parameterized policy job row lock serializes unclaimed-pending reuse with worker claim.

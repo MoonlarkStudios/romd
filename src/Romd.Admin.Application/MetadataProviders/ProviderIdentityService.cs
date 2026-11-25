@@ -39,7 +39,8 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 continue;
             ArtworkBridgeMatch? bridged = null;
             ProviderIdentityDependency? dependency = null;
-            foreach (var bridge in bridges.Where(x => x.TargetProviderId == adapter.Id))
+            bool datRequiresReview = snapshot.DatFamily?.RequiresReview == true;
+            foreach (var bridge in bridges.Where(x => !datRequiresReview && x.TargetProviderId == adapter.Id))
             {
                 var source = snapshot.Links.SingleOrDefault(x => x.ProviderId == bridge.SourceProviderId && x.Trusted && !x.Suppressed);
                 if (source?.GameId is null)
@@ -55,7 +56,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             if (retryAfterByProvider.ContainsKey(adapter.Id))
                 continue;
             var found = bridged is not null ? ErrorOr.ErrorOrFactory.From(new SearchEvidence([bridged.Game], true)) :
-                await SearchCandidatesAsync(adapter, snapshot.Facts, ct);
+                await SearchCandidatesAsync(adapter, snapshot.Facts, snapshot.DatFamily?.Names ?? [], ct);
             if (found.IsError && RememberThrottle(adapter.Id, found.Errors))
                 continue;
             ProviderIdentityDecision decision;
@@ -70,10 +71,16 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 var evidence = new IdentitySearchEvidence(candidates, found.Value.Complete,
                     bridged is null ? null : new TrustedIdentityBridgeEvidence(bridged.Game.Id, bridged.Evidence));
                 var evaluation = ProviderIdentityPolicy.Decide(snapshot.Facts, evidence, adapter.IdentityScope);
-                if (evaluation is IdentityDecision.AutoAccepted match)
+                if (!datRequiresReview && evaluation is IdentityDecision.AutoAccepted match)
                     accepted = found.Value.Games.Single(x => x.Id == match.CandidateId);
                 decision = new(evaluation.State, evaluation.Explanation, snapshot.Facts.Provenance, snapshot.Fingerprint,
                     evaluation.Candidates.Select(x => new ProviderIdentityCandidate(found.Value.Games.Single(g => g.Id == x.CandidateId), x.Score, x.Eligible, x.Evidence, x.Conflicts)).ToArray(), dependency is null ? [] : [dependency]);
+                if (datRequiresReview)
+                    decision = decision with
+                    {
+                        State = "NeedsReview",
+                        Explanation = "The stored ROM matches do not identify a single resolved clone family in an active DAT. Confirm a provider game identity."
+                    };
             }
             decision = decision with { LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms) };
             await PersistDecisionAsync(snapshot, adapter.Id, link?.Revision ?? Guid.Empty, decision, accepted, owner, ct);
@@ -136,11 +143,11 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
     private sealed record SearchEvidence(IReadOnlyList<ProviderGame> Games, bool Complete);
 
     private static async Task<ErrorOr.ErrorOr<SearchEvidence>> SearchCandidatesAsync(
-        IProviderIdentityAdapter adapter, IdentityFacts facts, CancellationToken ct)
+        IProviderIdentityAdapter adapter, IdentityFacts facts, IReadOnlyList<string> datNames, CancellationToken ct)
     {
         // Bound provider load and make the query set independent of evidence enumeration order.
         // Gather the whole set before deciding, so an alias cannot hide a plausible alternative.
-        var queries = facts.Names.Order(StringComparer.Ordinal).Prepend(facts.Name)
+        var queries = datNames.Concat(facts.Names.Order(StringComparer.Ordinal)).Prepend(facts.Name)
             .SelectMany(name => new[] { ArtworkIdentityMatcher.Normalize(name), ProviderIdentityNames.Normalize(name) })
             .Where(query => query.Length > 0).Distinct(StringComparer.Ordinal).Take(7).ToArray();
         var complete = queries.Length is > 0 and <= 6;

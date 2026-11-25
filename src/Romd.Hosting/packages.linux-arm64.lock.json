@@ -575,7 +575,8 @@
           "OpenIddict.EntityFrameworkCore": "[7.7.2, )",
           "Romd.Admin.Application": "[1.0.0, )",
           "Romd.Application.Common": "[1.0.0, )",
-          "Romd.Consumer.Application": "[1.0.0, )"
+          "Romd.Consumer.Application": "[1.0.0, )",
+          "Romd.Dat": "[1.0.0, )"
         }
       },
       "romd.storage": {

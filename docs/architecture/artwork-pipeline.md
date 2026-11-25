@@ -192,6 +192,21 @@ For DAT-backed sources, matching reads the active version of each active
 source. Staging a replacement leaves the matching evidence in place. At
 activation, a change to the effective game names or years invalidates
 automatic decisions that used the previous fingerprint.
+
+For a title with stored SHA-1 ROM matches, discovery considers the active
+non-BIOS releases on the title's system linked to those same ROMs. If all the
+matches resolve to one clone family in one active DAT version, the family root
+and matched release names extend the bounded provider search. Provider identity
+still uses the usual name, edition, platform, and year checks. Invalid clone
+ancestry or competing families or DAT versions send candidates to curator
+review. Explicit provider confirmation still takes precedence.
+
+The fingerprint records the active version, release, and ROM IDs for the
+hash-backed matches. The version pins its parsed clone declarations. Staging
+leaves the fingerprint unchanged, while activation and changes to the active
+match set can revoke automatic trust. Titles without hash-backed evidence
+continue to use the name and year fingerprint.
+
 Discovery reads facts and fingerprints in a consistent database snapshot. Import
 publication checks trust directly in its existing mutation transaction. The new
 fingerprint encoding invalidates legacy automatic decisions for reassessment;
