@@ -22,6 +22,7 @@ public static class ConsumerDeliveryEndpoints
     {
         var group = app.MapGroup("releases/{releaseId}")
             .WithTags("Consumer Delivery")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Delivery))
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
 
         group.MapPost("manifest", IssueReleaseManifest)
@@ -41,6 +42,7 @@ public static class ConsumerDeliveryEndpoints
             .WithName("DownloadConsumerCdCue").Produces(200, contentType: "application/octet-stream").ProducesProblems(400, 404);
 
         app.MapGet("systems/{systemKey}/bios", GetPlatformBios)
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Delivery))
             .WithTags("Consumer Delivery")
             .RequireAuthorization(AuthorizationPolicies.RequireUser)
             .WithName("GetConsumerSystemBios")

@@ -31,7 +31,7 @@ public sealed class PostgreSqlSchemaProvisioner(
         await using var context = new RomdDbContext(options.Options);
         await RefuseUnknownMigrationsAsync(context, cancellationToken);
         await context.Database.MigrateAsync(cancellationToken);
-        await context.Database.ExecuteSqlRawAsync(_consumerGrantSql, cancellationToken);
+        await context.Database.ExecuteSqlRawAsync(_runtimeIdentityGrantSql, cancellationToken);
         await context.Database.ExecuteSqlRawAsync(_discReferenceGrantSql, cancellationToken);
         await context.Database.ExecuteSqlRawAsync(MediaFactSchema.RuntimeGrantsSql, cancellationToken);
         await VerifySearchDocumentsAsync(context, cancellationToken);
@@ -94,7 +94,7 @@ public sealed class PostgreSqlSchemaProvisioner(
 
     // Column-level and table-level grants need the migrated tables to exist, so they cannot be
     // default privileges in deploy/postgres/init. Dev servers without the romd_* roles skip them.
-    private const string _consumerGrantSql = $$"""
+    private const string _runtimeIdentityGrantSql = $$"""
         DO $consumer$
         BEGIN
             IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'romd_consumer') THEN
@@ -121,6 +121,22 @@ public sealed class PostgreSqlSchemaProvisioner(
                 ON {{PostgreSqlConfiguration.SchemaName}}."AspNetUsers" TO romd_consumer;
         END
         $consumer$;
+
+        DO $consumer_web_apps$
+        BEGIN
+            IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'romd_admin') THEN
+                REVOKE INSERT, UPDATE, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."OpenIddictApplications", {{PostgreSqlConfiguration.SchemaName}}."OpenIddictScopes" FROM romd_admin;
+                REVOKE INSERT, UPDATE, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" FROM romd_admin;
+                GRANT INSERT ("ClientId", "DisplayName", "CallbackUri", "BrowserOrigin")
+                    ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" TO romd_admin;
+                GRANT UPDATE ("DisabledAt") ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" TO romd_admin;
+            END IF;
+            IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'romd_worker') THEN
+                REVOKE INSERT, UPDATE, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" FROM romd_worker;
+                GRANT UPDATE ("ProvisionedAt", "RetryProvisioningAt") ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerWebAppRegistrations" TO romd_worker;
+            END IF;
+        END
+        $consumer_web_apps$;
         """;
 
     // Retained source bodies are admitted only by the worker. Schema-wide defaults must not

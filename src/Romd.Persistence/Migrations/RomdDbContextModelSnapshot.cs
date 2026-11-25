@@ -1486,6 +1486,55 @@ namespace Romd.Persistence.Migrations
                     b.ToTable("ConsumerUserSettings", "romd");
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.ConsumerWebAppRegistrationEntity", b =>
+                {
+                    b.Property<string>("ClientId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("BrowserOrigin")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("CallbackUri")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)");
+
+                    b.Property<long?>("DisabledAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("NULL");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<long?>("ProvisionedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("NULL");
+
+                    b.Property<long?>("RetryProvisioningAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("NULL");
+
+                    b.HasKey("ClientId");
+
+                    b.HasIndex("BrowserOrigin")
+                        .HasFilter(" \"ProvisionedAt\" IS NOT NULL AND \"DisabledAt\" IS NULL ");
+
+                    b.HasIndex("DisplayName", "ClientId");
+
+                    b.ToTable("ConsumerWebAppRegistrations", "romd", t =>
+                        {
+                            t.HasCheckConstraint("CK_ConsumerWebAppRegistrations_ClientId", " \"ClientId\" ~ '^romd-web-[0-9a-f]{32}$' ");
+                        });
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.DatDiskEntity", b =>
                 {
                     b.Property<int>("Id")

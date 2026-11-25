@@ -874,19 +874,28 @@ public sealed partial class ConsumerDeliveryEndpointsTests
         private readonly string _tempDataDirectory;
         private readonly PostgreSqlTestDatabase _database;
 
+        private readonly Func<WebApplicationFactory<Romd.Consumer.Host.Program>> _createFactory;
+
         private ConsumerDeliveryFixture(
-            WebApplicationFactory<Romd.Consumer.Host.Program> factory,
+            Func<WebApplicationFactory<Romd.Consumer.Host.Program>> createFactory,
             PostgreSqlTestDatabase database,
             string tempDataDirectory,
             ManualTimeProvider timeProvider)
         {
-            Factory = factory;
+            _createFactory = createFactory;
+            Factory = createFactory();
             _database = database;
             _tempDataDirectory = tempDataDirectory;
             TimeProvider = timeProvider;
         }
 
-        public WebApplicationFactory<Romd.Consumer.Host.Program> Factory { get; }
+        public WebApplicationFactory<Romd.Consumer.Host.Program> Factory { get; private set; }
+
+        public async Task RestartConsumerHostAsync()
+        {
+            await Factory.DisposeAsync();
+            Factory = _createFactory();
+        }
 
         public ManualTimeProvider TimeProvider { get; }
 
@@ -901,7 +910,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
             OpenIddictSigningKey.EnsureCreated(tempDataDirectory);
             File.WriteAllText(Path.Combine(webRoot, "index.html"), "<!doctype html><html></html>");
 
-            var factory = new WebApplicationFactory<Romd.Consumer.Host.Program>()
+            WebApplicationFactory<Romd.Consumer.Host.Program> CreateFactory() => new WebApplicationFactory<Romd.Consumer.Host.Program>()
                 .WithWebHostBuilder(builder =>
                 {
                     builder.UseEnvironment("Testing");
@@ -946,7 +955,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
                     });
                 });
 
-            var fixture = new ConsumerDeliveryFixture(factory, database, tempDataDirectory, timeProvider);
+            var fixture = new ConsumerDeliveryFixture(CreateFactory, database, tempDataDirectory, timeProvider);
             await fixture.MigrateAsync();
 
             return fixture;
@@ -1430,20 +1439,7 @@ public sealed partial class ConsumerDeliveryEndpointsTests
             int libraryId)
         {
             await SeedOpenIddictAsync();
-            RomdUser user;
-            await using (var context = CreateSetupDbContext())
-            {
-                user = RomdUser.Create(userName, email);
-                user.NormalizedUserName = userName.ToUpperInvariant();
-                user.NormalizedEmail = email.ToUpperInvariant();
-                user.SecurityStamp = Guid.NewGuid().ToString();
-                user.ConcurrencyStamp = Guid.NewGuid().ToString();
-                user.LibraryId = libraryId;
-                user.PasswordHash = new PasswordHasher<RomdUser>().HashPassword(user, password);
-                context.Users.Add(user);
-                await context.PublishOriginalRomsAsync();
-                await context.SaveChangesAsync();
-            }
+            var user = await CreatePasswordUserAsync(userName, email, password, libraryId);
 
             using var client = Factory.CreateClient();
             var deviceResponse = await client.PostAsync(
@@ -1482,9 +1478,44 @@ public sealed partial class ConsumerDeliveryEndpointsTests
             return (user, RequiredString(token, "access_token"));
         }
 
-        private async Task SeedOpenIddictAsync()
+        public async Task<RomdUser> CreatePasswordUserAsync(string userName, string email, string password, int libraryId)
+        {
+            await using var context = CreateSetupDbContext();
+            var user = RomdUser.Create(userName, email);
+            user.NormalizedUserName = userName.ToUpperInvariant();
+            user.NormalizedEmail = email.ToUpperInvariant();
+            user.SecurityStamp = Guid.NewGuid().ToString();
+            user.ConcurrencyStamp = Guid.NewGuid().ToString();
+            user.LibraryId = libraryId;
+            user.PasswordHash = new PasswordHasher<RomdUser>().HashPassword(user, password);
+            context.Users.Add(user);
+            await context.PublishOriginalRomsAsync();
+            await context.SaveChangesAsync();
+            return user;
+        }
+
+        public WebApplicationFactory<Romd.Admin.Host.Program> CreateAdminHost() =>
+            new WebApplicationFactory<Romd.Admin.Host.Program>().WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Testing");
+                builder.UseContentRoot(AppContext.BaseDirectory);
+                builder.UseSetting("hostBuilder:reloadConfigOnChange", "false");
+                builder.UseSetting("Romd:DataDirectory", _tempDataDirectory);
+                builder.UseSetting("Romd:JwtSecret", TestJwtSecret);
+                builder.UseSetting($"ConnectionStrings:{PostgreSqlConfiguration.RuntimeConnectionName}", _database.ConnectionString);
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<IHostedService>();
+                    services.AddTestAuthentication(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
+                });
+            });
+
+        public ServiceProvider CreateWorkerIdentityServices()
         {
             var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton(global::System.TimeProvider.System);
+            services.AddScoped<ConsumerWebAppRegistrationStore>();
             services.AddDbContext<RomdDbContext>(options =>
             {
                 options.UseNpgsql(_database.ConnectionString);
@@ -1492,8 +1523,12 @@ public sealed partial class ConsumerDeliveryEndpointsTests
             });
             services.AddOpenIddict()
                 .AddCore(options => options.UseEntityFrameworkCore().UseDbContext<RomdDbContext>());
+            return services.BuildServiceProvider();
+        }
 
-            await using var provider = services.BuildServiceProvider();
+        public async Task SeedOpenIddictAsync()
+        {
+            await using var provider = CreateWorkerIdentityServices();
             var seeder = new RomdOpenIddictApplicationSeeder(
                 provider.GetRequiredService<IServiceScopeFactory>(),
                 new ConfigurationBuilder().Build());

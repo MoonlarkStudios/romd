@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import classes from '../components/Workspace/Workspace.module.css';
 import { ArtworkEnrichmentSettings } from './Settings/ArtworkEnrichmentSettings';
+import { ConsumerWebApps } from './Settings/ConsumerWebApps';
 import { SignInMessageSettings } from './Settings/SignInMessageSettings';
 
 // A stable release reuses its candidate's image, so the build can name an earlier tag than the release.
@@ -79,6 +80,15 @@ export function Settings() {
           )}
         </Box>
         <SignInMessageSettings />
+      </section>
+      <section className={classes.panel}>
+        <Title
+          order={2}
+          className={classes.sectionHeading}
+        >
+          Consumer web apps
+        </Title>
+        <ConsumerWebApps />
       </section>
       <section className={classes.panel}>
         <Title

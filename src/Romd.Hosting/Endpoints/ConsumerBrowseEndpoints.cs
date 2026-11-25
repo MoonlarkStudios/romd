@@ -1,3 +1,4 @@
+using Romd.Application.Common.Security;
 using System.ComponentModel.DataAnnotations;
 using Romd.Application.Common.Cqrs;
 using Romd.Application.Common.Ids;
@@ -20,6 +21,7 @@ public static class ConsumerBrowseEndpoints
     {
         var group = app.MapGroup("")
             .WithTags("Consumer Browse")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Library))
             .RequireAuthorization(AuthorizationPolicies.RequireUser);
 
         group.MapGet("me/library/systems", ListPlatforms)
@@ -48,6 +50,7 @@ public static class ConsumerBrowseEndpoints
         group.MapGet("titles/{titleId}/media", ListTitleMedia).WithName("ListConsumerTitleMedia")
             .Produces<CommonModels.Page<ConsumerMediaRef>>().Produces(401).ProducesProblems(400, 404);
         group.MapGet("titles/{titleId}/releases", ListTitleReleases).WithName("ListConsumerTitleReleases")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Releases))
             .Produces<CommonModels.Page<ConsumerRelease>>().Produces(401).ProducesProblems(400, 404);
 
         return app;

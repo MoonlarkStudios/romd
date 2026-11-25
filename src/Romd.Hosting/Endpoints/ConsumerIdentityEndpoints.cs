@@ -1,3 +1,4 @@
+using Romd.Application.Common.Security;
 using Romd.Application.Common.Cqrs;
 using Romd.Consumer.Application.Auth.Queries.GetCurrentConsumerUser;
 using Romd.Consumer.Application.Libraries.Queries.GetCurrentLibraryContext;
@@ -18,11 +19,13 @@ public static class ConsumerIdentityEndpoints
 
         group.MapGet("me", GetCurrentUser)
             .WithName("GetConsumerCurrentUser")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Discovery))
             .Produces<CurrentUser>()
             .Produces(StatusCodes.Status401Unauthorized);
 
         group.MapGet("me/library", GetCurrentLibrary)
             .WithName("GetConsumerCurrentLibrary")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Library))
             .Produces<LibraryContext>()
             .Produces(StatusCodes.Status401Unauthorized)
             .ProducesProblems(StatusCodes.Status404NotFound);
@@ -32,7 +35,9 @@ public static class ConsumerIdentityEndpoints
         {
             var result = await handler.HandleAsync(new(), ct);
             return result.IsError ? result.Errors.ToProblem() : Results.Ok(result.Value);
-        }).WithName("GetConsumerLibraryPublication").Produces<LibraryPublicationVersion>().Produces(401);
+        }).WithName("GetConsumerLibraryPublication")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Library))
+            .Produces<LibraryPublicationVersion>().Produces(401);
 
         return app;
     }

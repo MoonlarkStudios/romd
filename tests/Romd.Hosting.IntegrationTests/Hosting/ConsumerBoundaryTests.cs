@@ -109,6 +109,7 @@ public sealed class ConsumerBoundaryTests
     [
         "src/Romd.Hosting/Endpoints/ArtworkDeliveryEndpoints.cs",
         "src/Romd.Hosting/Hosting/RomdConsumerEndpointRouteExtensions.cs",
+        "src/Romd.Hosting/Hosting/ConsumerWebAppCorsPolicyProvider.cs",
         "src/Romd.Hosting/Endpoints/ConsumerAccessEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerAccountEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerPlayActivityEndpoints.cs",
@@ -119,6 +120,7 @@ public sealed class ConsumerBoundaryTests
         "src/Romd.Hosting/Endpoints/ConsumerIdentityEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerPlaybackEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerServerEndpoints.cs",
+        "src/Romd.Hosting/Endpoints/ConsumerSessionEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerStorageEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerVfsEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerVfsConnectionEndpoints.cs",

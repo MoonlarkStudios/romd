@@ -320,6 +320,15 @@ export type ConsumerServerIdentity = {
     instanceId: string;
 };
 
+export type ConsumerSignInSession = {
+    id: string;
+    device: string;
+    createdAt: string;
+    lastUsedAt: string;
+    status: string;
+    isCurrent: boolean;
+};
+
 export type ConsumerTitleCard = {
     artwork?: Array<ResolvedArtwork>;
     id: string;
@@ -444,6 +453,12 @@ export type PageOfConsumerPlatformSummary = {
 
 export type PageOfConsumerRelease = {
     items: Array<ConsumerRelease>;
+    nextCursor?: null | string;
+    hasNextPage: boolean;
+};
+
+export type PageOfConsumerSignInSession = {
+    items: Array<ConsumerSignInSession>;
     nextCursor?: null | string;
     hasNextPage: boolean;
 };
@@ -1640,6 +1655,65 @@ export type UpdateConsumerUserSettingsResponses = {
 };
 
 export type UpdateConsumerUserSettingsResponse = UpdateConsumerUserSettingsResponses[keyof UpdateConsumerUserSettingsResponses];
+
+export type ListConsumerSignInSessionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/me/sessions';
+};
+
+export type ListConsumerSignInSessionsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type ListConsumerSignInSessionsError = ListConsumerSignInSessionsErrors[keyof ListConsumerSignInSessionsErrors];
+
+export type ListConsumerSignInSessionsResponses = {
+    /**
+     * OK
+     */
+    200: PageOfConsumerSignInSession;
+};
+
+export type ListConsumerSignInSessionsResponse = ListConsumerSignInSessionsResponses[keyof ListConsumerSignInSessionsResponses];
+
+export type RevokeConsumerSignInSessionData = {
+    body?: never;
+    path: {
+        sessionId: string;
+    };
+    query?: never;
+    url: '/api/me/sessions/{sessionId}';
+};
+
+export type RevokeConsumerSignInSessionErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type RevokeConsumerSignInSessionError = RevokeConsumerSignInSessionErrors[keyof RevokeConsumerSignInSessionErrors];
+
+export type RevokeConsumerSignInSessionResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type RevokeConsumerSignInSessionResponse = RevokeConsumerSignInSessionResponses[keyof RevokeConsumerSignInSessionResponses];
 
 export type ListConsumerConnectionsData = {
     body?: never;

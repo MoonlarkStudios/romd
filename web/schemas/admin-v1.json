@@ -18205,6 +18205,146 @@
           }
         }
       }
+    },
+    "/api/consumer-web-apps": {
+      "get": {
+        "tags": [
+          "Consumer web apps"
+        ],
+        "operationId": "ListConsumerWebApps",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerWebApp"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Consumer web apps"
+        ],
+        "operationId": "RegisterConsumerWebApp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterConsumerWebAppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Location": {
+                "description": "The created member's address.",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerWebApp"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/consumer-web-apps/{clientId}": {
+      "delete": {
+        "tags": [
+          "Consumer web apps"
+        ],
+        "operationId": "DisableConsumerWebApp",
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -19866,6 +20006,41 @@
             "type": "string"
           }
         }
+      },
+      "ConsumerWebApp": {
+        "required": [
+          "clientId",
+          "displayName",
+          "callbackUri",
+          "browserOrigin",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "callbackUri": {
+            "type": "string"
+          },
+          "browserOrigin": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerWebAppStatus"
+          }
+        }
+      },
+      "ConsumerWebAppStatus": {
+        "enum": [
+          "Pending",
+          "Active",
+          "Disabled",
+          "ProvisioningFailed"
+        ]
       },
       "ContentRatingPolicy": {
         "type": "object",
@@ -25482,6 +25657,30 @@
           }
         }
       },
+      "PageOfConsumerWebApp": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerWebApp"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
       "PageOfDat": {
         "required": [
           "items",
@@ -27679,6 +27878,31 @@
           },
           "aliases": {
             "$ref": "#/components/schemas/PageOfAliasResource"
+          }
+        }
+      },
+      "RegisterConsumerWebAppRequest": {
+        "required": [
+          "displayName",
+          "callbackUri",
+          "browserOrigin"
+        ],
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "maxLength": 120,
+            "minLength": 0,
+            "type": "string"
+          },
+          "callbackUri": {
+            "maxLength": 2048,
+            "minLength": 0,
+            "type": "string"
+          },
+          "browserOrigin": {
+            "maxLength": 255,
+            "minLength": 0,
+            "type": "string"
           }
         }
       },
@@ -30633,6 +30857,9 @@
     },
     {
       "name": "Ratings"
+    },
+    {
+      "name": "Consumer web apps"
     }
   ]
 }

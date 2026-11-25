@@ -32,6 +32,7 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
     public DbSet<RomReconstructionMemberEntity> ReconstructionMembers => Set<RomReconstructionMemberEntity>();
     public DbSet<RomRepresentationOutputEntity> RepresentationOutputs => Set<RomRepresentationOutputEntity>();
     public DbSet<RomDiscMediaReferenceEntity> RomDiscMediaReferences => Set<RomDiscMediaReferenceEntity>();
+    public DbSet<ConsumerWebAppRegistrationEntity> ConsumerWebAppRegistrations => Set<ConsumerWebAppRegistrationEntity>();
     public DbSet<AccountSessionEntity> AccountSessions => Set<AccountSessionEntity>();
     public DbSet<CompanyEntity> Companies => Set<CompanyEntity>();
     public DbSet<SystemCompanyEntity> SystemCompanies => Set<SystemCompanyEntity>();
@@ -237,6 +238,7 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
         JobDispatchEntity.Configure(modelBuilder.Entity<JobDispatchEntity>());
         MetadataRematerializationRequestEntity.Configure(modelBuilder.Entity<MetadataRematerializationRequestEntity>());
         VfsConnectionEntity.Configure(modelBuilder.Entity<VfsConnectionEntity>());
+        ConsumerWebAppRegistrationEntity.Configure(modelBuilder.Entity<ConsumerWebAppRegistrationEntity>());
         AccountSessionEntity.Configure(modelBuilder.Entity<AccountSessionEntity>());
         ConfigureIdentityExtensions(modelBuilder);
     }

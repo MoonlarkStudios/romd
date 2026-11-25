@@ -21,6 +21,7 @@ public static class ConsumerDiscSetEndpoints
     public static IEndpointRouteBuilder MapConsumerDiscSetEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("disc-sets", ListDiscSets).WithName("ListConsumerDiscSets")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Releases))
             .WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
             .Produces<Page<ConsumerDiscSetStatus>>().Produces(401).ProducesProblems(400, 404);
         app.MapGet("disc-sets/{discSetId}/status", async (Sqid discSetId, ICurrentUser user, IConsumerDiscSetRepository repository,
@@ -36,21 +37,24 @@ public static class ConsumerDiscSetEndpoints
                     => new[] { ConsumerErrors.CurrentLibraryUnavailable() }.ToProblem(),
                 _ => new[] { ConsumerErrors.ContentNotFound() }.ToProblem()
             };
-        }).WithName("GetConsumerDiscSetStatus").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
+        }).WithName("GetConsumerDiscSetStatus")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Releases)).WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
             .Produces<ConsumerDiscSetStatus>().Produces(401).ProducesProblems(400, 404, 409);
         app.MapPost("disc-sets/{discSetId}/selection-manifest", async (Sqid discSetId, ConsumerDiscSetSelectionRequest request,
             ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifest> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new(discSetId, request.Revision, request), ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
-        }).WithName("IssueConsumerDiscSetSelectionManifest").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
+        }).WithName("IssueConsumerDiscSetSelectionManifest")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Delivery)).WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
             .Produces<ConsumerDiscSetManifest>().Produces(401).ProducesProblems(400, 404, 409);
         app.MapPost("disc-sets/{discSetId}/access/preview", async (Sqid discSetId, ConsumerDiscSetAccessRequest request,
             ICommandHandler<CheckConsumerDiscSetAccessCommand, ConsumerDiscSetAccess> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new(discSetId, request), ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
-        }).WithName("CheckConsumerDiscSetAccess").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
+        }).WithName("CheckConsumerDiscSetAccess")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Releases)).WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
             .Produces<ConsumerDiscSetAccess>().Produces(401).ProducesProblems(400, 409);
         app.MapPost("disc-sets/{discSetId}/download-tickets", async (Sqid discSetId, ConsumerDiscSetSelectionRequest request,
             ICommandHandler<IssueConsumerDiscSetDownloadCommand, ContentGrant> handler, HttpContext context,
@@ -59,14 +63,16 @@ public static class ConsumerDiscSetEndpoints
             var result = await handler.HandleAsync(new(discSetId, request, format), ct);
             context.Response.Headers.CacheControl = "private, no-store";
             return result.Match<IResult>(ticket => Results.Created(ticket.DownloadUrl, ticket), errors => errors.ToProblem());
-        }).WithName("IssueConsumerDiscSetDownloadTicket").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
+        }).WithName("IssueConsumerDiscSetDownloadTicket")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Delivery)).WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
             .ProducesCreated<ContentGrant>().Produces(401).ProducesProblems(400, 404, 409);
         app.MapPost("disc-sets/{discSetId}/manifest", async (Sqid discSetId, Guid revision,
             ICommandHandler<IssueConsumerDiscSetManifestCommand, ConsumerDiscSetManifest> handler, CancellationToken ct) =>
         {
             var result = await handler.HandleAsync(new(discSetId, revision), ct);
             return result.Match<IResult>(Results.Ok, errors => errors.ToProblem());
-        }).WithName("IssueConsumerDiscSetManifest").WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
+        }).WithName("IssueConsumerDiscSetManifest")
+            .WithMetadata(new ThirdPartyConsumerScope(ConsumerGrantScopes.Delivery)).WithTags("Consumer Delivery").RequireAuthorization(AuthorizationPolicies.RequireUser)
             .Produces<ConsumerDiscSetManifest>().Produces(401).ProducesProblems(400, 404, 409);
         return app;
     }

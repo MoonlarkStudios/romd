@@ -26,6 +26,8 @@ For people installing and running a ROMD server.
   release bundle, HTTPS ingress, first start, backups, restore and upgrades.
 - [Configuration](self-hosting/configuration.md): installation settings,
   environment-variable names, defaults and links to specialized references.
+- [Third-party consumer authentication](self-hosting/third-party-consumer-authentication.md):
+  device pairing, browser registration, permission scopes, and revocation.
 - [Media processing](self-hosting/media-processing.md): disc-image inspection
   and conversion, native binaries and known limits.
 

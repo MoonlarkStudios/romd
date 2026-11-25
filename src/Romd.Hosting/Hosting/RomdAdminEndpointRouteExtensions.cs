@@ -45,6 +45,7 @@ public static class RomdAdminEndpointRouteExtensions
         api.MapDiagnosticsEndpoints();
 
         api.MapReferenceCatalogEndpoints(admin: true);
+        api.MapConsumerWebAppRegistrationEndpoints();
         return api;
     }
 }

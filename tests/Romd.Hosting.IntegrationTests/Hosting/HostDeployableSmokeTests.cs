@@ -73,6 +73,8 @@ public sealed class HostDeployableSmokeTests
         "/api/me/connections/{connectionId:guid}",
         "/api/me/connections/{connectionId:guid}/rotate",
         "/api/me/password",
+        "/api/me/sessions",
+        "/api/me/sessions/{sessionId:guid}",
         "/api/me/settings",
         "/api/server/identity",
         "/api/me",
@@ -145,7 +147,8 @@ public sealed class HostDeployableSmokeTests
         "/api/metadata-providers/{providerId}/games",
         "/api/bios/backfill",
         "/api/bios/backfill-catalog",
-        "/api/me/sessions",
+        "/api/consumer-web-apps",
+        "/api/consumer-web-apps/{clientId}",
         "/api/server/health",
         "/api/server/info",
         "/api/dats",
@@ -418,6 +421,7 @@ public sealed class HostDeployableSmokeTests
         routePatterns.ShouldContain("/hubs/system");
         routePatterns.ShouldContain("/api/me");
         routePatterns.ShouldContain("/api/me/password");
+        routePatterns.ShouldContain("/api/me/sessions");
         foreach (string route in ExpectedAdminManagementRoutes)
         {
             routePatterns.ShouldContain(route);
@@ -554,6 +558,7 @@ public sealed class HostDeployableSmokeTests
         var spaRootResponse = await client.GetAsync("/");
         var spaLoginResponse = await client.GetAsync("/login");
         var spaLibraryResponse = await client.GetAsync("/library");
+        var spaSessionsResponse = await client.GetAsync("/sessions");
         var spaDeepLinkResponse = await client.GetAsync("/titles/deep-link");
         var apiFallbackResponse = await client.GetAsync("/api/does-not-exist");
         var routePatterns = GetRoutePatterns(factory);
@@ -563,6 +568,8 @@ public sealed class HostDeployableSmokeTests
         spaLoginResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         spaLibraryResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         spaLibraryResponse.Content.Headers.ContentType?.MediaType.ShouldBe("text/html");
+        spaSessionsResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+        spaSessionsResponse.Content.Headers.ContentType?.MediaType.ShouldBe("text/html");
         spaDeepLinkResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         apiFallbackResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         apiFallbackResponse.Content.Headers.ContentType?.MediaType.ShouldNotBe("text/html");
@@ -629,6 +636,7 @@ public sealed class HostDeployableSmokeTests
         foreach (var route in consumerApiRoutes.Where(route =>
                      !route.Pattern.StartsWith("/api/me/connections", StringComparison.Ordinal) &&
                      route.Pattern != "/api/me/password" && route.Pattern != "/api/me/settings" &&
+                     route.Pattern != "/api/me/sessions/{sessionId:guid}" &&
                      !route.Pattern.StartsWith("/api/me/activity", StringComparison.Ordinal) &&
                      route.Pattern != "/api/releases/{releaseId}/manifest" &&
                      route.Pattern != "/api/disc-sets/{discSetId}/manifest" &&
@@ -647,6 +655,8 @@ public sealed class HostDeployableSmokeTests
             .Methods.ShouldBe(["POST"]);
         routes.Single(route => route.Pattern == "/api/me/password")
             .Methods.ShouldBe(["PUT"]);
+        routes.Single(route => route.Pattern == "/api/me/sessions/{sessionId:guid}")
+            .Methods.ShouldBe(["DELETE"]);
         routes
             .Where(route => route.Pattern == "/api/me/settings")
             .SelectMany(route => route.Methods)

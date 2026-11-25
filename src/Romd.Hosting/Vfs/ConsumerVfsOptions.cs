@@ -1,4 +1,5 @@
 using Romd.Consumer.Application.Vfs;
+using Romd.Host.Authorization;
 
 namespace Romd.Hosting.Vfs;
 
@@ -42,7 +43,8 @@ public static class ConsumerVfsRegistration
         services.AddAuthorization(authorization => authorization.AddPolicy(VfsBasicAuthenticationHandler.PolicyName,
             policy => policy.AddAuthenticationSchemes(VfsBasicAuthenticationHandler.SchemeName,
                 OpenIddict.Validation.AspNetCore.OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
-                .RequireAuthenticatedUser()));
+                .RequireAuthenticatedUser()
+                .AddRequirements(new ThirdPartyConsumerAccess())));
         services.AddSingleton<VfsConnectionExport>();
         services.AddSingleton(options);
         services.AddSingleton<ConsumerVfsAdmission>();

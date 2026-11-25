@@ -1,3 +1,4 @@
+using Romd.Application.Common.Security;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -54,6 +55,7 @@ public static class RomdHostRegistrationExtensions
 
     // Cookie scheme that carries the interactive login session into the OpenIddict authorize endpoint.
     public const string InteractiveLoginScheme = "romd-login";
+    public const string RegisteredWebAppLoginScheme = "romd-web-app-login";
 
     private static readonly string[] _developmentAdminCorsOrigins = ["http://localhost:5173", "http://localhost:5137"];
     private static readonly string[] _developmentConsumerCorsOrigins = ["http://localhost:5174", "http://localhost:5138"];
@@ -184,7 +186,8 @@ public static class RomdHostRegistrationExtensions
         IReadOnlyCollection<string> allowedClientIds,
         string cookiePrefix,
         bool enableDeviceFlow = false,
-        IConfiguration? configuration = null)
+        IConfiguration? configuration = null,
+        bool allowRegisteredWebApps = false)
     {
         var attempts = configuration?.GetSection(AuthenticationAttemptOptions.SectionName).Get<AuthenticationAttemptOptions>()
             ?? new AuthenticationAttemptOptions();
@@ -205,6 +208,7 @@ public static class RomdHostRegistrationExtensions
         services.AddSingleton(new RomdSurfaceAuthOptions
         {
             Audience = audience,
+            AllowsRegisteredWebApps = allowRegisteredWebApps,
             AllowedClientIds = allowedClientIds.ToHashSet(StringComparer.Ordinal)
         });
 
@@ -216,26 +220,24 @@ public static class RomdHostRegistrationExtensions
             ResolveIssuer(issuer),
             enableDeviceFlow);
 
-        services.AddAuthentication(options =>
+        var authentication = services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme;
             })
-            .AddCookie(InteractiveLoginScheme, options =>
-            {
-                options.Cookie.Name = $"{cookiePrefix}_login";
-                options.Cookie.HttpOnly = true;
-                options.Cookie.SameSite = SameSiteMode.Lax;
-                options.Cookie.SecurePolicy = environment.IsProduction()
-                    ? CookieSecurePolicy.Always
-                    : CookieSecurePolicy.SameAsRequest;
-                options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
-                options.SlidingExpiration = false;
-            });
+            .AddCookie(InteractiveLoginScheme, options => ConfigureInteractiveCookie(options, cookiePrefix, environment));
+        if (allowRegisteredWebApps)
+        {
+            authentication.AddCookie(RegisteredWebAppLoginScheme,
+                options => ConfigureInteractiveCookie(options, $"{cookiePrefix}_app", environment));
+        }
 
+        services.AddSingleton<IAuthorizationHandler, ThirdPartyConsumerAccessHandler>();
         services.AddSingleton<IAuthorizationHandler, MinimumRoleHandler>();
         services.AddAuthorization(options =>
         {
+            options.DefaultPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser()
+                .AddRequirements(new ThirdPartyConsumerAccess()).Build();
             options.AddPolicy(AuthorizationPolicies.RequireUser,
                 policy => ConfigureRomdBearerPolicy(policy, RomdRoleType.User));
             options.AddPolicy(AuthorizationPolicies.RequireContributor,
@@ -247,6 +249,19 @@ public static class RomdHostRegistrationExtensions
         });
 
         return services;
+    }
+
+    private static void ConfigureInteractiveCookie(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions options,
+        string cookiePrefix, IHostEnvironment environment)
+    {
+        options.Cookie.Name = $"{cookiePrefix}_login";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = environment.IsProduction()
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(15);
+        options.SlidingExpiration = false;
     }
 
     private static IServiceCollection AddRomdOpenIddict(
@@ -283,6 +298,12 @@ public static class RomdHostRegistrationExtensions
                     options.SetDeviceAuthorizationEndpointUris("/connect/device")
                         .SetEndUserVerificationEndpointUris("/connect/verify")
                         .AllowDeviceAuthorizationFlow();
+                    options.RegisterScopes(ConsumerGrantScopes.ThirdParty.Add(ConsumerGrantScopes.PlaySessionSync).Add(ConsumerGrantScopes.VfsRead).ToArray());
+                    options.AddEventHandler<OpenIddictServerEvents.ValidateDeviceAuthorizationRequestContext>(builder =>
+                        builder.UseScopedHandler<ValidateOAuthClient>().SetOrder(int.MinValue + 500));
+                    options.AddEventHandler<OpenIddictServerEvents.HandleDeviceAuthorizationRequestContext>(builder =>
+                        builder.UseSingletonHandler<DevicePairingAuthorization>());
+
                 }
 
                 options.RegisterScopes(
@@ -291,6 +312,12 @@ public static class RomdHostRegistrationExtensions
                     OpenIddictConstants.Scopes.Profile,
                     OpenIddictConstants.Scopes.Roles);
 
+                options.AddEventHandler<OpenIddictServerEvents.ValidateAuthorizationRequestContext>(builder =>
+                    builder.UseScopedHandler<ValidateOAuthClient>().SetOrder(int.MinValue + 500));
+                options.AddEventHandler<OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
+                    builder.UseScopedHandler<ValidateOAuthClient>().SetOrder(int.MinValue + 500));
+                options.AddEventHandler<OpenIddictServerEvents.ValidateRevocationRequestContext>(builder =>
+                    builder.UseScopedHandler<ValidateOAuthClient>().SetOrder(int.MinValue + 500));
                 options.AddEventHandler<OpenIddictServerEvents.HandleRevocationRequestContext>(builder =>
                     builder.UseScopedHandler<RevokeAuthenticationSession>()
                         .SetOrder(OpenIddictServerHandlers.Revocation.RevokeToken.Descriptor.Order + 1000));
@@ -373,7 +400,7 @@ public static class RomdHostRegistrationExtensions
         // All tokens are issued by OpenIddict (auth-code + device-flow) and validated locally; the
         // access tokens are JWE-encrypted so only the OpenIddict validation scheme can read them.
         policy.AddAuthenticationSchemes(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme);
-        policy.AddRequirements(new MinimumRoleRequirement(minimumRole));
+        policy.AddRequirements(new MinimumRoleRequirement(minimumRole), new ThirdPartyConsumerAccess());
     }
 
     public static IServiceCollection AddRomdAdminAuth(
@@ -415,10 +442,11 @@ public static class RomdHostRegistrationExtensions
             environment,
             options.JwtAudience ?? RomdHostSurfaceOptions.DefaultConsumerAudience,
             options.PublicUrl,
-            allowedClientIds: [RomdOpenIddictClients.ConsumerSpa, RomdOpenIddictClients.Console, RomdOpenIddictClients.Mount],
+            allowedClientIds: [RomdOpenIddictClients.ConsumerSpa, RomdOpenIddictClients.Console, RomdOpenIddictClients.Mount, RomdOpenIddictClients.CommunityDevice],
             cookiePrefix: "romd_consumer",
             enableDeviceFlow: true,
-            configuration: configuration);
+            configuration: configuration,
+            allowRegisteredWebApps: true);
     }
 
     public static IServiceCollection AddRomdAdminHttp(
@@ -811,6 +839,7 @@ public static class RomdHostRegistrationExtensions
             configuration,
             environment,
             _developmentConsumerCorsOrigins);
+        services.Replace(ServiceDescriptor.Transient<ICorsPolicyProvider, ConsumerWebAppCorsPolicyProvider>());
         services.AddOpenApi(openApiDocumentName, options =>
         {
             options.AddSchemaTransformer(ApplyOpaquePublicIdSchemaAsync);

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -7,9 +8,11 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Server.AspNetCore;
+using Romd.Contracts.Consumer.Account;
 using Romd.Hosting.IntegrationTests.Infrastructure;
 using Romd.Hosting.IntegrationTests.Vfs;
 using Romd.Hosting.Vfs;
+using Romd.Infrastructure.Identity;
 using Romd.Mount;
 using Romd.Storage;
 using Shouldly;
@@ -275,8 +278,22 @@ public sealed partial class ConsumerIdentityEndpointsTests
                 if (registeredConnections)
                 {
                     fixture.Factory.Services.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>()["Romd:ConsumerHost:PublicUrl"] = origin.GetLeftPart(UriPartial.Authority);
-                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", active.AccessToken);
                     vfsOptions.AllowDevelopmentBearer = false;
+                    using var deviceRequest = new HttpRequestMessage(HttpMethod.Post, "/api/me/connections")
+                    {
+                        Content = JsonContent.Create(new SaveVfsConnectionRequest("Device probe"))
+                    };
+                    deviceRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", active.AccessToken);
+                    using var deviceDenied = await client.SendAsync(deviceRequest, ct);
+                    deviceDenied.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+                    var ownerHandler = NetworkHandler();
+                    ownerHandler.UseCookies = true;
+                    using var ownerBrowser = new HttpClient(ownerHandler) { BaseAddress = origin, Timeout = TimeSpan.FromSeconds(30) };
+                    var ownerTokens = await OidcAuthorizationCodeFlow.RunAsync(ownerBrowser, RomdOpenIddictClients.ConsumerSpa,
+                        "http://localhost:5174/auth/callback", "tls-player", "Password123");
+                    client.DefaultRequestHeaders.Authorization =
+                        new AuthenticationHeaderValue("Bearer", RequiredString(ownerTokens, "access_token"));
                     if (mediaFormats)
                         await ProbeRegisteredMediaFormatsAsync(client, fixture, source, relativePath, caFile, ct);
                     else

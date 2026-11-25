@@ -1,11 +1,17 @@
 using OpenIddict.Abstractions;
 using OpenIddict.Validation;
 using Romd.Application.Common.Security;
+using Romd.Hosting;
+using Romd.Infrastructure.Identity;
 
 namespace Romd.Host.Authorization;
 
 /// <summary>Rejects stale identity snapshots, including tokens issued concurrently with account revocation.</summary>
-public sealed class ValidateAccountToken(IAccountSessions sessions)
+public sealed class ValidateAccountToken(
+    IAccountSessions sessions,
+    RomdSurfaceAuthOptions surface,
+    IConsumerWebAppRegistrations registrations,
+    IHttpContextAccessor http)
     : IOpenIddictValidationHandler<OpenIddictValidationEvents.ValidateTokenContext>
 {
     public async ValueTask HandleAsync(OpenIddictValidationEvents.ValidateTokenContext context)
@@ -18,8 +24,24 @@ public sealed class ValidateAccountToken(IAccountSessions sessions)
             context.Reject(OpenIddictConstants.Errors.InvalidToken);
             return;
         }
-        if (!Guid.TryParse(principal.GetClaim(SessionClaims.Id), out var sessionId)
-            || await sessions.ValidateAsync(id, sessionId, principal.GetClaim(SessionClaims.AccountStamp) ?? "", context.CancellationToken) is null)
+        if (!Guid.TryParse(principal.GetClaim(SessionClaims.Id), out var sessionId) ||
+            await sessions.ValidateAsync(id, sessionId, principal.GetClaim(SessionClaims.AccountStamp) ?? "", context.CancellationToken) is not { } session)
+        {
             context.Reject(OpenIddictConstants.Errors.InvalidToken, "Sign in again to continue.");
+            return;
+        }
+
+        if (!surface.IsClientAllowed(session.ClientId) &&
+            !(await surface.FindActiveWebAppAsync(session.ClientId, registrations, context.CancellationToken) is { } app &&
+                ValidateOAuthClient.MatchesOrigin(http.HttpContext?.Request, app.BrowserOrigin)))
+        {
+            context.Reject(OpenIddictConstants.Errors.InvalidToken, "This client or browser origin is not allowed.");
+            return;
+        }
+
+        if (RomdOpenIddictClients.UsesConsumerPermissions(session.ClientId))
+            principal.SetClaim(ThirdPartyConsumerAccessHandler.ScopedGrantClaim, "true");
+
+        principal.SetScopes(DeviceGrantPermissions.RestoreApprovedScopes(session.ClientId, principal));
     }
 }

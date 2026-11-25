@@ -420,6 +420,16 @@ export type CompanySummary = {
     name: string;
 };
 
+export type ConsumerWebApp = {
+    clientId: string;
+    displayName: string;
+    callbackUri: string;
+    browserOrigin: string;
+    status: ConsumerWebAppStatus;
+};
+
+export type ConsumerWebAppStatus = 'Pending' | 'Active' | 'Disabled' | 'ProvisioningFailed';
+
 export type ContentRatingPolicy = {
     basisSelection?: RatingBasisSelection;
     boardPreference?: Array<RatingBoard>;
@@ -1705,6 +1715,12 @@ export type PageOfCompanyResource = {
     hasNextPage: boolean;
 };
 
+export type PageOfConsumerWebApp = {
+    items: Array<ConsumerWebApp>;
+    nextCursor?: null | string;
+    hasNextPage: boolean;
+};
+
 export type PageOfDat = {
     items: Array<Dat>;
     nextCursor?: null | string;
@@ -2233,6 +2249,12 @@ export type Region = {
     isAutoCreated: boolean;
     canMerge: boolean;
     aliases: PageOfAliasResource;
+};
+
+export type RegisterConsumerWebAppRequest = {
+    displayName: string;
+    callbackUri: string;
+    browserOrigin: string;
 };
 
 export type RejectedArtwork = {
@@ -11994,3 +12016,87 @@ export type GetRatingResponses = {
 };
 
 export type GetRatingResponse = GetRatingResponses[keyof GetRatingResponses];
+
+export type ListConsumerWebAppsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/consumer-web-apps';
+};
+
+export type ListConsumerWebAppsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type ListConsumerWebAppsError = ListConsumerWebAppsErrors[keyof ListConsumerWebAppsErrors];
+
+export type ListConsumerWebAppsResponses = {
+    /**
+     * OK
+     */
+    200: PageOfConsumerWebApp;
+};
+
+export type ListConsumerWebAppsResponse = ListConsumerWebAppsResponses[keyof ListConsumerWebAppsResponses];
+
+export type RegisterConsumerWebAppData = {
+    body: RegisterConsumerWebAppRequest;
+    path?: never;
+    query?: never;
+    url: '/api/consumer-web-apps';
+};
+
+export type RegisterConsumerWebAppErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+};
+
+export type RegisterConsumerWebAppError = RegisterConsumerWebAppErrors[keyof RegisterConsumerWebAppErrors];
+
+export type RegisterConsumerWebAppResponses = {
+    /**
+     * Created
+     */
+    201: ConsumerWebApp;
+};
+
+export type RegisterConsumerWebAppResponse = RegisterConsumerWebAppResponses[keyof RegisterConsumerWebAppResponses];
+
+export type DisableConsumerWebAppData = {
+    body?: never;
+    path: {
+        clientId: string;
+    };
+    query?: never;
+    url: '/api/consumer-web-apps/{clientId}';
+};
+
+export type DisableConsumerWebAppErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type DisableConsumerWebAppError = DisableConsumerWebAppErrors[keyof DisableConsumerWebAppErrors];
+
+export type DisableConsumerWebAppResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DisableConsumerWebAppResponse = DisableConsumerWebAppResponses[keyof DisableConsumerWebAppResponses];

@@ -1581,6 +1581,100 @@
         }
       }
     },
+    "/api/me/sessions": {
+      "get": {
+        "tags": [
+          "Consumer Account"
+        ],
+        "operationId": "ListConsumerSignInSessions",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerSignInSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/sessions/{sessionId}": {
+      "delete": {
+        "tags": [
+          "Consumer Account"
+        ],
+        "operationId": "RevokeConsumerSignInSession",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/connections": {
       "get": {
         "tags": [
@@ -5020,6 +5114,40 @@
           }
         }
       },
+      "ConsumerSignInSession": {
+        "required": [
+          "id",
+          "device",
+          "createdAt",
+          "lastUsedAt",
+          "status",
+          "isCurrent"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "device": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          },
+          "isCurrent": {
+            "type": "boolean"
+          }
+        }
+      },
       "ConsumerTitleCard": {
         "required": [
           "id",
@@ -5538,6 +5666,30 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ConsumerRelease"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PageOfConsumerSignInSession": {
+        "required": [
+          "items",
+          "hasNextPage"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerSignInSession"
             }
           },
           "nextCursor": {

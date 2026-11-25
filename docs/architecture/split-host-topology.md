@@ -42,16 +42,20 @@ The data directory contains:
 `Romd.Worker.Host` applies EF migrations as `romd_provisioner`, lays down the runtime grants, publishes the `romd.romd_schema` version, creates the OpenIddict signing key, and runs seeders. `dotnet run --project src/Romd.Worker.Host -- --migrate-database` performs only the schema steps and exits. API hosts connect with DML-only roles and never apply migrations. The signing key is created on demand by whichever host starts first; creation is atomic (temp file + rename) so concurrent hosts converge on a single key and an API host starting before the worker does not crash.
 
 OpenIddict application, authorization, scope, and token rows live in the application database.
-The worker creates the signing key, seeds the `romd-console`, `romd-mount`, `romd-admin-spa`, and
-`romd-consumer-spa` clients, and prunes expired tokens and authorizations on a daily
-recurring job. **Both API hosts register the OpenIddict server**: the admin host serves
-authorization-code + PKCE for `romd-admin-spa`, and the consumer host serves
-authorization-code + PKCE for `romd-consumer-spa` plus the device,
-verification, token, and revocation endpoints for `romd-console`. Each host is bound to
-its own client IDs and stamps tokens with its own audience (`romd-admin` / `romd-consumer`),
-which is the boundary between surfaces given the shared keys and database. Token encryption
-key material is derived from `Romd__JwtSecret`, while the asymmetric signing key is
-persisted to `keys/openiddict-signing.pem` so tokens stay valid across host restarts.
+The worker creates the signing key, seeds the built-in admin and consumer SPA
+clients, `romd-console`, `romd-mount`, and `romd-community-device`, and prunes
+expired tokens and authorizations on a daily schedule. The admin host accepts
+browser registrations and permanent disablement. PostgreSQL limits registration
+IDs to a dedicated namespace and gives the worker sole control over provisioning
+state. The worker reconciles pending registrations independently, records retryable
+failures, and marks successfully provisioned registrations active.
+The consumer host checks the same registration state for browser CORS,
+authorization, token exchange, and bearer token validation. Pending and
+disabled registrations fail those checks. Access tokens also bind to the host
+audience and a live account session, with explicit scope opt-in on each exposed
+consumer route. The admin and consumer hosts have separate audiences. Token
+encryption key material is derived from `Romd__JwtSecret`, and the asymmetric
+signing key persists at `keys/openiddict-signing.pem`. See [third-party consumer authentication](../self-hosting/third-party-consumer-authentication.md).
 
 Application connections use Npgsql through the `Romd` connection string (`RomdProvisioning` for the worker's schema steps). Hangfire uses PostgreSQL with sliding invisibility and a dedicated schema.
 

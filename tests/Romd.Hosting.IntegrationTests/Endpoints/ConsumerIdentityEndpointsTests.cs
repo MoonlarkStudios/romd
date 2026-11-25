@@ -310,7 +310,18 @@ public sealed partial class ConsumerIdentityEndpointsTests
         using var session = fixture.Factory.CreateClient();
         session.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", RequiredString(issued, "access_token"));
         (await session.GetAsync("/api/me")).StatusCode.ShouldBe(HttpStatusCode.OK);
-        var changed = await session.PutAsJsonAsync("/api/me/password", new ChangePasswordRequest("Password123", "Password456"));
+        using var account = fixture.Factory.CreateClient(new() { AllowAutoRedirect = false, HandleCookies = true });
+        if (console)
+        {
+            using var rejected = await session.PutAsJsonAsync("/api/me/password", new ChangePasswordRequest("Password123", "Password456"));
+            rejected.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+            var accountTokens = await OidcAuthorizationCodeFlow.RunAsync(account, RomdOpenIddictClients.ConsumerSpa,
+                "http://localhost:5174/auth/callback", "player", "Password123");
+            account.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", RequiredString(accountTokens, "access_token"));
+        }
+        var changed = await (console ? account : session)
+            .PutAsJsonAsync("/api/me/password", new ChangePasswordRequest("Password123", "Password456"));
         changed.IsSuccessStatusCode.ShouldBeTrue(await changed.Content.ReadAsStringAsync());
         (await session.GetAsync("/api/me")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         var refresh = await browser.PostAsync("/connect/token", CreateFormContent(new Dictionary<string, string>

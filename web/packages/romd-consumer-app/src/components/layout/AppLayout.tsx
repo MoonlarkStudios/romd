@@ -284,6 +284,12 @@ export function AppLayout() {
                 >
                   Play history
                 </Menu.Item>
+                <Menu.Item
+                  component={Link}
+                  to="/sessions"
+                >
+                  Sign-in sessions
+                </Menu.Item>
                 <Menu.Label>{user?.email ?? 'Local user'}</Menu.Label>
                 <Menu.Item
                   leftSection={<IconLogout size={16} />}

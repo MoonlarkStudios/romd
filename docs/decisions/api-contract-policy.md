@@ -12,7 +12,7 @@ ROMD exposes two resource-oriented HTTP APIs from separate hosts:
 - the **consumer API**, consumed by the consumer web app and the native
   console
 
-Every client is first-party and lives in this repository. The SPAs use
+The first-party clients live in this repository. The SPAs use
 clients generated from committed OpenAPI documents. The console uses a
 hand-written Dart client that the generated-client drift gate cannot check.
 
@@ -54,8 +54,8 @@ the same guarantees and tests can check them mechanically.
 
 ### First-Party Audience And Repo-Atomic Compatibility
 
-Both APIs are first-party contracts. Source changes are repo-atomic: one
-accepted change updates everything below together.
+The API contracts, generated clients, and first-party callers change
+repo-atomically. One accepted change updates everything below together.
 
 - **Admin API:**
   - the backend contract
@@ -83,9 +83,11 @@ source call sites does not update installed console builds.
   - payload protocol versions, such as the disc-set `contractVersion`
 
   A payload protocol version is not a precedent for URL versioning.
-- **No external promise.** No stability promise is made to any client
-  outside this repository. An external consumer is a new decision, not a
-  broadening of this one.
+- **Third-party authorization.** Public device pairing and administrator-approved
+  web applications can request explicit consumer scopes. Protected consumer
+  operations opt in to those scopes. A grant uses the existing routes and
+  authorization checks. Cross-release compatibility remains governed by the
+  supported-pairing rule.
 - **Re-decision trigger.** Before the first console build distributed
   independently of a server release, or 1.0, whichever comes first,
   maintainers record a new compatibility decision defining supported
