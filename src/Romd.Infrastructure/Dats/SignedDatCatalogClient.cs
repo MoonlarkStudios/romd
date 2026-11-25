@@ -48,7 +48,9 @@ public sealed class SignedDatCatalogClient : ISignedDatCatalogClient
             var directory = Path.Combine(_options.DataDirectory, "dat-subscriptions", identity);
             Directory.CreateDirectory(directory);
             // OS-owned lock survives process failure; keep the inode for the next owner.
-            using var gate = new FileStream(Path.Combine(directory, "reader.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            using var gate = TryOpenReaderGate(Path.Combine(directory, "reader.lock"));
+            if (gate is null)
+                return DatEnrollmentErrors.Busy();
             attempt = Path.Combine(directory, "candidate-" + Guid.NewGuid().ToString("N"));
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
             deadline.CancelAfter(TimeSpan.FromMinutes(2));
@@ -95,6 +97,22 @@ public sealed class SignedDatCatalogClient : ISignedDatCatalogClient
             catch (UnauthorizedAccessException) { }
         }
     }
+
+    private static FileStream? TryOpenReaderGate(string path)
+    {
+        try
+        {
+            return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        }
+        // Windows sharing/lock violations and Unix EWOULDBLOCK.
+        catch (IOException error) when ((error.HResult & 0xffff) is 32 or 33 ||
+            (OperatingSystem.IsLinux() && error.HResult == 11) ||
+            (OperatingSystem.IsMacOS() && error.HResult == 35))
+        {
+            return null;
+        }
+    }
+
     private static async Task<ErrorOr<byte[]>> ReadCandidateAsync(string directory, string catalogId, string systemId, string expectedName, CancellationToken ct)
     {
         var infoPath = Path.Combine(directory, "candidate.json");

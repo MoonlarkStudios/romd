@@ -13,6 +13,27 @@ namespace Romd.Infrastructure.Tests.Jobs;
 
 public sealed class DatSubscriptionCheckJobTests
 {
+    [Fact]
+    public async Task ExecuteAsync_PublisherReaderBusy_DefersEveryDueSubscription()
+    {
+        var services = new ServiceCollection();
+        var client = RegisterCatalogClient(services);
+        client.DiscoverAsync(Arg.Any<CancellationToken>()).Returns(DatEnrollmentErrors.Busy());
+        var subscriptions = Substitute.For<IDatCatalogEnrollmentService>();
+        subscriptions.GetDueCheckIdsAsync(Arg.Any<CancellationToken>()).Returns(new[] { 1, 2 });
+        services.AddSingleton(subscriptions);
+        var handler = Substitute.For<ICommandHandler<CheckDatSubscriptionCommand, DatCatalogSubscription>>();
+        services.AddSingleton(handler);
+        await using var provider = services.BuildServiceProvider();
+
+        await new DatSubscriptionCheckJob(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<DatSubscriptionCheckJob>.Instance)
+            .ExecuteAsync(default);
+
+        await client.Received(1).DiscoverAsync(Arg.Any<CancellationToken>());
+        await handler.DidNotReceive().HandleAsync(Arg.Any<CheckDatSubscriptionCommand>(), Arg.Any<CancellationToken>());
+        await subscriptions.DidNotReceive().RecordScheduledFailureAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

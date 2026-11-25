@@ -97,6 +97,25 @@ public sealed class DatSubscriptionCheckCommandTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Check_SignedReaderBusy_ReturnsConflictWithoutWritingBackoff(bool discoveryBusy)
+    {
+        var context = new Context();
+        var busy = DatEnrollmentErrors.Busy();
+        if (discoveryBusy)
+            context.Client.DiscoverAsync(Arg.Any<CancellationToken>()).Returns(busy);
+        else
+            context.Client.FetchAsync("catalog", "psx", "Sony", Arg.Any<CancellationToken>()).Returns(busy);
+
+        var result = await context.Check().HandleAsync(new(1));
+
+        result.FirstError.ShouldBe(busy);
+        context.Written.ShouldBeNull();
+        await context.Transaction.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
     [InlineData("directory")]
     [InlineData("fetch")]
     [InlineData("review")]
@@ -148,6 +167,7 @@ public sealed class DatSubscriptionCheckCommandTests
         context.Reader.ReadActiveDatIdsForNameAsync(7, "Sony", Arg.Any<CancellationToken>()).Returns(new[] { active.Id });
         context.Reader.IsSourceEnabledAsync(active.DatSourceId, Arg.Any<CancellationToken>()).Returns(true);
         context.Dats.GetByIdAsync(active.Id, Arg.Any<CancellationToken>()).Returns(active);
+        context.Dats.GetActiveBySourceIdAsync(active.DatSourceId, Arg.Any<CancellationToken>()).Returns(active);
         context.Storage.RetrieveByIdAsync(active.FileId, Arg.Any<CancellationToken>()).Returns(new MemoryStream(content));
         context.Reader.ReadAsync(1, Arg.Any<CancellationToken>()).Returns(context.Row with { Values = new() });
         PublishedDatCatalog[] catalogs = [new("catalog", "psx", "Sony", "redump", health, hash, 1, 1, null)];

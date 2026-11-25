@@ -111,6 +111,8 @@ internal sealed class DatSubscriptionCheckWorkflow(IDatSubscriptionCheckReader r
             return DatSubscriptionCheckOutcome.Reject(DatEnrollmentErrors.Busy());
 
         var directory = sweepDirectory ?? await client.DiscoverAsync(ct);
+        if (directory.IsError && directory.FirstError.Code == DatEnrollmentErrors.BusyCode)
+            return DatSubscriptionCheckOutcome.Reject(directory.FirstError);
         var catalog = directory.IsError ? null : directory.Value.SingleOrDefault(item => item.CatalogId == catalogId);
         if (catalog?.DocumentHash is null)
         {
@@ -171,6 +173,12 @@ internal sealed class DatSubscriptionCheckWorkflow(IDatSubscriptionCheckReader r
             if (installed is not null &&
                 Sha256.FromBytes(await SHA256.HashDataAsync(installed, ct)) == publishedHash)
             {
+                // Manual activation uses the topology fence. Recheck under it only after hashing.
+                await dats.AcquireMutationWriteLockAsync(active.Id, ct);
+                var current = await dats.GetActiveBySourceIdAsync(active.DatSourceId, ct);
+                if (current?.Id != active.Id)
+                    return DatSubscriptionCheckOutcome.Reject(DatEnrollmentErrors.ActiveVersionChanged());
+
                 string hash = publishedHash.ToString();
                 var sameDocument = new DatSubscriptionVerifiedDocument(hash, hash, true);
                 var values = DatSubscriptionCheckTransition.Verified(row?.Values ?? new(), binding, sameDocument,
@@ -180,7 +188,9 @@ internal sealed class DatSubscriptionCheckWorkflow(IDatSubscriptionCheckReader r
         }
         var fetched = await client.FetchAsync(catalog.CatalogId, catalog.SystemId, catalog.Name, ct);
         if (fetched.IsError)
-            return Failure(row, binding, DatEnrollmentErrors.CheckFailed().Description);
+            return fetched.FirstError.Code == DatEnrollmentErrors.BusyCode
+                ? DatSubscriptionCheckOutcome.Reject(fetched.FirstError)
+                : Failure(row, binding, DatEnrollmentErrors.CheckFailed().Description);
         var document = new MemoryStream(fetched.Value.ToArray(), writable: false);
         try
         {

@@ -25,6 +25,13 @@ public sealed class DatSubscriptionCheckJob(IServiceScopeFactory scopes, ILogger
         using var sweep = CancellationTokenSource.CreateLinkedTokenSource(ct);
         sweep.CancelAfter(TimeSpan.FromMinutes(15));
         var directory = await DiscoverAsync(sweep.Token);
+        ct.ThrowIfCancellationRequested();
+        if (directory.IsError && directory.FirstError.Code == DatEnrollmentErrors.BusyCode)
+        {
+            logger.LogInformation("Deferring the DAT subscription sweep because another check holds the publisher reader");
+            return;
+        }
+
         foreach (var id in due)
         {
             ct.ThrowIfCancellationRequested();
@@ -40,7 +47,7 @@ public sealed class DatSubscriptionCheckJob(IServiceScopeFactory scopes, ILogger
                 if (result.IsError)
                 {
                     logger.LogInformation("Subscription {SubscriptionId} check did not run: {Code}", id, result.FirstError.Code);
-                    if (result.FirstError.Code is not ("DatEnrollment.Busy" or "DatEnrollment.NotFound"))
+                    if (result.FirstError.Code is not (DatEnrollmentErrors.BusyCode or "DatEnrollment.NotFound"))
                     {
                         await using var failureScope = scopes.CreateAsyncScope();
                         await failureScope.ServiceProvider.GetRequiredService<IDatCatalogEnrollmentService>().RecordScheduledFailureAsync(id, ct);
