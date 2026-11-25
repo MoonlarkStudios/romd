@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using Romd.Domain.Catalog;
+using Romd.Domain.Catalog.Ratings;
 
 namespace Romd.Admin.Application.MetadataProviders;
 
@@ -18,7 +20,19 @@ public sealed record TitleProviderMatch(
     string? Evidence = null,
     string? MatcherVersion = null,
     ProviderIdentityDecision? Decision = null,
-    Guid? PendingJobId = null);
+    Guid? PendingJobId = null,
+    ProvisionalMatchReview? ProvisionalReview = null);
+
+public sealed record ProvisionalMatchReview(string GameId, bool EvidenceCurrent,
+    ProvisionalMetadataFields? Fields, IReadOnlyList<ProvisionalMatchRating> Ratings,
+    IReadOnlyList<ProvisionalMatchArtwork> Artwork);
+
+public sealed record ProvisionalMetadataFields(string? Description, string? Publisher, string? Developer,
+    string? Genre, DateOnly? ReleaseDate, int? Players, double? Rating);
+
+public sealed record ProvisionalMatchRating(RatingBoard Board, string Code);
+
+public sealed record ProvisionalMatchArtwork(ArtworkRole Role, int AssetId, string? Variant, string? Version);
 
 public sealed record ProviderIdentityCandidate(
     ProviderGame Game,

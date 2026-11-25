@@ -26616,6 +26616,138 @@
           }
         }
       },
+      "ProvisionalMatchArtwork": {
+        "required": [
+          "role",
+          "previewUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "previewUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ProvisionalMatchRating": {
+        "required": [
+          "board",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ProvisionalMatchReview": {
+        "required": [
+          "gameId",
+          "evidenceCurrent",
+          "fields",
+          "ratings",
+          "artwork"
+        ],
+        "type": "object",
+        "properties": {
+          "gameId": {
+            "type": "string"
+          },
+          "evidenceCurrent": {
+            "type": "boolean"
+          },
+          "fields": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProvisionalMetadataFields"
+              }
+            ]
+          },
+          "ratings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProvisionalMatchRating"
+            }
+          },
+          "artwork": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProvisionalMatchArtwork"
+            }
+          }
+        }
+      },
+      "ProvisionalMetadataFields": {
+        "required": [
+          "description",
+          "publisher",
+          "developer",
+          "genre",
+          "releaseDate",
+          "players",
+          "rating"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publisher": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "developer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "genre": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "players": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "rating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "PublishedDatCatalog": {
         "required": [
           "catalogId",
@@ -29330,6 +29462,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "provisionalReview": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProvisionalMatchReview"
+              }
+            ]
           }
         }
       },

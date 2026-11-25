@@ -160,27 +160,9 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
         var ids = providerIds.Distinct(StringComparer.Ordinal).ToArray();
         var normalizedIds = ids.Select(id => id.ToLowerInvariant()).ToArray();
         var links = await _db.TitleExternalIds.Where(x => x.TitleId == titleId && normalizedIds.Contains(x.Provider.ToLower())).ToListAsync(ct);
-        var states = await _db.Set<TitleProviderMatchStateEntity>().Where(x => x.TitleId == titleId && ids.Contains(x.ProviderId))
-            .Select(state => new
-            {
-                State = state,
-                ProvisionalGameId = state.ProviderId == "steamgriddb"
-                    ? ProviderIdentityDatabaseFunctions.ProvisionalGame(titleId, state.ProviderId,
-                        ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version)
-                    : state.ProviderId == "igdb"
-                        ? ProviderIdentityDatabaseFunctions.ProvisionalMetadataGame(titleId, state.ProviderId,
-                            ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.MetadataVersion)
-                        : null
-            }).ToListAsync(ct);
+        var states = await ReadMatchStatesAsync(titleId, ids, ct);
         var layers = await _db.TitleMetadataLayers.Where(x => x.TitleId == titleId && ids.Contains(x.SourceId)).ToListAsync(ct);
-        return new(links.Select(x => x.ToDomain()).ToArray(), states.Select(row =>
-        {
-            var state = row.State;
-            var decision = state.DecisionJson is { } json ? JsonSerializer.Deserialize<ProviderIdentityDecision>(json) : null;
-            return new ProviderMatchState(state.ProviderId, state.Revision, state.SuppressAutomaticMatch, state.IdentityChanged,
-                state.Evidence, state.MatcherVersion, state.GameJson is { } game ? JsonSerializer.Deserialize<ProviderGame>(game) : null,
-                decision is null ? null : decision with { ProvisionalGameId = row.ProvisionalGameId });
-        }).ToArray(),
+        return new(links.Select(x => x.ToDomain()).ToArray(), states,
             layers.Select(x => x.ToDomain()).ToArray());
     }
 

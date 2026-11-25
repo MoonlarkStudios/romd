@@ -253,7 +253,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
                 game is not null || state?.Evidence?.StartsWith("Multiple games", StringComparison.Ordinal) == true ? "NeedsReview" : state is not null ? "NoMatchFound" : "NeedsMatch") :
             link.IsConfirmed ? "Confirmed" : trustedGameId == link.ExternalId ? "AutoMatched" : "NeedsReview", link?.ExternalId, game,
             link?.MatchConfidence, null, stale, state?.Evidence, state?.MatcherVersion, state?.Decision,
-            pendingJobId);
+            pendingJobId, state?.ProvisionalReview);
     }
 
     private sealed record UsableProvider(IProviderIdentityAdapter Adapter, ProviderAvailability Availability);
