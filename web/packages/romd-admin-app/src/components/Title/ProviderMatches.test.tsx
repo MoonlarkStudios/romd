@@ -1738,3 +1738,70 @@ it.each([
   ).not.toBeInTheDocument();
   cache.clear();
 });
+
+it('opens review with the provisional poster match selected and offers explicit rejection', async () => {
+  server.use(
+    http.get(matches, () =>
+      HttpResponse.json([
+        {
+          ...row,
+          state: 'NeedsReview',
+          decision: {
+            state: 'NeedsReview',
+            explanation: 'Review the suggested game.',
+            provenance: 'DAT',
+            inputFingerprint: 'fingerprint',
+            provisionalGameId: game.id,
+            candidates: [
+              {
+                game,
+                score: 100,
+                eligible: true,
+                evidence: [],
+                conflicts: [],
+              },
+            ],
+          },
+        },
+      ]),
+    ),
+  );
+  const user = userEvent.setup();
+  show();
+  expect(await screen.findByText('Provisional poster match')).toBeInTheDocument();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Review match',
+    }),
+  );
+  expect(
+    screen.getByRole('radio', {
+      name: 'Select The matching game',
+    }),
+  ).toBeChecked();
+  expect(
+    screen.getByRole('button', {
+      name: 'Confirm The matching game',
+    }),
+  ).toBeEnabled();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Cancel',
+    }),
+  );
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Example provider match actions',
+    }),
+  );
+  await user.click(
+    screen.getByRole('menuitem', {
+      name: 'Reject provisional match',
+    }),
+  );
+  expect(
+    await screen.findByRole('dialog', {
+      name: 'Reject the provisional poster match?',
+    }),
+  ).toBeInTheDocument();
+});

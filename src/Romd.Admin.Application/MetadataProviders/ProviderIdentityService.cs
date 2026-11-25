@@ -43,7 +43,9 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 : null;
             var cachedIgdbDependency = link?.Decision?.Dependencies?.FirstOrDefault(x => x.ProviderId == "igdb");
             var delay = link?.Decision?.State == "Unavailable" ? TimeSpan.FromMinutes(1) : TimeSpan.FromHours(6);
-            if (link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
+            var needsPosterEvaluation = steamGridDb && link?.Decision is { State: "NeedsReview" or "NoMatch" } priorDecision &&
+                priorDecision.PosterPolicyVersion != ProvisionalPosterPolicy.Version;
+            if (!needsPosterEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
                 && link.LastAttempt > clock.GetUtcNow() - delay && (!steamGridDb || igdbDependency == cachedIgdbDependency))
                 continue;
             ArtworkBridgeMatch? bridged = null;
@@ -63,7 +65,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             }
             if (retryAfterByProvider.ContainsKey(adapter.Id))
                 continue;
-            var found = bridged is not null ? ErrorOr.ErrorOrFactory.From(new SearchEvidence([bridged.Game], true)) :
+            var found = bridged is not null ? ErrorOr.ErrorOrFactory.From(new SearchEvidence([bridged.Game], true, true)) :
                 await SearchCandidatesAsync(adapter, snapshot.Facts, snapshot.DatFamily?.Names ?? [], ct);
             if (found.IsError && RememberThrottle(adapter.Id, found.Errors))
                 continue;
@@ -101,6 +103,22 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                         State = "NeedsReview",
                         Explanation = "Automatic SteamGridDB matching requires a verified provider ID bridge. Confirm a provider game identity."
                     };
+            }
+            if (steamGridDb && bridged is null && !found.IsError)
+            {
+                string? provisionalGameId = null;
+                if (decision.State == "NeedsReview" && found.Value.Consistent && link?.GameId is null &&
+                    snapshot.DatFamily is { RequiresReview: false } && igdb?.TrustedGame is { } trustedGame &&
+                    trustedGame.Id == igdb.GameId)
+                {
+                    provisionalGameId = ProvisionalPosterPolicy.SelectGame(snapshot.Facts, decision.Candidates,
+                        PlatformYears(trustedGame, snapshot.Facts.Platforms));
+                }
+                decision = decision with
+                {
+                    ProvisionalGameId = provisionalGameId,
+                    PosterPolicyVersion = ProvisionalPosterPolicy.Version
+                };
             }
             decision = decision with { LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms) };
             await PersistDecisionAsync(snapshot, adapter.Id, link?.Revision ?? Guid.Empty, decision, accepted, owner, ct);
@@ -160,7 +178,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
         }
     }
 
-    private sealed record SearchEvidence(IReadOnlyList<ProviderGame> Games, bool Complete);
+    private sealed record SearchEvidence(IReadOnlyList<ProviderGame> Games, bool Complete, bool Consistent);
 
     private static async Task<ErrorOr.ErrorOr<SearchEvidence>> SearchCandidatesAsync(
         IProviderIdentityAdapter adapter, IdentityFacts facts, IReadOnlyList<string> datNames, CancellationToken ct)
@@ -171,6 +189,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             .SelectMany(name => new[] { ArtworkIdentityMatcher.Normalize(name), ProviderIdentityNames.Normalize(name) })
             .Where(query => query.Length > 0).Distinct(StringComparer.Ordinal).Take(7).ToArray();
         var complete = queries.Length is > 0 and <= 6;
+        var consistent = complete;
         var games = new Dictionary<string, ProviderGame>(StringComparer.Ordinal);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(TimeSpan.FromSeconds(30));
@@ -183,13 +202,15 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 if (result.IsError)
                     return result.Errors;
                 complete &= result.Value.Completeness == ProviderGameSearchCompleteness.Complete;
+                consistent &= result.Value.Completeness != ProviderGameSearchCompleteness.BudgetLimited &&
+                    result.Value.Items.Count < result.Value.Limit;
                 foreach (var game in result.Value.Items)
                     if (!games.TryAdd(game.Id, game) && !SameEvidence(games[game.Id], game))
-                        complete = false;
+                        complete = consistent = false;
             }
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return ProviderMatchErrors.Unavailable; }
-        return new SearchEvidence(games.Values.ToArray(), complete);
+        return new SearchEvidence(games.Values.ToArray(), complete, consistent);
     }
 
     private static bool SameEvidence(ProviderGame first, ProviderGame next) =>

@@ -43,7 +43,9 @@ public sealed class LinkedProviderArtworkService(
             if (selection.Mode == ArtworkSelectionMode.Empty)
             { await Record("LeftEmpty", null); continue; }
             if (selection.Mode == ArtworkSelectionMode.Pinned || selection.PendingJobId is not null ||
-                gallery.Value.Any(x => x.Role == role && x.IsEligible) || role == ArtworkRole.Poster && title.Media.Any(x => x.Type == MediaType.Cover))
+                gallery.Value.Any(x => x.Role == role && x.IsEligible) || role == ArtworkRole.Poster &&
+                (title.Media.Any(x => x.Type == MediaType.Cover) ||
+                    await acquisition.HasCurrentProvisionalPosterAsync(title.Id, ct)))
             { await Record("AlreadyPresent", null); continue; }
             var enabled = role switch
             {
@@ -172,7 +174,7 @@ public sealed class LinkedProviderArtworkService(
                                     await unitOfWork.FlushAsync(token);
                                 var content = staged.Retain(publication.ReadAfterFlush(), candidate.Attribution, candidate.SourcePageUrl);
                                 await curation.StageLocalAssetAsync(title.Id, role, providerId, content, token,
-                                    match.GameId, candidate.ProviderAssetId);
+                                    match.GameId, candidate.ProviderAssetId, provisional: match.IsProvisional);
                                 await acquisition.RecordAsync(title.Id, role, "Updated", providerId, token, context.JobId);
                             }, ct);
                             outcome = superseded ? "Superseded" : "Updated";

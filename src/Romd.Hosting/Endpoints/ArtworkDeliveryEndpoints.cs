@@ -8,8 +8,7 @@ public static class ArtworkDeliveryEndpoints
 {
     public static IEndpointRouteBuilder MapArtworkDeliveryEndpoints(this IEndpointRouteBuilder app)
     {
-        // Like existing title media, selected library artwork is publicly cacheable.
-        // The exact retained version is checked; a different version cannot alias this URL.
+        // Retained versions use stable URLs. Provisional variants recheck authorization on each request.
         app.MapGet("/artwork/{assetId}/{variantName}/{contentVersion}", ServeArtwork)
             .WithName("ServeArtwork")
             .WithTags("Storage")
@@ -22,14 +21,19 @@ public static class ArtworkDeliveryEndpoints
     {
         var artifact = await delivery.OpenAsync(assetId.Value, variantName, contentVersion, ct);
         if (artifact is null)
+        {
+            context.Response.Headers.CacheControl = "no-store";
             return ProblemResults.Problem(StatusCodes.Status404NotFound, ProblemCodes.DeliveryContentNotFound,
                 "The artwork is unavailable.");
-        context.Response.GetTypedHeaders().CacheControl = new CacheControlHeaderValue
-        {
-            Public = true,
-            MaxAge = TimeSpan.FromDays(365),
-            Extensions = { new NameValueHeaderValue("immutable") }
-        };
+        }
+        context.Response.GetTypedHeaders().CacheControl = artifact.IsProvisional
+            ? new CacheControlHeaderValue { NoStore = true }
+            : new CacheControlHeaderValue
+            {
+                Public = true,
+                MaxAge = TimeSpan.FromDays(365),
+                Extensions = { new NameValueHeaderValue("immutable") }
+            };
         context.Response.Headers.XContentTypeOptions = "nosniff";
         return Results.File(artifact.Content, artifact.ContentType,
             entityTag: new EntityTagHeaderValue($"\"{artifact.ContentHash}\""));

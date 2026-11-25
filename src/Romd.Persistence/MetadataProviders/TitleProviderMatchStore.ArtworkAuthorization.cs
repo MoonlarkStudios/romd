@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Artwork.Providers;
+using Romd.Admin.Application.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Persistence.Entities;
 
@@ -17,7 +18,11 @@ public sealed partial class TitleProviderMatchStore
                              {
                                  Link = link,
                                  State = state,
-                                 Trusted = ProviderIdentityDatabaseFunctions.IsTrusted(titleId, providerId, ProviderIdentityPolicy.Version)
+                                 Trusted = ProviderIdentityDatabaseFunctions.IsTrusted(titleId, providerId, ProviderIdentityPolicy.Version),
+                                 ProvisionalGameId = role == ArtworkRole.Poster && providerId == "steamgriddb"
+                                     ? ProviderIdentityDatabaseFunctions.ProvisionalPosterGame(titleId, providerId,
+                                         ProviderIdentityPolicy.Version, ProvisionalPosterPolicy.Version)
+                                     : null
                              }).SingleOrDefaultAsync(ct);
         if (current is null)
             return null;
@@ -25,6 +30,9 @@ public sealed partial class TitleProviderMatchStore
             return new ArtworkMatchResolution.Blocked(ArtworkMatchBlock.Unlinked);
         if (current is { Trusted: true, Link: { } association })
             return new ArtworkMatchResolution.Authorized(new(providerId, association.ExternalId, role, Revision(current.State, association)));
+
+        if (current is { ProvisionalGameId: { } candidate, State: { } matchState })
+            return new ArtworkMatchResolution.Authorized(new(providerId, candidate, role, matchState.Revision, IsProvisional: true));
 
         var block = current is { Link: null, State.Evidence: "Provider search temporarily unavailable." }
             ? ArtworkMatchBlock.Failed

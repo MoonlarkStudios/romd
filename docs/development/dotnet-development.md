@@ -205,7 +205,10 @@ Logiqx entry and clone parent IDs to DAT entries. The additive
 identity fingerprint to active DAT versions. The additive
 `20261123020000_HashBackedDatProviderIdentity` migration adds the shared
 SHA-1 match query, a clone parent ID index, and the matched DAT version and
-release IDs to the provider trust fingerprint. Current readiness is version 85.
+release IDs to the provider trust fingerprint. The additive
+`20261123030000_ProvisionalSteamGridDbPosters` migration records provisional
+posters and checks that the provider decision still authorizes their display.
+Current readiness is version 86.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

@@ -41,7 +41,7 @@ public interface IArtworkCurationRepository
     Task<ErrorOr<long>> StagePinAsync(int titleId, ArtworkRole role, int assetId, RevisionPrecondition ifMatch, CancellationToken ct, int focalX = 50, int focalY = 50);
     Task<ErrorOr<bool>> LockSelectionAsync(int titleId, ArtworkRole role, RevisionPrecondition ifMatch, CancellationToken ct);
     Task StageLocalAssetAsync(int titleId, ArtworkRole role, string sourceId, RetainedArtworkContent content, CancellationToken ct,
-        string? providerGameId = null, string? providerAssetId = null);
+        string? providerGameId = null, string? providerAssetId = null, bool provisional = false);
     Task<ErrorOr<ArtworkImportJob>> StageRequestAsync(ArtworkImportRequest request, CancellationToken ct);
     Task<ErrorOr<long>> StageEmptyAsync(int titleId, ArtworkRole role, RevisionPrecondition ifMatch, CancellationToken ct);
     Task<ErrorOr<long>> StageAutomaticAsync(int titleId, ArtworkRole role, RevisionPrecondition ifMatch, CancellationToken ct);

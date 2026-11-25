@@ -35,5 +35,5 @@ internal static class ProviderMatchResponses
                 dependency.ProviderId, dependency.GameId, dependency.Revision)).ToArray(),
             decision.LocalEvidence is { } facts
                 ? new Contract.ProviderIdentityFacts(facts.Name, facts.Names, facts.Years, facts.Platforms)
-                : null);
+                : null, decision.ProvisionalGameId);
 }
