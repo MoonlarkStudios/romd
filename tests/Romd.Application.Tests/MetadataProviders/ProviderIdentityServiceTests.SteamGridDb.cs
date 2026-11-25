@@ -11,10 +11,10 @@ namespace Romd.Application.Tests.MetadataProviders;
 public sealed partial class ProviderIdentityServiceTests
 {
     [Theory]
-    [InlineData(ProviderGameSearchCompleteness.Complete)]
-    [InlineData(ProviderGameSearchCompleteness.ProviderLimited)]
-    public async Task DiscoverAsync_SonicWithTrustedIgdbGenesisRelease_Accepts1991WithoutBridge(
-        ProviderGameSearchCompleteness completeness)
+    [InlineData(ProviderGameSearchCompleteness.Complete, "AutoAccepted", null)]
+    [InlineData(ProviderGameSearchCompleteness.ProviderLimited, "NeedsReview", "35571")]
+    public async Task DiscoverAsync_SonicWithTrustedIgdbGenesisRelease_Ranks1991AndRequiresExhaustiveSearchForTrust(
+        ProviderGameSearchCompleteness completeness, string state, string? provisionalGameId)
     {
         var igdb = SonicIgdb();
         // Use IDs whose default lexical order favors the 2006 game.
@@ -29,17 +29,18 @@ public sealed partial class ProviderIdentityServiceTests
         await service.DiscoverAsync(1, null, default);
 
         var decision = _decision.ShouldNotBeNull();
-        decision.State.ShouldBe("AutoAccepted");
-        decision.ProvisionalGameId.ShouldBeNull();
-        decision.Explanation.ShouldContain("1991");
-        decision.Explanation.ShouldContain("trusted IGDB release on the local platform");
+        decision.State.ShouldBe(state);
+        decision.ProvisionalGameId.ShouldBe(provisionalGameId);
+        decision.Explanation.ShouldContain(provisionalGameId is null
+            ? "1991, supported by the trusted IGDB release on the local platform"
+            : "Provider search evidence is incomplete");
         decision.Candidates.Select(candidate => candidate.Game.Id).ShouldBe(["35571", "1"]);
         decision.Candidates[0].Score.ShouldBe(decision.Candidates[1].Score);
         decision.Candidates[0].Evidence.ShouldContain("Release year matches the trusted IGDB game on the local platform.");
         decision.Candidates[1].Evidence.ShouldNotContain("Release year matches the trusted IGDB game on the local platform.");
         decision.LocalEvidence.ShouldNotBeNull().Years.ShouldBeEmpty();
         decision.Dependencies.ShouldNotBeNull().ShouldHaveSingleItem().ShouldBe(new("igdb", "3192", igdb.Revision));
-        _accepted.ShouldBe(original);
+        _accepted.ShouldBe(provisionalGameId is null ? original : null);
     }
 
     [Theory]
@@ -94,7 +95,7 @@ public sealed partial class ProviderIdentityServiceTests
             _ => [original]
         };
         var completeness = scenario == "truncated" ? ProviderGameSearchCompleteness.BudgetLimited
-            : ProviderGameSearchCompleteness.ProviderLimited;
+            : ProviderGameSearchCompleteness.Complete;
         var datFamily = new DatFamilySearchEvidence(["Sonic the Hedgehog"], scenario == "ambiguous DAT");
         var service = CreateSonicSteamGridDb(games, [SonicIgdb()], completeness: completeness, datFamily: datFamily,
             years: scenario == "conflicting local year" ? [2006] : []);
@@ -115,7 +116,7 @@ public sealed partial class ProviderIdentityServiceTests
     {
         var original = new ProviderGame(id, title, "https://provider.test/game", Year: year);
         var service = Create(title, [], _ => ErrorOrFactory.From<IReadOnlyList<ProviderGame>>([original]),
-            completeness: ProviderGameSearchCompleteness.ProviderLimited, providerId: "steamgriddb", years: [year]);
+            completeness: ProviderGameSearchCompleteness.Complete, providerId: "steamgriddb", years: [year]);
         _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
 
         await service.DiscoverAsync(1, null, default);
@@ -142,17 +143,39 @@ public sealed partial class ProviderIdentityServiceTests
         _accepted.ShouldBeNull();
     }
 
-    [Fact]
-    public async Task DiscoverAsync_SteamGridDbExactTitleAndYearFromCappedSearch_StaysInReview()
+    [Theory]
+    [InlineData(ProviderGameSearchCompleteness.Complete)]
+    [InlineData(ProviderGameSearchCompleteness.ProviderLimited)]
+    public async Task DiscoverAsync_SteamGridDbExactTitleAndYearFromCappedSearch_StaysInReview(
+        ProviderGameSearchCompleteness completeness)
     {
         var game = SonicGame("35571", 1991);
         var service = CreateSonicSteamGridDb([game], [SonicIgdb()]);
         _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns((ErrorOr<ProviderGameSearchResult>)new ProviderGameSearchResult([game], ProviderGameSearchCompleteness.ProviderLimited, 1));
+            .Returns((ErrorOr<ProviderGameSearchResult>)new ProviderGameSearchResult([game], completeness, 1));
 
         await service.DiscoverAsync(1, null, default);
 
-        _decision.ShouldNotBeNull().State.ShouldBe("NeedsReview");
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.ProvisionalGameId.ShouldBeNull();
+        _accepted.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task DiscoverAsync_SteamGridDbIncompleteAliasSearch_OnlySelectsProvisionally()
+    {
+        var game = SonicGame("35571", 1991);
+        var service = CreateSonicSteamGridDb([game], [SonicIgdb()],
+            datFamily: new(["Sonic the Hedgehog", "Sonic Regional Title"], false));
+        _adapter.SearchAsync("SONIC REGIONAL TITLE", Arg.Any<CancellationToken>())
+            .Returns((ErrorOr<ProviderGameSearchResult>)new ProviderGameSearchResult([], ProviderGameSearchCompleteness.ProviderLimited, 100));
+
+        await service.DiscoverAsync(1, null, default);
+
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.ProvisionalGameId.ShouldBe(game.Id);
         _accepted.ShouldBeNull();
     }
 
@@ -192,7 +215,7 @@ public sealed partial class ProviderIdentityServiceTests
             [], cachedDependencies)
         {
             ProvisionalPolicyVersion = scenario == "previous provisional policy" ? null : ProvisionalProviderMatchPolicy.Version,
-            ArtworkReleasePolicyVersion = scenario == "previous artwork policy" ? null : "steamgriddb-title-year-2"
+            ArtworkReleasePolicyVersion = scenario == "previous artwork policy" ? "steamgriddb-title-year-1" : "steamgriddb-title-year-2"
         };
         var service = CreateSonicSteamGridDb([SonicGame("2", 1991)],
             [igdb with { Trusted = scenario != "lost trust" },

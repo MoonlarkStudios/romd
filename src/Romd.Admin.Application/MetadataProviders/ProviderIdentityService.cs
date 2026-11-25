@@ -132,7 +132,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                         !trustedPlatformYears.Contains(release.Year.Value) && snapshot.ArtworkPlatformAliases.Any(alias =>
                             string.Equals(alias.Name, release.Platform, StringComparison.OrdinalIgnoreCase))).ToArray() ?? [];
                     var artworkYears = trustedPlatformYears.Concat(aliasReleases.Select(release => release.Year!.Value)).Distinct().ToArray();
-                    var release = found.Value.Consistent
+                    var release = found.Value is { Complete: true, Consistent: true }
                         ? ArtworkReleaseMatchPolicy.Select(snapshot.Facts, ranked, artworkYears, trustedGame?.Year)
                         : null;
                     if (release is not null)

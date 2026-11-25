@@ -62,7 +62,7 @@ public sealed partial class ProviderIdentityDatabaseTests
             provider.Capabilities.Returns(["artwork"]);
             provider.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
             provider.SearchAsync("GAME", Arg.Any<CancellationToken>()).Returns(new ProviderGameSearchResult(
-                [game], ProviderGameSearchCompleteness.ProviderLimited, 100));
+                [game], ProviderGameSearchCompleteness.Complete, 100));
             var service = new ProviderIdentityService(CreateFamilyStore(db), [provider], [], TimeProvider.System, new EfUnitOfWork(db),
                 NullLogger<ProviderIdentityService>.Instance);
 
