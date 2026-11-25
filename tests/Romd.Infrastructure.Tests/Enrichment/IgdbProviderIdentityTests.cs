@@ -11,9 +11,9 @@ using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
-using Romd.Infrastructure.Enrichment;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 

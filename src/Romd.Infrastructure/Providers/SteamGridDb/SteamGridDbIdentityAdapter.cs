@@ -4,7 +4,7 @@ using Romd.Admin.Application.Artwork.Settings;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Contracts.Management.MetadataProviders;
 
-namespace Romd.Infrastructure.Artwork.SteamGridDb;
+namespace Romd.Infrastructure.Providers.SteamGridDb;
 
 public sealed class SteamGridDbIdentityAdapter(SteamGridDbArtworkProvider provider, ISteamGridDbSettingsService settings)
     : IProviderIdentityAdapter

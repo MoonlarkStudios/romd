@@ -9,9 +9,9 @@ using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
 using Romd.Infrastructure.Artwork;
-using Romd.Infrastructure.Enrichment;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 

@@ -9,10 +9,10 @@ using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
 using Romd.Domain.Catalog.Ratings;
-using Romd.Infrastructure.Enrichment;
 using Romd.Infrastructure.Tests.Helpers;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 
@@ -26,7 +26,7 @@ public class IgdbMetadataProviderTests
     public async Task DownloadArtworkAsync_RejectsUntrustedLocationBeforeTransport(string url)
     {
         var metadata = CreateProvider(_ => throw new InvalidOperationException("No transport expected"));
-        var provider = new Romd.Infrastructure.Artwork.IgdbArtworkProvider(metadata, Substitute.For<IHttpClientFactory>());
+        var provider = new IgdbArtworkProvider(metadata, Substitute.For<IHttpClientFactory>());
         (await provider.DownloadAsync("igdb", "42", "hero1", ArtworkRole.Hero, url)).FirstError.Code
             .ShouldBe("Artwork.ProviderInvalidRequest");
     }
@@ -96,7 +96,7 @@ public class IgdbMetadataProviderTests
     public async Task ArtworkCapabilities_ExcludeGameLogosAndLogoRequestsAreRejectedBeforeTransport()
     {
         var metadata = CreateProvider(_ => throw new InvalidOperationException("No transport expected"));
-        var provider = new Romd.Infrastructure.Artwork.IgdbArtworkProvider(metadata,
+        var provider = new IgdbArtworkProvider(metadata,
             Substitute.For<IHttpClientFactory>());
 
         provider.Capabilities.Roles.ShouldNotContain(role => role.Role == ArtworkRole.Logo);
@@ -109,21 +109,21 @@ public class IgdbMetadataProviderTests
     }
 
     [Fact]
-    public async Task EnrichSingleAsync_Artwork_KeepsMeasuredRoleCandidatesSeparateFromScreenshots()
+    public async Task FetchSingleAsync_Artwork_KeepsMeasuredRoleCandidatesSeparateFromScreenshots()
     {
         var provider = CreateProvider(request => request.RequestUri!.Host == "id.twitch.tv"
             ? CreateTokenResponse() : new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("""
-                    [{"id":12345,"name":"Super Mario World","summary":"A platform game",
+                    [{"name":"q0","result":[{"id":12345,"name":"Super Mario World","summary":"A platform game",
                       "cover":{"url":"//images.igdb.com/igdb/image/upload/t_thumb/cover1.jpg","width":900,"height":600},
                       "artworks":[{"url":"//images.igdb.com/igdb/image/upload/t_thumb/hero1.jpg","width":1920,"height":620},
                                   {"url":"//images.igdb.com/igdb/image/upload/t_thumb/hero2.jpg","width":1600,"height":900}],
-                      "screenshots":[{"url":"//images.igdb.com/igdb/image/upload/t_thumb/screenshot1.jpg"}]}]
+                      "screenshots":[{"url":"//images.igdb.com/igdb/image/upload/t_thumb/screenshot1.jpg"}]}]}]
                     """, Encoding.UTF8, "application/json")
             });
-        var result = await provider.EnrichSingleAsync(new EnrichmentContext
-        { TitleName = "Super Mario World", PlatformShortName = "snes" });
+        var result = await provider.FetchSingleAsync(new("12345", new()
+        { TitleName = "Super Mario World", PlatformShortName = "snes" }));
         result.Outcome.ShouldBe(EnrichmentOutcome.Found);
         result.Artwork.Count.ShouldBe(5);
         result.Artwork.Count(x => x.Role == ArtworkRole.Backdrop).ShouldBe(2);
@@ -131,11 +131,6 @@ public class IgdbMetadataProviderTests
         result.Artwork.ShouldNotContain(x => x.AssetId == "screenshot1");
         result.Artwork.ShouldAllBe(x => x.Url.StartsWith("https://images.igdb.com/igdb/image/upload/t_original/"));
     }
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-    };
 
     private static readonly IReadOnlyDictionary<string, string> DefaultPlatformMappings =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -216,7 +211,7 @@ public class IgdbMetadataProviderTests
                 age_ratings = ageRatings
             }
         };
-        string json = JsonSerializer.Serialize(games);
+        string json = JsonSerializer.Serialize(new[] { new { name = "q0", result = games } });
         return new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
@@ -241,96 +236,7 @@ public class IgdbMetadataProviderTests
     }
 
     [Fact]
-    public async Task EnrichAsync_UnsupportedPlatform_YieldsImmediately()
-    {
-        var provider = CreateProvider(_ => throw new InvalidOperationException("Should not be called"));
-
-        var context = new EnrichmentContext { TitleName = "Test Game", PlatformShortName = "unsupported_platform_xyz" };
-
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(context)))
-        {
-            results.Add(pair);
-        }
-
-        results.Count.ShouldBe(1);
-        results[0].Item2.Outcome.ShouldBe(EnrichmentOutcome.PlatformNotSupported);
-    }
-
-    [Fact]
-    public async Task EnrichAsync_SingleContext_SearchesIndividually()
-    {
-        var requestPaths = new List<string>();
-        var provider = CreateProvider(request =>
-        {
-            if (request.RequestUri?.Host == "id.twitch.tv")
-            {
-                return CreateTokenResponse();
-            }
-
-            requestPaths.Add(request.RequestUri?.AbsolutePath ?? "");
-            return CreateGameResponse();
-        });
-
-        var context = new EnrichmentContext { TitleName = "Super Mario World", PlatformShortName = "snes" };
-
-        var results = new List<(EnrichmentContext Context, EnrichmentResult Result)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(context)))
-        {
-            results.Add(pair);
-        }
-
-        results.Count.ShouldBe(1);
-        results[0].Context.ShouldBeSameAs(context);
-        results[0].Result.Outcome.ShouldBe(EnrichmentOutcome.Found);
-        results[0].Result.ExternalId.ShouldBe("12345");
-
-        // Search contexts go directly to /v4/games, not multi-query
-        requestPaths.ShouldContain("/v4/games");
-        requestPaths.ShouldNotContain("/v4/multiquery");
-    }
-
-    [Fact]
-    public async Task EnrichAsync_MultipleSearchContexts_AllProcessedIndividually()
-    {
-        int igdbRequestCount = 0;
-        var provider = CreateProvider(request =>
-        {
-            if (request.RequestUri?.Host == "id.twitch.tv")
-            {
-                return CreateTokenResponse();
-            }
-
-            igdbRequestCount++;
-            return CreateGameResponse(igdbRequestCount, $"Game {igdbRequestCount}");
-        });
-
-        var contexts = new[]
-        {
-            new EnrichmentContext { TitleName = "Game 1", PlatformShortName = "snes" },
-            new EnrichmentContext { TitleName = "Game 2", PlatformShortName = "genesis" },
-            new EnrichmentContext { TitleName = "Game 3", PlatformShortName = "nes" }
-        };
-
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(contexts)))
-        {
-            results.Add(pair);
-        }
-
-        results.Count.ShouldBe(3);
-        for (int i = 0; i < 3; i++)
-        {
-            results[i].Item1.ShouldBeSameAs(contexts[i]);
-            results[i].Item2.Outcome.ShouldBe(EnrichmentOutcome.Found);
-        }
-
-        // Each search context makes its own request (search + possible wildcard fallback)
-        igdbRequestCount.ShouldBeGreaterThanOrEqualTo(3);
-    }
-
-    [Fact]
-    public async Task EnrichAsync_ExistingExternalId_FetchesById()
+    public async Task FetchAsync_GameId_FetchesById()
     {
         string? capturedQuery = null;
         var provider = CreateProvider(request =>
@@ -344,15 +250,14 @@ public class IgdbMetadataProviderTests
             return CreateMultiQueryResponse(("q0", 99999, "Fetched By Id"));
         });
 
-        var context = new EnrichmentContext
+        var request = new MetadataFetchRequest("99999", new()
         {
             TitleName = "Super Mario World",
-            PlatformShortName = "snes",
-            ExistingExternalId = "99999"
-        };
+            PlatformShortName = "snes"
+        });
 
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(context)))
+        var results = new List<(MetadataFetchRequest, EnrichmentResult)>();
+        await foreach (var pair in provider.FetchAsync(ToAsyncEnumerable(request)))
         {
             results.Add(pair);
         }
@@ -367,7 +272,7 @@ public class IgdbMetadataProviderTests
     }
 
     [Fact]
-    public async Task EnrichAsync_UnmappedPlatformWithExternalId_FetchesById()
+    public async Task FetchAsync_UnmappedLocalPlatform_FetchesById()
     {
         string? capturedQuery = null;
         var provider = CreateProvider(request =>
@@ -381,15 +286,14 @@ public class IgdbMetadataProviderTests
             return CreateMultiQueryResponse(("q0", 55555, "Fetched By Id"));
         });
 
-        var context = new EnrichmentContext
+        var request = new MetadataFetchRequest("55555", new()
         {
             TitleName = "Some Game",
-            PlatformShortName = "unsupported_platform_xyz",
-            ExistingExternalId = "55555"
-        };
+            PlatformShortName = "unsupported_platform_xyz"
+        });
 
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(context)))
+        var results = new List<(MetadataFetchRequest, EnrichmentResult)>();
+        await foreach (var pair in provider.FetchAsync(ToAsyncEnumerable(request)))
         {
             results.Add(pair);
         }
@@ -402,118 +306,47 @@ public class IgdbMetadataProviderTests
         capturedQuery.ShouldContain("where id = 55555");
     }
 
-    [Fact]
-    public async Task EnrichAsync_TenSearchContexts_IndividualRequests()
+    [Theory]
+    [InlineData("")]
+    [InlineData("0")]
+    [InlineData("42; limit 500")]
+    public async Task FetchSingleAsync_InvalidId_RejectsBeforeTransport(string id)
     {
-        int igdbRequestCount = 0;
-        var provider = CreateProvider(request =>
+        var provider = CreateProvider(_ => throw new InvalidOperationException("No HTTP request should be sent."));
+
+        var result = await provider.FetchSingleAsync(new(id, new()
         {
-            if (request.RequestUri?.Host == "id.twitch.tv")
-            {
-                return CreateTokenResponse();
-            }
+            TitleName = "Super Mario World",
+            PlatformShortName = "snes"
+        }));
 
-            igdbRequestCount++;
-            return CreateGameResponse(100 + igdbRequestCount, $"Game {igdbRequestCount}");
-        });
-
-        var contexts = Enumerable.Range(0, 10)
-            .Select(i => new EnrichmentContext { TitleName = $"Game {i}", PlatformShortName = "snes" })
-            .ToArray();
-
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(contexts)))
-        {
-            results.Add(pair);
-        }
-
-        results.Count.ShouldBe(10);
-        // Each search context makes its own individual request
-        igdbRequestCount.ShouldBeGreaterThanOrEqualTo(10);
-        for (int i = 0; i < 10; i++)
-        {
-            results[i].Item2.Outcome.ShouldBe(EnrichmentOutcome.Found);
-        }
+        result.Outcome.ShouldBe(EnrichmentOutcome.Error);
     }
 
     [Fact]
-    public async Task EnrichAsync_FifteenSearchContexts_AllProcessedIndividually()
+    public async Task FetchAsync_BatchWithUnexpectedGameId_DoesNotApplyItOrLoseOtherResults()
     {
-        int igdbRequestCount = 0;
-        var provider = CreateProvider(request =>
-        {
-            if (request.RequestUri?.Host == "id.twitch.tv")
-            {
-                return CreateTokenResponse();
-            }
+        var provider = CreateProvider(request => request.RequestUri!.Host == "id.twitch.tv" ? CreateTokenResponse() :
+            CreateMultiQueryResponse(("q1", 44, "Wrong Game"), ("q0", 42, "First Game"), ("q2", 43, "Last Game")));
+        var first = new MetadataFetchRequest("42", new() { TitleName = "First Game", PlatformShortName = "snes" });
+        var wrong = new MetadataFetchRequest("43", new() { TitleName = "Second Game", PlatformShortName = "snes" });
+        var last = new MetadataFetchRequest("43", new() { TitleName = "Last Game", PlatformShortName = "snes" });
+        var results = new List<(MetadataFetchRequest Request, EnrichmentResult Result)>();
 
-            igdbRequestCount++;
-            return CreateGameResponse(100 + igdbRequestCount, $"Game {igdbRequestCount}");
-        });
-
-        var contexts = Enumerable.Range(0, 15)
-            .Select(i => new EnrichmentContext { TitleName = $"Game {i}", PlatformShortName = "snes" })
-            .ToArray();
-
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(contexts)))
-        {
+        await foreach (var pair in provider.FetchAsync(ToAsyncEnumerable(first, wrong, last)))
             results.Add(pair);
-        }
 
-        results.Count.ShouldBe(15);
-        // Each search context makes its own request (no multi-query for searches)
-        igdbRequestCount.ShouldBeGreaterThanOrEqualTo(15);
+        results[0].Request.ShouldBeSameAs(first);
+        results[0].Result.ExternalId.ShouldBe("42");
+        results[1].Request.ShouldBeSameAs(wrong);
+        results[1].Result.Outcome.ShouldBe(EnrichmentOutcome.Error);
+        results[1].Result.ExternalId.ShouldBeNull();
+        results[2].Request.ShouldBeSameAs(last);
+        results[2].Result.ExternalId.ShouldBe("43");
     }
 
     [Fact]
-    public async Task EnrichAsync_MixedSearchAndFetchById_SplitsCorrectly()
-    {
-        var requestPaths = new List<string>();
-        var provider = CreateProvider(request =>
-        {
-            if (request.RequestUri?.Host == "id.twitch.tv")
-            {
-                return CreateTokenResponse();
-            }
-
-            string path = request.RequestUri?.AbsolutePath ?? "";
-            requestPaths.Add(path);
-
-            if (path == "/v4/multiquery")
-            {
-                // Multi-query for fetch-by-ID
-                return CreateMultiQueryResponse(("q1", 99999, "Fetched By Id"));
-            }
-
-            // Individual search request
-            return CreateGameResponse(1, "Search Result");
-        });
-
-        var contexts = new[]
-        {
-            new EnrichmentContext { TitleName = "Game 1", PlatformShortName = "snes" },
-            new EnrichmentContext { TitleName = "Game 2", PlatformShortName = "snes", ExistingExternalId = "99999" }
-        };
-
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(contexts)))
-        {
-            results.Add(pair);
-        }
-
-        results.Count.ShouldBe(2);
-        // Fetch-by-ID results come first (from multi-query), then search results
-        results[0].Item2.ExternalId.ShouldBe("99999");
-        results[1].Item2.Outcome.ShouldBe(EnrichmentOutcome.Found);
-
-        // Multi-query used for fetch-by-ID, /v4/games used for search
-        requestPaths.ShouldContain("/v4/multiquery");
-        requestPaths.ShouldContain("/v4/games");
-    }
-
-    [Fact]
-    public async Task EnrichAsync_MultiQueryFailsForFetchById_FallsBackToIndividual()
+    public async Task FetchAsync_MultiQueryFailsForFetchById_FallsBackToIndividual()
     {
         int requestCount = 0;
         var provider = CreateProvider(request =>
@@ -530,21 +363,25 @@ public class IgdbMetadataProviderTests
                 return new HttpResponseMessage(HttpStatusCode.InternalServerError);
             }
 
-            // Individual fallback succeeds
-            return CreateGameResponse();
+            // Both individual lookups must request the same IDs as the failed batch.
+            var query = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            query.ShouldNotContain("search");
+            return requestCount switch
+            {
+                2 when query.Contains("where id = 111;", StringComparison.Ordinal) => CreateGameResponse(111),
+                3 when query.Contains("where id = 222;", StringComparison.Ordinal) => CreateGameResponse(222),
+                _ => throw new InvalidOperationException("Unexpected individual lookup.")
+            };
         });
 
         var contexts = new[]
         {
-            new EnrichmentContext { TitleName = "Game 1", PlatformShortName = "snes", ExistingExternalId = "111" },
-            new EnrichmentContext
-            {
-                TitleName = "Game 2", PlatformShortName = "genesis", ExistingExternalId = "222"
-            }
+            new MetadataFetchRequest("111", new() { TitleName = "Game 1", PlatformShortName = "snes" }),
+            new MetadataFetchRequest("222", new() { TitleName = "Game 2", PlatformShortName = "genesis" })
         };
 
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(contexts)))
+        var results = new List<(MetadataFetchRequest, EnrichmentResult)>();
+        await foreach (var pair in provider.FetchAsync(ToAsyncEnumerable(contexts)))
         {
             results.Add(pair);
         }
@@ -559,121 +396,7 @@ public class IgdbMetadataProviderTests
     }
 
     [Fact]
-    public async Task EnrichAsync_UnsupportedPlatformsBypassBuffer()
-    {
-        int igdbRequestCount = 0;
-        var provider = CreateProvider(request =>
-        {
-            if (request.RequestUri?.Host == "id.twitch.tv")
-            {
-                return CreateTokenResponse();
-            }
-
-            igdbRequestCount++;
-            return CreateGameResponse(1, "Game 1");
-        });
-
-        var contexts = new[]
-        {
-            new EnrichmentContext { TitleName = "Unsupported Game", PlatformShortName = "unsupported_xyz" },
-            new EnrichmentContext { TitleName = "Game 1", PlatformShortName = "snes" }
-        };
-
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(contexts)))
-        {
-            results.Add(pair);
-        }
-
-        results.Count.ShouldBe(2);
-        results[0].Item2.Outcome.ShouldBe(EnrichmentOutcome.PlatformNotSupported);
-        results[1].Item2.Outcome.ShouldBe(EnrichmentOutcome.Found);
-
-        // Only requests for the supported platform
-        igdbRequestCount.ShouldBeGreaterThanOrEqualTo(1);
-    }
-
-    [Fact]
-    public async Task EnrichAsync_MultipleResults_SelectsBestConfidenceMatch()
-    {
-        var provider = CreateProvider(request =>
-        {
-            if (request.RequestUri?.Host == "id.twitch.tv")
-            {
-                return CreateTokenResponse();
-            }
-
-            // Return multiple games — the best name match should be selected
-            object[] games = new object[]
-            {
-                new Dictionary<string, object>
-                {
-                    ["id"] = 111, ["name"] = "Mario Teaches Typing", ["summary"] = "Not a match"
-                },
-                new Dictionary<string, object>
-                {
-                    ["id"] = 222, ["name"] = "Mario Paint", ["summary"] = "The actual game"
-                },
-                new Dictionary<string, object>
-                {
-                    ["id"] = 333, ["name"] = "Mario Party", ["summary"] = "Also not it"
-                }
-            };
-            string json = JsonSerializer.Serialize(games);
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
-            };
-        });
-
-        var context = new EnrichmentContext { TitleName = "Mario Paint", PlatformShortName = "snes" };
-
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(context)))
-        {
-            results.Add(pair);
-        }
-
-        results.Count.ShouldBe(1);
-        results[0].Item2.Outcome.ShouldBe(EnrichmentOutcome.Found);
-        // Should pick "Mario Paint" (id 222) as it has the highest confidence match
-        results[0].Item2.ExternalId.ShouldBe("222");
-    }
-
-    [Fact]
-    public async Task EnrichAsync_SearchContextGoesDirectlyToIndividualSearch()
-    {
-        var requestPaths = new List<string>();
-        var provider = CreateProvider(request =>
-        {
-            if (request.RequestUri?.Host == "id.twitch.tv")
-            {
-                return CreateTokenResponse();
-            }
-
-            requestPaths.Add(request.RequestUri?.AbsolutePath ?? "");
-            return CreateGameResponse(42, "Mario Paint");
-        });
-
-        var context = new EnrichmentContext { TitleName = "Mario Paint", PlatformShortName = "snes" };
-
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(context)))
-        {
-            results.Add(pair);
-        }
-
-        results.Count.ShouldBe(1);
-        results[0].Item2.Outcome.ShouldBe(EnrichmentOutcome.Found);
-        results[0].Item2.ExternalId.ShouldBe("42");
-
-        // Search goes directly to /v4/games, never multi-query
-        requestPaths.ShouldContain("/v4/games");
-        requestPaths.ShouldNotContain("/v4/multiquery");
-    }
-
-    [Fact]
-    public async Task EnrichAsync_QueryUsesExpandedAgeRatingFields()
+    public async Task FetchAsync_QueryUsesExpandedAgeRatingFields()
     {
         string? capturedQuery = null;
         var provider = CreateProvider(request =>
@@ -684,12 +407,12 @@ public class IgdbMetadataProviderTests
             }
 
             capturedQuery = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
-            return CreateGameResponse();
+            return CreateMultiQueryResponse(("q0", 12345, "Super Mario World"));
         });
 
-        var context = new EnrichmentContext { TitleName = "Super Mario World", PlatformShortName = "snes" };
+        var request = new MetadataFetchRequest("12345", new() { TitleName = "Super Mario World", PlatformShortName = "snes" });
 
-        await DrainAsync(provider.EnrichAsync(ToAsyncEnumerable(context)));
+        await DrainAsync(provider.FetchAsync(ToAsyncEnumerable(request)));
 
         capturedQuery.ShouldNotBeNull();
         capturedQuery.ShouldContain("age_ratings.id");
@@ -702,7 +425,7 @@ public class IgdbMetadataProviderTests
     }
 
     [Fact]
-    public async Task EnrichAsync_MultiBoardAgeRatings_MapsClaimsWithDescriptorsSynopsisAndLegacyScalar()
+    public async Task FetchAsync_MultiBoardAgeRatings_MapsClaimsWithDescriptorsSynopsisAndLegacyScalar()
     {
         var provider = CreateProvider(request =>
         {
@@ -750,10 +473,10 @@ public class IgdbMetadataProviderTests
                 });
         });
 
-        var context = new EnrichmentContext { TitleName = "Super Mario World", PlatformShortName = "snes" };
+        var request = new MetadataFetchRequest("12345", new() { TitleName = "Super Mario World", PlatformShortName = "snes" });
 
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(context)))
+        var results = new List<(MetadataFetchRequest, EnrichmentResult)>();
+        await foreach (var pair in provider.FetchAsync(ToAsyncEnumerable(request)))
         {
             results.Add(pair);
         }
@@ -784,7 +507,7 @@ public class IgdbMetadataProviderTests
     }
 
     [Fact]
-    public async Task EnrichAsync_UnknownOrganizationOrCategory_DropsClaimWithoutGuessing()
+    public async Task FetchAsync_UnknownOrganizationOrCategory_DropsClaimWithoutGuessing()
     {
         var provider = CreateProvider(request =>
         {
@@ -823,10 +546,10 @@ public class IgdbMetadataProviderTests
                 });
         });
 
-        var context = new EnrichmentContext { TitleName = "Super Mario World", PlatformShortName = "snes" };
+        var request = new MetadataFetchRequest("12345", new() { TitleName = "Super Mario World", PlatformShortName = "snes" });
 
-        var results = new List<(EnrichmentContext, EnrichmentResult)>();
-        await foreach (var pair in provider.EnrichAsync(ToAsyncEnumerable(context)))
+        var results = new List<(MetadataFetchRequest, EnrichmentResult)>();
+        await foreach (var pair in provider.FetchAsync(ToAsyncEnumerable(request)))
         {
             results.Add(pair);
         }
@@ -840,7 +563,7 @@ public class IgdbMetadataProviderTests
     }
 
     [Fact]
-    public async Task EnrichAsync_TokenStillValid_ReusesAccessToken()
+    public async Task FetchAsync_TokenStillValid_ReusesAccessToken()
     {
         var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 1, 1, 12, 0, 0, TimeSpan.Zero));
         var tokenRequestCount = 0;
@@ -852,36 +575,36 @@ public class IgdbMetadataProviderTests
                 return CreateTokenResponse();
             }
 
-            return CreateGameResponse();
+            return CreateMultiQueryResponse(("q0", 12345, "Super Mario World"));
         }, timeProvider);
 
-        var context = new EnrichmentContext { TitleName = "Super Mario World", PlatformShortName = "snes" };
+        var request = new MetadataFetchRequest("12345", new() { TitleName = "Super Mario World", PlatformShortName = "snes" });
 
-        await DrainAsync(provider.EnrichAsync(ToAsyncEnumerable(context)));
+        await DrainAsync(provider.FetchAsync(ToAsyncEnumerable(request)));
 
         timeProvider.Advance(TimeSpan.FromMinutes(30));
-        await DrainAsync(provider.EnrichAsync(ToAsyncEnumerable(context)));
+        await DrainAsync(provider.FetchAsync(ToAsyncEnumerable(request)));
 
         tokenRequestCount.ShouldBe(1);
 
         timeProvider.Advance(TimeSpan.FromMinutes(31));
-        await DrainAsync(provider.EnrichAsync(ToAsyncEnumerable(context)));
+        await DrainAsync(provider.FetchAsync(ToAsyncEnumerable(request)));
 
         tokenRequestCount.ShouldBe(2);
     }
 
-    private static async IAsyncEnumerable<EnrichmentContext> ToAsyncEnumerable(
-        params EnrichmentContext[] contexts)
+    private static async IAsyncEnumerable<MetadataFetchRequest> ToAsyncEnumerable(
+        params MetadataFetchRequest[] requests)
     {
-        foreach (var ctx in contexts)
+        foreach (var request in requests)
         {
-            yield return ctx;
+            yield return request;
         }
 
         await Task.CompletedTask;
     }
 
-    private static async Task DrainAsync(IAsyncEnumerable<(EnrichmentContext, EnrichmentResult)> results)
+    private static async Task DrainAsync(IAsyncEnumerable<(MetadataFetchRequest, EnrichmentResult)> results)
     {
         await foreach (var _ in results)
         {

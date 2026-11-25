@@ -18,6 +18,7 @@ using Romd.Domain.Catalog;
 using Romd.Domain.Jobs;
 using Romd.Domain.Source.Platform;
 using Romd.Infrastructure.Artwork;
+using Romd.Infrastructure.Providers.Igdb;
 using Romd.Infrastructure.Jobs;
 using Romd.Infrastructure.Jobs.Executors;
 using Romd.Infrastructure.Realtime;
@@ -417,7 +418,7 @@ public sealed class ArtworkWorkerPublicationOwnershipTests : IAsyncLifetime
             {
                 using var handler = new DownloadHandler(this);
                 var clients = Substitute.For<IHttpClientFactory>();
-                clients.CreateClient(AutomaticArtworkService.HttpClientName).Returns(_ => new HttpClient(handler, disposeHandler: false));
+                clients.CreateClient(IgdbArtworkProvider.HttpClientName).Returns(_ => new HttpClient(handler, disposeHandler: false));
                 var result = EnrichmentResult.Found("42", 1, new EnrichmentData()) with
                 {
                     Artwork = roles.Select(role => new EnrichmentArtworkCandidate(role.ToString().ToLowerInvariant(), role,

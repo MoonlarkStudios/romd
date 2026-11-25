@@ -4,7 +4,7 @@ namespace Romd.Admin.Application.Titles.Enrichment;
 
 /// <summary>
 ///     Context passed to a metadata provider for enrichment.
-///     Contains all information the provider needs to find and return metadata.
+///     Carries local release evidence alongside an explicit game ID for metadata fetches.
 /// </summary>
 public sealed record EnrichmentContext
 {
@@ -15,15 +15,8 @@ public sealed record EnrichmentContext
 
     /// <summary>
     ///     Canonical platform short name (e.g., "snes", "genesis").
-    ///     Providers translate this to their own platform IDs internally.
     /// </summary>
     public required string PlatformShortName { get; init; }
-
-    /// <summary>
-    ///     Existing external ID for this provider, if any.
-    ///     Allows re-fetching by known ID instead of searching.
-    /// </summary>
-    public string? ExistingExternalId { get; init; }
 
     /// <summary>
     ///     Year from the representative DAT game entry (e.g., "1994").

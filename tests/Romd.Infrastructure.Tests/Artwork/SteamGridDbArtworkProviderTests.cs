@@ -7,9 +7,9 @@ using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Artwork.Settings;
 using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
-using Romd.Infrastructure.Artwork.SteamGridDb;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.SteamGridDb;
 
 namespace Romd.Infrastructure.Tests.Artwork;
 

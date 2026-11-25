@@ -1,4 +1,4 @@
-namespace Romd.Infrastructure.Artwork.SteamGridDb;
+namespace Romd.Infrastructure.Providers.SteamGridDb;
 
 /// <summary>Bounds provider network work across scopes; leases cover streamed bodies and redirects.</summary>
 public sealed class SteamGridDbRequestGate

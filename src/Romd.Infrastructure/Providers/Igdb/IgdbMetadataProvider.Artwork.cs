@@ -4,7 +4,7 @@ using System.Text.Json;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Domain.Catalog;
 
-namespace Romd.Infrastructure.Enrichment;
+namespace Romd.Infrastructure.Providers.Igdb;
 
 public sealed partial class IgdbMetadataProvider
 {

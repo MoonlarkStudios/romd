@@ -11,7 +11,7 @@ using Romd.Application.Common.Concurrency;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Contracts.Management.MetadataProviders;
 
-namespace Romd.Infrastructure.Enrichment;
+namespace Romd.Infrastructure.Providers.Igdb;
 
 /// <summary>Stores only protected secrets. Plaintext is held only in a scoped runtime snapshot.</summary>
 public sealed class IgdbProviderSettingsService : IIgdbProviderSettingsService

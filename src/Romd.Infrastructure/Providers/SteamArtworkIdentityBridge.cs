@@ -1,9 +1,11 @@
 using ErrorOr;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Domain.Catalog;
-using Romd.Infrastructure.Enrichment;
 
-namespace Romd.Infrastructure.Artwork.SteamGridDb;
+using Romd.Infrastructure.Providers.Igdb;
+using Romd.Infrastructure.Providers.SteamGridDb;
+
+namespace Romd.Infrastructure.Providers;
 
 public sealed class SteamArtworkIdentityBridge(IgdbMetadataProvider igdb, SteamGridDbArtworkProvider steamGridDb)
     : IArtworkIdentityBridge

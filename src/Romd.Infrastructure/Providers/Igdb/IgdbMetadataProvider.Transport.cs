@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Romd.Infrastructure.Enrichment;
+namespace Romd.Infrastructure.Providers.Igdb;
 
 public sealed partial class IgdbMetadataProvider
 {

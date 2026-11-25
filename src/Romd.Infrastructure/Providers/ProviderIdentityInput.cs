@@ -1,4 +1,4 @@
-namespace Romd.Infrastructure.Enrichment;
+namespace Romd.Infrastructure.Providers;
 
 internal static class ProviderIdentityInput
 {

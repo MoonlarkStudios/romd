@@ -1,4 +1,4 @@
-namespace Romd.Infrastructure.Artwork.SteamGridDb;
+namespace Romd.Infrastructure.Providers.SteamGridDb;
 
 /// <summary>Register as singleton so provider throttling survives scoped credential/service instances.</summary>
 public sealed class SteamGridDbRateGate
