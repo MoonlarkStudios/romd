@@ -36,6 +36,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             bool datRequiresReview = snapshot.DatFamily?.RequiresReview == true;
             bool steamGridDb = adapter.Id == "steamgriddb";
             bool igdbMetadata = adapter.Id == "igdb";
+            var parent = steamGridDb && !datRequiresReview ? snapshot.DatParent : null;
             var igdb = steamGridDb && !datRequiresReview
                 ? snapshot.Links.SingleOrDefault(x => x is { ProviderId: "igdb", Trusted: true, Suppressed: false, GameId: not null })
                 : null;
@@ -50,7 +51,8 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 (provisionalPolicyVersion is not null && priorDecision.ProvisionalPolicyVersion != provisionalPolicyVersion ||
                     steamGridDb && priorDecision.ArtworkReleasePolicyVersion != ArtworkReleaseMatchPolicy.Version);
             if (!needsPolicyEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
-                && link.LastAttempt > clock.GetUtcNow() - delay && (!steamGridDb || igdbDependency == cachedIgdbDependency))
+                && link.LastAttempt > clock.GetUtcNow() - delay &&
+                (!steamGridDb || igdbDependency == cachedIgdbDependency && link.Decision?.EvaluatedDatParent == parent?.Match))
                 continue;
             ArtworkBridgeMatch? bridged = null;
             ProviderIdentityDependency? dependency = igdbDependency;
@@ -69,6 +71,22 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             }
             if (retryAfterByProvider.ContainsKey(adapter.Id))
                 continue;
+            var facts = snapshot.Facts;
+            DatParentMatch? inherited = null;
+            if (bridged is null && parent is not null)
+            {
+                var resolved = await adapter.ResolveAsync(parent.Match.GameId, ct);
+                if (resolved.IsError && RememberThrottle(adapter.Id, resolved.Errors))
+                    continue;
+                if (!resolved.IsError && resolved.Value.Id == parent.Match.GameId)
+                {
+                    inherited = parent.Match;
+                    dependency = null;
+                    facts = new(facts.Name, [.. facts.Names, parent.TitleName], facts.Years, facts.Platforms, facts.Provenance);
+                    bridged = new(resolved.Value,
+                        $"The hash-verified DAT clone inherits the trusted SteamGridDB match for {parent.TitleName} via {parent.ReleaseName}.");
+                }
+            }
             var found = bridged is not null ? ErrorOr.ErrorOrFactory.From(new SearchEvidence([bridged.Game], true, true)) :
                 await SearchCandidatesAsync(adapter, snapshot.Facts, snapshot.DatFamily?.Names ?? [], ct);
             if (found.IsError && RememberThrottle(adapter.Id, found.Errors))
@@ -85,7 +103,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 // Bridge trust is tied to the source game and its association revision.
                 var evidence = new IdentitySearchEvidence(candidates, found.Value.Complete,
                     bridged is null ? null : new TrustedIdentityBridgeEvidence(bridged.Game.Id, bridged.Evidence));
-                var evaluation = ProviderIdentityPolicy.Decide(snapshot.Facts, evidence, adapter.IdentityScope);
+                var evaluation = ProviderIdentityPolicy.Decide(facts, evidence, adapter.IdentityScope);
                 bool artworkSearch = steamGridDb && bridged is null;
                 if (!datRequiresReview && !artworkSearch && evaluation is IdentityDecision.AutoAccepted match)
                     accepted = found.Value.Games.Single(x => x.Id == match.CandidateId);
@@ -170,7 +188,9 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             decision = decision with
             {
                 LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms),
-                ArtworkReleasePolicyVersion = steamGridDb ? ArtworkReleaseMatchPolicy.Version : null
+                ArtworkReleasePolicyVersion = steamGridDb ? ArtworkReleaseMatchPolicy.Version : null,
+                DatParentMatch = accepted is not null ? inherited : null,
+                EvaluatedDatParent = parent?.Match
             };
             await PersistDecisionAsync(snapshot, adapter.Id, link?.Revision ?? Guid.Empty, decision, accepted, owner, ct);
         }

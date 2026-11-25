@@ -42,7 +42,8 @@ internal static class HashBackedDatFamilyReader
                      ORDER BY g."Id" LIMIT 2)
                 ) parent
             )
-            SELECT g."Id", g."Name", g."DeclaredId", g."CloneOf", g."CloneOfId", g."IsBios"
+            SELECT g."Id", g."Name", g."DeclaredId", g."CloneOf", g."CloneOfId", g."IsBios",
+                   g."DevelopmentStatus", g."Category"
             FROM ancestry a
             JOIN romd."DatGames" g ON g."Id" = a."Id"
             """).ToArrayAsync(ct);
@@ -80,10 +81,22 @@ internal static class HashBackedDatFamilyReader
             }
         }
 
-        return new(matchedNames.Where(name => name != root).Prepend(root).ToArray(), false);
+        var rootEntry = entries.Single(entry => entry.Name == root);
+        bool canInherit = !matchedIds.Contains(rootEntry.Id) && IsRetailRelease(rootEntry) &&
+            entries.Where(entry => matchedIds.Contains(entry.Id)).All(IsRetailRelease);
+        return new(matchedNames.Where(name => name != root).Prepend(root).ToArray(), false)
+        {
+            Parent = canInherit ? new(matches[0].DatFileId, rootEntry.Id, root) : null
+        };
     }
+
+    private static bool IsRetailRelease(Entry entry) =>
+        (entry.Category?.ToUpperInvariant() is null or "GAME" or "GAMES") &&
+        (entry.DevelopmentStatus is null || string.Equals(entry.DevelopmentStatus, "Stable", StringComparison.OrdinalIgnoreCase)) &&
+        !DatNameParser.HasNonRetailQualifier(entry.Name);
 
     private sealed record Match(int DatFileId, int GameId);
 
-    private sealed record Entry(int Id, string Name, string? DeclaredId, string? CloneOf, string? CloneOfId, bool IsBios);
+    private sealed record Entry(int Id, string Name, string? DeclaredId, string? CloneOf, string? CloneOfId, bool IsBios,
+        string? DevelopmentStatus, string? Category);
 }
