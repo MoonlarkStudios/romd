@@ -120,10 +120,16 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 .Select(x => ProviderIdentityDatabaseFunctions.Fingerprint(x.Id, ProviderIdentityPolicy.Version)).SingleAsync(ct);
             if (fingerprint != snapshot.Fingerprint)
                 return Receipt(false);
-            if (decision.ArtworkPlatformAliases is { } aliases &&
-                (providerId != "steamgriddb" || accepted is null || !aliases.SequenceEqual(snapshot.ArtworkPlatformAliases) ||
-                    !aliases.SequenceEqual(await ReadArtworkPlatformAliasesAsync(snapshot.TitleId, ct))))
-                return Receipt(false);
+            if (decision.ArtworkPlatformAliases is { } aliases)
+            {
+                var provisional = snapshot.DatFamily is { RequiresReview: false } &&
+                    decision is { State: "NeedsReview", ProvisionalGameId: { } provisionalId } &&
+                    decision.Candidates.FirstOrDefault()?.Game.Id == provisionalId;
+                if (providerId != "steamgriddb" || accepted is null && !provisional || aliases.Count == 0 ||
+                    !aliases.SequenceEqual(snapshot.ArtworkPlatformAliases) ||
+                    !aliases.SequenceEqual(await ReadArtworkPlatformAliasesAsync(snapshot.TitleId, ct)))
+                    return Receipt(false);
+            }
             if (decision.DatParentMatch is { } inherited &&
                 (providerId != "steamgriddb" || accepted?.Id != inherited.GameId || inherited != snapshot.DatParent?.Match ||
                     snapshot.DatFamily?.Parent is not { } parent ||
