@@ -56,6 +56,9 @@ public sealed record ProviderIdentityDecision(
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("PosterPolicyVersion")]
     public string? ProvisionalPolicyVersion { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ArtworkReleasePolicyVersion { get; init; }
 }
 
 public sealed record ProviderIdentityFacts(string Name, IReadOnlyList<string> Names, IReadOnlyList<int> Years, IReadOnlyList<string> Platforms);

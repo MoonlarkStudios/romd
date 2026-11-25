@@ -6,6 +6,7 @@ using Romd.Admin.Application.MetadataProviders;
 using Romd.Application.Common.Concurrency;
 using Romd.Domain.Catalog;
 using Romd.Domain.Jobs;
+using Romd.Persistence.Artwork;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Repositories;
 
@@ -109,10 +110,7 @@ public sealed partial class TitleProviderMatchStore : ITitleProviderMatchStore, 
             link.IsConfirmed = true;
         }
         if (!unlink && link is not null)
-            await _db.ArtworkAssets.Where(asset => asset.TitleId == titleId && asset.IsProvisional &&
-                asset.SourceId == providerId && asset.ProviderGameId == link.ExternalId && !asset.IsRejected)
-                .ExecuteUpdateAsync(set => set.SetProperty(asset => asset.IsProvisional, false)
-                    .SetProperty(asset => asset.IsEligible, true), ct);
+            await _db.ArtworkAssets.PromoteProvisionalAsync(titleId, providerId, link.ExternalId, ct);
         await _db.Set<TitleProviderMatchStateEntity>().Where(x => x.TitleId == titleId && x.ProviderId != providerId &&
             !x.SuppressAutomaticMatch && !x.AutomaticallyTrusted)
             .ExecuteUpdateAsync(x => x.SetProperty(s => s.LastAttemptAt, (DateTimeOffset?)null), ct);

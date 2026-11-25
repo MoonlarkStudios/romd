@@ -46,10 +46,10 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             var delay = link?.Decision?.State == "Unavailable" ? TimeSpan.FromMinutes(1) : TimeSpan.FromHours(6);
             var provisionalPolicyVersion = steamGridDb ? ProvisionalProviderMatchPolicy.Version :
                 igdbMetadata ? ProvisionalProviderMatchPolicy.MetadataVersion : null;
-            var needsProvisionalEvaluation = provisionalPolicyVersion is not null &&
-                link?.Decision is { State: "NeedsReview" or "NoMatch" } priorDecision &&
-                priorDecision.ProvisionalPolicyVersion != provisionalPolicyVersion;
-            if (!needsProvisionalEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
+            var needsPolicyEvaluation = link?.Decision is { State: "NeedsReview" or "NoMatch" } priorDecision &&
+                (provisionalPolicyVersion is not null && priorDecision.ProvisionalPolicyVersion != provisionalPolicyVersion ||
+                    steamGridDb && priorDecision.ArtworkReleasePolicyVersion != ArtworkReleaseMatchPolicy.Version);
+            if (!needsPolicyEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
                 && link.LastAttempt > clock.GetUtcNow() - delay && (!steamGridDb || igdbDependency == cachedIgdbDependency))
                 continue;
             ArtworkBridgeMatch? bridged = null;
@@ -86,13 +86,19 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 var evidence = new IdentitySearchEvidence(candidates, found.Value.Complete,
                     bridged is null ? null : new TrustedIdentityBridgeEvidence(bridged.Game.Id, bridged.Evidence));
                 var evaluation = ProviderIdentityPolicy.Decide(snapshot.Facts, evidence, adapter.IdentityScope);
-                bool requiresVerifiedBridge = steamGridDb && bridged is null;
-                if (!datRequiresReview && !requiresVerifiedBridge && evaluation is IdentityDecision.AutoAccepted match)
+                bool artworkSearch = steamGridDb && bridged is null;
+                if (!datRequiresReview && !artworkSearch && evaluation is IdentityDecision.AutoAccepted match)
                     accepted = found.Value.Games.Single(x => x.Id == match.CandidateId);
                 var ranked = evaluation.Candidates.Select(x => new ProviderIdentityCandidate(
                     found.Value.Games.Single(g => g.Id == x.CandidateId), x.Score, x.Eligible, x.Evidence, x.Conflicts)).ToArray();
-                if (requiresVerifiedBridge && igdb?.TrustedGame is { } trustedGame && trustedGame.Id == igdb.GameId)
-                    ranked = RankArtworkReviewByPlatformYear(ranked, trustedGame, snapshot.Facts.Platforms);
+                var trustedGame = artworkSearch && igdb?.TrustedGame is { } sourceGame && sourceGame.Id == igdb.GameId
+                    ? sourceGame
+                    : null;
+                var trustedPlatformYears = trustedGame is not null
+                    ? PlatformYears(trustedGame, snapshot.Facts.Platforms).Where(year => year is >= 1900 and <= 2200).ToArray()
+                    : [];
+                if (trustedPlatformYears.Length > 0)
+                    ranked = RankArtworkReviewByPlatformYear(ranked, trustedPlatformYears);
                 decision = new(evaluation.State, evaluation.Explanation, snapshot.Facts.Provenance, snapshot.Fingerprint,
                     ranked, dependency is null ? [] : [dependency]);
                 if (datRequiresReview)
@@ -101,28 +107,42 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                         State = "NeedsReview",
                         Explanation = "The stored ROM matches do not identify a single resolved clone family in an active DAT. Confirm a provider game identity."
                     };
-                else if (requiresVerifiedBridge && evaluation is IdentityDecision.AutoAccepted)
+                else if (artworkSearch)
+                {
+                    var release = found.Value is { Complete: true, Consistent: true }
+                        ? ArtworkReleaseMatchPolicy.Select(snapshot.Facts, ranked, trustedPlatformYears, trustedGame?.Year)
+                        : null;
+                    if (release is not null)
+                    {
+                        accepted = release.Game;
+                        var yearSource = snapshot.Facts.Years.Count > 0 ? "local catalog evidence" : "the trusted IGDB release on the local platform";
+                        decision = decision with
+                        {
+                            State = "AutoAccepted",
+                            Explanation = $"SteamGridDB returned a single matching title for {accepted.Year}, supported by {yearSource}.",
+                            Candidates = [release, .. ranked.Where(candidate => candidate.Game.Id != release.Game.Id)],
+                            Dependencies = trustedPlatformYears.Length == 0 ? [] : decision.Dependencies
+                        };
+                    }
+                    else if (evaluation is IdentityDecision.AutoAccepted)
+                        decision = decision with
+                        {
+                            State = "NeedsReview",
+                            Explanation = "SteamGridDB title search did not establish a unique match with a corroborated release year."
+                        };
+                }
+                if (artworkSearch)
+                {
+                    var provisionalGameId = decision.State == "NeedsReview" && found.Value.Consistent && link?.GameId is null &&
+                        snapshot.DatFamily is { RequiresReview: false }
+                        ? ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates, trustedPlatformYears)
+                        : null;
                     decision = decision with
                     {
-                        State = "NeedsReview",
-                        Explanation = "Automatic SteamGridDB matching requires a verified provider ID bridge. Confirm a provider game identity."
+                        ProvisionalGameId = provisionalGameId,
+                        ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version
                     };
-            }
-            if (steamGridDb && bridged is null && !found.IsError)
-            {
-                string? provisionalGameId = null;
-                if (decision.State == "NeedsReview" && found.Value.Consistent && link?.GameId is null &&
-                    snapshot.DatFamily is { RequiresReview: false } && igdb?.TrustedGame is { } trustedGame &&
-                    trustedGame.Id == igdb.GameId)
-                {
-                    provisionalGameId = ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates,
-                        PlatformYears(trustedGame, snapshot.Facts.Platforms));
                 }
-                decision = decision with
-                {
-                    ProvisionalGameId = provisionalGameId,
-                    ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version
-                };
             }
             if (igdbMetadata && bridged is null && !found.IsError)
             {
@@ -147,7 +167,11 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                     };
                 }
             }
-            decision = decision with { LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms) };
+            decision = decision with
+            {
+                LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms),
+                ArtworkReleasePolicyVersion = steamGridDb ? ArtworkReleaseMatchPolicy.Version : null
+            };
             await PersistDecisionAsync(snapshot, adapter.Id, link?.Revision ?? Guid.Empty, decision, accepted, owner, ct);
         }
         return retryAfterByProvider.Count == 0 ? ProviderIdentityDiscoveryResult.Empty :
@@ -248,12 +272,11 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             .SetEquals((next.Releases ?? []).Select(x => (x.Year, x.Platform)));
 
     private static ProviderIdentityCandidate[] RankArtworkReviewByPlatformYear(
-        ProviderIdentityCandidate[] candidates, ProviderGame trustedGame, IReadOnlyList<string> platforms)
+        ProviderIdentityCandidate[] candidates, IReadOnlyList<int> trustedPlatformYears)
     {
-        var years = PlatformYears(trustedGame, platforms).Where(year => year is >= 1900 and <= 2200).ToHashSet();
         // Keep identity scores intact. Year evidence breaks ties among review candidates.
         return candidates.Select(candidate => (Candidate: candidate,
-                YearMatches: candidate.Conflicts.Count == 0 && candidate.Game.Year is { } year && years.Contains(year)))
+                YearMatches: candidate.Conflicts.Count == 0 && candidate.Game.Year is { } year && trustedPlatformYears.Contains(year)))
             .OrderByDescending(result => result.Candidate.Score)
             .ThenByDescending(result => result.YearMatches)
             .Select(result => result.YearMatches
