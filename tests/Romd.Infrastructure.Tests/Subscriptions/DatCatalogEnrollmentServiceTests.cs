@@ -573,11 +573,13 @@ public sealed partial class DatCatalogEnrollmentServiceTests
         created.Subscription.ActiveDatId.ShouldBe(second.DatId);
         created.Subscription.State.ShouldBe("UpToDate");
         (await h.Db.DatSubscriptions.SingleAsync()).DatSourceId.ShouldBe(second.SourceId);
+        int discoveryCount = h.Client.Discoveries;
         // Replays are idempotent on the catalog and never rebind it to another source.
         (await h.CreateAsync(Catalog, second.DatId, default)).Value.Created.ShouldBeFalse();
         (await h.CreateAsync(Catalog, null, default)).Value.Subscription.Id.ShouldBe(created.Subscription.Id);
         (await h.CreateAsync(Catalog, first.DatId, default)).FirstError.Code.ShouldBe("DatEnrollment.Ambiguous");
-        h.Client.Fetches.ShouldBe(1);
+        h.Client.Discoveries.ShouldBe(discoveryCount);
+        h.Client.Fetches.ShouldBe(0);
     }
 
     [Fact]
