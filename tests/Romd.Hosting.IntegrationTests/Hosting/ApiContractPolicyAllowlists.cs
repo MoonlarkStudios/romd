@@ -42,6 +42,12 @@ internal static class ApiContractPolicyAllowlists
                     "A stale pin is rejected at acceptance or deferred by the worker before publication.")
             },
             {
+                "admin StartServerImport.reviewedRevision",
+                new(RevisionFieldClassification.SnapshotBinding,
+                    "Binds the retry to the saved originals observed by GET /api/upload/server-folder/retries/{jobId}. " +
+                    "A changed observation or newer folder acceptance returns 409 before creating a job.")
+            },
+            {
                 "admin MergeTitlesRequest.sourceTitleRevision",
                 new(RevisionFieldClassification.Batch,
                     "A merge writes two titles: the target is the If-Match resource of POST /api/titles/{titleId}/merge, " +
