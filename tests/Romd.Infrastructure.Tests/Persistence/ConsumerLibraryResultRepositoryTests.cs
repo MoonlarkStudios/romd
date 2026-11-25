@@ -6,12 +6,16 @@ using Romd.Consumer.Application.Browse.ReadModels;
 using Romd.Consumer.Application.Collections;
 using Romd.Consumer.Application.Delivery;
 using Romd.Consumer.Application.Libraries;
+using Romd.Domain.Catalog;
+using Romd.Domain.Hashing;
 using Romd.Domain.Libraries;
+using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Identity;
 using Romd.Persistence.Identity;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Repositories;
+using Romd.Persistence.Search;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
@@ -124,6 +128,46 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
         detail.System.Key.ShouldBe(rated.System.Key);
         detail.ContentRatings.ShouldBe(rated.ContentRatings);
         result.Items.Single(item => item.Name == "Mixed Releases").EsrbRating.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SearchCatalogAsync_DatAliasUsesItsOwnCatalogSourceStatus()
+    {
+        await SeedCompletenessScenariosAsync();
+        await using var context = CreateContext();
+        const int datSourceId = 1;
+        const int catalogSourceId = 2;
+        const string alias = "Crimson Road (USA)";
+        context.CatalogSources.AddRange(
+            new CatalogSourceEntity { Id = datSourceId, Kind = nameof(CatalogSourceKind.Manual), Status = nameof(CatalogSourceStatus.Disabled) },
+            new CatalogSourceEntity { Id = catalogSourceId, Kind = nameof(CatalogSourceKind.Dat), Status = nameof(CatalogSourceStatus.Active) });
+        context.DatSources.Add(new DatSourceEntity { Id = datSourceId, CatalogSourceId = catalogSourceId });
+        context.Files.Add(new FileEntityPersistence { Id = 1, Sha256 = Sha256.Parse(new string('a', 64)), Size = 1, SizeOnDisk = 1 });
+        context.DatFiles.Add(new DatFileEntity
+        {
+            Id = 1, DatSourceId = datSourceId, FileId = 1, PlatformId = 1,
+            Name = "Regional releases", Description = "Regional releases",
+            OriginalFilename = "regional.dat", Type = nameof(DatType.Custom)
+        });
+        context.SourceEntries.Add(new SourceEntryEntity { Id = 1, CatalogSourceId = catalogSourceId, PlatformId = 1, EntryKey = "regional", Name = alias });
+        context.DatGames.Add(new DatGameEntity { Id = 1, DatFileId = 1, SourceEntryId = 1, Name = alias, SearchDocument = SearchDocuments.For(alias, null) });
+        context.CatalogReleases.Add(new CatalogReleaseEntity { Id = 1, PlatformId = 1, CatalogTitleId = 1, Name = alias, Fingerprint = "regional" });
+        context.CatalogReleaseSources.Add(new CatalogReleaseSourceEntity { CatalogReleaseId = 1, SourceEntryId = 1, ProviderClaimKey = "regional" });
+        await context.SaveChangesAsync();
+        await context.MaterializedLibraryReleases.Where(release => release.LibraryId == _libraryId && release.DatGameId == 1)
+            .ExecuteUpdateAsync(update => update.SetProperty(release => release.CatalogReleaseId, 1));
+
+        var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
+        var filters = new ConsumerCatalogFilters("Crimson Road", null, null, ConsumerCompletenessFilter.All, ConsumerTitleSortField.Name);
+        (await SearchAsync()).Items.ShouldHaveSingleItem().Name.ShouldBe("All Complete");
+
+        await context.CatalogSources.ExecuteUpdateAsync(update => update.SetProperty(source => source.Status,
+            source => source.Id == catalogSourceId ? nameof(CatalogSourceStatus.Disabled) : nameof(CatalogSourceStatus.Active)));
+        (await SearchAsync()).Items.ShouldBeEmpty();
+
+        async Task<PagedList<ConsumerTitleCardData>> SearchAsync() =>
+            (await repository.SearchCatalogAsync(new ConsumerLibraryScope(UserId), filters, ConsumerReleasePreference.Default, null, 20))
+            .ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerTitleCardData>>.Found>().Value;
     }
 
     [Fact]
