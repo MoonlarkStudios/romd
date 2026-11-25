@@ -4,7 +4,6 @@ using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Application.Common.Concurrency;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Infrastructure.Tests.Helpers;
 using Romd.Persistence.Entities;

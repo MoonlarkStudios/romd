@@ -19,6 +19,7 @@ for design and review; load linked owners when their contracts are affected.
 ## Project map
 
 - `Romd.Domain`: entities, value objects and domain policies; no external dependencies.
+- `Romd.Dat`: standalone DAT readers, Logiqx writer, and relationship resolution.
 - `Romd.Application.Common`: shared CQRS, IDs, pagination, jobs and security ports.
 - `Romd.Admin.Application` / `Romd.Consumer.Application`: use cases, read models
   and ports for their respective surfaces.

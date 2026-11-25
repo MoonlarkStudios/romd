@@ -9,7 +9,6 @@ using NSubstitute;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 using Romd.Persistence.MetadataProviders;

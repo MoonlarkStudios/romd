@@ -10,6 +10,7 @@
     <ProjectReference Include="..\Romd.Admin.Application\Romd.Admin.Application.csproj"/>
     <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj"/>
     <ProjectReference Include="..\Romd.Consumer.Application\Romd.Consumer.Application.csproj"/>
+    <ProjectReference Include="..\Romd.Dat\Romd.Dat.csproj"/>
   </ItemGroup>
 
   <ItemGroup>

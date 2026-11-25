@@ -8,11 +8,9 @@ using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Configuration;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Ingestion.Jobs;
-using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Contracts.Management.Artwork;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Domain.Source.Platform;
 using Romd.Infrastructure.Artwork;
@@ -24,12 +22,11 @@ namespace Romd.Infrastructure.Tests.Artwork;
 
 public sealed class LinkedProviderArtworkServiceTests
 {
-    [Theory]
-    [InlineData("Confirmed")]
-    [InlineData("AutoMatched")]
-    public async Task FillAsync_TrustedProviderWithLogoCapability_PublishesAutomaticLogoWithoutPinning(string state)
+    [Fact]
+    public async Task FillAsync_AuthorizedProviderWithLogoCapability_PublishesAutomaticLogoWithoutPinning()
     {
         var acquisition = Substitute.For<IArtworkAcquisitionStore>();
+        acquisition.GetTitleRevisionAsync(1, Arg.Any<CancellationToken>()).Returns(Guid.NewGuid());
         acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(
             new ArtworkEnrichmentSettings(Guid.Empty, true, true, true, ["steamgriddb"]));
         acquisition.LockMissingAsync(1, ArtworkRole.Logo, 0, Arg.Any<CancellationToken>()).Returns(true);
@@ -42,11 +39,11 @@ public sealed class LinkedProviderArtworkServiceTests
         curation.GetGalleryAsync(1, Arg.Any<CancellationToken>())
             .Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
         var revision = Guid.NewGuid();
-        var matches = Substitute.For<ITitleProviderMatchService>();
-        matches.GetAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(value: [
-            new("steamgriddb", "SteamGridDB", true, ["artwork"], revision, state, "42",
-                new("42", "Game", "https://www.steamgriddb.com/game/42"), null, null, false)]));
-        matches.GetLinkRevisionAsync(1, "steamgriddb", "42", Arg.Any<CancellationToken>()).Returns(revision);
+        var matches = Substitute.For<IArtworkMatchAuthorizationService>();
+        var authorization = new ArtworkMatchAuthorization(new("steamgriddb", "42", revision), ArtworkRole.Logo);
+        matches.ReadAsync(1, "steamgriddb", ArtworkRole.Logo, Arg.Any<CancellationToken>())
+            .Returns(new ArtworkMatchResolution.Authorized(authorization));
+        matches.IsCurrentAsync(1, authorization, Arg.Any<CancellationToken>()).Returns(true);
         var browser = Substitute.For<IArtworkProviderBrowser>();
         browser.Capabilities.Returns(new ArtworkProviderCapabilities("steamgriddb", "SteamGridDB",
             [new(ArtworkRole.Logo, [], ["official"])], MediaTypes: [MediaType.Logo]));
@@ -84,15 +81,17 @@ public sealed class LinkedProviderArtworkServiceTests
     public async Task FillAsync_FirstProviderHasUnsuitableCandidate_FallsThroughInRolePolicyOrder()
     {
         var acquisition = Substitute.For<IArtworkAcquisitionStore>();
+        acquisition.GetTitleRevisionAsync(1, Arg.Any<CancellationToken>()).Returns(Guid.NewGuid());
         acquisition.GetSettingsAsync(default).ReturnsForAnyArgs(new ArtworkEnrichmentSettings(Guid.Empty, true, false, false, [], false));
         acquisition.GetProviderOrderAsync(ArtworkRole.Poster, default).ReturnsForAnyArgs(new[] { "steamgriddb", "igdb" });
         var curation = Substitute.For<IArtworkCurationRepository>();
         curation.GetStatesAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<ArtworkCurationState>>(
             Enum.GetValues<ArtworkRole>().Select(x => new ArtworkCurationState(x, ArtworkSelectionMode.Automatic, 0, null, null)).ToArray()));
         curation.GetGalleryAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
-        var matches = Substitute.For<ITitleProviderMatchService>();
-        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(
-            new[] { "steamgriddb", "igdb" }.Select(x => new TitleProviderMatch(x, x, true, ["artwork"], Guid.NewGuid(), "Confirmed", "42", null, null, null, false)).ToArray()));
+        var matches = Substitute.For<IArtworkMatchAuthorizationService>();
+        var originalRevision = Guid.NewGuid();
+        matches.ReadAsync(1, Arg.Any<string>(), ArtworkRole.Poster, Arg.Any<CancellationToken>())
+            .Returns(call => new ArtworkMatchResolution.Authorized(new(new(call.Arg<string>(), "42", originalRevision), ArtworkRole.Poster)));
         var calls = new List<string>();
         var browsers = new[] { "igdb", "steamgriddb" }.Select(id =>
         {
@@ -121,8 +120,9 @@ public sealed class LinkedProviderArtworkServiceTests
         await service.FillAsync(title, platform, new JobContext(null, _ => Task.CompletedTask, default), default);
         calls.ShouldBeEmpty();
         // A changed association must immediately search again, even within the empty-result cache window.
-        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(
-            new[] { "steamgriddb", "igdb" }.Select(x => new TitleProviderMatch(x, x, true, ["artwork"], Guid.NewGuid(), "Confirmed", "43", null, null, null, false)).ToArray()));
+        var changedRevision = Guid.NewGuid();
+        matches.ReadAsync(1, Arg.Any<string>(), ArtworkRole.Poster, Arg.Any<CancellationToken>())
+            .Returns(call => new ArtworkMatchResolution.Authorized(new(new(call.Arg<string>(), "43", changedRevision), ArtworkRole.Poster)));
         await service.FillAsync(title, platform, new JobContext(null, _ => Task.CompletedTask, default), default);
         calls.ShouldBe(["steamgriddb", "igdb"]);
         calls.Clear();
@@ -138,13 +138,13 @@ public sealed class LinkedProviderArtworkServiceTests
     public async Task FillAsync_UnassociatedProviders_UsesSharedIdentityDiscovery()
     {
         var acquisition = Substitute.For<IArtworkAcquisitionStore>();
+        acquisition.GetTitleRevisionAsync(1, Arg.Any<CancellationToken>()).Returns(Guid.NewGuid());
         acquisition.GetSettingsAsync(default).ReturnsForAnyArgs(new ArtworkEnrichmentSettings(Guid.Empty, true, false, false, [], false));
         var curation = Substitute.For<IArtworkCurationRepository>();
         curation.GetStatesAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<ArtworkCurationState>>(
             Enum.GetValues<ArtworkRole>().Select(x => new ArtworkCurationState(x, ArtworkSelectionMode.Automatic, 0, null, null)).ToArray()));
         curation.GetGalleryAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
-        var matches = Substitute.For<ITitleProviderMatchService>();
-        matches.GetAsync(1, default).ReturnsForAnyArgs(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(value: []));
+        var matches = Substitute.For<IArtworkMatchAuthorizationService>();
         var service = new LinkedProviderArtworkService([], Substitute.For<IArtworkAssetSource>(), matches,
             acquisition, curation, Substitute.For<IArtworkImageProcessor>(), Substitute.For<IFileStorageService>(), Substitute.For<IUnitOfWork>(),
             Options.Create(new EnrichmentOptions()));

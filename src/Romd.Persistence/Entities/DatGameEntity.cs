@@ -34,7 +34,9 @@ public sealed class DatGameEntity : EntityBase, ICreatableEntity
     public string? DevelopmentStatus { get; set; }
     public string? Category { get; set; }
 
+    public string? DeclaredId { get; set; }
     public string? CloneOf { get; set; }
+    public string? CloneOfId { get; set; }
     public string? RomOf { get; set; }
 
     public bool IsBios { get; set; }
@@ -134,7 +136,9 @@ public sealed class DatGameEntity : EntityBase, ICreatableEntity
             RomOf,
             IsBios,
             Roms.Select(r => r.ToDomain()),
-            Disks.Select(d => d.ToDomain()));
+            Disks.Select(d => d.ToDomain()),
+            DeclaredId,
+            CloneOfId);
     }
 
     /// <summary>
@@ -155,7 +159,9 @@ public sealed class DatGameEntity : EntityBase, ICreatableEntity
             Revision = domain.Revision,
             DevelopmentStatus = domain.DevelopmentStatus,
             Category = domain.Category,
+            DeclaredId = domain.DeclaredId,
             CloneOf = domain.CloneOf,
+            CloneOfId = domain.CloneOfId,
             RomOf = domain.RomOf,
             IsBios = domain.IsBios,
             Roms = domain.Roms.Select(DatRomEntity.FromDomain).ToList(),

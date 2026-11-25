@@ -1,3 +1,4 @@
+using Romd.Admin.Application.MetadataProviders;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -5,11 +6,10 @@ using System.Text.Json;
 using NSubstitute;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Artwork.Settings;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
-using Romd.Infrastructure.Artwork.SteamGridDb;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.SteamGridDb;
 
 namespace Romd.Infrastructure.Tests.Artwork;
 

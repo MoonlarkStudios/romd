@@ -13,6 +13,27 @@ namespace Romd.Infrastructure.Tests.Jobs;
 
 public sealed class DatSubscriptionCheckJobTests
 {
+    [Fact]
+    public async Task ExecuteAsync_PublisherReaderBusy_DefersEveryDueSubscription()
+    {
+        var services = new ServiceCollection();
+        var client = RegisterCatalogClient(services);
+        client.DiscoverAsync(Arg.Any<CancellationToken>()).Returns(DatEnrollmentErrors.Busy());
+        var subscriptions = Substitute.For<IDatCatalogEnrollmentService>();
+        subscriptions.GetDueCheckIdsAsync(Arg.Any<CancellationToken>()).Returns(new[] { 1, 2 });
+        services.AddSingleton(subscriptions);
+        var handler = Substitute.For<ICommandHandler<CheckDatSubscriptionCommand, DatCatalogSubscription>>();
+        services.AddSingleton(handler);
+        await using var provider = services.BuildServiceProvider();
+
+        await new DatSubscriptionCheckJob(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<DatSubscriptionCheckJob>.Instance)
+            .ExecuteAsync(default);
+
+        await client.Received(1).DiscoverAsync(Arg.Any<CancellationToken>());
+        await handler.DidNotReceive().HandleAsync(Arg.Any<CheckDatSubscriptionCommand>(), Arg.Any<CancellationToken>());
+        await subscriptions.DidNotReceive().RecordScheduledFailureAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -22,6 +43,7 @@ public sealed class DatSubscriptionCheckJobTests
         var checkedIds = new List<int>();
         var recordedIds = new List<int>();
         var services = new ServiceCollection();
+        var client = RegisterCatalogClient(services);
         services.AddScoped(_ =>
         {
             var service = Substitute.For<IDatCatalogEnrollmentService>();
@@ -39,6 +61,7 @@ public sealed class DatSubscriptionCheckJobTests
             {
                 var command = call.Arg<CheckDatSubscriptionCommand>();
                 command.Mode.ShouldBe(DatSubscriptionCheckMode.Scheduled);
+                command.SweepDirectory.ShouldNotBeNull().Value.ShouldBeEmpty();
                 checkedIds.Add(command.SubscriptionId);
                 if (command.SubscriptionId == 1)
                     throw deadlineCancellation ? new OperationCanceledException(new CancellationToken(true)) : new IOException("provider failed");
@@ -50,6 +73,7 @@ public sealed class DatSubscriptionCheckJobTests
         await using var provider = services.BuildServiceProvider();
         var job = new DatSubscriptionCheckJob(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<DatSubscriptionCheckJob>.Instance);
         await job.ExecuteAsync(default);
+        await client.Received(1).DiscoverAsync(Arg.Any<CancellationToken>());
         checkedIds.ShouldBe(new[] { 1, 2 });
         recordedIds.ShouldBe(new[] { 1 });
         instances.Count.ShouldBe(4); // discovery, failed check, failure recording, next check
@@ -65,6 +89,7 @@ public sealed class DatSubscriptionCheckJobTests
     public async Task ExecuteAsync_ExpectedCheckRejection_RecordsOnlyEligibleFailureInFreshScope(string code, bool recordsFailure)
     {
         var services = new ServiceCollection();
+        RegisterCatalogClient(services);
         var instances = new List<IDatCatalogEnrollmentService>();
         var checkedInstance = new List<IDatCatalogEnrollmentService>();
         services.AddScoped(_ =>
@@ -78,7 +103,9 @@ public sealed class DatSubscriptionCheckJobTests
         {
             checkedInstance.Add(scope.GetRequiredService<IDatCatalogEnrollmentService>());
             var handler = Substitute.For<ICommandHandler<CheckDatSubscriptionCommand, DatCatalogSubscription>>();
-            handler.HandleAsync(new CheckDatSubscriptionCommand(7, DatSubscriptionCheckMode.Scheduled), Arg.Any<CancellationToken>())
+            handler.HandleAsync(Arg.Is<CheckDatSubscriptionCommand>(command =>
+                    command.SubscriptionId == 7 && command.Mode == DatSubscriptionCheckMode.Scheduled),
+                Arg.Any<CancellationToken>())
                 .Returns(Error.Conflict(code, "check rejected"));
             return handler;
         });
@@ -102,6 +129,7 @@ public sealed class DatSubscriptionCheckJobTests
     {
         using var cancellation = new CancellationTokenSource();
         var services = new ServiceCollection();
+        RegisterCatalogClient(services);
         var instances = new List<IDatCatalogEnrollmentService>();
         services.AddScoped(_ =>
         {
@@ -131,6 +159,14 @@ public sealed class DatSubscriptionCheckJobTests
         instances.Count.ShouldBe(2);
         foreach (var service in instances)
             await service.DidNotReceive().RecordScheduledFailureAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    private static ISignedDatCatalogClient RegisterCatalogClient(ServiceCollection services)
+    {
+        var client = Substitute.For<ISignedDatCatalogClient>();
+        client.DiscoverAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<PublishedDatCatalog>());
+        services.AddSingleton(client);
+        return client;
     }
 
 }

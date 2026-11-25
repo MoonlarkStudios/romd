@@ -346,6 +346,11 @@ the EF converters.
 Play-session upserts use Read Committed under their per-user transaction-scoped
 advisory lock. The lookup after a lock wait sees the preceding owner's commit;
 concurrent first deliveries reconcile the same client-generated session identity.
+A shared catalog topology lock holds the release's current title stable through
+authorization and commit. A title merge takes the exclusive lock, moves history,
+and records a redirect to the surviving title. The play-session write checks
+published release access before accepting an older title ID that redirects to
+the release's current title.
 The persistence adapter compares replayed timestamp identities at Unix-millisecond
 precision while the domain and newly supplied facts retain their exact precision.
 The response is prepared before commit and

@@ -6,11 +6,11 @@ using Romd.Application.Common.Concurrency;
 using Romd.Admin.Application.MetadataProviders.Commands.TestIgdbConnection;
 using Romd.Persistence;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Infrastructure.Enrichment;
 using Romd.Persistence.MetadataProviders;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 

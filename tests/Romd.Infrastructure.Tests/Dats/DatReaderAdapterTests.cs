@@ -1,7 +1,7 @@
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
-using Romd.Dat.Parsing;
-using Romd.Dat.Parsing.Formats.Logiqx;
+using Romd.Dat;
+using Romd.Dat.Formats.Logiqx;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Dats;

@@ -17,4 +17,7 @@ public sealed record MergeTitlesRequest
     ///     (docs/decisions/api-contract-policy.md, "Idempotency And Concurrency").
     /// </summary>
     public required string SourceTitleRevision { get; init; }
+
+    /// <summary>The active DAT evidence returned by the grouping review, when grouping a verified clone family.</summary>
+    public string? DatGroupingEvidence { get; init; }
 }

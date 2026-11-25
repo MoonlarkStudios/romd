@@ -1,7 +1,9 @@
+using System.Security.Cryptography;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Domain.Source.Dat;
+using Romd.Domain.Hashing;
 
 namespace Romd.Admin.Application.Source.Dat.Subscriptions;
 
@@ -9,7 +11,7 @@ internal abstract record DatSubscriptionCheckOutcome : IAsyncDisposable
 {
     internal sealed record Rejected(IReadOnlyList<Error> Errors) : DatSubscriptionCheckOutcome;
     internal sealed record ExistingEnrollment(DatSubscriptionCheckSnapshot Row) : DatSubscriptionCheckOutcome;
-    internal sealed record CheckedFailure(DatSubscriptionCheckSnapshot? Row, DatSubscriptionCheckValues Values) : DatSubscriptionCheckOutcome;
+    internal sealed record Checked(DatSubscriptionCheckSnapshot? Row, DatSubscriptionCheckValues Values) : DatSubscriptionCheckOutcome;
     internal sealed record VerifiedCandidate(DatSubscriptionCheckSnapshot? Row, DatSubscriptionCheckBinding Binding,
         DatSubscriptionVerifiedDocument Preview, bool HasActive, MemoryStream Document, IStagedFile File) : DatSubscriptionCheckOutcome
     {
@@ -68,7 +70,8 @@ internal sealed class DatSubscriptionCheckWorkflow(IDatSubscriptionCheckReader r
         return DatSubscriptionEnrollmentReplayPolicy.Resolve(rows, requested?.DatSourceId, trackedSource);
     }
 
-    internal async Task<DatSubscriptionCheckOutcome> PrepareAsync(string catalogId, int? rowId, bool scheduled, int? datId, CancellationToken ct)
+    internal async Task<DatSubscriptionCheckOutcome> PrepareAsync(string catalogId, int? rowId, bool scheduled, int? datId,
+        CancellationToken ct, ErrorOr<IReadOnlyList<PublishedDatCatalog>>? sweepDirectory = null)
     {
         if (!await store.TryLockCatalogStagedAsync(catalogId, ct))
             return DatSubscriptionCheckOutcome.Reject(DatEnrollmentErrors.Busy());
@@ -107,14 +110,19 @@ internal sealed class DatSubscriptionCheckWorkflow(IDatSubscriptionCheckReader r
         if (row is not null && await reader.HasRunningJobAsync(row.Values.JobId, ct))
             return DatSubscriptionCheckOutcome.Reject(DatEnrollmentErrors.Busy());
 
-        var directory = await client.DiscoverAsync(ct);
+        var directory = sweepDirectory ?? await client.DiscoverAsync(ct);
+        if (directory.IsError && directory.FirstError.Code == DatEnrollmentErrors.BusyCode)
+            return DatSubscriptionCheckOutcome.Reject(directory.FirstError);
         var catalog = directory.IsError ? null : directory.Value.SingleOrDefault(item => item.CatalogId == catalogId);
         if (catalog?.DocumentHash is null)
         {
             if (row is null)
                 return DatSubscriptionCheckOutcome.Reject(DatEnrollmentErrors.Unavailable());
-            return new DatSubscriptionCheckOutcome.CheckedFailure(row, DatSubscriptionCheckTransition.Failed(row.Values,
-                null, DatEnrollmentErrors.CheckFailed().Description, time.GetUtcNow(), time.GetUtcNow()));
+            string message = directory.IsError
+                ? "ROMD could not verify the publisher directory. Retry when the feed is healthy."
+                : "The publisher's directory has no downloadable DAT for this subscription.";
+            return new DatSubscriptionCheckOutcome.Checked(row, DatSubscriptionCheckTransition.Failed(row.Values,
+                null, message, time.GetUtcNow(), time.GetUtcNow()));
         }
         var platform = await reader.ReadPlatformDefinitionAsync(catalog.SystemId, ct);
         if (platform is null || platform.Retired)
@@ -155,11 +163,34 @@ internal sealed class DatSubscriptionCheckWorkflow(IDatSubscriptionCheckReader r
         }
         else if (row?.Values.DatSourceId is not null)
             return DatSubscriptionCheckOutcome.Reject(DatEnrollmentErrors.Unavailable());
+        string? notice = catalog.Health == "healthy" ? null
+            : "Upstream refresh is delayed. ROMD checked the publisher's last verified DAT.";
         var binding = new DatSubscriptionCheckBinding(active?.DatSourceId ?? row?.Values.DatSourceId,
-            platform.Id, catalog.SystemId, catalog.Name, time.GetUtcNow());
+            platform.Id, catalog.SystemId, catalog.Name, time.GetUtcNow(), notice);
+        if (active is not null && Sha256.TryParse(catalog.DocumentHash, out var publishedHash))
+        {
+            await using var installed = await storage.RetrieveByIdAsync(active.FileId, ct);
+            if (installed is not null &&
+                Sha256.FromBytes(await SHA256.HashDataAsync(installed, ct)) == publishedHash)
+            {
+                // Manual activation uses the topology fence. Recheck under it only after hashing.
+                await dats.AcquireMutationWriteLockAsync(active.Id, ct);
+                var current = await dats.GetActiveBySourceIdAsync(active.DatSourceId, ct);
+                if (current?.Id != active.Id)
+                    return DatSubscriptionCheckOutcome.Reject(DatEnrollmentErrors.ActiveVersionChanged());
+
+                string hash = publishedHash.ToString();
+                var sameDocument = new DatSubscriptionVerifiedDocument(hash, hash, true);
+                var values = DatSubscriptionCheckTransition.Verified(row?.Values ?? new(), binding, sameDocument,
+                    active.FileId, true, time.GetUtcNow());
+                return new DatSubscriptionCheckOutcome.Checked(row, values);
+            }
+        }
         var fetched = await client.FetchAsync(catalog.CatalogId, catalog.SystemId, catalog.Name, ct);
         if (fetched.IsError)
-            return Failure(row, binding, DatEnrollmentErrors.CheckFailed().Description);
+            return fetched.FirstError.Code == DatEnrollmentErrors.BusyCode
+                ? DatSubscriptionCheckOutcome.Reject(fetched.FirstError)
+                : Failure(row, binding, DatEnrollmentErrors.CheckFailed().Description);
         var document = new MemoryStream(fetched.Value.ToArray(), writable: false);
         try
         {
@@ -178,7 +209,7 @@ internal sealed class DatSubscriptionCheckWorkflow(IDatSubscriptionCheckReader r
         catch { await document.DisposeAsync(); throw; }
     }
 
-    private DatSubscriptionCheckOutcome.CheckedFailure Failure(DatSubscriptionCheckSnapshot? row,
+    private DatSubscriptionCheckOutcome.Checked Failure(DatSubscriptionCheckSnapshot? row,
         DatSubscriptionCheckBinding binding, string message) => new(row,
         DatSubscriptionCheckTransition.Failed(row?.Values ?? new(), binding, message, binding.CheckedAt, time.GetUtcNow()));
 

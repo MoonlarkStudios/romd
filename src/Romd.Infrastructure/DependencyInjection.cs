@@ -62,15 +62,14 @@ using Romd.Consumer.Application.Common.Persistence;
 using Romd.Consumer.Application.Delivery;
 using Romd.Consumer.Application.Libraries;
 using Romd.Consumer.Application.Vfs;
-using Romd.Dat.Parsing;
-using Romd.Dat.Parsing.Formats.ClrMamePro;
-using Romd.Dat.Parsing.Formats.Logiqx;
+using Romd.Dat;
+using Romd.Dat.Formats.ClrMamePro;
+using Romd.Dat.Formats.Logiqx;
 using Romd.Domain.Catalog;
 using Romd.Domain.Jobs;
 using Romd.Domain.Libraries;
 using Romd.Domain.Taxonomy;
 using Romd.Infrastructure.Artwork;
-using Romd.Infrastructure.Artwork.SteamGridDb;
 using Romd.Infrastructure.Catalog;
 using Romd.Infrastructure.Dashboard;
 using Romd.Infrastructure.Dats;
@@ -106,6 +105,9 @@ using Romd.Persistence.Repositories;
 using Romd.Persistence.Repositories.Reconciliation;
 using Romd.Persistence.Search;
 using Romd.Persistence.Subscriptions;
+using Romd.Infrastructure.Providers.Igdb;
+using Romd.Infrastructure.Providers.SteamGridDb;
+using Romd.Infrastructure.Providers;
 
 namespace Romd.Infrastructure;
 
@@ -610,7 +612,10 @@ public static class DependencyInjection
         services.AddScoped<SteamGridDbArtworkProvider>();
         services.AddScoped<IProviderIdentityAdapter, SteamGridDbIdentityAdapter>();
         services.AddScoped<IProviderIdentityAdapter>(sp => sp.GetRequiredService<IgdbMetadataProvider>());
-        services.AddScoped<ITitleProviderMatchStore, TitleProviderMatchStore>();
+        services.AddScoped<TitleProviderMatchStore>();
+        services.AddScoped<ITitleProviderMatchStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
+        services.AddScoped<IProviderMatchAuthorizationStore>(sp => sp.GetRequiredService<TitleProviderMatchStore>());
+        services.AddScoped<ProviderContributionRematerializer>();
         services.AddScoped<ITitleProviderMatchService, TitleProviderMatchService>();
         services.AddScoped<ITitleEnrichmentEvidenceReader, TitleEnrichmentEvidenceReader>();
         services.AddScoped<IProviderIdentityStore, ProviderIdentityStore>();
@@ -632,7 +637,7 @@ public static class DependencyInjection
         services.AddScoped<IArtworkCompletionStore>(sp => sp.GetRequiredService<Romd.Persistence.Artwork.ArtworkCompletionStore>());
         services.AddScoped<IArtworkCompletionAcceptance>(sp => sp.GetRequiredService<Romd.Persistence.Artwork.ArtworkCompletionStore>());
         services.AddScoped<IArtworkCompletionService, Romd.Admin.Application.Artwork.ArtworkCompletionService>();
-        services.AddHttpClient(AutomaticArtworkService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30))
+        services.AddHttpClient(IgdbArtworkProvider.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         return services;
     }
@@ -692,6 +697,7 @@ public static class DependencyInjection
         services.AddHttpClient<IEnrichmentMediaStager, HttpEnrichmentMediaStager>();
         services.AddMemoryCache();
         services.AddSingleton<ArtworkCandidateFailureCache>();
+        services.AddScoped<IArtworkMatchAuthorizationService, ArtworkMatchAuthorizationService>();
         services.AddScoped<IAutomaticArtworkService, LinkedProviderArtworkService>();
         services.AddScoped<IArtworkIdentityBridge, SteamArtworkIdentityBridge>();
         services.AddScoped<IEnrichmentContextFactory, EnrichmentContextFactory>();
@@ -1084,6 +1090,8 @@ public static class DependencyInjection
         services.AddScoped<ITitleRowLock>(sp => sp.GetRequiredService<TitleRepository>());
         services.AddScoped<ITitleMediaStore>(sp => sp.GetRequiredService<TitleRepository>());
         services.AddScoped<ITitleMergeStore>(sp => sp.GetRequiredService<TitleRepository>());
+        services.AddScoped<ITitleLookupNameStore, TitleLookupNameStore>();
+        services.AddScoped<IDatTitleGroupingReader, Romd.Persistence.Catalog.DatTitleGroupingReader>();
         services.AddScoped<ITitleCreationStore>(sp => sp.GetRequiredService<TitleRepository>());
         services.AddScoped<ITitleOrphanCleanup, TitleOrphanRepository>();
         // Read roles share one scoped adapter; none of them exposes a title write.

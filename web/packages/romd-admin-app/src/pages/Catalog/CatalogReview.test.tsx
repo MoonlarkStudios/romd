@@ -276,6 +276,82 @@ async function openProviderReview() {
   };
 }
 
+it('offers the current provisional decision directly from the filtered queue', async () => {
+  const { match, saveDecision } = mockProviderReview();
+  server.use(
+    http.get(`${api}/titles/:id/provider-matches`, () =>
+      HttpResponse.json([
+        {
+          ...match,
+          decision: {
+            ...match.decision,
+            provisionalGameId: '100',
+          },
+          provisionalReview: {
+            gameId: '100',
+            evidenceCurrent: true,
+            fields: null,
+            ratings: [],
+            artwork: [],
+          },
+        },
+      ]),
+    ),
+  );
+  const user = userEvent.setup();
+  render(<Catalog />, {
+    auth: {
+      user: authFixtures.currentUser,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      retry: async () => {},
+      login: async () => {},
+      logout: async () => {},
+    },
+    routerOptions: {
+      initialEntries: [
+        '/catalog?view=review&q=Chrono',
+      ],
+    },
+  });
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Start review',
+    }),
+  );
+  const panel = within(
+    await screen.findByRole('complementary', {
+      name: 'Chrono Trigger',
+    }),
+  );
+  expect(
+    await panel.findByRole('region', {
+      name: 'Provisional match review',
+    }),
+  ).toBeVisible();
+  const confirm = panel.getByRole('button', {
+    name: 'Confirm match',
+  });
+  screen
+    .getByRole('button', {
+      name: 'Review Chrono Trigger',
+    })
+    .focus();
+  await user.keyboard('{Enter}');
+  expect(confirm).toHaveFocus();
+  expect(saveDecision).not.toHaveBeenCalled();
+  await user.keyboard('{Enter}');
+  expect(
+    await panel.findByRole('heading', {
+      name: 'Match confirmed',
+    }),
+  ).toHaveFocus();
+  expect(saveDecision).toHaveBeenCalledExactlyOnceWith('"match-1"', {
+    externalId: '100',
+  });
+});
+
 it('starts review, compares system releases, restores suggestions after lookup, and continues', async () => {
   const { saveDecision } = mockProviderReview();
   const user = userEvent.setup();

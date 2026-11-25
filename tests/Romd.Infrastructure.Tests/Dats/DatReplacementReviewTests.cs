@@ -7,8 +7,8 @@ using Romd.Admin.Application.Source.Dat.Commands.ApplyReviewedDatReplacement;
 using Romd.Domain.Jobs;
 using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Storage.Files;
-using Romd.Dat.Parsing;
-using Romd.Dat.Parsing.Formats.Logiqx;
+using Romd.Dat;
+using Romd.Dat.Formats.Logiqx;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Dats;
@@ -48,6 +48,79 @@ public sealed class DatReplacementReviewTests
         _storage.ReceivedCalls().ShouldAllBe(call => call.GetMethodInfo().Name == "RetrieveByIdAsync");
     }
 
+    [Fact]
+    public async Task PreviewAsync_ExportedLogiqx_PreservesInstalledEntryAndFileFacts()
+    {
+        string original = Dat("""
+            <game name='Parent' id='0001'><rom name='zero.bin' size='0' status='nodump'/></game>
+            <game name='Clone' cloneofid='0001'><rom name='unknown.bin' status='nodump'/></game>
+            """);
+        var service = Service(original);
+        var parser = new DatParser([new LogiqxDatFormat(NullLogger<LogiqxDatFormat>.Instance)]);
+        using var source = Stream(original);
+        using var candidate = new MemoryStream();
+        var header = (await parser.ReadHeaderAsync(source)).Value;
+        await LogiqxDatWriter.WriteAsync(candidate, header, parser.StreamGamesAsync(source).Select(game => game.Value));
+        candidate.Position = 0;
+
+        var preview = (await service.PreviewAsync(0, candidate, default)).Value;
+
+        preview.CandidateSha256.ShouldNotBe(preview.ActiveSha256);
+        preview.CandidateFiles.ShouldBe(2);
+        preview.Changes.ShouldBeEmpty();
+        preview.FilesChanged.ShouldBe(0);
+        AssertReadOnly();
+    }
+
+    [Fact]
+    public async Task GetEntryChangeAsync_ParentIdChangeIsMetadataOnlyAndReportsTheNewResolution()
+    {
+        const string parentA = "<game name='Parent A' id='0001'/>";
+        const string parentB = "<game name='Parent B' id='0002'/>";
+        const string clone = "<game name='Clone' id='0003' cloneofid='0001'><rom name='clone.bin' size='1' crc='11111111'/></game>";
+        string original = Dat(parentA + parentB + clone);
+        string candidate = Dat(parentA + parentB + clone.Replace("cloneofid='0001'", "cloneofid='0002'", StringComparison.Ordinal));
+        var service = Service(original);
+
+        using var input = Stream(candidate);
+        var preview = (await service.PreviewWithImpactAsync(0, "Catalog", input, default)).Value;
+        var changed = preview.Changes.Single();
+        changed.Name.ShouldBe("Clone");
+        changed.Impact.ShouldNotBeNull().MetadataOnly.ShouldBeTrue();
+
+        using var entry = Stream(candidate);
+        var detail = (await service.GetEntryChangeAsync(0, "Catalog", entry, "Clone",
+            Files(preview.ActiveSha256, preview.CandidateSha256, "Clone"), default)).Value;
+        detail.Fields.ShouldBe([
+            new("CloneOfId", "0001", "0002"),
+            new("ParentName", "Parent A", "Parent B")
+        ]);
+        detail.Files.Items.ShouldBeEmpty();
+        AssertReadOnly();
+    }
+
+    [Fact]
+    public async Task GetEntryChangeAsync_ParentRemovalIsVisibleOnAnOtherwiseUnchangedClone()
+    {
+        const string parent = "<game name='Parent' id='parent-A'/>";
+        const string clone = "<game name='Clone' cloneofid='parent-A'><rom name='clone.bin' size='1' crc='11111111'/></game>";
+        string candidate = Dat(clone);
+        var service = Service(Dat(clone + parent));
+
+        using var input = Stream(candidate);
+        var preview = (await service.PreviewWithImpactAsync(0, "Catalog", input, default)).Value;
+        preview.Changes.Single(change => change.Name == "Clone").Impact.ShouldNotBeNull().MetadataOnly.ShouldBeTrue();
+
+        using var entry = Stream(candidate);
+        var detail = (await service.GetEntryChangeAsync(0, "Catalog", entry, "Clone",
+            Files(preview.ActiveSha256, preview.CandidateSha256, "Clone"), default)).Value;
+        detail.Fields.ShouldBe([
+            new("ParentName", "Parent", null),
+            new("ParentStatus", "Resolved", "Missing")
+        ]);
+        detail.Files.Items.ShouldBeEmpty();
+        AssertReadOnly();
+    }
 
     [Fact]
     public async Task PreviewWithImpactAsync_PredictsDeduplicatedCatalogMatchesAndPrioritizesAffectedEntries()

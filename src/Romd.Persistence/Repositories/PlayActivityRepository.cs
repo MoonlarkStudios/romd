@@ -1,3 +1,4 @@
+using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Queries;
 using Microsoft.EntityFrameworkCore;
 using Romd.Application.Common.Artwork;
@@ -158,7 +159,7 @@ public sealed class PlayActivityRepository(
                 || item.LastPlayedAt == position.LastPlayedAt && item.TitleId < position.TitleId);
         var rows = await (
                 from recent in activity
-                join title in context.Titles on recent.TitleId equals title.Id
+                join title in context.PresentedTitles() on recent.TitleId equals title.Id
                 join platform in context.Platforms on title.PlatformId equals platform.Id
                 orderby recent.LastPlayedAt descending, recent.TitleId descending
                 select new

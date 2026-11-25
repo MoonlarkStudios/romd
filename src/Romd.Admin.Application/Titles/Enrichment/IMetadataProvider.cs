@@ -29,31 +29,31 @@ public interface IMetadataProvider
     Task InitializeAsync(CancellationToken ct = default) => Task.CompletedTask;
 
     /// <summary>
-    ///     Enriches titles by streaming contexts in and yielding results out.
+    ///     Fetches metadata for explicit game IDs already resolved by the application.
     ///     Implementations may buffer/batch internally for API efficiency.
     /// </summary>
-    /// <param name="contexts">Input stream of enrichment contexts.</param>
+    /// <param name="requests">Input stream of game lookup requests.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Stream of (context, result) pairs in processing order.</returns>
-    IAsyncEnumerable<(EnrichmentContext Context, EnrichmentResult Result)> EnrichAsync(
-        IAsyncEnumerable<EnrichmentContext> contexts,
+    /// <returns>Each original request paired with its result, in request order.</returns>
+    IAsyncEnumerable<(MetadataFetchRequest Request, EnrichmentResult Result)> FetchAsync(
+        IAsyncEnumerable<MetadataFetchRequest> requests,
         CancellationToken ct = default);
 }
 
-/// <summary>
-///     Extension methods for <see cref="IMetadataProvider" />.
-/// </summary>
+/// <summary>A provider game ID chosen by the application, with its enrichment context.</summary>
+public sealed record MetadataFetchRequest(string GameId, EnrichmentContext Context);
+
 public static class MetadataProviderExtensions
 {
     /// <summary>
     ///     Enriches a single title using the streaming interface.
     /// </summary>
-    public static async Task<EnrichmentResult> EnrichSingleAsync(
+    public static async Task<EnrichmentResult> FetchSingleAsync(
         this IMetadataProvider provider,
-        EnrichmentContext context,
+        MetadataFetchRequest request,
         CancellationToken ct = default)
     {
-        await foreach (var (_, result) in provider.EnrichAsync(SingleItemStream(context), ct))
+        await foreach (var (_, result) in provider.FetchAsync(SingleItemStream(request), ct))
         {
             return result;
         }
@@ -61,10 +61,9 @@ public static class MetadataProviderExtensions
         return EnrichmentResult.Error("Provider yielded no results");
     }
 
-    private static async IAsyncEnumerable<EnrichmentContext> SingleItemStream(
-        EnrichmentContext context)
+    private static async IAsyncEnumerable<MetadataFetchRequest> SingleItemStream(MetadataFetchRequest request)
     {
-        yield return context;
+        yield return request;
         await Task.CompletedTask; // Suppress CS1998
     }
 }

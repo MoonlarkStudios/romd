@@ -1,12 +1,12 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Xml;
 using ErrorOr;
 using Romd.Admin.Application.Source.Dat;
 using Romd.Admin.Application.Storage.Files;
-using Romd.Dat.Parsing;
+using Romd.Dat;
+using Romd.Dat.Models;
 using Romd.Domain.Source.Dat;
 
 namespace Romd.Infrastructure.Dats;
@@ -36,7 +36,22 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
     private const int MaximumFiles = 500_000;
     private const int SampleLimit = 50;
     private sealed record FileFact(string Content, string Hashes, string? Sha1);
-    private sealed record Entry(bool Bios, string Metadata, Dictionary<string, FileFact> Files);
+    private sealed record Entry(EntryMetadata Metadata, Dictionary<string, FileFact> Files)
+    {
+        public bool Bios => Metadata.IsBios;
+    }
+    private sealed record EntryMetadata(
+        string? Description,
+        string? Year,
+        string? Manufacturer,
+        string? DeclaredId,
+        string? CloneOf,
+        string? CloneOfId,
+        string? RomOf,
+        bool IsBios,
+        ParsedNameMetadata NameMetadata,
+        string? ParentName = null,
+        string? ParentStatus = null);
     private sealed record Document(byte[] Bytes, string Hash, string Name, string? Version, Dictionary<string, Entry> Entries);
     private sealed record ReviewedDocuments(Document Active, Document Candidate, DatReplacementFacts Facts)
     {
@@ -187,7 +202,8 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
         if (header.IsError)
             throw new InvalidDocumentException("The DAT header could not be read.");
         stream.Position = 0;
-        var entries = new Dictionary<string, Entry>(StringComparer.Ordinal);
+        var entries = new Dictionary<string, Entry>(declarations.Entries, StringComparer.Ordinal);
+        var parents = new List<DatParentDeclaration>(declarations.Entries);
         int fileCount = 0;
         await foreach (var result in _games.StreamGamesAsync(stream, ct))
         {
@@ -197,13 +213,16 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             var files = new Dictionary<string, FileFact>(StringComparer.Ordinal);
             foreach (var rom in game.Roms)
             {
-                var facts = JsonSerializer.Serialize(rom);
-                if (declarations.UnknownSizes.Contains((game.Name, rom.Name)))
+                var facts = JsonSerializer.Serialize(new
                 {
-                    var fields = JsonNode.Parse(facts)!;
-                    fields["Size"] = null;
-                    facts = fields.ToJsonString();
-                }
+                    rom.Name,
+                    Size = rom.DeclaredSize,
+                    rom.Crc,
+                    rom.Md5,
+                    rom.Sha1,
+                    rom.Status,
+                    rom.Serial
+                });
                 if (!files.TryAdd("rom:" + rom.Name, new(facts, JsonSerializer.Serialize(new { rom.Crc, rom.Md5, rom.Sha1 }), rom.Sha1)))
                     throw new InvalidDocumentException("Duplicate file names within an entry cannot be reviewed safely.");
             }
@@ -213,18 +232,29 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             fileCount += files.Count;
             if (entries.Count >= MaximumEntries || fileCount > MaximumFiles)
                 throw new InvalidDocumentException("This catalog exceeds the review limit of 100,000 entries or 500,000 files.");
-            string metadata = JsonSerializer.Serialize(new { game.Description, game.Year, game.Manufacturer, game.CloneOf, game.RomOf, game.IsBios, game.NameMetadata });
-            if (!entries.TryAdd(game.Name, new(game.IsBios, metadata, files)))
+            var metadata = new EntryMetadata(game.Description, game.Year, game.Manufacturer, game.DeclaredId,
+                game.CloneOf, game.CloneOfId, game.RomOf, game.IsBios, game.NameMetadata);
+            if (!entries.TryAdd(game.Name, new(metadata, files)))
                 throw new InvalidDocumentException("Duplicate entry names cannot be reviewed safely.");
+            parents.Add(new(game.Name, game.DeclaredId, game.CloneOf, game.CloneOfId));
         }
         if (entries.Count != declarations.Entries || fileCount != declarations.Files)
             throw new InvalidDocumentException("The parser could not preserve every declared entry and file.");
         if (entries.Count == 0 || fileCount == 0)
             throw new InvalidDocumentException("An empty catalog cannot replace the working catalog.");
+        foreach (var (name, resolution) in DatParentResolver.Resolve(parents, ct))
+        {
+            ct.ThrowIfCancellationRequested();
+            var entry = entries[name];
+            entries[name] = entry with
+            {
+                Metadata = entry.Metadata with { ParentName = resolution.ParentName, ParentStatus = resolution.Status.ToString() }
+            };
+        }
         return new(raw, Convert.ToHexStringLower(SHA256.HashData(raw)), header.Value.Name, header.Value.Version, entries);
     }
 
-    private static (int Entries, int Files, HashSet<(string Entry, string File)> UnknownSizes) ValidateXml(Stream stream, CancellationToken ct)
+    private static (int Entries, int Files) ValidateXml(Stream stream, CancellationToken ct)
     {
         using var reader = XmlReader.Create(stream, new XmlReaderSettings
         {
@@ -234,8 +264,6 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             MaxCharactersInDocument = MaximumBytes
         });
         int headerCount = 0, entries = 0, files = 0;
-        var unknownSizes = new HashSet<(string Entry, string File)>();
-        string? entryName = null;
         bool root = false;
         while (reader.Read())
         {
@@ -259,7 +287,6 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             {
                 if (reader.Depth != 1 || string.IsNullOrWhiteSpace(reader.GetAttribute("name")) || ++entries > MaximumEntries)
                     throw new InvalidDocumentException("Invalid or excessive catalog entries.");
-                entryName = reader.GetAttribute("name");
             }
             if (reader.Name is not ("rom" or "disk"))
                 continue;
@@ -269,8 +296,6 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
             // original document; a present but malformed size is still invalid.
             var size = reader.GetAttribute("size");
             bool unknownSize = size is null && reader.GetAttribute("status") == "nodump";
-            if (reader.Name == "rom" && unknownSize && entryName is not null)
-                unknownSizes.Add((entryName, reader.GetAttribute("name")!));
             if (reader.Name == "rom" && !unknownSize && !long.TryParse(size, NumberStyles.None, CultureInfo.InvariantCulture, out _))
                 throw new InvalidDocumentException("Dumped ROMs need a valid non-negative size; only nodump records may omit it.");
             bool hasHash = false;
@@ -289,7 +314,7 @@ public sealed partial class DatReplacementReview : IDatReplacementReview, IRevie
         }
         if (!root || headerCount != 1)
             throw new InvalidDocumentException("A Logiqx catalog with one header is required.");
-        return (entries, files, unknownSizes);
+        return (entries, files);
     }
 
     private static DatReplacementPreview Compare(Document before, Document after, IEnumerable<DatEntryChange> changes)

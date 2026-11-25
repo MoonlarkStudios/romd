@@ -6,6 +6,7 @@ using Romd.Admin.Application.Configuration;
 using Romd.Admin.Application.Titles;
 using Romd.Admin.Application.Titles.ReadModels;
 using Romd.Domain.Catalog;
+using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Repositories;
 
 namespace Romd.Persistence.Queries;
@@ -31,18 +32,20 @@ public sealed partial class TitleDetailReader : ITitleDetailReader
     private async Task<TitleDetailData?> GetDetailCoreAsync(int titleId, bool publicRead, CancellationToken cancellationToken)
     {
         int id = titleId;
-        var titleQuery = _context.Titles
-            .AsNoTracking()
-            .Include(t => t.ContentRatings)
-            .AsQueryable();
+        var titleQuery = _context.PresentedTitles();
         if (!publicRead)
             titleQuery = titleQuery.Include(t => t.Media);
-        var title = await titleQuery.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+        var presentedRatings = _context.PresentedRatings();
+        var presented = await titleQuery.Where(title => title.Id == id)
+            .Select(title => new
+            {
+                Title = title,
+                Ratings = presentedRatings.Where(rating => rating.TitleId == title.Id).OrderBy(rating => rating.Board).ToList()
+            }).AsSingleQuery().FirstOrDefaultAsync(cancellationToken);
 
-        if (title is null)
-        {
+        if (presented is null)
             return null;
-        }
+        var title = presented.Title;
 
         var tracking = await _context.TrackedTitles
             .AsNoTracking()
@@ -144,8 +147,7 @@ public sealed partial class TitleDetailReader : ITitleDetailReader
             ReleaseDate = title.ReleaseDate,
             Players = title.Players,
             Rating = title.Rating,
-            ContentRatings = title.ContentRatings
-                .OrderBy(r => r.Board)
+            ContentRatings = presented.Ratings
                 .Select(r => new TitleContentRatingData
                 {
                     Board = r.Board,

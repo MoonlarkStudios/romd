@@ -28,6 +28,7 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
     private readonly IEnumerable<IMetadataProvider> _providers;
     private readonly IEnrichmentContextFactory _contexts;
     private readonly IProviderIdentityService _identities;
+    private readonly IProviderMatchAuthorizationStore _authorizations;
     private readonly ITitleProviderMatchService _matches;
     private readonly IMetadataRematerializer _rematerializer;
     private readonly IEnrichmentMediaStager _mediaStager;
@@ -45,11 +46,13 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
         IArtworkCurationRepository curation,
         IOptions<EnrichmentOptions> options,
         ILogger<EnrichmentOrchestrator> logger,
-        TimeProvider clock)
+        TimeProvider clock,
+        IProviderMatchAuthorizationStore authorizations)
     {
         _providers = providers;
         _contexts = contexts;
         _identities = identities;
+        _authorizations = authorizations;
         _matches = matches;
         _rematerializer = rematerializer;
         _mediaStager = mediaStager;
@@ -79,6 +82,7 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
         await using var stagedMedia = new StagedMediaLedger([title.Id], _logger);
         var tally = new TitleEnrichmentTally();
         var artworkResults = new List<ProviderArtworkResult>();
+        var provisionalMetadata = new List<ProvisionalMetadataResult>();
 
         bool identityDiscovered = false;
         foreach (var provider in enabledProviders)
@@ -88,24 +92,24 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
                 continue;
             try
             {
-                // Identity is resolved before fetching: only a trusted provider game may be fetched.
+                // Resolve the game before fetching and keep any provisional authorization with the result.
                 if (!identityDiscovered)
                 {
                     await _identities.DiscoverAsync(title.Id, null, cancellationToken);
                     identityDiscovered = true;
                 }
-                var trustedId = await _identities.GetTrustedAsync(title.Id, provider.ProviderId, cancellationToken);
-                if (trustedId is null)
+                var (gameId, provisionalMatch) = await ReadFetchIdentityAsync(title.Id, provider.ProviderId, cancellationToken);
+                if (gameId is null)
                 {
                     tally.RecordCompleted();
                     continue;
                 }
 
-                var result = await provider.EnrichSingleAsync(context with { ExistingExternalId = trustedId },
-                    cancellationToken);
-                artworkResults.Add(new(provider.ProviderId, result));
-                await ApplyResultAsync(title, platform, provider.ProviderId, trustedId, result, tally,
-                    stagedMedia.For(title.Id), cancellationToken);
+                var result = await provider.FetchSingleAsync(new(gameId, context), cancellationToken);
+                if (provisionalMatch is null)
+                    artworkResults.Add(new(provider.ProviderId, result));
+                await ApplyResultAsync(title, platform, provider.ProviderId, gameId, result, tally,
+                    stagedMedia.For(title.Id), provisionalMatch, provisionalMetadata, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -120,7 +124,7 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
             }
         }
 
-        return await CompleteAsync(title, tally, artworkResults, stagedMedia, cancellationToken);
+        return await CompleteAsync(title, tally, artworkResults, provisionalMetadata, stagedMedia, cancellationToken);
     }
 
     public async IAsyncEnumerable<(int TitleId, OrchestrationResult Result)> EnrichStreamAsync(
@@ -162,6 +166,7 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
 
             var tallies = window.ToDictionary(x => x.Title.Id, _ => new TitleEnrichmentTally());
             var artworkResults = window.ToDictionary(x => x.Title.Id, _ => new List<ProviderArtworkResult>());
+            var provisionalMetadata = window.ToDictionary(x => x.Title.Id, _ => new List<ProvisionalMetadataResult>());
 
             // Discovery is title-scoped while provider fetching remains provider-major. Trust is
             // still re-read for each fetch and again before applying external results.
@@ -169,8 +174,8 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
             // Provider-major: each provider streams the whole window before the next provider starts.
             foreach (var provider in enabledProviders)
             {
-                var contextToTitle = new Dictionary<EnrichmentContext, int>(ReferenceEqualityComparer.Instance);
-                var providerContexts = new List<EnrichmentContext>();
+                var requestToTitle = new Dictionary<MetadataFetchRequest, (int TitleId, ProviderMatchAuthorization? Match)>(ReferenceEqualityComparer.Instance);
+                var requests = new List<MetadataFetchRequest>();
 
                 foreach (var (titleId, (_, _, baseContext)) in titleContexts)
                 {
@@ -178,29 +183,29 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
                         continue;
                     if (discoveredIdentities.Add(titleId))
                         await _identities.DiscoverAsync(titleId, null, cancellationToken);
-                    var trustedId = await _identities.GetTrustedAsync(titleId, provider.ProviderId, cancellationToken);
-                    if (trustedId is null)
+                    var (gameId, provisionalMatch) = await ReadFetchIdentityAsync(titleId, provider.ProviderId, cancellationToken);
+                    if (gameId is null)
                         continue;
-                    var providerContext = baseContext with { ExistingExternalId = trustedId };
-                    providerContexts.Add(providerContext);
-                    contextToTitle[providerContext] = titleId;
+                    var request = new MetadataFetchRequest(gameId, baseContext);
+                    requests.Add(request);
+                    requestToTitle[request] = (titleId, provisionalMatch);
                 }
 
-                await foreach (var (ctx, result) in provider.EnrichAsync(
-                                   ToAsyncEnumerable(providerContexts), cancellationToken))
+                await foreach (var (request, result) in provider.FetchAsync(
+                                   ToAsyncEnumerable(requests), cancellationToken))
                 {
-                    if (!contextToTitle.TryGetValue(ctx, out int titleId))
-                    {
+                    if (!requestToTitle.TryGetValue(request, out var identity))
                         continue;
-                    }
 
+                    int titleId = identity.TitleId;
                     var (title, platform, _) = titleContexts[titleId];
-                    artworkResults[titleId].Add(new(provider.ProviderId, result));
+                    if (identity.Match is null)
+                        artworkResults[titleId].Add(new(provider.ProviderId, result));
                     var tally = tallies[titleId];
                     try
                     {
-                        await ApplyResultAsync(title, platform, provider.ProviderId, ctx.ExistingExternalId!, result,
-                            tally, stagedMedia.For(titleId), cancellationToken);
+                        await ApplyResultAsync(title, platform, provider.ProviderId, request.GameId, result,
+                            tally, stagedMedia.For(titleId), identity.Match, provisionalMetadata[titleId], cancellationToken);
                     }
                     catch (OperationCanceledException)
                     {
@@ -219,7 +224,7 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
             foreach (var (title, _) in window)
             {
                 yield return (title.Id, await CompleteAsync(title, tallies[title.Id], artworkResults[title.Id],
-                    stagedMedia, cancellationToken));
+                    provisionalMetadata[title.Id], stagedMedia, cancellationToken));
             }
         }
     }
@@ -236,6 +241,19 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
             .ToList();
     }
 
+    private async Task<(string? GameId, ProviderMatchAuthorization? Provisional)> ReadFetchIdentityAsync(
+        int titleId, string providerId, CancellationToken ct)
+    {
+        var trusted = await _identities.GetTrustedAsync(titleId, providerId, ct);
+        if (trusted is not null)
+            return (trusted, null);
+        if (providerId == "igdb" &&
+            await _authorizations.ReadAuthorizationAsync(titleId, providerId, ct) is
+                ProviderMatchAuthorizationResult.Authorized({ IsProvisional: true } match))
+            return (match.GameId, match);
+        return (null, null);
+    }
+
     private async Task ApplyResultAsync(
         Title title,
         Platform platform,
@@ -244,11 +262,26 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
         EnrichmentResult result,
         TitleEnrichmentTally tally,
         ICollection<StagedTitleMedia> stagedMedia,
+        ProviderMatchAuthorization? provisionalMatch,
+        ICollection<ProvisionalMetadataResult> provisionalMetadata,
         CancellationToken ct)
     {
         switch (result.Outcome)
         {
             case EnrichmentOutcome.Found:
+                if (provisionalMatch is not null)
+                {
+                    if (result.ExternalId != provisionalMatch.GameId)
+                    {
+                        tally.RecordError();
+                        return;
+                    }
+                    if (result.Data?.HasAnyData() == true)
+                        provisionalMetadata.Add(new(provisionalMatch,
+                            ProviderMetadataLayers.ToPayload(result.Data) with { ProviderGameId = provisionalMatch.GameId }));
+                    tally.RecordCompleted();
+                    return;
+                }
                 if (!await IsAcceptedAsync(title, providerId, trustedId, result, ct))
                 {
                     tally.RecordError();
@@ -356,6 +389,7 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
         Title title,
         TitleEnrichmentTally tally,
         IReadOnlyList<ProviderArtworkResult> artworkResults,
+        IReadOnlyList<ProvisionalMetadataResult> provisionalMetadata,
         StagedMediaLedger stagedMedia,
         CancellationToken ct)
     {
@@ -364,14 +398,19 @@ public sealed class EnrichmentOrchestrator : IEnrichmentOrchestrator
             await _rematerializer.RematerializeAsync(title, ct);
         }
 
-        return tally.ToResult() with { ArtworkResults = artworkResults, StagedMedia = stagedMedia.HandOff(title.Id) };
+        return tally.ToResult() with
+        {
+            ArtworkResults = artworkResults,
+            ProvisionalMetadata = provisionalMetadata,
+            StagedMedia = stagedMedia.HandOff(title.Id)
+        };
     }
 
-    private static async IAsyncEnumerable<EnrichmentContext> ToAsyncEnumerable(IEnumerable<EnrichmentContext> contexts)
+    private static async IAsyncEnumerable<MetadataFetchRequest> ToAsyncEnumerable(IEnumerable<MetadataFetchRequest> requests)
     {
-        foreach (var context in contexts)
+        foreach (var request in requests)
         {
-            yield return context;
+            yield return request;
         }
 
         await Task.CompletedTask;

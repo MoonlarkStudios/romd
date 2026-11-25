@@ -51,10 +51,13 @@ public sealed partial class DatReplacementReview
             return Error.NotFound("DatReview.Entry", "This entry has no change in the reviewed documents.");
         var impact = await ReadImpactFactsAsync(datId, before, after, [change], ct);
         var entry = AssessEntry(change, before, after, impact).Entry;
-        return new DatEntryChangeDetail(entryName, change.Change, Fields(old?.Metadata, next?.Metadata),
+        return new DatEntryChangeDetail(entryName, change.Change, Fields(SerializeMetadata(old), SerializeMetadata(next)),
             page.Page(FileChanges(entryName, old, next, impact, ct), file => $"{file.Kind}:{file.Name}"),
             before.Hash, after.Hash, entry.Impact);
     }
+
+    private static string? SerializeMetadata(Entry? entry) =>
+        entry is null ? null : JsonSerializer.Serialize(entry.Metadata);
 
     private async Task<ErrorOr<(Document Before, Document After)>> ReviewedPairAsync(int? datId, string expectedName,
         Stream candidate, DatChangePageRequest page, CancellationToken ct)

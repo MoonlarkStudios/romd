@@ -103,6 +103,35 @@ system again restores it and resumes automatic checks. Removing a system pauses
 future checks; a check already in progress may finish. This is separate from source
 lifecycle controls and permanent deletion; it does not remove consumer content.
 
+## Group releases from a DAT family
+
+On a clone title, choose **Title actions → Review DAT family**. ROMD offers
+grouping when stored ROM hashes identify a clone and its parent in one active
+DAT and the parent has a separate title on the same system. The review shows
+the DAT version, the releases that establish the relationship, and the
+surviving title ID. The operator chooses which title's name to display.
+
+Approval moves the releases and play history to the selected title. Releases
+keep their IDs and original DAT names. The consumer can search either release
+name when that release is available to their library. Collection entries
+follow the title, with the surviving position used when both titles were on
+the same shelf. The surviving title keeps its release pin. Explicit library
+title selections need review if they refer to the absorbed ID.
+
+ROMD checks both title revisions and the active family evidence when approving
+the grouping. A replacement with the same release entry keys keeps the
+curated title assignments. Stored releases with unchanged file fingerprints
+retain their release IDs.
+
+## Edit title lookup names
+
+Choose **Title actions → Edit lookup names** to add alternate spellings or
+regional names. Admin and consumer searches find the title by any saved name
+while the card displays the title's display name. Consumer search applies the
+library's visibility rules. Lookup names belong to the title and survive DAT
+replacement. Title merges carry the names to the surviving title and combine
+names that match after search normalization.
+
 ## Source removal and provenance
 
 **Status → Disable Source** previews the titles still covered elsewhere, titles

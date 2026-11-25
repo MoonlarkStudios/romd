@@ -1,6 +1,6 @@
-using Romd.Infrastructure.Enrichment;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 

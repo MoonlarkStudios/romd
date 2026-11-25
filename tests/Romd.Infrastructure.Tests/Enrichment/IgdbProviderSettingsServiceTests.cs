@@ -15,12 +15,12 @@ using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Contracts.Management.MetadataProviders;
-using Romd.Infrastructure.Enrichment;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 
@@ -299,9 +299,9 @@ public sealed class IgdbProviderSettingsServiceTests : IDisposable
         var newRun = newScope.ServiceProvider.GetRequiredService<IMetadataProvider>();
         await newRun.InitializeAsync();
         await oldRun.InitializeAsync();
-        var context = new EnrichmentContext { TitleName = "Test", PlatformShortName = "test", ExistingExternalId = "1" };
-        await oldRun.EnrichSingleAsync(context);
-        await newRun.EnrichSingleAsync(context);
+        var request = new MetadataFetchRequest("1", new() { TitleName = "Test", PlatformShortName = "test" });
+        await oldRun.FetchSingleAsync(request);
+        await newRun.FetchSingleAsync(request);
 
         handler.TokenForms.Count.ShouldBe(2);
         handler.TokenForms[0].ShouldContain("client_id=old-client");
@@ -316,7 +316,7 @@ public sealed class IgdbProviderSettingsServiceTests : IDisposable
         var disabledRun = disabledScope.ServiceProvider.GetRequiredService<IMetadataProvider>();
         await disabledRun.InitializeAsync();
         disabledRun.IsConfigured.ShouldBeFalse();
-        (await disabledRun.EnrichSingleAsync(context)).Outcome.ShouldBe(EnrichmentOutcome.Error);
+        (await disabledRun.FetchSingleAsync(request)).Outcome.ShouldBe(EnrichmentOutcome.Error);
         handler.TokenForms.Count.ShouldBe(2);
         oldRun.IsConfigured.ShouldBeTrue();
     }

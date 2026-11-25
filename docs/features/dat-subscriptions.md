@@ -28,6 +28,8 @@ reviewed document returns the accepted job receipt.
 Eligible subscriptions are checked daily. A worker sweep runs every 15 minutes;
 failed checks back off after 1, 2, 4, 8, 16 and then 24 hours. Use **Retry check**
 to retry immediately. Updates are always reviewed and approved manually.
+A sweep reuses one verified publisher directory. When its signed hash matches
+the installed DAT bytes, ROMD records the check without downloading the DAT.
 A pending review retains its exact candidate until approval or another explicit
 check. Installed catalogs remain active when a check fails.
 

@@ -419,6 +419,7 @@ interface MergeTitlesParams {
   targetTitleId: string;
   /** The revision of the target title the curator selected and saw. */
   targetRevision: string;
+  datGroupingEvidence?: string;
 }
 
 /** The errorCode of a merge whose source changed: its batch revision is stale. */
@@ -438,6 +439,7 @@ export function useMergeTitles() {
       sourceRevision,
       targetTitleId,
       targetRevision,
+      datGroupingEvidence,
     }: MergeTitlesParams) => {
       const response = await mergeTitles({
         path: {
@@ -447,6 +449,11 @@ export function useMergeTitles() {
         body: {
           sourceTitleId,
           sourceTitleRevision: sourceRevision,
+          ...(datGroupingEvidence
+            ? {
+                datGroupingEvidence,
+              }
+            : {}),
         },
       });
       if (response.error?.errorCode === MERGE_SOURCE_CHANGED) throw new TitleConflictError();

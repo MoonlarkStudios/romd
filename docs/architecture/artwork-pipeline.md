@@ -73,13 +73,33 @@ invalidate explicit confirmations or remove retained artwork.
 The match picker presents bounded suggestions and their coverage. IGDB searches
 explore at most 500 raw results; SteamGridDB autocomplete has no continuation or
 completeness guarantee. Refine a limited search or switch to an exact game id or
-page URL. SteamGridDB suggestions alone therefore require curator confirmation;
-an independently trusted bridge remains usable. Editing the query or switching
+page URL. Curators can confirm a suggestion or supply an exact game ID.
+Editing the query or switching
 provider or lookup mode discards the previous suggestions and selection.
+
+SteamGridDB review uses release years for the title's platform from the currently
+trusted IGDB game's stored evidence. A year match breaks a tie in the existing
+candidate scores and appears in the candidate's supporting signals. Discovery
+can automatically accept a verified ID bridge or a unique exact title and
+corroborated release year from an exhaustive search. SteamGridDB autocomplete
+cannot establish that the search is exhaustive. It can support a provisional
+artwork selection when the resolved DAT family, trusted IGDB release and
+returned candidates satisfy the review rules.
+
+A trusted IGDB release can corroborate the year if its platform label exactly
+matches a ROMD-owned name alias for the title's system, ignoring case. This
+covers original release years under labels such as Super Famicom when the
+parent and clone share a canonical title. Alias-backed decisions retain the
+alias evidence and the IGDB association revision. Changes to either block
+artwork use and refresh cached review. Ambiguous titles, conflicting editions
+and searches that exhaust the lookup budget still follow the review rules.
 
 Decisions retain candidates, reasons, policy version, input fingerprint, and any
 trusted bridge dependency. Input/policy changes invalidate automatic trust;
 bridge trust requires the source game and association revision to remain current.
+Alias-based automatic acceptance also pins the system alias records and trusted
+IGDB association. Changing either withdraws trust and hides retained artwork
+until rediscovery establishes trust or an operator confirms the match.
 Negative discovery caches last six hours; temporary provider failures retry after
 one minute. Rate limits are not cached as negative identity decisions; retry hints
 are returned per provider so a healthy alternative can still fill the role.
@@ -188,10 +208,48 @@ Provider discovery and database assessment share the current-input fingerprint
 and recursive trust predicate. Automatic trust depends on active, non-BIOS local
 catalog evidence, local name/system, explicit confirmations, matcher version, and
 current bridge association revisions. Provider-enriched dates are excluded.
+For DAT-backed sources, matching reads the active version of each active
+source. Staging a replacement leaves the matching evidence in place. At
+activation, a change to the effective game names or years invalidates
+automatic decisions that used the previous fingerprint.
+
+For a title with stored SHA-1 ROM matches, discovery considers the active
+non-BIOS releases on the title's system linked to those same ROMs. If all the
+matches resolve to one clone family in one active DAT version, the family root
+and matched release names extend the bounded provider search. Provider identity
+still uses the usual name, edition, platform, and year checks. Invalid clone
+ancestry or competing families or DAT versions send candidates to curator
+review. Explicit provider confirmation still takes precedence.
+
+After a verified ID bridge is tried, SteamGridDB can inherit an accepted
+match from the title linked to the family root. The clone and root title must
+each have a verified ROM match in the same active DAT version, and conflicting
+title or edition evidence requires review. The decision pins the parent
+title, DAT release, provider game ID and association revision. Changing the
+parent match or losing the active DAT evidence withdraws automatic trust
+and hides artwork that depends on it.
+
+The fingerprint records the active version, release, and ROM IDs for the
+hash-backed matches. The version pins its parsed clone declarations. Staging
+leaves the fingerprint unchanged, while activation and changes to the active
+match set can revoke automatic trust. Titles without hash-backed evidence
+continue to use the name and year fingerprint.
+
 Discovery reads facts and fingerprints in a consistent database snapshot. Import
 publication checks trust directly in its existing mutation transaction. The new
 fingerprint encoding invalidates legacy automatic decisions for reassessment;
 explicit confirmations survive.
+
+A current provisional SteamGridDB or IGDB match can supply missing artwork.
+Both policies require an unambiguous active DAT hash match and an exact name
+that preserves the edition. The SteamGridDB policy also requires a year from
+a trusted IGDB release on the local system. The IGDB policy requires the
+candidate itself to supply release evidence for that system. The artwork worker
+checks the current provider game and decision revision before publishing
+variants for a role. Role settings govern acquisition. Presentation and file
+delivery recheck the evidence and serve provisional variants with
+`Cache-Control: no-store`. Confirmation promotes retained artwork for the selected
+game in the same transaction as the provider link.
 
 Overlapping compatible completion requests share active title work through the
 existing durable item ledger. Automatic scope excludes active legacy work as well;

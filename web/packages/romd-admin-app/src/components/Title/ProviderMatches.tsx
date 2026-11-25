@@ -46,6 +46,7 @@ import { DecisionConfirmation } from './DecisionConfirmation';
 import { continueWithoutProviderConfirmation } from './enrichmentPresentation';
 import { sourceLabel } from './metadataDraft';
 import classes from './ProviderMatches.module.css';
+import { ProvisionalMatchPreview } from './ProvisionalMatchPreview';
 import type { TitleEditorOutcome } from './titleWorkbenchModel';
 
 /** Render local mapping keys as readable system names alongside provider labels. */
@@ -215,6 +216,13 @@ export function ProviderMatchPicker(props: ProviderMatchPickerProps) {
   );
 }
 
+function provisionalGame(match: TitleProviderMatch) {
+  return (
+    match.decision?.candidates.find(({ game }) => game.id === match.decision?.provisionalGameId)
+      ?.game ?? null
+  );
+}
+
 function ProviderMatchPickerContent({
   titleId,
   titleName,
@@ -245,7 +253,29 @@ function ProviderMatchPickerContent({
   const [conflicted, setConflicted] = useState(false);
   const [mode, setMode] = useState<'search' | 'resolve'>('search');
   const [text, setText] = useState(titleName);
-  const [selected, setSelected] = useState<ProviderGame | null>(null);
+  const [selected, setSelected] = useState(() =>
+    review || row.provisionalReview ? null : provisionalGame(row),
+  );
+  const [choosingAlternative, setChoosingAlternative] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const reloadControl = useRef<HTMLButtonElement>(null);
+  const replacementControl = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+  useEffect(() => {
+    if (conflicted) {
+      reloadControl.current?.focus();
+      returnFocus.current = true;
+    } else if (choosingAlternative) {
+      searchInput.current?.focus();
+    } else if (returnFocus.current) {
+      (replacementControl.current ?? searchInput.current)?.focus();
+      returnFocus.current = false;
+    }
+  }, [
+    choosingAlternative,
+    conflicted,
+  ]);
   const [showEvidence, setShowEvidence] = useState(true);
   const lookupDisclosure = useRef<HTMLDetailsElement>(null);
   const search = useProviderGameLookup(row.providerId);
@@ -274,6 +304,7 @@ function ProviderMatchPickerContent({
               });
       if (result.error || !result.data) {
         setConflicted(result.response?.status === 412);
+        setRejecting(false);
         throw new Error(
           result.response?.status === 412
             ? 'The provider match changed. Reload the current match, then select and confirm your choice again.'
@@ -313,11 +344,10 @@ function ProviderMatchPickerContent({
       await review?.refreshAssessment();
       cache.setQueryData(providerMatchKeys.title(titleId), result.data);
       setMatch(latest);
+      setChoosingAlternative(false);
       setSelected(null);
-      if (review) {
-        setMode('search');
-        setText(titleName);
-      }
+      setMode('search');
+      setText(titleName);
       search.reset();
       setShowEvidence(true);
       save.reset();
@@ -326,13 +356,16 @@ function ProviderMatchPickerContent({
   });
   const [discarding, setDiscarding] = useState(false);
   const [reloading, setReloading] = useState(false);
-  const dirty = selected !== null || text !== (mode === 'search' ? titleName : '');
+  const dirty =
+    (selected !== null && (review || selected.id !== match.decision?.provisionalGameId)) ||
+    text !== (mode === 'search' ? titleName : '');
   const saving = submitting !== undefined;
   const busy = saving || reload.isPending;
-  const draft = dirty || continuingWithout || busy ? match : undefined;
+  const draft =
+    dirty || continuingWithout || rejecting || busy || choosingAlternative ? match : undefined;
   const onDraftChange = review?.onDraftChange;
   const onBusyChange = review?.onBusyChange;
-  const decisionOpen = busy || continuingWithout || reloading;
+  const decisionOpen = busy || continuingWithout || rejecting || reloading;
   useLayoutEffect(() => {
     onDraftChange?.(draft);
   }, [
@@ -348,6 +381,24 @@ function ProviderMatchPickerContent({
   ]);
   const stale = !!review?.stale && !saving;
   const inputsLocked = busy || stale;
+  const expired = match.provisionalReview?.evidenceCurrent === false;
+  const evidenceCurrent = !conflicted && !expired && !stale;
+  const suggestedGame = match.provisionalReview?.evidenceCurrent ? provisionalGame(match) : null;
+  const reviewingSuggestion = !!suggestedGame && evidenceCurrent && !choosingAlternative;
+  const target = reviewingSuggestion ? suggestedGame : selected;
+  const previousGame =
+    match.externalId ?? (evidenceCurrent ? match.decision?.provisionalGameId : undefined);
+  const replacing = selected !== null && previousGame != null && selected.id !== previousGame;
+  const switchReview = (findAlternative: boolean) => {
+    returnFocus.current = !findAlternative;
+    setChoosingAlternative(findAlternative);
+    setSelected(null);
+    setMode('search');
+    setText(titleName);
+    setShowEvidence(true);
+    save.reset();
+    search.reset();
+  };
   const continueWithout = review?.canContinueWithout
     ? continueWithoutProviderConfirmation(row.providerId)
     : undefined;
@@ -363,10 +414,20 @@ function ProviderMatchPickerContent({
           match.game,
         ]
       : [];
-  const candidates = search.data?.items ?? (showEvidence || review ? persistedCandidates : []);
+  const candidates =
+    search.data?.items ??
+    ((evidenceCurrent || (stale && !expired)) && (showEvidence || review)
+      ? persistedCandidates.filter((game) => !choosingAlternative || game.id !== suggestedGame?.id)
+      : []);
   const resultCount = search.data?.items.length;
   const completeness = search.data?.search?.completeness;
-  const local = match.decision?.localEvidence;
+  const local = evidenceCurrent ? match.decision?.localEvidence : undefined;
+  const providerPlatforms = suggestedGame?.platforms ?? [];
+  const localPlatformKeys = new Set(local?.platforms.map((system) => system.toLowerCase()));
+  const proposedPlatforms =
+    providerPlatforms.length === 1
+      ? providerPlatforms
+      : providerPlatforms.filter((system) => localPlatformKeys.has(system.toLowerCase()));
   const localPlatforms = new Set(
     [
       review?.platformName ?? '',
@@ -429,6 +490,7 @@ function ProviderMatchPickerContent({
         >
           <TextInput
             data-autofocus
+            ref={searchInput}
             disabled={inputsLocked}
             label={mode === 'search' ? 'Game name' : 'Provider ID or page URL'}
             value={text}
@@ -463,13 +525,30 @@ function ProviderMatchPickerContent({
     </Stack>
   );
   const content = (
-    <Stack gap="sm">
+    <Stack
+      gap="sm"
+      className={inline || review ? undefined : classes.pickerScroll}
+    >
       <UnsavedChanges
         dirty={(dirty || (continuingWithout && save.isError)) && !save.isSuccess}
         saving={inReview && saving}
         description="Your provider match choice has not been confirmed."
       />
-      {review ? (
+      {conflicted && !stale ? (
+        <Alert
+          color="yellow"
+          title="The match changed"
+        >
+          Reload the current match before deciding again.
+        </Alert>
+      ) : reviewingSuggestion || (expired && !stale) ? (
+        <ProvisionalMatchPreview
+          match={match}
+          localTitle={local?.name ?? titleName}
+          localSystems={platformLabels(local?.platforms)}
+          proposedSystems={platformLabels(proposedPlatforms)}
+        />
+      ) : review ? (
         <div className={classes.localGame}>
           <MatchCover url={review.thumbnailUrl} />
           <div>
@@ -496,10 +575,10 @@ function ProviderMatchPickerContent({
             {local?.platforms.length ? local.platforms.join(' / ') : 'platform unknown'} ·{' '}
             {local?.years.length ? local.years.join(', ') : 'year unknown'}
           </Text>
-          {lookup}
+          {!conflicted && lookup}
         </>
       )}
-      {!review && match.decision && (
+      {!review && match.decision && evidenceCurrent && !match.provisionalReview && (
         <details>
           <summary>Match evidence</summary>
           <Text size="sm">{match.decision.explanation}</Text>
@@ -511,16 +590,21 @@ function ProviderMatchPickerContent({
           </Text>
         </details>
       )}
-      {review && (
-        <details
-          className={classes.reviewLookup}
-          ref={lookupDisclosure}
-          open={!persistedCandidates.length || undefined}
-        >
-          <summary>{persistedCandidates.length ? 'Find another match' : 'Find a match'}</summary>
-          {lookup}
-        </details>
-      )}
+      {review &&
+        !reviewingSuggestion &&
+        !conflicted &&
+        (choosingAlternative ? (
+          lookup
+        ) : (
+          <details
+            className={classes.reviewLookup}
+            ref={lookupDisclosure}
+            open={!persistedCandidates.length || undefined}
+          >
+            <summary>{persistedCandidates.length ? 'Find another match' : 'Find a match'}</summary>
+            {lookup}
+          </details>
+        ))}
       {review && resultCount !== undefined && (
         <Group
           justify="space-between"
@@ -567,7 +651,7 @@ function ProviderMatchPickerContent({
             : 'No suggestions returned; more matches may exist.'}
         </Text>
       )}
-      {(candidates.length > 0 || !review) && (
+      {!reviewingSuggestion && (candidates.length > 0 || (!review && !conflicted)) && (
         <Radio.Group
           label={review && search.data ? 'Provider search results' : 'Provider candidates'}
           value={selected?.id ?? ''}
@@ -578,9 +662,10 @@ function ProviderMatchPickerContent({
             className={review ? classes.reviewCandidates : classes.candidates}
           >
             {candidates.map((game) => {
-              const evidence = search.data
-                ? undefined
-                : match.decision?.candidates.find((candidate) => candidate.game.id === game.id);
+              const evidence =
+                search.data || !evidenceCurrent
+                  ? undefined
+                  : match.decision?.candidates.find((candidate) => candidate.game.id === game.id);
               if (review) {
                 const systemYears = releaseYearsOnSystem(game, matchesLocalSystem);
                 const candidatePlatforms = platformLabels(game.platforms);
@@ -682,7 +767,7 @@ function ProviderMatchPickerContent({
                   <Radio
                     value={game.id}
                     label={`Select ${game.name}`}
-                    disabled={busy || search.isPending || conflicted}
+                    disabled={inputsLocked || search.isPending || conflicted}
                   />
                   <div className={classes.preview}>
                     <GamePreview
@@ -734,7 +819,43 @@ function ProviderMatchPickerContent({
           </Stack>
         </Radio.Group>
       )}
-      {!stale && continueWithout && (
+      {reviewingSuggestion && !conflicted && (
+        <Group gap="xs">
+          <Button
+            ref={replacementControl}
+            variant="subtle"
+            disabled={inputsLocked}
+            onClick={() => switchReview(true)}
+          >
+            Find a replacement
+          </Button>
+          <Button
+            variant="subtle"
+            color="red"
+            disabled={inputsLocked || !match.isAvailable}
+            onClick={() => setRejecting(true)}
+          >
+            Reject provisional match
+          </Button>
+        </Group>
+      )}
+      {choosingAlternative && !conflicted && (
+        <Button
+          variant="subtle"
+          w="fit-content"
+          disabled={inputsLocked}
+          onClick={() => switchReview(false)}
+        >
+          Back to suggestion
+        </Button>
+      )}
+      {replacing && !conflicted && !stale && (
+        <Text size="sm">
+          Replacing the match removes its metadata and automatic artwork. ROMD will fetch data for
+          the new match and keep your edits and pinned artwork.
+        </Text>
+      )}
+      {!stale && !reviewingSuggestion && continueWithout && (
         <Button
           variant="subtle"
           size="compact-sm"
@@ -779,26 +900,29 @@ function ProviderMatchPickerContent({
           <Button
             {...workspaceActionProps}
             variant="light"
+            ref={reloadControl}
             loading={reload.isPending}
-            onClick={() => (selected ? setReloading(true) : reload.mutate())}
+            onClick={() => (dirty ? setReloading(true) : reload.mutate())}
           >
             Reload latest
           </Button>
         )}
         {!stale && reload.isError && <Alert color="red">{reload.error.message}</Alert>}
-        {!stale && reload.isSuccess && (
+        {!stale && !expired && !reviewingSuggestion && reload.isSuccess && (
           <Alert color="blue">
             Current match: {match.game?.name ?? match.externalId ?? 'No linked game'}. Select a game
             to confirm your choice.
           </Alert>
         )}
-        {!review && (
+        {!review && !reviewingSuggestion && (!conflicted || (dirty && selected)) && (
           <Text
             size="sm"
             role="status"
           >
             {selected
-              ? `Selected: ${selected.name}`
+              ? choosingAlternative
+                ? `Selected: ${selected.name} · ${match.providerName} #${selected.id}`
+                : `Selected: ${selected.name}`
               : 'Select a provider game to confirm this match.'}
           </Text>
         )}
@@ -825,20 +949,29 @@ function ProviderMatchPickerContent({
               Show latest status
             </Button>
           ) : (
-            <Button
-              {...workspaceActionProps}
-              disabled={!selected || conflicted || !match.isAvailable || busy || search.isPending}
-              loading={submitting === 'match'}
-              onClick={() => {
-                if (selected)
-                  void submit({
-                    kind: 'match',
-                    externalId: selected.id,
-                  }).catch(() => undefined);
-              }}
-            >
-              {review || !selected ? 'Confirm match' : `Confirm ${selected.name}`}
-            </Button>
+            (!conflicted || review) && (
+              <Button
+                {...workspaceActionProps}
+                data-provider-candidate={reviewingSuggestion || undefined}
+                disabled={
+                  conflicted || !target || !match.isAvailable || inputsLocked || search.isPending
+                }
+                loading={submitting === 'match'}
+                onClick={() => {
+                  if (target)
+                    void submit({
+                      kind: 'match',
+                      externalId: target.id,
+                    }).catch(() => undefined);
+                }}
+              >
+                {choosingAlternative && replacing
+                  ? 'Replace match'
+                  : review || reviewingSuggestion || !target
+                    ? 'Confirm match'
+                    : `Confirm ${target.name}`}
+              </Button>
+            )
           )}
         </Group>
       </Stack>
@@ -914,17 +1047,43 @@ function ProviderMatchPickerContent({
         <Modal
           opened
           onClose={requestClose}
-          closeOnEscape={!busy && !discarding && !reloading}
-          closeOnClickOutside={!busy && !discarding && !reloading}
+          closeOnEscape={!decisionOpen && !discarding}
+          closeOnClickOutside={!decisionOpen && !discarding}
           withCloseButton={!busy}
           title={`Match ${row.providerName}`}
           size="lg"
+          classNames={{
+            content: classes.pickerDialog,
+            header: classes.pickerHeader,
+            body: classes.pickerBody,
+          }}
         >
           {content}
         </Modal>
       )}
       {discardDialog}
       {reloadDialog}
+      <DecisionConfirmation
+        copy={
+          rejecting
+            ? {
+                title: 'Reject the provisional match?',
+                message:
+                  'ROMD will withdraw this match’s provisional fields and artwork. User edits and pinned artwork are kept. Automatic matching for this provider will stay off until you link a source.',
+                confirmLabel: 'Reject match',
+              }
+            : undefined
+        }
+        confirmDisabled={!evidenceCurrent}
+        onCancel={() => setRejecting(false)}
+        onConfirm={() =>
+          submit({
+            kind: 'continue',
+          })
+        }
+        onConfirmed={() => setRejecting(false)}
+        returnFocusAfterConfirm={!review}
+      />
       {continueWithout && (
         <DecisionConfirmation
           copy={
@@ -1137,6 +1296,15 @@ export function ProviderMatches({
                     } as Record<string, string>
                   )[row.state] ?? row.state}
                 </Badge>
+                {row.decision?.provisionalGameId && (
+                  <Badge
+                    size="xs"
+                    variant="light"
+                    color="yellow"
+                  >
+                    Provisional match
+                  </Badge>
+                )}
               </Group>
               {row.externalId && (
                 <Group gap="xs">
@@ -1164,12 +1332,14 @@ export function ProviderMatches({
                   Provider configuration required
                 </Text>
               )}
-              {row.evidence && (
+              {(row.evidence || row.provisionalReview?.evidenceCurrent === false) && (
                 <Text
                   size="xs"
                   c="dimmed"
                 >
-                  {row.evidence}
+                  {row.provisionalReview?.evidenceCurrent === false
+                    ? 'The provisional evidence changed. Review the match again.'
+                    : row.evidence}
                 </Text>
               )}
               {row.lastError && (
@@ -1185,7 +1355,7 @@ export function ProviderMatches({
                   size="xs"
                   c="orange"
                 >
-                  Metadata retained from a previous match
+                  Provider metadata needs a refresh
                 </Text>
               )}
               {row.state === 'Unlinked' && (
@@ -1239,14 +1409,18 @@ export function ProviderMatches({
                   </Menu.Target>
                   <Menu.Dropdown>
                     <Menu.Item
-                      color={row.externalId ? 'red' : undefined}
+                      color={row.externalId || row.decision?.provisionalGameId ? 'red' : undefined}
                       leftSection={<IconUnlink size={16} />}
                       onClick={() => {
                         mutation.reset();
                         setUnlinking(row);
                       }}
                     >
-                      {row.externalId ? 'Unlink' : 'Continue without this provider'}
+                      {row.externalId
+                        ? 'Unlink'
+                        : row.decision?.provisionalGameId
+                          ? 'Reject provisional match'
+                          : 'Continue without this provider'}
                     </Menu.Item>
                   </Menu.Dropdown>
                 </Menu>
@@ -1296,15 +1470,20 @@ export function ProviderMatches({
         closeOnClickOutside={!mutation.isPending}
         withCloseButton={!mutation.isPending}
         title={
-          unlinking?.externalId
-            ? `Unlink ${unlinking.providerName}`
-            : `Continue without ${unlinking?.providerName}?`
+          unlinking?.decision?.provisionalGameId
+            ? 'Reject the provisional match?'
+            : unlinking?.externalId
+              ? `Unlink ${unlinking.providerName}`
+              : `Continue without ${unlinking?.providerName}?`
         }
         size="sm"
       >
         <Stack>
           <Text size="sm">
-            {unlinking?.externalId && 'ROMD retains metadata and artwork from the current match. '}
+            {unlinking?.decision?.provisionalGameId &&
+              'ROMD will withdraw contributions from the provisional match and keep your pinned artwork. '}
+            {unlinking?.externalId &&
+              'ROMD will remove metadata and automatic artwork from this match and keep your pinned artwork. '}
             Automatic matching for this provider will stay off until you link a source.
           </Text>
           {mutation.isError && <Alert color="red">{mutation.error.message}</Alert>}
@@ -1318,12 +1497,18 @@ export function ProviderMatches({
             </Button>
             <Button
               {...workspaceActionProps}
-              color={unlinking?.externalId ? 'red' : undefined}
+              color={
+                unlinking?.externalId || unlinking?.decision?.provisionalGameId ? 'red' : undefined
+              }
               loading={mutation.isPending}
               disabled={disabled || mutation.error instanceof ProviderMatchConflictError}
               onClick={() => unlinking && decide(unlinking, true, () => setUnlinking(null))}
             >
-              {unlinking?.externalId ? 'Unlink match' : 'Continue without provider'}
+              {unlinking?.externalId
+                ? 'Unlink match'
+                : unlinking?.decision?.provisionalGameId
+                  ? 'Reject match'
+                  : 'Continue without provider'}
             </Button>
           </Group>
         </Stack>

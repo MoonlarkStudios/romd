@@ -25,9 +25,23 @@ public sealed record TitleProviderMatch(string ProviderId, string ProviderName,
     bool IsAvailable, IReadOnlyList<string> Capabilities, Guid Revision,
     string State, string? ExternalId, ProviderGame? Game, float? Confidence,
     string? LastError, bool MetadataNeedsRefresh, string? Evidence = null, string? MatcherVersion = null, ProviderIdentityDecision? Decision = null,
-    Guid? PendingJobId = null);
+    Guid? PendingJobId = null, ProvisionalMatchReview? ProvisionalReview = null);
+
+/// <summary>The match's current effective field contributions and retained provisional artwork.
+/// An expired proposal has no contributions and requires a new operator decision.</summary>
+public sealed record ProvisionalMatchReview(string GameId, bool EvidenceCurrent,
+    ProvisionalMetadataFields? Fields, IReadOnlyList<ProvisionalMatchRating> Ratings,
+    IReadOnlyList<ProvisionalMatchArtwork> Artwork);
+
+public sealed record ProvisionalMetadataFields(string? Description, string? Publisher, string? Developer,
+    string? Genre, DateOnly? ReleaseDate, int? Players, double? Rating);
+
+public sealed record ProvisionalMatchRating(string Board, string Code);
+
+public sealed record ProvisionalMatchArtwork(string Role, string? PreviewUrl);
 public sealed record ProviderIdentityCandidate(ProviderGame Game, int Score, bool Eligible, IReadOnlyList<string> Evidence, IReadOnlyList<string> Conflicts);
-public sealed record ProviderIdentityDecision(string State, string Explanation, string Provenance, string InputFingerprint, IReadOnlyList<ProviderIdentityCandidate> Candidates, IReadOnlyList<ProviderIdentityDependency>? Dependencies = null, ProviderIdentityFacts? LocalEvidence = null);
+public sealed record ProviderIdentityDecision(string State, string Explanation, string Provenance, string InputFingerprint, IReadOnlyList<ProviderIdentityCandidate> Candidates, IReadOnlyList<ProviderIdentityDependency>? Dependencies = null, ProviderIdentityFacts? LocalEvidence = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ProvisionalGameId = null);
 public sealed record ProviderIdentityFacts(string Name, IReadOnlyList<string> Names, IReadOnlyList<int> Years, IReadOnlyList<string> Platforms);
 public sealed record ProviderIdentityDependency(string ProviderId, string GameId, Guid Revision);
 public sealed record SetProviderMatchRequest([property: JsonRequired] string ExternalId);

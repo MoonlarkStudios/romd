@@ -61,9 +61,11 @@ vi.mock('@romd/admin-api-client', async () => {
       error: undefined,
     }),
     getCatalogFilters: vi.fn(),
+    getDatTitleGrouping: vi.fn(),
     getTitleEnrichmentAssessment: vi.fn(),
     getAdminCatalogSnapshot: vi.fn(),
     getTitle: vi.fn(),
+    getTitleLookupNames: vi.fn(),
     getTitleArtwork: vi.fn(),
     listArtworkProviders: vi.fn(),
     listTitleArtworkAssets: vi.fn(),
@@ -74,6 +76,7 @@ vi.mock('@romd/admin-api-client', async () => {
     listCatalogTitles: vi.fn(),
     updateTitleEnrichment: vi.fn(),
     replaceTitleTracking: vi.fn(),
+    replaceTitleLookupNames: vi.fn(),
     triggerTitleEnrichment: vi.fn(),
     updateTitle: vi.fn(),
   };
@@ -83,16 +86,19 @@ import {
   confirmTitleProviderMatch,
   getAdminCatalogSnapshot,
   getCatalogFilters,
+  getDatTitleGrouping,
   getTitle,
   getTitleArtwork,
   getTitleEnrichmentAssessment,
   getTitleEnrichmentState,
+  getTitleLookupNames,
   listArtworkProviders,
   listCatalogTitles,
   listTitleArtworkAssets,
   listTitleProviderMatches,
   listTitleSourceReferences,
   mergeTitles,
+  replaceTitleLookupNames,
   replaceTitleTracking,
   triggerTitleEnrichment,
   updateTitle,
@@ -1254,6 +1260,207 @@ describe('TitleDetail', () => {
 
     expect(await screen.findByText('Merge title...')).toBeInTheDocument();
     expect(screen.getByText('Move release...')).toBeInTheDocument();
+  });
+
+  it('saves a separate lookup name using the revision loaded by its editor', async () => {
+    const user = userEvent.setup();
+    const load = vi.mocked(getTitleLookupNames);
+    const save = vi.mocked(replaceTitleLookupNames);
+    load.mockResolvedValue({
+      data: {
+        names: [
+          'Existing alternate name',
+        ],
+        revision: 'lookup-revision',
+      },
+    } as Awaited<ReturnType<typeof getTitleLookupNames>>);
+    save.mockResolvedValue({
+      data: {
+        names: [
+          'Existing alternate name',
+          'Another spelling',
+        ],
+        revision: 'saved-revision',
+      },
+    } as Awaited<ReturnType<typeof replaceTitleLookupNames>>);
+    renderTitleDetail();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Title actions',
+      }),
+    );
+    await user.click(await screen.findByText('Edit lookup names…'));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Edit lookup names',
+    });
+    expect(await within(dialog).findByText('Existing alternate name')).toBeInTheDocument();
+    await user.type(
+      within(dialog).getByPlaceholderText('Add an alternate name'),
+      'Another spelling{Enter}',
+    );
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Save lookup names',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith({
+        path: {
+          titleId: title.id,
+        },
+        body: {
+          names: [
+            'Existing alternate name',
+            'Another spelling',
+          ],
+        },
+        headers: {
+          'If-Match': '"lookup-revision"',
+        },
+      }),
+    );
+    expect(
+      screen.getByRole('heading', {
+        name: title.name,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('can replace a lookup name when grouping preserved more than 32 names', async () => {
+    const user = userEvent.setup();
+    const names = Array.from(
+      {
+        length: 35,
+      },
+      (_, index) => `Lookup name ${index + 1}`,
+    );
+    const expectedNames = [
+      ...names.slice(0, -1),
+      'Corrected name',
+    ];
+    vi.mocked(getTitleLookupNames).mockResolvedValue({
+      data: {
+        names,
+        revision: 'grouped-revision',
+      },
+    } as Awaited<ReturnType<typeof getTitleLookupNames>>);
+    const save = vi.mocked(replaceTitleLookupNames);
+    save.mockResolvedValue({
+      data: {
+        names: expectedNames,
+        revision: 'saved-revision',
+      },
+    } as Awaited<ReturnType<typeof replaceTitleLookupNames>>);
+    renderTitleDetail();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Title actions',
+      }),
+    );
+    await user.click(await screen.findByText('Edit lookup names…'));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Edit lookup names',
+    });
+    await user.click(await within(dialog).findByPlaceholderText('Add an alternate name'));
+    await user.keyboard('{Backspace}Corrected name{Enter}');
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Save lookup names',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith({
+        path: {
+          titleId: title.id,
+        },
+        body: {
+          names: expectedNames,
+        },
+        headers: {
+          'If-Match': '"grouped-revision"',
+        },
+      }),
+    );
+  });
+
+  it('previews DAT family names and waits for the operator to approve the reviewed grouping', async () => {
+    const user = userEvent.setup();
+    const clone = {
+      ...title,
+      name: 'Streets of Rage 2',
+    };
+    mockGetTitle.mockResolvedValue({
+      data: clone,
+      error: undefined,
+    });
+    vi.mocked(getDatTitleGrouping).mockResolvedValue({
+      data: {
+        suggestion: {
+          parentTitleId: 'parent',
+          parentTitleName: 'Streets of Rage II',
+          parentTitleRevision: 'reviewed-parent',
+          cloneTitleRevision: 'reviewed-clone',
+          datName: 'Mega Drive',
+          datVersion: 'version-2',
+          releaseNames: [
+            'Streets of Rage II (Japan, Europe)',
+            'Streets of Rage 2 (USA)',
+          ],
+          evidence: 'active-dat-evidence',
+        },
+      },
+    } as Awaited<ReturnType<typeof getDatTitleGrouping>>);
+    mockMergeTitles.mockResolvedValue({
+      data: clone,
+      error: undefined,
+    });
+    renderTitleDetail();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Title actions',
+      }),
+    );
+    await user.click(await screen.findByText('Review DAT family…'));
+    const review = await screen.findByRole('dialog', {
+      name: 'Review DAT title grouping',
+    });
+    expect(
+      await within(review).findByText('Streets of Rage II (Japan, Europe)'),
+    ).toBeInTheDocument();
+    expect(within(review).getByText('Streets of Rage 2 (USA)')).toBeInTheDocument();
+    expect(
+      within(review).getByRole('combobox', {
+        name: 'Title to keep',
+      }),
+    ).toHaveValue('Streets of Rage 2');
+    expect(mockMergeTitles).not.toHaveBeenCalled();
+
+    await user.click(
+      within(review).getByRole('button', {
+        name: 'Group titles',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockMergeTitles).toHaveBeenCalledWith({
+        path: {
+          titleId: clone.id,
+        },
+        headers: {
+          'If-Match': '"reviewed-clone"',
+        },
+        body: {
+          sourceTitleId: 'parent',
+          sourceTitleRevision: 'reviewed-parent',
+          datGroupingEvidence: 'active-dat-evidence',
+        },
+      }),
+    );
   });
 
   it('merges against the target the form loaded on selection, never one read at click time', async () => {

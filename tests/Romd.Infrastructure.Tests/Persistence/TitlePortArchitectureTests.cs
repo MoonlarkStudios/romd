@@ -52,6 +52,12 @@ public sealed class TitlePortArchitectureTests
             "Task<Boolean> LockAsync(Int32 titleId, CancellationToken cancellationToken)",
             "Task<Nullable<Guid>> LockRevisionAsync(Int32 titleId, CancellationToken cancellationToken)"
         ],
+        [typeof(ITitleLookupNameStore)] =
+        [
+            "Task<Int32> CountAsync(Int32 titleId, CancellationToken cancellationToken)",
+            "Task<TitleLookupNameSnapshot> ReadAsync(Int32 titleId, CancellationToken cancellationToken)",
+            "Task<TitleLookupNameSnapshot> StageReplacementAsync(Int32 titleId, Guid currentRevision, IReadOnlyList<TitleLookupName> names, CancellationToken cancellationToken)"
+        ],
         [typeof(ITitleMediaStore)] =
         [
             "Task<StagedMediaAppend> AddUserMediaStagedAsync(TitleMedia media, CancellationToken cancellationToken)",
@@ -65,7 +71,9 @@ public sealed class TitlePortArchitectureTests
             "Task ApplyMergeStagedAsync(Title target, Title source, CancellationToken cancellationToken)",
             "Task<IReadOnlyList<String>> GetUnlinkedProvidersAsync(Int32 titleId, CancellationToken cancellationToken)",
             "Task DeleteAbsorbedSourceAsync(Int32 sourceTitleId, CancellationToken cancellationToken)",
-            "Task StageArtworkMergeAsync(Int32 sourceTitleId, Int32 targetTitleId, CancellationToken cancellationToken)"
+            "Task StageArtworkMergeAsync(Int32 sourceTitleId, Int32 targetTitleId, CancellationToken cancellationToken)",
+            "Task<Boolean> ValidateDatGroupingAsync(Int32 sourceTitleId, Int32 targetTitleId, String evidence, CancellationToken cancellationToken)",
+            "Task ReassignTitleReferencesAsync(Int32 sourceTitleId, Int32 targetTitleId, CancellationToken cancellationToken)"
         ],
         [typeof(ITitleCreationStore)] =
         [
@@ -83,6 +91,7 @@ public sealed class TitlePortArchitectureTests
         [typeof(ITitleMetadataStore)] =
         [
             "Task ApplyEnrichmentStagedAsync(Title title, CancellationToken cancellationToken)",
+            "Task ApplyProvisionalMetadataStagedAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results, CancellationToken cancellationToken)",
             "Task UpdateMaterializedMetadataStagedAsync(Title title, CancellationToken cancellationToken)",
             "Task UpdateUserMetadataStagedAsync(Title title, CancellationToken cancellationToken)"
         ]

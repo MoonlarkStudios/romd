@@ -62,29 +62,28 @@ public sealed class UpsertPlaySessionCommandHandler(
                 $"activeDurationSeconds must be between 0 and {PlaySession.MaximumActiveDurationSeconds}.");
         }
 
-        var access = await accessRepository.GetAccessAsync(
-            new ConsumerReleaseAccessRequest(new ConsumerLibraryScope(userId), releaseId), ct);
-        if (access is not ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.Found
-            { Value: { Allowed: true, TitleId: { } accessibleTitleId } } ||
-            accessibleTitleId != titleId)
-        {
-            return access is ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.LibraryUnavailable or
-                ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.ProjectionInconsistent
-                ? ConsumerErrors.CurrentLibraryUnavailable()
-                : ConsumerErrors.TitleNotFound();
-        }
-
         var transaction = await unitOfWork.BeginAsync(userId, ct);
         bool committed = false;
         bool failed = false;
         try
         {
+            var access = await accessRepository.GetPlaySessionAccessAsync(
+                new ConsumerReleaseAccessRequest(new ConsumerLibraryScope(userId), releaseId), titleId, ct);
+            if (access is not ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.Found
+                { Value: { Allowed: true, TitleId: { } accessibleTitleId } })
+            {
+                return access is ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.LibraryUnavailable or
+                    ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.ProjectionInconsistent
+                    ? ConsumerErrors.CurrentLibraryUnavailable()
+                    : ConsumerErrors.TitleNotFound();
+            }
+
             var result = await activityRepository.UpsertAsync(
                 userId,
                 command.SessionId,
                 new PlaySessionSnapshot(
                     request.ClientId,
-                    titleId,
+                    accessibleTitleId,
                     releaseId,
                     startedAt,
                     endedAt,

@@ -2,9 +2,9 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Xml;
-using Romd.Dat.Parsing;
-using Romd.Dat.Parsing.Formats.ClrMamePro;
-using Romd.Dat.Parsing.Formats.Logiqx;
+using Romd.Dat;
+using Romd.Dat.Formats.ClrMamePro;
+using Romd.Dat.Formats.Logiqx;
 
 // Explicit inputs only. No database/configuration/CAS access and no catalog writes.
 if (args.Length == 0 || args.Contains("--help"))

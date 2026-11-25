@@ -16,8 +16,8 @@ using Romd.Application.Common.Configuration;
 using Romd.Infrastructure.Jobs;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Application.Common.Security;
-using Romd.Dat.Parsing;
-using Romd.Dat.Parsing.Formats.Logiqx;
+using Romd.Dat;
+using Romd.Dat.Formats.Logiqx;
 using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Domain.Source.Dat;
@@ -573,11 +573,13 @@ public sealed partial class DatCatalogEnrollmentServiceTests
         created.Subscription.ActiveDatId.ShouldBe(second.DatId);
         created.Subscription.State.ShouldBe("UpToDate");
         (await h.Db.DatSubscriptions.SingleAsync()).DatSourceId.ShouldBe(second.SourceId);
+        int discoveryCount = h.Client.Discoveries;
         // Replays are idempotent on the catalog and never rebind it to another source.
         (await h.CreateAsync(Catalog, second.DatId, default)).Value.Created.ShouldBeFalse();
         (await h.CreateAsync(Catalog, null, default)).Value.Subscription.Id.ShouldBe(created.Subscription.Id);
         (await h.CreateAsync(Catalog, first.DatId, default)).FirstError.Code.ShouldBe("DatEnrollment.Ambiguous");
-        h.Client.Fetches.ShouldBe(1);
+        h.Client.Discoveries.ShouldBe(discoveryCount);
+        h.Client.Fetches.ShouldBe(0);
     }
 
     [Fact]
@@ -613,6 +615,66 @@ public sealed partial class DatCatalogEnrollmentServiceTests
         row.ExpectedName.ShouldBe("Sony - PlayStation");
         row.PlatformId.ShouldBe(listed.PlatformId);
         row.DatSourceId.ShouldBe(installed.SourceId);
+    }
+
+    [Fact]
+    public async Task ScheduledCheck_ManualActivationDuringHashCheck_LeavesSubscriptionDue()
+    {
+        using var database = PostgreSqlTestDatabase.Create();
+        var clock = new Clock();
+        await using var h = new Harness(database, clock);
+        await h.InitializeAsync();
+        var installed = await h.InstallAsync(h.Client.Bytes);
+        var subscription = await h.EnrollAsync();
+        subscription.State.ShouldBe("UpToDate");
+        var before = await h.Db.DatSubscriptions.AsNoTracking().SingleAsync();
+        var original = await h.Db.DatFiles.AsNoTracking().SingleAsync(dat => dat.Id == installed.DatId);
+
+        byte[] replacement = Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(h.Client.Bytes).Replace("Test Disc", "New Disc"));
+        await using var replacementDocument = new MemoryStream(replacement);
+        var stored = await h.Storage.StageAndCommitAsync(h.Db, replacementDocument, default);
+        var pending = DatFile.CreatePendingVersion(original.Name, "Catalog", DatType.Redump, "next.dat",
+            stored.File.Id, installed.SourceId, clock.GetUtcNow(), original.PlatformId);
+        await new DatRepository(h.Db, clock).AddVersionStagedAsync(pending);
+        await h.Db.SaveChangesAsync();
+        int pendingId = await h.Db.DatFiles.Where(dat => dat.FileId == stored.File.Id).Select(dat => dat.Id).SingleAsync();
+        h.Db.ChangeTracker.Clear();
+
+        clock.Advance(TimeSpan.FromDays(2));
+        (await h.Service.GetDueCheckIdsAsync(default)).ShouldContain(subscription.Id);
+        h.Storage.RetrieveByIdAsync(original.FileId, Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            // The checker has read the old active ID. Activate its replacement before returning the old bytes.
+            var ct = call.Arg<CancellationToken>();
+            await using var activation = database.CreateContext();
+            var dats = new DatRepository(activation, clock);
+            await using var transaction = await activation.Database.BeginTransactionAsync(ct);
+            await dats.AcquireMutationWriteLockAsync(pendingId, ct);
+            var previous = (await dats.GetActiveBySourceIdAsync(installed.SourceId, ct)).ShouldNotBeNull();
+            previous.Supersede(clock.GetUtcNow());
+            await dats.UpdateLifecycleStagedAsync(previous, ct);
+            await activation.SaveChangesAsync(ct);
+            var next = (await dats.GetByIdAsync(pendingId, ct)).ShouldNotBeNull();
+            next.Activate();
+            await dats.UpdateLifecycleStagedAsync(next, ct);
+            await activation.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return (Stream?)new MemoryStream(h.Client.Bytes, writable: false);
+        });
+
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var result = await h.CheckScheduledAsync(subscription.Id, deadline.Token);
+
+        result.FirstError.ShouldBe(DatEnrollmentErrors.ActiveVersionChanged());
+        var after = await h.Db.DatSubscriptions.AsNoTracking().SingleAsync();
+        after.State.ShouldBe(before.State);
+        after.LastCheckedAt.ShouldBe(before.LastCheckedAt);
+        after.NextCheckAt.ShouldBe(before.NextCheckAt);
+        after.ConsecutiveCheckFailures.ShouldBe(before.ConsecutiveCheckFailures);
+        after.CandidateFileId.ShouldBe(before.CandidateFileId);
+        (await h.Service.GetDueCheckIdsAsync(default)).ShouldContain(subscription.Id);
+        (await h.Db.DatFiles.SingleAsync(dat => dat.Lifecycle == "Active")).Id.ShouldBe(pendingId);
+        h.Client.Fetches.ShouldBe(0);
     }
 
     [Fact]

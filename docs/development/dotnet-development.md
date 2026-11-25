@@ -47,6 +47,26 @@ Use `internal` implementations when composition permits it and `sealed` by
 default. Add project or module boundaries when they enforce a needed dependency
 rule, rather than to reach a prescribed number of layers.
 
+### DAT documents
+
+[`Romd.Dat`](../../src/Romd.Dat/Romd.Dat.csproj) owns DAT parsing, Logiqx XML
+writing, and clone parent resolution. The writer streams UTF-8 to a caller-owned
+destination. Callers should stage a file and publish it only after a successful
+write.
+
+The writer emits the fields modeled by ROMD, using `datafile` and `game` XML
+elements. It preserves entry order, file order within each kind, relationship
+declarations, categories, BIOS declarations, and ROM and disk facts. A
+`nodump` ROM can omit its byte size. An explicit zero stays a known size.
+Malformed size and supported checksum declarations prevent export.
+
+For authored entries, set `DeclaredCategory` and `BiosDeclaration` when the DAT
+should declare them. Use `BiosDeclaration = "yes"` for an explicit BIOS marker.
+The reader derives name metadata, BIOS classification, and catalog provenance
+from the exported declarations. Original XML and dialect-specific fields outside
+the model are available from the retained source document. Replacement review
+also checks the candidate's file evidence and document limits.
+
 ## Contract type names
 
 Types in `Romd.Contracts.*` omit the `Dto` suffix; their project and namespace
@@ -179,7 +199,29 @@ file selection for each accepted job. The
 `20261121060000_RemoveServerImportFileHistory` migration removes the separate
 folder-wide file history. The additive `20261121200000_LibraryPublicationOutcome`
 migration records reviewed revisions and outcomes on library publication jobs.
-Current readiness is version 82.
+The additive `20261123000000_DatParentDeclarations` migration adds optional
+Logiqx entry and clone parent IDs to DAT entries. The additive
+`20261123010000_ActiveDatProviderIdentity` migration scopes the provider
+identity fingerprint to active DAT versions. The additive
+`20261123020000_HashBackedDatProviderIdentity` migration adds the shared
+SHA-1 match query, a clone parent ID index, and the matched DAT version and
+release IDs to the provider trust fingerprint. The additive
+`20261123030000_ProvisionalSteamGridDbPosters` migration records provisional
+posters and checks that the provider decision still authorizes their display.
+The additive `20261123040000_ProvisionalProviderArtwork` migration extends
+that authorization to the other supported artwork roles. The additive
+`20261123050000_ProvisionalTitleMetadata` migration stores provisional
+metadata and checks its evidence during presentation. The additive
+`20261124000000_DatParentProviderIdentity` migration validates inherited
+provider identities and the artwork they authorize. The additive
+`20261124010000_ArtworkPlatformAliasEvidence` migration validates the
+ROMD-owned system aliases used for artwork release-year matches. The additive
+`20261124015000_ProvisionalArtworkPlatformAliasEvidence` migration extends
+that validation to provisional artwork. The additive
+`20261124020000_TitleMergeRedirects` migration records the surviving titles for
+offline play-session submissions. The additive `20261124201434_TitleLookupNames`
+migration stores curator-managed search names on titles. Current readiness is
+version 93.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

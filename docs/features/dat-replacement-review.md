@@ -63,6 +63,18 @@ Pages and counts bind to both exact document hashes and reject a stale baseline
 or candidate.
 Entry expansion shows metadata changes and paginated file details, with exact
 before/after strings including Int64 byte sizes. Ordering is ordinal and stable.
+ROMD resolves Logiqx clone parents within each reviewed version using the
+declared parent name (`cloneof`), parent ID (`cloneofid`), or both. When both
+are declared, they must resolve to the same entry. Review shows changes to the
+declarations, the resolved parent, or the resolution status, even when the
+entry's files stay the same. Missing parents, ambiguous IDs, conflicting
+declarations and cycles remain visible as metadata. The ROM dependency
+(`romof`) is tracked separately.
+
+The installed entry view shows DAT entry IDs and clone parent IDs for versions
+imported after the relationship migration. Earlier installed versions retain
+their original DATs, so their declarations still participate in review.
+
 Percentages use the current entry/file counts; first imports explicitly have no
 existing baseline. Entry and expected-file counts describe the document.
 Projected stored ROM counts are distinct logical ROMs within this DAT. They use

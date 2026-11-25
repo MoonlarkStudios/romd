@@ -21,6 +21,7 @@ public sealed class EnrichmentOrchestratorTests
 {
     private readonly IEnrichmentContextFactory _contexts = Substitute.For<IEnrichmentContextFactory>();
     private readonly IProviderIdentityService _identities = Substitute.For<IProviderIdentityService>();
+    private readonly IProviderMatchAuthorizationStore _authorizations = Substitute.For<IProviderMatchAuthorizationStore>();
     private readonly ITitleProviderMatchService _matches = Substitute.For<ITitleProviderMatchService>();
     private readonly IArtworkCurationRepository _curation = Substitute.For<IArtworkCurationRepository>();
     private readonly IPlatformFieldDefaultRepository _platformDefaults = Substitute.For<IPlatformFieldDefaultRepository>();
@@ -63,9 +64,9 @@ public sealed class EnrichmentOrchestratorTests
         var result = await CreateOrchestrator(provider).EnrichTitleAsync(title, CreatePlatform());
 
         result.Enriched.ShouldBe(enriches);
-        provider.ReceivedContexts.Count.ShouldBe(trustedAtFetch is null ? 0 : 1);
+        provider.ReceivedRequests.Count.ShouldBe(trustedAtFetch is null ? 0 : 1);
         if (trustedAtFetch is not null)
-            provider.ReceivedContexts.Single().ExistingExternalId.ShouldBe(trustedAtFetch);
+            provider.ReceivedRequests.Single().GameId.ShouldBe(trustedAtFetch);
         // The identity service owns the association write; metadata must not create a duplicate child.
         title.ExternalIds.ShouldBeEmpty();
         if (enriches)
@@ -84,8 +85,45 @@ public sealed class EnrichmentOrchestratorTests
 
         var result = await CreateOrchestrator(providerA, providerB).EnrichTitleAsync(title, CreatePlatform());
 
-        providerA.ReceivedContexts.ShouldBeEmpty();
+        providerA.ReceivedRequests.ShouldBeEmpty();
         ShouldBeOutcome(result, OrchestrationResult.NotFound);
+    }
+
+    [Theory]
+    [InlineData(false, "42")]
+    [InlineData(false, "other")]
+    [InlineData(true, "42")]
+    [InlineData(true, "other")]
+    public async Task ProvisionalIgdbFetch_StagesOnlyTheAuthorizedGame(bool bulk, string returnedGame)
+    {
+        var title = CreateTitle();
+        var match = new ProviderMatchAuthorization("igdb", "42", Guid.NewGuid(), IsProvisional: true);
+        _identities.GetTrustedAsync(title.Id, match.ProviderId, Arg.Any<CancellationToken>()).Returns((string?)null);
+        _authorizations.ReadAuthorizationAsync(title.Id, match.ProviderId, Arg.Any<CancellationToken>())
+            .Returns(new ProviderMatchAuthorizationResult.Authorized(match));
+        var provider = Found(match.ProviderId, returnedGame, new EnrichmentData { Description = "Provisional description" });
+        var orchestrator = CreateOrchestrator(provider);
+
+        var result = bulk
+            ? (await orchestrator.EnrichStreamAsync(Stream(title)).SingleAsync()).Result
+            : await orchestrator.EnrichTitleAsync(title, CreatePlatform());
+        await using var staged = result;
+
+        provider.ReceivedRequests.ShouldHaveSingleItem().GameId.ShouldBe(match.GameId);
+        result.Enriched.ShouldBeFalse();
+        result.ArtworkResults.ShouldBeEmpty();
+        title.MetadataLayers.ShouldBeEmpty();
+        title.Description.ShouldBeNull();
+        if (returnedGame == match.GameId)
+        {
+            var provisional = result.ProvisionalMetadata.ShouldHaveSingleItem();
+            provisional.Match.ShouldBe(match);
+            provisional.Payload.Description.ShouldBe("Provisional description");
+        }
+        else
+        {
+            result.ProvisionalMetadata.ShouldBeEmpty();
+        }
     }
 
     [Fact]
@@ -98,7 +136,7 @@ public sealed class EnrichmentOrchestratorTests
 
         var result = await CreateOrchestrator(providerA, providerB).EnrichTitleAsync(title, CreatePlatform());
 
-        providerA.ReceivedContexts.ShouldBeEmpty();
+        providerA.ReceivedRequests.ShouldBeEmpty();
         await _identities.DidNotReceive().GetTrustedAsync(title.Id, "providerA", Arg.Any<CancellationToken>());
         result.Enriched.ShouldBeTrue();
         title.Description.ShouldBeNull();
@@ -115,8 +153,8 @@ public sealed class EnrichmentOrchestratorTests
 
         var result = await CreateOrchestrator(providerA, providerB).EnrichTitleAsync(title, CreatePlatform());
 
-        providerA.ReceivedContexts.Count.ShouldBe(1);
-        providerB.ReceivedContexts.Count.ShouldBe(1);
+        providerA.ReceivedRequests.Count.ShouldBe(1);
+        providerB.ReceivedRequests.Count.ShouldBe(1);
         result.Enriched.ShouldBeTrue();
         // Trusted identity acceptance authorizes the result regardless of the provider's own score.
         result.BestConfidence.ShouldBe(1f);
@@ -248,8 +286,8 @@ public sealed class EnrichmentOrchestratorTests
         var result = await CreateOrchestrator(providerA, providerB).EnrichTitleAsync(CreateTitle(), CreatePlatform());
 
         providerB.InitializeCount.ShouldBe(1);
-        providerB.ReceivedContexts.ShouldBeEmpty();
-        providerA.ReceivedContexts.Count.ShouldBe(1);
+        providerB.ReceivedRequests.ShouldBeEmpty();
+        providerA.ReceivedRequests.Count.ShouldBe(1);
         result.Enriched.ShouldBeTrue();
     }
 
@@ -262,7 +300,7 @@ public sealed class EnrichmentOrchestratorTests
 
         var result = await CreateOrchestrator(provider).EnrichTitleAsync(CreateTitle(), CreatePlatform());
 
-        provider.ReceivedContexts.Count.ShouldBe(1);
+        provider.ReceivedRequests.Count.ShouldBe(1);
         result.Enriched.ShouldBeTrue();
     }
 
@@ -596,7 +634,7 @@ public sealed class EnrichmentOrchestratorTests
 
         var results = await Collect(CreateOrchestrator(provider).EnrichStreamAsync(Stream(trusted, untrusted, suppressed)));
 
-        provider.ReceivedContexts.Select(x => x.TitleName).ShouldBe(["Trusted"]);
+        provider.ReceivedRequests.Select(x => x.Context.TitleName).ShouldBe(["Trusted"]);
         results.Select(x => x.Result.Enriched).ShouldBe([true, false, false]);
         await _identities.DidNotReceive().GetTrustedAsync(suppressed.Id, "providerA", Arg.Any<CancellationToken>());
     }
@@ -655,7 +693,7 @@ public sealed class EnrichmentOrchestratorTests
         _stager,
         _curation,
         Options.Create(_options),
-        NullLogger<EnrichmentOrchestrator>.Instance, TimeProvider.System);
+        NullLogger<EnrichmentOrchestrator>.Instance, TimeProvider.System, _authorizations);
 
     private static void ShouldBeOutcome(OrchestrationResult actual, OrchestrationResult expected)
     {

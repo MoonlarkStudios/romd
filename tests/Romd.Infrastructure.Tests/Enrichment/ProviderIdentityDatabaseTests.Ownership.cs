@@ -8,7 +8,6 @@ using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Domain.Jobs;
 using Romd.Infrastructure.Jobs;

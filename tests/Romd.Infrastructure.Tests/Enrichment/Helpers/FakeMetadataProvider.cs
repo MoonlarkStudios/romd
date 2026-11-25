@@ -10,7 +10,7 @@ internal sealed class FakeMetadataProvider : IMetadataProvider
     public string ProviderId { get; }
     public string DisplayName => ProviderId;
     public bool IsConfigured { get; set; } = true;
-    public List<EnrichmentContext> ReceivedContexts { get; } = [];
+    public List<MetadataFetchRequest> ReceivedRequests { get; } = [];
 
     public FakeMetadataProvider(string providerId, Func<EnrichmentContext, EnrichmentResult> handler)
     {
@@ -18,14 +18,14 @@ internal sealed class FakeMetadataProvider : IMetadataProvider
         _handler = handler;
     }
 
-    public async IAsyncEnumerable<(EnrichmentContext, EnrichmentResult)> EnrichAsync(
-        IAsyncEnumerable<EnrichmentContext> contexts,
+    public async IAsyncEnumerable<(MetadataFetchRequest, EnrichmentResult)> FetchAsync(
+        IAsyncEnumerable<MetadataFetchRequest> requests,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
-        await foreach (var ctx in contexts.WithCancellation(ct))
+        await foreach (var request in requests.WithCancellation(ct))
         {
-            ReceivedContexts.Add(ctx);
-            yield return (ctx, _handler(ctx));
+            ReceivedRequests.Add(request);
+            yield return (request, _handler(request.Context));
         }
     }
 }

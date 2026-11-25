@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
@@ -29,12 +30,23 @@ public sealed class FreshBaselineSchemaTests
             "20261121030000_ImportOutcomeReasons",
             "20261121040529_ServerImportInbox",
             "20261121060000_RemoveServerImportFileHistory",
-            "20261121200000_LibraryPublicationOutcome"
+            "20261121200000_LibraryPublicationOutcome",
+            "20261123000000_DatParentDeclarations",
+            "20261123010000_ActiveDatProviderIdentity",
+            "20261123020000_HashBackedDatProviderIdentity",
+            "20261123030000_ProvisionalSteamGridDbPosters",
+            "20261123040000_ProvisionalProviderArtwork",
+            "20261123050000_ProvisionalTitleMetadata",
+            "20261124000000_DatParentProviderIdentity",
+            "20261124010000_ArtworkPlatformAliasEvidence",
+            "20261124015000_ProvisionalArtworkPlatformAliasEvidence",
+            "20261124020000_TitleMergeRedirects",
+            "20261124201434_TitleLookupNames"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(82);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(82);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(93);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(93);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -44,6 +56,28 @@ public sealed class FreshBaselineSchemaTests
                     'RomCdConvergenceSources','RomCdConvergenceIntents','RomChdReverificationSources','RomChdReverificationItems',
                     'RomPs2ReferenceReevaluationRequests')
             """).ToArrayAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Provision_ExistingTitleMergeRedirects_AddsLookupNamesAndPreservesRedirects()
+    {
+        await using var database = PostgreSqlTestDatabase.CreateEmpty();
+        await using var db = database.CreateContext();
+        await db.Database.GetService<IMigrator>().MigrateAsync("20261124020000_TitleMergeRedirects");
+        db.Platforms.Add(new PlatformEntity { Id = 1, Name = "Test system", ShortName = "test" });
+        db.Titles.Add(new TitleEntity { Id = 1, PlatformId = 1, Name = "Surviving title", NormalizedName = "surviving title", EnrichmentStatus = "None" });
+        db.TitleMergeRedirects.Add(new TitleMergeRedirectEntity { SourceTitleId = 2, TargetTitleId = 1 });
+        await db.SaveChangesAsync();
+        (await db.Database.GetPendingMigrationsAsync()).ShouldBe(["20261124201434_TitleLookupNames"]);
+
+        await database.ProvisionAsync();
+
+        var redirect = await db.TitleMergeRedirects.SingleAsync();
+        (redirect.SourceTitleId, redirect.TargetTitleId).ShouldBe((2, 1));
+        db.TitleLookupNames.Add(new TitleLookupNameEntity { TitleId = 1, Name = "Earlier title", SearchDocument = "earlier title" });
+        await db.SaveChangesAsync();
+        (await db.TitleLookupNames.SingleAsync()).Name.ShouldBe("Earlier title");
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(93);
     }
 
     [Fact]
@@ -102,6 +136,44 @@ public sealed class FreshBaselineSchemaTests
             ORDER BY conname
             """).ToArrayAsync()).ShouldBe(["CK_TitleMedia_PreferredPackaging", "FK_TitleMedia_CatalogReleases_CatalogReleaseId"]);
         (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(PostgreSqlConfiguration.ExpectedSchemaVersion);
+    }
+
+    [Fact]
+    public async Task Provision_PreviousDatProjection_PreservesExistingRelationshipDeclarations()
+    {
+        await using var database = PostgreSqlTestDatabase.CreateEmpty();
+        await using var db = database.CreateContext();
+        await db.Database.GetService<IMigrator>().MigrateAsync("20261121200000_LibraryPublicationOutcome");
+        db.Files.Add(new FileEntityPersistence { Id = 1, Sha256 = Sha256.Parse(new string('a', 64)), Size = 10, SizeOnDisk = 10 });
+        db.DatFiles.Add(new DatFileEntity
+        {
+            Id = 1,
+            Source = new DatSourceEntity
+            {
+                CatalogSource = new CatalogSourceEntity { Id = 1, Kind = "Dat", Status = "Active" }
+            },
+            Name = "Legacy DAT",
+            Description = "Legacy DAT",
+            Type = "NoIntro",
+            OriginalFilename = "legacy.dat",
+            FileId = 1,
+            GameCount = 1
+        });
+        db.SourceEntries.Add(new SourceEntryEntity { Id = 1, CatalogSourceId = 1, EntryKey = "Clone", Name = "Clone" });
+        await db.SaveChangesAsync();
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO romd."DatGames"
+                ("DatFileId", "SourceEntryId", "Name", "SearchDocument", "CloneOf", "RomOf", "CreatedAt", "CreatedByUserId")
+            VALUES (1, 1, 'Clone', 'Clone', 'Parent', 'BIOS', 0, '00000000-0000-0000-0000-000000000000')
+            """);
+
+        await database.ProvisionAsync();
+
+        var game = (await db.DatGames.SingleAsync()).ToDomain();
+        game.CloneOf.ShouldBe("Parent");
+        game.RomOf.ShouldBe("BIOS");
+        game.DeclaredId.ShouldBeNull();
+        game.CloneOfId.ShouldBeNull();
     }
 
     [Theory]

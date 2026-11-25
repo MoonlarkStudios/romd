@@ -43,16 +43,27 @@ public sealed class LiveConsumerLibraryQuery(RomdDbContext context)
         // One REPEATABLE READ snapshot covers the library lookup and the projection read, so a
         // concurrent materialization cannot change the library between the two.
         await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
+        var result = await ReadInTransactionAsync(scope, readProjection, ct);
+        await transaction.CommitAsync(ct);
+        return result;
+    }
 
+    // Callers using Read Committed must hold the shared catalog topology fence through this read.
+    internal async Task<ConsumerLibraryReadResult<T>> ReadInTransactionAsync<T>(
+        ConsumerLibraryScope scope,
+        Func<int, CancellationToken, Task<ConsumerLibraryProjectionResult<T>>> readProjection,
+        CancellationToken ct)
+        where T : notnull
+    {
+        if (context.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("The live consumer library read requires a caller-owned transaction.");
         var liveLibrary = await ReadAssignmentAsync(scope.UserId, ct);
         if (liveLibrary is not { State: "Available" })
         {
-            await transaction.CommitAsync(ct);
             return new ConsumerLibraryReadResult<T>.LibraryUnavailable();
         }
 
         var projection = await readProjection(liveLibrary.Id, ct);
-        await transaction.CommitAsync(ct);
         return projection switch
         {
             ConsumerLibraryProjectionResult<T>.Found found =>

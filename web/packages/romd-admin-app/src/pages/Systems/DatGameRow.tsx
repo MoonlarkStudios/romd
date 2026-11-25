@@ -321,6 +321,68 @@ export interface DatGameRowProps {
   columnCount: number;
 }
 
+export function DatEntryDeclarations({ game }: { game: DatGame }) {
+  const declarations = [
+    {
+      label: 'DAT entry ID',
+      value: game.declaredId,
+    },
+    {
+      label: 'Clone of (name)',
+      value: game.cloneOf,
+    },
+    {
+      label: 'Clone of (ID)',
+      value: game.cloneOfId,
+    },
+    {
+      label: 'ROM dependency',
+      value: game.romOf,
+    },
+  ].filter(({ value }) => value != null);
+
+  if (declarations.length === 0) return null;
+
+  return (
+    <Group
+      component="dl"
+      gap="md"
+      align="start"
+      m={0}
+    >
+      {declarations.map(({ label, value }) => (
+        <Box
+          key={label}
+          miw={0}
+        >
+          <Text
+            component="dt"
+            size="xs"
+            c="dimmed"
+          >
+            {label}
+          </Text>
+          <Text
+            component="dd"
+            size="sm"
+            m={0}
+            style={{
+              whiteSpace: 'break-spaces',
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {value === ''
+              ? '(empty)'
+              : value && value !== value.trim()
+                ? JSON.stringify(value)
+                : value}
+          </Text>
+        </Box>
+      ))}
+    </Group>
+  );
+}
+
 export function DatEntryFiles({ game }: { game: DatGame }) {
   const roms = game.roms ?? [];
   const disks = game.disks ?? [];
@@ -464,19 +526,10 @@ export function DatGameRow({ game, columnCount }: DatGameRowProps) {
                 backgroundColor: 'var(--mantine-color-default-hover)',
               }}
             >
-              {fileCount === 0 ? (
-                <Text
-                  size="xs"
-                  c="dimmed"
-                >
-                  No files listed for this entry.
-                </Text>
-              ) : (
-                <Stack gap="sm">
-                  {roms.length > 0 && <RomFilesTable roms={roms} />}
-                  {disks.length > 0 && <DiskFilesTable disks={disks} />}
-                </Stack>
-              )}
+              <Stack gap="sm">
+                <DatEntryDeclarations game={game} />
+                <DatEntryFiles game={game} />
+              </Stack>
             </Box>
           </Table.Td>
         </Table.Tr>

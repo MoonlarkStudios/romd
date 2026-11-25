@@ -26,7 +26,8 @@ public sealed record MergeTitlesCommand(
     int SourceTitleId,
     int TargetTitleId,
     RevisionPrecondition TargetIfMatch,
-    string SourceRevision
+    string SourceRevision,
+    string? DatGroupingEvidence = null
 ) : ICommand<TitleDetail>;
 
 /// <summary>
@@ -179,6 +180,10 @@ public sealed class MergeTitlesCommandHandler : ICommandHandler<MergeTitlesComma
         Domain.Catalog.Title source, SystemKeys systemKeys, CancellationToken ct) =>
         _unitOfWork.ExecuteInTransactionAsync<MergeOutcome>(async token =>
         {
+            if (command.DatGroupingEvidence is { } evidence &&
+                !await _mergeStore.ValidateDatGroupingAsync(source.Id, target.Id, evidence, token))
+                return CatalogErrors.DatGroupingChanged();
+
             // The staged write rejects either snapshot if it changed after loading, before
             // anything else is staged.
             await _mergeStore.ApplyMergeStagedAsync(target, source, token);
@@ -197,6 +202,7 @@ public sealed class MergeTitlesCommandHandler : ICommandHandler<MergeTitlesComma
             // children and selections so the source deletion cannot cascade over them.
             await _mergeStore.StageArtworkMergeAsync(command.SourceTitleId, command.TargetTitleId, token);
             await _unitOfWork.FlushAsync(token);
+            await _mergeStore.ReassignTitleReferencesAsync(source.Id, target.Id, token);
 
             // 6. Consolidate tracked intent before deleting the source. Pins cannot cross title
             // boundaries, so a source-only pin is cleared while the target remains tracked.

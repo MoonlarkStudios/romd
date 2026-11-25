@@ -13,6 +13,7 @@ using Romd.Contracts.Management.Artwork;
 using Romd.Domain.Catalog;
 using Romd.Domain.Source.Platform;
 using Romd.Infrastructure.Artwork;
+using Romd.Infrastructure.Providers.Igdb;
 using Romd.Infrastructure.Tests.Enrichment.Helpers;
 using Romd.Infrastructure.Tests.Helpers;
 using Shouldly;
@@ -44,7 +45,7 @@ public sealed class AutomaticArtworkServiceTests
             new(ArtworkRole.Hero, ArtworkSelectionMode.Automatic, 0, null, null),
             new(ArtworkRole.Backdrop, ArtworkSelectionMode.Automatic, 0, null, null)]));
         _curation.GetGalleryAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
-        _clients.CreateClient(AutomaticArtworkService.HttpClientName).Returns(_ => new HttpClient(_http, false));
+        _clients.CreateClient(IgdbArtworkProvider.HttpClientName).Returns(_ => new HttpClient(_http, false));
         _processor.ProcessAsync(Arg.Any<ReadOnlyMemory<byte>>(), Arg.Any<ArtworkRole>(), Arg.Any<CancellationToken>())
             .Returns(call => new ProcessedArtworkImage("image/png", call.ArgAt<ArtworkRole>(1) == ArtworkRole.Poster ? 600 : 1920,
                 call.ArgAt<ArtworkRole>(1) == ArtworkRole.Poster ? 900 : 620,

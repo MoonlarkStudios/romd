@@ -11,7 +11,11 @@ public sealed record DatGame
     public string? Description { get; init; }
     public string? Year { get; init; }
     public string? Manufacturer { get; init; }
+    /// <summary>The entry identifier declared by the DAT.</summary>
+    public string? DeclaredId { get; init; }
     public string? CloneOf { get; init; }
+    /// <summary>The parent identifier declared by the DAT, before resolution.</summary>
+    public string? CloneOfId { get; init; }
     public string? RomOf { get; init; }
     public bool IsBios { get; init; }
     public IReadOnlyList<DatRom> Roms { get; init; } = [];
