@@ -5,9 +5,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
+using Romd.Admin.Application.Search;
 using Romd.Application.Common.Concurrency;
 using Romd.Domain.Catalog;
 using Romd.Persistence;
+using Romd.Persistence.Artwork;
 using Romd.Persistence.Entities;
 using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Repositories;
@@ -19,6 +21,36 @@ namespace Romd.Infrastructure.Tests.Enrichment;
 
 public sealed partial class ProviderIdentityDatabaseTests
 {
+    [Fact]
+    public async Task MissingArtwork_UsesCurrentProvisionalAssetsInCatalogAndCompletionPreview()
+    {
+        await using var db = _database.CreateContext();
+        var game = await SeedProvisionalMatchAsync(db);
+        var roles = Enum.GetValues<ArtworkRole>();
+        db.ArtworkAssets.AddRange(roles.Select((role, index) => ProvisionalAsset(game.Id, role, index + 1)));
+        await db.SaveChangesAsync();
+
+        var catalog = new SearchRepository(db);
+        var completion = new ArtworkCompletionStore(db, TimeProvider.System);
+        await AssertMissingAsync(0);
+
+        await db.CatalogSources.ExecuteUpdateAsync(update =>
+            update.SetProperty(source => source.Status, nameof(CatalogSourceStatus.Disabled)));
+        await AssertMissingAsync(1);
+
+        async Task AssertMissingAsync(int expected)
+        {
+            var preview = (await completion.PreviewAsync([1], default)).Value;
+            preview.Roles.Count.ShouldBe(roles.Length);
+            foreach (var role in roles)
+            {
+                preview.Roles.Single(result => result.Role == role.ToString()).Count.ShouldBe(expected);
+                (await catalog.ScopeTitles(null, new TitleSearchFilters(ArtworkStatus: role.ToString()))
+                    .CountAsync(title => title.Id == 1)).ShouldBe(expected);
+            }
+        }
+    }
+
     [Theory]
     [InlineData("confirm")]
     [InlineData("automatic match")]

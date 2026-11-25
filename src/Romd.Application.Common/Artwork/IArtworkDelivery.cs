@@ -6,4 +6,5 @@ public interface IArtworkDelivery
         CancellationToken ct = default);
 }
 
-public sealed record ArtworkDelivery(Stream Content, string ContentType, string ContentHash, bool IsProvisional = false);
+public sealed record ArtworkDelivery(Stream Content, string ContentType, string ContentHash, bool IsProvisional = false,
+    bool RequiresRevalidation = false);
