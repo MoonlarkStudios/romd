@@ -398,6 +398,36 @@ public sealed class ConsumerBrowseEndpointsTests
     }
 
     [Fact]
+    public async Task Artwork_ProviderVariantRevalidatesAndStopsServingAfterWithdrawal()
+    {
+        await using var fixture = await ConsumerHostFixture.CreateAsync();
+        var seed = await fixture.SeedBrowseDataAsync();
+        await fixture.SeedArtworkAsync(seed.ChronoTitleId, providerGameId: "765");
+        using var anonymous = fixture.Factory.CreateClient();
+        var url = $"/artwork/{IdCoder.Encode(1)}/card/v1";
+
+        using var current = await anonymous.GetAsync(url);
+        current.StatusCode.ShouldBe(HttpStatusCode.OK);
+        current.Headers.CacheControl.ShouldNotBeNull().NoCache.ShouldBeTrue();
+        current.Headers.CacheControl.Extensions.ShouldNotContain(value => value.Name == "immutable");
+        var tag = current.Headers.ETag.ShouldNotBeNull();
+
+        using var revalidate = new HttpRequestMessage(HttpMethod.Get, url);
+        revalidate.Headers.IfNoneMatch.Add(tag);
+        using var unchanged = await anonymous.SendAsync(revalidate);
+        unchanged.StatusCode.ShouldBe(HttpStatusCode.NotModified);
+
+        await using var context = fixture.CreateSetupDbContext();
+        await context.ArtworkAssets.Where(asset => asset.Id == 1).ExecuteDeleteAsync();
+
+        using var afterWithdrawal = new HttpRequestMessage(HttpMethod.Get, url);
+        afterWithdrawal.Headers.IfNoneMatch.Add(tag);
+        using var missing = await anonymous.SendAsync(afterWithdrawal);
+        missing.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        missing.Headers.CacheControl.ShouldNotBeNull().NoStore.ShouldBeTrue();
+    }
+
+    [Fact]
     public async Task Artwork_SelectedVariant_IsResolvedAndDeliveredWithImmutableVersion()
     {
         await using var fixture = await ConsumerHostFixture.CreateAsync();
@@ -1010,7 +1040,7 @@ public sealed class ConsumerBrowseEndpointsTests
             }
         }
 
-        public async Task SeedArtworkAsync(int titleId, int variantFileId = 2)
+        public async Task SeedArtworkAsync(int titleId, int variantFileId = 2, string? providerGameId = null)
         {
             await using var context = CreateSetupDbContext();
             context.ArtworkAssets.Add(new ArtworkAssetEntity
@@ -1018,7 +1048,8 @@ public sealed class ConsumerBrowseEndpointsTests
                 Id = 1,
                 TitleId = titleId,
                 Role = ArtworkRole.Poster,
-                SourceId = "user",
+                SourceId = providerGameId is null ? "user" : "steamgriddb",
+                ProviderGameId = providerGameId,
                 OriginalFileId = 2,
                 ContentVersion = "original-v1",
                 ContentType = "image/jpeg",
