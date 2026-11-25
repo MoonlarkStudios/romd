@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Romd.Persistence.Catalog;
+using Romd.Persistence.Entities;
 
 namespace Romd.Persistence.Repositories;
 
@@ -22,6 +23,17 @@ public sealed partial class TitleRepository
     public async Task ReassignTitleReferencesAsync(int sourceTitleId, int targetTitleId, CancellationToken cancellationToken)
     {
         RequireTransaction();
+        await CatalogTopologyFence.AcquireAsync(_context, cancellationToken);
+
+        // Flatten earlier redirects so even long sequences of merges need one lookup.
+        await _context.TitleMergeRedirects.Where(redirect => redirect.TargetTitleId == sourceTitleId)
+            .ExecuteUpdateAsync(set => set.SetProperty(redirect => redirect.TargetTitleId, targetTitleId), cancellationToken);
+        _context.TitleMergeRedirects.Add(new TitleMergeRedirectEntity
+        {
+            SourceTitleId = sourceTitleId,
+            TargetTitleId = targetTitleId
+        });
+
         // Transfer release ownership before deleting the source. The catalog rebuild keeps
         // these rows by fingerprint and refreshes their provenance and library projection.
         await _context.CatalogReleases.Where(release => release.CatalogTitleId == sourceTitleId)

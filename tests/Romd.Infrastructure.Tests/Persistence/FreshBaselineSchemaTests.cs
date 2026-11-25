@@ -38,12 +38,13 @@ public sealed class FreshBaselineSchemaTests
             "20261123040000_ProvisionalProviderArtwork",
             "20261123050000_ProvisionalTitleMetadata",
             "20261124000000_DatParentProviderIdentity",
-            "20261124010000_ArtworkPlatformAliasEvidence"
+            "20261124010000_ArtworkPlatformAliasEvidence",
+            "20261124020000_TitleMergeRedirects"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(90);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(90);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(91);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(91);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
