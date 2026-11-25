@@ -2260,6 +2260,10 @@ export type ReplaceSignInMessageRequest = {
     message: string;
 };
 
+export type ReplaceTitleLookupNamesRequest = {
+    names: Array<string>;
+};
+
 export type ResolvedArtwork = {
     role: string;
     assetId: null | string;
@@ -2677,6 +2681,11 @@ export type TitleFileRequirement = {
     status?: null | string;
     isOwned?: boolean;
     romFileId?: null | string;
+};
+
+export type TitleLookupNames = {
+    names: Array<string>;
+    revision: string;
 };
 
 export type TitleMediaClassification = {
@@ -7583,6 +7592,82 @@ export type UpdateTitleMediaResponses = {
 };
 
 export type UpdateTitleMediaResponse = UpdateTitleMediaResponses[keyof UpdateTitleMediaResponses];
+
+export type GetTitleLookupNamesData = {
+    body?: never;
+    path: {
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/titles/{titleId}/lookup-names';
+};
+
+export type GetTitleLookupNamesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type GetTitleLookupNamesError = GetTitleLookupNamesErrors[keyof GetTitleLookupNamesErrors];
+
+export type GetTitleLookupNamesResponses = {
+    /**
+     * OK
+     */
+    200: TitleLookupNames;
+};
+
+export type GetTitleLookupNamesResponse = GetTitleLookupNamesResponses[keyof GetTitleLookupNamesResponses];
+
+export type ReplaceTitleLookupNamesData = {
+    body: ReplaceTitleLookupNamesRequest;
+    headers: {
+        /**
+         * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.
+         */
+        'If-Match': string;
+    };
+    path: {
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/titles/{titleId}/lookup-names';
+};
+
+export type ReplaceTitleLookupNamesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Precondition Failed
+     */
+    412: ProblemDetails;
+    /**
+     * Precondition Required
+     */
+    428: ProblemDetails;
+};
+
+export type ReplaceTitleLookupNamesError = ReplaceTitleLookupNamesErrors[keyof ReplaceTitleLookupNamesErrors];
+
+export type ReplaceTitleLookupNamesResponses = {
+    /**
+     * OK
+     */
+    200: TitleLookupNames;
+};
+
+export type ReplaceTitleLookupNamesResponse = ReplaceTitleLookupNamesResponses[keyof ReplaceTitleLookupNamesResponses];
 
 export type GetDatTitleGroupingData = {
     body?: never;

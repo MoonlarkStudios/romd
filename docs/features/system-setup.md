@@ -123,6 +123,15 @@ the grouping. A replacement with the same release entry keys keeps the
 curated title assignments. Stored releases with unchanged file fingerprints
 retain their release IDs.
 
+## Edit title lookup names
+
+Choose **Title actions → Edit lookup names** to add alternate spellings or
+regional names. Admin and consumer searches find the title by any saved name
+while the card displays the title's display name. Consumer search applies the
+library's visibility rules. Lookup names belong to the title and survive DAT
+replacement. Title merges carry the names to the surviving title and combine
+names that match after search normalization.
+
 ## Source removal and provenance
 
 **Status → Disable Source** previews the titles still covered elsewhere, titles

@@ -40,12 +40,13 @@ public sealed class FreshBaselineSchemaTests
             "20261124000000_DatParentProviderIdentity",
             "20261124010000_ArtworkPlatformAliasEvidence",
             "20261124015000_ProvisionalArtworkPlatformAliasEvidence",
-            "20261124020000_TitleMergeRedirects"
+            "20261124020000_TitleMergeRedirects",
+            "20261124201434_TitleLookupNames"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(92);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(92);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(93);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(93);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -55,6 +56,28 @@ public sealed class FreshBaselineSchemaTests
                     'RomCdConvergenceSources','RomCdConvergenceIntents','RomChdReverificationSources','RomChdReverificationItems',
                     'RomPs2ReferenceReevaluationRequests')
             """).ToArrayAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Provision_ExistingTitleMergeRedirects_AddsLookupNamesAndPreservesRedirects()
+    {
+        await using var database = PostgreSqlTestDatabase.CreateEmpty();
+        await using var db = database.CreateContext();
+        await db.Database.GetService<IMigrator>().MigrateAsync("20261124020000_TitleMergeRedirects");
+        db.Platforms.Add(new PlatformEntity { Id = 1, Name = "Test system", ShortName = "test" });
+        db.Titles.Add(new TitleEntity { Id = 1, PlatformId = 1, Name = "Surviving title", NormalizedName = "surviving title", EnrichmentStatus = "None" });
+        db.TitleMergeRedirects.Add(new TitleMergeRedirectEntity { SourceTitleId = 2, TargetTitleId = 1 });
+        await db.SaveChangesAsync();
+        (await db.Database.GetPendingMigrationsAsync()).ShouldBe(["20261124201434_TitleLookupNames"]);
+
+        await database.ProvisionAsync();
+
+        var redirect = await db.TitleMergeRedirects.SingleAsync();
+        (redirect.SourceTitleId, redirect.TargetTitleId).ShouldBe((2, 1));
+        db.TitleLookupNames.Add(new TitleLookupNameEntity { TitleId = 1, Name = "Earlier title", SearchDocument = "earlier title" });
+        await db.SaveChangesAsync();
+        (await db.TitleLookupNames.SingleAsync()).Name.ShouldBe("Earlier title");
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(93);
     }
 
     [Fact]

@@ -20,13 +20,12 @@ public static class SearchDocuments
     public static string For(string name, string? description) =>
         SearchTextNormalizer.Normalize(string.IsNullOrEmpty(description) ? name : $"{name} {description}");
 
-    public static void Configure<TEntity>(EntityTypeBuilder<TEntity> builder)
+    public static void Configure<TEntity>(EntityTypeBuilder<TEntity> builder, bool hasEmptyDocumentDefault = true)
         where TEntity : class
     {
-        builder.Property<string>(DocumentColumn)
-            .IsRequired()
-            .HasColumnType("text")
-            .HasDefaultValue(string.Empty);
+        var document = builder.Property<string>(DocumentColumn).IsRequired().HasColumnType("text");
+        if (hasEmptyDocumentDefault)
+            document.HasDefaultValue(string.Empty);
 
         builder.Property<NpgsqlTsVector>(VectorColumn)
             .HasColumnType("tsvector")

@@ -370,6 +370,21 @@ namespace Romd.Persistence.Migrations
                     b.ToView("EnrichmentRequirementFacts", "romd");
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Enrichment.EnrichmentBatchMember", b =>
+                {
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("n");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("integer")
+                        .HasColumnName("x");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("EnrichmentBatchMembers", "romd");
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.AccountLinkEntity", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1251,9 +1266,6 @@ namespace Romd.Persistence.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
 
-                    b.Property<Guid>("VerificationId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("EntryPoint")
                         .IsRequired()
                         .HasMaxLength(240)
@@ -1276,6 +1288,9 @@ namespace Romd.Persistence.Migrations
 
                     b.Property<int>("RepresentationId")
                         .HasColumnType("integer");
+
+                    b.Property<Guid>("VerificationId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("LayoutId");
 
@@ -4390,6 +4405,34 @@ namespace Romd.Persistence.Migrations
                     b.ToTable("TitleExternalIds", "romd");
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleLookupNameEntity", b =>
+                {
+                    b.Property<int>("TitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SearchDocument")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<NpgsqlTsVector>("SearchVector")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("tsvector")
+                        .HasComputedColumnSql("to_tsvector('simple', \"SearchDocument\")", true);
+
+                    b.HasKey("TitleId", "SearchDocument");
+
+                    b.HasIndex("SearchVector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "GIN");
+
+                    b.ToTable("TitleLookupNames", "romd");
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.TitleMediaEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -4401,6 +4444,9 @@ namespace Romd.Persistence.Migrations
                     b.Property<string>("Attribution")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("CatalogReleaseId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
@@ -4414,9 +4460,6 @@ namespace Romd.Persistence.Migrations
 
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid");
-
-                    b.Property<int?>("CatalogReleaseId")
-                        .HasColumnType("integer");
 
                     b.Property<int>("FileId")
                         .HasColumnType("integer");
@@ -4476,16 +4519,16 @@ namespace Romd.Persistence.Migrations
 
                     b.HasIndex("TitleId");
 
+                    b.HasIndex("TitleId", "Type", "CatalogReleaseId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_TitleMedia_PreferredPerRelease")
+                        .HasFilter("\"IsPreferred\" AND \"CatalogReleaseId\" IS NOT NULL");
+
                     b.HasIndex("TitleId", "Type", "IsPrimary");
 
                     b.HasIndex("TitleId", "Type", "SourceId")
                         .IsUnique()
                         .HasFilter("\"SourceId\" <> 'user' AND \"SourceId\" NOT LIKE 'gallery:%'");
-
-                    b.HasIndex("TitleId", "Type", "CatalogReleaseId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_TitleMedia_PreferredPerRelease")
-                        .HasFilter("\"IsPreferred\" AND \"CatalogReleaseId\" IS NOT NULL");
 
                     b.ToTable("TitleMedia", "romd", t =>
                         {
@@ -6052,6 +6095,15 @@ namespace Romd.Persistence.Migrations
                 {
                     b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
                         .WithMany("ExternalIds")
+                        .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleLookupNameEntity", b =>
+                {
+                    b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
+                        .WithMany()
                         .HasForeignKey("TitleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

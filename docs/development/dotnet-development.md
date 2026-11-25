@@ -219,7 +219,9 @@ ROMD-owned system aliases used for artwork release-year matches. The additive
 `20261124015000_ProvisionalArtworkPlatformAliasEvidence` migration extends
 that validation to provisional artwork. The additive
 `20261124020000_TitleMergeRedirects` migration records the surviving titles for
-offline play-session submissions. Current readiness is version 92.
+offline play-session submissions. The additive `20261124201434_TitleLookupNames`
+migration stores curator-managed search names on titles. Current readiness is
+version 93.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

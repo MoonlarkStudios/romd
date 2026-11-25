@@ -318,7 +318,7 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
         string? tsQuery = useSearch ? SearchQuery.ToTsQueryText(query!, allowOmittedPossessive: true) : null;
 
         var baseQuery = useSearch
-            ? SearchQuery.MatchTitleQuery(context.PresentedTitles(), tsQuery)
+            ? SearchQuery.MatchTitleQuery(context.PresentedTitles(), context.TitleLookupNames, tsQuery)
             : context.PresentedTitles();
 
         // Apply filters (platform, genre, local payload)
@@ -388,7 +388,7 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
         var titles = ApplyTitleFilters(
             string.IsNullOrWhiteSpace(query)
                 ? context.PresentedTitles()
-                : SearchQuery.MatchTitles(context.PresentedTitles(), query, allowOmittedPossessive: true),
+                : SearchQuery.MatchTitles(context.PresentedTitles(), context.TitleLookupNames, query, allowOmittedPossessive: true),
             filters, availability);
         if (filters.ReleaseCompleteness == ReleaseCompletenessFilter.All)
             return titles;

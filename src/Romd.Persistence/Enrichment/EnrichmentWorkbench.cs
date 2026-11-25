@@ -61,7 +61,7 @@ public sealed class EnrichmentWorkbench(RomdDbContext db, TimeProvider clock, IA
         var titles = db.Titles.Where(x => db.TrackedTitles.Any(tracked => tracked.TitleId == x.Id));
         if (systemId is { } id)
             titles = titles.Where(title => title.PlatformId == id);
-        return string.IsNullOrWhiteSpace(query) ? titles : SearchQuery.MatchTitles(titles, query);
+        return string.IsNullOrWhiteSpace(query) ? titles : SearchQuery.MatchTitles(titles, db.TitleLookupNames, query);
     }
 
     private async Task<List<int>> ReadIdsAsync(IQueryable<TitleEntity> titles,

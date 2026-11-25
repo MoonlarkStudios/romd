@@ -9,6 +9,7 @@ using Romd.Admin.Application.Titles.Commands.ClassifyTitleMedia;
 using Romd.Admin.Application.Titles.Commands.DeleteTitleMedia;
 using Romd.Admin.Application.Titles.Commands.MergeTitles;
 using Romd.Admin.Application.Titles.Commands.MoveGame;
+using Romd.Admin.Application.Titles.Commands.ReplaceTitleLookupNames;
 using Romd.Admin.Application.Titles.Commands.SetPrimaryMedia;
 using Romd.Admin.Application.Titles.Commands.SetTitleContentRating;
 using Romd.Admin.Application.Titles.Commands.SetTitlesTracked;
@@ -17,6 +18,7 @@ using Romd.Admin.Application.Titles.Commands.TriggerTitleEnrichment;
 using Romd.Admin.Application.Titles.Commands.UpdateUserMetadata;
 using Romd.Admin.Application.Titles.Commands.UploadTitleMedia;
 using Romd.Admin.Application.Titles.Queries.GetDatTitleGrouping;
+using Romd.Admin.Application.Titles.Queries.GetTitleLookupNames;
 using Romd.Admin.Application.Titles.Queries.GetTitleSourceReferences;
 using Romd.Admin.Application.Titles.Queries.OpenTitleMedia;
 using Romd.Admin.Application.Titles.ReadModels;
@@ -161,6 +163,22 @@ public static class TitleEndpoints
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
         // Curation endpoints
+        group.MapGet("{titleId}/lookup-names", GetTitleLookupNames)
+            .WithName("GetTitleLookupNames")
+            .WithDescription("Read the curator-managed lookup names and the title revision.")
+            .Produces<TitleLookupNames>()
+            .ETagOnlyRead()
+            .ProducesProblems(StatusCodes.Status404NotFound)
+            .RequireAuthorization(AuthorizationPolicies.RequireManager);
+
+        group.MapPut("{titleId}/lookup-names", ReplaceTitleLookupNames)
+            .WithName("ReplaceTitleLookupNames")
+            .WithDescription("Replace the title's curator-managed lookup names.")
+            .Produces<TitleLookupNames>()
+            .ConditionalWrite()
+            .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
+            .RequireAuthorization(AuthorizationPolicies.RequireManager);
+
         group.MapGet("{titleId}/dat-grouping", GetDatTitleGrouping)
             .WithName("GetDatTitleGrouping")
             .WithDescription("Review another title linked through the active, hash-verified DAT clone family.")
@@ -581,6 +599,29 @@ public static class TitleEndpoints
         WriteAsync(context, titleId, ifMatch => handler.HandleAsync(
             new DeleteTitleMediaCommand(titleId, mediaId, ifMatch),
             cancellationToken));
+
+    private static async Task<IResult> GetTitleLookupNames(Sqid titleId, HttpContext context,
+        IQueryHandler<GetTitleLookupNamesQuery, TitleLookupNameSnapshot> handler, CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(new(titleId), cancellationToken);
+        return LookupNamesResult(context, result);
+    }
+
+    private static async Task<IResult> ReplaceTitleLookupNames(Sqid titleId, ReplaceTitleLookupNamesRequest request,
+        HttpContext context, ICommandHandler<ReplaceTitleLookupNamesCommand, TitleLookupNameSnapshot> handler,
+        CancellationToken cancellationToken)
+    {
+        var ifMatch = Preconditions.IfMatch(context, PreconditionArea);
+        if (ifMatch.IsError)
+            return ifMatch.Errors.ToProblem();
+
+        var result = await handler.HandleAsync(new(titleId, request.Names, ifMatch.Value), cancellationToken);
+        return LookupNamesResult(context, result);
+    }
+
+    private static IResult LookupNamesResult(HttpContext context, ErrorOr<TitleLookupNameSnapshot> result) =>
+        result.Match(snapshot => Results.Ok(new TitleLookupNames(snapshot.Names, snapshot.Revision.ToString()))
+            .WithETag(context, snapshot.Revision.ToString()), errors => errors.ToProblem());
 
     private static async Task<IResult> GetDatTitleGrouping(
         Sqid titleId, IQueryHandler<GetDatTitleGroupingQuery, DatTitleGroupingRead> handler, CancellationToken cancellationToken)

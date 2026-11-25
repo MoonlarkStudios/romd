@@ -41,6 +41,12 @@ public sealed partial class TitleRepository
         await _context.PlaySessions.Where(session => session.TitleId == sourceTitleId)
             .ExecuteUpdateAsync(set => set.SetProperty(session => session.TitleId, targetTitleId), cancellationToken);
 
+        var sourceNames = _context.TitleLookupNames.Where(name => name.TitleId == sourceTitleId);
+        var targetNames = _context.TitleLookupNames.Where(name => name.TitleId == targetTitleId);
+        await sourceNames.Where(name => targetNames.Any(target => target.SearchDocument == name.SearchDocument))
+            .ExecuteDeleteAsync(cancellationToken);
+        await sourceNames.ExecuteUpdateAsync(set => set.SetProperty(name => name.TitleId, targetTitleId), cancellationToken);
+
         // For duplicate memberships, retain the surviving title's position and prefer its
         // note. Source-only memberships retain their identity, note and position.
         var sourceItems = _context.CollectionItems.Where(item => item.TitleId == sourceTitleId);
