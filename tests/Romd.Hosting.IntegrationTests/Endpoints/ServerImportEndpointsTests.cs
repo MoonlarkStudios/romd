@@ -114,10 +114,11 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
 
         await using var scope = fixture.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
-        var jobs = await db.Jobs.OfType<UploadJobEntity>().Where(job => job.ImportSourcePath == folder)
+        var jobs = await db.Jobs.OfType<UploadJobEntity>()
+            .Where(job => job.Id == firstId || job.Id == second.JobId)
             .OrderBy(job => job.CreatedAt).ToListAsync();
         jobs.Select(job => job.RomsDiscovered).ShouldBe([1, 6]);
-        jobs.ShouldAllBe(job => job.ImportMove);
+        jobs.ShouldAllBe(job => job.ImportMove && job.ImportSourcePath == folder);
         jobs[0].RomsIngested.ShouldBe(1);
         jobs[1].RomsDeduplicated.ShouldBe(2);
         (await File.ReadAllBytesAsync(finished)).ShouldBe([40, 50, 60]);
@@ -132,10 +133,12 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
         var failure = await WaitForImportPhaseAsync(client, failed.JobId, "Failed");
         failure.LastJobId.ShouldBe(failed.JobId);
         failure.CanRetry.ShouldBeTrue();
-        using var staleRetry = await client.PostAsJsonAsync(_route, new StartServerImport(second.JobId));
-        staleRetry.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        using var unreviewed = await client.PostAsJsonAsync(_route, new StartServerImport(failed.JobId));
+        unreviewed.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
-        using var retry = await client.PostAsJsonAsync(_route, new StartServerImport(failed.JobId));
+        var review = await ReviewAsync(client, failed.JobId);
+        review.Ready.Count.ShouldBe(1);
+        using var retry = await client.PostAsJsonAsync(_route, new StartServerImport(failed.JobId, review.Revision));
         retry.StatusCode.ShouldBe(HttpStatusCode.Accepted);
         var retried = (await retry.Content.ReadFromJsonAsync<JobReference>()).ShouldNotBeNull();
         retried.JobId.ShouldNotBe(failed.JobId);
@@ -145,15 +148,119 @@ public sealed class ServerImportEndpointsTests(IntegrationTestFixture fixture)
     }
 
     [Fact]
+    public async Task RetryHistoricalBatch_RejectsChangedReviewAndMovesOnlyRemainingReviewedOriginals()
+    {
+        using var client = fixture.CreateAuthenticatedClient();
+        string relative = $"retry-{Guid.NewGuid():N}";
+        string folder = Directory.CreateDirectory(Path.Combine(fixture.ServerImportPath, relative)).FullName;
+        string readyPath = Path.Combine(folder, "ready.bin");
+        string changedPath = Path.Combine(folder, "changed.bin");
+        string missingPath = Path.Combine(folder, "missing.bin");
+        string newerPath = Path.Combine(folder, "newer.bin");
+        byte[] ready = RandomNumberGenerator.GetBytes(128);
+        byte[] newer = RandomNumberGenerator.GetBytes(128);
+        try
+        {
+            await WriteReadyAsync(readyPath, ready);
+            await WriteReadyAsync(changedPath, RandomNumberGenerator.GetBytes(128));
+            await WriteReadyAsync(missingPath, RandomNumberGenerator.GetBytes(128));
+            Guid original = await QueueAsync(client);
+            (await WaitForImportPhaseAsync(client, original, "Completed")).CanRetry.ShouldBeTrue();
+
+            string catalog = $"Retry originals {Guid.NewGuid():N}";
+            await TestHelpers.UploadDatWithPlatformAsync(client, $"""
+                <datafile><header><name>{catalog}</name></header>
+                  <game name="{catalog}"><rom name="ready.bin" size="{ready.Length}" sha1="{Convert.ToHexString(SHA1.HashData(ready))}"/></game>
+                  <game name="{catalog} newer"><rom name="newer.bin" size="{newer.Length}" sha1="{Convert.ToHexString(SHA1.HashData(newer))}"/></game>
+                </datafile>
+                """, "retry-originals.dat", await TestHelpers.GetFirstSystemKeyAsync(client));
+            await WriteReadyAsync(newerPath, newer);
+            Guid latest = await QueueAsync(client);
+            await WaitForImportPhaseAsync(client, latest, "Completed");
+            await WaitForSourceCleanupAsync(latest);
+            File.Exists(newerPath).ShouldBeFalse();
+            using var completedReview = await client.GetAsync($"{_route}/retries/{latest}");
+            completedReview.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+            File.Delete(missingPath);
+            var reviewed = await ReviewAsync(client, original);
+            reviewed.IsBusy.ShouldBeFalse();
+            reviewed.Ready.Count.ShouldBe(2);
+            reviewed.Missing.Examples.ShouldBe([Path.Combine(relative, "missing.bin")]);
+            reviewed.Changed.Count.ShouldBe(0);
+
+            byte[] replacement = RandomNumberGenerator.GetBytes(128);
+            await File.WriteAllBytesAsync(changedPath, replacement);
+            using var stale = await client.PostAsJsonAsync(_route, new StartServerImport(original, reviewed.Revision));
+            stale.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+            (await client.GetFromJsonAsync<ServerImportStatus>(_route)).ShouldNotBeNull().LastJobId.ShouldBe(latest);
+            File.Exists(readyPath).ShouldBeTrue();
+
+            var refreshed = await ReviewAsync(client, original);
+            refreshed.Revision.ShouldNotBe(reviewed.Revision);
+            refreshed.Ready.Examples.ShouldBe([Path.Combine(relative, "ready.bin")]);
+            refreshed.Changed.Examples.ShouldBe([Path.Combine(relative, "changed.bin")]);
+            refreshed.Missing.Count.ShouldBe(1);
+            var request = new StartServerImport(original, refreshed.Revision);
+            var confirmations = await Task.WhenAll(client.PostAsJsonAsync(_route, request), client.PostAsJsonAsync(_route, request));
+            Guid retry;
+            using (confirmations[0])
+            using (confirmations[1])
+            {
+                var accepted = confirmations.Where(result => result.StatusCode == HttpStatusCode.Accepted).ShouldHaveSingleItem();
+                confirmations.Single(result => result != accepted).StatusCode.ShouldBe(HttpStatusCode.Conflict);
+                retry = (await accepted.Content.ReadFromJsonAsync<JobReference>()).ShouldNotBeNull().JobId;
+                accepted.Headers.Location?.OriginalString.ShouldBe($"/api/jobs/{retry}");
+            }
+
+            (await WaitForImportPhaseAsync(client, retry, "Completed")).LastQueuedFiles.ShouldBe(1);
+            await WaitForSourceCleanupAsync(retry);
+            File.Exists(readyPath).ShouldBeFalse();
+            (await File.ReadAllBytesAsync(changedPath)).ShouldBe(replacement);
+            using var replay = await client.PostAsJsonAsync(_route, request);
+            replay.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+            await using var scope = fixture.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+            var lineage = await db.Jobs.Where(row => row.Id == retry || row.Id == original || row.Id == latest)
+                .ToDictionaryAsync(row => row.Id, row => row.CorrelationId);
+            lineage[retry].ShouldBe(lineage[original]);
+            lineage[retry].ShouldNotBe(lineage[latest]);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ServerFolder_Contributor_CannotReadOrStartTheImport()
     {
         using var client = fixture.CreateClient()
             .WithTestUser(Guid.NewGuid(), "contributor@localhost", [RomdRoleType.Contributor]);
         using var status = await client.GetAsync(_route);
         using var start = await client.PostAsJsonAsync(_route, new StartServerImport());
+        using var review = await client.GetAsync($"{_route}/retries/{Guid.NewGuid()}");
 
+        review.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         status.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         start.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+    }
+
+    private static async Task<Guid> QueueAsync(HttpClient client)
+    {
+        using var response = await client.PostAsJsonAsync(_route, new StartServerImport());
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        return (await response.Content.ReadFromJsonAsync<JobReference>()).ShouldNotBeNull().JobId;
+    }
+
+    private static async Task<ServerImportRetryReview> ReviewAsync(HttpClient client, Guid id) =>
+        (await client.GetFromJsonAsync<ServerImportRetryReview>($"{_route}/retries/{id}")).ShouldNotBeNull();
+
+    private static async Task WriteReadyAsync(string path, byte[] bytes)
+    {
+        await File.WriteAllBytesAsync(path, bytes);
+        File.SetLastWriteTimeUtc(path, DateTime.UnixEpoch.AddDays(1));
     }
 
     private async Task WaitForSourceCleanupAsync(Guid jobId)

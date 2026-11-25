@@ -4,6 +4,12 @@ namespace Romd.Admin.Application.Ingestion.Import;
 
 public static class ImportErrors
 {
+    public static Error RetryUnavailable() =>
+        Error.NotFound("Import.ServerRetryUnavailable", "This job has no retryable selection in the configured server import folder.");
+
+    public static Error RetryChanged() =>
+        Error.Conflict("Import.ServerRetryChanged", "The retry review changed. Review the remaining files again.");
+
     public static Error FeatureDisabled() =>
         Error.Validation(
             "Import.FeatureDisabled",
