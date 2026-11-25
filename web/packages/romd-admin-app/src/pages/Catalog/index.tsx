@@ -4,6 +4,7 @@ import { SectionTabs } from '../../components/Workspace/SectionTabs';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { useEnrichmentWorkspaceCounts } from '../../hooks/api/useEnrichmentWorkspace';
 import { usePermissions } from '../../hooks/usePermissions';
+import classes from './Catalog.module.css';
 import { CatalogReview } from './CatalogReview';
 import { TitlesLens } from './TitlesLens';
 
@@ -45,9 +46,9 @@ export function Catalog() {
     );
 
   return (
-    <div className={workspace.page}>
+    <div className={`${workspace.page} ${classes.catalogPage}`}>
       <Stack gap="md">
-        <div className={workspace.hero}>
+        <div className={`${workspace.hero} ${classes.catalogHeading}`}>
           <Title
             order={1}
             className={workspace.heading}
@@ -55,41 +56,43 @@ export function Catalog() {
             Catalog
           </Title>
         </div>
-        <SectionTabs
-          label="Catalog views"
-          current={view}
-          state={state}
-          items={[
-            ...(canManageTitles
-              ? [
-                  {
-                    id: 'review',
-                    label: 'Needs review',
-                    to: changeView('review'),
-                    count: counts.data?.needsReview,
-                  },
-                ]
-              : []),
-            {
-              id: 'tracked',
-              label: 'Tracked titles',
-              to: changeView('tracked'),
-            },
-            {
-              id: 'all',
-              label: 'All titles',
-              to: changeView('all'),
-            },
-          ].map((item) => ({
-            ...item,
-            to:
-              item.id === view
-                ? {
-                    search: `?${params}`,
-                  }
-                : item.to,
-          }))}
-        />
+        <div className={classes.catalogViews}>
+          <SectionTabs
+            label="Catalog views"
+            current={view}
+            state={state}
+            items={[
+              ...(canManageTitles
+                ? [
+                    {
+                      id: 'review',
+                      label: 'Needs review',
+                      to: changeView('review'),
+                      count: counts.data?.needsReview,
+                    },
+                  ]
+                : []),
+              {
+                id: 'tracked',
+                label: 'Tracked titles',
+                to: changeView('tracked'),
+              },
+              {
+                id: 'all',
+                label: 'All titles',
+                to: changeView('all'),
+              },
+            ].map((item) => ({
+              ...item,
+              to:
+                item.id === view
+                  ? {
+                      search: `?${params}`,
+                    }
+                  : item.to,
+            }))}
+          />
+        </div>
         {view === 'review' && counts.isError && (
           <Alert
             color="yellow"

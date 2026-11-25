@@ -384,7 +384,7 @@ it('keeps a decided row in place until advancing and preserves keyboard focus', 
   const user = userEvent.setup();
   open('/catalog?view=review');
   const first = await screen.findByRole('button', {
-    name: 'Preview Alpine Circuit',
+    name: 'Review Alpine Circuit',
   });
   first.focus();
   await user.keyboard('{Enter}');
@@ -413,7 +413,7 @@ it('keeps a decided row in place until advancing and preserves keyboard focus', 
   ).toBeVisible();
   expect(
     screen.queryByRole('button', {
-      name: 'Preview Alpine Circuit',
+      name: 'Review Alpine Circuit',
     }),
   ).not.toBeInTheDocument();
 });
@@ -462,7 +462,7 @@ it('does not advance to a fetched page while a review decision is open', async (
     ]),
   } as never);
   await screen.findByRole('button', {
-    name: 'Preview Bramble Run',
+    name: 'Review Bramble Run',
   });
   expect(dialog).toBeVisible();
   expect(screen.getByTestId('url')).toHaveTextContent('/catalog?view=review&title=alpha');
@@ -483,18 +483,52 @@ it('does not advance to a fetched page while a review decision is open', async (
   ).toBeVisible();
 });
 
-it('resolves the exact requirement for an off-queue review bookmark on a narrow screen', async () => {
+it('opens an off-queue review bookmark and preserves its import return and system scope', async () => {
   dimensions.width = 390;
   vi.mocked(listEnrichmentWorkbench).mockResolvedValue({
     data: finalPage([
       assessment('beta'),
     ]),
   } as never);
-  open('/catalog?view=review&title=alpha');
+  open('/catalog?view=review&title=alpha&systemKey=snes&importJob=import-1&fileOutcome=accepted');
+  const panel = await screen.findByRole('complementary', {
+    name: 'Alpine Circuit',
+  });
   expect(
-    await screen.findByRole('link', {
-      name: 'Open linked review',
+    within(panel).getByRole('link', {
+      name: 'Open in title',
     }),
   ).toHaveAttribute('href', '/titles/alpha/metadata?requirement=Metadata%3APublisher');
-  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('table', {
+      name: 'Titles in the review queue',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('link', {
+      name: 'Back to import results',
+    }),
+  ).toHaveAttribute('href', '/jobs/import-1?fileOutcome=accepted#import-results');
+  expect(listEnrichmentWorkbench).toHaveBeenCalledWith(
+    expect.objectContaining({
+      query: expect.objectContaining({
+        systemKey: 'snes',
+      }),
+    }),
+  );
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'Back to review queue',
+    }),
+  );
+  expect(
+    screen.getByRole('button', {
+      name: 'Review Bramble Run',
+    }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('combobox', {
+      name: 'System',
+    }),
+  ).toHaveValue('snes');
 });

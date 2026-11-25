@@ -266,13 +266,13 @@ requirements are omitted from the issue list. Queue presentation selects issues
 by state, while action availability controls the offered operations. This is an
 admin contract; it does not persist another assessment status.
 
-The Catalog inspector handles quick decisions and opens the matching Title
-section for candidate comparisons or manual editing. Title keeps the status and
-outstanding requirements visible across its sections. The draft guard protects
-unsaved edits, and successful mutations refresh the assessment, counts, and
-catalog. Selected assessments refresh every 30 seconds while idle and every 3
-seconds while processing. Pagination leaves cursor-chain refreshes in progress
-alone, and pending page requests cannot overwrite a newer selection.
+The Catalog review panel compares provider candidates and handles quick
+decisions. It opens the relevant Title section for detailed curation. Title keeps
+the status and outstanding requirements visible across its sections. The draft
+guard protects unsaved edits, and successful mutations refresh the assessment,
+counts, and catalog. Selected assessments refresh every 30 seconds while idle
+and every 3 seconds while processing. Pagination leaves cursor-chain refreshes
+in progress alone, and pending page requests cannot overwrite a newer selection.
 
 api clients: admin - canonical workspace, omission mutation, and catalog
 assessment contracts; regenerated with `pnpm api:update`.

@@ -1,6 +1,6 @@
 import { Checkbox, Group, Text, Tooltip, UnstyledButton } from '@mantine/core';
 import type { CatalogTitle } from '@romd/admin-api-client';
-import { IconPhoto, IconPhotoOff } from '@tabler/icons-react';
+import { IconChevronRight, IconPhoto, IconPhotoOff } from '@tabler/icons-react';
 import { type MouseEventHandler, memo } from 'react';
 import { ArtworkFrame } from '../../components/ArtworkFrame';
 import { artworkRoleLabel, artworkRoles } from '../../components/artworkPresentation';
@@ -48,21 +48,33 @@ export function CatalogAvailability({ title }: { title: CatalogTitle }) {
 export function CatalogPreviewButton({
   name,
   active,
+  review = false,
   onClick,
 }: {
   name: string;
   active: boolean;
+  review?: boolean;
   onClick?: MouseEventHandler<HTMLButtonElement>;
 }) {
   return (
     <UnstyledButton
       className={classes.previewButton}
-      aria-label={`Preview ${name}`}
+      aria-label={`${review ? 'Review' : 'Preview'} ${name}`}
       aria-pressed={active}
       aria-controls={active ? catalogInspectorId : undefined}
+      data-review-trigger={review || undefined}
       data-inspector-trigger
       onClick={onClick}
-    />
+    >
+      {review && (
+        <span
+          className={classes.reviewTriggerLabel}
+          aria-hidden="true"
+        >
+          Review <IconChevronRight size={16} />
+        </span>
+      )}
+    </UnstyledButton>
   );
 }
 

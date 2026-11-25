@@ -14,18 +14,28 @@ choose all tracked titles, titles that can be enriched automatically, or the
 current search when that scope is offered. Review the missing-role counts before
 starting. A title's own workspace also offers enrichment for that one game.
 
-Select a title to inspect its identity, metadata and artwork requirements. Review
-the game, platform, release year and edition before confirming a provider match;
-similar names can refer to ports, remakes or modifications. Search again or use
-an exact provider game ID or URL when the suggestions are insufficient. Confirming
-a match queues durable follow-up work. Wait for it to finish before checking the
-resulting cover. Existing artwork and explicit curation choices are preserved.
+Choose **Start review** to open the first title in the current queue, or choose
+**Review** beside a specific title. The match review shows the catalog game and
+the provider's candidates together. When the provider supplies dates for your
+system, the candidate shows those dates alongside its first release year.
+Use **Find another match** to search the provider or look up an exact game ID or
+URL, then **Show original suggestions** to return to the original candidates.
 
-In the desktop review queue, use Up and Down to preview nearby titles and Enter
-to review the current requirement. Escape closes the preview. A resolved title
-stays in place until you move on. The inspector handles quick decisions and links
-to the Title page for candidate comparisons and edits. On a narrow screen the
-title opens directly.
+Confirming a match queues follow-up enrichment. Continue with **Next decision**
+or **Next title**, or choose **View job** to follow the run. **Skip for now**
+leaves the decision open. Use **Continue without IGDB** or the equivalent
+provider action to turn off automatic matching for this title. You can link
+the provider later from the Title page.
+
+Navigation pauses while a provider decision is saving. If the decision changes
+while you are editing, your selection stays visible. Choose **Show latest
+status** to clear the draft and review the updated decision. **Open in title**
+goes to the relevant Title section, and Back restores your queue search and
+selected title.
+
+On desktop, use Up and Down from a review row to move through titles and Enter
+to enter the decision. Escape closes the panel. On narrow screens the decision
+uses the full workspace, with **Back to review queue** above it.
 
 The Title page's enrichment status includes **Change match**. Use **Metadata**
 to edit fields and choose sources, and [Artwork](artwork-curation.md) to compare,

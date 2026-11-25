@@ -22,6 +22,7 @@ export function RequirementList({
   renderDecision,
   extra,
   heading = true,
+  onlyCurrent = false,
 }: {
   assessment: EnrichmentAssessment;
   currentKey?: string;
@@ -31,12 +32,18 @@ export function RequirementList({
   renderDecision?: (requirement: EnrichmentRequirement) => ReactNode;
   extra?: ReactNode;
   heading?: boolean;
+  onlyCurrent?: boolean;
 }) {
   const outstanding = outstandingRequirements(assessment.requirements);
   // An item reached through a deep link remains locatable after its decision was saved.
   const linked = assessment.requirements.find((item) => item.key === currentKey);
-  const shown =
-    linked && !outstanding.includes(linked)
+  const shown = onlyCurrent
+    ? linked
+      ? [
+          linked,
+        ]
+      : []
+    : linked && !outstanding.includes(linked)
       ? [
           ...outstanding,
           linked,

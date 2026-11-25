@@ -24,16 +24,80 @@
   margin-inline: -2px;
 }
 .actions {
-  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   padding-block: var(--mantine-spacing-sm);
   border-top: 1px solid var(--mantine-color-default-border);
   background: var(--mantine-color-body);
 }
 .actions button { height: auto; min-height: var(--button-height); white-space: normal; }
 
-.actions[data-inline] { position: sticky; z-index: 1; bottom: var(--romd-admin-status-bar-height, 0px); }
-.pickerButtons { gap: var(--mantine-spacing-xs); }
-.pickerButtons > :last-child { margin-inline-start: auto; }
+.actions[data-inline] { bottom: var(--romd-admin-status-bar-height, 0px); }
+.actions[data-review] { background: var(--mantine-color-default); }
+:global([data-review-single]) .actions[data-review] { bottom: var(--romd-admin-status-bar-height, 0px); }
+:global([data-review-single]) .skip { padding-inline: var(--mantine-spacing-xs); }
+
+.localGame, .reviewCandidate {
+  min-inline-size: 0;
+  border: 1px solid var(--romd-portal-border);
+  border-radius: var(--mantine-radius-sm);
+}
+.localGame {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-sm);
+  background: var(--romd-portal-overlay);
+  overflow-wrap: anywhere;
+}
+.matchCover {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  aspect-ratio: 2 / 3;
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: var(--mantine-color-dimmed);
+  background: var(--romd-portal-overlay);
+  border-radius: var(--mantine-radius-xs);
+}
+.matchCover img { block-size: 100%; }
+.reviewCandidates { margin-block-start: var(--mantine-spacing-xs); }
+.reviewCandidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.reviewCandidate[data-selected] {
+  border-color: var(--romd-admin-focus);
+  background: var(--mantine-primary-color-light);
+}
+.reviewCandidate:has(input:focus-visible) { outline: 2px solid var(--romd-admin-focus); outline-offset: 1px; }
+.reviewCandidate :global(.mantine-Radio-body) { align-items: center; }
+.reviewCandidate :global(.mantine-Radio-inner) { margin-inline-start: var(--mantine-spacing-sm); }
+.reviewCandidate :global(.mantine-Radio-radio:checked) { background: var(--romd-admin-focus); border-color: var(--romd-admin-focus); }
+.reviewCandidate :global(.mantine-Radio-icon) { color: var(--mantine-color-body); }
+.reviewCandidate :global(.mantine-Radio-labelWrapper) { flex: 1; min-inline-size: 0; }
+.reviewCandidate :global(.mantine-Radio-label) { display: block; cursor: pointer; }
+.candidateLabel {
+  display: flex;
+  align-items: center;
+  min-block-size: 3.5rem;
+  gap: var(--mantine-spacing-sm);
+  padding: calc(var(--mantine-spacing-xs) / 2) 0;
+}
+.candidateText { display: grid; min-inline-size: 0; overflow-wrap: anywhere; }
+.candidateTitle { color: var(--mantine-color-text); }
+.candidateLink { display: grid; place-items: center; margin-inline: var(--mantine-spacing-xs); min-inline-size: 2rem; min-block-size: 2rem; }
+.reviewLookup summary { cursor: pointer; font-size: var(--mantine-font-size-sm); color: var(--mantine-color-anchor); padding-block: calc(var(--mantine-spacing-xs) / 2); }
+.reviewLookup summary:focus-visible { outline: 2px solid var(--romd-admin-focus); outline-offset: 2px; border-radius: var(--mantine-radius-xs); }
+.reviewLookup[open] > summary { margin-block-end: var(--mantine-spacing-xs); }
+:global([data-review-single]) .candidateLabel { gap: var(--mantine-spacing-xs); padding-inline-end: var(--mantine-spacing-xs); }
+.reviewCandidate .matchCover, :global([data-review-single]) .matchCover { inline-size: 2.125rem; }
+:global([data-review-single]) .reviewCandidate { position: relative; grid-template-columns: minmax(0, 1fr); }
+:global([data-review-single]) .candidateTitle { padding-inline-end: 2.25rem; }
+:global([data-review-single]) .candidateLink { position: absolute; inset-inline-end: 0; inset-block-start: 0; }
 
 /* The match list is its own size container. The host's density picks the spacing tier, and narrow lists use the
    compact rows whatever the host asked for. */
@@ -49,6 +113,10 @@
 .match:last-child { border-bottom: 0; }
 .matchBody { flex: 1 1 12rem; min-inline-size: 0; }
 .recordName { overflow-wrap: anywhere; min-inline-size: 0; }
+@container provider-matches (max-width: 30em) { .match { padding-block: var(--mantine-spacing-xs); } }
+@container provider-matches (max-width: 30em) {
+  .matchBody { flex-basis: 8.5rem; }
+}
 .evidenceList { margin: 0; padding-inline-start: var(--mantine-spacing-lg); }
 .contributionFields { display: grid; gap: var(--mantine-spacing-xs); margin: 0; }
 .contributionFields dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
