@@ -10,7 +10,6 @@ using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Configuration;
 using Romd.Admin.Application.Ingestion.Jobs;
-using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
@@ -432,10 +431,10 @@ public sealed class ArtworkWorkerPublicationOwnershipTests : IAsyncLifetime
             else
             {
                 var revision = Guid.NewGuid();
-                var matches = Substitute.For<ITitleProviderMatchService>();
-                matches.GetAsync(7, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(value:
-                    [new("steamgriddb", "SteamGridDB", true, ["artwork"], revision, "Confirmed", "42", null, null, null, false)]));
-                matches.GetLinkRevisionAsync(7, "steamgriddb", "42", Arg.Any<CancellationToken>()).Returns(revision);
+                var matches = Substitute.For<IArtworkMatchAuthorizationService>();
+                matches.ReadAsync(7, "steamgriddb", Arg.Any<ArtworkRole>(), Arg.Any<CancellationToken>())
+                    .Returns(call => new ArtworkMatchResolution.Authorized(new("steamgriddb", "42", call.Arg<ArtworkRole>(), revision)));
+                matches.IsCurrentAsync(7, Arg.Any<ArtworkMatchAuthorization>(), Arg.Any<CancellationToken>()).Returns(true);
                 var browser = Substitute.For<IArtworkProviderBrowser>();
                 browser.Capabilities.Returns(new ArtworkProviderCapabilities("steamgriddb", "SteamGridDB", roles.Select(role => new ArtworkRoleCapabilities(role, [], [])).ToArray()));
                 browser.GetCandidatesAsync("42", Arg.Any<ProviderArtworkQuery>(), 0, Arg.Any<CancellationToken>()).Returns(call =>

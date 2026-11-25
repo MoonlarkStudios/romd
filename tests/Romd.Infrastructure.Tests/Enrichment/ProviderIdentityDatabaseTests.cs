@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using NSubstitute;
+using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
@@ -54,6 +55,31 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         (await Trusted(db, "a")).ShouldBeTrue();
         await db.Set<TitleProviderMatchStateEntity>().ExecuteDeleteAsync();
         (await Trusted(db, "a")).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ArtworkAuthorization_UsesCurrentTrustedAssociationAndRechecksItsRevision()
+    {
+        await using var db = _database.CreateContext();
+        await Seed(db);
+        await AddAutomatic(db, "igdb", "42");
+        var provider = Substitute.For<IProviderIdentityAdapter>();
+        provider.Id.Returns("igdb");
+        provider.GetAvailabilityAsync(default).Returns(new ProviderAvailability(true, true));
+        var store = new TitleProviderMatchStore(db, TimeProvider.System);
+        var service = new ArtworkMatchAuthorizationService(Substitute.For<IProviderIdentityService>(), [provider], store);
+        var resolved = await service.ReadAsync(1, "igdb", ArtworkRole.Poster, default);
+        var match = resolved.ShouldBeOfType<ArtworkMatchResolution.Authorized>().Match;
+        match.GameId.ShouldBe("42");
+        match.Role.ShouldBe(ArtworkRole.Poster);
+        (await service.IsCurrentAsync(1, match, default)).ShouldBeTrue();
+
+        await db.Set<TitleProviderMatchStateEntity>()
+            .ExecuteUpdateAsync(set => set.SetProperty(state => state.Revision, Guid.NewGuid()));
+        (await service.IsCurrentAsync(1, match, default)).ShouldBeFalse();
+        await db.CatalogSources.ExecuteUpdateAsync(set => set.SetProperty(source => source.Status, "Paused"));
+        var blocked = await service.ReadAsync(1, "igdb", ArtworkRole.Poster, default);
+        blocked.ShouldBe(new ArtworkMatchResolution.Blocked(ArtworkMatchBlock.NeedsMatch));
     }
 
     [Fact]

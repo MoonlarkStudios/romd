@@ -197,7 +197,7 @@ public sealed class ProgressiveArtworkAcquisitionTests
     {
         var rig = new Rig();
         rig.Page(0, [Rig.Candidate("1")]);
-        rig.Matches.GetLinkRevisionAsync(1, "steamgriddb", "42", Arg.Any<CancellationToken>()).Returns(Guid.NewGuid());
+        rig.Matches.IsCurrentAsync(1, Arg.Any<ArtworkMatchAuthorization>(), Arg.Any<CancellationToken>()).Returns(false);
         await rig.Fill();
         rig.Files.ShouldNotHavePublished();
         await rig.Curation.DidNotReceiveWithAnyArgs().StageLocalAssetAsync(default, default, default!, default!, default, default, default);
@@ -215,7 +215,7 @@ public sealed class ProgressiveArtworkAcquisitionTests
         public readonly Clock Clock = new();
         public readonly IArtworkAcquisitionStore Acquisition = Substitute.For<IArtworkAcquisitionStore>();
         public readonly IArtworkCurationRepository Curation = Substitute.For<IArtworkCurationRepository>();
-        public readonly ITitleProviderMatchService Matches = Substitute.For<ITitleProviderMatchService>();
+        public readonly IArtworkMatchAuthorizationService Matches = Substitute.For<IArtworkMatchAuthorizationService>();
         public readonly IArtworkProviderBrowser Browser = Substitute.For<IArtworkProviderBrowser>();
         public readonly IArtworkProviderBrowser Fallback = Substitute.For<IArtworkProviderBrowser>();
         public readonly IFileStorageService Files = Substitute.For<IFileStorageService>().PublishesEveryFile();
@@ -226,15 +226,15 @@ public sealed class ProgressiveArtworkAcquisitionTests
         public Rig(bool withFallback = false, ArtworkRole role = ArtworkRole.Poster)
         {
             Acquisition.GetSettingsAsync(Arg.Any<CancellationToken>()).Returns(new ArtworkEnrichmentSettings(Guid.Empty, role == ArtworkRole.Poster, false, false, [], role == ArtworkRole.Backdrop, false));
+            Acquisition.GetTitleRevisionAsync(1, Arg.Any<CancellationToken>()).Returns(Guid.NewGuid());
             Acquisition.LockMissingAsync(1, role, 0, Arg.Any<CancellationToken>()).Returns(true);
             Curation.GetStatesAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkCurationState>>(
                 Enum.GetValues<ArtworkRole>().Select(role => new ArtworkCurationState(role, ArtworkSelectionMode.Automatic, 0, null, null)).ToArray()));
             Curation.GetGalleryAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(value: []));
             var revision = Guid.NewGuid();
-            Matches.GetAsync(1, Arg.Any<CancellationToken>()).Returns(ErrorOrFactory.From<IReadOnlyList<TitleProviderMatch>>(
-                (withFallback ? new[] { "steamgriddb", "igdb" } : [role == ArtworkRole.Backdrop ? "igdb" : "steamgriddb"]).Select(id =>
-                    new TitleProviderMatch(id, id, true, ["artwork"], revision, "Confirmed", "42", null, null, null, false)).ToArray()));
-            Matches.GetLinkRevisionAsync(1, Arg.Any<string>(), "42", Arg.Any<CancellationToken>()).Returns(revision);
+            Matches.ReadAsync(1, Arg.Any<string>(), role, Arg.Any<CancellationToken>())
+                .Returns(call => new ArtworkMatchResolution.Authorized(new(call.Arg<string>(), "42", role, revision)));
+            Matches.IsCurrentAsync(1, Arg.Any<ArtworkMatchAuthorization>(), Arg.Any<CancellationToken>()).Returns(true);
             Browser.Capabilities.Returns(new ArtworkProviderCapabilities(role == ArtworkRole.Backdrop ? "igdb" : "steamgriddb", "SteamGridDB", [new(role, [], [])]));
             Fallback.Capabilities.Returns(new ArtworkProviderCapabilities("igdb", "IGDB", [new(role, [], [])]));
             var source = Substitute.For<IArtworkAssetSource>();
