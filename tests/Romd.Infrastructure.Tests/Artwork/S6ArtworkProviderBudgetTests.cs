@@ -9,10 +9,10 @@ using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Source.Platform;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
-using Romd.Infrastructure.Artwork.SteamGridDb;
-using Romd.Infrastructure.Enrichment;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
+using Romd.Infrastructure.Providers.SteamGridDb;
 
 namespace Romd.Infrastructure.Tests.Artwork;
 

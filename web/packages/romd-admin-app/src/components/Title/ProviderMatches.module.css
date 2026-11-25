@@ -13,17 +13,27 @@
 .preview { min-width: 0; padding-left: calc(var(--mantine-spacing-md) + var(--mantine-spacing-sm)); }
 /* The card-title role's strong text colour has no light-scheme value, so light schemes use the admin text colour. */
 .pickerHeading:global(.romd-card-title) { color: var(--mantine-color-text); }
+.pickerDialog { display: flex; flex-direction: column; overflow: hidden; }
+.pickerHeader { flex-shrink: 0; }
+.pickerBody { display: flex; flex-direction: column; min-height: 0; }
+.pickerScroll {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 2px 2px var(--mantine-spacing-sm);
+  margin-inline: -2px;
+}
 .actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
+  flex-shrink: 0;
   padding-block: var(--mantine-spacing-sm);
   border-top: 1px solid var(--mantine-color-default-border);
   background: var(--mantine-color-body);
 }
 .actions button { height: auto; min-height: var(--button-height); white-space: normal; }
 
-.actions[data-inline] { bottom: var(--romd-admin-status-bar-height, 0px); }
+.actions[data-inline] { position: sticky; z-index: 1; bottom: var(--romd-admin-status-bar-height, 0px); }
+.pickerButtons { gap: var(--mantine-spacing-xs); }
+.pickerButtons > :last-child { margin-inline-start: auto; }
 
 /* The match list is its own size container. The host's density picks the spacing tier, and narrow lists use the
    compact rows whatever the host asked for. */
@@ -39,6 +49,16 @@
 .match:last-child { border-bottom: 0; }
 .matchBody { flex: 1 1 12rem; min-inline-size: 0; }
 .recordName { overflow-wrap: anywhere; min-inline-size: 0; }
+.evidenceList { margin: 0; padding-inline-start: var(--mantine-spacing-lg); }
+.contributionFields { display: grid; gap: var(--mantine-spacing-xs); margin: 0; }
+.contributionFields dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.fieldGrid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+.reviewDetails summary { cursor: pointer; }
+.reviewDetails[open] summary { margin-bottom: var(--mantine-spacing-xs); }
+.reviewDetails summary:focus-visible { outline: 2px solid var(--romd-admin-focus); outline-offset: 2px; }
+.proposalIdentity { flex: 1 1 10rem; min-width: 0; overflow-wrap: anywhere; }
+.proposalArtwork { max-width: 100%; }
+.description { white-space: pre-wrap; overflow-wrap: anywhere; }
 @container provider-matches (max-width: 30em) { .match { padding-block: var(--mantine-spacing-xs); } }
 @container provider-matches (max-width: 30em) {
   .matchBody { flex-basis: 8.5rem; }

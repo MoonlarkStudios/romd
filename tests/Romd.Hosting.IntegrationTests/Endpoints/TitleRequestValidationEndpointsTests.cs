@@ -23,6 +23,84 @@ namespace Romd.Hosting.IntegrationTests.Endpoints;
 [Collection(IntegrationTestCollection.Name)]
 public sealed class TitleRequestValidationEndpointsTests(IntegrationTestFixture fixture)
 {
+    [Fact]
+    public async Task LookupNames_ConditionalReplacement_UpdatesSearchWithoutRenamingTitle()
+    {
+        using var client = fixture.CreateAuthenticatedClient();
+        var titleId = await SeedTitleAsync();
+        string path = $"/api/titles/{titleId}";
+        string namesPath = path + "/lookup-names";
+        var original = await client.GetFromJsonAsync<JsonElement>(path);
+        using var empty = await client.GetAsync(namesPath);
+        var before = (await empty.Content.ReadFromJsonAsync<TitleLookupNames>()).ShouldNotBeNull();
+        before.Names.ShouldBeEmpty();
+        empty.Headers.ETag.ShouldNotBeNull().Tag.ShouldBe($"\"{before.Revision}\"");
+
+        using var added = await ReplaceAsync(["  Postal Neon Quádrant  "], before.Revision);
+        added.EnsureSuccessStatusCode();
+        var saved = (await added.Content.ReadFromJsonAsync<TitleLookupNames>()).ShouldNotBeNull();
+        saved.Names.ShouldBe(["Postal Neon Quádrant"]);
+        saved.Revision.ShouldNotBe(before.Revision);
+        added.Headers.ETag.ShouldNotBeNull().Tag.ShouldBe($"\"{saved.Revision}\"");
+
+        var found = await client.GetFromJsonAsync<JsonElement>("/api/catalog?query=postal%20neon%20quadr");
+        found.GetProperty("items").EnumerateArray().Single().GetProperty("id").GetString().ShouldBe(titleId);
+        var title = await client.GetFromJsonAsync<JsonElement>(path);
+        title.GetProperty("name").GetString().ShouldBe(original.GetProperty("name").GetString());
+
+        using var stale = await ReplaceAsync([], before.Revision);
+        using var staleProblem = await ProblemEnvelope.ReadAsync(stale, 412, "Titles.PreconditionFailed");
+        using var duplicate = await ReplaceAsync(["Postal Neon Quadrant", "POSTAL NEON QUÁDRANT"], saved.Revision);
+        using var duplicateProblem = await ProblemEnvelope.ReadAsync(duplicate, 400, "Titles.InvalidLookupNames");
+
+        using var unchanged = await ReplaceAsync(["Postal Neon Quádrant"], saved.Revision);
+        unchanged.EnsureSuccessStatusCode();
+        unchanged.Headers.ETag.ShouldNotBeNull().Tag.ShouldBe($"\"{saved.Revision}\"");
+
+        using var expanded = await ReplaceAsync(["Postal Neon Quádrant", "Salmon Sapphire"], saved.Revision);
+        expanded.EnsureSuccessStatusCode();
+        var both = (await expanded.Content.ReadFromJsonAsync<TitleLookupNames>()).ShouldNotBeNull();
+        both.Names.ShouldBe(["Postal Neon Quádrant", "Salmon Sapphire"]);
+        both.Revision.ShouldNotBe(saved.Revision);
+
+        using var edited = await ReplaceAsync(["Postal Neon Quadrant"], both.Revision);
+        edited.EnsureSuccessStatusCode();
+        var updated = (await client.GetFromJsonAsync<TitleLookupNames>(namesPath)).ShouldNotBeNull();
+        updated.Names.ShouldBe(["Postal Neon Quadrant"]);
+        updated.Revision.ShouldNotBe(both.Revision);
+        var stillFound = await client.GetFromJsonAsync<JsonElement>("/api/catalog?query=postal%20neon%20quadr");
+        stillFound.GetProperty("items").EnumerateArray().Single().GetProperty("id").GetString().ShouldBe(titleId);
+        var noLongerFound = await client.GetFromJsonAsync<JsonElement>("/api/catalog?query=salmon%20sapphire");
+        noLongerFound.GetProperty("items").GetArrayLength().ShouldBe(0);
+
+        using var removed = await ReplaceAsync([], updated.Revision);
+        removed.EnsureSuccessStatusCode();
+        var after = await client.GetFromJsonAsync<JsonElement>("/api/catalog?query=postal%20neon%20quadr");
+        after.GetProperty("items").GetArrayLength().ShouldBe(0);
+
+        async Task<HttpResponseMessage> ReplaceAsync(string[] names, string revision)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, namesPath)
+            {
+                Content = JsonContent.Create(new ReplaceTitleLookupNamesRequest { Names = names })
+            };
+            request.Headers.IfMatch.ParseAdd($"\"{revision}\"");
+            return await client.SendAsync(request);
+        }
+    }
+
+    [Fact]
+    public async Task DatGrouping_MissingTitleReturns404_AndExistingTitleWithoutGroupReturnsEmptyReview()
+    {
+        using var client = fixture.CreateAuthenticatedClient();
+        using var missing = await client.GetAsync($"/api/titles/{IdCoder.Encode(int.MaxValue)}/dat-grouping");
+        using var problem = await ProblemEnvelope.ReadAsync(missing, 404, "Catalog.TitleNotFound");
+
+        var titleId = await SeedTitleAsync();
+        var review = await client.GetFromJsonAsync<DatTitleGroupingReview>($"/api/titles/{titleId}/dat-grouping");
+        review.ShouldNotBeNull().Suggestion.ShouldBeNull();
+    }
+
     [Theory]
     [InlineData("merge", "sourceTitleId", "Titles.InvalidTitleId", "not-an-id")]
     [InlineData("merge", "sourceTitleId", "Titles.InvalidTitleId", "")]

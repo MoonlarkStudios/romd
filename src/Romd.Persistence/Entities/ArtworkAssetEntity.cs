@@ -20,6 +20,7 @@ public sealed class ArtworkAssetEntity : EntityBase
     public int Height { get; set; }
     public bool IsRejected { get; set; }
     public bool IsEligible { get; set; }
+    public bool IsProvisional { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public string? Attribution { get; set; }
     public string? SourcePageUrl { get; set; }
@@ -36,6 +37,7 @@ public sealed class ArtworkAssetEntity : EntityBase
         builder.Property(a => a.ContentType).HasMaxLength(100);
         builder.Property(a => a.Attribution).HasMaxLength(500);
         builder.Property(a => a.SourcePageUrl).HasMaxLength(1000);
+        builder.Property(a => a.IsProvisional).HasDefaultValue(false);
         builder.HasAlternateKey(a => new { a.Id, a.TitleId, a.Role });
         builder.HasIndex(a => new { a.TitleId, a.Role, a.SourceId, a.ProviderAssetId, a.ContentVersion })
             .IsUnique().AreNullsDistinct(false);
@@ -47,6 +49,8 @@ public sealed class ArtworkAssetEntity : EntityBase
         {
             t.HasCheckConstraint("CK_ArtworkAssets_Dimensions", "\"Width\" > 0 AND \"Height\" > 0");
             t.HasCheckConstraint("CK_ArtworkAssets_Role", "\"Role\" IN ('Poster', 'Hero', 'Logo', 'Backdrop')");
+            t.HasCheckConstraint("CK_ArtworkAssets_ProvisionalProvider",
+                """NOT "IsProvisional" OR (NOT "IsEligible" AND "ProviderGameId" IS NOT NULL AND "ProviderAssetId" IS NOT NULL)""");
         });
     }
 

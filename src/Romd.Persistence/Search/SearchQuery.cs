@@ -44,14 +44,23 @@ public static class SearchQuery
     }
 
     public static IQueryable<TitleEntity> MatchTitles(
-        IQueryable<TitleEntity> titles, string text, bool allowOmittedPossessive = false) =>
-        MatchTitleQuery(titles, ToTsQueryText(text, allowOmittedPossessive));
+        IQueryable<TitleEntity> titles, IQueryable<TitleLookupNameEntity> lookupNames,
+        string text, bool allowOmittedPossessive = false) =>
+        MatchTitleQuery(titles, lookupNames, ToTsQueryText(text, allowOmittedPossessive));
 
-    public static IQueryable<TitleEntity> MatchTitleQuery(IQueryable<TitleEntity> titles, string? tsQuery) =>
-        tsQuery is not null
-            ? titles.Where(title => title.SearchVector.Matches(
-                EF.Functions.ToTsQuery(SearchDocuments.TextSearchConfiguration, tsQuery)))
-            : titles.Where(_ => false);
+    public static IQueryable<TitleEntity> MatchTitleQuery(
+        IQueryable<TitleEntity> titles, IQueryable<TitleLookupNameEntity> lookupNames, string? tsQuery)
+    {
+        if (tsQuery is null)
+            return titles.Where(_ => false);
+
+        var aliasMatches = lookupNames.Where(name => name.SearchVector.Matches(
+            EF.Functions.ToTsQuery(SearchDocuments.TextSearchConfiguration, tsQuery))).Select(name => name.TitleId);
+        var displayMatches = titles.Where(title => title.SearchVector.Matches(
+            EF.Functions.ToTsQuery(SearchDocuments.TextSearchConfiguration, tsQuery))).Select(title => title.Id);
+        var matchingIds = displayMatches.Union(aliasMatches);
+        return titles.Where(title => matchingIds.Contains(title.Id));
+    }
 
     public static IQueryable<DatGameEntity> MatchGames(IQueryable<DatGameEntity> games, string text) =>
         ToTsQueryText(text) is { } tsQuery

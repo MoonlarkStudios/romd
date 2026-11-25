@@ -9,6 +9,7 @@ using Romd.Admin.Application.Storage.Files;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
 using Romd.Domain.Source.Platform;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Artwork;
 
@@ -19,7 +20,6 @@ public sealed class AutomaticArtworkService(IArtworkAcquisitionStore acquisition
     ITitleProviderMatchService? matches = null)
     : IAutomaticArtworkService
 {
-    public const string HttpClientName = "AutomaticIgdbArtwork";
     private const int MaximumBytes = 20 * 1024 * 1024;
     private static readonly ArtworkRole[] SupportedRoles = [ArtworkRole.Poster, ArtworkRole.Hero, ArtworkRole.Backdrop];
 
@@ -174,10 +174,15 @@ public sealed class AutomaticArtworkService(IArtworkAcquisitionStore acquisition
         async Task Discover()
         {
             discoveryAttempted = true;
+            var link = title.GetExternalId("igdb");
+            if (link is null || (matches is null ? !link.IsConfirmed :
+                await matches.GetLinkRevisionAsync(title.Id, "igdb", link.ExternalId, ct) is null))
+                return;
+
             var enrichmentContext = await contexts.CreateAsync(title, platform, ct);
             try
             {
-                discovered = await provider!.EnrichSingleAsync(enrichmentContext with { ExistingExternalId = title.GetExternalId("igdb")?.ExternalId }, ct);
+                discovered = await provider!.FetchSingleAsync(new(link.ExternalId, enrichmentContext), ct);
             }
             catch (Exception ex) when (ex is HttpRequestException or IOException || ex is OperationCanceledException && !ct.IsCancellationRequested)
             {
@@ -193,7 +198,7 @@ public sealed class AutomaticArtworkService(IArtworkAcquisitionStore acquisition
             uri.Host != "images.igdb.com" || !uri.IsDefaultPort || uri.UserInfo.Length != 0 ||
             !uri.AbsolutePath.StartsWith("/igdb/image/upload/", StringComparison.Ordinal) || uri.Query.Length != 0)
             return null;
-        using var client = clients.CreateClient(HttpClientName);
+        using var client = clients.CreateClient(IgdbArtworkProvider.HttpClientName);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         using var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, timeout.Token);

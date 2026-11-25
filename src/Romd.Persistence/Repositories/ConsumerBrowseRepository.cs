@@ -6,6 +6,7 @@ using Romd.Consumer.Application.Browse;
 using Romd.Consumer.Application.Browse.ReadModels;
 using Romd.Consumer.Application.Libraries;
 using Romd.Domain.Libraries;
+using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Search;
 using Romd.Persistence.Queries;
@@ -232,8 +233,8 @@ public sealed partial class ConsumerBrowseRepository(
         ConsumerReleasePreference releasePreference,
         CancellationToken ct)
     {
-        var title = await context.Titles
-            .AsNoTracking()
+        var presentedRatings = context.PresentedRatings();
+        var title = await context.PresentedTitles()
             .Where(candidate => candidate.Id == titleId)
             .Where(candidate => OwnedMaterializedLibraryTitles(libraryId).Any(item => item.TitleId == candidate.Id))
             .Join(
@@ -245,7 +246,7 @@ public sealed partial class ConsumerBrowseRepository(
                     Id = title.Id,
                     PlatformId = title.PlatformId,
                     System = new SystemSummaryData(platform.CanonicalKey ?? platform.ShortName, platform.Name, platform.Name, null),
-                    ContentRatings = title.ContentRatings.OrderBy(rating => rating.Board)
+                    ContentRatings = presentedRatings.Where(rating => rating.TitleId == title.Id).OrderBy(rating => rating.Board)
                         .Select(rating => new ConsumerContentRatingData
                         {
                             Board = (Romd.Domain.Catalog.Ratings.RatingBoard)rating.Board,
@@ -306,12 +307,10 @@ public sealed partial class ConsumerBrowseRepository(
 
     private IQueryable<TitleEntity> BuildTitleQuery(int libraryId, ConsumerCatalogFilters filters)
     {
-        // Reuse the admin tsvector match so the consumer query is sargable against the GIN index
-        // rather than a non-indexable LIKE '%q%'. Token/prefix match semantics differ from
-        // substring matching (same behaviour admin search already uses).
-        var query = string.IsNullOrWhiteSpace(filters.Query)
-            ? context.Titles.AsNoTracking()
-            : SearchQuery.MatchTitles(context.Titles.AsNoTracking(), filters.Query);
+        // Display titles and DAT release names share the indexed phrase and prefix match.
+        var query = context.PresentedTitles();
+        if (!string.IsNullOrWhiteSpace(filters.Query))
+            query = MatchTitleOrReleaseName(query, libraryId, filters.Query);
 
         query = query.Where(title =>
             OwnedMaterializedLibraryTitles(libraryId).Any(item => item.TitleId == title.Id));
@@ -329,8 +328,28 @@ public sealed partial class ConsumerBrowseRepository(
         return query;
     }
 
-    private IQueryable<ConsumerTitleCardData> ProjectToTitleCards(IQueryable<TitleEntity> query) =>
-        query.Join(
+    private IQueryable<TitleEntity> MatchTitleOrReleaseName(IQueryable<TitleEntity> titles, int libraryId, string text)
+    {
+        var titleMatches = SearchQuery.MatchTitles(titles, context.TitleLookupNames, text).Select(title => title.Id);
+        var releaseNameMatches =
+            from game in SearchQuery.MatchGames(context.DatGames.Where(game => !game.IsBios), text)
+            join dat in context.DatFiles on game.DatFileId equals dat.Id
+            join datSource in context.DatSources on dat.DatSourceId equals datSource.Id
+            join source in context.CatalogSources on datSource.CatalogSourceId equals source.Id
+            join claim in context.CatalogReleaseSources on game.SourceEntryId equals claim.SourceEntryId
+            join release in context.MaterializedLibraryReleases on claim.CatalogReleaseId equals release.CatalogReleaseId
+            where dat.Lifecycle == "Active" && source.Status == "Active"
+                  && release.LibraryId == libraryId && release.IsOwned && release.IsExposed
+            select release.TitleId;
+
+        var matchingTitleIds = titleMatches.Union(releaseNameMatches);
+        return titles.Where(title => matchingTitleIds.Contains(title.Id));
+    }
+
+    private IQueryable<ConsumerTitleCardData> ProjectToTitleCards(IQueryable<TitleEntity> query)
+    {
+        var presentedRatings = context.PresentedRatings();
+        return query.Join(
             context.Platforms.AsNoTracking(),
             title => title.PlatformId,
             platform => platform.Id,
@@ -339,7 +358,7 @@ public sealed partial class ConsumerBrowseRepository(
                 Id = title.Id,
                 PlatformId = title.PlatformId,
                 System = new SystemSummaryData(platform.CanonicalKey ?? platform.ShortName, platform.Name, platform.Name, null),
-                ContentRatings = title.ContentRatings.OrderBy(rating => rating.Board)
+                ContentRatings = presentedRatings.Where(rating => rating.TitleId == title.Id).OrderBy(rating => rating.Board)
                     .Select(rating => new ConsumerContentRatingData
                     {
                         Board = (Romd.Domain.Catalog.Ratings.RatingBoard)rating.Board,
@@ -350,8 +369,8 @@ public sealed partial class ConsumerBrowseRepository(
                 ReleaseDate = title.ReleaseDate,
                 Rating = title.Rating,
                 Players = title.Players,
-                EsrbRating = title.ContentRatings
-                    .Where(rating => rating.Board == (int)Romd.Domain.Catalog.Ratings.RatingBoard.Esrb)
+                EsrbRating = presentedRatings
+                    .Where(rating => rating.TitleId == title.Id && rating.Board == (int)Romd.Domain.Catalog.Ratings.RatingBoard.Esrb)
                     .Select(rating => rating.Code)
                     .FirstOrDefault(),
                 CoverMediaId = context.TitleMedia
@@ -363,6 +382,7 @@ public sealed partial class ConsumerBrowseRepository(
                 ReleaseCount = 0,
                 DefaultReleaseId = null
             });
+    }
 
     private ConsumerTitleCardData AddReleaseSummary(
         ConsumerTitleCardData item,

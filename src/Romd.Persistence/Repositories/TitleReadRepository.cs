@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Titles;
 using Romd.Admin.Application.Titles.ReadModels;
 using Romd.Domain.Catalog;
+using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Extensions;
 
@@ -17,7 +18,7 @@ public sealed class TitleReadRepository(RomdDbContext context)
 {
     public async Task<TitleSummary?> GetSummaryAsync(int titleId, CancellationToken cancellationToken = default)
     {
-        var row = await ProjectSummaries(context.Titles.AsNoTracking().Where(title => title.Id == titleId))
+        var row = await ProjectSummaries(context.PresentedTitles().Where(title => title.Id == titleId))
             .FirstOrDefaultAsync(cancellationToken);
         return row?.ToSummary();
     }
@@ -35,8 +36,7 @@ public sealed class TitleReadRepository(RomdDbContext context)
         PlatformTitlePageRequest request,
         CancellationToken cancellationToken = default)
     {
-        var titles = context.Titles
-            .AsNoTracking()
+        var titles = context.PresentedTitles()
             .Where(title => title.PlatformId == request.PlatformId)
             .ApplyLibrary(request.LibraryId, context.MaterializedLibraryTitles, context.Libraries);
         if (request.LocalPayloadOnly)

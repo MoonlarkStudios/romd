@@ -76,7 +76,7 @@ public sealed class ConsumerBoundaryTests
                 "Romd.Admin.Application",
                 "Romd.Application.Common",
                 "Romd.Consumer.Application",
-                "Romd.Dat.Parsing",
+                "Romd.Dat",
                 "Romd.Media",
                 "Romd.Persistence",
                 "Romd.Storage"
@@ -90,7 +90,8 @@ public sealed class ConsumerBoundaryTests
             [
                 "Romd.Admin.Application",
                 "Romd.Application.Common",
-                "Romd.Consumer.Application"
+                "Romd.Consumer.Application",
+                "Romd.Dat"
             ],
             ["src/Romd.Storage/Romd.Storage.csproj"] =
             [
@@ -437,15 +438,16 @@ public sealed class ConsumerBoundaryTests
                 typeof(ConsumerLibraryProjectionResult<>.Rejected)
             ]);
 
-        string[] resultSources =
+        (string Path, int ConstraintCount)[] resultSources =
         [
-            "src/Romd.Consumer.Application/Libraries/ConsumerLibraryScope.cs",
-            "src/Romd.Persistence/Queries/LiveConsumerLibraryQuery.cs"
+            ("src/Romd.Consumer.Application/Libraries/ConsumerLibraryScope.cs", 2),
+            ("src/Romd.Persistence/Queries/LiveConsumerLibraryQuery.cs", 2)
         ];
-        resultSources.Select(FindRepositoryFile)
-            .Select(File.ReadAllText)
-            .Sum(source => Regex.Matches(source, @"where T : notnull").Count)
-            .ShouldBe(3);
+        foreach (var (path, constraintCount) in resultSources)
+        {
+            string source = File.ReadAllText(FindRepositoryFile(path));
+            Regex.Matches(source, @"where T : notnull").Count.ShouldBe(constraintCount, path);
+        }
 
         string[] relevantInfrastructureFiles =
         [

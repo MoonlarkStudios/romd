@@ -5,7 +5,6 @@ using NSubstitute;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Shouldly;
 using Xunit;
@@ -29,9 +28,11 @@ public sealed partial class ProviderIdentityServiceTests
     private ProviderIdentityService Create(string name, string[] aliases,
         Func<string, ErrorOr<IReadOnlyList<ProviderGame>>> search,
         IReadOnlyList<ProviderIdentityLink>? links = null, IReadOnlyList<IArtworkIdentityBridge>? bridges = null,
-        ProviderGameSearchCompleteness completeness = ProviderGameSearchCompleteness.Complete)
+        ProviderGameSearchCompleteness completeness = ProviderGameSearchCompleteness.Complete,
+        DatFamilySearchEvidence? datFamily = null, string providerId = "provider",
+        IReadOnlyList<int>? years = null, IReadOnlyList<string>? platforms = null)
     {
-        _adapter.Id.Returns("provider");
+        _adapter.Id.Returns(providerId);
         _adapter.Capabilities.Returns(new[] { "metadata" });
         _adapter.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
         _adapter.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(call =>
@@ -42,8 +43,9 @@ public sealed partial class ProviderIdentityServiceTests
             return result.IsError ? (ErrorOr<ProviderGameSearchResult>)result.Errors : new ProviderGameSearchResult(result.Value, completeness, 500);
         });
         _store.ReadAsync(1, Arg.Any<CancellationToken>()).Returns(new ProviderIdentitySnapshot(1, Guid.NewGuid(), "fingerprint",
-            new(name, aliases, [1994], ["SNES"], "catalog"), links ?? []));
-        _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), "provider", Guid.Empty,
+            new(name, aliases, years ?? [1994], platforms ?? ["SNES"], "catalog"), links ?? [])
+        { DatFamily = datFamily });
+        _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), providerId, Guid.Empty,
             Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
             _decision = call.ArgAt<ProviderIdentityDecision>(3);
@@ -95,6 +97,50 @@ public sealed partial class ProviderIdentityServiceTests
         _queries.ShouldBe(["LOCAL TITLE", "REGIONAL TITLE"]);
         _decision.ShouldNotBeNull().State.ShouldBe("AutoAccepted");
         _accepted.ShouldNotBeNull().Id.ShouldBe("1");
+    }
+
+    [Theory]
+    [InlineData(true, "AutoAccepted")]
+    [InlineData(false, "NeedsReview")]
+    public async Task DiscoverAsync_DatFamilyFindsProviderGame_UsesOrdinaryIdentityChecks(bool hasProviderAlias, string state)
+    {
+        var game = Game("1", "Family name") with { Aliases = hasProviderAlias ? ["Regional title"] : [] };
+        var service = Create("Local title", ["Regional title (Japan)"], query =>
+            query == "FAMILY NAME" ? new[] { game } : Array.Empty<ProviderGame>(),
+            datFamily: new(["Family name (USA)", "Regional title (Japan)"], false));
+
+        await service.DiscoverAsync(1, null, default);
+
+        _queries.ShouldBe(["LOCAL TITLE", "FAMILY NAME", "REGIONAL TITLE"]);
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe(state);
+        decision.Candidates.ShouldHaveSingleItem().Game.Id.ShouldBe("1");
+        (_accepted is not null).ShouldBe(hasProviderAlias);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DiscoverAsync_AmbiguousDatFamily_UsesExistingReviewWithOrWithoutCandidates(bool hasCandidate)
+    {
+        var bridge = Substitute.For<IArtworkIdentityBridge>();
+        bridge.SourceProviderId.Returns("confirmed");
+        bridge.TargetProviderId.Returns("provider");
+        var service = Create("Local title", [], _ =>
+            hasCandidate ? new[] { Game("1", "Local title") } : Array.Empty<ProviderGame>(),
+            datFamily: DatFamilySearchEvidence.Ambiguous,
+            links: [new("confirmed", "2", true, false, true, Guid.NewGuid(), null, null, null)],
+            bridges: [bridge]);
+
+        await service.DiscoverAsync(1, null, default);
+
+        _queries.ShouldBe(["LOCAL TITLE"]);
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.Explanation.ShouldContain("stored ROM matches");
+        decision.Candidates.Count.ShouldBe(hasCandidate ? 1 : 0);
+        _accepted.ShouldBeNull();
+        await bridge.DidNotReceive().ResolveAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

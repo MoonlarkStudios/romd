@@ -552,9 +552,20 @@ The current schema starts at `20261031050000_FreshMediaBaseline` with the
 additive `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservations`,
 `20261117000000_JobDispatchExpiryIndex`, `20261118000000_SystemHardwareMetadata`,
 `20261118194850_SignInMessage`, `20261120162632_MediaCollection`,
-`20261121030000_ImportOutcomeReasons`, `20261121040529_ServerImportInbox`, and
-`20261121060000_RemoveServerImportFileHistory` and
-`20261121200000_LibraryPublicationOutcome` migrations (readiness version 82).
+`20261121030000_ImportOutcomeReasons`, `20261121040529_ServerImportInbox`,
+`20261121060000_RemoveServerImportFileHistory`,
+`20261121200000_LibraryPublicationOutcome`,
+`20261123000000_DatParentDeclarations`, `20261123010000_ActiveDatProviderIdentity`,
+`20261123020000_HashBackedDatProviderIdentity`,
+`20261123030000_ProvisionalSteamGridDbPosters`,
+`20261123040000_ProvisionalProviderArtwork`,
+`20261123050000_ProvisionalTitleMetadata`,
+`20261123162217_ConsumerWebAppRegistrations`,
+`20261124000000_DatParentProviderIdentity`,
+`20261124010000_ArtworkPlatformAliasEvidence`,
+`20261124015000_ProvisionalArtworkPlatformAliasEvidence`,
+`20261124020000_TitleMergeRedirects` and `20261124201434_TitleLookupNames`
+migrations (readiness version 94).
 The Saturn migration preserves PS1 observations and adds distinct Saturn fields.
 The sign-in message starts blank. Existing title media stays title-level and
 unpreferred after the media collection migration.

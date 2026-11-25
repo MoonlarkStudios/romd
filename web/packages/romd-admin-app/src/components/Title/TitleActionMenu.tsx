@@ -18,6 +18,8 @@ import type {
 import { useTitleDetail } from '../../hooks/api/useTitleDetail';
 import { usePermissions } from '../../hooks/usePermissions';
 import { TitleSearchSelect } from '../TitleSearchSelect';
+import { DatTitleGroupingForm } from './DatTitleGroupingForm';
+import { TitleLookupNamesForm } from './TitleLookupNamesForm';
 
 interface TitleActionMenuProps {
   title: TitleDetail;
@@ -28,6 +30,8 @@ export function TitleActionMenu({ title, titleId }: TitleActionMenuProps) {
   const { canManageTitles } = usePermissions();
   const [mergeOpened, mergeDisclosure] = useDisclosure(false);
   const [moveOpened, moveDisclosure] = useDisclosure(false);
+  const [groupOpened, groupDisclosure] = useDisclosure(false);
+  const [lookupOpened, lookupDisclosure] = useDisclosure(false);
 
   if (!canManageTitles) {
     return null;
@@ -54,6 +58,7 @@ export function TitleActionMenu({ title, titleId }: TitleActionMenuProps) {
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Label>Curation</Menu.Label>
+          <Menu.Item onClick={lookupDisclosure.open}>Edit lookup names…</Menu.Item>
           <Menu.Item
             leftSection={<IconArrowsMoveVertical size={14} />}
             disabled={releases.length === 0}
@@ -62,6 +67,7 @@ export function TitleActionMenu({ title, titleId }: TitleActionMenuProps) {
             Move release...
           </Menu.Item>
           <Menu.Divider />
+          <Menu.Item onClick={groupDisclosure.open}>Review DAT family…</Menu.Item>
           <Menu.Item
             color="red"
             leftSection={<IconArrowsSplit size={14} />}
@@ -83,6 +89,34 @@ export function TitleActionMenu({ title, titleId }: TitleActionMenuProps) {
           currentTitle={title}
           onClose={mergeDisclosure.close}
         />
+      </Modal>
+
+      <Modal
+        opened={lookupOpened}
+        onClose={lookupDisclosure.close}
+        title="Edit lookup names"
+        centered
+      >
+        {lookupOpened && (
+          <TitleLookupNamesForm
+            titleId={titleId}
+            onClose={lookupDisclosure.close}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        opened={groupOpened}
+        onClose={groupDisclosure.close}
+        title="Review DAT title grouping"
+        centered
+      >
+        {groupOpened && (
+          <DatTitleGroupingForm
+            title={title}
+            onClose={groupDisclosure.close}
+          />
+        )}
       </Modal>
 
       <Modal

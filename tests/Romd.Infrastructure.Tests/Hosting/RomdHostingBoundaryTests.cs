@@ -72,7 +72,7 @@ using Romd.Admin.Application.Users.Queries.ListUsers;
 using Romd.Contracts.Consumer.Auth;
 using Romd.Contracts.Consumer.Browse;
 using Romd.Contracts.Management.Collections;
-using Romd.Dat.Parsing;
+using Romd.Dat;
 using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Domain.Source.Rom;
@@ -80,7 +80,6 @@ using Romd.Domain.Taxonomy;
 using Romd.Infrastructure;
 using Romd.Infrastructure.Dats;
 using Romd.Infrastructure.Dashboard;
-using Romd.Infrastructure.Enrichment;
 using Romd.Infrastructure.Identity;
 using Romd.Infrastructure.Jobs;
 using Romd.Infrastructure.Jobs.Executors;
@@ -104,6 +103,7 @@ using CommonModels = Romd.Contracts.Common.Models;
 using ManagementModels = Romd.Contracts.Management.Models;
 
 using ContractCurrentUser = Romd.Contracts.Consumer.Auth.CurrentUser;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Hosting;
 

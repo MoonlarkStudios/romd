@@ -1,5 +1,5 @@
 using Romd.Admin.Application.Source.Dat;
-using Romd.Dat.Parsing.Models;
+using Romd.Dat.Models;
 using Romd.Domain.Hashing;
 using Romd.Domain.Source.Dat;
 
@@ -44,7 +44,9 @@ public static class DatModelMapper
             parsed.IsBios,
             parsed.NameMetadata.Region,
             parsed.NameMetadata.Language,
-            parsed.NameMetadata.Revision);
+            parsed.NameMetadata.Revision,
+            parsed.DeclaredId,
+            parsed.CloneOfId);
 
         foreach (var rom in parsed.Roms)
         {

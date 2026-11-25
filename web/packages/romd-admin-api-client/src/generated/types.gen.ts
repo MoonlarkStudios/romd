@@ -642,7 +642,9 @@ export type DatGame = {
     description?: null | string;
     year?: null | string;
     manufacturer?: null | string;
+    declaredId?: null | string;
     cloneOf?: null | string;
+    cloneOfId?: null | string;
     romOf?: null | string;
     isBios?: boolean;
     roms?: Array<DatRom>;
@@ -697,6 +699,21 @@ export type DatRom = {
     md5?: null | string;
     sha1?: null | string;
     status?: null | string;
+};
+
+export type DatTitleGroupingReview = {
+    suggestion: null | DatTitleGroupingSuggestion;
+};
+
+export type DatTitleGroupingSuggestion = {
+    parentTitleId: string;
+    parentTitleName: string;
+    parentTitleRevision: string;
+    cloneTitleRevision: string;
+    datName: string;
+    datVersion: null | string;
+    releaseNames: Array<string>;
+    evidence: string;
 };
 
 export type DecideDiscSetRequest = {
@@ -1498,6 +1515,7 @@ export type MergeTaxonomyRequest = {
 export type MergeTitlesRequest = {
     sourceTitleId: string;
     sourceTitleRevision: string;
+    datGroupingEvidence?: null | string;
 };
 
 export type MetadataLayer = {
@@ -2032,6 +2050,7 @@ export type ProviderIdentityDecision = {
     candidates: Array<ProviderIdentityCandidate>;
     dependencies?: null | Array<ProviderIdentityDependency>;
     localEvidence?: null | ProviderIdentityFacts;
+    provisionalGameId?: null | string;
 };
 
 export type ProviderIdentityDependency = {
@@ -2050,6 +2069,34 @@ export type ProviderIdentityFacts = {
 export type ProviderRelease = {
     year: null | number;
     platform: null | string;
+};
+
+export type ProvisionalMatchArtwork = {
+    role: string;
+    previewUrl: null | string;
+};
+
+export type ProvisionalMatchRating = {
+    board: string;
+    code: string;
+};
+
+export type ProvisionalMatchReview = {
+    gameId: string;
+    evidenceCurrent: boolean;
+    fields: null | ProvisionalMetadataFields;
+    ratings: Array<ProvisionalMatchRating>;
+    artwork: Array<ProvisionalMatchArtwork>;
+};
+
+export type ProvisionalMetadataFields = {
+    description: null | string;
+    publisher: null | string;
+    developer: null | string;
+    genre: null | string;
+    releaseDate: null | string;
+    players: null | number;
+    rating: null | number;
 };
 
 export type PublishedDatCatalog = {
@@ -2233,6 +2280,10 @@ export type ReplaceDatDiagnosticPhase = 'Pending' | 'Ingesting' | 'Replacing';
 
 export type ReplaceSignInMessageRequest = {
     message: string;
+};
+
+export type ReplaceTitleLookupNamesRequest = {
+    names: Array<string>;
 };
 
 export type ResolvedArtwork = {
@@ -2654,6 +2705,11 @@ export type TitleFileRequirement = {
     romFileId?: null | string;
 };
 
+export type TitleLookupNames = {
+    names: Array<string>;
+    revision: string;
+};
+
 export type TitleMediaClassification = {
     type: string;
     catalogReleaseId?: null | string;
@@ -2695,6 +2751,7 @@ export type TitleProviderMatch = {
     matcherVersion?: null | string;
     decision?: null | ProviderIdentityDecision;
     pendingJobId?: null | string;
+    provisionalReview?: null | ProvisionalMatchReview;
 };
 
 export type TitleRelease = {
@@ -7557,6 +7614,113 @@ export type UpdateTitleMediaResponses = {
 };
 
 export type UpdateTitleMediaResponse = UpdateTitleMediaResponses[keyof UpdateTitleMediaResponses];
+
+export type GetTitleLookupNamesData = {
+    body?: never;
+    path: {
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/titles/{titleId}/lookup-names';
+};
+
+export type GetTitleLookupNamesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type GetTitleLookupNamesError = GetTitleLookupNamesErrors[keyof GetTitleLookupNamesErrors];
+
+export type GetTitleLookupNamesResponses = {
+    /**
+     * OK
+     */
+    200: TitleLookupNames;
+};
+
+export type GetTitleLookupNamesResponse = GetTitleLookupNamesResponses[keyof GetTitleLookupNamesResponses];
+
+export type ReplaceTitleLookupNamesData = {
+    body: ReplaceTitleLookupNamesRequest;
+    headers: {
+        /**
+         * One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.
+         */
+        'If-Match': string;
+    };
+    path: {
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/titles/{titleId}/lookup-names';
+};
+
+export type ReplaceTitleLookupNamesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+    /**
+     * Precondition Failed
+     */
+    412: ProblemDetails;
+    /**
+     * Precondition Required
+     */
+    428: ProblemDetails;
+};
+
+export type ReplaceTitleLookupNamesError = ReplaceTitleLookupNamesErrors[keyof ReplaceTitleLookupNamesErrors];
+
+export type ReplaceTitleLookupNamesResponses = {
+    /**
+     * OK
+     */
+    200: TitleLookupNames;
+};
+
+export type ReplaceTitleLookupNamesResponse = ReplaceTitleLookupNamesResponses[keyof ReplaceTitleLookupNamesResponses];
+
+export type GetDatTitleGroupingData = {
+    body?: never;
+    path: {
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/titles/{titleId}/dat-grouping';
+};
+
+export type GetDatTitleGroupingErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type GetDatTitleGroupingError = GetDatTitleGroupingErrors[keyof GetDatTitleGroupingErrors];
+
+export type GetDatTitleGroupingResponses = {
+    /**
+     * OK
+     */
+    200: DatTitleGroupingReview;
+};
+
+export type GetDatTitleGroupingResponse = GetDatTitleGroupingResponses[keyof GetDatTitleGroupingResponses];
 
 export type MergeTitlesData = {
     body: MergeTitlesRequest;

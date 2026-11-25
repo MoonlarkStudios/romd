@@ -111,6 +111,11 @@ public sealed class PersistenceBoundaryArchitectureTests
         // Fixed IGDB singleton row lock serializes settings compare-and-update inside the command transaction;
         // reload and expected-revision recheck prevent stale credential/test writes.
         Sql(Persistence + "MetadataProviders/IgdbProviderSettingsStore.cs", "IgdbProviderSettingsStore", "LockAsync", "ExecuteSqlRawAsync"),
+        // Read the same parameterized SHA-1 matches as the trust fingerprint and
+        // walk their clone references within the provider snapshot transaction.
+        Sql(Persistence + "MetadataProviders/HashBackedDatFamilyReader.cs", "HashBackedDatFamilyReader", "ReadAsync", "SqlQuery", count: 2),
+        // Read published facts and current DAT-authorized provisional gaps in one statement.
+        Sql(Persistence + "MetadataProviders/TitleMetadataPresentation.cs", "TitleMetadataPresentation", "PresentedTitles", "FromSqlInterpolated"),
         // Serializes retryable session upserts for one user inside the application-owned transaction.
         Sql(Persistence + "PlayActivityUnitOfWork.cs", "PlayActivityUnitOfWork", "BeginAsync", "ExecuteSqlInterpolatedAsync"),
         // Parameterized policy job row lock serializes unclaimed-pending reuse with worker claim.
@@ -142,6 +147,8 @@ public sealed class PersistenceBoundaryArchitectureTests
             "GetPublishedVersionAsync",
             CommandText),
         Sql(Persistence + "CatalogTopologyFence.cs", "CatalogTopologyFence", "AcquireAsync", "ExecuteSqlAsync"),
+        // Consumer play writes hold a shared topology fence through authorization and commit.
+        Sql(Persistence + "CatalogTopologyFence.cs", "CatalogTopologyFence", "AcquireSharedAsync", "ExecuteSqlAsync"),
         // Parameterized collection row lock serializes item mutations before membership is read.
         Sql(Persistence + "Repositories/CollectionRepository.cs", "CollectionRepository", "LockForItemMutationStagedAsync", "SqlQuery"),
         // Parameterized visible-job root lock revalidates cancellation under the caller's transaction.

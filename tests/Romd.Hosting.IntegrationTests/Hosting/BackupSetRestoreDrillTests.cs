@@ -11,7 +11,6 @@ using Romd.Admin.Application.MetadataProviders.Commands.UpdateIgdbSettings;
 using Romd.Application.Common.Concurrency;
 using Romd.Contracts.Management.MetadataProviders;
 using Romd.Host.Configuration;
-using Romd.Infrastructure.Enrichment;
 using Npgsql;
 using Romd.Hosting.IntegrationTests.Infrastructure;
 using Romd.Infrastructure.Jobs;
@@ -24,6 +23,7 @@ using Shouldly;
 using Xunit;
 using static Romd.Hosting.IntegrationTests.Hosting.HangfirePostgreSqlTestSupport;
 using static Romd.Hosting.IntegrationTests.Hosting.RomdHostProcesses;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Hosting.IntegrationTests.Hosting;
 

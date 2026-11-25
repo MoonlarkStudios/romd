@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Romd.Infrastructure.Enrichment;
 using Shouldly;
 using Xunit;
+using Romd.Infrastructure.Providers.Igdb;
 
 namespace Romd.Infrastructure.Tests.Enrichment;
 

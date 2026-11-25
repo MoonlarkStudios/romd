@@ -7,7 +7,6 @@ using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Persistence.Entities;
 using Romd.Persistence.MetadataProviders;
 using Romd.PostgreSql.TestSupport;
@@ -82,7 +81,7 @@ public sealed partial class ProviderMatchPersistenceTests : IDisposable
     }
 
     [Fact]
-    public async Task Unlink_PreservesDataAndSuppressesRematching()
+    public async Task Unlink_RejectsStaleRevisionAndSuppressesRematching()
     {
         await Seed();
         await using var db = _database.CreateContext();

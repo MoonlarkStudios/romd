@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Domain", "src\Romd.Domain\Romd.Domain.csproj", "{37F16D90-086A-4B26-8A29-01BDFDA9807E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Dat.Parsing", "src\Romd.Dat.Parsing\Romd.Dat.Parsing.csproj", "{A1500001-1111-4111-8111-111111111111}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Dat", "src\Romd.Dat\Romd.Dat.csproj", "{A1500001-1111-4111-8111-111111111111}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Infrastructure", "src\Romd.Infrastructure\Romd.Infrastructure.csproj", "{2CC39BC8-EC47-4AF9-80B5-FBE1FCC1764A}"
 EndProject
@@ -14,7 +14,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Application.Tests", "t
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Infrastructure.Tests", "tests\Romd.Infrastructure.Tests\Romd.Infrastructure.Tests.csproj", "{521156F7-89FF-4B14-BE91-C47F6E08F2BD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Dat.Parsing.Tests", "tests\Romd.Dat.Parsing.Tests\Romd.Dat.Parsing.Tests.csproj", "{A1500002-2222-4222-8222-222222222222}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Dat.Tests", "tests\Romd.Dat.Tests\Romd.Dat.Tests.csproj", "{A1500002-2222-4222-8222-222222222222}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Romd.Hosting.IntegrationTests", "tests\Romd.Hosting.IntegrationTests\Romd.Hosting.IntegrationTests.csproj", "{85FD9666-9890-4B4E-B79E-CC8F3C9EF76B}"
 EndProject

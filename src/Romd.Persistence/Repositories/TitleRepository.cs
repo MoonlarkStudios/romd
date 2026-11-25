@@ -11,7 +11,7 @@ namespace Romd.Persistence.Repositories;
 ///     Title aggregate adapter. One scoped instance serves the aggregate, row-lock, media, merge, and
 ///     creation roles; every snapshot write verifies and locks the snapshot revision first.
 /// </summary>
-public sealed class TitleRepository
+public sealed partial class TitleRepository
     : ITitleAggregateReader, ITitleMetadataStore, ITitleRowLock, ITitleMediaStore, ITitleMergeStore,
         ITitleCreationStore
 {
@@ -364,6 +364,7 @@ public sealed class TitleRepository
     public async Task ApplyMergeStagedAsync(Title target, Title source, CancellationToken cancellationToken = default)
     {
         RequireTransaction();
+        await CatalogTopologyFence.AcquireAsync(_context, cancellationToken);
         // The absorbed source state must still be current. Lock in ID order, as artwork merge does,
         // so opposing merges cannot deadlock on the two title rows.
         foreach (var snapshot in new[] { source, target }.OrderBy(snapshot => snapshot.Id))

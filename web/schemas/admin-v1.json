@@ -9267,6 +9267,212 @@
         }
       }
     },
+    "/api/titles/{titleId}/lookup-names": {
+      "get": {
+        "tags": [
+          "Titles"
+        ],
+        "description": "Read the curator-managed lookup names and the title revision.",
+        "operationId": "GetTitleLookupNames",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitleLookupNames"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Titles"
+        ],
+        "description": "Replace the title's curator-managed lookup names.",
+        "operationId": "ReplaceTitleLookupNames",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "One or more resource ETags the client last read. Malformed syntax is 400; no strong match is 412; missing, empty or * is 428.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceTitleLookupNamesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The resource's current validator: its revision in double quotes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitleLookupNames"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Precondition Failed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/titles/{titleId}/dat-grouping": {
+      "get": {
+        "tags": [
+          "Titles"
+        ],
+        "description": "Review another title linked through the active, hash-verified DAT clone family.",
+        "operationId": "GetDatTitleGrouping",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatTitleGroupingReview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/titles/{titleId}/merge": {
       "post": {
         "tags": [
@@ -20745,7 +20951,19 @@
               "string"
             ]
           },
+          "declaredId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "cloneOf": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cloneOfId": {
             "type": [
               "null",
               "string"
@@ -21000,6 +21218,69 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "DatTitleGroupingReview": {
+        "required": [
+          "suggestion"
+        ],
+        "type": "object",
+        "properties": {
+          "suggestion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatTitleGroupingSuggestion"
+              }
+            ]
+          }
+        }
+      },
+      "DatTitleGroupingSuggestion": {
+        "required": [
+          "parentTitleId",
+          "parentTitleName",
+          "parentTitleRevision",
+          "cloneTitleRevision",
+          "datName",
+          "datVersion",
+          "releaseNames",
+          "evidence"
+        ],
+        "type": "object",
+        "properties": {
+          "parentTitleId": {
+            "type": "string"
+          },
+          "parentTitleName": {
+            "type": "string"
+          },
+          "parentTitleRevision": {
+            "type": "string"
+          },
+          "cloneTitleRevision": {
+            "type": "string"
+          },
+          "datName": {
+            "type": "string"
+          },
+          "datVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "string"
           }
         }
       },
@@ -24532,6 +24813,12 @@
           },
           "sourceTitleRevision": {
             "type": "string"
+          },
+          "datGroupingEvidence": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -26719,6 +27006,12 @@
                 "$ref": "#/components/schemas/ProviderIdentityFacts"
               }
             ]
+          },
+          "provisionalGameId": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -26794,6 +27087,138 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ProvisionalMatchArtwork": {
+        "required": [
+          "role",
+          "previewUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "previewUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ProvisionalMatchRating": {
+        "required": [
+          "board",
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "board": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ProvisionalMatchReview": {
+        "required": [
+          "gameId",
+          "evidenceCurrent",
+          "fields",
+          "ratings",
+          "artwork"
+        ],
+        "type": "object",
+        "properties": {
+          "gameId": {
+            "type": "string"
+          },
+          "evidenceCurrent": {
+            "type": "boolean"
+          },
+          "fields": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProvisionalMetadataFields"
+              }
+            ]
+          },
+          "ratings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProvisionalMatchRating"
+            }
+          },
+          "artwork": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProvisionalMatchArtwork"
+            }
+          }
+        }
+      },
+      "ProvisionalMetadataFields": {
+        "required": [
+          "description",
+          "publisher",
+          "developer",
+          "genre",
+          "releaseDate",
+          "players",
+          "rating"
+        ],
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "publisher": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "developer": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "genre": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseDate": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "players": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "rating": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
           }
         }
       },
@@ -27574,6 +27999,20 @@
           "message": {
             "maxLength": 500,
             "type": "string"
+          }
+        }
+      },
+      "ReplaceTitleLookupNamesRequest": {
+        "required": [
+          "names"
+        ],
+        "type": "object",
+        "properties": {
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -29326,6 +29765,24 @@
           }
         }
       },
+      "TitleLookupNames": {
+        "required": [
+          "names",
+          "revision"
+        ],
+        "type": "object",
+        "properties": {
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "revision": {
+            "type": "string"
+          }
+        }
+      },
       "TitleMediaClassification": {
         "required": [
           "type"
@@ -29536,6 +29993,16 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "provisionalReview": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProvisionalMatchReview"
+              }
+            ]
           }
         }
       },

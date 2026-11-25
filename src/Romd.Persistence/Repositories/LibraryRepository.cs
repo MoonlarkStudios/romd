@@ -6,6 +6,7 @@ using Romd.Consumer.Application.Libraries;
 using Romd.Admin.Application.Libraries;
 using Romd.Domain.Libraries;
 using Romd.Domain.Catalog;
+using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Identity;
 using Romd.Persistence.Queries;
@@ -635,6 +636,7 @@ public sealed partial class LibraryRepository(RomdDbContext context) : ILibraryR
             .ToList();
 
         var genreFacetCounts = await ownedTitles
+            .Join(context.PresentedTitles(), item => item.TitleId, title => title.Id, (_, title) => title)
             .Where(title => title.Genre != null)
             .GroupBy(title => title.Genre!)
             .Select(group => new { Genre = group.Key, Count = group.Count() })
@@ -727,8 +729,10 @@ public sealed partial class LibraryRepository(RomdDbContext context) : ILibraryR
         CancellationToken ct = default)
     {
         var facets = await MaterializedTitlesForValidLibrary(libraryId)
-            .Where(m => m.IsOwned && m.Genre != null)
-            .GroupBy(m => m.Genre!)
+            .Where(m => m.IsOwned)
+            .Join(context.PresentedTitles(), item => item.TitleId, title => title.Id, (_, title) => title)
+            .Where(title => title.Genre != null)
+            .GroupBy(title => title.Genre!)
             .Select(g => new { Genre = g.Key, Count = g.Count() })
             .Where(f => f.Count >= minimumItems)
             .OrderByDescending(f => f.Count)

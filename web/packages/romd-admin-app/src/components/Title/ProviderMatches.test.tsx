@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { MantineProvider } from '@mantine/core';
-import { client } from '@romd/admin-api-client';
+import { client, type TitleProviderMatch } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -1737,4 +1737,388 @@ it.each([
     }),
   ).not.toBeInTheDocument();
   cache.clear();
+});
+
+it('opens review with the provisional match selected and offers explicit rejection', async () => {
+  server.use(
+    http.get(matches, () =>
+      HttpResponse.json([
+        {
+          ...row,
+          state: 'NeedsReview',
+          decision: {
+            state: 'NeedsReview',
+            explanation: 'Review the suggested game.',
+            provenance: 'DAT',
+            inputFingerprint: 'fingerprint',
+            provisionalGameId: game.id,
+            candidates: [
+              {
+                game,
+                score: 100,
+                eligible: true,
+                evidence: [],
+                conflicts: [],
+              },
+            ],
+          },
+        },
+      ]),
+    ),
+  );
+  const user = userEvent.setup();
+  show();
+  expect(await screen.findByText('Provisional match')).toBeInTheDocument();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Review match',
+    }),
+  );
+  expect(
+    screen.getByRole('radio', {
+      name: 'Select The matching game',
+    }),
+  ).toBeChecked();
+  expect(
+    screen.getByRole('button', {
+      name: 'Confirm The matching game',
+    }),
+  ).toBeEnabled();
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Cancel',
+    }),
+  );
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Example provider match actions',
+    }),
+  );
+  await user.click(
+    screen.getByRole('menuitem', {
+      name: 'Reject provisional match',
+    }),
+  );
+  expect(
+    await screen.findByRole('dialog', {
+      name: 'Reject the provisional match?',
+    }),
+  ).toBeInTheDocument();
+});
+
+const sonic = {
+  ...game,
+  id: '3192',
+  name: 'Sonic the Hedgehog',
+  year: 1991,
+  platforms: [
+    'Arcade',
+    'Genesis',
+    'iOS',
+  ],
+};
+const sonicReview: TitleProviderMatch = {
+  ...row,
+  providerId: 'igdb',
+  providerName: 'IGDB',
+  capabilities: [
+    'metadata',
+    'artwork',
+  ],
+  state: 'NeedsReview',
+  decision: {
+    state: 'NeedsReview',
+    explanation: 'An active DAT ROM hash identifies this release family.',
+    provenance: 'DAT',
+    inputFingerprint: 'fingerprint',
+    provisionalGameId: sonic.id,
+    localEvidence: {
+      name: 'Sonic The Hedgehog',
+      names: [],
+      years: [
+        1991,
+      ],
+      platforms: [
+        'Genesis',
+      ],
+    },
+    candidates: [
+      {
+        game: sonic,
+        score: 120,
+        eligible: true,
+        evidence: [
+          'Platform release matches.',
+        ],
+        conflicts: [],
+      },
+      {
+        game,
+        score: 70,
+        eligible: false,
+        evidence: [],
+        conflicts: [],
+      },
+    ],
+  },
+  provisionalReview: {
+    gameId: sonic.id,
+    evidenceCurrent: true,
+    fields: {
+      description: 'Sonic races across South Island.',
+      genre: 'Platform',
+    },
+    ratings: [
+      {
+        board: 'Esrb',
+        code: 'E',
+      },
+    ],
+    artwork: [
+      {
+        role: 'Poster',
+        previewUrl: '/artwork/demo/small/v1',
+      },
+    ],
+  },
+};
+
+it.each([
+  'confirm',
+  'replace',
+  'reject',
+] as const)('shows Sonic’s exact provisional fields and artwork and lets the operator %s', async (action) => {
+  const write = vi.fn(async ({ request }: { request: Request }) => {
+    expect(request.headers.get('If-Match')).toBe(`"${row.revision}"`);
+    if (action !== 'reject') {
+      expect(await request.json()).toEqual({
+        externalId: action === 'confirm' ? sonic.id : game.id,
+      });
+    }
+    return HttpResponse.json({
+      ...row,
+      providerId: 'igdb',
+      state: 'Confirmed',
+    });
+  });
+  server.use(
+    http.get(matches, () =>
+      HttpResponse.json([
+        sonicReview,
+      ]),
+    ),
+    action === 'reject'
+      ? http.delete(`${matches}/igdb`, write)
+      : http.put(`${matches}/igdb`, write),
+  );
+  const user = userEvent.setup();
+  show();
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Review match',
+    }),
+  );
+  const panel = within(
+    screen.getByRole('region', {
+      name: 'Provisional match review',
+    }),
+  );
+  expect(
+    panel.getByRole('link', {
+      name: 'Sonic the Hedgehog',
+    }),
+  ).toHaveAttribute('href', sonic.url);
+  expect(panel.getByText(/Genesis · 1991 · IGDB #3192/)).toBeVisible();
+  expect(panel.queryByText(/Arcade|iOS/)).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('textbox', {
+      name: 'Game name',
+    }),
+  ).not.toBeInTheDocument();
+  await user.click(panel.getByText('Why ROMD picked this match'));
+  expect(panel.getByText('Platform release matches.')).toBeVisible();
+  await user.click(panel.getByText('Provisional description'));
+  expect(panel.getByText('Sonic races across South Island.')).toBeVisible();
+  expect(panel.getByText('ESRB rating')).toBeVisible();
+  expect(
+    panel.getByRole('img', {
+      name: 'Poster from IGDB',
+    }),
+  ).toHaveAttribute('src', '/artwork/demo/small/v1');
+  await user.click(panel.getByText('What each action does'));
+  expect(panel.getByText(/recalculate affected library rules/)).toBeVisible();
+  expect(panel.getByText(/queue enrichment for the game you select/)).toBeVisible();
+  expect(panel.getByText(/turn off automatic matching/)).toBeVisible();
+  if (action === 'replace') {
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Find a replacement',
+      }),
+    );
+    expect(
+      screen.getByRole('textbox', {
+        name: 'Game name',
+      }),
+    ).toHaveFocus();
+    expect(
+      screen.queryByRole('region', {
+        name: 'Provisional match review',
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('radio', {
+        name: 'Select The matching game',
+      }),
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('The matching game · IGDB #42');
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Back to suggestion',
+      }),
+    );
+    expect(
+      within(
+        screen.getByRole('region', {
+          name: 'Provisional match review',
+        }),
+      ).getByRole('link', {
+        name: 'Sonic the Hedgehog',
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'Confirm match',
+      }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole('button', {
+        name: 'Find a replacement',
+      }),
+    ).toHaveFocus();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Find a replacement',
+      }),
+    );
+    await user.click(
+      screen.getByRole('radio', {
+        name: 'Select The matching game',
+      }),
+    );
+    expect(screen.getByText(/Replacing the match removes/)).toBeVisible();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Replace match',
+      }),
+    );
+  } else if (action === 'reject') {
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Reject provisional match',
+      }),
+    );
+    const confirmation = within(
+      screen.getByRole('dialog', {
+        name: 'Reject the provisional match?',
+      }),
+    );
+    expect(confirmation.getByText(/User edits and pinned artwork are kept/)).toBeVisible();
+    await user.click(
+      confirmation.getByRole('button', {
+        name: 'Reject match',
+      }),
+    );
+  } else {
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Confirm match',
+      }),
+    );
+  }
+  await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+});
+
+it('withdraws the preview on a stale DAT response and requires a fresh choice after reload', async () => {
+  let expired = false;
+  const write = vi.fn(() => {
+    expired = true;
+    return new HttpResponse(null, {
+      status: 412,
+    });
+  });
+  const stale: TitleProviderMatch = {
+    ...sonicReview,
+    revision: '00000000-0000-0000-0000-000000000002',
+    decision: sonicReview.decision && {
+      ...sonicReview.decision,
+      provisionalGameId: null,
+    },
+    provisionalReview: {
+      gameId: sonic.id,
+      evidenceCurrent: false,
+      fields: null,
+      ratings: [],
+      artwork: [],
+    },
+  };
+  server.use(
+    http.get(matches, () =>
+      HttpResponse.json([
+        expired ? stale : sonicReview,
+      ]),
+    ),
+    http.put(`${matches}/igdb`, write),
+  );
+  const user = userEvent.setup();
+  show();
+  await user.click(
+    await screen.findByRole('button', {
+      name: 'Review match',
+    }),
+  );
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Confirm match',
+    }),
+  );
+  const reload = await screen.findByRole('button', {
+    name: 'Reload latest',
+  });
+  expect(reload).toHaveFocus();
+  expect(screen.getByText('The match changed')).toBeVisible();
+  expect(
+    screen.queryByRole('button', {
+      name: 'Reject provisional match',
+    }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText('Sonic races across South Island.')).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('img', {
+      name: 'Poster from IGDB',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', {
+      name: 'Confirm match',
+    }),
+  ).not.toBeInTheDocument();
+  await user.click(reload);
+  expect(
+    screen.queryByRole('dialog', {
+      name: 'Reload the latest match?',
+    }),
+  ).not.toBeInTheDocument();
+  expect(await screen.findByText('Provisional evidence changed')).toBeVisible();
+  expect(
+    screen.queryByRole('radio', {
+      name: 'Select Sonic the Hedgehog',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', {
+      name: 'Confirm match',
+    }),
+  ).toBeDisabled();
+  expect(write).toHaveBeenCalledTimes(1);
 });

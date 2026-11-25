@@ -70,7 +70,7 @@ it('loads bounded pages, links titles, and resets the cursor when searching', as
   expect(await screen.findByText('Mario')).toBeInTheDocument();
 });
 
-it('loads expected files only for an expanded entry and allows retrying a failure', async () => {
+it('loads declarations and expected files on expansion and can retry a failure', async () => {
   vi.mocked(listSourceEntries).mockResolvedValue({
     data: {
       items: [
@@ -95,6 +95,9 @@ it('loads expected files only for an expanded entry and allows retrying a failur
       data: {
         id: 'game',
         name: 'Mario',
+        declaredId: '0007',
+        cloneOfId: '0003',
+        romOf: 'System BIOS',
         roms: [
           {
             id: 'rom',
@@ -119,6 +122,12 @@ it('loads expected files only for an expanded entry and allows retrying a failur
     }),
   );
   expect(await screen.findByText('Mario.sfc')).toBeInTheDocument();
+  expect(screen.getByText('DAT entry ID')).toBeVisible();
+  expect(screen.getByText('0007')).toBeVisible();
+  expect(screen.getByText('Clone of (ID)')).toBeVisible();
+  expect(screen.getByText('0003')).toBeVisible();
+  expect(screen.getByText('ROM dependency')).toBeVisible();
+  expect(screen.getByText('System BIOS')).toBeVisible();
   expect(
     screen.getByRole('button', {
       name: 'Copy CRC',

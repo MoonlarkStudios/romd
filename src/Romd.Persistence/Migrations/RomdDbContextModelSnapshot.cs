@@ -632,6 +632,11 @@ namespace Romd.Persistence.Migrations
                     b.Property<bool>("IsEligible")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsProvisional")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("IsRejected")
                         .HasColumnType("boolean");
 
@@ -678,6 +683,8 @@ namespace Romd.Persistence.Migrations
                     b.ToTable("ArtworkAssets", "romd", t =>
                         {
                             t.HasCheckConstraint("CK_ArtworkAssets_Dimensions", "\"Width\" > 0 AND \"Height\" > 0");
+
+                            t.HasCheckConstraint("CK_ArtworkAssets_ProvisionalProvider", "NOT \"IsProvisional\" OR (NOT \"IsEligible\" AND \"ProviderGameId\" IS NOT NULL AND \"ProviderAssetId\" IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_ArtworkAssets_Role", "\"Role\" IN ('Poster', 'Hero', 'Logo', 'Backdrop')");
                         });
@@ -1686,6 +1693,9 @@ namespace Romd.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("CloneOfId")
+                        .HasColumnType("text");
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("bigint");
 
@@ -1694,6 +1704,9 @@ namespace Romd.Persistence.Migrations
 
                     b.Property<int>("DatFileId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("DeclaredId")
+                        .HasColumnType("text");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
@@ -4441,6 +4454,34 @@ namespace Romd.Persistence.Migrations
                     b.ToTable("TitleExternalIds", "romd");
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleLookupNameEntity", b =>
+                {
+                    b.Property<int>("TitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SearchDocument")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<NpgsqlTsVector>("SearchVector")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("tsvector")
+                        .HasComputedColumnSql("to_tsvector('simple', \"SearchDocument\")", true);
+
+                    b.HasKey("TitleId", "SearchDocument");
+
+                    b.HasIndex("SearchVector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "GIN");
+
+                    b.ToTable("TitleLookupNames", "romd");
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.TitleMediaEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -4544,6 +4585,24 @@ namespace Romd.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleMergeRedirectEntity", b =>
+                {
+                    b.Property<int>("SourceTitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TargetTitleId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("SourceTitleId");
+
+                    b.HasIndex("TargetTitleId");
+
+                    b.ToTable("TitleMergeRedirects", "romd", t =>
+                        {
+                            t.HasCheckConstraint("CK_TitleMergeRedirects_DistinctTitles", "\"SourceTitleId\" <> \"TargetTitleId\"");
+                        });
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.TitleMetadataLayerEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -4629,6 +4688,40 @@ namespace Romd.Persistence.Migrations
                     b.HasKey("TitleId", "ProviderId");
 
                     b.ToTable("TitleProviderMatchStates", "romd");
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleProvisionalMetadataEntity", b =>
+                {
+                    b.Property<int>("TitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MatchRevision")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MetadataJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("ProviderGameId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ProviderId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RatingsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("TitleId");
+
+                    b.ToTable("TitleProvisionalMetadata", "romd", t =>
+                        {
+                            t.HasCheckConstraint("CK_TitleProvisionalMetadata_Provider", "(\"ProviderId\" = 'igdb')");
+                        });
                 });
 
             modelBuilder.Entity("Romd.Persistence.Entities.TitleSourceLinkEntity", b =>
@@ -4851,6 +4944,45 @@ namespace Romd.Persistence.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", "romd");
+                });
+
+            modelBuilder.Entity("Romd.Persistence.MetadataProviders.PresentedTitleRating", b =>
+                {
+                    b.Property<int>("TitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Board")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DescriptorsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Designation")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ExternalRatingId")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("MinimumAge")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Synopsis")
+                        .HasColumnType("text");
+
+                    b.HasKey("TitleId", "Board");
+
+                    b.ToTable((string)null);
+
+                    b.ToSqlQuery("SELECT * FROM romd.presented_title_ratings('provider-identity-5', 'igdb-metadata-1')");
                 });
 
             modelBuilder.Entity("Romd.Persistence.Entities.ArtworkCompletionJobEntity", b =>
@@ -6017,6 +6149,15 @@ namespace Romd.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleLookupNameEntity", b =>
+                {
+                    b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.TitleMediaEntity", b =>
                 {
                     b.HasOne("Romd.Persistence.Entities.CatalogReleaseEntity", null)
@@ -6037,6 +6178,15 @@ namespace Romd.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleMergeRedirectEntity", b =>
+                {
+                    b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TargetTitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.TitleMetadataLayerEntity", b =>
                 {
                     b.HasOne("Romd.Persistence.Entities.TitleEntity", "Title")
@@ -6053,6 +6203,15 @@ namespace Romd.Persistence.Migrations
                     b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
                         .WithMany()
                         .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleProvisionalMetadataEntity", b =>
+                {
+                    b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
+                        .WithOne()
+                        .HasForeignKey("Romd.Persistence.Entities.TitleProvisionalMetadataEntity", "TitleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

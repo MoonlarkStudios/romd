@@ -13,4 +13,5 @@ public interface IArtworkReader
         CancellationToken ct = default);
 }
 
-public sealed record ArtworkFileReference(Sha256 Sha256, string ContentType);
+public sealed record ArtworkFileReference(Sha256 Sha256, string ContentType, bool IsProvisional = false,
+    bool RequiresRevalidation = false);

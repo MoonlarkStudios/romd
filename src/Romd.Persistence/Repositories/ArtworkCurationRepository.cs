@@ -6,6 +6,7 @@ using Romd.Application.Common.Concurrency;
 using Romd.Application.Common.Pagination;
 using Romd.Domain.Catalog;
 using Romd.Domain.Jobs;
+using Romd.Persistence.Artwork;
 using Romd.Persistence.Entities;
 
 namespace Romd.Persistence.Repositories;
@@ -22,7 +23,8 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
         var decoded = KeysetCursor.Decode<AssetPosition>(cursor, fingerprint, position => position.Id > 0 && position.CreatedAt != default);
         if (decoded.IsError)
             return decoded.Errors;
-        var query = context.ArtworkAssets.Where(asset => asset.TitleId == titleId && asset.IsEligible && !asset.IsRejected);
+        var query = context.ArtworkAssets.WithCurrentProviderAssociation()
+            .Where(asset => asset.TitleId == titleId && asset.IsEligible && !asset.IsRejected);
         if (decoded.Value is { } after)
             query = query.Where(asset => asset.CreatedAt > after.CreatedAt || asset.CreatedAt == after.CreatedAt && asset.Id > after.Id);
         var assets = await query.Include(asset => asset.Variants).OrderBy(asset => asset.CreatedAt).ThenBy(asset => asset.Id)
@@ -64,7 +66,7 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
     {
         if (!await context.Titles.AnyAsync(title => title.Id == titleId, ct))
             return CatalogErrors.TitleNotFound();
-        var assets = await context.ArtworkAssets.Include(asset => asset.Variants)
+        var assets = await context.ArtworkAssets.WithCurrentProviderAssociation().Include(asset => asset.Variants)
             .Where(asset => asset.TitleId == titleId && asset.IsEligible && !asset.IsRejected).OrderBy(asset => asset.CreatedAt).ThenBy(asset => asset.Id).ToListAsync(ct);
         return ErrorOrFactory.From<IReadOnlyList<ArtworkAsset>>(assets.Select(asset => asset.ToDomain()).ToArray());
     }
@@ -347,7 +349,7 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
         var locked = await LockSelectionAsync(titleId, role, ifMatch, ct);
         if (locked.IsError)
             return locked.Errors;
-        var asset = await context.ArtworkAssets.Include(item => item.Variants)
+        var asset = await context.ArtworkAssets.WithCurrentProviderAssociation().Include(item => item.Variants)
             .SingleOrDefaultAsync(item => item.Id == assetId && item.TitleId == titleId && item.Role == role && item.IsEligible && !item.IsRejected, ct);
         if (asset is null)
             return ArtworkCurationErrors.InvalidRequest();
@@ -360,15 +362,24 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
     }
 
     public async Task StageLocalAssetAsync(int titleId, ArtworkRole role, string sourceId,
-        RetainedArtworkContent content, CancellationToken ct, string? providerGameId = null, string? providerAssetId = null)
+        RetainedArtworkContent content, CancellationToken ct, string? providerGameId = null, string? providerAssetId = null, bool provisional = false)
     {
         RequireTransaction();
         var version = content.Original.Hash.ToString();
-        var existing = await context.ArtworkAssets.Include(asset => asset.Variants).SingleOrDefaultAsync(asset =>
+        var existing = await context.ArtworkAssets.AsTracking().Include(asset => asset.Variants).SingleOrDefaultAsync(asset =>
             asset.TitleId == titleId && asset.Role == role && asset.SourceId == sourceId &&
             asset.ProviderAssetId == providerAssetId && asset.ContentVersion == version, ct);
         if (existing is { IsEligible: true })
             return;
+        if (existing is { IsProvisional: true } && existing.ProviderGameId == providerGameId)
+        {
+            if (!provisional)
+            {
+                existing.IsProvisional = false;
+                existing.IsEligible = true;
+            }
+            return;
+        }
         if (existing is not null)
             throw new InvalidOperationException("An incomplete local artwork asset cannot be published.");
         var entity = new ArtworkAssetEntity
@@ -385,7 +396,8 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
             ContentType = content.Original.ContentType,
             Width = content.Original.Width,
             Height = content.Original.Height,
-            IsEligible = true,
+            IsEligible = !provisional,
+            IsProvisional = provisional,
             CreatedAt = clock.GetUtcNow(),
             Variants = content.Variants.Select(file => new ArtworkVariantEntity
             {
@@ -506,6 +518,7 @@ public sealed class ArtworkCurationRepository(RomdDbContext context, TimeProvide
         asset.Attribution = content.Attribution;
         asset.SourcePageUrl = content.SourcePageUrl;
         asset.IsEligible = true;
+        asset.IsProvisional = false;
         // Replace incomplete variants in place to avoid duplicate tracked composite keys.
         foreach (var variant in content.Variants)
         {

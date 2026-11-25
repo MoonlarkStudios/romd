@@ -19,7 +19,7 @@ public static class ProviderMetadataLayers
             ToPayload(result.Data) with { ProviderGameId = result.ExternalId }, updatedAt);
     }
 
-    private static TitleMetadataPayload ToPayload(EnrichmentData data) => new()
+    internal static TitleMetadataPayload ToPayload(EnrichmentData data) => new()
     {
         Description = data.Description,
         Publisher = data.Publisher,

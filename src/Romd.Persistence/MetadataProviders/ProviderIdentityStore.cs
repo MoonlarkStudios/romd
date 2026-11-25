@@ -5,8 +5,10 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
+using Romd.Domain.ReferenceData;
+using Romd.Domain.Source.Platform;
+using Romd.Persistence.Artwork;
 using Romd.Persistence.Entities;
 namespace Romd.Persistence.MetadataProviders;
 
@@ -55,12 +57,48 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
             var link = links.SingleOrDefault(x => x.Provider == provider);
             var state = states.SingleOrDefault(x => x.ProviderId == provider);
             var trusted = trust.GetValueOrDefault(provider);
+            var game = provider == "igdb" && trusted && state?.GameJson is { } json
+                ? JsonSerializer.Deserialize<ProviderGame>(json)
+                : null;
             return new ProviderIdentityLink(provider, link?.ExternalId, link?.IsConfirmed == true, state?.SuppressAutomaticMatch == true,
                 trusted, state?.Revision ?? Guid.Empty, state?.InputFingerprint, state?.LastAttemptAt,
-                state?.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecision>(decision) : null);
+                state?.DecisionJson is { } decision ? JsonSerializer.Deserialize<ProviderIdentityDecision>(decision) : null)
+            {
+                TrustedGame = game?.Id == link?.ExternalId ? game : null
+            };
         }).ToArray();
-        return new(titleId, title.Revision, fingerprint, facts, rows);
+        var family = await HashBackedDatFamilyReader.ReadAsync(db, titleId, ct);
+        return new(titleId, title.Revision, fingerprint, facts, rows)
+        {
+            DatFamily = family,
+            DatParent = family?.Parent is { } parent ? await ReadDatParentAsync(titleId, parent, ct) : null,
+            ArtworkPlatformAliases = await ReadArtworkPlatformAliasesAsync(titleId, ct)
+        };
     }
+
+    private Task<ArtworkPlatformAlias[]> ReadArtworkPlatformAliasesAsync(int titleId, CancellationToken ct) =>
+        (from title in db.Titles
+         join alias in db.PlatformAliases on title.PlatformId equals alias.PlatformId
+         where title.Id == titleId && alias.Type == PlatformAliasType.Name && alias.Ownership == ReferenceOwnership.Romd
+         orderby alias.Id
+         select new ArtworkPlatformAlias(alias.Id, alias.Value)).ToArrayAsync(ct);
+
+    private async Task<DatParentMatchEvidence?> ReadDatParentAsync(int childId, DatParentRelease release, CancellationToken ct)
+    {
+        var parent = await (from title in db.Titles
+                            join link in db.TitleExternalIds on title.Id equals link.TitleId
+                            where title.Id != childId && link.Provider == "steamgriddb"
+                                && title.Id == ProviderIdentityDatabaseFunctions.DatParentTitle(release.DatFileId, release.GameId)
+                                && ProviderIdentityDatabaseFunctions.IsTrusted(title.Id, link.Provider, ProviderIdentityPolicy.Version)
+                            let revision = db.Set<TitleProviderMatchStateEntity>()
+                                .Where(state => state.TitleId == title.Id && state.ProviderId == link.Provider)
+                                .Select(state => (Guid?)state.Revision).FirstOrDefault() ?? Guid.Empty
+                            select new { TitleId = title.Id, TitleName = title.Name, GameId = link.ExternalId, Revision = revision })
+            .SingleOrDefaultAsync(ct);
+        return parent is null ? null : new(new(parent.TitleId, release.DatFileId, release.GameId, parent.GameId, parent.Revision),
+            parent.TitleName, release.Name);
+    }
+
     public async Task<IStagedProviderIdentityDecision> StageDecisionAsync(ProviderIdentitySnapshot snapshot, string providerId, Guid expectedRevision,
         ProviderIdentityDecision decision, ProviderGame? accepted, CancellationToken ct)
     {
@@ -82,6 +120,21 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 .Select(x => ProviderIdentityDatabaseFunctions.Fingerprint(x.Id, ProviderIdentityPolicy.Version)).SingleAsync(ct);
             if (fingerprint != snapshot.Fingerprint)
                 return Receipt(false);
+            if (decision.ArtworkPlatformAliases is { } aliases)
+            {
+                var provisional = snapshot.DatFamily is { RequiresReview: false } &&
+                    decision is { State: "NeedsReview", ProvisionalGameId: { } provisionalId } &&
+                    decision.Candidates.FirstOrDefault()?.Game.Id == provisionalId;
+                if (providerId != "steamgriddb" || accepted is null && !provisional || aliases.Count == 0 ||
+                    !aliases.SequenceEqual(snapshot.ArtworkPlatformAliases) ||
+                    !aliases.SequenceEqual(await ReadArtworkPlatformAliasesAsync(snapshot.TitleId, ct)))
+                    return Receipt(false);
+            }
+            if (decision.DatParentMatch is { } inherited &&
+                (providerId != "steamgriddb" || accepted?.Id != inherited.GameId || inherited != snapshot.DatParent?.Match ||
+                    snapshot.DatFamily?.Parent is not { } parent ||
+                    (await ReadDatParentAsync(snapshot.TitleId, parent, ct))?.Match != inherited))
+                return Receipt(false);
             var currentLinks = await db.TitleExternalIds.Where(x => x.TitleId == snapshot.TitleId)
                 .Select(x => new
                 {
@@ -99,15 +152,38 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
             var state = await db.Set<TitleProviderMatchStateEntity>().AsTracking().SingleOrDefaultAsync(x => x.TitleId == snapshot.TitleId && x.ProviderId == providerId, ct);
             if (link?.IsConfirmed == true || state?.SuppressAutomaticMatch == true || (state?.Revision ?? Guid.Empty) != expectedRevision)
                 return Receipt(false);
+            var nextRevision = Guid.NewGuid();
+            if (state is not null && link is null && providerId == "igdb" && accepted is null
+                && decision is { State: "NeedsReview", ProvisionalGameId: { } gameId }
+                && decision.ProvisionalPolicyVersion == ProvisionalProviderMatchPolicy.MetadataVersion
+                && decision.InputFingerprint == fingerprint && decision.Candidates.FirstOrDefault()?.Game.Id == gameId)
+            {
+                // Artwork-only enrichment reruns discovery without fetching text. Carry the current payload
+                // forward in the same transaction while advancing the revision used to fence review and writes.
+                await db.Set<TitleProvisionalMetadataEntity>()
+                    .Where(value => value.TitleId == snapshot.TitleId && value.ProviderId == providerId
+                        && value.ProviderGameId == gameId && value.MatchRevision == expectedRevision
+                        && ProviderIdentityDatabaseFunctions.ProvisionalMetadataGame(value.TitleId, value.ProviderId,
+                            ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.MetadataVersion) == gameId)
+                    .ExecuteUpdateAsync(update => update.SetProperty(value => value.MatchRevision, nextRevision), ct);
+            }
             if (state is null)
                 db.Add(state = new TitleProviderMatchStateEntity { TitleId = snapshot.TitleId, ProviderId = providerId });
+            var prior = snapshot.Links.SingleOrDefault(x => x.ProviderId == providerId)?.Decision;
+            // The retained association still governs its artwork when rediscovery cannot establish trust.
+            if (link is not null && accepted?.Id != link.ExternalId && prior is not null)
+                decision = decision with
+                {
+                    DatParentMatch = prior.DatParentMatch ?? decision.DatParentMatch,
+                    ArtworkPlatformAliases = prior.ArtworkPlatformAliases ?? decision.ArtworkPlatformAliases
+                };
             state.DecisionJson = JsonSerializer.Serialize(decision);
             state.InputFingerprint = snapshot.Fingerprint;
             state.Evidence = decision.Explanation;
             state.MatcherVersion = ProviderIdentityPolicy.Version;
             state.LastAttemptAt = clock.GetUtcNow();
             state.AutomaticallyTrusted = accepted is not null;
-            state.Revision = Guid.NewGuid();
+            state.Revision = nextRevision;
             var candidate = accepted ?? decision.Candidates.FirstOrDefault()?.Game;
             state.GameJson = candidate is null ? null : JsonSerializer.Serialize(candidate);
             // Existing unconfirmed identities are audited, never silently replaced with another game.
@@ -117,8 +193,13 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 state.Evidence = "Existing automatic association conflicts with current evidence. Review required.";
                 state.DecisionJson = JsonSerializer.Serialize(decision with { State = "NeedsReview", Explanation = state.Evidence });
             }
-            else if (accepted is not null && link is null)
-                db.Add(TitleExternalIdEntity.FromDomain(TitleExternalId.CreateNew(snapshot.TitleId, providerId, accepted.Id, 1, clock.GetUtcNow())));
+            else if (accepted is not null)
+            {
+                if (link is null)
+                    db.Add(TitleExternalIdEntity.FromDomain(TitleExternalId.CreateNew(snapshot.TitleId, providerId, accepted.Id, 1, clock.GetUtcNow())));
+                if (providerId == "steamgriddb" && prior?.ProvisionalGameId == accepted.Id)
+                    await db.ArtworkAssets.PromoteProvisionalAsync(snapshot.TitleId, providerId, accepted.Id, ct);
+            }
             return Receipt(true);
         }
         catch (Exception primaryFailure)
