@@ -83,6 +83,7 @@ public sealed class TitlePortArchitectureTests
         [typeof(ITitleMetadataStore)] =
         [
             "Task ApplyEnrichmentStagedAsync(Title title, CancellationToken cancellationToken)",
+            "Task ApplyProvisionalMetadataStagedAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results, CancellationToken cancellationToken)",
             "Task UpdateMaterializedMetadataStagedAsync(Title title, CancellationToken cancellationToken)",
             "Task UpdateUserMetadataStagedAsync(Title title, CancellationToken cancellationToken)"
         ]

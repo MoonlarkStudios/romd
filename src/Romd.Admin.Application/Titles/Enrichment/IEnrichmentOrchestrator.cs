@@ -1,3 +1,4 @@
+using Romd.Admin.Application.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Domain.Source.Platform;
 
@@ -40,6 +41,7 @@ public interface IEnrichmentOrchestrator
 public sealed record OrchestrationResult(bool Enriched, float BestConfidence, bool AllErrored) : IAsyncDisposable
 {
     public IReadOnlyList<ProviderArtworkResult> ArtworkResults { get; init; } = [];
+    public IReadOnlyList<ProvisionalMetadataResult> ProvisionalMetadata { get; init; } = [];
 
     /// <summary>Downloaded media the caller must publish with the title, then dispose.</summary>
     public IReadOnlyList<StagedTitleMedia> StagedMedia { get; init; } = [];
@@ -56,3 +58,5 @@ public sealed record OrchestrationResult(bool Enriched, float BestConfidence, bo
 }
 
 public sealed record ProviderArtworkResult(string ProviderId, EnrichmentResult Result);
+
+public sealed record ProvisionalMetadataResult(ProviderMatchAuthorization Match, TitleMetadataPayload Payload);

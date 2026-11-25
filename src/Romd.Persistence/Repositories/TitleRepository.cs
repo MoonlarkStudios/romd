@@ -11,7 +11,7 @@ namespace Romd.Persistence.Repositories;
 ///     Title aggregate adapter. One scoped instance serves the aggregate, row-lock, media, merge, and
 ///     creation roles; every snapshot write verifies and locks the snapshot revision first.
 /// </summary>
-public sealed class TitleRepository
+public sealed partial class TitleRepository
     : ITitleAggregateReader, ITitleMetadataStore, ITitleRowLock, ITitleMediaStore, ITitleMergeStore,
         ITitleCreationStore
 {

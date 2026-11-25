@@ -54,8 +54,15 @@ corroborating IGDB release year on the title's platform can support a
 provisional SteamGridDB match. ROMD can fill missing artwork from that match
 using the configured providers and review settings for each role. The provider
 row stays in review. Confirm the game to keep its artwork, choose another
-game, or use **Reject provisional match** to withdraw its artwork. A change
-in the supporting evidence also withdraws that artwork.
+game, or use **Reject provisional match** to withdraw its contributions.
+A change in the supporting evidence also withdraws provisional contributions.
+
+An exact IGDB name and platform release can fill metadata gaps provisionally
+when an active DAT hash match identifies one release family. The title details,
+catalog filters, and rating summaries check that the association is still
+current. Existing published fields and ratings have priority. Library access
+rules use published metadata. Confirm the game to promote its metadata and
+recompute affected library rules.
 
 Replacing or unlinking a provider match withdraws that match's metadata and
 automatic artwork. ROMD recomputes the title using the remaining sources.

@@ -146,6 +146,9 @@ public sealed class BulkEnrichmentPersistenceLifetimeTests
                 ? Task.FromException(new IOException("Publication failed.")) : Task.CompletedTask;
         }
 
+        public Task ApplyProvisionalMetadataStagedAsync(Title title, IReadOnlyList<ProvisionalMetadataResult> results,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task UpdateMaterializedMetadataStagedAsync(Title title, CancellationToken cancellationToken = default)
         {
             Track(title);

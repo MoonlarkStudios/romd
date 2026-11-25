@@ -4580,6 +4580,40 @@ namespace Romd.Persistence.Migrations
                     b.ToTable("TitleProviderMatchStates", "romd");
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleProvisionalMetadataEntity", b =>
+                {
+                    b.Property<int>("TitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MatchRevision")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("MetadataJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("ProviderGameId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ProviderId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("RatingsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("TitleId");
+
+                    b.ToTable("TitleProvisionalMetadata", "romd", t =>
+                        {
+                            t.HasCheckConstraint("CK_TitleProvisionalMetadata_Provider", "(\"ProviderId\" = 'igdb')");
+                        });
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.TitleSourceLinkEntity", b =>
                 {
                     b.Property<int>("SourceEntryId")
@@ -4800,6 +4834,45 @@ namespace Romd.Persistence.Migrations
                         .HasDatabaseName("UserNameIndex");
 
                     b.ToTable("AspNetUsers", "romd");
+                });
+
+            modelBuilder.Entity("Romd.Persistence.MetadataProviders.PresentedTitleRating", b =>
+                {
+                    b.Property<int>("TitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Board")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DescriptorsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Designation")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ExternalRatingId")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("MinimumAge")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Synopsis")
+                        .HasColumnType("text");
+
+                    b.HasKey("TitleId", "Board");
+
+                    b.ToTable((string)null);
+
+                    b.ToSqlQuery("SELECT * FROM romd.presented_title_ratings('provider-identity-5', 'igdb-metadata-1')");
                 });
 
             modelBuilder.Entity("Romd.Persistence.Entities.ArtworkCompletionJobEntity", b =>
@@ -6002,6 +6075,15 @@ namespace Romd.Persistence.Migrations
                     b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
                         .WithMany()
                         .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleProvisionalMetadataEntity", b =>
+                {
+                    b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
+                        .WithOne()
+                        .HasForeignKey("Romd.Persistence.Entities.TitleProvisionalMetadataEntity", "TitleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

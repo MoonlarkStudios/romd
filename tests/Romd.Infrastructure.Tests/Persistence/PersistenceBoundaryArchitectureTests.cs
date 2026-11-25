@@ -114,6 +114,8 @@ public sealed class PersistenceBoundaryArchitectureTests
         // Read the same parameterized SHA-1 matches as the trust fingerprint and
         // walk their clone references within the provider snapshot transaction.
         Sql(Persistence + "MetadataProviders/HashBackedDatFamilyReader.cs", "HashBackedDatFamilyReader", "ReadAsync", "SqlQuery", count: 2),
+        // Read published facts and current DAT-authorized provisional gaps in one statement.
+        Sql(Persistence + "MetadataProviders/TitleMetadataPresentation.cs", "TitleMetadataPresentation", "PresentedTitles", "FromSqlInterpolated"),
         // Serializes retryable session upserts for one user inside the application-owned transaction.
         Sql(Persistence + "PlayActivityUnitOfWork.cs", "PlayActivityUnitOfWork", "BeginAsync", "ExecuteSqlInterpolatedAsync"),
         // Parameterized policy job row lock serializes unclaimed-pending reuse with worker claim.

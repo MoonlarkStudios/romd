@@ -194,6 +194,8 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
         TitleExternalIdEntity.Configure(modelBuilder.Entity<TitleExternalIdEntity>());
         TitleProviderMatchStateEntity.Configure(modelBuilder.Entity<TitleProviderMatchStateEntity>());
         TitleMetadataLayerEntity.Configure(modelBuilder.Entity<TitleMetadataLayerEntity>());
+        TitleProvisionalMetadataEntity.Configure(modelBuilder.Entity<TitleProvisionalMetadataEntity>());
+        MetadataProviders.PresentedTitleRating.Configure(modelBuilder.Entity<MetadataProviders.PresentedTitleRating>());
         TitleContentRatingEntity.Configure(modelBuilder.Entity<TitleContentRatingEntity>());
         RomFileEntity.Configure(modelBuilder.Entity<RomFileEntity>());
         RomRepresentationEntity.Configure(modelBuilder.Entity<RomRepresentationEntity>());

@@ -316,7 +316,8 @@ public sealed class TitleWorkflowTransactionTests
                 DownloadMedia = true,
                 MediaTypesToDownload = [MediaType.Screenshot]
             }),
-            NullLogger<EnrichmentOrchestrator>.Instance, clock: TimeProvider.System);
+            NullLogger<EnrichmentOrchestrator>.Instance, clock: TimeProvider.System,
+            Substitute.For<Romd.Admin.Application.MetadataProviders.IProviderMatchAuthorizationStore>());
 
         await using var enriched = await orchestrator.EnrichTitleAsync(title,
             Romd.Domain.Source.Platform.Platform.Rehydrate(3, "Super Nintendo", "snes", "Nintendo", DateTimeOffset.UtcNow));

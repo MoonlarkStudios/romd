@@ -21,7 +21,10 @@ public sealed partial class TitleProviderMatchStore
                                  ProvisionalGameId = providerId == "steamgriddb"
                                      ? ProviderIdentityDatabaseFunctions.ProvisionalGame(titleId, providerId,
                                          ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.Version)
-                                     : null
+                                     : providerId == "igdb"
+                                         ? ProviderIdentityDatabaseFunctions.ProvisionalMetadataGame(titleId, providerId,
+                                             ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.MetadataVersion)
+                                         : null
                              }).SingleOrDefaultAsync(ct);
         if (current is null)
             return null;
