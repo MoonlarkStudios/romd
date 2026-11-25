@@ -9,7 +9,8 @@ namespace Romd.Admin.Application.Source.Dat.Commands.CheckDatSubscription;
 
 public enum DatSubscriptionCheckMode { Manual, Scheduled }
 /// <summary>Checks an existing enrollment now; scheduled checks also require current eligibility and due time.</summary>
-public sealed record CheckDatSubscriptionCommand(int SubscriptionId, DatSubscriptionCheckMode Mode = DatSubscriptionCheckMode.Manual) : ICommand<DatCatalogSubscription>;
+public sealed record CheckDatSubscriptionCommand(int SubscriptionId, DatSubscriptionCheckMode Mode = DatSubscriptionCheckMode.Manual,
+    ErrorOr<IReadOnlyList<PublishedDatCatalog>>? SweepDirectory = null) : ICommand<DatCatalogSubscription>;
 
 public sealed class CheckDatSubscriptionCommandHandler(IDatSubscriptionCheckReader reader, IDatSubscriptionCheckStore store,
     IDatRepository dats, ISignedDatCatalogClient client, IDatReplacementReview review, IFileStorageService storage,
@@ -33,15 +34,17 @@ public sealed class CheckDatSubscriptionCommandHandler(IDatSubscriptionCheckRead
         DatSubscriptionCheckOutcome? outcome = null;
         try
         {
-            outcome = await workflow.PrepareAsync(catalogId, command.SubscriptionId, command.Mode == DatSubscriptionCheckMode.Scheduled, null, ct);
+            bool scheduled = command.Mode == DatSubscriptionCheckMode.Scheduled;
+            outcome = await workflow.PrepareAsync(catalogId, command.SubscriptionId, scheduled, null, ct,
+                scheduled ? command.SweepDirectory : null);
             if (outcome is DatSubscriptionCheckOutcome.Rejected rejected)
                 return rejected.Errors.ToList();
             DatSubscriptionCheckSnapshot? row;
             DatSubscriptionCheckValues values;
-            if (outcome is DatSubscriptionCheckOutcome.CheckedFailure checkedFailure)
+            if (outcome is DatSubscriptionCheckOutcome.Checked check)
             {
-                row = checkedFailure.Row;
-                values = checkedFailure.Values;
+                row = check.Row;
+                values = check.Values;
             }
             else if (outcome is DatSubscriptionCheckOutcome.VerifiedCandidate verified)
             {
