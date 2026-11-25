@@ -1,3 +1,4 @@
+using ErrorOr;
 using Hangfire;
 using Romd.Admin.Application.Source.Dat.Commands.CheckDatSubscription;
 using Romd.Application.Common.Cqrs;
@@ -18,16 +19,24 @@ public sealed class DatSubscriptionCheckJob(IServiceScopeFactory scopes, ILogger
         IReadOnlyList<int> due;
         await using (var scope = scopes.CreateAsyncScope())
             due = await scope.ServiceProvider.GetRequiredService<IDatCatalogEnrollmentService>().GetDueCheckIdsAsync(ct);
+        if (due.Count == 0)
+            return;
+
+        using var sweep = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        sweep.CancelAfter(TimeSpan.FromMinutes(15));
+        var directory = await DiscoverAsync(sweep.Token);
         foreach (var id in due)
         {
             ct.ThrowIfCancellationRequested();
+            if (sweep.IsCancellationRequested)
+                return;
             try
             {
                 await using var scope = scopes.CreateAsyncScope();
-                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(sweep.Token);
                 deadline.CancelAfter(TimeSpan.FromMinutes(5));
                 var result = await scope.ServiceProvider.GetRequiredService<ICommandHandler<CheckDatSubscriptionCommand, DatCatalogSubscription>>()
-                    .HandleAsync(new(id, DatSubscriptionCheckMode.Scheduled), deadline.Token);
+                    .HandleAsync(new(id, DatSubscriptionCheckMode.Scheduled, directory), deadline.Token);
                 if (result.IsError)
                 {
                     logger.LogInformation("Subscription {SubscriptionId} check did not run: {Code}", id, result.FirstError.Code);
@@ -39,6 +48,7 @@ public sealed class DatSubscriptionCheckJob(IServiceScopeFactory scopes, ILogger
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (OperationCanceledException) when (sweep.IsCancellationRequested) { return; }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Subscription {SubscriptionId} check failed; preserving installed catalog", id);
@@ -50,6 +60,21 @@ public sealed class DatSubscriptionCheckJob(IServiceScopeFactory scopes, ILogger
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception failure) { logger.LogError(failure, "Could not record subscription {SubscriptionId} check failure", id); }
             }
+        }
+    }
+
+    private async Task<ErrorOr<IReadOnlyList<PublishedDatCatalog>>> DiscoverAsync(CancellationToken ct)
+    {
+        try
+        {
+            await using var scope = scopes.CreateAsyncScope();
+            return await scope.ServiceProvider.GetRequiredService<ISignedDatCatalogClient>().DiscoverAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception error)
+        {
+            logger.LogWarning(error, "Could not read the signed DAT publisher directory for the sweep");
+            return DatEnrollmentErrors.CheckFailed();
         }
     }
 }

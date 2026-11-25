@@ -15,7 +15,8 @@ public static class DatSubscriptionCheckSchedule
 
 internal sealed record DatSubscriptionVerifiedDocument(string ActiveSha256, string CandidateSha256, bool Unchanged);
 
-internal sealed record DatSubscriptionCheckBinding(int? SourceId, int PlatformId, string SystemId, string Name, DateTimeOffset CheckedAt);
+internal sealed record DatSubscriptionCheckBinding(int? SourceId, int PlatformId, string SystemId, string Name, DateTimeOffset CheckedAt,
+    string? PublisherNotice);
 
 internal static class DatSubscriptionCheckTransition
 {
@@ -34,7 +35,7 @@ internal static class DatSubscriptionCheckTransition
             CandidateSha256 = preview.CandidateSha256,
             ActiveSha256 = preview.ActiveSha256,
             JobId = null,
-            Message = null,
+            Message = binding.PublisherNotice,
             LastCheckedAt = binding.CheckedAt,
             State = preview.Unchanged ? "UpToDate" : hasActive ? "UpdateAvailable" : "ReadyToImport"
         }, scheduleAt);

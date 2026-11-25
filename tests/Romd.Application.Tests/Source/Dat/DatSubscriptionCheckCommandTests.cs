@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -7,6 +8,7 @@ using Romd.Admin.Application.Source.Dat.Commands.CheckDatSubscription;
 using Romd.Admin.Application.Source.Dat.Commands.CreateDatSubscription;
 using Romd.Admin.Application.Source.Dat.Subscriptions;
 using Romd.Admin.Application.Storage.Files;
+using Romd.Domain.Source.Dat;
 using Shouldly;
 using Xunit;
 
@@ -120,13 +122,68 @@ public sealed class DatSubscriptionCheckCommandTests
         values.LastCheckedAt.ShouldBe(CheckedAt);
         values.NextCheckAt.ShouldBe(ScheduledAt.AddHours(4));
         values.ConsecutiveCheckFailures.ShouldBe(3);
-        values.Message.ShouldBe(failure == "review" ? "invalid document" : DatEnrollmentErrors.CheckFailed().Description);
+        if (failure == "directory")
+            values.Message.ShouldNotBeNull().ShouldContain("could not verify the publisher directory");
+        else
+            values.Message.ShouldBe(failure == "review" ? "invalid document" : DatEnrollmentErrors.CheckFailed().Description);
         if (failure == "directory")
             values.ExpectedName.ShouldBe("Original");
         else
             values.ExpectedName.ShouldBe("Sony");
         await context.Transaction.Received(1).CommitAsync(Arg.Any<CancellationToken>());
         await context.Unit.Received(1).FlushAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false, "healthy")]
+    [InlineData(true, "healthy")]
+    [InlineData(true, "failed")]
+    public async Task Handle_VerifiedHashMatchesInstalledDat_RecordsCurrentDocumentWithoutFetchOrStaging(bool create, string health)
+    {
+        var context = new Context();
+        byte[] content = [1, 2, 3];
+        string hash = Convert.ToHexStringLower(SHA256.HashData(content));
+        var active = DatFile.Rehydrate(12, "Sony", "description", null, null, null, DatType.Redump, 7,
+            "installed.dat", 13, CheckedAt, null, 1, 1, 0, 17, DatFileLifecycle.Active, null);
+        context.Reader.ReadActiveDatIdsForNameAsync(7, "Sony", Arg.Any<CancellationToken>()).Returns(new[] { active.Id });
+        context.Reader.IsSourceEnabledAsync(active.DatSourceId, Arg.Any<CancellationToken>()).Returns(true);
+        context.Dats.GetByIdAsync(active.Id, Arg.Any<CancellationToken>()).Returns(active);
+        context.Storage.RetrieveByIdAsync(active.FileId, Arg.Any<CancellationToken>()).Returns(new MemoryStream(content));
+        context.Reader.ReadAsync(1, Arg.Any<CancellationToken>()).Returns(context.Row with { Values = new() });
+        PublishedDatCatalog[] catalogs = [new("catalog", "psx", "Sony", "redump", health, hash, 1, 1, null)];
+
+        var result = create ? await CheckEnrollmentAsync() : await CheckScheduledAsync();
+
+        result.State.ShouldBe("UpToDate");
+        if (health == "failed")
+            result.Message.ShouldNotBeNull().ShouldContain("Upstream refresh is delayed");
+        else
+            result.Message.ShouldBeNull();
+        var values = context.Written.ShouldNotBeNull();
+        values.CandidateFileId.ShouldBe(active.FileId);
+        values.CandidateSha256.ShouldBe(hash);
+        values.ActiveSha256.ShouldBe(hash);
+        values.JobId.ShouldBeNull();
+        await context.Client.Received(create ? 1 : 0).DiscoverAsync(Arg.Any<CancellationToken>());
+        await context.Client.DidNotReceive().FetchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await context.Storage.DidNotReceive().StageAsync(Arg.Any<Stream>(), Arg.Any<CancellationToken>());
+        context.Review.ReceivedCalls().ShouldBeEmpty();
+        await context.Transaction.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+
+        async Task<DatCatalogSubscription> CheckEnrollmentAsync()
+        {
+            context.Client.DiscoverAsync(Arg.Any<CancellationToken>()).Returns(catalogs);
+            var response = await context.Create().HandleAsync(new("catalog"));
+            response.IsError.ShouldBeFalse();
+            return response.Value.Subscription;
+        }
+
+        async Task<DatCatalogSubscription> CheckScheduledAsync()
+        {
+            var response = await context.Check().HandleAsync(new(1, DatSubscriptionCheckMode.Scheduled, catalogs));
+            response.IsError.ShouldBeFalse();
+            return response.Value;
+        }
     }
 
     [Fact]

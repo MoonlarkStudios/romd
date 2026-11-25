@@ -47,10 +47,10 @@ public sealed class CreateDatSubscriptionCommandHandler(IDatSubscriptionCheckRea
             }
             DatSubscriptionCheckSnapshot? row;
             DatSubscriptionCheckValues values;
-            if (outcome is DatSubscriptionCheckOutcome.CheckedFailure checkedFailure)
+            if (outcome is DatSubscriptionCheckOutcome.Checked check)
             {
-                row = checkedFailure.Row;
-                values = checkedFailure.Values;
+                row = check.Row;
+                values = check.Values;
             }
             else if (outcome is DatSubscriptionCheckOutcome.VerifiedCandidate verified)
             {
