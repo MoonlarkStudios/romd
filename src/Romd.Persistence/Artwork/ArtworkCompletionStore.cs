@@ -94,24 +94,25 @@ public sealed partial class ArtworkCompletionStore(RomdDbContext db, TimeProvide
         var scope = await ScopeAsync(request, ct);
         if (scope.IsError)
             return scope.Errors;
+        var visibleArtwork = db.ArtworkAssets.AvailableForPresentation();
         // Aggregate all roles over the same scope so automatic eligibility is evaluated once.
         var counts = await scope.Value.GroupBy(_ => 1).Select(group => new
         {
             Total = group.Count(),
             Poster = group.Count(t => !db.TitleMedia.Any(m => m.TitleId == t.Id && m.Type == "Cover") &&
-                !db.ArtworkAssets.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Poster && x.IsEligible && !x.IsRejected) &&
+                !visibleArtwork.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Poster && !x.IsRejected) &&
                 !db.ArtworkSelections.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Poster &&
                     (x.Mode != ArtworkSelectionMode.Automatic || x.PendingRequestId != null))),
             Hero = group.Count(t =>
-                !db.ArtworkAssets.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Hero && x.IsEligible && !x.IsRejected) &&
+                !visibleArtwork.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Hero && !x.IsRejected) &&
                 !db.ArtworkSelections.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Hero &&
                     (x.Mode != ArtworkSelectionMode.Automatic || x.PendingRequestId != null))),
             Logo = group.Count(t =>
-                !db.ArtworkAssets.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Logo && x.IsEligible && !x.IsRejected) &&
+                !visibleArtwork.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Logo && !x.IsRejected) &&
                 !db.ArtworkSelections.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Logo &&
                     (x.Mode != ArtworkSelectionMode.Automatic || x.PendingRequestId != null))),
             Backdrop = group.Count(t =>
-                !db.ArtworkAssets.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Backdrop && x.IsEligible && !x.IsRejected) &&
+                !visibleArtwork.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Backdrop && !x.IsRejected) &&
                 !db.ArtworkSelections.Any(x => x.TitleId == t.Id && x.Role == ArtworkRole.Backdrop &&
                     (x.Mode != ArtworkSelectionMode.Automatic || x.PendingRequestId != null)))
         }).SingleOrDefaultAsync(ct);

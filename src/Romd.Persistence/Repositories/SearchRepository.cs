@@ -10,6 +10,7 @@ using Romd.Admin.Application.Search.ReadModels;
 using Romd.Domain.Catalog;
 using Romd.Domain.Catalog.Ratings;
 using Romd.Domain.Source.Dat;
+using Romd.Persistence.Artwork;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Extensions;
 using Romd.Persistence.Queries;
@@ -434,9 +435,12 @@ public sealed class SearchRepository(RomdDbContext context, IArtworkReader artwo
             query = query.Where(x => decisions.Contains(x.Id));
         }
         else if (Enum.TryParse<ArtworkRole>(filters.ArtworkStatus, out var missingRole))
-            query = query.Where(t => !(missingRole == ArtworkRole.Poster && context.TitleMedia.Any(m => m.TitleId == t.Id && m.Type == "Cover")) && !context.ArtworkAssets.Any(x => x.TitleId == t.Id && x.Role == missingRole && x.IsEligible && !x.IsRejected) &&
+        {
+            var visibleArtwork = context.ArtworkAssets.AvailableForPresentation();
+            query = query.Where(t => !(missingRole == ArtworkRole.Poster && context.TitleMedia.Any(m => m.TitleId == t.Id && m.Type == "Cover")) && !visibleArtwork.Any(x => x.TitleId == t.Id && x.Role == missingRole && !x.IsRejected) &&
                 !context.ArtworkSelections.Any(x => x.TitleId == t.Id && x.Role == missingRole &&
                     (x.Mode == ArtworkSelectionMode.Empty || x.Mode == ArtworkSelectionMode.Pinned || x.PendingRequestId != null)));
+        }
 
         if (!string.IsNullOrWhiteSpace(filters.EnrichmentStatus))
         {
