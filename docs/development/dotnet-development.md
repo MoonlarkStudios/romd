@@ -216,8 +216,10 @@ metadata and checks its evidence during presentation. The additive
 provider identities and the artwork they authorize. The additive
 `20261124010000_ArtworkPlatformAliasEvidence` migration validates the
 ROMD-owned system aliases used for artwork release-year matches. The additive
+`20261124015000_ProvisionalArtworkPlatformAliasEvidence` migration extends
+that validation to provisional artwork. The additive
 `20261124020000_TitleMergeRedirects` migration records the surviving titles for
-offline play-session submissions. Current readiness is version 91.
+offline play-session submissions. Current readiness is version 92.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

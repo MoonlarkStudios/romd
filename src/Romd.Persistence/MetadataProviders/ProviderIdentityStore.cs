@@ -120,10 +120,16 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
                 .Select(x => ProviderIdentityDatabaseFunctions.Fingerprint(x.Id, ProviderIdentityPolicy.Version)).SingleAsync(ct);
             if (fingerprint != snapshot.Fingerprint)
                 return Receipt(false);
-            if (decision.ArtworkPlatformAliases is { } aliases &&
-                (providerId != "steamgriddb" || accepted is null || !aliases.SequenceEqual(snapshot.ArtworkPlatformAliases) ||
-                    !aliases.SequenceEqual(await ReadArtworkPlatformAliasesAsync(snapshot.TitleId, ct))))
-                return Receipt(false);
+            if (decision.ArtworkPlatformAliases is { } aliases)
+            {
+                var provisional = snapshot.DatFamily is { RequiresReview: false } &&
+                    decision is { State: "NeedsReview", ProvisionalGameId: { } provisionalId } &&
+                    decision.Candidates.FirstOrDefault()?.Game.Id == provisionalId;
+                if (providerId != "steamgriddb" || accepted is null && !provisional || aliases.Count == 0 ||
+                    !aliases.SequenceEqual(snapshot.ArtworkPlatformAliases) ||
+                    !aliases.SequenceEqual(await ReadArtworkPlatformAliasesAsync(snapshot.TitleId, ct)))
+                    return Receipt(false);
+            }
             if (decision.DatParentMatch is { } inherited &&
                 (providerId != "steamgriddb" || accepted?.Id != inherited.GameId || inherited != snapshot.DatParent?.Match ||
                     snapshot.DatFamily?.Parent is not { } parent ||
@@ -146,6 +152,21 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
             var state = await db.Set<TitleProviderMatchStateEntity>().AsTracking().SingleOrDefaultAsync(x => x.TitleId == snapshot.TitleId && x.ProviderId == providerId, ct);
             if (link?.IsConfirmed == true || state?.SuppressAutomaticMatch == true || (state?.Revision ?? Guid.Empty) != expectedRevision)
                 return Receipt(false);
+            var nextRevision = Guid.NewGuid();
+            if (state is not null && link is null && providerId == "igdb" && accepted is null
+                && decision is { State: "NeedsReview", ProvisionalGameId: { } gameId }
+                && decision.ProvisionalPolicyVersion == ProvisionalProviderMatchPolicy.MetadataVersion
+                && decision.InputFingerprint == fingerprint && decision.Candidates.FirstOrDefault()?.Game.Id == gameId)
+            {
+                // Artwork-only enrichment reruns discovery without fetching text. Carry the current payload
+                // forward in the same transaction while advancing the revision used to fence review and writes.
+                await db.Set<TitleProvisionalMetadataEntity>()
+                    .Where(value => value.TitleId == snapshot.TitleId && value.ProviderId == providerId
+                        && value.ProviderGameId == gameId && value.MatchRevision == expectedRevision
+                        && ProviderIdentityDatabaseFunctions.ProvisionalMetadataGame(value.TitleId, value.ProviderId,
+                            ProviderIdentityPolicy.Version, ProvisionalProviderMatchPolicy.MetadataVersion) == gameId)
+                    .ExecuteUpdateAsync(update => update.SetProperty(value => value.MatchRevision, nextRevision), ct);
+            }
             if (state is null)
                 db.Add(state = new TitleProviderMatchStateEntity { TitleId = snapshot.TitleId, ProviderId = providerId });
             var prior = snapshot.Links.SingleOrDefault(x => x.ProviderId == providerId)?.Decision;
@@ -162,7 +183,7 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
             state.MatcherVersion = ProviderIdentityPolicy.Version;
             state.LastAttemptAt = clock.GetUtcNow();
             state.AutomaticallyTrusted = accepted is not null;
-            state.Revision = Guid.NewGuid();
+            state.Revision = nextRevision;
             var candidate = accepted ?? decision.Candidates.FirstOrDefault()?.Game;
             state.GameJson = candidate is null ? null : JsonSerializer.Serialize(candidate);
             // Existing unconfirmed identities are audited, never silently replaced with another game.

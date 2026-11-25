@@ -80,15 +80,19 @@ provider or lookup mode discards the previous suggestions and selection.
 SteamGridDB review uses release years for the title's platform from the currently
 trusted IGDB game's stored evidence. A year match breaks a tie in the existing
 candidate scores and appears in the candidate's supporting signals. Discovery
-can automatically accept a verified ID bridge or a unique exact title with a
-release year corroborated by the local catalog or the trusted IGDB release.
-For automatic title-and-year matching, a trusted IGDB release can also
-corroborate the year if its platform label exactly matches a ROMD-owned name
-alias for the title's system, ignoring case. This covers original release years
-under labels such as Super Famicom when the parent and clone share a canonical
-title. Ambiguous titles, conflicting editions, and searches that exhaust the
-lookup budget still follow the review rules. Discovery refreshes cached review
-when the ROMD-owned aliases or trusted IGDB association change.
+can automatically accept a verified ID bridge or a unique exact title and
+corroborated release year from an exhaustive search. SteamGridDB autocomplete
+cannot establish that the search is exhaustive. It can support a provisional
+artwork selection when the resolved DAT family, trusted IGDB release and
+returned candidates satisfy the review rules.
+
+A trusted IGDB release can corroborate the year if its platform label exactly
+matches a ROMD-owned name alias for the title's system, ignoring case. This
+covers original release years under labels such as Super Famicom when the
+parent and clone share a canonical title. Alias-backed decisions retain the
+alias evidence and the IGDB association revision. Changes to either block
+artwork use and refresh cached review. Ambiguous titles, conflicting editions
+and searches that exhaust the lookup budget still follow the review rules.
 
 Decisions retain candidates, reasons, policy version, input fingerprint, and any
 trusted bridge dependency. Input/policy changes invalidate automatic trust;

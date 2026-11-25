@@ -561,8 +561,9 @@ additive `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservatio
 `20261123040000_ProvisionalProviderArtwork`,
 `20261123050000_ProvisionalTitleMetadata`,
 `20261124000000_DatParentProviderIdentity`,
-`20261124010000_ArtworkPlatformAliasEvidence` and
-`20261124020000_TitleMergeRedirects` migrations (readiness version 91).
+`20261124010000_ArtworkPlatformAliasEvidence`,
+`20261124015000_ProvisionalArtworkPlatformAliasEvidence` and
+`20261124020000_TitleMergeRedirects` migrations (readiness version 92).
 The Saturn migration preserves PS1 observations and adds distinct Saturn fields.
 The sign-in message starts blank. Existing title media stays title-level and
 unpreferred after the media collection migration.

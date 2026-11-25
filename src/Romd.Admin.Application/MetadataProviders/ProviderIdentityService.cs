@@ -116,8 +116,12 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 var trustedPlatformYears = trustedGame is not null
                     ? PlatformYears(trustedGame, snapshot.Facts.Platforms).Where(year => year is >= 1900 and <= 2200).ToArray()
                     : [];
-                if (trustedPlatformYears.Length > 0)
-                    ranked = RankArtworkReviewByPlatformYear(ranked, trustedPlatformYears);
+                var aliasReleases = trustedGame?.Releases?.Where(release => release.Year is >= 1900 and <= 2200 &&
+                    !trustedPlatformYears.Contains(release.Year.Value) && snapshot.ArtworkPlatformAliases.Any(alias =>
+                        string.Equals(alias.Name, release.Platform, StringComparison.OrdinalIgnoreCase))).ToArray() ?? [];
+                var artworkYears = trustedPlatformYears.Concat(aliasReleases.Select(release => release.Year!.Value)).Distinct().ToArray();
+                if (artworkYears.Length > 0)
+                    ranked = RankArtworkReviewByPlatformYear(ranked, artworkYears);
                 decision = new(evaluation.State, evaluation.Explanation, snapshot.Facts.Provenance, snapshot.Fingerprint,
                     ranked, dependency is null ? [] : [dependency]);
                 if (datRequiresReview)
@@ -128,11 +132,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                     };
                 else if (artworkSearch)
                 {
-                    var aliasReleases = trustedGame?.Releases?.Where(release => release.Year is >= 1900 and <= 2200 &&
-                        !trustedPlatformYears.Contains(release.Year.Value) && snapshot.ArtworkPlatformAliases.Any(alias =>
-                            string.Equals(alias.Name, release.Platform, StringComparison.OrdinalIgnoreCase))).ToArray() ?? [];
-                    var artworkYears = trustedPlatformYears.Concat(aliasReleases.Select(release => release.Year!.Value)).Distinct().ToArray();
-                    var release = found.Value.Consistent
+                    var release = found.Value is { Complete: true, Consistent: true }
                         ? ArtworkReleaseMatchPolicy.Select(snapshot.Facts, ranked, artworkYears, trustedGame?.Year)
                         : null;
                     if (release is not null)
@@ -161,12 +161,19 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 {
                     var provisionalGameId = decision.State == "NeedsReview" && found.Value.Consistent && link?.GameId is null &&
                         snapshot.DatFamily is { RequiresReview: false }
-                        ? ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates, trustedPlatformYears)
+                        ? ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates, artworkYears)
+                        : null;
+                    var provisionalAlias = provisionalGameId is not null
+                        ? aliasReleases.FirstOrDefault(release => release.Year == decision.Candidates[0].Game.Year)?.Platform
                         : null;
                     decision = decision with
                     {
                         ProvisionalGameId = provisionalGameId,
-                        ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version
+                        ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version,
+                        ArtworkPlatformAliases = provisionalAlias is not null ? snapshot.ArtworkPlatformAliases : decision.ArtworkPlatformAliases,
+                        Explanation = provisionalAlias is not null
+                            ? $"The trusted IGDB release on {provisionalAlias}, a ROMD system alias, supports this artwork provisionally. {decision.Explanation}"
+                            : decision.Explanation
                     };
                 }
             }
