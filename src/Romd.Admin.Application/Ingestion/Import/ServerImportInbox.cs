@@ -9,6 +9,18 @@ public sealed record ServerImportFile(string RelativePath, long Bytes, DateTime 
 
 public sealed record ServerImportSelection(IReadOnlyList<ServerImportFile> Files);
 
+public sealed record ServerImportRetryBatch(Guid CorrelationId, ServerImportSelection Selection);
+
+public enum ServerImportRetryFileState
+{
+    Ready,
+    Changed,
+    Missing,
+    Unavailable
+}
+
+public sealed record ServerImportRetryFile(string RelativePath, ServerImportRetryFileState State, ServerImportFile? Current = null);
+
 public sealed record ServerImportScan(
     IReadOnlyList<ServerImportFile> Files, int WaitingFiles, string? Warning);
 
@@ -43,6 +55,8 @@ public sealed record ServerImportView(
 public interface IServerImportSource
 {
     ErrorOr<ServerImportScan> Scan(string directory, DateTimeOffset now, CancellationToken ct);
+    ErrorOr<IReadOnlyList<ServerImportRetryFile>> ObserveRetry(
+        string directory, ServerImportSelection selection, DateTimeOffset now, CancellationToken ct);
     ErrorOr<Success> ValidateCapacity(IReadOnlyList<ServerImportFile> files);
 }
 
@@ -54,6 +68,7 @@ public interface IServerImportStore
     Task<IReadOnlyList<ServerImportFile>> FindUnsubmittedFilesAsync(
         string directory, IReadOnlyList<ServerImportFile> ready, CancellationToken ct);
     Task<ServerImportSelection?> ReadSelectionAsync(Guid jobId, CancellationToken ct);
+    Task<ServerImportRetryBatch?> ReadRetryBatchAsync(string directory, Guid jobId, CancellationToken ct);
     Task StageActivityAsync(string directory, ServerImportActivity activity, CancellationToken ct);
     void StageSelection(Guid jobId, ServerImportSelection selection);
 }

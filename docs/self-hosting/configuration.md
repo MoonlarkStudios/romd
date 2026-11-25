@@ -298,9 +298,12 @@ stay in the folder. Empty subdirectories stay in place.
 
 Admin shows the last check, the next scheduled check and the latest receipt.
 An unchanged file left in the folder is skipped while its move job is retained.
-Use **Retry last import** when offered, or publish the file again with a fresh
-modification time. Files left by an earlier copy-only run can be processed on
-the next check.
+Open a retained receipt in Jobs and choose **Retry remaining files**. The review
+lists unchanged originals that can be retried and shows which files have changed,
+gone missing, or become unavailable. If the review changes before confirmation,
+review the updated list before queueing. Publish changed files with a fresh
+modification time for the next folder check. That check also picks up files left
+by an earlier copy-only run.
 
 In a split-host deployment the admin host validates an import and accepts the
 job; the worker host copies the source into the job workspace (the import's
