@@ -2,7 +2,7 @@
 
 Read-only inventory and disc-name grouping candidates for explicit raw DAT files.
 The tool uses ROMD's Logiqx XML and ClrMamePro readers and the same parser tested
-in `Romd.Dat.Parsing.Tests`. It opens no database, host configuration or CAS and
+in `Romd.Dat.Tests`. It opens no database, host configuration or CAS and
 does not change input DATs or catalog relationships. CHDs and ZIPs are not inputs.
 
 Run from the repository root with the configured .NET 10 SDK:
@@ -10,8 +10,8 @@ Run from the repository root with the configured .NET 10 SDK:
 ```sh
 mise exec -- dotnet build tools/Romd.Dat.Preview/Romd.Dat.Preview.csproj -warnaserror
 mise exec -- dotnet tools/Romd.Dat.Preview/bin/Debug/net10.0/Romd.Dat.Preview.dll \
-  tests/Romd.Dat.Parsing.Tests/Resources/redump_sony_ps1.dat \
-  tests/Romd.Dat.Parsing.Tests/Resources/nointro_nintendo_n64.dat \
+  tests/Romd.Dat.Tests/Resources/redump_sony_ps1.dat \
+  tests/Romd.Dat.Tests/Resources/nointro_nintendo_n64.dat \
   > /private/tmp/dat-disc-preview.json
 ```
 
@@ -52,7 +52,7 @@ claims and cross-source editions also belong to later catalog work.
 Run the focused checks after building:
 
 ```sh
-mise exec -- dotnet test tests/Romd.Dat.Parsing.Tests/Romd.Dat.Parsing.Tests.csproj -warnaserror
+mise exec -- dotnet test tests/Romd.Dat.Tests/Romd.Dat.Tests.csproj -warnaserror
 mise exec -- python3 tools/Romd.Dat.Preview/test_preview.py
 ```
 

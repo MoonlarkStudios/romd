@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using ErrorOr;
 using Romd.Admin.Application.Source.Dat;
-using Romd.Dat.Parsing;
+using Romd.Dat;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Dats.Format;
 

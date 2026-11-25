@@ -14,7 +14,7 @@
     <ProjectReference Include="..\Romd.Admin.Application\Romd.Admin.Application.csproj"/>
     <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj"/>
     <ProjectReference Include="..\Romd.Consumer.Application\Romd.Consumer.Application.csproj"/>
-    <ProjectReference Include="..\Romd.Dat.Parsing\Romd.Dat.Parsing.csproj"/>
+    <ProjectReference Include="..\Romd.Dat\Romd.Dat.csproj"/>
     <ProjectReference Include="..\Romd.Media\Romd.Media.csproj"/>
     <ProjectReference Include="..\Romd.Persistence\Romd.Persistence.csproj"/>
     <ProjectReference Include="..\Romd.Storage\Romd.Storage.csproj"/>

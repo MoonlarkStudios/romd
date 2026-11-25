@@ -486,7 +486,7 @@
           "Romd.Contracts.Common": "[1.0.0, )"
         }
       },
-      "romd.dat.parsing": {
+      "romd.dat": {
         "type": "Project",
         "dependencies": {
           "ErrorOr": "[2.1.1, )"
@@ -527,7 +527,7 @@
           "Romd.Admin.Application": "[1.0.0, )",
           "Romd.Application.Common": "[1.0.0, )",
           "Romd.Consumer.Application": "[1.0.0, )",
-          "Romd.Dat.Parsing": "[1.0.0, )",
+          "Romd.Dat": "[1.0.0, )",
           "Romd.Media": "[1.0.0, )",
           "Romd.Persistence": "[1.0.0, )",
           "Romd.Storage": "[1.0.0, )",

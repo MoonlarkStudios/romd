@@ -47,6 +47,26 @@ Use `internal` implementations when composition permits it and `sealed` by
 default. Add project or module boundaries when they enforce a needed dependency
 rule, rather than to reach a prescribed number of layers.
 
+### DAT documents
+
+[`Romd.Dat`](../../src/Romd.Dat/Romd.Dat.csproj) owns DAT parsing, Logiqx XML
+writing, and clone parent resolution. The writer streams UTF-8 to a caller-owned
+destination. Callers should stage a file and publish it only after a successful
+write.
+
+The writer emits the fields modeled by ROMD, using `datafile` and `game` XML
+elements. It preserves entry order, file order within each kind, relationship
+declarations, categories, BIOS declarations, and ROM and disk facts. A
+`nodump` ROM can omit its byte size. An explicit zero stays a known size.
+Malformed size and supported checksum declarations prevent export.
+
+For authored entries, set `DeclaredCategory` and `BiosDeclaration` when the DAT
+should declare them. Use `BiosDeclaration = "yes"` for an explicit BIOS marker.
+The reader derives name metadata, BIOS classification, and catalog provenance
+from the exported declarations. Original XML and dialect-specific fields outside
+the model are available from the retained source document. Replacement review
+also checks the candidate's file evidence and document limits.
+
 ## Contract type names
 
 Types in `Romd.Contracts.*` omit the `Dto` suffix; their project and namespace

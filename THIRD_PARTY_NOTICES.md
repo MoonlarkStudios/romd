@@ -196,7 +196,7 @@ by the [Trademark Policy](TRADEMARKS.md).
 These files are original project material under the root license, not
 third-party assets. They are recorded here so their provenance is explicit.
 
-- `tests/Romd.Dat.Parsing.Tests/Resources/`: synthetic DAT catalogs produced by
+- `tests/Romd.Dat.Tests/Resources/`: synthetic DAT catalogs produced by
   the directory's `generate.py`. They follow No-Intro and Redump header
   conventions but contain no data from those projects; the directory's
   `README.md` describes them.
