@@ -1,0 +1,51 @@
+name: ROMD v0.2.0 native upgrade qualification
+
+on:
+  push:
+    branches: [codex/v020-upgrade-qualification]
+    paths:
+      - '.github/workflows/v020-upgrade-qualification.yml'
+      - 'scripts/release/qualify_v020_upgrade.py'
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.0.0
+        with:
+          node-version: '24.22.0'
+      - name: Check out both attested release sources and locked browsers
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/v010" refs/tags/v0.1.0
+          git worktree add --detach "$RUNNER_TEMP/v020" refs/tags/v0.2.0-rc.1
+          for version in v010 v020; do
+            tools="$RUNNER_TEMP/$version/scripts/release/browser"
+            npm ci --ignore-scripts --prefix "$tools"
+            "$tools/node_modules/.bin/playwright" install --with-deps chromium
+          done
+      - name: Upgrade a real v0.1.0 install and recover the pre-upgrade backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/release/qualify_v020_upgrade.py
+          --baseline-source "$RUNNER_TEMP/v010" --candidate-source "$RUNNER_TEMP/v020"
+          --candidate-tag v0.2.0-rc.1 --evidence "$RUNNER_TEMP/v020-upgrade-evidence"
+      - name: Retain bounded qualification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.1
+        with:
+          name: v020-upgrade-evidence
+          path: |
+            ${{ runner.temp }}/v020-upgrade-evidence/summary.json
+            ${{ runner.temp }}/v020-upgrade-evidence/lifecycle.json
+          if-no-files-found: ignore
+          retention-days: 7
