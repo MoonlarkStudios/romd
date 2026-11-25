@@ -63,6 +63,31 @@ public class LogiqxDatFormatIntegrationTests
         }
 
         [Fact]
+        public async Task ParseGamesAsync_NoIntroCloneOfId_ResolvesForwardReference()
+        {
+            const string childName = "Fixture Golf Open (Europe) (En,Fr,De,Es,It)";
+            const string parentName = "Fixture Golf Open (USA)";
+            await using var stream = TestResources.OpenNoIntroN64();
+
+            var games = await _format.ParseGamesAsync(stream, CancellationToken.None).ToListAsync();
+            games.ShouldAllBe(game => !game.IsError);
+
+            var entries = games
+                .Select(game => game.Value)
+                .Select(game => new DatParentDeclaration(game.Name, game.DeclaredId, game.CloneOf, game.CloneOfId))
+                .ToArray();
+            var resolutions = DatParentResolver.Resolve(entries);
+
+            var child = entries.Single(entry => entry.Name == childName);
+            child.DeclaredId.ShouldBe("0201");
+            child.CloneOfId.ShouldBe("0200");
+            child.CloneOf.ShouldBeNull();
+            entries.Single(entry => entry.Name == parentName).DeclaredId.ShouldBe("0200");
+            resolutions[childName].ShouldBe(new DatParentResolution(DatParentStatus.Resolved, parentName));
+            resolutions.ContainsKey(parentName).ShouldBeFalse();
+        }
+
+        [Fact]
         public async Task ParseGamesAsync_BiosEntries_AreParsedCorrectly()
         {
             await using var stream = TestResources.OpenNoIntroN64();

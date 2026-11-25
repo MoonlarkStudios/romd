@@ -4,7 +4,17 @@ import { IconCheck, IconCopy } from '@tabler/icons-react';
 import { formatBytes } from '../../utils/format';
 import classes from './DatReview.module.css';
 
-function FullValue({ value, label }: { value?: string | null; label?: string }) {
+function FullValue({
+  value,
+  label,
+  verbatim,
+}: {
+  value?: string | null;
+  label?: string;
+  verbatim?: boolean;
+}) {
+  const displayValue = verbatim && value && value !== value.trim() ? JSON.stringify(value) : value;
+
   return (
     <Group
       component="span"
@@ -15,8 +25,15 @@ function FullValue({ value, label }: { value?: string | null; label?: string }) 
         span
         size="sm"
         className={label ? classes.hash : classes.fieldValue}
+        style={
+          verbatim
+            ? {
+                whiteSpace: 'break-spaces',
+              }
+            : undefined
+        }
       >
-        {value ?? '—'}
+        {displayValue === '' ? '(empty)' : (displayValue ?? '—')}
       </Text>
       {label && value && (
         <CopyButton value={value}>
@@ -51,7 +68,7 @@ export function DatReviewFields({ fields, file }: { fields: DatFieldChange[]; fi
             size="sm"
             fw={600}
           >
-            {field.field}
+            {relationshipLabels.get(field.field) ?? field.field}
           </Text>
           <Text
             component="dd"
@@ -69,6 +86,7 @@ export function DatReviewFields({ fields, file }: { fields: DatFieldChange[]; fi
             </Text>
             <FullValue
               value={field.before}
+              verbatim={relationshipLabels.has(field.field)}
               label={
                 file && Object.values(hashLabels).includes(field.field)
                   ? `installed ${field.field}`
@@ -92,6 +110,7 @@ export function DatReviewFields({ fields, file }: { fields: DatFieldChange[]; fi
             </Text>
             <FullValue
               value={field.after}
+              verbatim={relationshipLabels.has(field.field)}
               label={
                 file && Object.values(hashLabels).includes(field.field)
                   ? `incoming ${field.field}`
@@ -104,6 +123,33 @@ export function DatReviewFields({ fields, file }: { fields: DatFieldChange[]; fi
     </dl>
   );
 }
+
+const relationshipLabels = new Map([
+  [
+    'DeclaredId',
+    'DAT entry ID',
+  ],
+  [
+    'CloneOf',
+    'Clone of (name)',
+  ],
+  [
+    'CloneOfId',
+    'Clone of (ID)',
+  ],
+  [
+    'RomOf',
+    'ROM dependency',
+  ],
+  [
+    'ParentName',
+    'Resolved parent',
+  ],
+  [
+    'ParentStatus',
+    'Parent resolution',
+  ],
+]);
 
 const hashLabels: Record<string, string> = {
   Sha1: 'SHA-1',

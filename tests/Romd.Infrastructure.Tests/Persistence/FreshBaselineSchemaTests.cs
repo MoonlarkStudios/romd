@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Romd.Domain.Hashing;
 using Romd.Domain.Jobs;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
@@ -29,12 +30,13 @@ public sealed class FreshBaselineSchemaTests
             "20261121030000_ImportOutcomeReasons",
             "20261121040529_ServerImportInbox",
             "20261121060000_RemoveServerImportFileHistory",
-            "20261121200000_LibraryPublicationOutcome"
+            "20261121200000_LibraryPublicationOutcome",
+            "20261123000000_DatParentDeclarations"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(82);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(82);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(83);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(83);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -102,6 +104,44 @@ public sealed class FreshBaselineSchemaTests
             ORDER BY conname
             """).ToArrayAsync()).ShouldBe(["CK_TitleMedia_PreferredPackaging", "FK_TitleMedia_CatalogReleases_CatalogReleaseId"]);
         (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(PostgreSqlConfiguration.ExpectedSchemaVersion);
+    }
+
+    [Fact]
+    public async Task Provision_PreviousDatProjection_PreservesExistingRelationshipDeclarations()
+    {
+        await using var database = PostgreSqlTestDatabase.CreateEmpty();
+        await using var db = database.CreateContext();
+        await db.Database.GetService<IMigrator>().MigrateAsync("20261121200000_LibraryPublicationOutcome");
+        db.Files.Add(new FileEntityPersistence { Id = 1, Sha256 = Sha256.Parse(new string('a', 64)), Size = 10, SizeOnDisk = 10 });
+        db.DatFiles.Add(new DatFileEntity
+        {
+            Id = 1,
+            Source = new DatSourceEntity
+            {
+                CatalogSource = new CatalogSourceEntity { Id = 1, Kind = "Dat", Status = "Active" }
+            },
+            Name = "Legacy DAT",
+            Description = "Legacy DAT",
+            Type = "NoIntro",
+            OriginalFilename = "legacy.dat",
+            FileId = 1,
+            GameCount = 1
+        });
+        db.SourceEntries.Add(new SourceEntryEntity { Id = 1, CatalogSourceId = 1, EntryKey = "Clone", Name = "Clone" });
+        await db.SaveChangesAsync();
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO romd."DatGames"
+                ("DatFileId", "SourceEntryId", "Name", "SearchDocument", "CloneOf", "RomOf", "CreatedAt", "CreatedByUserId")
+            VALUES (1, 1, 'Clone', 'Clone', 'Parent', 'BIOS', 0, '00000000-0000-0000-0000-000000000000')
+            """);
+
+        await database.ProvisionAsync();
+
+        var game = (await db.DatGames.SingleAsync()).ToDomain();
+        game.CloneOf.ShouldBe("Parent");
+        game.RomOf.ShouldBe("BIOS");
+        game.DeclaredId.ShouldBeNull();
+        game.CloneOfId.ShouldBeNull();
     }
 
     [Theory]

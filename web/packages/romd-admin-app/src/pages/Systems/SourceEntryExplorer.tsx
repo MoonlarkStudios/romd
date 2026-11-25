@@ -16,7 +16,7 @@ import { IconChevronRight } from '@tabler/icons-react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { DatEntryFiles } from './DatGameRow';
+import { DatEntryDeclarations, DatEntryFiles } from './DatGameRow';
 import classes from './Sources.module.css';
 
 export function SourceEntryExplorer({ datId }: { datId: string }) {
@@ -224,12 +224,6 @@ function SourceEntry({ entry, datId }: { entry: SourceEntryReference; datId: str
           gap="sm"
           mt="md"
         >
-          <Text
-            size="sm"
-            fw={600}
-          >
-            Expected files
-          </Text>
           {files.isPending ? (
             <Loader size="sm" />
           ) : files.isError ? (
@@ -243,7 +237,16 @@ function SourceEntry({ entry, datId }: { entry: SourceEntryReference; datId: str
               </Button>
             </Alert>
           ) : (
-            <DatEntryFiles game={files.data} />
+            <>
+              <DatEntryDeclarations game={files.data} />
+              <Text
+                size="sm"
+                fw={600}
+              >
+                Expected files
+              </Text>
+              <DatEntryFiles game={files.data} />
+            </>
           )}
         </Stack>
       )}

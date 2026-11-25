@@ -658,7 +658,7 @@ public class DatEndpointsTests : IDisposable
     }
 
     [Fact]
-    public async Task GetGameById_ReturnsGameWithRoms()
+    public async Task GetGameById_ReturnsGameWithRomsAndDeclaredRelationships()
     {
         // Arrange
         string uniqueName = $"Single Game Test DAT {Guid.NewGuid():N}";
@@ -669,7 +669,7 @@ public class DatEndpointsTests : IDisposable
                                  <name>{uniqueName}</name>
                                  <description>Desc</description>
                                </header>
-                               <game name="Test Game With Multiple Roms">
+                               <game name="Test Game With Multiple Roms" id="0007-A" cloneof="Parent" cloneofid="0003-A" romof="BIOS">
                                  <description>A test game</description>
                                  <year>1994</year>
                                  <manufacturer>Test Corp</manufacturer>
@@ -705,6 +705,10 @@ public class DatEndpointsTests : IDisposable
         root.GetProperty("description").GetString().ShouldBe("A test game");
         root.GetProperty("year").GetString().ShouldBe("1994");
         root.GetProperty("manufacturer").GetString().ShouldBe("Test Corp");
+        root.GetProperty("declaredId").GetString().ShouldBe("0007-A");
+        root.GetProperty("cloneOf").GetString().ShouldBe("Parent");
+        root.GetProperty("cloneOfId").GetString().ShouldBe("0003-A");
+        root.GetProperty("romOf").GetString().ShouldBe("BIOS");
         root.GetProperty("roms").GetArrayLength().ShouldBe(2);
         root.TryGetProperty("disks", out var disks).ShouldBeTrue();
         disks.ValueKind.ShouldBe(JsonValueKind.Array);

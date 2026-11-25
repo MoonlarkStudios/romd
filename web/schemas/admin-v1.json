@@ -20570,7 +20570,19 @@
               "string"
             ]
           },
+          "declaredId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "cloneOf": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cloneOfId": {
             "type": [
               "null",
               "string"

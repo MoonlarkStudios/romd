@@ -226,7 +226,9 @@ public sealed class LogiqxDatFormat : IDatFormat
         }
 
         // Optional attributes
+        string? declaredId = reader.GetAttribute("id");
         string? cloneOf = reader.GetAttribute("cloneof");
+        string? cloneOfId = reader.GetAttribute("cloneofid");
         string? romOf = reader.GetAttribute("romof");
         string? isBiosAttr = reader.GetAttribute("isbios");
 
@@ -237,7 +239,9 @@ public sealed class LogiqxDatFormat : IDatFormat
             return new ParsedGame
             {
                 Name = name,
+                DeclaredId = declaredId,
                 CloneOf = cloneOf,
+                CloneOfId = cloneOfId,
                 RomOf = romOf,
                 IsBios = isBios,
                 NameMetadata = DatNameParser.Parse(name),
@@ -323,7 +327,9 @@ public sealed class LogiqxDatFormat : IDatFormat
             Description = description,
             Year = year,
             Manufacturer = manufacturer,
+            DeclaredId = declaredId,
             CloneOf = cloneOf,
+            CloneOfId = cloneOfId,
             RomOf = romOf,
             NameMetadata = DatNameParser.Parse(name, category),
             IsBios = BiosDetection.IsBiosGame(isBiosAttr, category, name),
