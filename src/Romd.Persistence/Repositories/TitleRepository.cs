@@ -364,6 +364,7 @@ public sealed partial class TitleRepository
     public async Task ApplyMergeStagedAsync(Title target, Title source, CancellationToken cancellationToken = default)
     {
         RequireTransaction();
+        await CatalogTopologyFence.AcquireAsync(_context, cancellationToken);
         // The absorbed source state must still be current. Lock in ID order, as artwork merge does,
         // so opposing merges cannot deadlock on the two title rows.
         foreach (var snapshot in new[] { source, target }.OrderBy(snapshot => snapshot.Id))

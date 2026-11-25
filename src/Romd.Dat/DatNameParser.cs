@@ -35,6 +35,13 @@ public static partial class DatNameParser
     [GeneratedRegex(@"\((Rev\s*[\w\.]+|v[\d\.]+|Beta|Proto|Alpha|Demo|Sample)\)", RegexOptions.IgnoreCase)]
     private static partial Regex RevisionRegex();
 
+    [GeneratedRegex(@"\(\s*(?:Alpha|Beta|Proto(?:type)?|Demo|Preview|Sample)(?=[\s\d.\-]|\))",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NonRetailQualifierRegex();
+
+    /// <summary>Checks every parenthesized qualifier because an ordinary revision can follow a prerelease tag.</summary>
+    public static bool HasNonRetailQualifier(string name) => NonRetailQualifierRegex().IsMatch(name);
+
     // Language patterns (En,Fr,De) or (English)
     [GeneratedRegex(@"\((([A-Z][a-z]{1,2}(-[A-Z]{2})?,?)+)\)")]
     private static partial Regex LanguageCodeRegex();

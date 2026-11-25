@@ -334,7 +334,8 @@ public sealed partial class ConsumerBrowseRepository(
         var releaseNameMatches =
             from game in SearchQuery.MatchGames(context.DatGames.Where(game => !game.IsBios), text)
             join dat in context.DatFiles on game.DatFileId equals dat.Id
-            join source in context.CatalogSources on dat.DatSourceId equals source.Id
+            join datSource in context.DatSources on dat.DatSourceId equals datSource.Id
+            join source in context.CatalogSources on datSource.CatalogSourceId equals source.Id
             join claim in context.CatalogReleaseSources on game.SourceEntryId equals claim.SourceEntryId
             join release in context.MaterializedLibraryReleases on claim.CatalogReleaseId equals release.CatalogReleaseId
             where dat.Lifecycle == "Active" && source.Status == "Active"

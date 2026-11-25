@@ -223,11 +223,17 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         (await Trusted(db, "b")).ShouldBeFalse();
     }
 
-    [Fact]
-    public async Task DiscoverAsync_SteamGridDbTitleYearMatch_RequiresCurrentIgdbAssociation()
+    [Theory]
+    [InlineData(ProviderGameSearchCompleteness.Complete, "35571", null)]
+    [InlineData(ProviderGameSearchCompleteness.ProviderLimited, null, "35571")]
+    public async Task DiscoverAsync_SteamGridDbTitleYearMatch_RequiresCurrentIgdbAssociation(
+        ProviderGameSearchCompleteness completeness, string? trustedId, string? provisionalId)
     {
         await using var db = _database.CreateContext();
         await Seed(db);
+        await AddFamilyRom(db);
+        db.DatRoms.Add(MatchedRom(1));
+        await db.SaveChangesAsync();
         await db.DatGames.Where(game => !game.IsBios).ExecuteUpdateAsync(update => update.SetProperty(game => game.Year, (string?)null));
         var revision = await AddAutomatic(db, "igdb", "3192");
         var igdb = new ProviderGame("3192", "Game", "https://provider.test/game", Releases: [new(1991, "Test")]);
@@ -242,21 +248,31 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         provider.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
         provider.SearchAsync("GAME", Arg.Any<CancellationToken>()).Returns(new ProviderGameSearchResult(
             [new("1", "Game", "https://provider.test/game", Year: 2006), new("35571", "Game", "https://provider.test/game", Year: 1991)],
-            ProviderGameSearchCompleteness.ProviderLimited, 100));
+            completeness, 100));
         var store = CreateFamilyStore(db);
+        var artworkMatches = new TitleProviderMatchStore(db, TimeProvider.System);
         var service = new ProviderIdentityService(store, [provider], [], TimeProvider.System, new EfUnitOfWork(db),
             NullLogger<ProviderIdentityService>.Instance);
 
         await service.DiscoverAsync(1, null, default);
 
-        (await store.ReadTrustedAsync(1, "steamgriddb", default)).ShouldBe("35571");
+        (await store.ReadTrustedAsync(1, "steamgriddb", default)).ShouldBe(trustedId);
+        var authorization = (await artworkMatches.ReadAuthorizationAsync(1, "steamgriddb", default))
+            .ShouldBeOfType<ProviderMatchAuthorizationResult.Authorized>().Match;
+        authorization.GameId.ShouldBe(trustedId ?? provisionalId);
+        authorization.IsProvisional.ShouldBe(provisionalId is not null);
         var snapshot = (await store.ReadAsync(1, default)).ShouldNotBeNull();
-        snapshot.Links.Single(link => link.ProviderId == "steamgriddb").Decision.ShouldNotBeNull()
-            .Dependencies.ShouldNotBeNull().ShouldHaveSingleItem().ShouldBe(new("igdb", "3192", revision));
+        var link = snapshot.Links.Single(link => link.ProviderId == "steamgriddb");
+        link.GameId.ShouldBe(trustedId);
+        var decision = link.Decision.ShouldNotBeNull();
+        decision.ProvisionalGameId.ShouldBe(provisionalId);
+        decision.Dependencies.ShouldNotBeNull().ShouldHaveSingleItem().ShouldBe(new("igdb", "3192", revision));
         var updatedRevision = Guid.NewGuid();
         await states.Where(state => state.ProviderId == "igdb")
             .ExecuteUpdateAsync(update => update.SetProperty(state => state.Revision, updatedRevision));
         (await store.ReadTrustedAsync(1, "steamgriddb", default)).ShouldBeNull();
+        (await artworkMatches.ReadAuthorizationAsync(1, "steamgriddb", default))
+            .ShouldBeOfType<ProviderMatchAuthorizationResult.Blocked>().Reason.ShouldBe(ProviderMatchBlock.NeedsMatch);
     }
 
     [Fact]
