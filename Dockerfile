@@ -8,13 +8,13 @@ ARG TARGETARCH
 ENV GOTOOLCHAIN=local
 ENV CGO_ENABLED=0
 WORKDIR /reader
-ADD --checksum=sha256:d325486112281b0ef24d46e4ffce2fa28472359baf0829751de87de751f1f6cb https://codeload.github.com/MoonlarkStudios/romd-dat-catalogs/tar.gz/f41d480da850f534044d0ee690747af2ab5cd3c5 /tmp/reader.tar.gz
+ADD --checksum=sha256:868784fbc438da9538bde62e1ae51b3549c93fd9c08882eceb3a38bf54ab057d https://codeload.github.com/MoonlarkStudios/romd-dat-catalogs/tar.gz/78a554bc90f667c5846bd308f4ab418b5c63a95b /tmp/reader.tar.gz
 RUN tar -xzf /tmp/reader.tar.gz --strip-components=1 \
     && test "$(go env GOVERSION)" = go1.27.4 \
     && GOOS=linux GOARCH="$TARGETARCH" go build -trimpath -o /out/catalog-reader ./cmd/distribution \
     && echo '6ab3222d28db2d8750c85fab1bfd6583b0fd9649252e24764865057200df7459  trust/1.root.json' | sha256sum -c - \
     && cp trust/1.root.json /out/1.root.json \
-    && printf '{"schemaVersion":1,"module":"github.com/MoonlarkStudios/romd-dat-catalogs","sourceCommit":"f41d480da850f534044d0ee690747af2ab5cd3c5","binarySha256":"%s","goVersion":"go1.27.4"}\n' "$(sha256sum /out/catalog-reader | cut -d ' ' -f 1)" > /out/catalog-reader.json
+    && printf '{"schemaVersion":1,"module":"github.com/MoonlarkStudios/romd-dat-catalogs","sourceCommit":"78a554bc90f667c5846bd308f4ab418b5c63a95b","binarySha256":"%s","goVersion":"go1.27.4"}\n' "$(sha256sum /out/catalog-reader | cut -d ' ' -f 1)" > /out/catalog-reader.json
 
 # Qualification-only scanner export; govulncheck never enters runtime images.
 # Its module checksums are verified by the Go checksum database and the pins
