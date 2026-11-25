@@ -188,6 +188,10 @@ Provider discovery and database assessment share the current-input fingerprint
 and recursive trust predicate. Automatic trust depends on active, non-BIOS local
 catalog evidence, local name/system, explicit confirmations, matcher version, and
 current bridge association revisions. Provider-enriched dates are excluded.
+For DAT-backed sources, matching reads the active version of each active
+source. Staging a replacement leaves the matching evidence in place. At
+activation, a change to the effective game names or years invalidates
+automatic decisions that used the previous fingerprint.
 Discovery reads facts and fingerprints in a consistent database snapshot. Import
 publication checks trust directly in its existing mutation transaction. The new
 fingerprint encoding invalidates legacy automatic decisions for reassessment;

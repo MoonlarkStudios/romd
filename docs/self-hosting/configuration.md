@@ -30,8 +30,9 @@ The server uses PostgreSQL 18. The current application schema starts with
 `20261118194850_SignInMessage`, `20261120162632_MediaCollection`,
 `20261121030000_ImportOutcomeReasons`, `20261121040529_ServerImportInbox`,
 `20261121060000_RemoveServerImportFileHistory`,
-`20261121200000_LibraryPublicationOutcome`, and
-`20261123000000_DatParentDeclarations` migrations (readiness version 83).
+`20261121200000_LibraryPublicationOutcome`,
+`20261123000000_DatParentDeclarations`, and
+`20261123010000_ActiveDatProviderIdentity` migrations (readiness version 84).
 The Saturn migration adds distinct nullable observations without backfilling
 or rewriting existing PS1 evidence.
 Earlier migration chains, unversioned populated databases and baseline downgrades
