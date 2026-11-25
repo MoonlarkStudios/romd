@@ -12,6 +12,7 @@ public sealed record ProviderMatchState(string ProviderId, Guid Revision, bool S
     ProviderIdentityDecision? Decision);
 public sealed record TitleProviderMatchFacts(IReadOnlyList<TitleExternalId> Links,
     IReadOnlyList<ProviderMatchState> States, IReadOnlyList<TitleMetadataLayer> Layers);
+public sealed record ProviderMatchChange(bool RequiresRematerialization);
 public sealed record ProviderMatchTitle(int Id, string Name, int PlatformId);
 
 /// <summary>Detached reads and staged match writes. Every staged operation requires the caller's transaction.</summary>
@@ -23,7 +24,7 @@ public interface ITitleProviderMatchStore
     Task<Guid> ReadRevisionAsync(int titleId, string providerId, CancellationToken ct);
     /// <summary>Reads and parses only the requested providers, keeping unrelated persisted data isolated.</summary>
     Task<TitleProviderMatchFacts> ReadFactsAsync(int titleId, IReadOnlyCollection<string> providerIds, CancellationToken ct);
-    Task<ErrorOr<Success>> StageChangeAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
+    Task<ErrorOr<ProviderMatchChange>> StageChangeAsync(int titleId, string providerId, RevisionPrecondition ifMatch,
         ProviderGame? game, bool unlink, CancellationToken ct);
     Task<Guid?> FindPendingEnrichmentAsync(int titleId, CancellationToken ct);
     Task<ProviderMatchTitle> ReadTitleAsync(int titleId, CancellationToken ct);

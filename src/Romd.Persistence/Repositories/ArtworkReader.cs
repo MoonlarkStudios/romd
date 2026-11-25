@@ -73,7 +73,8 @@ public sealed class ArtworkReader(RomdDbContext context) : IArtworkReader
                 join asset in visibleAssets on variant.AssetId equals asset.Id
                 join file in context.Files on variant.FileId equals file.Id
                 where variant.AssetId == assetId && variant.Name == name && variant.ContentVersion == contentVersion
-                select new ArtworkFileReference(file.Sha256, variant.ContentType, asset.IsProvisional))
+                select new ArtworkFileReference(file.Sha256, variant.ContentType, asset.IsProvisional,
+                    asset.ProviderGameId != null || asset.ProviderAssetId != null))
             .SingleOrDefaultAsync(ct);
     }
 }

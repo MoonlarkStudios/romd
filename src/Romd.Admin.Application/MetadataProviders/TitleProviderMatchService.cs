@@ -21,10 +21,12 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
     private readonly IProviderIdentityService? _identities;
     private readonly IProviderIdentityStore? _identityStore;
     private readonly IArtworkCompletionStore? _completion;
+    private readonly ProviderContributionRematerializer _contributions;
 
     public TitleProviderMatchService(ITitleProviderMatchStore store,
         IEnumerable<IProviderIdentityAdapter> adapters, IUnitOfWork unitOfWork, TimeProvider clock,
-        ILogger<TitleProviderMatchService> logger, IProviderIdentityService? identities = null,
+        ILogger<TitleProviderMatchService> logger, ProviderContributionRematerializer contributions,
+        IProviderIdentityService? identities = null,
         IProviderIdentityStore? identityStore = null, IArtworkCompletionStore? completion = null)
     {
         _store = store;
@@ -32,6 +34,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
         _unitOfWork = unitOfWork;
         _clock = clock;
         _logger = logger;
+        _contributions = contributions;
         _identities = identities;
         _identityStore = identityStore;
         _completion = completion;
@@ -180,6 +183,8 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
             var changed = await _store.StageChangeAsync(titleId, provider.Adapter.Id, ifMatch, game, unlink, token);
             if (changed.IsError)
                 return changed.Errors;
+            if (changed.Value.RequiresRematerialization)
+                await _contributions.StageAsync(titleId, token);
             Guid? pendingJobId = unlink ? null : await QueueFollowUpAsync(titleId, token);
             await _unitOfWork.FlushAsync(token);
             return BuildRow(provider.Adapter, provider.Availability,
