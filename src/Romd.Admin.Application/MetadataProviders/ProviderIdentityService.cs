@@ -127,7 +127,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                     };
                 else if (artworkSearch)
                 {
-                    var release = found.Value.Consistent
+                    var release = found.Value is { Complete: true, Consistent: true }
                         ? ArtworkReleaseMatchPolicy.Select(snapshot.Facts, ranked, trustedPlatformYears, trustedGame?.Year)
                         : null;
                     if (release is not null)

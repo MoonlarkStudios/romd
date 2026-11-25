@@ -147,6 +147,23 @@ public sealed class ArtworkPersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task FindVariantAsync_PermanentAssetLosesEligibility_HidesStoredVariant()
+    {
+        await using var db = _database.CreateContext();
+        await SeedAsync(db);
+        db.ArtworkAssets.Add(Asset(1, "steamgriddb", "grid-a"));
+        await db.SaveChangesAsync();
+        var reader = new ArtworkReader(db);
+
+        (await reader.FindVariantAsync(1, "card", "card-content-v1")).ShouldNotBeNull().Sha256.ShouldBe(Hash(2));
+        await db.ArtworkAssets.Where(asset => asset.Id == 1)
+            .ExecuteUpdateAsync(update => update.SetProperty(asset => asset.IsEligible, false));
+
+        (await db.ArtworkVariants.AnyAsync(variant => variant.AssetId == 1 && variant.Name == "card")).ShouldBeTrue();
+        (await reader.FindVariantAsync(1, "card", "card-content-v1")).ShouldBeNull();
+    }
+
+    [Fact]
     public async Task ResolveAsync_ReopenedContextAfterPreferenceChange_PreservesPersistedPin()
     {
         await using (var db = _database.CreateContext())
