@@ -65,7 +65,8 @@ public sealed partial class ProviderIdentityDatabaseTests
         var artwork = new ArtworkReader(db);
         var gallery = new ArtworkCurationRepository(db, TimeProvider.System);
         (await artwork.FindVariantAsync(1, "large", "v1")).ShouldNotBeNull().IsProvisional.ShouldBe(isProvisional);
-        (await gallery.GetGalleryAsync(1, default)).Value.ShouldHaveSingleItem();
+        (await artwork.ResolveAsync([1]))[1].Single(value => value.Role == ArtworkRole.Poster).Asset.ShouldNotBeNull().Id.ShouldBe(1);
+        (await gallery.GetGalleryAsync(1, default)).Value.Count.ShouldBe(isProvisional ? 0 : 1);
 
         switch (scenario)
         {
@@ -88,6 +89,7 @@ public sealed partial class ProviderIdentityDatabaseTests
         (await authorization.ReadAuthorizationAsync(1, "steamgriddb", default))
             .ShouldBeOfType<ProviderMatchAuthorizationResult.Blocked>().Reason.ShouldBe(ProviderMatchBlock.NeedsMatch);
         (await artwork.FindVariantAsync(1, "large", "v1")).ShouldBeNull();
+        (await artwork.ResolveAsync([1]))[1].Single(value => value.Role == ArtworkRole.Poster).Asset.ShouldBeNull();
         (await gallery.GetGalleryAsync(1, default)).Value.ShouldBeEmpty();
         if (scenario != "IGDB revision changed")
         {
