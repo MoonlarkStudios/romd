@@ -51,9 +51,9 @@ ROMD invokes the companion repository's `distribution candidate` command using
 URLs, root, or catalog identity. This reuses go-tuf/v2 verification rather than
 introducing a second TUF implementation. The standard admin, admin-dev, and worker Docker
 targets include the reader built from
-[reviewed companion revision `f41d480`](https://github.com/MoonlarkStudios/romd-dat-catalogs/commit/f41d480da850f534044d0ee690747af2ab5cd3c5).
+[companion revision `78a554b`](https://github.com/MoonlarkStudios/romd-dat-catalogs/commit/78a554bc90f667c5846bd308f4ab418b5c63a95b).
 The Go build image, source archive, and original public trust root are pinned by
-hash. ROMD builds that reviewed source with the security-serviced Go 1.27.3
+hash. ROMD builds the pinned source with the security-serviced Go 1.27.4
 compiler; the pinned source revision and public trust root remain independent
 of that compiler patch. The build verifies the compiler version and records it
 with the resulting binary hash. Only the static binary
@@ -86,6 +86,9 @@ Supply the pinned public root independently of the download site. The reader
 retains TUF metadata under `Romd:DataDirectory/dat-subscriptions`; do not reset
 that cache to bypass expiry or rollback rejection. Cache identity includes the
 root bytes and publisher location. An OS lock serializes access; keep lock files.
+The reader retries temporary HTTP failures, including HTTP 503 after mirror
+publishing, up to three times per request. Each retry uses the same URL and trust
+cache. Signature, expiry, rollback, and integrity failures still stop the check.
 The process has a two-minute deadline and downloaded candidates are size/hash
 checked again before ROMD's semantic validation.
 
