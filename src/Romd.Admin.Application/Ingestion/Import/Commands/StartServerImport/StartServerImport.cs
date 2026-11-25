@@ -8,14 +8,15 @@ using Romd.Domain.Jobs;
 
 namespace Romd.Admin.Application.Ingestion.Import.Commands.StartServerImport;
 
-public sealed record StartServerImportCommand(Guid? ActorId, Guid? RetryJobId = null) : ICommand<ServerImportResult>;
+public sealed record StartServerImportCommand(Guid? ActorId, Guid? RetryJobId = null, string? ReviewedRevision = null)
+    : ICommand<ServerImportResult>;
 
 public sealed record ServerImportResult(ServerImportView Status, Guid? AcceptedJobId = null);
 
 public sealed class StartServerImportCommandHandler(
     IServerImportOptions options, IServerImportSource source, IServerImportStore store, IUnitOfWork work,
     IJobWorkspaceExclusion exclusion, IPathImportPreparation preparation, IUploadJobAcceptance acceptance,
-    TimeProvider clock, ILogger<StartServerImportCommandHandler> logger)
+    ServerImportRetryPlanner retryPlanner, TimeProvider clock, ILogger<StartServerImportCommandHandler> logger)
     : ICommandHandler<StartServerImportCommand, ServerImportResult>
 {
     public async Task<ErrorOr<ServerImportResult>> HandleAsync(
@@ -23,6 +24,11 @@ public sealed class StartServerImportCommandHandler(
     {
         if (options.ServerImportDirectory is not { } directory)
             return Error.NotFound("Import.ServerDirectoryDisabled", "A server import folder has not been configured.");
+
+        if (command.RetryJobId == Guid.Empty ||
+            (command.RetryJobId.HasValue && (command.ReviewedRevision is not { Length: 64 } revision || !revision.All(Uri.IsHexDigit))) ||
+            (!command.RetryJobId.HasValue && command.ReviewedRevision is not null))
+            return Error.Validation("Import.InvalidRetryReview", "Provide a job and its reviewed revision together to retry an import.");
 
         if (command.RetryJobId is null)
         {
@@ -32,7 +38,7 @@ public sealed class StartServerImportCommandHandler(
         }
 
         var startedAt = clock.GetUtcNow();
-        var scan = source.Scan(directory, startedAt, ct);
+        var scan = command.RetryJobId is null ? source.Scan(directory, startedAt, ct) : default;
         var jobId = Guid.NewGuid();
         ITransaction? transaction = null;
         IJobWorkspaceLease? lease = null;
@@ -46,15 +52,11 @@ public sealed class StartServerImportCommandHandler(
             await store.AcquireAcceptanceLockAsync(ct);
             var previous = await store.ReadActivityAsync(directory, ct);
             var lastJob = await store.ReadJobAsync(previous?.JobId, ct);
-            if (command.RetryJobId is { } retryId && (lastJob is not { CanRetry: true } || lastJob.Id != retryId))
-            {
-                settled = true;
-                return Error.Conflict("Import.ServerRetryChanged", "Refresh the folder status before retrying its last import.");
-            }
-
             if (lastJob is { IsTerminal: false })
             {
                 settled = true;
+                if (command.RetryJobId.HasValue)
+                    return Error.Conflict("Import.ServerFolderBusy", "An import is already running from this folder. Try again when it finishes.");
                 return new ServerImportResult(ServerImportView.Create(options, clock, previous, lastJob), lastJob.Id);
             }
 
@@ -66,48 +68,60 @@ public sealed class StartServerImportCommandHandler(
             }
 
             var checkedAt = clock.GetUtcNow();
-            if (scan.IsError)
-                return await FinishCheckAsync(ServerImportCheck.Failed, 0, scan.FirstError.Description);
-
-            var snapshot = scan.Value;
             IReadOnlyList<ServerImportFile> candidates;
-            if (command.RetryJobId is { } retry)
+            Guid? correlationId = null;
+            int waitingFiles;
+            string? warning;
+            if (command.RetryJobId is { } retryId)
             {
-                var old = await store.ReadSelectionAsync(retry, ct);
-                var retryFiles = old?.Files.ToHashSet() ?? [];
-                candidates = snapshot.Files.Where(retryFiles.Contains).ToArray();
+                // Observe only saved paths after acquiring the same lock as a normal folder
+                // check. The worker verifies the accepted versions again before and after copy.
+                var review = await retryPlanner.ReviewAsync(directory, retryId, lastJob, ct);
+                if (review.IsError)
+                    return review.Errors;
+                if (!string.Equals(review.Value.Review.Revision, command.ReviewedRevision, StringComparison.Ordinal))
+                    return ImportErrors.RetryChanged();
+
+                candidates = review.Value.Candidates;
+                if (candidates.Count == 0)
+                    return Error.Conflict("Import.NoRetryFiles", "No unchanged originals are ready to retry.");
+                correlationId = review.Value.CorrelationId;
+                waitingFiles = previous?.WaitingFiles ?? 0;
+                warning = null;
             }
             else
             {
-                candidates = await store.FindUnsubmittedFilesAsync(directory, snapshot.Files, ct);
-            }
+                if (scan.IsError)
+                    return await FinishCheckAsync(ServerImportCheck.Failed, 0, scan.FirstError.Description);
 
-            if (candidates.Count == 0)
-            {
-                string? message = command.RetryJobId.HasValue
-                    ? "The files from that import are no longer ready in this folder."
-                    : snapshot.Warning;
-                var check = snapshot.Warning is not null
-                    ? ServerImportCheck.Failed
-                    : snapshot.WaitingFiles > 0
-                        ? ServerImportCheck.WaitingForFiles
-                        : ServerImportCheck.NoNewFiles;
-                return await FinishCheckAsync(check, snapshot.WaitingFiles, message);
+                var snapshot = scan.Value;
+                waitingFiles = snapshot.WaitingFiles;
+                warning = snapshot.Warning;
+                candidates = await store.FindUnsubmittedFilesAsync(directory, snapshot.Files, ct);
+                if (candidates.Count == 0)
+                {
+                    var check = warning is not null
+                        ? ServerImportCheck.Failed
+                        : waitingFiles > 0 ? ServerImportCheck.WaitingForFiles : ServerImportCheck.NoNewFiles;
+                    return await FinishCheckAsync(check, waitingFiles, warning);
+                }
             }
 
             var capacity = source.ValidateCapacity(candidates);
             if (capacity.IsError)
-                return await FinishCheckAsync(ServerImportCheck.Failed, snapshot.WaitingFiles, capacity.FirstError.Description);
+                return command.RetryJobId.HasValue
+                    ? capacity.Errors
+                    : await FinishCheckAsync(ServerImportCheck.Failed, waitingFiles, capacity.FirstError.Description);
 
             string folderName = Path.GetFileName(directory);
             string name = string.IsNullOrEmpty(folderName) ? "Server import folder" : $"{folderName}/";
-            var job = UploadJob.Create(name, checkedAt, createdByUserId: command.ActorId, requestId: jobId);
+            var job = UploadJob.Create(name, checkedAt, createdByUserId: command.ActorId, requestId: jobId, batchId: correlationId);
             job.SetImportSource(directory, move: true);
             lease = await exclusion.AcquireAsync(jobId, ct);
             workspace = await preparation.ReserveAsync(jobId, lease, ct);
 
             var activity = new ServerImportActivity(
-                checkedAt, ServerImportCheck.Queued, snapshot.WaitingFiles, snapshot.Warning, jobId, candidates.Count);
+                checkedAt, ServerImportCheck.Queued, waitingFiles, warning, jobId, candidates.Count);
             await acceptance.AddStagedAsync(job, ct);
             store.StageSelection(jobId, new ServerImportSelection(candidates));
             await store.StageActivityAsync(directory, activity, ct);

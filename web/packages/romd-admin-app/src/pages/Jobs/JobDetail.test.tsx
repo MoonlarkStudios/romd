@@ -365,30 +365,19 @@ it('offers the same exact retry action for a failed finite selection', async () 
 });
 
 it.each([
-  [
-    null,
-    'Back to Upload',
-    '/roms/import',
-  ],
-  [
-    '/srv/inbox',
-    'Open server import folder',
-    '/roms/import?source=server',
-  ],
-  [
-    '/srv/one-off',
-    null,
-    null,
-  ],
-])('shows committed and remaining files with recovery for source %s', (source, label, href) => {
+  null,
+  '/srv/inbox',
+  '/srv/one-off',
+])('shows committed files and source-aware recovery for %s', (source) => {
   state.serverFolder = '/srv/inbox';
-  state.lastServerImport = 'old-job';
+  state.lastServerImport = 'another-job';
   state.job = {
     id: 'old-job',
     correlationId: 'old-job',
     jobType: 'upload',
     sourceFilename: 'batch.zip',
     importSourcePath: source,
+    importMove: !!source,
     phase: 'Failed',
     isTerminal: true,
     progressPercent: 50,
@@ -413,48 +402,25 @@ it.each([
       name: 'Search imported files',
     }),
   ).not.toBeInTheDocument();
-  if (label)
+  if (!source) {
     expect(
       screen.getByRole('link', {
-        name: label,
+        name: 'Back to Upload',
       }),
-    ).toHaveAttribute('href', href);
-  else {
-    expect(screen.getByText('/srv/one-off')).toBeInTheDocument();
+    ).toHaveAttribute('href', '/roms/import');
+  } else {
+    expect(screen.getByText(source)).toBeInTheDocument();
     expect(
       screen.queryByRole('link', {
         name: 'Back to Upload',
       }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', {
-        name: 'Open server import folder',
-      }),
-    ).not.toBeInTheDocument();
   }
-});
-
-it('explains how to recover an older server-folder import without targeting the latest job', () => {
-  state.serverFolder = '/srv/inbox';
-  state.lastServerImport = 'another-job';
-  state.job = {
-    id: 'old-job',
-    correlationId: 'old-job',
-    jobType: 'upload',
-    sourceFilename: 'inbox/',
-    importSourcePath: '/srv/inbox',
-    phase: 'Failed',
-    isTerminal: true,
-    progressPercent: 0,
-    errors: [],
-  };
-  show();
-  expect(screen.getByText(/move the remaining originals into a new subfolder/)).toBeInTheDocument();
-  expect(
-    screen.queryByRole('link', {
-      name: 'Open server import folder',
-    }),
-  ).not.toBeInTheDocument();
+  const retry = screen.queryByRole('button', {
+    name: 'Retry remaining files',
+  });
+  if (source === '/srv/inbox') expect(retry).toBeInTheDocument();
+  else expect(retry).not.toBeInTheDocument();
 });
 
 it.each([
