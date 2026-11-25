@@ -145,9 +145,14 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
         context.Files.Add(new FileEntityPersistence { Id = 1, Sha256 = Sha256.Parse(new string('a', 64)), Size = 1, SizeOnDisk = 1 });
         context.DatFiles.Add(new DatFileEntity
         {
-            Id = 1, DatSourceId = datSourceId, FileId = 1, PlatformId = 1,
-            Name = "Regional releases", Description = "Regional releases",
-            OriginalFilename = "regional.dat", Type = nameof(DatType.Custom)
+            Id = 1,
+            DatSourceId = datSourceId,
+            FileId = 1,
+            PlatformId = 1,
+            Name = "Regional releases",
+            Description = "Regional releases",
+            OriginalFilename = "regional.dat",
+            Type = nameof(DatType.Custom)
         });
         context.SourceEntries.Add(new SourceEntryEntity { Id = 1, CatalogSourceId = catalogSourceId, PlatformId = 1, EntryKey = "regional", Name = alias });
         context.DatGames.Add(new DatGameEntity { Id = 1, DatFileId = 1, SourceEntryId = 1, Name = alias, SearchDocument = SearchDocuments.For(alias, null) });
