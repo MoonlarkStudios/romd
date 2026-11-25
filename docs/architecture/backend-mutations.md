@@ -524,8 +524,18 @@ acceptance. Worker redelivery reads that selection by job ID and checks the
 version before and after copying. Changed files fail the copy with a receipt
 error. Checks compare ready files with existing move-job selections so retained
 files do not queue again on every scheduled check. The folder keeps only the
-last check status, with file selections tied to job retention. A manager can
-explicitly retry remaining files from the latest job when it needs review.
+last check status, with file selections tied to job retention.
+
+Managers can review any retained server-folder job that needs recovery through
+`GET /api/upload/server-folder/retries/{jobId}`. The review classifies the saved
+paths by their current version and includes a binding revision. A retry sends
+`retryJobId` and `reviewedRevision` to `POST /api/upload/server-folder`. Under
+the folder's acceptance lock, the handler checks that the source job belongs
+to the configured folder and re-observes its saved paths. A stale review or
+active folder job returns 409 before acceptance. Accepted retries select only
+unchanged originals and share the original job's correlation ID. The binding
+also covers the folder's latest accepted job, so two confirmations of the same
+review cannot create duplicate jobs.
 
 Acceptance never waits for source bytes or removes originals. After a persisted
 completion, the worker removes each unchanged original with durable storage

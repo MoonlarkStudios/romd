@@ -1,8 +1,10 @@
 import { Alert, Anchor, Button, Code, Group, Stack, Text, Title } from '@mantine/core';
 import type { ServerImportStatus } from '@romd/admin-api-client';
 import { IconFolderUp } from '@tabler/icons-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { importReceiptUrl, serverImportUrl } from '../../components/Import/importReceiptLinks';
+import { ServerImportRetryDialog } from '../../components/Import/ServerImportRetryDialog';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
 import type { useStartServerImport } from '../../hooks/api/useServerImport';
@@ -34,13 +36,15 @@ export function ServerImportFolder({
   start: ReturnType<typeof useStartServerImport>;
   onStarted: (jobId: string, name?: string) => void;
 }) {
-  const check = (retryJobId?: string) => {
-    start.mutate(retryJobId, {
+  const [reviewJobId, setReviewJobId] = useState<string>();
+  const onQueued = (jobId: string) => {
+    const name = status.directory?.split(/[\\/]/).filter(Boolean).at(-1);
+    onStarted(jobId, name);
+  };
+  const check = () => {
+    start.mutate(undefined, {
       onSuccess: (result) => {
-        if ('jobId' in result) {
-          const name = status.directory?.split(/[\\/]/).filter(Boolean).at(-1);
-          onStarted(result.jobId, name);
-        }
+        if ('jobId' in result) onQueued(result.jobId);
       },
     });
   };
@@ -145,7 +149,7 @@ export function ServerImportFolder({
           <Button
             {...workspaceActionProps}
             leftSection={<IconFolderUp size={16} />}
-            loading={start.isPending && !start.variables}
+            loading={start.isPending}
             disabled={start.isPending}
             onClick={() => check()}
           >
@@ -156,9 +160,8 @@ export function ServerImportFolder({
           <Button
             {...workspaceActionProps}
             variant="default"
-            loading={start.isPending && !!start.variables}
             disabled={start.isPending}
-            onClick={() => check(lastJob)}
+            onClick={() => setReviewJobId(lastJob)}
           >
             Retry last import
           </Button>
@@ -176,6 +179,16 @@ export function ServerImportFolder({
           </Anchor>
         )}
       </Group>
+      {reviewJobId && (
+        <ServerImportRetryDialog
+          jobId={reviewJobId}
+          close={() => setReviewJobId(undefined)}
+          accepted={(jobId) => {
+            setReviewJobId(undefined);
+            onQueued(jobId);
+          }}
+        />
+      )}
       {lastImport && (
         <Text
           size="sm"
