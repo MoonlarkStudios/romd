@@ -1,7 +1,6 @@
 using ErrorOr;
 using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Shouldly;
 using Xunit;

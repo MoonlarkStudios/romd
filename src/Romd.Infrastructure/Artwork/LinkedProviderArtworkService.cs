@@ -10,7 +10,6 @@ using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Storage.Files;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Source.Platform;
 
 namespace Romd.Infrastructure.Artwork;

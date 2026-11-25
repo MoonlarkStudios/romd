@@ -5,7 +5,6 @@ using NSubstitute;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Shouldly;
 using Xunit;

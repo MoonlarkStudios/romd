@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using System.Text;
 using ErrorOr;
 using Romd.Application.Common.Concurrency;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Domain.Jobs;
 

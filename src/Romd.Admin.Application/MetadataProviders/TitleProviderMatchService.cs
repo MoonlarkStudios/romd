@@ -6,7 +6,6 @@ using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Application.Common.Concurrency;
 using Romd.Application.Common.Validation;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Jobs;
 
 namespace Romd.Admin.Application.MetadataProviders;

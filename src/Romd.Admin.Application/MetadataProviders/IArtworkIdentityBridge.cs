@@ -1,5 +1,4 @@
 using ErrorOr;
-using Romd.Contracts.Management.MetadataProviders;
 
 namespace Romd.Admin.Application.MetadataProviders;
 

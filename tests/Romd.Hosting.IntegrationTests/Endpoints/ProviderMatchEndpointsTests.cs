@@ -9,10 +9,11 @@ using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Application.Common.Ids;
-using Romd.Contracts.Management.MetadataProviders;
+using Contract = Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Identity;
 using Romd.Hosting.IntegrationTests.Infrastructure;
 using Romd.Persistence;
+using Romd.Persistence.Entities;
 using Shouldly;
 using Xunit;
 
@@ -82,13 +83,45 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         using var response = await client.GetAsync($"/api/titles/{titleId}/provider-matches/{Provider}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        var match = (await response.Content.ReadFromJsonAsync<TitleProviderMatch>())!;
+        var match = (await response.Content.ReadFromJsonAsync<Contract.TitleProviderMatch>())!;
         response.Headers.ETag!.Tag.ShouldBe($"\"{match.Revision}\"");
         response.Headers.ETag.IsWeak.ShouldBeFalse();
         match.PendingJobId.ShouldBeNull();
         using var conditional = new HttpRequestMessage(HttpMethod.Get, $"/api/titles/{titleId}/provider-matches/{Provider}");
         conditional.Headers.TryAddWithoutValidation("If-None-Match", response.Headers.ETag.Tag).ShouldBeTrue();
         (await client.SendAsync(conditional)).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Get_ReviewDecision_PreservesCandidateEvidenceAndDependencies()
+    {
+        await using var host = WithProvider();
+        var titleId = await SeedTitleAsync();
+        var dependency = new Contract.ProviderIdentityDependency("igdb", "3192", Guid.NewGuid());
+        var game = new Contract.ProviderGame("42", "Game", "https://example.com/game", Releases: [new(1991, "Genesis")]);
+        var decision = new Contract.ProviderIdentityDecision("NeedsReview", "Review the artwork match.", "Active DAT",
+            "fingerprint", [new(game, 120, true, ["Release year matches"], ["Edition differs"])], [dependency],
+            new("Game", ["Alternate title"], [1991], ["Genesis"]));
+        await using (var scope = fixture.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+            db.Add(new TitleProviderMatchStateEntity
+            {
+                TitleId = Sqid.Parse(titleId, null).Value,
+                ProviderId = Provider,
+                GameJson = JsonSerializer.Serialize(game),
+                DecisionJson = JsonSerializer.Serialize(decision)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        using var response = await host.Client.GetAsync($"/api/titles/{titleId}/provider-matches/{Provider}");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var match = (await response.Content.ReadFromJsonAsync<Contract.TitleProviderMatch>()).ShouldNotBeNull();
+        match.State.ShouldBe("NeedsReview");
+        JsonSerializer.Serialize(match.Decision).ShouldBe(JsonSerializer.Serialize(decision));
+        response.Headers.ETag!.Tag.ShouldBe($"\"{match.Revision}\"");
     }
 
     [Theory]
@@ -128,7 +161,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         using var set = await client.SendAsync(Request(HttpMethod.Put, path, await ETagAsync(client, titleId),
             new { externalId = "42" }));
         set.StatusCode.ShouldBe(HttpStatusCode.OK, await set.Content.ReadAsStringAsync());
-        var linked = (await set.Content.ReadFromJsonAsync<TitleProviderMatch>())!;
+        var linked = (await set.Content.ReadFromJsonAsync<Contract.TitleProviderMatch>())!;
         set.Headers.ETag!.Tag.ShouldBe($"\"{linked.Revision}\"");
         (linked.State, linked.ExternalId).ShouldBe(("Confirmed", "42"));
         // The write queued the enrichment that applies the match, and rotated the title's revision.
@@ -139,7 +172,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
 
         using var confirm = await client.SendAsync(Request(HttpMethod.Post, $"{path}/confirm", set.Headers.ETag.Tag));
         confirm.StatusCode.ShouldBe(HttpStatusCode.OK, await confirm.Content.ReadAsStringAsync());
-        var confirmed = (await confirm.Content.ReadFromJsonAsync<TitleProviderMatch>())!;
+        var confirmed = (await confirm.Content.ReadFromJsonAsync<Contract.TitleProviderMatch>())!;
         confirm.Headers.ETag!.Tag.ShouldBe($"\"{confirmed.Revision}\"");
         confirmed.Revision.ShouldNotBe(linked.Revision);
 
@@ -149,7 +182,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         // Unlinking answers the unlinked match with its new validator.
         using var unlink = await client.SendAsync(Request(HttpMethod.Delete, path, confirm.Headers.ETag.Tag));
         unlink.StatusCode.ShouldBe(HttpStatusCode.OK, await unlink.Content.ReadAsStringAsync());
-        var unlinked = (await unlink.Content.ReadFromJsonAsync<TitleProviderMatch>())!;
+        var unlinked = (await unlink.Content.ReadFromJsonAsync<Contract.TitleProviderMatch>())!;
         (unlinked.State, unlinked.ExternalId, unlinked.PendingJobId).ShouldBe(("Unlinked", null, null));
         unlink.Headers.ETag!.Tag.ShouldBe($"\"{unlinked.Revision}\"");
         (await ETagAsync(client, titleId)).ShouldBe(unlink.Headers.ETag.Tag);
@@ -303,7 +336,7 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
 
         using var found = await client.GetAsync($"/api/metadata-providers/{Provider}/game-resolution?input=42");
         found.StatusCode.ShouldBe(HttpStatusCode.OK, await found.Content.ReadAsStringAsync());
-        (await found.Content.ReadFromJsonAsync<ProviderGame>())!.Id.ShouldBe("42");
+        (await found.Content.ReadFromJsonAsync<Contract.ProviderGame>())!.Id.ShouldBe("42");
         using var unknown = await client.GetAsync("/api/metadata-providers/no-such-provider/games?query=Metroid");
         using (await ProblemEnvelope.ReadAsync(unknown, 404, "ProviderMatch.UnknownProvider"))
         { }
@@ -328,7 +361,9 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         {
             query.ShouldBe("Game");
             searched++;
-            return new ProviderGameSearchResult([new("42", "Game", "https://example.com/game")], completeness, 500);
+            var game = new ProviderGame("42", "Game", "https://example.com/game", "https://example.com/thumb",
+                1991, ["Genesis"], ["Alternate title"], [new(1992, "Mega Drive")]);
+            return new ProviderGameSearchResult([game], completeness, 500);
         });
 
         using var response = await host.Client.GetAsync($"/api/metadata-providers/{Provider}/games?query=Game");
@@ -337,7 +372,16 @@ public sealed class ProviderMatchEndpointsTests(IntegrationTestFixture fixture)
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         body.RootElement.GetProperty("completeness").GetString().ShouldBe(completeness.ToString());
         body.RootElement.GetProperty("limit").GetInt32().ShouldBe(500);
-        body.RootElement.GetProperty("items").EnumerateArray().ShouldHaveSingleItem().GetProperty("id").GetString().ShouldBe("42");
+        var game = body.RootElement.GetProperty("items").EnumerateArray().ShouldHaveSingleItem()
+            .Deserialize<Contract.ProviderGame>(new JsonSerializerOptions(JsonSerializerDefaults.Web)).ShouldNotBeNull();
+        game.Id.ShouldBe("42");
+        game.Name.ShouldBe("Game");
+        game.Url.ShouldBe("https://example.com/game");
+        game.ThumbnailUrl.ShouldBe("https://example.com/thumb");
+        game.Year.ShouldBe(1991);
+        game.Platforms.ShouldBe(["Genesis"]);
+        game.Aliases.ShouldBe(["Alternate title"]);
+        game.Releases.ShouldBe([new(1992, "Mega Drive")]);
         searched.ShouldBe(1);
         resolved.ShouldBe(0);
     }

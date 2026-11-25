@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Romd.Admin.Application.Catalog;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Application.Common.Concurrency;
-using Romd.Contracts.Management.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Domain.Jobs;
 using Romd.Persistence.Entities;

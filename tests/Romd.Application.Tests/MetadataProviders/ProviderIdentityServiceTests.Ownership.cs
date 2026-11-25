@@ -2,7 +2,6 @@ using ErrorOr;
 using NSubstitute;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
-using Romd.Contracts.Management.MetadataProviders;
 using Shouldly;
 using Xunit;
 
