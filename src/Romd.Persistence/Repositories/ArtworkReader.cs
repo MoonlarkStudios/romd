@@ -70,10 +70,9 @@ public sealed class ArtworkReader(RomdDbContext context) : IArtworkReader
     {
         var visibleAssets = context.ArtworkAssets.AvailableForPresentation();
         return (from variant in context.ArtworkVariants.AsNoTracking()
-                join asset in context.ArtworkAssets on variant.AssetId equals asset.Id
+                join asset in visibleAssets on variant.AssetId equals asset.Id
                 join file in context.Files on variant.FileId equals file.Id
-                where variant.AssetId == assetId && variant.Name == name && variant.ContentVersion == contentVersion &&
-                    (!asset.IsProvisional || visibleAssets.Any(a => a.Id == asset.Id))
+                where variant.AssetId == assetId && variant.Name == name && variant.ContentVersion == contentVersion
                 select new ArtworkFileReference(file.Sha256, variant.ContentType, asset.IsProvisional))
             .SingleOrDefaultAsync(ct);
     }
