@@ -3,6 +3,7 @@ namespace Romd.Consumer.Application.Activity;
 /// <summary>
 ///     Application-owned transaction boundary for a play-session upsert.
 ///     Implementations serialize mutations for one user so duplicate client retries remain safe.
+///     The resolved title of an accessible release remains stable through commit.
 /// </summary>
 public interface IPlayActivityUnitOfWork
 {

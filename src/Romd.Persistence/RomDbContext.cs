@@ -68,6 +68,7 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
     public DbSet<PlatformAliasEntity> PlatformAliases => Set<PlatformAliasEntity>();
     public DbSet<TitleEntity> Titles => Set<TitleEntity>();
     public DbSet<TitleLookupNameEntity> TitleLookupNames => Set<TitleLookupNameEntity>();
+    internal DbSet<TitleMergeRedirectEntity> TitleMergeRedirects => Set<TitleMergeRedirectEntity>();
     public DbSet<TrackedTitleEntity> TrackedTitles => Set<TrackedTitleEntity>();
     public DbSet<ArtworkAssetEntity> ArtworkAssets => Set<ArtworkAssetEntity>();
     public DbSet<ArtworkVariantEntity> ArtworkVariants => Set<ArtworkVariantEntity>();
@@ -181,6 +182,7 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
         PlatformAliasEntity.Configure(modelBuilder.Entity<PlatformAliasEntity>());
         TitleEntity.Configure(modelBuilder.Entity<TitleEntity>());
         TitleLookupNameEntity.Configure(modelBuilder.Entity<TitleLookupNameEntity>());
+        TitleMergeRedirectEntity.Configure(modelBuilder.Entity<TitleMergeRedirectEntity>());
         TrackedTitleEntity.Configure(modelBuilder.Entity<TrackedTitleEntity>());
         ArtworkExclusionEntity.Configure(modelBuilder.Entity<ArtworkExclusionEntity>());
         ArtworkAssetEntity.Configure(modelBuilder.Entity<ArtworkAssetEntity>());

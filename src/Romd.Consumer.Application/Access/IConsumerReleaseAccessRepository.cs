@@ -20,4 +20,10 @@ public interface IConsumerReleaseAccessRepository
     Task<ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>> GetAccessAsync(
         ConsumerReleaseAccessRequest request,
         CancellationToken ct = default);
+
+    // Resolve a title from an offline play-session request inside its write transaction.
+    Task<ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>> GetPlaySessionAccessAsync(
+        ConsumerReleaseAccessRequest request,
+        int requestedTitleId,
+        CancellationToken ct = default);
 }

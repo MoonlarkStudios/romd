@@ -4539,6 +4539,24 @@ namespace Romd.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleMergeRedirectEntity", b =>
+                {
+                    b.Property<int>("SourceTitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TargetTitleId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("SourceTitleId");
+
+                    b.HasIndex("TargetTitleId");
+
+                    b.ToTable("TitleMergeRedirects", "romd", t =>
+                        {
+                            t.HasCheckConstraint("CK_TitleMergeRedirects_DistinctTitles", "\"SourceTitleId\" <> \"TargetTitleId\"");
+                        });
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.TitleMetadataLayerEntity", b =>
                 {
                     b.Property<int>("Id")
@@ -6110,6 +6128,15 @@ namespace Romd.Persistence.Migrations
                     b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
                         .WithMany("Media")
                         .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.TitleMergeRedirectEntity", b =>
+                {
+                    b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TargetTitleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

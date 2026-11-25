@@ -147,6 +147,8 @@ public sealed class PersistenceBoundaryArchitectureTests
             "GetPublishedVersionAsync",
             CommandText),
         Sql(Persistence + "CatalogTopologyFence.cs", "CatalogTopologyFence", "AcquireAsync", "ExecuteSqlAsync"),
+        // Consumer play writes hold a shared topology fence through authorization and commit.
+        Sql(Persistence + "CatalogTopologyFence.cs", "CatalogTopologyFence", "AcquireSharedAsync", "ExecuteSqlAsync"),
         // Parameterized collection row lock serializes item mutations before membership is read.
         Sql(Persistence + "Repositories/CollectionRepository.cs", "CollectionRepository", "LockForItemMutationStagedAsync", "SqlQuery"),
         // Parameterized visible-job root lock revalidates cancellation under the caller's transaction.

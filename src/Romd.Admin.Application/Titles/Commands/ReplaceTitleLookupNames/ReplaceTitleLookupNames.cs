@@ -19,12 +19,47 @@ public sealed class ReplaceTitleLookupNamesCommandHandler(ITitleLookupNameStore 
 
     public async Task<ErrorOr<TitleLookupNameSnapshot>> HandleAsync(ReplaceTitleLookupNamesCommand command, CancellationToken ct = default)
     {
-        if (command.Names is null || command.Names.Count > MaxNames)
+        var input = command.Names;
+        if (input is null)
             return CatalogErrors.InvalidLookupNames($"Supply at most {MaxNames} lookup names.");
 
-        var names = new List<TitleLookupName>(command.Names.Count);
+        List<TitleLookupName>? prepared = null;
+        if (input.Count <= MaxNames)
+        {
+            var valid = NormalizeNames(input);
+            if (valid.IsError)
+                return valid.Errors;
+            prepared = valid.Value;
+        }
+
+        return await unitOfWork.ExecuteInTransactionAsync<TitleLookupNameSnapshot>(async token =>
+        {
+            var revision = await titleLock.LockRevisionAsync(command.TitleId, token);
+            if (revision is null)
+                return CatalogErrors.TitleNotFound();
+            if (!command.IfMatch.IsSatisfiedBy(revision.Value))
+                return CatalogErrors.TitlePreconditionFailed();
+            var names = prepared;
+            if (names is null)
+            {
+                // Grouping preserves existing names. Check the locked count before processing an oversized edit.
+                int maximum = Math.Max(MaxNames, await store.CountAsync(command.TitleId, token));
+                if (input.Count > maximum)
+                    return CatalogErrors.InvalidLookupNames($"Supply at most {maximum} lookup names for this title.");
+                var valid = NormalizeNames(input);
+                if (valid.IsError)
+                    return valid.Errors;
+                names = valid.Value;
+            }
+            return await store.StageReplacementAsync(command.TitleId, revision.Value, names, token);
+        }, logger, ct);
+    }
+
+    private static ErrorOr<List<TitleLookupName>> NormalizeNames(IReadOnlyList<string> input)
+    {
+        var names = new List<TitleLookupName>(input.Count);
         var documents = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var value in command.Names)
+        foreach (var value in input)
         {
             var name = value?.Trim();
             if (string.IsNullOrEmpty(name) || name.Length > MaxNameLength || name.Any(char.IsControl))
@@ -37,14 +72,6 @@ public sealed class ReplaceTitleLookupNamesCommandHandler(ITitleLookupNameStore 
             names.Add(new(name, document));
         }
 
-        return await unitOfWork.ExecuteInTransactionAsync<TitleLookupNameSnapshot>(async token =>
-        {
-            var revision = await titleLock.LockRevisionAsync(command.TitleId, token);
-            if (revision is null)
-                return CatalogErrors.TitleNotFound();
-            if (!command.IfMatch.IsSatisfiedBy(revision.Value))
-                return CatalogErrors.TitlePreconditionFailed();
-            return await store.StageReplacementAsync(command.TitleId, revision.Value, names, token);
-        }, logger, ct);
+        return names;
     }
 }

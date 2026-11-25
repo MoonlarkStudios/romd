@@ -4,6 +4,9 @@ public interface ITitleLookupNameStore
 {
     Task<TitleLookupNameSnapshot?> ReadAsync(int titleId, CancellationToken cancellationToken);
 
+    /// <summary>Counts the existing names after the caller locks the title revision.</summary>
+    Task<int> CountAsync(int titleId, CancellationToken cancellationToken);
+
     /// <summary>Replaces names inside the caller's transaction after it locks the title revision.</summary>
     Task<TitleLookupNameSnapshot> StageReplacementAsync(int titleId, Guid currentRevision,
         IReadOnlyList<TitleLookupName> names, CancellationToken cancellationToken);

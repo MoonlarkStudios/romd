@@ -4,7 +4,7 @@ namespace Romd.Admin.Application.MetadataProviders;
 
 internal static class ArtworkReleaseMatchPolicy
 {
-    internal const string Version = "steamgriddb-title-year-2";
+    internal const string Version = "steamgriddb-title-year-3";
 
     internal static ProviderIdentityCandidate? Select(IdentityFacts facts,
         IReadOnlyList<ProviderIdentityCandidate> candidates, IReadOnlyList<int> trustedPlatformYears, int? trustedFirstReleaseYear)
