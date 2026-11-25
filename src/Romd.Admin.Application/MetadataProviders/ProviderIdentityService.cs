@@ -52,7 +52,8 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                     steamGridDb && priorDecision.ArtworkReleasePolicyVersion != ArtworkReleaseMatchPolicy.Version);
             if (!needsPolicyEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
                 && link.LastAttempt > clock.GetUtcNow() - delay &&
-                (!steamGridDb || igdbDependency == cachedIgdbDependency && link.Decision?.EvaluatedDatParent == parent?.Match))
+                (!steamGridDb || igdbDependency == cachedIgdbDependency && link.Decision?.EvaluatedDatParent == parent?.Match &&
+                    (link.Decision?.EvaluatedArtworkPlatformAliases ?? []).SequenceEqual(snapshot.ArtworkPlatformAliases)))
                 continue;
             ArtworkBridgeMatch? bridged = null;
             ProviderIdentityDependency? dependency = igdbDependency;
@@ -115,8 +116,12 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 var trustedPlatformYears = trustedGame is not null
                     ? PlatformYears(trustedGame, snapshot.Facts.Platforms).Where(year => year is >= 1900 and <= 2200).ToArray()
                     : [];
-                if (trustedPlatformYears.Length > 0)
-                    ranked = RankArtworkReviewByPlatformYear(ranked, trustedPlatformYears);
+                var aliasReleases = trustedGame?.Releases?.Where(release => release.Year is >= 1900 and <= 2200 &&
+                    !trustedPlatformYears.Contains(release.Year.Value) && snapshot.ArtworkPlatformAliases.Any(alias =>
+                        string.Equals(alias.Name, release.Platform, StringComparison.OrdinalIgnoreCase))).ToArray() ?? [];
+                var artworkYears = trustedPlatformYears.Concat(aliasReleases.Select(release => release.Year!.Value)).Distinct().ToArray();
+                if (artworkYears.Length > 0)
+                    ranked = RankArtworkReviewByPlatformYear(ranked, artworkYears);
                 decision = new(evaluation.State, evaluation.Explanation, snapshot.Facts.Provenance, snapshot.Fingerprint,
                     ranked, dependency is null ? [] : [dependency]);
                 if (datRequiresReview)
@@ -128,18 +133,21 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 else if (artworkSearch)
                 {
                     var release = found.Value is { Complete: true, Consistent: true }
-                        ? ArtworkReleaseMatchPolicy.Select(snapshot.Facts, ranked, trustedPlatformYears, trustedGame?.Year)
+                        ? ArtworkReleaseMatchPolicy.Select(snapshot.Facts, ranked, artworkYears, trustedGame?.Year)
                         : null;
                     if (release is not null)
                     {
                         accepted = release.Game;
-                        var yearSource = snapshot.Facts.Years.Count > 0 ? "local catalog evidence" : "the trusted IGDB release on the local platform";
+                        var alias = aliasReleases.FirstOrDefault(entry => entry.Year == release.Game.Year)?.Platform;
+                        var yearSource = alias is not null ? $"the trusted IGDB release on {alias}, a ROMD system alias" :
+                            snapshot.Facts.Years.Count > 0 ? "local catalog evidence" : "the trusted IGDB release on the local platform";
                         decision = decision with
                         {
                             State = "AutoAccepted",
                             Explanation = $"SteamGridDB returned a single matching title for {accepted.Year}, supported by {yearSource}.",
                             Candidates = [release, .. ranked.Where(candidate => candidate.Game.Id != release.Game.Id)],
-                            Dependencies = trustedPlatformYears.Length == 0 ? [] : decision.Dependencies
+                            Dependencies = artworkYears.Length == 0 ? [] : decision.Dependencies,
+                            ArtworkPlatformAliases = aliasReleases.Length > 0 ? snapshot.ArtworkPlatformAliases : null
                         };
                     }
                     else if (evaluation is IdentityDecision.AutoAccepted)
@@ -153,12 +161,19 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 {
                     var provisionalGameId = decision.State == "NeedsReview" && found.Value.Consistent && link?.GameId is null &&
                         snapshot.DatFamily is { RequiresReview: false }
-                        ? ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates, trustedPlatformYears)
+                        ? ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates, artworkYears)
+                        : null;
+                    var provisionalAlias = provisionalGameId is not null
+                        ? aliasReleases.FirstOrDefault(release => release.Year == decision.Candidates[0].Game.Year)?.Platform
                         : null;
                     decision = decision with
                     {
                         ProvisionalGameId = provisionalGameId,
-                        ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version
+                        ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version,
+                        ArtworkPlatformAliases = provisionalAlias is not null ? snapshot.ArtworkPlatformAliases : decision.ArtworkPlatformAliases,
+                        Explanation = provisionalAlias is not null
+                            ? $"The trusted IGDB release on {provisionalAlias}, a ROMD system alias, supports this artwork provisionally. {decision.Explanation}"
+                            : decision.Explanation
                     };
                 }
             }
@@ -190,7 +205,9 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms),
                 ArtworkReleasePolicyVersion = steamGridDb ? ArtworkReleaseMatchPolicy.Version : null,
                 DatParentMatch = accepted is not null ? inherited : null,
-                EvaluatedDatParent = parent?.Match
+                EvaluatedDatParent = parent?.Match,
+                EvaluatedArtworkPlatformAliases = steamGridDb && snapshot.ArtworkPlatformAliases.Count > 0
+                    ? snapshot.ArtworkPlatformAliases : null
             };
             await PersistDecisionAsync(snapshot, adapter.Id, link?.Revision ?? Guid.Empty, decision, accepted, owner, ct);
         }

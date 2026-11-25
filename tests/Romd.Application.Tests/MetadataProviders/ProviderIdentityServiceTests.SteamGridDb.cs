@@ -215,7 +215,7 @@ public sealed partial class ProviderIdentityServiceTests
             [], cachedDependencies)
         {
             ProvisionalPolicyVersion = scenario == "previous provisional policy" ? null : ProvisionalProviderMatchPolicy.Version,
-            ArtworkReleasePolicyVersion = scenario == "previous artwork policy" ? "steamgriddb-title-year-1" : "steamgriddb-title-year-2"
+            ArtworkReleasePolicyVersion = scenario == "previous artwork policy" ? "steamgriddb-title-year-2" : "steamgriddb-title-year-3"
         };
         var service = CreateSonicSteamGridDb([SonicGame("2", 1991)],
             [igdb with { Trusted = scenario != "lost trust" },
