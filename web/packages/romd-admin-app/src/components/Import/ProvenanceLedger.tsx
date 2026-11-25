@@ -62,12 +62,12 @@ function NextStep({
   item,
   destination,
   canRoute,
-  retryUrl,
+  canUploadAgain,
 }: {
   item: JobItem;
   destination: (path: string) => string;
   canRoute: boolean;
-  retryUrl: string | null;
+  canUploadAgain: boolean;
 }) {
   if (item.currentStatus === 'Unavailable')
     return (
@@ -163,13 +163,13 @@ function NextStep({
     return (
       <Stack gap={4}>
         <Text size="sm">{guidance}</Text>
-        {retryUrl && (
+        {canUploadAgain && (
           <Anchor
             component={Link}
             size="sm"
-            to={retryUrl}
+            to={uploadImportUrl}
           >
-            {retryUrl === uploadImportUrl ? 'Back to Upload' : 'Open server import folder'}
+            Back to Upload
           </Anchor>
         )}
       </Stack>
@@ -221,11 +221,11 @@ function NextStep({
 export function ProvenanceLedger({
   jobId,
   addressable = false,
-  retryUrl = uploadImportUrl,
+  canUploadAgain = true,
 }: {
   jobId: string;
   addressable?: boolean;
-  retryUrl?: string | null;
+  canUploadAgain?: boolean;
 }) {
   const location = useLocation();
   const { canManageTitles } = usePermissions();
@@ -468,7 +468,7 @@ export function ProvenanceLedger({
                           item={item}
                           destination={destination}
                           canRoute={canManageTitles}
-                          retryUrl={retryUrl}
+                          canUploadAgain={canUploadAgain}
                         />
                       </Table.Td>
                     </Table.Tr>
