@@ -56,13 +56,11 @@ internal static class PathImportFiles
         var files = ImmutableArray.CreateBuilder<ImportFile>(selection.Files.Count);
         foreach (var file in selection.Files)
         {
-            string path = Path.GetFullPath(Path.Combine(root, file.RelativePath));
-            string relative = Path.GetRelativePath(root, path);
-            if (!string.Equals(relative, file.RelativePath, StringComparison.Ordinal) || relative == ".." ||
-                relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            string? path = ResolveSelectionPath(root, file.RelativePath);
+            if (path is null)
                 return Error.Validation("Import.InvalidSelection", "A saved import file is outside the configured folder.");
 
-            files.Add(new ImportFile(path, relative, file.Bytes) { LastWriteTimeUtc = file.LastWriteUtc });
+            files.Add(new ImportFile(path, file.RelativePath, file.Bytes) { LastWriteTimeUtc = file.LastWriteUtc });
         }
 
         var capacity = CheckCapacity(dataDirectory, fileSystem, files.Count, files.Sum(file => file.SizeBytes));
@@ -71,6 +69,19 @@ internal static class PathImportFiles
 
         return new InspectedPathImport(Path.GetFullPath(dataDirectory), sourcePath, allowed.Value, files.MoveToImmutable(),
             new PathImportFacts(root, $"{Path.GetFileName(root)}/", selection.Files.Count, []), VerifyFileVersions: true);
+    }
+
+    internal static string? ResolveSelectionPath(string root, string relativePath)
+    {
+        if (Path.IsPathRooted(relativePath))
+            return null;
+
+        string path = Path.GetFullPath(relativePath, root);
+        string relative = Path.GetRelativePath(root, path);
+        return !string.Equals(relative, relativePath, StringComparison.Ordinal) || relative is "." or ".." ||
+            relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            ? null
+            : path;
     }
 
     internal static ErrorOr<Success> CheckCapacity(string dataDirectory, IFileSystem fileSystem, int count, long bytes)
