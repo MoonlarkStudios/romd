@@ -574,6 +574,7 @@ public static class DependencyInjection
         services.AddScoped<IImportFolderBrowser, Import.ImportFolderBrowser>();
         services.AddScoped<IPathImportPreparation, Import.PathImportPreparation>();
         services.AddScoped<IServerImportSource, Import.ServerImportSource>();
+        services.AddScoped<ServerImportRetryPlanner>();
         services.AddScoped<IEnrichmentJobEnqueuer, EnrichmentJobEnqueuer>();
         services.AddScoped<IRematerializationScheduler, RematerializationScheduler>();
         services.AddScoped<MetadataRematerializationJobRepository>();
