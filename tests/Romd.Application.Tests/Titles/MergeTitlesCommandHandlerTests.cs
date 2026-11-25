@@ -56,6 +56,8 @@ public sealed partial class MergeTitlesCommandHandlerTests
             .Do(_ => operationOrder.Add("assignment"));
         unitOfWork.When(work => work.FlushAsync(Arg.Any<CancellationToken>()))
             .Do(_ => operationOrder.Add("flush"));
+        titlesMerge.When(store => store.ReassignTitleReferencesAsync(101, 202, Arg.Any<CancellationToken>()))
+            .Do(_ => operationOrder.Add("move-references"));
         titlesMerge.When(store => store.DeleteAbsorbedSourceAsync(101, Arg.Any<CancellationToken>()))
             .Do(_ => operationOrder.Add("delete-source"));
         rematerialization
@@ -91,7 +93,7 @@ public sealed partial class MergeTitlesCommandHandlerTests
         await trackedTitles.Received(1).ConsolidateAsync(101, 202, Arg.Any<CancellationToken>());
         await titlesMerge.Received(1).DeleteAbsorbedSourceAsync(101, Arg.Any<CancellationToken>());
         await transaction.Received(1).CommitAsync(Arg.Any<CancellationToken>());
-        operationOrder.ShouldBe(["assignment", "flush", "delete-source", "schedule", "flush", "commit"]);
+        operationOrder.ShouldBe(["assignment", "flush", "move-references", "delete-source", "schedule", "flush", "commit"]);
         await projection.Received(1).RebuildPlatformAsync(7, Arg.Any<CancellationToken>());
         await libraries.Received(1).FlagForRematerializationByPlatformAsync(7, Arg.Any<CancellationToken>());
     }
@@ -193,6 +195,19 @@ public sealed partial class MergeTitlesCommandHandlerTests
         result.Value.Revision.ShouldBe(merged.ToString());
         result.Value.Description.ShouldBe(writerCommittedAfter ? "Merged" : "Regrouped");
         await titlesDetails.Received(2).GetDetailAsync(202, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_StaleDatGroupingEvidence_RejectsBeforeMovingPlayerOrReleaseReferences()
+    {
+        var (handler, merge, _) = CreateHandler(NewTitle(101, 7, "Clone"), NewTitle(202, 7, "Parent"));
+        merge.ValidateDatGroupingAsync(101, 202, "previous evidence", Arg.Any<CancellationToken>()).Returns(false);
+
+        var result = await handler.HandleAsync(new MergeTitlesCommand(101, 202, Current, Guid.Empty.ToString(), "previous evidence"));
+
+        result.FirstError.ShouldBe(CatalogErrors.DatGroupingChanged());
+        await merge.DidNotReceive().ApplyMergeStagedAsync(Arg.Any<Title>(), Arg.Any<Title>(), Arg.Any<CancellationToken>());
+        await merge.DidNotReceive().ReassignTitleReferencesAsync(101, 202, Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -19,6 +19,7 @@ public sealed class PlayActivityUnitOfWork(RomdDbContext context) : IPlayActivit
             await context.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT pg_advisory_xact_lock(hashtextextended({userId.ToString()}, 0))",
                 ct);
+            await CatalogTopologyFence.AcquireSharedAsync(context, ct);
             return new Transaction(transaction, context);
         }
         catch (Exception error)

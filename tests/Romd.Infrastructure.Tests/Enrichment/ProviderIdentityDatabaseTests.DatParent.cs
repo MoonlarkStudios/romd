@@ -5,6 +5,7 @@ using Romd.Admin.Application.MetadataProviders;
 using Romd.Domain.Catalog;
 using Romd.Domain.Hashing;
 using Romd.Persistence;
+using Romd.Persistence.Catalog;
 using Romd.Persistence.Entities;
 using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Repositories;
@@ -16,6 +17,24 @@ namespace Romd.Infrastructure.Tests.Enrichment;
 
 public sealed partial class ProviderIdentityDatabaseTests
 {
+    [Fact]
+    public async Task DatTitleGrouping_ReviewedFamily_VersionBoundAndIndependentOfProviderLinks()
+    {
+        await using var db = _database.CreateContext();
+        await SeedParentFamilyAsync(db, "Streets of Rage 2", "Streets of Rage II (Japan, Europe)");
+        var reader = new DatTitleGroupingReader(db);
+        var review = (await reader.ReadAsync(1, default)).ShouldNotBeNull().Suggestion.ShouldNotBeNull();
+        review.ParentTitleId.ShouldBe(2);
+        review.ReleaseNames.ShouldBe(["Streets of Rage II (Japan, Europe)", "Streets of Rage 2 (USA)"]);
+        var repository = new TitleRepository(db);
+
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        (await repository.ValidateDatGroupingAsync(2, 1, review.Fingerprint, default)).ShouldBeTrue();
+        (await repository.ValidateDatGroupingAsync(1, 2, review.Fingerprint, default)).ShouldBeTrue();
+        await db.CatalogSources.ExecuteUpdateAsync(set => set.SetProperty(source => source.Status, "Disabled"));
+        (await repository.ValidateDatGroupingAsync(2, 1, review.Fingerprint, default)).ShouldBeFalse();
+    }
+
     [Theory]
     [InlineData("Streets of Rage 2", "Streets of Rage II (Japan, Europe) (En,Ja)", "1346", null)]
     [InlineData("Super Mario World", "Super Mario World (Europe) (Rev 1)", "36886", 1990)]

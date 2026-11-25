@@ -110,7 +110,7 @@ public sealed partial class PlayActivityRepositoryTests
         user.IsAuthenticated.Returns(true);
         user.UserId.Returns(UserId);
         var access = Substitute.For<IConsumerReleaseAccessRepository>();
-        access.GetAccessAsync(Arg.Any<ConsumerReleaseAccessRequest>(), Arg.Any<CancellationToken>())
+        access.GetPlaySessionAccessAsync(Arg.Any<ConsumerReleaseAccessRequest>(), 101, Arg.Any<CancellationToken>())
             .Returns(new ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.Found(_libraryId, ConsumerReleaseAccessDecision.Allow(101)));
         return new UpsertPlaySessionCommandHandler(user, access, repository, work, logger);
     }

@@ -307,12 +307,10 @@ public sealed partial class ConsumerBrowseRepository(
 
     private IQueryable<TitleEntity> BuildTitleQuery(int libraryId, ConsumerCatalogFilters filters)
     {
-        // Reuse the admin tsvector match so the consumer query is sargable against the GIN index
-        // rather than a non-indexable LIKE '%q%'. Token/prefix match semantics differ from
-        // substring matching (same behaviour admin search already uses).
-        var query = string.IsNullOrWhiteSpace(filters.Query)
-            ? context.PresentedTitles()
-            : SearchQuery.MatchTitles(context.PresentedTitles(), filters.Query);
+        // Display titles and DAT release names share the indexed phrase and prefix match.
+        var query = context.PresentedTitles();
+        if (!string.IsNullOrWhiteSpace(filters.Query))
+            query = MatchTitleOrReleaseName(query, libraryId, filters.Query);
 
         query = query.Where(title =>
             OwnedMaterializedLibraryTitles(libraryId).Any(item => item.TitleId == title.Id));
@@ -328,6 +326,24 @@ public sealed partial class ConsumerBrowseRepository(
         }
 
         return query;
+    }
+
+    private IQueryable<TitleEntity> MatchTitleOrReleaseName(IQueryable<TitleEntity> titles, int libraryId, string text)
+    {
+        var displayMatches = SearchQuery.MatchTitles(titles, text).Select(title => title.Id);
+        var releaseNameMatches =
+            from game in SearchQuery.MatchGames(context.DatGames.Where(game => !game.IsBios), text)
+            join dat in context.DatFiles on game.DatFileId equals dat.Id
+            join datSource in context.DatSources on dat.DatSourceId equals datSource.Id
+            join source in context.CatalogSources on datSource.CatalogSourceId equals source.Id
+            join claim in context.CatalogReleaseSources on game.SourceEntryId equals claim.SourceEntryId
+            join release in context.MaterializedLibraryReleases on claim.CatalogReleaseId equals release.CatalogReleaseId
+            where dat.Lifecycle == "Active" && source.Status == "Active"
+                  && release.LibraryId == libraryId && release.IsOwned && release.IsExposed
+            select release.TitleId;
+
+        var matchingTitleIds = displayMatches.Union(releaseNameMatches);
+        return titles.Where(title => matchingTitleIds.Contains(title.Id));
     }
 
     private IQueryable<ConsumerTitleCardData> ProjectToTitleCards(IQueryable<TitleEntity> query)

@@ -15,12 +15,22 @@ public sealed class ConsumerReleaseAccessRepository(RomdDbContext context)
         CancellationToken ct = default) =>
         _liveConsumerLibrary.ReadAsync<ConsumerReleaseAccessDecision>(
             request.Scope,
-            (libraryId, token) => GetAccessForLibraryAsync(libraryId, request.ReleaseId, token),
+            (libraryId, token) => GetAccessForLibraryAsync(libraryId, request.ReleaseId, null, token),
+            ct);
+
+    public Task<ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>> GetPlaySessionAccessAsync(
+        ConsumerReleaseAccessRequest request,
+        int requestedTitleId,
+        CancellationToken ct = default) =>
+        _liveConsumerLibrary.ReadInTransactionAsync<ConsumerReleaseAccessDecision>(
+            request.Scope,
+            (libraryId, token) => GetAccessForLibraryAsync(libraryId, request.ReleaseId, requestedTitleId, token),
             ct);
 
     private async Task<ConsumerLibraryProjectionResult<ConsumerReleaseAccessDecision>> GetAccessForLibraryAsync(
         int libraryId,
         int releaseId,
+        int? requestedTitleId,
         CancellationToken ct)
     {
         var rows = await context.MaterializedLibraryReleases
@@ -68,7 +78,11 @@ public sealed class ConsumerReleaseAccessRepository(RomdDbContext context)
             return new ConsumerLibraryProjectionResult<ConsumerReleaseAccessDecision>.ProjectionInconsistent();
         }
 
-        var decision = projection is { IsOwned: true, IsExposed: true }
+        bool allowed = projection is { IsOwned: true, IsExposed: true }
+            && (requestedTitleId is null || requestedTitleId == projection.TitleId ||
+                await context.TitleMergeRedirects.AnyAsync(redirect =>
+                    redirect.SourceTitleId == requestedTitleId && redirect.TargetTitleId == projection.TitleId, ct));
+        var decision = allowed
             ? ConsumerReleaseAccessDecision.Allow(projection.TitleId)
             : ConsumerReleaseAccessDecision.Revoke();
         return new ConsumerLibraryProjectionResult<ConsumerReleaseAccessDecision>.Found(decision);

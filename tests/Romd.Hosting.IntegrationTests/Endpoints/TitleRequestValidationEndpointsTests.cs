@@ -23,6 +23,18 @@ namespace Romd.Hosting.IntegrationTests.Endpoints;
 [Collection(IntegrationTestCollection.Name)]
 public sealed class TitleRequestValidationEndpointsTests(IntegrationTestFixture fixture)
 {
+    [Fact]
+    public async Task DatGrouping_MissingTitleReturns404_AndExistingTitleWithoutGroupReturnsEmptyReview()
+    {
+        using var client = fixture.CreateAuthenticatedClient();
+        using var missing = await client.GetAsync($"/api/titles/{IdCoder.Encode(int.MaxValue)}/dat-grouping");
+        using var problem = await ProblemEnvelope.ReadAsync(missing, 404, "Catalog.TitleNotFound");
+
+        var titleId = await SeedTitleAsync();
+        var review = await client.GetFromJsonAsync<DatTitleGroupingReview>($"/api/titles/{titleId}/dat-grouping");
+        review.ShouldNotBeNull().Suggestion.ShouldBeNull();
+    }
+
     [Theory]
     [InlineData("merge", "sourceTitleId", "Titles.InvalidTitleId", "not-an-id")]
     [InlineData("merge", "sourceTitleId", "Titles.InvalidTitleId", "")]

@@ -24,6 +24,12 @@ public interface ITitleMergeStore
     /// </summary>
     Task StageArtworkMergeAsync(int sourceTitleId, int targetTitleId, CancellationToken cancellationToken = default);
 
+    /// <summary>Checks the reviewed DAT family under the catalog topology lock, held through commit.</summary>
+    Task<bool> ValidateDatGroupingAsync(int sourceTitleId, int targetTitleId, string evidence, CancellationToken cancellationToken);
+
+    /// <summary>Moves stable releases and player references inside the caller's transaction.</summary>
+    Task ReassignTitleReferencesAsync(int sourceTitleId, int targetTitleId, CancellationToken cancellationToken);
+
     /// <summary>
     ///     Deletes the absorbed merge source, unless tracked intent still requires retaining it as
     ///     UserOnly. Merge consolidates tracking first, so the source is normally hard-deleted.

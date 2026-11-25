@@ -16,6 +16,7 @@ using Romd.Admin.Application.Titles.Commands.SetTitleTracked;
 using Romd.Admin.Application.Titles.Commands.TriggerTitleEnrichment;
 using Romd.Admin.Application.Titles.Commands.UpdateUserMetadata;
 using Romd.Admin.Application.Titles.Commands.UploadTitleMedia;
+using Romd.Admin.Application.Titles.Queries.GetDatTitleGrouping;
 using Romd.Admin.Application.Titles.Queries.GetTitleSourceReferences;
 using Romd.Admin.Application.Titles.Queries.OpenTitleMedia;
 using Romd.Admin.Application.Titles.ReadModels;
@@ -160,6 +161,13 @@ public static class TitleEndpoints
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
         // Curation endpoints
+        group.MapGet("{titleId}/dat-grouping", GetDatTitleGrouping)
+            .WithName("GetDatTitleGrouping")
+            .WithDescription("Review another title linked through the active, hash-verified DAT clone family.")
+            .Produces<DatTitleGroupingReview>()
+            .ProducesProblems(StatusCodes.Status404NotFound)
+            .RequireAuthorization(AuthorizationPolicies.RequireManager);
+
         group.MapPost("{titleId}/merge", MergeTitles)
             .WithName("MergeTitles")
             .WithDescription(
@@ -574,6 +582,19 @@ public static class TitleEndpoints
             new DeleteTitleMediaCommand(titleId, mediaId, ifMatch),
             cancellationToken));
 
+    private static async Task<IResult> GetDatTitleGrouping(
+        Sqid titleId, IQueryHandler<GetDatTitleGroupingQuery, DatTitleGroupingRead> handler, CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(new(titleId), cancellationToken);
+        if (result.IsError)
+            return result.Errors.ToProblem();
+        var evidence = result.Value.Suggestion;
+        return Results.Ok(new DatTitleGroupingReview(evidence is null ? null : new(
+            IdCoder.Encode(evidence.ParentTitleId), evidence.ParentTitleName, evidence.ParentTitleRevision.ToString(),
+            evidence.CloneTitleRevision.ToString(), evidence.DatName, evidence.DatVersion,
+            evidence.ReleaseNames, evidence.Fingerprint)));
+    }
+
     private static async Task<IResult> MergeTitles(Sqid titleId,
         MergeTitlesRequest request,
         HttpContext context,
@@ -591,7 +612,7 @@ public static class TitleEndpoints
             return ifMatch.Errors.ToProblem();
         }
 
-        var command = new MergeTitlesCommand(sourceId, titleId, ifMatch.Value, request.SourceTitleRevision);
+        var command = new MergeTitlesCommand(sourceId, titleId, ifMatch.Value, request.SourceTitleRevision, request.DatGroupingEvidence);
         var result = await handler.HandleAsync(command, cancellationToken);
 
         return result.IsError

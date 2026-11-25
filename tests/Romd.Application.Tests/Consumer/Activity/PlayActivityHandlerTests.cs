@@ -37,8 +37,9 @@ public sealed class PlayActivityHandlerTests
         _currentUser.IsAuthenticated.Returns(true);
         _currentUser.UserId.Returns(UserId);
         _unitOfWork.BeginAsync(UserId, Arg.Any<CancellationToken>()).Returns(_transaction);
-        _access.GetAccessAsync(
+        _access.GetPlaySessionAccessAsync(
                 new ConsumerReleaseAccessRequest(new ConsumerLibraryScope(UserId), ReleaseId),
+                TitleId,
                 Arg.Any<CancellationToken>())
             .Returns(new ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.Found(
                 LibraryId,
@@ -55,7 +56,7 @@ public sealed class PlayActivityHandlerTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Code.ShouldBe(ConsumerErrors.CurrentUserRequired().Code);
-        await _access.DidNotReceiveWithAnyArgs().GetAccessAsync(default!, default);
+        await _access.DidNotReceiveWithAnyArgs().GetPlaySessionAccessAsync(default!, default, default);
         await _activity.DidNotReceiveWithAnyArgs().UpsertAsync(default, default, default!, default);
     }
 
@@ -139,15 +140,16 @@ public sealed class PlayActivityHandlerTests
 
         result.IsError.ShouldBeTrue();
         result.FirstError.Code.ShouldBe(ConsumerErrors.InvalidPlaySession("").Code);
-        await _access.DidNotReceiveWithAnyArgs().GetAccessAsync(default!, default);
+        await _access.DidNotReceiveWithAnyArgs().GetPlaySessionAccessAsync(default!, default, default);
         await _activity.DidNotReceiveWithAnyArgs().UpsertAsync(default, default, default!, default);
     }
 
     [Fact]
     public async Task Upsert_InaccessibleRelease_IsNotPersisted()
     {
-        _access.GetAccessAsync(
+        _access.GetPlaySessionAccessAsync(
                 new ConsumerReleaseAccessRequest(new ConsumerLibraryScope(UserId), ReleaseId),
+                TitleId,
                 Arg.Any<CancellationToken>())
             .Returns(new ConsumerLibraryReadResult<ConsumerReleaseAccessDecision>.Found(
                 LibraryId,
@@ -181,7 +183,7 @@ public sealed class PlayActivityHandlerTests
 
         result.IsError.ShouldBeFalse();
         await _activity.Received(1).DeleteAsync(UserId, SessionId, Arg.Any<CancellationToken>());
-        await _access.DidNotReceiveWithAnyArgs().GetAccessAsync(default!, default);
+        await _access.DidNotReceiveWithAnyArgs().GetPlaySessionAccessAsync(default!, default, default);
     }
 
     private UpsertPlaySessionCommandHandler CreateUpsertHandler() =>

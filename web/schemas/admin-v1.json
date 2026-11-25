@@ -9267,6 +9267,57 @@
         }
       }
     },
+    "/api/titles/{titleId}/dat-grouping": {
+      "get": {
+        "tags": [
+          "Titles"
+        ],
+        "description": "Review another title linked through the active, hash-verified DAT clone family.",
+        "operationId": "GetDatTitleGrouping",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatTitleGroupingReview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/titles/{titleId}/merge": {
       "post": {
         "tags": [
@@ -20840,6 +20891,69 @@
           }
         }
       },
+      "DatTitleGroupingReview": {
+        "required": [
+          "suggestion"
+        ],
+        "type": "object",
+        "properties": {
+          "suggestion": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DatTitleGroupingSuggestion"
+              }
+            ]
+          }
+        }
+      },
+      "DatTitleGroupingSuggestion": {
+        "required": [
+          "parentTitleId",
+          "parentTitleName",
+          "parentTitleRevision",
+          "cloneTitleRevision",
+          "datName",
+          "datVersion",
+          "releaseNames",
+          "evidence"
+        ],
+        "type": "object",
+        "properties": {
+          "parentTitleId": {
+            "type": "string"
+          },
+          "parentTitleName": {
+            "type": "string"
+          },
+          "parentTitleRevision": {
+            "type": "string"
+          },
+          "cloneTitleRevision": {
+            "type": "string"
+          },
+          "datName": {
+            "type": "string"
+          },
+          "datVersion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "releaseNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "string"
+          }
+        }
+      },
       "DecideDiscSetRequest": {
         "required": [
           "decision",
@@ -24369,6 +24483,12 @@
           },
           "sourceTitleRevision": {
             "type": "string"
+          },
+          "datGroupingEvidence": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
