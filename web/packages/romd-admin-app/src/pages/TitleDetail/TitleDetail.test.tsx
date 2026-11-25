@@ -1328,6 +1328,65 @@ describe('TitleDetail', () => {
     ).toBeInTheDocument();
   });
 
+  it('can replace a lookup name when grouping preserved more than 32 names', async () => {
+    const user = userEvent.setup();
+    const names = Array.from(
+      {
+        length: 35,
+      },
+      (_, index) => `Lookup name ${index + 1}`,
+    );
+    const expectedNames = [
+      ...names.slice(0, -1),
+      'Corrected name',
+    ];
+    vi.mocked(getTitleLookupNames).mockResolvedValue({
+      data: {
+        names,
+        revision: 'grouped-revision',
+      },
+    } as Awaited<ReturnType<typeof getTitleLookupNames>>);
+    const save = vi.mocked(replaceTitleLookupNames);
+    save.mockResolvedValue({
+      data: {
+        names: expectedNames,
+        revision: 'saved-revision',
+      },
+    } as Awaited<ReturnType<typeof replaceTitleLookupNames>>);
+    renderTitleDetail();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Title actions',
+      }),
+    );
+    await user.click(await screen.findByText('Edit lookup names…'));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Edit lookup names',
+    });
+    await user.click(await within(dialog).findByPlaceholderText('Add an alternate name'));
+    await user.keyboard('{Backspace}Corrected name{Enter}');
+    await user.click(
+      within(dialog).getByRole('button', {
+        name: 'Save lookup names',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith({
+        path: {
+          titleId: title.id,
+        },
+        body: {
+          names: expectedNames,
+        },
+        headers: {
+          'If-Match': '"grouped-revision"',
+        },
+      }),
+    );
+  });
+
   it('previews DAT family names and waits for the operator to approve the reviewed grouping', async () => {
     const user = userEvent.setup();
     const clone = {

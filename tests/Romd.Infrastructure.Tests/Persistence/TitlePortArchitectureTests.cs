@@ -54,6 +54,7 @@ public sealed class TitlePortArchitectureTests
         ],
         [typeof(ITitleLookupNameStore)] =
         [
+            "Task<Int32> CountAsync(Int32 titleId, CancellationToken cancellationToken)",
             "Task<TitleLookupNameSnapshot> ReadAsync(Int32 titleId, CancellationToken cancellationToken)",
             "Task<TitleLookupNameSnapshot> StageReplacementAsync(Int32 titleId, Guid currentRevision, IReadOnlyList<TitleLookupName> names, CancellationToken cancellationToken)"
         ],

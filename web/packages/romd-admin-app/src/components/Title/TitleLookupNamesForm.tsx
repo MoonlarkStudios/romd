@@ -93,7 +93,7 @@ export function TitleLookupNamesForm({
         description="Press Enter to add a name. Search finds these names and shows the title’s display name."
         placeholder="Add an alternate name"
         splitChars={[]}
-        maxTags={32}
+        maxTags={Math.max(32, baseline.names.length)}
         maxLength={200}
         value={draft?.names ?? baseline.names}
         disabled={save.isPending || conflict}
