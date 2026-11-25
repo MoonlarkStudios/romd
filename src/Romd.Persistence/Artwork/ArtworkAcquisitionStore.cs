@@ -93,9 +93,9 @@ public sealed class ArtworkAcquisitionStore(RomdDbContext db, IArtworkCurationRe
         row.UpdatedAt = clock.GetUtcNow();
     }
 
-    public Task<bool> HasCurrentProvisionalPosterAsync(int titleId, CancellationToken ct) =>
+    public Task<bool> HasCurrentProvisionalArtworkAsync(int titleId, ArtworkRole role, CancellationToken ct) =>
         db.ArtworkAssets.AvailableForPresentation().AnyAsync(x => x.TitleId == titleId &&
-            x.Role == ArtworkRole.Poster && x.IsProvisional, ct);
+            x.Role == role && x.IsProvisional, ct);
 
     public async Task<bool> LockMissingAsync(int titleId, ArtworkRole role, long revision, CancellationToken ct)
     {

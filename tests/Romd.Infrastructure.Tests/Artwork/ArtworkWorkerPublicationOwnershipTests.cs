@@ -433,7 +433,7 @@ public sealed class ArtworkWorkerPublicationOwnershipTests : IAsyncLifetime
                 var revision = Guid.NewGuid();
                 var matches = Substitute.For<IArtworkMatchAuthorizationService>();
                 matches.ReadAsync(7, "steamgriddb", Arg.Any<ArtworkRole>(), Arg.Any<CancellationToken>())
-                    .Returns(call => new ArtworkMatchResolution.Authorized(new("steamgriddb", "42", call.Arg<ArtworkRole>(), revision)));
+                    .Returns(call => new ArtworkMatchResolution.Authorized(new(new("steamgriddb", "42", revision), call.Arg<ArtworkRole>())));
                 matches.IsCurrentAsync(7, Arg.Any<ArtworkMatchAuthorization>(), Arg.Any<CancellationToken>()).Returns(true);
                 var browser = Substitute.For<IArtworkProviderBrowser>();
                 browser.Capabilities.Returns(new ArtworkProviderCapabilities("steamgriddb", "SteamGridDB", roles.Select(role => new ArtworkRoleCapabilities(role, [], [])).ToArray()));

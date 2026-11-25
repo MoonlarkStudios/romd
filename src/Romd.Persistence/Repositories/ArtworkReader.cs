@@ -55,7 +55,7 @@ public sealed class ArtworkReader(RomdDbContext context) : IArtworkReader
                         ?? ArtworkSelection.CreateAutomatic(snapshot.Id, role);
                     var preferences = snapshot.Preferences.Where(p => p.Role == role).Select(p => p.SourceId).ToArray();
                     var resolved = ArtworkResolver.Resolve(selection, permanent, preferences, snapshot.Cover?.ToDomain());
-                    return role == ArtworkRole.Poster && selection is { Mode: ArtworkSelectionMode.Automatic, PendingRequestId: null } &&
+                    return selection is { Mode: ArtworkSelectionMode.Automatic, PendingRequestId: null } &&
                         resolved.Asset is null && resolved.LegacyCover is null
                         ? ArtworkResolver.Resolve(selection, assets.Where(a => a.IsProvisional).Select(a => a.Asset), preferences)
                         : resolved;

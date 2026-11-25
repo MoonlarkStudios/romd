@@ -557,7 +557,8 @@ additive `20261102000000_PspUmdObservations`, `20261109000000_SaturnCdObservatio
 `20261121200000_LibraryPublicationOutcome`,
 `20261123000000_DatParentDeclarations`, `20261123010000_ActiveDatProviderIdentity`,
 `20261123020000_HashBackedDatProviderIdentity`,
-and `20261123030000_ProvisionalSteamGridDbPosters` migrations (readiness version 86).
+`20261123030000_ProvisionalSteamGridDbPosters`,
+and `20261123040000_ProvisionalProviderArtwork` migrations (readiness version 87).
 The Saturn migration preserves PS1 observations and adds distinct Saturn fields.
 The sign-in message starts blank. Existing title media stays title-level and
 unpreferred after the media collection migration.

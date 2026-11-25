@@ -208,7 +208,9 @@ SHA-1 match query, a clone parent ID index, and the matched DAT version and
 release IDs to the provider trust fingerprint. The additive
 `20261123030000_ProvisionalSteamGridDbPosters` migration records provisional
 posters and checks that the provider decision still authorizes their display.
-Current readiness is version 86.
+The additive `20261123040000_ProvisionalProviderArtwork` migration extends
+that authorization to the other supported artwork roles. Current readiness is
+version 87.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

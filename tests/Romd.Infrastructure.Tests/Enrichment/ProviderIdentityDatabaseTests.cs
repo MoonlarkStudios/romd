@@ -79,7 +79,7 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         (await service.IsCurrentAsync(1, match, default)).ShouldBeFalse();
         await db.CatalogSources.ExecuteUpdateAsync(set => set.SetProperty(source => source.Status, "Paused"));
         var blocked = await service.ReadAsync(1, "igdb", ArtworkRole.Poster, default);
-        blocked.ShouldBe(new ArtworkMatchResolution.Blocked(ArtworkMatchBlock.NeedsMatch));
+        blocked.ShouldBe(new ArtworkMatchResolution.Blocked(ProviderMatchBlock.NeedsMatch));
     }
 
     [Fact]

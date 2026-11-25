@@ -770,7 +770,7 @@ export function ProviderMatches({
                     variant="light"
                     color="yellow"
                   >
-                    Provisional poster match
+                    Provisional match
                   </Badge>
                 )}
               </Group>
@@ -937,7 +937,7 @@ export function ProviderMatches({
         withCloseButton={!mutation.isPending}
         title={
           unlinking?.decision?.provisionalGameId
-            ? 'Reject the provisional poster match?'
+            ? 'Reject the provisional match?'
             : unlinking?.externalId
               ? `Unlink ${unlinking.providerName}`
               : `Continue without ${unlinking?.providerName}?`
@@ -947,7 +947,7 @@ export function ProviderMatches({
         <Stack>
           <Text size="sm">
             {unlinking?.decision?.provisionalGameId &&
-              'ROMD will withdraw the provisional poster. '}
+              'ROMD will withdraw the artwork from the provisional match. '}
             {unlinking?.externalId &&
               'ROMD will remove metadata and automatic artwork from this match and keep your pinned artwork. '}
             Automatic matching for this provider will stay off until you link a source.

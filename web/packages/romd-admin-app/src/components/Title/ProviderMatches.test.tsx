@@ -1739,7 +1739,7 @@ it.each([
   cache.clear();
 });
 
-it('opens review with the provisional poster match selected and offers explicit rejection', async () => {
+it('opens review with the provisional match selected and offers explicit rejection', async () => {
   server.use(
     http.get(matches, () =>
       HttpResponse.json([
@@ -1768,7 +1768,7 @@ it('opens review with the provisional poster match selected and offers explicit 
   );
   const user = userEvent.setup();
   show();
-  expect(await screen.findByText('Provisional poster match')).toBeInTheDocument();
+  expect(await screen.findByText('Provisional match')).toBeInTheDocument();
   await user.click(
     screen.getByRole('button', {
       name: 'Review match',
@@ -1801,7 +1801,7 @@ it('opens review with the provisional poster match selected and offers explicit 
   );
   expect(
     await screen.findByRole('dialog', {
-      name: 'Reject the provisional poster match?',
+      name: 'Reject the provisional match?',
     }),
   ).toBeInTheDocument();
 });

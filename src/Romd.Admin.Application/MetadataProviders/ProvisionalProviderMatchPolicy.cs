@@ -2,7 +2,7 @@ using Romd.Domain.Catalog;
 
 namespace Romd.Admin.Application.MetadataProviders;
 
-public static class ProvisionalPosterPolicy
+public static class ProvisionalProviderMatchPolicy
 {
     public const string Version = "steamgriddb-poster-1";
 

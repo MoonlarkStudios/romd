@@ -30,8 +30,8 @@ public sealed class ApplicationSchemaReadinessCheckTests
     [Fact]
     public async Task EvaluateAsync_WorkerPublishedFreshMediaBaseline_ReturnsHealthy()
     {
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(86);
-        var check = new ApplicationSchemaReadinessCheck(Probe(86));
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(87);
+        var check = new ApplicationSchemaReadinessCheck(Probe(87));
 
         (await check.EvaluateAsync(CancellationToken.None)).ShouldBe(ReadinessCheckStatus.Healthy);
     }

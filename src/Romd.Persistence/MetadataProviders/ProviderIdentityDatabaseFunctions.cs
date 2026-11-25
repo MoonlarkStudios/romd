@@ -15,7 +15,7 @@ public static class ProviderIdentityDatabaseFunctions
     public static bool IsTrusted(int titleId, string providerId, string policyVersion) =>
         throw new InvalidOperationException("This function must be evaluated by PostgreSQL.");
 
-    public static string? ProvisionalPosterGame(int titleId, string providerId, string policyVersion, string posterPolicyVersion) =>
+    public static string? ProvisionalGame(int titleId, string providerId, string policyVersion, string provisionalPolicyVersion) =>
         throw new InvalidOperationException("This function must be evaluated by PostgreSQL.");
 
     public static void Configure(ModelBuilder builder)
@@ -24,8 +24,8 @@ public static class ProviderIdentityDatabaseFunctions
             .HasName("provider_identity_fingerprint").HasSchema(PostgreSqlConfiguration.SchemaName);
         builder.HasDbFunction(typeof(ProviderIdentityDatabaseFunctions).GetMethod(nameof(IsTrusted))!)
             .HasName("provider_identity_trusted").HasSchema(PostgreSqlConfiguration.SchemaName);
-        builder.HasDbFunction(typeof(ProviderIdentityDatabaseFunctions).GetMethod(nameof(ProvisionalPosterGame))!)
-            .HasName("provider_provisional_poster_game").HasSchema(PostgreSqlConfiguration.SchemaName);
+        builder.HasDbFunction(typeof(ProviderIdentityDatabaseFunctions).GetMethod(nameof(ProvisionalGame))!)
+            .HasName("provider_provisional_game").HasSchema(PostgreSqlConfiguration.SchemaName);
     }
 
 }

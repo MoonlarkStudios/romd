@@ -139,7 +139,7 @@ public sealed partial class ProviderIdentityServiceTests
             [new("igdb", "3192", scenario == "replacement" ? Guid.NewGuid() : igdb.Revision)];
         var cached = new ProviderIdentityDecision("NeedsReview", "Previous review.", "catalog", "fingerprint",
             [], cachedDependencies)
-        { PosterPolicyVersion = scenario == "previous policy" ? null : ProvisionalPosterPolicy.Version };
+        { ProvisionalPolicyVersion = scenario == "previous policy" ? null : ProvisionalProviderMatchPolicy.Version };
         var service = CreateSonicSteamGridDb([SonicGame("2", 1991)],
             [igdb with { Trusted = scenario != "lost trust" },
                 new("steamgriddb", null, false, false, false, Guid.Empty, "fingerprint", _clock.GetUtcNow(), cached)]);
