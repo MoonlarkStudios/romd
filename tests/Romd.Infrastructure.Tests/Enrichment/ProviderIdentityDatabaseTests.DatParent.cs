@@ -75,6 +75,8 @@ public sealed partial class ProviderIdentityDatabaseTests
     [InlineData("no declaration")]
     [InlineData("parent hash removed")]
     [InlineData("preview")]
+    [InlineData("numbered beta")]
+    [InlineData("prototype with revision")]
     [InlineData("non-game category")]
     public async Task DiscoverAsync_UnverifiedParentFamily_StaysInReview(string scenario)
     {
@@ -95,6 +97,14 @@ public sealed partial class ProviderIdentityDatabaseTests
             case "preview":
                 await db.DatGames.Where(entry => entry.Id == 1)
                     .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.Name, "Super Mario World (USA) (beta)"));
+                break;
+            case "numbered beta":
+                await db.DatGames.Where(entry => entry.Id == 1)
+                    .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.Name, "Super Mario World (USA) (Beta 1)"));
+                break;
+            case "prototype with revision":
+                await db.DatGames.Where(entry => entry.Id == 3)
+                    .ExecuteUpdateAsync(set => set.SetProperty(entry => entry.Name, "Super Mario World (Europe) (Proto) (Rev 1)"));
                 break;
             case "non-game category":
                 await db.DatGames.Where(entry => entry.Id == 3)

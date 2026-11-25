@@ -6,6 +6,18 @@ namespace Romd.Dat.Tests;
 public class DatNameParserTests
 {
     [Theory]
+    [InlineData("Game (USA) (Beta 1)", true)]
+    [InlineData("Game (beta) (Rev 1)", true)]
+    [InlineData("Game (Prototype-2)", true)]
+    [InlineData("Game (Demo)", true)]
+    [InlineData("Game (Sample)", true)]
+    [InlineData("Game (USA) (Rev 1)", false)]
+    [InlineData("Game (Demolition Edition)", false)]
+    [InlineData("Prototype (USA)", false)]
+    public void HasNonRetailQualifier_RecognizesTagsIndependentlyOfRevision(string name, bool expected) =>
+        DatNameParser.HasNonRetailQualifier(name).ShouldBe(expected);
+
+    [Theory]
     [InlineData("Super Mario World (USA)", "USA", null, null)]
     [InlineData("Terranigma (Europe)", "Europe", null, null)]
     [InlineData("Sonic the Hedgehog (World)", "World", null, null)]
