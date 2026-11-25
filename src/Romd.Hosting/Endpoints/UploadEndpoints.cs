@@ -5,6 +5,7 @@ using Romd.Admin.Application.Ingestion.Import;
 using Romd.Admin.Application.Ingestion.Import.Commands.ImportFromPath;
 using Romd.Admin.Application.Ingestion.Import.Commands.StartServerImport;
 using Romd.Admin.Application.Ingestion.Import.Queries.GetServerImport;
+using Romd.Admin.Application.Ingestion.Import.Queries.GetServerImportRetry;
 using Romd.Admin.Application.Ingestion.Import.Queries.ListImportFolders;
 using Romd.Application.Common.Configuration;
 using Romd.Application.Common.Cqrs;
@@ -89,12 +90,19 @@ public static class UploadEndpoints
             .Produces<ServerImportStatus>()
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
+        group.MapGet("server-folder/retries/{jobId}", GetServerImportRetry)
+            .WithName("GetServerImportRetry")
+            .WithDescription("Review the unchanged, changed, missing and unavailable originals from a retained server folder import.")
+            .Produces<ServerImportRetryReview>()
+            .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound)
+            .RequireAuthorization(AuthorizationPolicies.RequireManager);
+
         group.MapPost("server-folder", StartServerImport)
             .WithName("StartServerImport")
-            .WithDescription("Import ready files from the configured server drop folder, or return the check result if there is no new job.")
+            .WithDescription("Import ready files from the configured server folder or retry a reviewed batch. A changed review returns 409.")
             .Produces<ServerImportStatus>()
             .ProducesAcceptedJob()
-            .ProducesProblems(StatusCodes.Status404NotFound, StatusCodes.Status409Conflict)
+            .ProducesProblems(StatusCodes.Status400BadRequest, StatusCodes.Status404NotFound, StatusCodes.Status409Conflict)
             .RequireAuthorization(AuthorizationPolicies.RequireManager);
 
         return app;
@@ -163,10 +171,14 @@ public static class UploadEndpoints
         [FromServices] IQueryHandler<GetServerImportQuery, ServerImportView> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new(), ct)).Match(status => Results.Ok(ToContract(status)), errors => errors.ToProblem());
 
+    private static async Task<IResult> GetServerImportRetry(Guid jobId,
+        [FromServices] IQueryHandler<GetServerImportRetryQuery, ServerImportRetryReview> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(new(jobId), ct)).Match(Results.Ok, errors => errors.ToProblem());
+
     private static async Task<IResult> StartServerImport(Commands.StartServerImport request,
         [FromServices] ICommandHandler<StartServerImportCommand, ServerImportResult> handler,
         [FromServices] ICurrentUser user, CancellationToken ct) =>
-        (await handler.HandleAsync(new(user.UserId, request.RetryJobId), ct)).Match(
+        (await handler.HandleAsync(new(user.UserId, request.RetryJobId, request.ReviewedRevision), ct)).Match(
             result => result.AcceptedJobId is { } jobId ? JobAccepted.Result(jobId) : Results.Ok(ToContract(result.Status)),
             errors => errors.ToProblem());
 

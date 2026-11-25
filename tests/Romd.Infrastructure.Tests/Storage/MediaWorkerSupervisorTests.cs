@@ -283,10 +283,18 @@ public sealed class MediaWorkerSupervisorTests(ITestOutputHelper testOutput)
         {
             await run.PermitAsync(process.Ready, process.Input, process.Id, deadline.Token);
             await MediaWorkerTestFixture.WaitForPidAsync(source.Path + ".pid", deadline.Token);
+            var linuxLeader = OperatingSystem.IsLinux() ? MediaProcessIdentity.Read(process.Id).ShouldNotBeNull() : null;
             fixture.Release();
             await Task.WhenAll(process.Output.CopyToAsync(Stream.Null, deadline.Token),
                 process.Error.CopyToAsync(Stream.Null, deadline.Token));
-            process.HasExited.ShouldBeFalse("only the native wait-owner continuation is held after the leader closes stdout");
+            if (linuxLeader is not null)
+            {
+                // Pipe EOF can precede the kernel exit state. Inspect without consuming wait status.
+                while (!MediaWorkerProcessLifetime.IsAdoptedZombie(linuxLeader))
+                    await Task.Delay(10, deadline.Token);
+            }
+            await reaperContext.Queued.WaitAsync(deadline.Token);
+            process.HasExited.ShouldBeFalse("the native wait owner has not published the leader's exit");
             int samples = 0;
             var observation = supervisor.ObserveNativeCpuAsync(process, deadline.Token, (_, _) =>
             {
@@ -330,13 +338,20 @@ public sealed class MediaWorkerSupervisorTests(ITestOutputHelper testOutput)
     {
         private readonly object _gate = new();
         private readonly List<(SendOrPostCallback Callback, object? State)> _pending = [];
+        private readonly TaskCompletionSource _queued = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private bool _released;
+
+        internal Task Queued => _queued.Task;
         public override void Post(SendOrPostCallback callback, object? state)
         {
             lock (_gate)
             {
                 if (!_released)
-                { _pending.Add((callback, state)); return; }
+                {
+                    _pending.Add((callback, state));
+                    _queued.TrySetResult();
+                    return;
+                }
             }
             ThreadPool.QueueUserWorkItem(_ => callback(state));
         }
@@ -349,8 +364,9 @@ public sealed class MediaWorkerSupervisorTests(ITestOutputHelper testOutput)
                 pending = _pending.ToArray();
                 _pending.Clear();
             }
+            // Run the held continuation at the test's release point, independent of pool load.
             foreach (var item in pending)
-                ThreadPool.QueueUserWorkItem(_ => item.Callback(item.State));
+                item.Callback(item.State);
         }
     }
 

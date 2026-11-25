@@ -27,11 +27,7 @@ public sealed class ServerImportStore(RomdDbContext db) : IServerImportStore
             return null;
         var row = await db.Jobs.OfType<UploadJobEntity>().Where(job => job.Id == id)
             .Select(job => new { job.Phase, job.RomsRejected }).SingleOrDefaultAsync(ct);
-        return row is not null && Enum.TryParse<UploadPhase>(row.Phase, out var phase)
-            ? new ServerImportJob(id, phase,
-                phase is UploadPhase.Completed or UploadPhase.CompletedWithErrors or UploadPhase.Failed or UploadPhase.Cancelled,
-                row.RomsRejected > 0)
-            : null;
+        return row is null ? null : ToJob(id, row.Phase, row.RomsRejected);
     }
 
     public async Task<IReadOnlyList<ServerImportFile>> FindUnsubmittedFilesAsync(
@@ -66,6 +62,17 @@ public sealed class ServerImportStore(RomdDbContext db) : IServerImportStore
         return json is null ? null : new ServerImportSelection(DeserializeFiles(json));
     }
 
+    public async Task<ServerImportRetryBatch?> ReadRetryBatchAsync(string directory, Guid jobId, CancellationToken ct)
+    {
+        var batch = await (from selection in db.Set<ServerImportSelectionEntity>()
+                           join job in db.Jobs.OfType<UploadJobEntity>() on selection.JobId equals job.Id
+                           where job.Id == jobId && job.ImportSourcePath == directory && job.ImportMove
+                           select new { job.CorrelationId, job.Phase, job.RomsRejected, selection.FilesJson }).SingleOrDefaultAsync(ct);
+        return batch is not null && ToJob(jobId, batch.Phase, batch.RomsRejected)?.CanRetry == true
+            ? new ServerImportRetryBatch(batch.CorrelationId, new ServerImportSelection(DeserializeFiles(batch.FilesJson)))
+            : null;
+    }
+
     public async Task StageActivityAsync(string directory, ServerImportActivity activity, CancellationToken ct)
     {
         string key = Key(directory);
@@ -89,6 +96,13 @@ public sealed class ServerImportStore(RomdDbContext db) : IServerImportStore
             JobId = jobId,
             FilesJson = JsonSerializer.Serialize(selection.Files)
         });
+
+    private static ServerImportJob? ToJob(Guid id, string phaseName, int rejected) =>
+        Enum.TryParse<UploadPhase>(phaseName, out var phase)
+            ? new ServerImportJob(id, phase,
+                phase is UploadPhase.Completed or UploadPhase.CompletedWithErrors or UploadPhase.Failed or UploadPhase.Cancelled,
+                rejected > 0)
+            : null;
 
     private static ServerImportFile[] DeserializeFiles(string json) =>
         JsonSerializer.Deserialize<ServerImportFile[]>(json) ?? throw new JsonException("Server import file selection is missing.");
