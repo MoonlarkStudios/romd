@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
 import tempfile
 
@@ -23,7 +24,16 @@ def command(*args, cwd=None):
 def qualifier(path, module_name):
     spec = importlib.util.spec_from_file_location(module_name, path / "scripts/release/qualify.py")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    helpers = ("compose_images", "container_lifecycle", "recovery")
+    original = {name: sys.modules.pop(name) for name in helpers if name in sys.modules}
+    original_path = sys.path[:]
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_path
+        for name in helpers:
+            sys.modules.pop(name, None)
+        sys.modules.update(original)
     return module
 
 
@@ -68,12 +78,12 @@ def qualify(work, evidence, baseline_source, candidate_source, candidate_tag):
 
     env = baseline.deployment_environment(work, old_root, old_ingress)
     upgrade_env = dict(env, COMPOSE_FILE=f"{new_root}/compose.yaml", ROMD_NGINX_IMAGE=new_ingress)
-    rollback_env = dict(env, COMPOSE_PROJECT_NAME=env["COMPOSE_PROJECT_NAME"] + "-rollback")
+    rollback_env = dict(env, COMPOSE_PROJECT_NAME=env["COMPOSE_PROJECT_NAME"] + "-restore")
     old = baseline.Runner(work, evidence, old_root, env)
     upgraded = candidate.Runner(work, evidence, new_root, upgrade_env)
     rolled_back = baseline.Runner(work, evidence, old_root, rollback_env)
     gate = candidate.ContainerLifecycle(env, (env["COMPOSE_PROJECT_NAME"], rollback_env["COMPOSE_PROJECT_NAME"]),
-                                       old_ingress, evidence / "lifecycle.json")
+                                       old_ingress, evidence / "lifecycle.json", private_root=work / "lifecycle-private")
     cleanups = []
     for runner in (rolled_back, upgraded):
         cleanups.append((runner.env["COMPOSE_PROJECT_NAME"],
