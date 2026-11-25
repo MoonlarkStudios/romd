@@ -91,7 +91,7 @@ def qualify(work, evidence, baseline_source, candidate_source, candidate_tag):
         old.inspect_images(old_manifest["images"])
         authority = old.ingress_file("ca.crt", "old-certificate-authority")
         old.trust("baseline", authority)
-        old.browser("browser-initial", "none", baseline_tag)
+        old.browser("browser-initial", "none")
 
         backup = source.backup_and_stop(old_root / "scripts/backup/backup.sh", work / "backups")
         target = candidate.RecoverySequence(upgraded.run, new_root / "scripts/deployment/compose.sh", gate, upgrade_env)
@@ -110,7 +110,7 @@ def qualify(work, evidence, baseline_source, candidate_source, candidate_tag):
         rolled_back.run([old_root / "scripts/deployment/verify.sh"], "rollback-http-verification")
         rolled_back.trust("rollback", authority)
         rolled_back.persisted_state = old.persisted_state
-        rolled_back.browser("browser-after-rollback", "none", baseline_tag)
+        rolled_back.browser("browser-after-rollback", "none")
     return {
         "result": "passed",
         "baseline": {key: old_manifest[key] for key in ("sha256", "sourceCommit", "releaseTag", "images")},
