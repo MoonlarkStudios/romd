@@ -4375,7 +4375,7 @@
         "tags": [
           "Upload"
         ],
-        "description": "Import ready files from the configured server drop folder, or return the check result if there is no new job.",
+        "description": "Import ready files from the configured server folder or retry a reviewed batch. A changed review returns 409.",
         "operationId": "StartServerImport",
         "requestBody": {
           "content": {
@@ -4417,6 +4417,16 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -4436,9 +4446,51 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/upload/server-folder/retries/{jobId}": {
+      "get": {
+        "tags": [
+          "Upload"
+        ],
+        "description": "Review the unchanged, changed, missing and unavailable originals from a retained server folder import.",
+        "operationId": "GetServerImportRetry",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServerImportRetryReview"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -27937,6 +27989,56 @@
           }
         }
       },
+      "ServerImportRetryFileGroup": {
+        "required": [
+          "count",
+          "examples"
+        ],
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ServerImportRetryReview": {
+        "required": [
+          "revision",
+          "isBusy",
+          "ready",
+          "changed",
+          "missing",
+          "unavailable"
+        ],
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string"
+          },
+          "isBusy": {
+            "type": "boolean"
+          },
+          "ready": {
+            "$ref": "#/components/schemas/ServerImportRetryFileGroup"
+          },
+          "changed": {
+            "$ref": "#/components/schemas/ServerImportRetryFileGroup"
+          },
+          "missing": {
+            "$ref": "#/components/schemas/ServerImportRetryFileGroup"
+          },
+          "unavailable": {
+            "$ref": "#/components/schemas/ServerImportRetryFileGroup"
+          }
+        }
+      },
       "ServerImportStatus": {
         "required": [
           "directory",
@@ -28379,6 +28481,12 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "reviewedRevision": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

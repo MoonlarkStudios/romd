@@ -1,6 +1,7 @@
 import { ActionIcon, Alert, Button, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import type { JobUploadJob } from '@romd/admin-api-client';
 import { IconX } from '@tabler/icons-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useServerImportStatus } from '../../hooks/api/useServerImport';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -13,27 +14,51 @@ import {
   uploadImportUrl,
 } from './importReceiptLinks';
 import { ProvenanceLedger } from './ProvenanceLedger';
+import { ServerImportRetryDialog } from './ServerImportRetryDialog';
 
 export function ImportReceipt({ job, onDismiss }: { job: JobUploadJob; onDismiss?: () => void }) {
   const { canManageTitles } = usePermissions();
   const source = job.importSourcePath;
   const { data: server } = useServerImportStatus(!!source && canManageTitles, false);
   const serverFolder = canManageTitles && !!source && source === server?.directory;
-  const latestServerBatch = serverFolder && server?.lastJobId === job.id;
-  const retryUrl =
-    latestServerBatch && server?.canRetry ? serverImportUrl : source ? undefined : uploadImportUrl;
+  const [reviewingRetry, setReviewingRetry] = useState(false);
+  const [retryJobId, setRetryJobId] = useState<string>();
   const cancelled = job.phase === 'Cancelled';
   const failed = job.phase === 'Failed';
   const stopped = cancelled || failed;
+  const skipped = job.romsRejected ?? 0;
   const needsRecovery = stopped || job.phase === 'CompletedWithErrors';
+  const canReviewRetry =
+    !onDismiss &&
+    serverFolder &&
+    job.importMove &&
+    (needsRecovery || (job.phase === 'Completed' && skipped > 0));
   const stored = job.romsIngested ?? 0;
   const remaining =
     Math.max(0, (job.romsDiscovered ?? 0) - (job.romsProcessed ?? 0)) +
     Math.max(0, (job.datsDiscovered ?? 0) - (job.datsProcessed ?? 0));
   const reason = stopped ? job.errors.find((error) => error.item === 'job') : undefined;
   const errors = job.errors.filter((error) => error !== reason);
-  const skipped = job.romsRejected ?? 0;
   const catalogs = job.datsSucceeded ?? 0;
+  const retryAction = retryJobId ? (
+    <Button
+      component={Link}
+      to={importReceiptUrl(retryJobId)}
+      size="compact-sm"
+      w="fit-content"
+    >
+      View retry job
+    </Button>
+  ) : canReviewRetry ? (
+    <Button
+      variant="light"
+      size="compact-sm"
+      w="fit-content"
+      onClick={() => setReviewingRetry(true)}
+    >
+      Retry remaining files
+    </Button>
+  ) : null;
   return (
     <section
       className={workspace.panel}
@@ -119,23 +144,23 @@ export function ImportReceipt({ job, onDismiss }: { job: JobUploadJob; onDismiss
             </Group>
           )}
         </Group>
-        {skipped > 0 &&
-          (job.trackedOnly ? (
-            <Alert
-              color="blue"
-              title="Tracked-title filter applied"
-            >
-              ROMs outside the tracked selection were skipped. Track the missing titles before
-              importing those files again.
-            </Alert>
-          ) : (
-            <Alert
-              color="orange"
-              title="Unmatched files were not stored"
-            >
-              Check the matching DAT before importing those files again.
-            </Alert>
-          ))}
+        {skipped > 0 && (
+          <Alert
+            color={job.trackedOnly ? 'blue' : 'orange'}
+            title={
+              job.trackedOnly ? 'Tracked-title filter applied' : 'Unmatched files were not stored'
+            }
+          >
+            <Stack gap="xs">
+              <Text size="sm">
+                {job.trackedOnly
+                  ? 'Track the missing titles before importing those files again.'
+                  : 'Check the matching DAT before importing those files again.'}
+              </Text>
+              {!needsRecovery && retryAction}
+            </Stack>
+          </Alert>
+        )}
         {needsRecovery && (
           <Alert
             color={failed ? 'red' : cancelled ? 'gray' : 'orange'}
@@ -164,30 +189,35 @@ export function ImportReceipt({ job, onDismiss }: { job: JobUploadJob; onDismiss
                   Check the source folder for files still awaiting import. <strong>{source}</strong>
                 </Text>
               )}
-              {serverFolder && !latestServerBatch && (
-                <Text size="sm">
-                  Retry last import applies to the latest batch. To process files from this batch
-                  again, move the remaining originals into a new subfolder or choose them in Upload.
-                </Text>
-              )}
               {!source && onDismiss && (
                 <Text size="sm">
                   Choose the originals again in Upload after checking the results.
                 </Text>
               )}
-              {retryUrl && !onDismiss && (
+              {!source && !onDismiss && (
                 <Button
                   component={Link}
-                  to={retryUrl}
+                  to={uploadImportUrl}
                   variant="light"
                   size="compact-sm"
                   w="fit-content"
                 >
-                  {serverFolder ? 'Open server import folder' : 'Back to Upload'}
+                  Back to Upload
                 </Button>
               )}
+              {retryAction}
             </Stack>
           </Alert>
+        )}
+        {reviewingRetry && (
+          <ServerImportRetryDialog
+            jobId={job.id}
+            close={() => setReviewingRetry(false)}
+            accepted={(id) => {
+              setRetryJobId(id);
+              setReviewingRetry(false);
+            }}
+          />
         )}
         {errors.length > 0 && (
           <Alert
@@ -212,7 +242,7 @@ export function ImportReceipt({ job, onDismiss }: { job: JobUploadJob; onDismiss
         <ProvenanceLedger
           jobId={job.id}
           addressable={!onDismiss}
-          retryUrl={retryUrl ?? null}
+          canUploadAgain={!source}
         />
       </Stack>
     </section>

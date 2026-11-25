@@ -1,7 +1,7 @@
 import { MantineProvider } from '@mantine/core';
 import type { Job, LibraryStats, ServerImportStatus, SystemResource } from '@romd/admin-api-client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render as renderBare, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render as renderBare, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, Link, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,6 +22,7 @@ vi.mock('@romd/admin-api-client', async () => {
     listAdminSystems: vi.fn(),
     listImportFolders: vi.fn(),
     getServerImport: vi.fn(),
+    getServerImportRetry: vi.fn(),
     startServerImport: vi.fn(),
   };
 });
@@ -40,6 +41,7 @@ import {
   getMe,
   getRomStats,
   getServerImport,
+  getServerImportRetry,
   getTrackedCollectionStats,
   listAdminSystems,
   listImportFolders,
@@ -367,7 +369,7 @@ describe('ImportPage', () => {
     ).toHaveAttribute('href', `/jobs/${lastJobId}#import-results`);
   });
 
-  it('retries the displayed failed job and opens the resulting import', async () => {
+  it('refreshes a stale retry review and waits for a second confirmation before queueing', async () => {
     const user = userEvent.setup();
     const lastJobId = '2fa2e739-af69-404d-83af-43262ab28d46';
     const jobId = '0fb66e70-36b7-4869-9b81-9f7d0db819b8';
@@ -378,28 +380,101 @@ describe('ImportPage', () => {
       lastJobPhase: 'Failed',
       canRetry: true,
     });
-    vi.mocked(startServerImport).mockResolvedValue({
-      data: {
-        jobId,
-      },
-    } as Awaited<ReturnType<typeof startServerImport>>);
+    const empty = {
+      count: 0,
+      examples: [],
+    };
+    vi.mocked(getServerImportRetry)
+      .mockResolvedValueOnce({
+        data: {
+          revision: 'initial-review',
+          isBusy: false,
+          ready: {
+            count: 2,
+            examples: [
+              'ready.bin',
+              'changing.bin',
+            ],
+          },
+          changed: empty,
+          missing: empty,
+          unavailable: empty,
+        },
+      } as Awaited<ReturnType<typeof getServerImportRetry>>)
+      .mockResolvedValueOnce({
+        data: {
+          revision: 'updated-review',
+          isBusy: false,
+          ready: {
+            count: 1,
+            examples: [
+              'ready.bin',
+            ],
+          },
+          changed: {
+            count: 1,
+            examples: [
+              'changing.bin',
+            ],
+          },
+          missing: empty,
+          unavailable: empty,
+        },
+      } as Awaited<ReturnType<typeof getServerImportRetry>>);
+    vi.mocked(startServerImport)
+      .mockResolvedValueOnce({
+        error: {
+          detail: 'The retry review changed. Review the remaining files again.',
+        },
+        response: new Response(null, {
+          status: 409,
+        }),
+      } as Awaited<ReturnType<typeof startServerImport>>)
+      .mockResolvedValueOnce({
+        data: {
+          jobId,
+        },
+      } as Awaited<ReturnType<typeof startServerImport>>);
     render(<ImportPage />);
     await user.click(
       await screen.findByRole('tab', {
         name: 'Server folder',
       }),
     );
-
     await user.click(
       screen.getByRole('button', {
         name: 'Retry last import',
       }),
     );
 
-    expect(await screen.findByText('Running')).toBeInTheDocument();
-    expect(startServerImport).toHaveBeenCalledWith({
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Review remaining files',
+    });
+    expect(await within(dialog).findByText('2 ready to retry')).toBeInTheDocument();
+    expect(startServerImport).not.toHaveBeenCalled();
+    const confirm = within(dialog).getByRole('button', {
+      name: 'Queue retry',
+    });
+    await user.click(confirm);
+    expect(
+      await within(dialog).findByText(
+        'The retry review changed. Review the remaining files again.',
+      ),
+    ).toBeInTheDocument();
+    expect(await within(dialog).findByText('1 changed')).toBeInTheDocument();
+    expect(startServerImport).toHaveBeenCalledExactlyOnceWith({
       body: {
         retryJobId: lastJobId,
+        reviewedRevision: 'initial-review',
+      },
+    });
+
+    await user.click(confirm);
+    expect(await screen.findByText('Running')).toBeInTheDocument();
+    expect(startServerImport).toHaveBeenLastCalledWith({
+      body: {
+        retryJobId: lastJobId,
+        reviewedRevision: 'updated-review',
       },
     });
     expect(getJob).toHaveBeenCalledWith(
