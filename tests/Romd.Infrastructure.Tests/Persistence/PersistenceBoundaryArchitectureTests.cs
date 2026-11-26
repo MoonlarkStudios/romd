@@ -116,6 +116,8 @@ public sealed class PersistenceBoundaryArchitectureTests
         Sql(Persistence + "MetadataProviders/HashBackedDatFamilyReader.cs", "HashBackedDatFamilyReader", "ReadAsync", "SqlQuery", count: 2),
         // Read published facts and current DAT-authorized provisional gaps in one statement.
         Sql(Persistence + "MetadataProviders/TitleMetadataPresentation.cs", "TitleMetadataPresentation", "PresentedTitles", "FromSqlInterpolated"),
+        // Join parameterized bundled hardware facts before the consumer system keyset is ordered and bounded.
+        Sql(Persistence + "Repositories/ConsumerBrowseRepository.cs", "ConsumerBrowseRepository", "ListPlatformsForLibraryAsync", "SqlQuery"),
         // Serializes retryable session upserts for one user inside the application-owned transaction.
         Sql(Persistence + "PlayActivityUnitOfWork.cs", "PlayActivityUnitOfWork", "BeginAsync", "ExecuteSqlInterpolatedAsync"),
         // Parameterized policy job row lock serializes unclaimed-pending reuse with worker claim.

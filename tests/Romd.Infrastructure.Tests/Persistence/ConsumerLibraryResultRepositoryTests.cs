@@ -9,6 +9,7 @@ using Romd.Consumer.Application.Libraries;
 using Romd.Domain.Catalog;
 using Romd.Domain.Hashing;
 using Romd.Domain.Libraries;
+using Romd.Domain.ReferenceData;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Identity;
 using Romd.Persistence.Identity;
@@ -126,6 +127,84 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
         selected.Value.Hardware.Generation.ShouldBe(4);
         selected.Value.Hardware.ReleaseYear.ShouldBe(1990);
         selected.Value.Media.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ListPlatforms_SortsAcrossPagesWithStableTiesAndScopedCursors()
+    {
+        await using var context = CreateContext();
+        var systems = new[]
+        {
+            (Key: "genesis", Name: "Genesis", BuiltIn: true, StoredYear: (int?)2000, Count: 2),
+            (Key: "snes", Name: "Super Nintendo", BuiltIn: true, StoredYear: (int?)null, Count: 1),
+            (Key: "custom", Name: "A custom system", BuiltIn: false, StoredYear: (int?)1990, Count: 3),
+            (Key: "undated", Name: "B undated", BuiltIn: false, StoredYear: (int?)null, Count: 1),
+            (Key: "legacy", Name: "C undated", BuiltIn: false, StoredYear: (int?)null, Count: 1),
+            (Key: "nes", Name: "Nintendo Entertainment System", BuiltIn: true, StoredYear: (int?)null, Count: 0)
+        };
+        int titleId = 0;
+        for (int index = 0; index < systems.Length; index++)
+        {
+            var system = systems[index];
+            int platformId = index + 1;
+            context.Platforms.Add(new PlatformEntity
+            {
+                Id = platformId,
+                CanonicalKey = system.Key,
+                ShortName = system.Key,
+                Name = system.Name,
+                BaseName = system.Name,
+                BaseCompactLabel = system.Key,
+                Ownership = system.BuiltIn ? ReferenceOwnership.Romd : ReferenceOwnership.Installation,
+                BuiltInVersion = system.BuiltIn ? 1 : null,
+                HardwareReleaseYear = system.StoredYear,
+                CreatedAt = DateTimeOffset.UnixEpoch
+            });
+            for (int indexOfTitle = 0; indexOfTitle < system.Count; indexOfTitle++)
+            {
+                titleId++;
+                context.Titles.Add(NewTitle(titleId, platformId, $"Title {titleId}", DateTimeOffset.UnixEpoch));
+                context.MaterializedLibraryTitles.Add(NewOwnedTitle(titleId, platformId, exposedReleaseCount: 1));
+            }
+        }
+        await context.SaveChangesAsync();
+
+        var scope = new ConsumerLibraryScope(UserId);
+        var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
+        var byYear = await ReadAllPages(ConsumerPlatformSortField.ReleaseYear);
+        byYear.Select(system => system.Key).ShouldBe(["genesis", "custom", "snes", "undated", "legacy"]);
+        byYear.Select(system => system.ReleaseYear).ShouldBe([1988, 1990, 1990, null, null]);
+        var byCount = await ReadAllPages(ConsumerPlatformSortField.TitleCount);
+        byCount.Select(system => system.Key).ShouldBe(["custom", "genesis", "undated", "legacy", "snes"]);
+        var byName = await ReadAllPages(ConsumerPlatformSortField.Name);
+        byName.Select(system => system.Key).ShouldBe(["custom", "undated", "legacy", "genesis", "snes"]);
+
+        var first = (await repository.ListPlatformsAsync(scope, null, 1, ConsumerPlatformSortField.ReleaseYear))
+            .ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerPlatformSummaryData>>.Found>();
+        var incompatible = await repository.ListPlatformsAsync(scope, first.Value.NextCursor, 1, ConsumerPlatformSortField.TitleCount);
+        incompatible.ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerPlatformSummaryData>>.Rejected>()
+            .Error.Code.ShouldBe("Pagination.InvalidCursor");
+
+        async Task<List<ConsumerPlatformSummaryData>> ReadAllPages(ConsumerPlatformSortField sortField)
+        {
+            var items = new List<ConsumerPlatformSummaryData>();
+            string? cursor = null;
+            for (int index = 0; index < systems.Length; index++)
+            {
+                var result = await repository.ListPlatformsAsync(scope, cursor, 1, sortField);
+                var page = result.ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerPlatformSummaryData>>.Found>().Value;
+                items.Add(page.Items.ShouldHaveSingleItem());
+                if (!page.HasNextPage)
+                {
+                    page.NextCursor.ShouldBeNull();
+                    return items;
+                }
+                page.NextCursor.ShouldNotBeNull();
+                page.NextCursor.ShouldNotBe(cursor);
+                cursor = page.NextCursor;
+            }
+            throw new InvalidOperationException("Platform pagination did not terminate.");
+        }
     }
 
     [Fact]

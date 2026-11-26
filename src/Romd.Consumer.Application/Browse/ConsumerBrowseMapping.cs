@@ -22,6 +22,7 @@ public static class ConsumerBrowseMapping
                 Name = item.Name,
                 ShortName = item.ShortName,
                 Manufacturer = item.Manufacturer,
+                ReleaseYear = item.ReleaseYear,
                 TitleCount = item.TitleCount,
                 CoverUrl = item.CoverMediaId is { } mediaId ? MediaUrl(mediaId) : null,
                 ConsoleArtwork = item.ConsoleArtwork?.ToContract(),

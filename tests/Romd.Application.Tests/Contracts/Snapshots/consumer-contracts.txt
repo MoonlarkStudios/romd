@@ -124,6 +124,7 @@ Romd.Contracts.Consumer.Browse.ConsumerPlatformSummary
   Key: string [required]
   Manufacturer: string?
   Name: string [required]
+  ReleaseYear: int?
   ShortName: string [required]
   TitleCount: int [required]
 

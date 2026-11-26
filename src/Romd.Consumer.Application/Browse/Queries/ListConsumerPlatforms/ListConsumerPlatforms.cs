@@ -11,7 +11,8 @@ namespace Romd.Consumer.Application.Browse.Queries.ListConsumerPlatforms;
 
 public sealed record ListConsumerPlatformsQuery(
     string? Cursor,
-    int Limit) : IQuery<CommonModels.Page<ConsumerPlatformSummary>>
+    int Limit,
+    string? SortBy = null) : IQuery<CommonModels.Page<ConsumerPlatformSummary>>
 {
     /// <summary>The largest page the operation serves; the endpoint publishes and enforces it.</summary>
     public const int MaxLimit = 100;
@@ -31,10 +32,17 @@ public sealed class ListConsumerPlatformsQueryHandler(
             return ConsumerErrors.CurrentUserRequired();
         }
 
+        var sortField = query.SortBy switch
+        {
+            "releaseYear" => ConsumerPlatformSortField.ReleaseYear,
+            "titleCount" => ConsumerPlatformSortField.TitleCount,
+            _ => ConsumerPlatformSortField.Name
+        };
         var result = await browseRepository.ListPlatformsAsync(
             new ConsumerLibraryScope(userId),
             query.Cursor,
             query.Limit,
+            sortField,
             ct);
 
         return result switch

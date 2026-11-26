@@ -16,6 +16,7 @@ public interface IConsumerBrowseRepository
         ConsumerLibraryScope scope,
         string? cursor,
         int limit,
+        ConsumerPlatformSortField sortField = ConsumerPlatformSortField.Name,
         CancellationToken ct = default);
 
     Task<ConsumerLibraryReadResult<ConsumerPlatformDetailData>> GetPlatformAsync(

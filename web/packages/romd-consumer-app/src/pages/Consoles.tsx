@@ -1,4 +1,5 @@
-import { Button, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Button, Group, NativeSelect, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { useLocalStorage } from '@mantine/hooks';
 import type { ConsumerPlatformSummary } from '@romd/consumer-api-client';
 import { IconArrowRight } from '@tabler/icons-react';
 import { Link } from 'react-router';
@@ -65,17 +66,47 @@ function ConsoleCard({ system }: { system: ConsumerPlatformSummary }) {
 }
 
 export function Consoles() {
-  const systems = usePlatforms();
+  const [savedSort, setSavedSort] = useLocalStorage({
+    key: 'romd.consumer.consoles.sort',
+    defaultValue: 'releaseYear',
+    getInitialValueInEffect: false,
+  });
+  const sortBy = savedSort === 'name' || savedSort === 'titleCount' ? savedSort : 'releaseYear';
+  const systems = usePlatforms(sortBy);
   const items = systems.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
     <Stack gap="var(--romd-page-gap)">
-      <Title
-        order={1}
-        className={classes.pageHeading}
+      <Group
+        justify="space-between"
+        align="center"
       >
-        Consoles
-      </Title>
+        <Title
+          order={1}
+          className={classes.pageHeading}
+        >
+          Consoles
+        </Title>
+        <NativeSelect
+          label="Sort by"
+          value={sortBy}
+          onChange={(event) => setSavedSort(event.currentTarget.value)}
+          data={[
+            {
+              value: 'releaseYear',
+              label: 'Release order',
+            },
+            {
+              value: 'titleCount',
+              label: 'Most games',
+            },
+            {
+              value: 'name',
+              label: 'Name (A–Z)',
+            },
+          ]}
+        />
+      </Group>
       {systems.error instanceof ConsumerLibraryUnavailableError ? (
         <LibraryUnavailable retry={() => void systems.refetch()} />
       ) : (
@@ -90,10 +121,21 @@ export function Consoles() {
               spacing="lg"
             >
               {items.map((system) => (
-                <ConsoleCard
+                <div
                   key={system.key}
-                  system={system}
-                />
+                  className={classes.gridItem}
+                >
+                  {sortBy === 'releaseYear' && (
+                    <div className={`romd-metadata ${classes.year}`}>
+                      {system.releaseYear == null ? (
+                        'Year unknown'
+                      ) : (
+                        <time dateTime={String(system.releaseYear)}>{system.releaseYear}</time>
+                      )}
+                    </div>
+                  )}
+                  <ConsoleCard system={system} />
+                </div>
               ))}
             </SimpleGrid>
           )}

@@ -2083,6 +2083,18 @@
         "operationId": "ListConsumerLibrarySystems",
         "parameters": [
           {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "name",
+                "releaseYear",
+                "titleCount"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "cursor",
             "in": "query",
             "schema": {
@@ -4784,6 +4796,13 @@
               "null",
               "string"
             ]
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           },
           "titleCount": {
             "type": "integer",

@@ -23,6 +23,7 @@ public sealed record ConsumerPlatformSummaryData
     public required string Name { get; init; }
     public required string ShortName { get; init; }
     public string? Manufacturer { get; init; }
+    public int? ReleaseYear { get; init; }
     public required int TitleCount { get; init; }
     public int? CoverMediaId { get; init; }
     public ReferenceAssetData? ConsoleArtwork { get; init; }

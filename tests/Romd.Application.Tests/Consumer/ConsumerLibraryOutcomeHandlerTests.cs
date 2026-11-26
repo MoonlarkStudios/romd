@@ -62,6 +62,7 @@ public sealed class ConsumerLibraryOutcomeHandlerTests
                 Arg.Any<ConsumerLibraryScope>(),
                 Arg.Any<string?>(),
                 Arg.Any<int>(),
+                Arg.Any<ConsumerPlatformSortField>(),
                 Arg.Any<CancellationToken>())
             .Returns(Result(outcome, value));
         var handler = new ListConsumerPlatformsQueryHandler(CurrentUser(), repository);

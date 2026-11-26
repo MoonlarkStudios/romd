@@ -5,6 +5,19 @@
   letter-spacing: -0.04em;
 }
 
+.gridItem {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gridItem .year {
+  color: var(--romd-accent);
+  padding-bottom: var(--mantine-spacing-xs);
+  margin-bottom: var(--mantine-spacing-xs);
+  border-bottom: 1px solid var(--romd-border-subtle);
+}
+
 .card,
 .header {
   border: 1px solid var(--romd-border-subtle);
@@ -16,6 +29,7 @@
 .card {
   display: flex;
   flex-direction: column;
+  flex: 1;
   color: inherit;
   text-decoration: none;
   transition: border-color var(--romd-duration-focus) var(--romd-ease-standard);

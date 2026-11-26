@@ -100,6 +100,9 @@ export function ConsoleDetail() {
         <Button
           component={Link}
           to="/systems"
+          state={{
+            restoreConsoleList: true,
+          }}
           variant="subtle"
           color="gray"
           leftSection={<IconArrowLeft size={16} />}

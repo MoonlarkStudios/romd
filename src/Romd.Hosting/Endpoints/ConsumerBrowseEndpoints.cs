@@ -58,12 +58,13 @@ public static class ConsumerBrowseEndpoints
 
     private static async Task<IResult> ListPlatforms(
         IQueryHandler<ListConsumerPlatformsQuery, CommonModels.Page<ConsumerPlatformSummary>> handler,
+        [ClosedValues("name", "releaseYear", "titleCount")] string? sortBy = null,
         string? cursor = null,
         [Range(1, ListConsumerPlatformsQuery.MaxLimit)] int limit = 50,
         CancellationToken cancellationToken = default)
     {
         var result = await handler.HandleAsync(
-            new ListConsumerPlatformsQuery(cursor, limit),
+            new ListConsumerPlatformsQuery(cursor, limit, sortBy),
             cancellationToken);
 
         return result.IsError ? result.Errors.ToProblem() : Results.Ok(result.Value);

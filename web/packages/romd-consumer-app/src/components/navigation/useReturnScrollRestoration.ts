@@ -1,24 +1,60 @@
 import { useEffect, useRef } from 'react';
-import { useLocation } from 'react-router';
-import { readReturnContext } from './titleNavigation';
+import { useLocation, useNavigationType } from 'react-router';
+import { type ReturnContext, readReturnContext } from './titleNavigation';
 
 /** Wait briefly for cached/asynchronous shelves to mount; user scrolling always wins. */
 export function useReturnScrollRestoration() {
   const location = useLocation();
+  const navigationType = useNavigationType();
   const previousPath = useRef<string | null>(null);
+  const consoleListPosition = useRef<{
+    key: string;
+    y: number;
+  } | null>(null);
   useEffect(() => {
     const changedPage = previousPath.current !== location.pathname;
     previousPath.current = location.pathname;
-    const restored = location.state?.restoreTitleReturn;
-    if (!restored) {
-      if (changedPage && location.pathname.startsWith('/titles/')) window.scrollTo(0, 0);
-      return;
-    }
+    const isConsoleList = location.pathname === '/systems';
+    const saved = consoleListPosition.current;
+    const restoreConsoleList =
+      isConsoleList &&
+      saved &&
+      (location.state?.restoreConsoleList === true ||
+        (navigationType === 'POP' && saved.key === location.key));
     const context = readReturnContext({
-      titleReturn: restored,
+      titleReturn: location.state?.restoreTitleReturn,
     });
-    if (context.href !== `${location.pathname}${location.search}${location.hash}`) return;
-    const scroll = context.scroll;
+    const scroll: ReturnContext['scroll'] = restoreConsoleList
+      ? {
+          y: saved.y,
+          rails: {},
+        }
+      : location.state?.restoreTitleReturn &&
+          context.href === `${location.pathname}${location.search}${location.hash}`
+        ? context.scroll
+        : undefined;
+    if (
+      !scroll &&
+      changedPage &&
+      (isConsoleList ||
+        location.pathname.startsWith('/systems/') ||
+        location.pathname.startsWith('/titles/'))
+    ) {
+      window.scrollTo(0, 0);
+    }
+    const rememberConsolePosition = () => {
+      consoleListPosition.current = {
+        key: location.key,
+        y: window.scrollY,
+      };
+    };
+    const stopRemembering = () => window.removeEventListener('scroll', rememberConsolePosition);
+    if (isConsoleList) {
+      rememberConsolePosition();
+      window.addEventListener('scroll', rememberConsolePosition, {
+        passive: true,
+      });
+    }
     if (
       !scroll ||
       !Number.isFinite(scroll.y) ||
@@ -26,7 +62,7 @@ export function useReturnScrollRestoration() {
       !scroll.rails ||
       typeof scroll.rails !== 'object'
     )
-      return;
+      return stopRemembering;
     let timer: ReturnType<typeof setTimeout>;
     let stopped = false;
     const deadline = Date.now() + 5000;
@@ -64,11 +100,13 @@ export function useReturnScrollRestoration() {
     window.addEventListener('keydown', stop);
     return () => {
       stop();
+      stopRemembering();
       window.removeEventListener('wheel', stop);
       window.removeEventListener('touchstart', stop);
       window.removeEventListener('keydown', stop);
     };
   }, [
     location,
+    navigationType,
   ]);
 }
