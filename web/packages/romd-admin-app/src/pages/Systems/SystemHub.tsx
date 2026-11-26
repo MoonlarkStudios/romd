@@ -8,6 +8,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { TitlesLens } from '../Catalog/TitlesLens';
 import { BiosTab } from './BiosTab';
 import { SourcesTab } from './SourcesTab';
+import { SystemArtwork } from './SystemArtwork';
 import { SystemHelp } from './SystemHelp';
 import { SystemLogo } from './SystemLogo';
 import { SystemMetadata } from './SystemMetadata';
@@ -18,6 +19,7 @@ import { systemsListReturnPath } from './systemsListNavigation';
 
 const HUB_TABS = [
   'metadata',
+  'artwork',
   'titles',
   'sources',
   'bios',
@@ -166,6 +168,7 @@ export function SystemHub() {
         >
           <Tabs.List mb="md">
             <Tabs.Tab value="metadata">Metadata</Tabs.Tab>
+            <Tabs.Tab value="artwork">Artwork</Tabs.Tab>
             <Tabs.Tab value="sources">Catalog sources</Tabs.Tab>
             <Tabs.Tab value="titles">Titles</Tabs.Tab>
             <Tabs.Tab value="bios">BIOS</Tabs.Tab>
@@ -175,6 +178,12 @@ export function SystemHub() {
             <SystemMetadata
               key={systemKey}
               systemKey={systemKey}
+            />
+          </Tabs.Panel>
+          <Tabs.Panel value="artwork">
+            <SystemArtwork
+              key={systemKey}
+              system={platform}
             />
           </Tabs.Panel>
           <Tabs.Panel value="titles">

@@ -105,6 +105,7 @@ Romd.Contracts.Consumer.Browse.ConsumerMediaRef
   Url: string [required]
 
 Romd.Contracts.Consumer.Browse.ConsumerPlatformDetail
+  ConsoleArtwork: ReferenceAsset?
   Key: string [required]
   Manufacturer: string?
   Media: IReadOnlyList<ConsumerMediaRef> [required]
@@ -113,6 +114,7 @@ Romd.Contracts.Consumer.Browse.ConsumerPlatformDetail
   TitleCount: int [required]
 
 Romd.Contracts.Consumer.Browse.ConsumerPlatformSummary
+  ConsoleArtwork: ReferenceAsset?
   CoverUrl: string?
   Key: string [required]
   Manufacturer: string?

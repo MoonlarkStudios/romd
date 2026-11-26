@@ -3,6 +3,7 @@ using ErrorOr;
 using System.ComponentModel.DataAnnotations;
 using Romd.Contracts.Common.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.OpenApi;
 using Romd.Application.Common.ReferenceCatalog;
 using Romd.Application.Common.Cqrs;
 using Romd.Admin.Application.ReferenceData.Assets.Commands.UploadReferenceAsset;
@@ -26,7 +27,17 @@ public static class ReferenceCatalogEndpoints
             .AllowAnonymous().Produces(200).ProducesProblems(404);
         if (admin)
             app.MapPost("assets", UploadAsset).WithTags("Reference assets").WithName("UploadReferenceAsset")
-            .RequireAuthorization(AuthorizationPolicies.RequireAdmin).ProducesCreated<string>().ProducesProblems(400, 413);
+                .RequireAuthorization(AuthorizationPolicies.RequireAdmin).ProducesCreated<string>().ProducesProblems(400, 413)
+                .AddOpenApiOperationTransformer((operation, _, _) =>
+                {
+                    var raster = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.String, Format = "binary" } };
+                    operation.RequestBody = new OpenApiRequestBody
+                    {
+                        Required = true,
+                        Content = new Dictionary<string, OpenApiMediaType> { ["image/png"] = raster, ["image/webp"] = raster }
+                    };
+                    return Task.CompletedTask;
+                });
 
         app.MapSystemReferences(admin);
         app.MapCompanyReferences(admin);

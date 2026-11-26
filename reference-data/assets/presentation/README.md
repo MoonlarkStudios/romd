@@ -2,7 +2,10 @@
 
 ROMD's server embeds these reviewed system logos and rating marks. Attribution
 files stay with the artwork. Canonical definitions in `reference-data/catalog/`
-reference paths relative to this directory. Validate them with
+reference paths relative to this directory. Systems may also declare a default
+console portrait with `consoleArtworkPath`, a PNG or WebP in `console-artwork/`.
+The server keeps each shipped image at its content hash and stores installation
+overrides separately. Validate the paths with
 `node scripts/presentation/validate.mjs`.
 
 The worker installs defaults into the effective reference catalog and publishes

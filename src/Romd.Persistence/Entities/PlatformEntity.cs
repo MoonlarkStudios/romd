@@ -20,6 +20,7 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
     public string? BaseCompactLabel { get; set; }
     public string? BaseDescription { get; set; }
     public string? BaseAssetHash { get; set; }
+    public string? BaseConsoleArtworkHash { get; set; }
     public bool BaseMonochrome { get; set; }
     public bool Retired { get; set; }
     public string? HardwareCategory { get; set; }
@@ -46,11 +47,13 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
     public string? CompactLabelOverride { get; set; }
     public bool HasArtworkOverride { get; set; }
     public string? ArtworkOverrideHash { get; set; }
+    public string? ConsoleArtworkOverrideHash { get; set; }
     public bool? MonochromeOverride { get; set; }
     [NotMapped]
     public SystemOverrides ReferenceOverrides
     {
-        get => new(NameOverride, CompactLabelOverride, DescriptionOverride, ArtworkOverrideHash, MonochromeOverride, HasDescriptionOverride, HasArtworkOverride);
+        get => new(NameOverride, CompactLabelOverride, DescriptionOverride, ArtworkOverrideHash, MonochromeOverride,
+            HasDescriptionOverride, HasArtworkOverride, ConsoleArtworkOverrideHash);
         set
         {
             NameOverride = value.Name;
@@ -59,6 +62,7 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
             DescriptionOverride = value.HasDescription ? value.Description : null;
             HasArtworkOverride = value.HasIcon;
             ArtworkOverrideHash = value.HasIcon ? value.Icon : null;
+            ConsoleArtworkOverrideHash = value.ConsoleArtwork;
             MonochromeOverride = value.Monochrome;
         }
     }
@@ -68,12 +72,15 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
         {
             t.HasCheckConstraint("CK_Platforms_DescriptionOverride", "\"HasDescriptionOverride\" OR \"DescriptionOverride\" IS NULL");
             t.HasCheckConstraint("CK_Platforms_ArtworkOverride", "\"HasArtworkOverride\" OR \"ArtworkOverrideHash\" IS NULL");
+            t.HasCheckConstraint("CK_Platforms_ConsoleArtworkOwnership", "(\"BaseConsoleArtworkHash\" IS NULL OR \"Ownership\" IS NOT DISTINCT FROM 'Romd') AND (\"ConsoleArtworkOverrideHash\" IS NULL OR \"Ownership\" IS NOT NULL)");
         });
         builder.Property(x => x.NameOverride).HasMaxLength(200);
         builder.Property(x => x.DescriptionOverride).HasMaxLength(2000);
         builder.Property(x => x.CompactLabelOverride).HasMaxLength(40);
         builder.Property(x => x.ArtworkOverrideHash).HasMaxLength(64);
         builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.ArtworkOverrideHash).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(x => x.ConsoleArtworkOverrideHash).HasMaxLength(64);
+        builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.ConsoleArtworkOverrideHash).OnDelete(DeleteBehavior.Restrict);
         builder.ConfigureEntity("Platforms");
         builder.ToTable("Platforms", t =>
         {
@@ -87,6 +94,8 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
         builder.Property(x => x.BaseDescription).HasMaxLength(2000);
         builder.Property(x => x.BaseAssetHash).HasMaxLength(64);
         builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.BaseAssetHash).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(x => x.BaseConsoleArtworkHash).HasMaxLength(64);
+        builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.BaseConsoleArtworkHash).OnDelete(DeleteBehavior.Restrict);
         builder.Property(x => x.CanonicalKey).HasMaxLength(64);
         builder.HasIndex(x => x.CanonicalKey).IsUnique();
 

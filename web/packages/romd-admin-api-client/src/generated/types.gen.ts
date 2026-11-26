@@ -2227,6 +2227,7 @@ export type ReferenceSystem = {
     manufacturerKeys?: null | Array<string>;
     retired?: boolean;
     manufacturers?: null | Array<CompanySummary>;
+    consoleArtwork?: null | ReferenceAsset;
 };
 
 export type ReferenceTaxonomy = {
@@ -2582,11 +2583,13 @@ export type SystemOverrides = {
     monochrome: null | boolean;
     hasDescription: boolean;
     hasIcon: boolean;
+    consoleArtwork?: null | string;
 };
 
 export type SystemPatch = {
     manufacturerKeys?: Array<string>;
     compactLabel?: string;
+    consoleArtwork?: string;
     icon?: null | string;
     monochrome?: boolean;
     name?: string;
@@ -2603,6 +2606,7 @@ export type SystemResource = {
     icon: null | ReferenceAsset;
     retired: boolean;
     manufacturers: Array<CompanySummary>;
+    consoleArtwork?: null | ReferenceAsset;
     revision: string;
 };
 
@@ -4446,7 +4450,7 @@ export type GetAdminReferenceAssetResponses = {
 };
 
 export type UploadReferenceAssetData = {
-    body?: never;
+    body: Blob | File;
     path?: never;
     query?: never;
     url: '/api/assets';

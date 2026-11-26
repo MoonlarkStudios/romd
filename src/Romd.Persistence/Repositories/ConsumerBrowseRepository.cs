@@ -1,5 +1,6 @@
 using Romd.Domain.Catalog;
 using Romd.Application.Common.Systems;
+using Romd.Application.Common.ReferenceCatalog;
 using Microsoft.EntityFrameworkCore;
 using Romd.Application.Common.Pagination;
 using Romd.Consumer.Application.Browse;
@@ -75,6 +76,10 @@ public sealed partial class ConsumerBrowseRepository(
                     .OrderByDescending(media => media.IsPrimary)
                     .ThenBy(media => media.Id)
                     .Select(media => (int?)media.Id)
+                    .FirstOrDefault(),
+                ConsoleArtwork = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (platform.ConsoleArtworkOverrideHash ?? platform.BaseConsoleArtworkHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType, false))
                     .FirstOrDefault()
             })
             .Take(limit + 1)
@@ -113,7 +118,11 @@ public sealed partial class ConsumerBrowseRepository(
                 TitleCount = OwnedMaterializedLibraryTitles(libraryId)
                     .Where(item => item.PlatformId == candidate.Id)
                     .Count(),
-                Media = Array.Empty<ConsumerMediaData>()
+                Media = Array.Empty<ConsumerMediaData>(),
+                ConsoleArtwork = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (candidate.ConsoleArtworkOverrideHash ?? candidate.BaseConsoleArtworkHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType, false))
+                    .FirstOrDefault()
             })
             .FirstOrDefaultAsync(ct);
 

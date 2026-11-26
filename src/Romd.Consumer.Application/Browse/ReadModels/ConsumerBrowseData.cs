@@ -1,4 +1,5 @@
 using Romd.Application.Common.Systems;
+using Romd.Application.Common.ReferenceCatalog;
 using Romd.Domain.Catalog;
 
 namespace Romd.Consumer.Application.Browse.ReadModels;
@@ -23,6 +24,7 @@ public sealed record ConsumerPlatformSummaryData
     public string? Manufacturer { get; init; }
     public required int TitleCount { get; init; }
     public int? CoverMediaId { get; init; }
+    public ReferenceAssetData? ConsoleArtwork { get; init; }
 }
 
 public sealed record ConsumerPlatformDetailData
@@ -34,6 +36,7 @@ public sealed record ConsumerPlatformDetailData
     public string? Manufacturer { get; init; }
     public required int TitleCount { get; init; }
     public required IReadOnlyList<ConsumerMediaData> Media { get; init; }
+    public ReferenceAssetData? ConsoleArtwork { get; init; }
 }
 
 public sealed record ConsumerTitleCardData

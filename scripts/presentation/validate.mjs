@@ -26,6 +26,11 @@ const asset = async path => {
 for (const item of catalog.platforms) {
   if (!Object.hasOwn(systems, item.key) || typeof item.label !== 'string' || !item.label.trim() || typeof item.tintable !== 'boolean') fail(`Invalid platform: ${item.key}`);
   if (item.asset !== null) await asset(item.asset);
+  const artwork = systems[item.key].consoleArtworkPath;
+  if (artwork != null) {
+    if (typeof artwork !== 'string' || !/^console-artwork\/[a-zA-Z0-9_-]+\.(png|webp)$/.test(artwork)) fail(`Invalid console artwork path: ${artwork}`);
+    await readFile(resolve(source, artwork));
+  }
 }
 for (const item of catalog.ratings) {
   if (!canonicalRatings.boards.some(board => board.key === item.board) || typeof item.code !== 'string' || !item.code || typeof item.label !== 'string' || !item.label) fail(`Invalid rating: ${item.board}:${item.code}`);

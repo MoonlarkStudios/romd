@@ -4712,6 +4712,16 @@
             "items": {
               "$ref": "#/components/schemas/ConsumerMediaRef"
             }
+          },
+          "consoleArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
           }
         }
       },
@@ -4747,6 +4757,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "consoleArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
             ]
           }
         }
@@ -6509,6 +6529,16 @@
             "items": {
               "$ref": "#/components/schemas/CompanySummary"
             }
+          },
+          "consoleArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
           }
         }
       },
@@ -6759,6 +6789,16 @@
             "items": {
               "$ref": "#/components/schemas/CompanySummary"
             }
+          },
+          "consoleArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
           },
           "revision": {
             "type": "string"

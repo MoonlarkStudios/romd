@@ -32,6 +32,10 @@ public sealed class ReferenceOpenApiContractTests
         var keys = patch.GetProperty("properties").GetProperty("manufacturerKeys");
         keys.GetProperty("type").GetString().ShouldBe("array");
         keys.GetProperty("items").GetProperty("type").GetString().ShouldBe("string");
+        patch.GetProperty("properties").GetProperty("consoleArtwork").GetProperty("type").GetString().ShouldBe("string");
+        var formats = paths.GetProperty("/api/assets").GetProperty("post").GetProperty("requestBody").GetProperty("content");
+        foreach (var format in new[] { "image/png", "image/webp" })
+            formats.GetProperty(format).GetProperty("schema").GetProperty("format").GetString().ShouldBe("binary");
         patch.TryGetProperty("required", out var required).ShouldBeFalse();
         var systemKey = schemas.GetProperty("SystemResource").GetProperty("properties").GetProperty("key");
         systemKey.GetProperty("type").GetString().ShouldBe("string");
@@ -80,6 +84,10 @@ public sealed class ReferenceOpenApiContractTests
         schemas.GetProperty("ReferenceCatalogDescriptor").GetProperty("properties").TryGetProperty("systems", out _).ShouldBeFalse();
         schemas.GetProperty("ReferenceCatalogCounts").GetProperty("properties").EnumerateObject().Count().ShouldBe(6);
         schemas.GetProperty("SystemResource").GetProperty("properties").GetProperty("manufacturers").GetProperty("maxItems").GetInt32().ShouldBe(16);
+        schemas.GetProperty("SystemResource").GetProperty("properties").TryGetProperty("consoleArtwork", out _).ShouldBeTrue();
+        if (host == "consumer")
+            foreach (var type in new[] { "ConsumerPlatformSummary", "ConsumerPlatformDetail" })
+                schemas.GetProperty(type).GetProperty("properties").TryGetProperty("consoleArtwork", out _).ShouldBeTrue();
         if (host == "admin")
             schemas.GetProperty("ManagedSystem").GetProperty("properties").TryGetProperty("aliases", out _).ShouldBeFalse();
     }

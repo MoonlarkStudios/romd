@@ -20,6 +20,7 @@ public interface ISystemReferenceRepository
     Task<bool> HasDependentsAsync(int id, CancellationToken ct);
     Task DeleteAsync(int id, CancellationToken ct);
     Task<bool> AssetExistsAsync(string hash, CancellationToken ct);
+    Task<bool> RasterAssetExistsAsync(string hash, CancellationToken ct);
 }
 public interface ICompanyReferenceRepository
 {

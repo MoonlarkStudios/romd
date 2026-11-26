@@ -9,7 +9,6 @@ using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
 using Romd.Domain.Catalog;
 using Romd.Domain.Hashing;
-using Romd.Domain.ReferenceData;
 using Romd.Persistence;
 using Romd.Persistence.Entities;
 using Romd.Persistence.MetadataProviders;
@@ -341,17 +340,14 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
 
     private static async Task Seed(RomdDbContext db)
     {
-        db.Platforms.Add(new PlatformEntity
-        {
-            Id = 1,
-            Name = "Test",
-            ShortName = "test",
-            Ownership = ReferenceOwnership.Romd,
-            BuiltInVersion = 1,
-            BaseName = "Test",
-            BaseCompactLabel = "Test",
-            CanonicalKey = "test"
-        });
+        // This fixture also seeds historical schemas before upgrading them.
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO romd."Platforms" ("Id", "Name", "ShortName", "CreatedAt", "CreatedByUserId",
+                "Ownership", "BuiltInVersion", "BaseName", "BaseCompactLabel", "CanonicalKey",
+                "BaseMonochrome", "Retired", "HasDescriptionOverride", "HasArtworkOverride")
+            VALUES (1, 'Test', 'test', 0, '00000000-0000-0000-0000-000000000000',
+                'Romd', 1, 'Test', 'Test', 'test', FALSE, FALSE, FALSE, FALSE);
+            """);
         db.Titles.Add(new TitleEntity { Id = 1, PlatformId = 1, Name = "Game", NormalizedName = "game", EnrichmentStatus = "None" });
         db.Files.Add(new FileEntityPersistence { Id = 1, Sha256 = Sha256.FromBytes(new byte[Sha256.ByteLength]), Size = 1, SizeOnDisk = 1 });
         db.DatSources.Add(new DatSourceEntity { Id = 1, CatalogSource = new CatalogSourceEntity { Id = 1, Kind = "Dat", Status = "Active" } });

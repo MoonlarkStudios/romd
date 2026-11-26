@@ -20,7 +20,8 @@ internal static class SystemCatalogImport
         {
             var row = await db.Platforms.SingleOrDefaultAsync(x => x.CanonicalKey == key, ct);
             await repository.StageAsync(new(row?.Id ?? 0, key, new(ReferenceOwnership.Romd, catalog.CatalogVersion),
-                new(facts.Name, facts.CompactLabel, facts.Description, facts.IconPath is null ? null : assets[facts.IconPath], facts.Monochrome, facts.Retired),
+                new(facts.Name, facts.CompactLabel, facts.Description, facts.IconPath is null ? null : assets[facts.IconPath],
+                    facts.Monochrome, facts.Retired, facts.ConsoleArtworkPath is null ? null : assets[facts.ConsoleArtworkPath]),
                 row?.ReferenceOverrides ?? new(), facts.ManufacturerIds), ct);
             await db.SaveChangesAsync(ct);
             var id = await db.Platforms.Where(x => x.CanonicalKey == key).Select(x => x.Id).SingleAsync(ct);

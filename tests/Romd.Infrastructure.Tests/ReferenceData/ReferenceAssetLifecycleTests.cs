@@ -15,6 +15,8 @@ using Romd.Persistence.Entities;
 using Romd.Persistence.Repositories;
 using Romd.PostgreSql.TestSupport;
 using Romd.Storage;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using Shouldly;
 using Xunit;
@@ -82,6 +84,64 @@ public sealed partial class ReferenceAssetLifecycleTests : IDisposable
         // Attaching an old upload again protects it even beyond its reservation.
         (await new TypedReferenceTestCommands(db).UpdateSystem("snes", new SystemPatch { Icon = hash }, reset.Value.Revision, default)).IsError.ShouldBeFalse();
         (await ReferenceCatalogService.ReleaseExpiredAssetsAsync(db, DateTimeOffset.UtcNow.AddDays(30), default)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task ConsoleArtworkOverride_KeepsBundledBytesUntilRestoredAndPreservesTheLogo()
+    {
+        await using var db = _database.CreateContext();
+        var cas = Store();
+        var blobs = new ReferenceBlobStore(cas, Ledger(db, cas));
+        var service = new ReferenceCatalogService(db, blobs);
+        var document = JsonNode.Parse(BundledReferenceData.Document.GetRawText())!;
+        var systems = document["systems"]!;
+        // Reuse an embedded raster as a stand-in for a shipped portrait; give it only one owner.
+        systems["snes"]!["consoleArtworkPath"] = systems["genesis"]!["iconPath"]!.DeepClone();
+        systems["genesis"]!["iconPath"] = null;
+        await SharedReferenceDataSeeder.InitializeAsync(db, blobs, clock: TimeProvider.System,
+            document: JsonSerializer.SerializeToElement(document));
+        var commands = new TypedReferenceTestCommands(db);
+        var original = (await commands.System("snes"))!;
+        var bundled = original.Resource.ConsoleArtwork.ShouldNotBeNull();
+        var customHash = (await UploadAsync(db, Png, default)).Value;
+
+        var uploaded = (await commands.UpdateSystem("snes", new SystemPatch { ConsoleArtwork = customHash }, original.Revision)).Value;
+        uploaded.Resource.ConsoleArtwork!.Sha256.ShouldBe(customHash);
+        uploaded.Resource.Icon.ShouldBe(original.Resource.Icon);
+        uploaded.Overrides.ConsoleArtwork.ShouldBe(customHash);
+        var snapshot = (await service.GetCurrentAsync(default))!;
+        snapshot.Systems.Single(x => x.Key == "snes").ConsoleArtwork.ShouldBe(uploaded.Resource.ConsoleArtwork);
+        (await db.Platforms.SingleAsync(x => x.CanonicalKey == "snes")).BaseConsoleArtworkHash.ShouldBe(bundled.Sha256);
+        (await db.ReferenceAssetOwners.SingleAsync(x => x.Kind == "systems" && x.Key == "snes" && x.Slot == "console-base"))
+            .Hash.ShouldBe(bundled.Sha256);
+        (await ReferenceCatalogService.ReleaseExpiredAssetsAsync(db, DateTimeOffset.UtcNow.AddDays(30), default)).ShouldBe(0);
+        ReferenceCatalogService.Hash((await service.GetAssetAsync(bundled.Sha256, default))!.Bytes).ShouldBe(bundled.Sha256);
+        (await commands.ResetSystem("snes", SystemOverrideField.ConsoleArtwork, original.Revision))
+            .FirstError.Code.ShouldBe("ReferenceResource.PreconditionFailed");
+
+        var restored = (await commands.ResetSystem("snes", SystemOverrideField.ConsoleArtwork, uploaded.Revision)).Value;
+        restored.Resource.ConsoleArtwork.ShouldBe(bundled);
+        restored.Resource.Icon.ShouldBe(original.Resource.Icon);
+        restored.Overrides.ConsoleArtwork.ShouldBeNull();
+        (await db.ReferenceAssets.SingleAsync(x => x.Hash == customHash)).ReservedUntil.ShouldBeGreaterThan(DateTimeOffset.UtcNow.AddDays(6));
+    }
+
+    [Fact]
+    public async Task ConsoleArtworkOverride_CustomSystemCanClearArt_AndUnregisteredHashIsRejected()
+    {
+        await using var db = _database.CreateContext();
+        var commands = new TypedReferenceTestCommands(db);
+        var created = (await commands.CreateSystem(new("local-art-test", "Local system", "Local"))).Value;
+        var missing = await commands.UpdateSystem("local-art-test", new SystemPatch { ConsoleArtwork = new string('a', 64) }, created.Revision);
+        missing.IsError.ShouldBeTrue();
+        var hash = (await UploadAsync(db, Png, default)).Value;
+        var updated = (await commands.UpdateSystem("local-art-test", new SystemPatch { ConsoleArtwork = hash }, created.Revision)).Value;
+        updated.Resource.ConsoleArtwork!.Sha256.ShouldBe(hash);
+        (await db.Platforms.SingleAsync(x => x.CanonicalKey == "local-art-test")).BaseConsoleArtworkHash.ShouldBeNull();
+
+        var cleared = (await commands.ResetSystem("local-art-test", SystemOverrideField.ConsoleArtwork, updated.Revision)).Value;
+        cleared.Resource.ConsoleArtwork.ShouldBeNull();
+        cleared.Overrides.ConsoleArtwork.ShouldBeNull();
     }
 
     [Fact]

@@ -81,6 +81,41 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Platforms_ResolveConsoleArtworkIndependentlyOfGameMedia()
+    {
+        await SeedCompletenessScenariosAsync();
+        await using var context = CreateContext();
+        var defaultHash = new string('a', 64);
+        var customHash = new string('b', 64);
+        context.Files.AddRange(
+            new FileEntityPersistence { Id = 1, Sha256 = Sha256.Parse(defaultHash), Size = 1, SizeOnDisk = 1 },
+            new FileEntityPersistence { Id = 2, Sha256 = Sha256.Parse(customHash), Size = 1, SizeOnDisk = 1 });
+        context.ReferenceAssets.AddRange(
+            new ReferenceAssetEntity { Hash = defaultHash, ContentType = "image/png", FileId = 1 },
+            new ReferenceAssetEntity { Hash = customHash, ContentType = "image/webp", FileId = 2 });
+        var platform = await context.Platforms.AsTracking().SingleAsync();
+        platform.BaseConsoleArtworkHash = defaultHash;
+        await context.SaveChangesAsync();
+        var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
+        var scope = new ConsumerLibraryScope(UserId);
+
+        var listed = (await repository.ListPlatformsAsync(scope, null, 20))
+            .ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerPlatformSummaryData>>.Found>();
+        var summary = listed.Value.Items.ShouldHaveSingleItem();
+        summary.ConsoleArtwork!.Sha256.ShouldBe(defaultHash);
+        summary.CoverMediaId.ShouldBeNull();
+
+        platform.ConsoleArtworkOverrideHash = customHash;
+        await context.SaveChangesAsync();
+        var selected = (await repository.GetPlatformAsync(scope, platform.Id))
+            .ShouldBeOfType<ConsumerLibraryReadResult<ConsumerPlatformDetailData>.Found>();
+        selected.Value.ConsoleArtwork!.Sha256.ShouldBe(customHash);
+        selected.Value.ConsoleArtwork.Url.ShouldBe($"/api/assets/{customHash}");
+        selected.Value.ConsoleArtwork.ContentType.ShouldBe("image/webp");
+        selected.Value.Media.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task SearchCatalogAsync_CompletenessFilters_RequireExposedReleasesAndClassifyMixedReleasesAsPartial()
     {
         await SeedCompletenessScenariosAsync();

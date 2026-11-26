@@ -29,6 +29,8 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
     }
     public Task<bool> KeyExistsAsync(string key, CancellationToken ct) => db.Platforms.AnyAsync(x => x.CanonicalKey == key || x.ShortName == key, ct);
     public Task<bool> AssetExistsAsync(string hash, CancellationToken ct) => db.ReferenceAssets.AnyAsync(x => x.Hash == hash, ct);
+    public Task<bool> RasterAssetExistsAsync(string hash, CancellationToken ct) =>
+        db.ReferenceAssets.AnyAsync(x => x.Hash == hash && (x.ContentType == "image/png" || x.ContentType == "image/webp"), ct);
     public async Task StageAsync(SystemReference system, CancellationToken ct, bool enableForSetup = false)
     {
         var row = system.Id == 0 ? null : await db.Platforms.AsTracking().SingleAsync(x => x.Id == system.Id, ct);
@@ -40,6 +42,7 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
         row.BaseCompactLabel = system.Definition.CompactLabel;
         row.BaseDescription = system.Definition.Description;
         row.BaseAssetHash = system.Definition.AssetHash;
+        row.BaseConsoleArtworkHash = system.Definition.ConsoleArtworkHash;
         row.BaseMonochrome = system.Definition.Monochrome;
         row.Retired = system.Definition.Retired;
         row.HardwareCategory = system.Hardware?.Category;

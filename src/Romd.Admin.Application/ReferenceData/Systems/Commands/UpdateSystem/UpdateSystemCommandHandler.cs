@@ -52,6 +52,9 @@ public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCom
                 return ReferenceEditErrors.Invalid("Invalid system presentation.");
             if (patch.Icon is { } hash && !await repository.AssetExistsAsync(hash, token))
                 return ReferenceEditErrors.Invalid("Upload the icon first.");
+            if (patch.ConsoleArtwork is { } artwork &&
+                (!ReferenceEditRules.Asset(artwork) || !await repository.RasterAssetExistsAsync(artwork, token)))
+                return ReferenceEditErrors.Invalid("Upload a PNG or WebP console image first.");
             if (command.ManufacturerKeys is { } manufacturers)
             {
                 if (resource.Metadata.Ownership == ReferenceOwnership.Romd)
@@ -63,7 +66,11 @@ public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCom
             }
             resource = resource.Metadata.Ownership == ReferenceOwnership.Romd
                 ? resource with { Overrides = resource.Overrides.Merge(patch) }
-                : resource with { Definition = patch.Apply(resource.Definition) };
+                : resource with
+                {
+                    Definition = (patch with { ConsoleArtwork = null }).Apply(resource.Definition),
+                    Overrides = resource.Overrides.Merge(new(ConsoleArtwork: patch.ConsoleArtwork))
+                };
             if (command.NameAliases is { Count: > 0 } names)
             {
                 var aliases = await repository.StageSetupAliasesAsync(resource.Id, names, token);

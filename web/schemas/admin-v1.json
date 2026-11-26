@@ -2779,6 +2779,23 @@
           "Reference assets"
         ],
         "operationId": "UploadReferenceAsset",
+        "requestBody": {
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/webp": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "201": {
             "description": "Created",
@@ -27782,6 +27799,16 @@
             "items": {
               "$ref": "#/components/schemas/CompanySummary"
             }
+          },
+          "consoleArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
           }
         }
       },
@@ -29228,6 +29255,12 @@
           },
           "hasIcon": {
             "type": "boolean"
+          },
+          "consoleArtwork": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -29243,6 +29276,9 @@
             }
           },
           "compactLabel": {
+            "type": "string"
+          },
+          "consoleArtwork": {
             "type": "string"
           },
           "icon": {
@@ -29326,6 +29362,16 @@
             "items": {
               "$ref": "#/components/schemas/CompanySummary"
             }
+          },
+          "consoleArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
           },
           "revision": {
             "type": "string"

@@ -228,6 +228,7 @@ export type ConsumerPlatformDetail = {
     manufacturer?: null | string;
     titleCount: number;
     media: Array<ConsumerMediaRef>;
+    consoleArtwork?: null | ReferenceAsset;
 };
 
 export type ConsumerPlatformSummary = {
@@ -237,6 +238,7 @@ export type ConsumerPlatformSummary = {
     manufacturer?: null | string;
     titleCount: number;
     coverUrl?: null | string;
+    consoleArtwork?: null | ReferenceAsset;
 };
 
 export type ConsumerPlaybackConfig = {
@@ -650,6 +652,7 @@ export type ReferenceSystem = {
     manufacturerKeys?: null | Array<string>;
     retired?: boolean;
     manufacturers?: null | Array<CompanySummary>;
+    consoleArtwork?: null | ReferenceAsset;
 };
 
 export type ReferenceTaxonomy = {
@@ -702,6 +705,7 @@ export type SystemResource = {
     icon: null | ReferenceAsset;
     retired: boolean;
     manufacturers: Array<CompanySummary>;
+    consoleArtwork?: null | ReferenceAsset;
     revision: string;
 };
 

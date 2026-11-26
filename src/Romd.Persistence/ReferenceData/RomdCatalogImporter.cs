@@ -26,9 +26,9 @@ internal sealed class RomdCatalogImporter
             await RatingCatalogImport.ValidateAsync(db, catalog, ct);
             await CatalogAliasReconciliation.ValidateAsync(db, catalog, ct);
             await CatalogAliasReconciliation.PruneAsync(db, catalog, ct);
-            var icons = await CatalogArtworkImport.ReadPlanAsync(catalog, ct);
-            // One batch retains input positions and acquires every icon hash lock in global order.
-            publication = await blobs.PublishStagedAsync(icons.Select(icon => icon.Content.ToArray()).ToArray(), ct);
+            var artwork = await CatalogArtworkImport.ReadPlanAsync(catalog, ct);
+            // One batch retains input positions and acquires every artwork hash lock in global order.
+            publication = await blobs.PublishStagedAsync(artwork.Select(asset => asset.Content.ToArray()).ToArray(), ct);
             if (publication.RequiresFlush)
                 await db.SaveChangesAsync(ct);
             var fileIds = publication.ReadAfterFlush();
@@ -36,7 +36,7 @@ internal sealed class RomdCatalogImporter
             publication = null;
             // Preserve the legacy failure boundary: dispose local staging before references are recorded.
             await consumed.DisposeAsync();
-            var assets = await CatalogArtworkImport.ImportAsync(db, icons, fileIds, ct);
+            var assets = await CatalogArtworkImport.ImportAsync(db, artwork, fileIds, ct);
             await CompanyCatalogImport.ImportAsync(db, catalog, ct);
             await RatingBoardCatalogImport.ImportAsync(db, catalog, ct);
             await SystemCatalogImport.ImportAsync(db, catalog, assets, clock, ct);
