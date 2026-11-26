@@ -608,6 +608,8 @@
     "symbol": "Saturn",
     "compactLabel": "Sega Saturn",
     "iconPath": "platforms/saturn.png",
+    "consoleArtworkPath": "console-artwork/saturn-console.webp",
+    "controllerArtworkPath": "console-artwork/saturn-controller.webp",
     "monochrome": true
   },
   "segacd": {

@@ -26,3 +26,7 @@ Hardware references used during review
 - [Indigo Game Boy Advance](https://commons.wikimedia.org/wiki/File:Nintendo-Game-Boy-Advance-Purple-FL.jpg),
   [front control layout](https://commons.wikimedia.org/wiki/File:Game_Boy_Advance_front.jpg),
   and [Nintendo’s Game Boy Advance technical data](https://www.nintendo.com/en-gb/Support/Legacy-system/Technical-data-619479.html)
+- [Japanese Sega Saturn HST-3210 console](https://commons.wikimedia.org/wiki/File:Sega-Saturn-JP-Console-Mk1-01.jpg),
+  [gray six-button controller photographed by Evan-Amos](https://commons.wikimedia.org/wiki/File:Sega-Saturn-JP-Mk1-Controller.jpg)
+  ([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)),
+  and [Sega’s hardware reference](https://www.sega.jp/history/hard/segasaturn/index.html)

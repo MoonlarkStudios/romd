@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 14,
+  "catalogVersion": 15,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -611,6 +611,8 @@
       "symbol": "Saturn",
       "compactLabel": "Sega Saturn",
       "iconPath": "platforms/saturn.png",
+      "consoleArtworkPath": "console-artwork/saturn-console.webp",
+      "controllerArtworkPath": "console-artwork/saturn-controller.webp",
       "monochrome": true
     },
     "segacd": {
