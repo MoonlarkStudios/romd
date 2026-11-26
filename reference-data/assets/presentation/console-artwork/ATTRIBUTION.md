@@ -38,3 +38,10 @@ Hardware references used during review
 - [North American Sega Master System Power Base](https://commons.wikimedia.org/wiki/File:Sega-Master-System-Console-FL.jpg),
   [two-button control pad](https://commons.wikimedia.org/wiki/File:Sega-Master-System-Controllers.jpg),
   and [Sega’s instruction manual](https://manuals.plus/m/4864daec02ce1859978bd62bb565e2520d8aac5121ff2c93914e10f68b737f3f.pdf)
+- [Original black Game Gear](https://commons.wikimedia.org/wiki/File:Game-Gear-Handheld.jpg)
+  and [Sega’s Game Gear hardware reference](https://www.sega.jp/history/hard/gamegear/)
+- [Six-switch woodgrain Atari 2600](https://commons.wikimedia.org/wiki/File:Atari-2600-Light-Sixer-FL.jpg)
+  and [CX40 joystick](https://commons.wikimedia.org/wiki/File:Atari-2600-Joystick.jpg)
+- [White Wii RVL-001 with vertical stand](https://commons.wikimedia.org/wiki/File:Wii-console.jpg),
+  [Wii Remote and Nunchuk](https://commons.wikimedia.org/wiki/File:Nintendo-Wii-Remote-wNunchuk.jpg),
+  and [Nintendo’s Wii operations manuals](https://en-americas-support.nintendo.com/app/answers/detail/a_id/16890/)

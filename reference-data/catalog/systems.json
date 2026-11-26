@@ -12,6 +12,8 @@
     "symbol": "Atari2600",
     "compactLabel": "Atari 2600",
     "iconPath": "platforms/2600.png",
+    "consoleArtworkPath": "console-artwork/2600-console.webp",
+    "controllerArtworkPath": "console-artwork/2600-controller.webp",
     "monochrome": true
   },
   "32x": {
@@ -316,6 +318,8 @@
     "symbol": "GameGear",
     "compactLabel": "Sega Game Gear",
     "iconPath": "platforms/gg.png",
+    "consoleArtworkPath": "console-artwork/gg-console.webp",
+    "controllerArtworkPath": "console-artwork/gg-controller.webp",
     "monochrome": true
   },
   "intv": {
@@ -774,6 +778,8 @@
     "symbol": "Wii",
     "compactLabel": "Wii",
     "iconPath": "platforms/wii.png",
+    "consoleArtworkPath": "console-artwork/wii-console.webp",
+    "controllerArtworkPath": "console-artwork/wii-controller.webp",
     "monochrome": true
   },
   "wiiu": {
