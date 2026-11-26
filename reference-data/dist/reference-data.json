@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 11,
+  "catalogVersion": 12,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -193,7 +193,9 @@
       "symbol": "Dreamcast",
       "compactLabel": "Sega Dreamcast",
       "iconPath": "platforms/dc.png",
-      "monochrome": true
+      "monochrome": true,
+      "consoleArtworkPath": "console-artwork/dc-console.webp",
+      "controllerArtworkPath": "console-artwork/dc-controller.webp"
     },
     "dos": {
       "name": "DOS",

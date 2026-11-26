@@ -17,3 +17,6 @@ Hardware references used during review
   and [original gray controller](https://commons.wikimedia.org/wiki/File:N64-Controller-Gray.jpg)
 - [Indigo GameCube console](https://commons.wikimedia.org/wiki/File:Nintendo-GameCube-Console-FL.jpg)
   and [indigo controller photograph from the file history](https://commons.wikimedia.org/wiki/File:Gamecube-controller.jpg#filehistory)
+- [North American Dreamcast console](https://commons.wikimedia.org/wiki/File:Sega-Dreamcast-Console-FL.jpg),
+  [controller with a VMU installed](https://commons.wikimedia.org/wiki/File:Sega-Dreamcast-Controller-wVMU-FL.jpg),
+  and [Sega’s North American instruction manual](https://www.gamesdatabase.org/MEDIA/system/Sega_Dreamcast/systemmanual/Sega_Dreamcast_manual.pdf)

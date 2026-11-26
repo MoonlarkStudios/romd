@@ -190,7 +190,9 @@
     "symbol": "Dreamcast",
     "compactLabel": "Sega Dreamcast",
     "iconPath": "platforms/dc.png",
-    "monochrome": true
+    "monochrome": true,
+    "consoleArtworkPath": "console-artwork/dc-console.webp",
+    "controllerArtworkPath": "console-artwork/dc-controller.webp"
   },
   "dos": {
     "name": "DOS",
