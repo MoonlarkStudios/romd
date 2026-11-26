@@ -1,6 +1,6 @@
 import { forwardRef, useContext } from 'react';
 import { Link, type LinkProps, useLocation, useNavigate } from 'react-router';
-import { CollectionNavigationName, captureReturnScroll, titleOrigin } from './titleNavigation';
+import { captureReturnScroll, DestinationNavigationName, titleOrigin } from './titleNavigation';
 
 /** Canonical title/play URLs with per-entry return context. Modified clicks remain normal links. */
 export const TitleLink = forwardRef<HTMLAnchorElement, LinkProps>(function TitleLink(
@@ -9,7 +9,7 @@ export const TitleLink = forwardRef<HTMLAnchorElement, LinkProps>(function Title
 ) {
   const location = useLocation();
   const navigate = useNavigate();
-  const name = useContext(CollectionNavigationName);
+  const name = useContext(DestinationNavigationName);
   const origin = titleOrigin(location, name);
   const navigationState = {
     ...state,

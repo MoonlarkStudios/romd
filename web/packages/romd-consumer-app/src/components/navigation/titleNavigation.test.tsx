@@ -3,7 +3,7 @@ import { useLocation } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { render } from '../../test/utils/render';
 import { TitleLink } from './TitleLink';
-import { CollectionNavigationName, readReturnContext, titleOrigin } from './titleNavigation';
+import { DestinationNavigationName, readReturnContext, titleOrigin } from './titleNavigation';
 
 function LocationProbe() {
   const location = useLocation();
@@ -103,18 +103,29 @@ describe('title return context', () => {
     });
   });
 
-  it('carries named collection context through title and play links', () => {
+  it.each([
+    {
+      href: '/collections/favorites',
+      label: 'Weekend favorites',
+      section: 'home',
+    },
+    {
+      href: '/systems/snes',
+      label: 'SNES',
+      section: 'systems',
+    },
+  ])('carries $href through title and play links', ({ href, label, section }) => {
     render(
-      <CollectionNavigationName value="Weekend favorites">
+      <DestinationNavigationName value={label}>
         <TitleLink to="/titles/game">Details</TitleLink>
         <TitleLink to="/titles/game/releases/version/play">Play</TitleLink>
         <LocationProbe />
-      </CollectionNavigationName>,
+      </DestinationNavigationName>,
       {
         withAuth: false,
         routerOptions: {
           initialEntries: [
-            '/collections/favorites',
+            href,
           ],
         },
       },
@@ -126,9 +137,9 @@ describe('title return context', () => {
     );
     let location = JSON.parse(screen.getByTestId('location').textContent ?? '');
     expect(location.state.titleReturn).toMatchObject({
-      href: '/collections/favorites',
-      label: 'Weekend favorites',
-      section: 'home',
+      href,
+      label,
+      section,
     });
     const original = location.state.titleReturn;
     fireEvent.click(

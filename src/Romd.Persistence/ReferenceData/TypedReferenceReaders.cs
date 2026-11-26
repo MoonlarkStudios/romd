@@ -21,12 +21,16 @@ internal static partial class TypedReferenceMapping
         row.HardwareCategory is null && row.HardwareGeneration is null && row.HardwareReleaseYear is null
             ? null : new(row.HardwareCategory, row.HardwareGeneration, row.HardwareReleaseYear);
 
-    internal static SystemDefinition Definition(PlatformEntity row) => new(row.BaseName!, row.BaseCompactLabel!, row.BaseDescription, row.BaseAssetHash, row.BaseMonochrome, row.Retired);
+    internal static SystemDefinition Definition(PlatformEntity row) => new(row.BaseName!, row.BaseCompactLabel!, row.BaseDescription,
+        row.BaseAssetHash, row.BaseMonochrome, row.Retired, row.BaseConsoleArtworkHash, row.BaseControllerArtworkHash);
     internal static CompanyDefinition Definition(CompanyEntity row) => new(row.BaseName, row.BaseDescription, row.Retired);
     internal static SystemDefinition Effective(PlatformEntity row) => (row.ReferenceOverrides ?? new()).Apply(Definition(row));
     internal static CompanyDefinition Effective(CompanyEntity row) => row.Overrides.Apply(Definition(row));
-    internal static ContractSystemOverrides Overrides(SystemOverrides x) => new(x.Name, x.CompactLabel, x.Description, x.Icon, x.Monochrome, x.HasDescription, x.HasIcon);
+    internal static ContractSystemOverrides Overrides(SystemOverrides x) => new(x.Name, x.CompactLabel, x.Description, x.Icon, x.Monochrome, x.HasDescription, x.HasIcon)
+    { ConsoleArtwork = x.ConsoleArtwork, ControllerArtwork = x.ControllerArtwork };
     internal static ContractCompanyOverrides Overrides(CompanyOverrides x) => new(x.Name, x.Description, x.HasDescription);
+    internal static ReferenceAsset? Asset(IReadOnlyDictionary<string, string> types, string? hash, bool monochrome = false) =>
+        hash is not null && types.TryGetValue(hash, out var type) ? new("/api/assets/" + hash, hash, type, monochrome) : null;
     internal static string Revision<T>(T value) => ReferenceCatalogService.Hash(JsonSerializer.SerializeToUtf8Bytes(value, ReferenceJson.Options));
 }
 
@@ -99,15 +103,21 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
     private async Task<IReadOnlyList<ReferenceResourceResult<SystemResource, ContractSystemOverrides>>> ReadAsync(IReadOnlyList<PlatformEntity> rows, CancellationToken ct)
     {
         var companies = await new SystemCompanyReader(db).ReadAsync(rows.Select(x => x.Id), ct);
-        var hashes = rows.Select(x => TypedReferenceMapping.Effective(x).AssetHash).Where(x => x != null).Distinct().ToArray();
+        var effective = rows.Select(row => (Row: row, Facts: TypedReferenceMapping.Effective(row))).ToArray();
+        var hashes = effective.SelectMany(x => new[] { x.Facts.AssetHash, x.Facts.ConsoleArtworkHash, x.Facts.ControllerArtworkHash })
+            .OfType<string>().Distinct().ToArray();
         var types = await db.ReferenceAssets.Where(x => hashes.Contains(x.Hash)).ToDictionaryAsync(x => x.Hash, x => x.ContentType, ct);
-        return rows.Select(row =>
+        return effective.Select(item =>
         {
-            var facts = TypedReferenceMapping.Effective(row);
-            var icon = facts.AssetHash is { } hash && types.TryGetValue(hash, out var type) ? new ReferenceAsset("/api/assets/" + hash, hash, type, facts.Monochrome) : null;
+            var (row, facts) = item;
+            var icon = TypedReferenceMapping.Asset(types, facts.AssetHash, facts.Monochrome);
             var resource = new SystemResource(row.CanonicalKey!, row.Ownership!.Value.ToString(), row.BuiltInVersion,
                 facts.Name, facts.CompactLabel, facts.Description, icon, facts.Retired, companies.GetValueOrDefault(row.Id) ?? [])
-            { Revision = "" };
+            {
+                Revision = "",
+                ConsoleArtwork = TypedReferenceMapping.Asset(types, facts.ConsoleArtworkHash),
+                ControllerArtwork = TypedReferenceMapping.Asset(types, facts.ControllerArtworkHash)
+            };
             var overrides = TypedReferenceMapping.Overrides(row.ReferenceOverrides ?? new());
             var definition = TypedReferenceMapping.Definition(row);
             var revision = TypedReferenceMapping.Hardware(row) is { } hardware

@@ -228,6 +228,11 @@ export type ConsumerPlatformDetail = {
     manufacturer?: null | string;
     titleCount: number;
     media: Array<ConsumerMediaRef>;
+    consoleArtwork?: null | ReferenceAsset;
+    controllerArtwork?: null | ReferenceAsset;
+    icon?: null | ReferenceAsset;
+    description?: null | string;
+    hardware?: null | ConsumerSystemHardware;
 };
 
 export type ConsumerPlatformSummary = {
@@ -237,6 +242,8 @@ export type ConsumerPlatformSummary = {
     manufacturer?: null | string;
     titleCount: number;
     coverUrl?: null | string;
+    icon?: null | ReferenceAsset;
+    consoleArtwork?: null | ReferenceAsset;
 };
 
 export type ConsumerPlaybackConfig = {
@@ -327,6 +334,12 @@ export type ConsumerSignInSession = {
     lastUsedAt: string;
     status: string;
     isCurrent: boolean;
+};
+
+export type ConsumerSystemHardware = {
+    category: null | string;
+    generation: null | number;
+    releaseYear: null | number;
 };
 
 export type ConsumerTitleCard = {
@@ -650,6 +663,8 @@ export type ReferenceSystem = {
     manufacturerKeys?: null | Array<string>;
     retired?: boolean;
     manufacturers?: null | Array<CompanySummary>;
+    consoleArtwork?: null | ReferenceAsset;
+    controllerArtwork?: null | ReferenceAsset;
 };
 
 export type ReferenceTaxonomy = {
@@ -702,6 +717,8 @@ export type SystemResource = {
     icon: null | ReferenceAsset;
     retired: boolean;
     manufacturers: Array<CompanySummary>;
+    consoleArtwork?: null | ReferenceAsset;
+    controllerArtwork?: null | ReferenceAsset;
     revision: string;
 };
 

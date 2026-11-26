@@ -50,6 +50,14 @@ describe('AppLayout search', () => {
       active: 'Home',
     },
     {
+      titleReturn: {
+        href: '/systems/snes',
+        label: 'SNES',
+        section: 'systems',
+      },
+      active: 'Consoles',
+    },
+    {
       titleReturn: undefined,
       active: 'Browse',
     },

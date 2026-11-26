@@ -4,36 +4,47 @@ namespace Romd.Persistence.ReferenceData;
 
 internal static class CatalogArtworkImport
 {
-    internal sealed record Icon(string Path, ImmutableArray<byte> Content);
+    internal sealed record Artwork(string Path, ImmutableArray<byte> Content);
 
     /// <summary>
-    ///     Reads reviewed embedded icons only after bootstrap validation and alias pruning. This
+    ///     Reads reviewed embedded artwork only after bootstrap validation and alias pruning. This
     ///     bounded preparation intentionally stays inside RomdCatalogImporter's catalog exclusion;
     ///     interactive application commands prepare content before their short transaction instead.
     /// </summary>
-    internal static async Task<ImmutableArray<Icon>> ReadPlanAsync(RomdCatalogInput catalog, CancellationToken ct)
+    internal static async Task<ImmutableArray<Artwork>> ReadPlanAsync(RomdCatalogInput catalog, CancellationToken ct)
     {
-        var icons = ImmutableArray.CreateBuilder<Icon>();
-        foreach (var path in catalog.Systems.Values.Select(x => x.IconPath).Concat(catalog.Ratings.Ratings.Select(x => x.IconPath)).OfType<string>().Distinct())
+        var artwork = ImmutableArray.CreateBuilder<Artwork>();
+        var paths = catalog.Systems.Values.SelectMany(system => new[] { system.IconPath, system.ConsoleArtworkPath, system.ControllerArtworkPath })
+            .Concat(catalog.Ratings.Ratings.Select(rating => rating.IconPath)).OfType<string>().Distinct();
+        foreach (var path in paths)
         {
             using var stream = typeof(CatalogArtworkImport).Assembly.GetManifestResourceStream("ReferenceAssets/" + path)
-                ?? throw new InvalidDataException("Missing built-in reference icon: " + path);
+                ?? throw new InvalidDataException("Missing built-in reference artwork: " + path);
             using var buffer = new MemoryStream();
             await stream.CopyToAsync(buffer, ct);
-            icons.Add(new Icon(path, ImmutableArray.CreateRange(buffer.ToArray())));
+            artwork.Add(new Artwork(path, ImmutableArray.CreateRange(buffer.ToArray())));
         }
-        return icons.ToImmutable();
+        return artwork.ToImmutable();
     }
 
     internal static async Task<IReadOnlyDictionary<string, string>> ImportAsync(RomdDbContext db,
-        ImmutableArray<Icon> icons, IReadOnlyList<int> fileIds, CancellationToken ct)
+        ImmutableArray<Artwork> artwork, IReadOnlyList<int> fileIds, CancellationToken ct)
     {
-        if (icons.Length != fileIds.Count)
-            throw new ArgumentException("Reference publication must preserve every icon position.", nameof(fileIds));
+        if (artwork.Length != fileIds.Count)
+            throw new ArgumentException("Reference publication must preserve every artwork position.", nameof(fileIds));
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        for (int i = 0; i < icons.Length; i++)
-            result.Add(icons[i].Path, await ReferenceCatalogService.RecordAssetAsync(db, icons[i].Content.ToArray(), fileIds[i],
-                icons[i].Path.EndsWith(".svg", StringComparison.Ordinal) ? "image/svg+xml" : "image/png", ct));
+        for (int i = 0; i < artwork.Length; i++)
+        {
+            var asset = artwork[i];
+            string contentType = Path.GetExtension(asset.Path) switch
+            {
+                ".svg" => "image/svg+xml",
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                _ => throw new InvalidDataException("Unsupported reference artwork format: " + asset.Path)
+            };
+            result.Add(asset.Path, await ReferenceCatalogService.RecordAssetAsync(db, asset.Content.ToArray(), fileIds[i], contentType, ct));
+        }
         await db.SaveChangesAsync(ct);
         return result;
     }

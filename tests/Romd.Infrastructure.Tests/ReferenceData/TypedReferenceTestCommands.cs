@@ -31,7 +31,7 @@ internal sealed class TypedReferenceTestCommands(RomdDbContext db)
                 value.CompactLabel,
                 value.Description,
                 value.Icon,
-                value.Monochrome, value.Changes.ContainsKey("description"), value.Changes.ContainsKey("icon")), RevisionPrecondition.For(revision), value.ManufacturerKeys), ct);
+                value.Monochrome, value.Changes.ContainsKey("description"), value.Changes.ContainsKey("icon"), value.ConsoleArtwork, value.ControllerArtwork), RevisionPrecondition.For(revision), value.ManufacturerKeys), ct);
     public Task<ErrorOr.ErrorOr<Romd.Application.Common.ReferenceCatalog.ReferenceResourceResult<SystemResource, ContractSystemOverrides>>> ResetSystem(string key, SystemOverrideField? field, string revision, CancellationToken ct = default) =>
         new ResetSystemOverridesCommandHandler(new ReferenceMutationSession(db), new SystemReferenceRepository(db, clock: TimeProvider.System), Systems).HandleAsync(new(key, field, RevisionPrecondition.For(revision)), ct);
     public Task<ErrorOr.ErrorOr<ErrorOr.Deleted>> DeleteSystem(string key, string revision, CancellationToken ct = default) =>

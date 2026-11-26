@@ -3,6 +3,7 @@ import {
   getConsumerCollection,
   getConsumerCurrentLibrary,
   getConsumerCurrentUser,
+  getConsumerLibrarySystem,
   getConsumerTitle,
   issueConsumerReleaseManifest,
   listConsumerCatalog,
@@ -46,6 +47,12 @@ export const consumerQueryKeys = {
     'consumer',
     'platforms',
   ] as const,
+  platform: (systemKey: string | undefined) =>
+    [
+      'consumer',
+      'platform',
+      systemKey,
+    ] as const,
   catalog: (params: ConsumerCatalogSearchParams) =>
     [
       'consumer',
@@ -120,14 +127,16 @@ export function usePlatforms(options?: PagedQueryOptions) {
 
   return useInfiniteQuery({
     queryKey: consumerQueryKeys.platforms,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       const response = await listConsumerLibrarySystems({
         query: {
           limit,
           cursor: pageParam,
         },
+        signal,
       });
 
+      if (response.response?.status === 404) throw new ConsumerLibraryUnavailableError();
       if (response.error || !response.data) {
         throw new Error('Unable to load platforms');
       }
@@ -138,6 +147,26 @@ export function usePlatforms(options?: PagedQueryOptions) {
       lastPage.hasNextPage ? (lastPage.nextCursor ?? undefined) : undefined,
     initialPageParam: undefined as string | undefined,
     enabled,
+    retry: (attempt, error) => !(error instanceof ConsumerLibraryUnavailableError) && attempt < 1,
+  });
+}
+
+export function usePlatformDetail(systemKey: string | undefined) {
+  return useQuery({
+    queryKey: consumerQueryKeys.platform(systemKey),
+    enabled: Boolean(systemKey),
+    queryFn: async ({ signal }) => {
+      if (!systemKey) return null;
+      const response = await getConsumerLibrarySystem({
+        path: {
+          systemKey,
+        },
+        signal,
+      });
+      if (response.response?.status === 404) return null;
+      if (response.error || !response.data) throw new Error('Unable to load console');
+      return response.data;
+    },
   });
 }
 

@@ -3,7 +3,7 @@ using Romd.Domain.ReferenceData;
 
 namespace Romd.Persistence.Systems;
 
-/// <summary>Admin setup facts keyed by the stable ROMD system identity.</summary>
+/// <summary>Bundled hardware facts keyed by the stable ROMD system identity.</summary>
 internal static class BuiltInSystemHardware
 {
     private static readonly Lazy<Dictionary<string, SystemHardware>> Facts = new(Load);

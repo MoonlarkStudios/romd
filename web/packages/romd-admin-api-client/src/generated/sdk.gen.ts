@@ -371,10 +371,15 @@ export const listAdminCatalogSnapshotRatings = <ThrowOnError extends boolean = f
 
 export const getAdminReferenceAsset = <ThrowOnError extends boolean = false>(options: Options<GetAdminReferenceAssetData, ThrowOnError>) => (options.client ?? client).get<GetAdminReferenceAssetResponses, GetAdminReferenceAssetErrors, ThrowOnError>({ url: '/api/assets/{hash}', ...options });
 
-export const uploadReferenceAsset = <ThrowOnError extends boolean = false>(options?: Options<UploadReferenceAssetData, ThrowOnError>) => (options?.client ?? client).post<UploadReferenceAssetResponses, UploadReferenceAssetErrors, ThrowOnError>({
+export const uploadReferenceAsset = <ThrowOnError extends boolean = false>(options: Options<UploadReferenceAssetData, ThrowOnError>) => (options.client ?? client).post<UploadReferenceAssetResponses, UploadReferenceAssetErrors, ThrowOnError>({
+    bodySerializer: null,
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/assets',
-    ...options
+    ...options,
+    headers: {
+        'Content-Type': 'image/png',
+        ...options.headers
+    }
 });
 
 export const listLibraries = <ThrowOnError extends boolean = false>(options?: Options<ListLibrariesData, ThrowOnError>) => (options?.client ?? client).get<ListLibrariesResponses, ListLibrariesErrors, ThrowOnError>({

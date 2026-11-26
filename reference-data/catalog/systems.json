@@ -12,6 +12,8 @@
     "symbol": "Atari2600",
     "compactLabel": "Atari 2600",
     "iconPath": "platforms/2600.png",
+    "consoleArtworkPath": "console-artwork/2600-console.webp",
+    "controllerArtworkPath": "console-artwork/2600-controller.webp",
     "monochrome": true
   },
   "32x": {
@@ -57,6 +59,8 @@
     "symbol": "Nintendo3Ds",
     "compactLabel": "Nintendo 3DS",
     "iconPath": "platforms/3ds.png",
+    "consoleArtworkPath": "console-artwork/3ds-console.webp",
+    "controllerArtworkPath": "console-artwork/3ds-controller.webp",
     "monochrome": true
   },
   "5200": {
@@ -190,7 +194,9 @@
     "symbol": "Dreamcast",
     "compactLabel": "Sega Dreamcast",
     "iconPath": "platforms/dc.png",
-    "monochrome": true
+    "monochrome": true,
+    "consoleArtworkPath": "console-artwork/dc-console.webp",
+    "controllerArtworkPath": "console-artwork/dc-controller.webp"
   },
   "dos": {
     "name": "DOS",
@@ -220,6 +226,8 @@
     "symbol": "GameBoy",
     "compactLabel": "Game Boy",
     "iconPath": "platforms/gb.png",
+    "consoleArtworkPath": "console-artwork/gb-console.webp",
+    "controllerArtworkPath": "console-artwork/gb-controller.webp",
     "monochrome": true
   },
   "gba": {
@@ -237,6 +245,8 @@
     "symbol": "GameBoyAdvance",
     "compactLabel": "Game Boy Advance",
     "iconPath": "platforms/gba.png",
+    "consoleArtworkPath": "console-artwork/gba-console.webp",
+    "controllerArtworkPath": "console-artwork/gba-controller.webp",
     "monochrome": true
   },
   "gbc": {
@@ -254,6 +264,8 @@
     "symbol": "GameBoyColor",
     "compactLabel": "Game Boy Color",
     "iconPath": "platforms/gbc.png",
+    "consoleArtworkPath": "console-artwork/gbc-console.webp",
+    "controllerArtworkPath": "console-artwork/gbc-controller.webp",
     "monochrome": true
   },
   "gc": {
@@ -271,7 +283,9 @@
     "symbol": "GameCube",
     "compactLabel": "GameCube",
     "iconPath": "platforms/gc.png",
-    "monochrome": true
+    "monochrome": true,
+    "consoleArtworkPath": "console-artwork/gc-console-v3.webp",
+    "controllerArtworkPath": "console-artwork/gc-controller.webp"
   },
   "genesis": {
     "name": "Sega Genesis",
@@ -289,6 +303,8 @@
     "symbol": "Genesis",
     "compactLabel": "Sega Genesis",
     "iconPath": "platforms/genesis.png",
+    "consoleArtworkPath": "console-artwork/genesis-console.webp",
+    "controllerArtworkPath": "console-artwork/genesis-controller.webp",
     "monochrome": true
   },
   "gg": {
@@ -304,6 +320,8 @@
     "symbol": "GameGear",
     "compactLabel": "Sega Game Gear",
     "iconPath": "platforms/gg.png",
+    "consoleArtworkPath": "console-artwork/gg-console.webp",
+    "controllerArtworkPath": "console-artwork/gg-controller.webp",
     "monochrome": true
   },
   "intv": {
@@ -381,7 +399,9 @@
     "symbol": "N64",
     "compactLabel": "Nintendo 64",
     "iconPath": "platforms/n64.png",
-    "monochrome": true
+    "monochrome": true,
+    "consoleArtworkPath": "console-artwork/n64-console.webp",
+    "controllerArtworkPath": "console-artwork/n64-controller.webp"
   },
   "nds": {
     "name": "Nintendo DS",
@@ -398,6 +418,8 @@
     "symbol": "NintendoDs",
     "compactLabel": "Nintendo DS",
     "iconPath": "platforms/nds.png",
+    "consoleArtworkPath": "console-artwork/nds-console.webp",
+    "controllerArtworkPath": "console-artwork/nds-controller.webp",
     "monochrome": true
   },
   "neogeo": {
@@ -413,6 +435,8 @@
     "symbol": "NeoGeo",
     "compactLabel": "Neo Geo",
     "iconPath": "platforms/neogeo.png",
+    "consoleArtworkPath": "console-artwork/neogeo-console.webp",
+    "controllerArtworkPath": "console-artwork/neogeo-controller.webp",
     "monochrome": true
   },
   "neogeocd": {
@@ -447,7 +471,9 @@
     "symbol": "Nes",
     "compactLabel": "NES",
     "iconPath": "platforms/nes.png",
-    "monochrome": true
+    "monochrome": true,
+    "consoleArtworkPath": "console-artwork/nes-console.webp",
+    "controllerArtworkPath": "console-artwork/nes-controller.webp"
   },
   "ngp": {
     "name": "Neo Geo Pocket",
@@ -494,6 +520,8 @@
     "symbol": "PlayStation2",
     "compactLabel": "PlayStation 2",
     "iconPath": "platforms/ps2.png",
+    "consoleArtworkPath": "console-artwork/ps2-console.webp",
+    "controllerArtworkPath": "console-artwork/ps2-controller.webp",
     "monochrome": true
   },
   "ps3": {
@@ -511,6 +539,8 @@
     "symbol": "PlayStation3",
     "compactLabel": "PlayStation 3",
     "iconPath": "platforms/ps3.png",
+    "consoleArtworkPath": "console-artwork/ps3-console.webp",
+    "controllerArtworkPath": "console-artwork/ps3-controller.webp",
     "monochrome": true
   },
   "ps4": {
@@ -526,6 +556,8 @@
     "symbol": "PlayStation4",
     "compactLabel": "PlayStation 4",
     "iconPath": "platforms/ps4.png",
+    "consoleArtworkPath": "console-artwork/ps4-console.webp",
+    "controllerArtworkPath": "console-artwork/ps4-controller.webp",
     "monochrome": true
   },
   "ps5": {
@@ -541,6 +573,8 @@
     "symbol": "PlayStation5",
     "compactLabel": "PlayStation 5",
     "iconPath": "platforms/ps5.png",
+    "consoleArtworkPath": "console-artwork/ps5-console.webp",
+    "controllerArtworkPath": "console-artwork/ps5-controller.webp",
     "monochrome": true
   },
   "psp": {
@@ -558,6 +592,8 @@
     "symbol": "Psp",
     "compactLabel": "PSP",
     "iconPath": "platforms/psp.png",
+    "consoleArtworkPath": "console-artwork/psp-console.webp",
+    "controllerArtworkPath": "console-artwork/psp-controller.webp",
     "monochrome": true
   },
   "psx": {
@@ -577,6 +613,8 @@
     "symbol": "PlayStation",
     "compactLabel": "PlayStation",
     "iconPath": "platforms/psx.png",
+    "consoleArtworkPath": "console-artwork/psx-console.webp",
+    "controllerArtworkPath": "console-artwork/psx-controller.webp",
     "monochrome": true
   },
   "saturn": {
@@ -592,6 +630,8 @@
     "symbol": "Saturn",
     "compactLabel": "Sega Saturn",
     "iconPath": "platforms/saturn.png",
+    "consoleArtworkPath": "console-artwork/saturn-console.webp",
+    "controllerArtworkPath": "console-artwork/saturn-controller.webp",
     "monochrome": true
   },
   "segacd": {
@@ -637,6 +677,8 @@
     "symbol": "MasterSystem",
     "compactLabel": "Master System",
     "iconPath": "platforms/sms.png",
+    "consoleArtworkPath": "console-artwork/sms-console.webp",
+    "controllerArtworkPath": "console-artwork/sms-controller.webp",
     "monochrome": true
   },
   "snes": {
@@ -656,6 +698,8 @@
     "symbol": "Snes",
     "compactLabel": "SNES",
     "iconPath": "platforms/snes.png",
+    "consoleArtworkPath": "console-artwork/snes-console.webp",
+    "controllerArtworkPath": "console-artwork/snes-controller.webp",
     "monochrome": true
   },
   "switch": {
@@ -671,6 +715,8 @@
     "symbol": "Switch",
     "compactLabel": "Nintendo Switch",
     "iconPath": "platforms/switch.png",
+    "consoleArtworkPath": "console-artwork/switch-console.webp",
+    "controllerArtworkPath": "console-artwork/switch-controller.webp",
     "monochrome": true
   },
   "tg16": {
@@ -688,6 +734,8 @@
     "symbol": "TurboGrafx16",
     "compactLabel": "TurboGrafx-16",
     "iconPath": "platforms/tg16.png",
+    "consoleArtworkPath": "console-artwork/tg16-console.webp",
+    "controllerArtworkPath": "console-artwork/tg16-controller.webp",
     "monochrome": true
   },
   "tgcd": {
@@ -733,6 +781,8 @@
     "symbol": "Vita",
     "compactLabel": "PS Vita",
     "iconPath": "platforms/vita.png",
+    "consoleArtworkPath": "console-artwork/vita-console.webp",
+    "controllerArtworkPath": "console-artwork/vita-controller.webp",
     "monochrome": true
   },
   "wii": {
@@ -748,6 +798,8 @@
     "symbol": "Wii",
     "compactLabel": "Wii",
     "iconPath": "platforms/wii.png",
+    "consoleArtworkPath": "console-artwork/wii-console.webp",
+    "controllerArtworkPath": "console-artwork/wii-controller.webp",
     "monochrome": true
   },
   "wiiu": {
@@ -763,6 +815,8 @@
     "symbol": "WiiU",
     "compactLabel": "Wii U",
     "iconPath": "platforms/wiiu.png",
+    "consoleArtworkPath": "console-artwork/wiiu-console.webp",
+    "controllerArtworkPath": "console-artwork/wiiu-controller.webp",
     "monochrome": true
   },
   "ws": {
@@ -808,6 +862,8 @@
     "symbol": "Xbox360",
     "compactLabel": "Xbox 360",
     "iconPath": "platforms/x360.png",
+    "consoleArtworkPath": "console-artwork/x360-console.webp",
+    "controllerArtworkPath": "console-artwork/x360-controller.webp",
     "monochrome": true
   },
   "xbox": {
@@ -853,6 +909,8 @@
     "symbol": "XboxSeriesX",
     "compactLabel": "Xbox Series X|S",
     "iconPath": "platforms/xsx.png",
+    "consoleArtworkPath": "console-artwork/xsx-console.webp",
+    "controllerArtworkPath": "console-artwork/xsx-controller.webp",
     "monochrome": true
   },
   "zxs": {

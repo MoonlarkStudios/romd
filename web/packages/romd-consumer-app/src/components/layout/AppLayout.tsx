@@ -32,20 +32,26 @@ const navItems = [
     label: 'Browse',
     path: '/library',
   },
+  {
+    label: 'Consoles',
+    path: '/systems',
+  },
 ];
+
+const titleSectionPaths = {
+  home: '/',
+  browse: '/library',
+  systems: '/systems',
+} as const;
 
 function isNavActive(path: string, pathname: string, state: unknown): boolean {
   if (pathname.startsWith('/titles/'))
-    return path === (readReturnContext(state).section === 'home' ? '/' : '/library');
+    return path === titleSectionPaths[readReturnContext(state).section];
   if (path === '/') {
     return pathname === '/' || pathname.startsWith('/collections');
   }
 
-  if (path === '/activity') {
-    return pathname.startsWith('/activity');
-  }
-
-  return pathname.startsWith('/library') || pathname.startsWith('/titles/');
+  return pathname === path || pathname.startsWith(`${path}/`);
 }
 
 export function AppLayout() {
@@ -363,7 +369,11 @@ export function AppLayout() {
         </Text>
       </Modal>
 
-      <AppShell.Navbar p="md">
+      <AppShell.Navbar
+        p="md"
+        hiddenFrom="sm"
+        inert={!opened}
+      >
         <Stack gap="xs">
           {navItems.map((item) => (
             <Text

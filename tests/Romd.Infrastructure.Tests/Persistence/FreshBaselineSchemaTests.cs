@@ -42,12 +42,14 @@ public sealed class FreshBaselineSchemaTests
             "20261124010000_ArtworkPlatformAliasEvidence",
             "20261124015000_ProvisionalArtworkPlatformAliasEvidence",
             "20261124020000_TitleMergeRedirects",
-            "20261124201434_TitleLookupNames"
+            "20261124201434_TitleLookupNames",
+            "20261126001626_SystemConsoleArtwork",
+            "20261126042256_SystemControllerArtwork"
         ]);
         (await db.Database.GetPendingMigrationsAsync()).ShouldBeEmpty();
         db.Database.HasPendingModelChanges().ShouldBeFalse();
-        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(94);
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(94);
+        PostgreSqlConfiguration.ExpectedSchemaVersion.ShouldBe(96);
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(96);
         (await new Romd.Persistence.Identity.SignInMessageReader(db).GetMessageAsync(default)).ShouldBeEmpty();
         (await db.Database.SqlQueryRaw<string>("""
             SELECT c.relname AS "Value" FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -65,11 +67,17 @@ public sealed class FreshBaselineSchemaTests
         await using var database = PostgreSqlTestDatabase.CreateEmpty();
         await using var db = database.CreateContext();
         await db.Database.GetService<IMigrator>().MigrateAsync("20261124020000_TitleMergeRedirects");
-        db.Platforms.Add(new PlatformEntity { Id = 1, Name = "Test system", ShortName = "test" });
+        // Seed with the historical column set before running the current model against the upgraded database.
+        await db.Database.ExecuteSqlRawAsync("""
+            INSERT INTO romd."Platforms" ("Id", "Name", "ShortName", "CreatedAt", "CreatedByUserId",
+                "BaseMonochrome", "Retired", "HasDescriptionOverride", "HasArtworkOverride")
+            VALUES (1, 'Test system', 'test', 0, '00000000-0000-0000-0000-000000000000',
+                FALSE, FALSE, FALSE, FALSE);
+            """);
         db.Titles.Add(new TitleEntity { Id = 1, PlatformId = 1, Name = "Surviving title", NormalizedName = "surviving title", EnrichmentStatus = "None" });
         db.TitleMergeRedirects.Add(new TitleMergeRedirectEntity { SourceTitleId = 2, TargetTitleId = 1 });
         await db.SaveChangesAsync();
-        (await db.Database.GetPendingMigrationsAsync()).ShouldBe(["20261124201434_TitleLookupNames"]);
+        (await db.Database.GetPendingMigrationsAsync()).ShouldBe(["20261124201434_TitleLookupNames", "20261126001626_SystemConsoleArtwork", "20261126042256_SystemControllerArtwork"]);
 
         await database.ProvisionAsync();
 
@@ -78,7 +86,13 @@ public sealed class FreshBaselineSchemaTests
         db.TitleLookupNames.Add(new TitleLookupNameEntity { TitleId = 1, Name = "Earlier title", SearchDocument = "earlier title" });
         await db.SaveChangesAsync();
         (await db.TitleLookupNames.SingleAsync()).Name.ShouldBe("Earlier title");
-        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(94);
+        var system = await db.Platforms.SingleAsync(x => x.Id == 1);
+        system.Name.ShouldBe("Test system");
+        system.BaseConsoleArtworkHash.ShouldBeNull();
+        system.ConsoleArtworkOverrideHash.ShouldBeNull();
+        system.BaseControllerArtworkHash.ShouldBeNull();
+        system.ControllerArtworkOverrideHash.ShouldBeNull();
+        (await db.Database.SqlQueryRaw<int>("SELECT version AS \"Value\" FROM romd.romd_schema").SingleAsync()).ShouldBe(96);
     }
 
     [Fact]

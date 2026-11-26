@@ -1987,3 +1987,23 @@ Agent guidance: The failure stops the grouped contract run before OpenAPI
 drift validation. For API changes, run
 `mise exec -- python3 scripts/validation/run.py --id openapi.drift` separately
 and report the ingress result alongside the drift result.
+
+## Console validation can block on the macOS CocoaPods bootstrap
+
+Status: MITIGATED
+
+Commands: `mise run analyze` and `mise run test` from `clients/romd_console`.
+
+Root cause: local mise can invoke the macOS system Ruby 2.6 for its CocoaPods
+gem installation even when the checkout configures Ruby 3.4. The bootstrap
+fails before validation with `nap requires Ruby version >= 3.3`.
+
+Change: the registered Flutter analysis and test commands pass with the
+installed, repository-pinned Flutter SDK directly on PATH.
+
+Agent guidance: check the Flutter pin in `clients/romd_console/.mise.toml`
+and locate it with `mise where flutter@<pinned-version>`. From
+`clients/romd_console`, prepend that SDK's `bin` to PATH and run
+`python3 ../../scripts/validation/run.py --group console.analyze` and
+`python3 ../../scripts/validation/run.py --group console.test`. This qualifies
+analysis and tests. Native macOS and iOS builds still require CocoaPods.

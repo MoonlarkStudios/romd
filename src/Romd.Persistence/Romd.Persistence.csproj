@@ -38,6 +38,7 @@
     <EmbeddedResource Include="../../reference-data/dist/reference-data.json" LogicalName="Romd.ReferenceData.json" />
     <EmbeddedResource Include="../../reference-data/catalog/system-hardware.json" LogicalName="Romd.SystemHardware.json" />
     <EmbeddedResource Include="../../reference-data/assets/presentation/platforms/*.png" LogicalName="ReferenceAssets/platforms/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../../reference-data/assets/presentation/console-artwork/*.png;../../reference-data/assets/presentation/console-artwork/*.webp" LogicalName="ReferenceAssets/console-artwork/%(Filename)%(Extension)" />
     <EmbeddedResource Include="../../reference-data/assets/presentation/ratings/**/*.svg" LogicalName="ReferenceAssets/ratings/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 

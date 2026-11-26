@@ -22,6 +22,14 @@ internal static class ReferenceArtworkOwnershipIndex
                 owners.Add(new() { Kind = "systems", Key = row.CanonicalKey!, Slot = "base", Hash = baseHash });
             if (row.HasArtworkOverride && row.ArtworkOverrideHash is { } overrideHash)
                 owners.Add(new() { Kind = "systems", Key = row.CanonicalKey!, Slot = "override", Hash = overrideHash });
+            if (row.BaseConsoleArtworkHash is { } defaultArtwork)
+                owners.Add(new() { Kind = "systems", Key = row.CanonicalKey!, Slot = "console-base", Hash = defaultArtwork });
+            if (row.ConsoleArtworkOverrideHash is { } customArtwork)
+                owners.Add(new() { Kind = "systems", Key = row.CanonicalKey!, Slot = "console-override", Hash = customArtwork });
+            if (row.BaseControllerArtworkHash is { } controller)
+                owners.Add(new() { Kind = "systems", Key = row.CanonicalKey!, Slot = "controller-base", Hash = controller });
+            if (row.ControllerArtworkOverrideHash is { } customController)
+                owners.Add(new() { Kind = "systems", Key = row.CanonicalKey!, Slot = "controller-local", Hash = customController });
         }
         var released = oldHashes.Except(owners.Select(x => x.Hash)).ToArray();
         if (released.Length > 0)

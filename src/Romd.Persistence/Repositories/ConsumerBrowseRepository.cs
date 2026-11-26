@@ -1,5 +1,7 @@
 using Romd.Domain.Catalog;
 using Romd.Application.Common.Systems;
+using Romd.Application.Common.ReferenceCatalog;
+using Romd.Domain.ReferenceData;
 using Microsoft.EntityFrameworkCore;
 using Romd.Application.Common.Pagination;
 using Romd.Consumer.Application.Browse;
@@ -10,6 +12,7 @@ using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Entities;
 using Romd.Persistence.Search;
 using Romd.Persistence.Queries;
+using Romd.Persistence.Systems;
 
 namespace Romd.Persistence.Repositories;
 
@@ -75,6 +78,15 @@ public sealed partial class ConsumerBrowseRepository(
                     .OrderByDescending(media => media.IsPrimary)
                     .ThenBy(media => media.Id)
                     .Select(media => (int?)media.Id)
+                    .FirstOrDefault(),
+                ConsoleArtwork = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (platform.ConsoleArtworkOverrideHash ?? platform.BaseConsoleArtworkHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType, false))
+                    .FirstOrDefault(),
+                Icon = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (platform.HasArtworkOverride ? platform.ArtworkOverrideHash : platform.BaseAssetHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType,
+                        platform.MonochromeOverride ?? platform.BaseMonochrome))
                     .FirstOrDefault()
             })
             .Take(limit + 1)
@@ -113,7 +125,25 @@ public sealed partial class ConsumerBrowseRepository(
                 TitleCount = OwnedMaterializedLibraryTitles(libraryId)
                     .Where(item => item.PlatformId == candidate.Id)
                     .Count(),
-                Media = Array.Empty<ConsumerMediaData>()
+                Media = Array.Empty<ConsumerMediaData>(),
+                Description = candidate.HasDescriptionOverride ? candidate.DescriptionOverride : candidate.BaseDescription,
+                Hardware = candidate.BuiltInVersion != null
+                    ? BuiltInSystemHardware.Get(candidate.CanonicalKey!)
+                    : candidate.HardwareCategory == null && candidate.HardwareGeneration == null && candidate.HardwareReleaseYear == null
+                        ? null : new SystemHardware(candidate.HardwareCategory, candidate.HardwareGeneration, candidate.HardwareReleaseYear),
+                ConsoleArtwork = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (candidate.ConsoleArtworkOverrideHash ?? candidate.BaseConsoleArtworkHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType, false))
+                    .FirstOrDefault(),
+                ControllerArtwork = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (candidate.ControllerArtworkOverrideHash ?? candidate.BaseControllerArtworkHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType, false))
+                    .FirstOrDefault(),
+                Icon = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (candidate.HasArtworkOverride ? candidate.ArtworkOverrideHash : candidate.BaseAssetHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType,
+                        candidate.MonochromeOverride ?? candidate.BaseMonochrome))
+                    .FirstOrDefault()
             })
             .FirstOrDefaultAsync(ct);
 

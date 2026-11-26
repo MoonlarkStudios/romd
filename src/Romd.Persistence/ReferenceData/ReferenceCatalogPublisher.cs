@@ -13,8 +13,6 @@ internal static class ReferenceCatalogPublisher
     {
         var state = await db.ReferenceCatalogState.AsTracking().SingleOrDefaultAsync(ct);
         var assets = await db.ReferenceAssets.ToDictionaryAsync(x => x.Hash, x => x.ContentType, ct);
-        ReferenceAsset? Icon(string? hash, bool monochrome) => hash is not null && assets.TryGetValue(hash, out var type)
-            ? new("/api/assets/" + hash, hash, type, monochrome) : null;
         var companyRows = await db.Companies.AsTracking().OrderBy(x => x.Key).ToListAsync(ct);
         foreach (var row in companyRows)
             row.Name = TypedReferenceMapping.Effective(row).Name;
@@ -31,7 +29,11 @@ internal static class ReferenceCatalogPublisher
             row.Name = facts.Name;
             row.Manufacturer = SystemCompanyReader.Names(makers);
             return new ReferenceSystem(row.CanonicalKey!, facts.Name, facts.CompactLabel, facts.Description,
-                Icon(facts.AssetHash, facts.Monochrome), makers.Select(x => x.Key).ToArray(), facts.Retired, makers);
+                TypedReferenceMapping.Asset(assets, facts.AssetHash, facts.Monochrome), makers.Select(x => x.Key).ToArray(), facts.Retired, makers)
+            {
+                ConsoleArtwork = TypedReferenceMapping.Asset(assets, facts.ConsoleArtworkHash),
+                ControllerArtwork = TypedReferenceMapping.Asset(assets, facts.ControllerArtworkHash)
+            };
         }).ToArray();
         var regionRows = await db.Regions.AsTracking().Where(x => x.Ownership != null).OrderBy(x => x.CanonicalKey).ToListAsync(ct);
         var regions = regionRows.Select(row =>
@@ -58,7 +60,7 @@ internal static class ReferenceCatalogPublisher
         {
             var facts = TypedReferenceMapping.Effective(row);
             return new ReferenceRating(facts.BoardKey, facts.Code, facts.Name, facts.Description,
-                Icon(facts.AssetHash, facts.Monochrome), facts.Designation, facts.MinimumAge, facts.Retired);
+                TypedReferenceMapping.Asset(assets, facts.AssetHash, facts.Monochrome), facts.Designation, facts.MinimumAge, facts.Retired);
         }).ToArray();
         var snapshot = new ReferenceCatalog
         {

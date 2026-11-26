@@ -33,6 +33,16 @@ const Connections = lazy(() =>
     default: module.Connections,
   })),
 );
+const Consoles = lazy(() =>
+  import('./pages/Consoles').then((module) => ({
+    default: module.Consoles,
+  })),
+);
+const ConsoleDetail = lazy(() =>
+  import('./pages/ConsoleDetail').then((module) => ({
+    default: module.ConsoleDetail,
+  })),
+);
 const Library = lazy(() =>
   import('./pages/Library').then((module) => ({
     default: module.Library,
@@ -96,6 +106,14 @@ export const routes: RouteObject[] = [
       {
         path: 'library',
         element: <Library />,
+      },
+      {
+        path: 'systems',
+        element: <Consoles />,
+      },
+      {
+        path: 'systems/:systemKey',
+        element: <ConsoleDetail />,
       },
       {
         path: 'connections',

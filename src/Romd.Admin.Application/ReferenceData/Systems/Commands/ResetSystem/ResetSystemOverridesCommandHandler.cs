@@ -31,7 +31,8 @@ public sealed class ResetSystemOverridesCommandHandler : ICommandHandler<ResetSy
             var current = (await reader.GetAsync(command.Key, token))!;
             if (ReferenceEditRules.CheckVersion(current.Revision, command.IfMatch) is { } error)
                 return error;
-            if (resource.Metadata.Ownership != ReferenceOwnership.Romd)
+            if (resource.Metadata.Ownership != ReferenceOwnership.Romd &&
+                command.Field is not (SystemOverrideField.ConsoleArtwork or SystemOverrideField.ControllerArtwork))
                 return ReferenceEditErrors.Conflict("Installation-owned definitions have no inherited defaults.");
             await repository.StageAsync(resource with { Overrides = resource.Overrides.Reset(command.Field) }, token);
             await session.FlushAsync(token);
