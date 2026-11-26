@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 17,
+  "catalogVersion": 18,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -419,6 +419,8 @@
       "symbol": "NintendoDs",
       "compactLabel": "Nintendo DS",
       "iconPath": "platforms/nds.png",
+      "consoleArtworkPath": "console-artwork/nds-console.webp",
+      "controllerArtworkPath": "console-artwork/nds-controller.webp",
       "monochrome": true
     },
     "neogeo": {
@@ -583,6 +585,8 @@
       "symbol": "Psp",
       "compactLabel": "PSP",
       "iconPath": "platforms/psp.png",
+      "consoleArtworkPath": "console-artwork/psp-console.webp",
+      "controllerArtworkPath": "console-artwork/psp-controller.webp",
       "monochrome": true
     },
     "psx": {
@@ -721,6 +725,8 @@
       "symbol": "TurboGrafx16",
       "compactLabel": "TurboGrafx-16",
       "iconPath": "platforms/tg16.png",
+      "consoleArtworkPath": "console-artwork/tg16-console.webp",
+      "controllerArtworkPath": "console-artwork/tg16-controller.webp",
       "monochrome": true
     },
     "tgcd": {

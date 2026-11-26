@@ -45,3 +45,8 @@ Hardware references used during review
 - [White Wii RVL-001 with vertical stand](https://commons.wikimedia.org/wiki/File:Wii-console.jpg),
   [Wii Remote and Nunchuk](https://commons.wikimedia.org/wiki/File:Nintendo-Wii-Remote-wNunchuk.jpg),
   and [Nintendo’s Wii operations manuals](https://en-americas-support.nintendo.com/app/answers/detail/a_id/16890/)
+- [Original Electric Blue Nintendo DS](https://commons.wikimedia.org/wiki/File:Nintendo-DS-Fat-Blue.png)
+  and [Nintendo’s DS operations manuals](https://en-americas-support.nintendo.com/app/answers/detail/a_id/16905/~/nintendo-ds-manuals)
+- [Black PlayStation Portable PSP-1000](https://commons.wikimedia.org/wiki/File:PSP-1000.png)
+- [North American TurboGrafx-16 console](https://commons.wikimedia.org/wiki/File:NEC-TurboGrafx-16-Console-FL.jpg)
+  and [TurboPad controller](https://commons.wikimedia.org/wiki/File:NEC-TurboGrafx-16-Controller-FL.jpg)
