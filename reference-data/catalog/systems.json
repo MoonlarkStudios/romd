@@ -271,7 +271,9 @@
     "symbol": "GameCube",
     "compactLabel": "GameCube",
     "iconPath": "platforms/gc.png",
-    "monochrome": true
+    "monochrome": true,
+    "consoleArtworkPath": "console-artwork/gc-console.webp",
+    "controllerArtworkPath": "console-artwork/gc-controller.webp"
   },
   "genesis": {
     "name": "Sega Genesis",
