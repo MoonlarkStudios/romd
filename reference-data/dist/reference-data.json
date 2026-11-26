@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 13,
+  "catalogVersion": 14,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -242,6 +242,8 @@
       "symbol": "GameBoyAdvance",
       "compactLabel": "Game Boy Advance",
       "iconPath": "platforms/gba.png",
+      "consoleArtworkPath": "console-artwork/gba-console.webp",
+      "controllerArtworkPath": "console-artwork/gba-controller.webp",
       "monochrome": true
     },
     "gbc": {

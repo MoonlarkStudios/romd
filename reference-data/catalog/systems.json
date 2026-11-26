@@ -239,6 +239,8 @@
     "symbol": "GameBoyAdvance",
     "compactLabel": "Game Boy Advance",
     "iconPath": "platforms/gba.png",
+    "consoleArtworkPath": "console-artwork/gba-console.webp",
+    "controllerArtworkPath": "console-artwork/gba-controller.webp",
     "monochrome": true
   },
   "gbc": {

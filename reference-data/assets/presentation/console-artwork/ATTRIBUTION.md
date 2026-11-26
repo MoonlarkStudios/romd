@@ -2,7 +2,7 @@
 
 The bundled illustrations were generated with OpenAI image generation and
 reviewed for hardware silhouette and details. Each pair uses a low three-quarter
-view of the console and a controller close-up in a screen-print style. Shipped
+view of the system and a close-up of its controls in a screen-print style. Shipped
 images use a 4:3 aspect ratio. System logos are supplied separately in the
 [platform logo collection](../platforms/ATTRIBUTION.md).
 
@@ -23,3 +23,6 @@ Hardware references used during review
 - [PlayStation 2 SCPH-30001 console](https://commons.wikimedia.org/wiki/File:Sony-PlayStation-2-30001-Console-FL.jpg),
   [wired DualShock 2 controller](https://commons.wikimedia.org/wiki/File:DualShock_2.jpg),
   and [Sony’s SCPH-30000-series service manual](https://gamingdoc.org/wp-content/uploads/2021/03/sony-ps2-scph-30000_series_service_manual_2nd.pdf)
+- [Indigo Game Boy Advance](https://commons.wikimedia.org/wiki/File:Nintendo-Game-Boy-Advance-Purple-FL.jpg),
+  [front control layout](https://commons.wikimedia.org/wiki/File:Game_Boy_Advance_front.jpg),
+  and [Nintendo’s Game Boy Advance technical data](https://www.nintendo.com/en-gb/Support/Legacy-system/Technical-data-619479.html)
