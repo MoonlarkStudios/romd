@@ -272,7 +272,7 @@
     "compactLabel": "GameCube",
     "iconPath": "platforms/gc.png",
     "monochrome": true,
-    "consoleArtworkPath": "console-artwork/gc-console-v2.webp",
+    "consoleArtworkPath": "console-artwork/gc-console-v3.webp",
     "controllerArtworkPath": "console-artwork/gc-controller.webp"
   },
   "genesis": {
