@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 15,
+  "catalogVersion": 16,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -225,6 +225,8 @@
       "symbol": "GameBoy",
       "compactLabel": "Game Boy",
       "iconPath": "platforms/gb.png",
+      "consoleArtworkPath": "console-artwork/gb-console.webp",
+      "controllerArtworkPath": "console-artwork/gb-controller.webp",
       "monochrome": true
     },
     "gba": {
@@ -261,6 +263,8 @@
       "symbol": "GameBoyColor",
       "compactLabel": "Game Boy Color",
       "iconPath": "platforms/gbc.png",
+      "consoleArtworkPath": "console-artwork/gbc-console.webp",
+      "controllerArtworkPath": "console-artwork/gbc-controller.webp",
       "monochrome": true
     },
     "gc": {
@@ -658,6 +662,8 @@
       "symbol": "MasterSystem",
       "compactLabel": "Master System",
       "iconPath": "platforms/sms.png",
+      "consoleArtworkPath": "console-artwork/sms-console.webp",
+      "controllerArtworkPath": "console-artwork/sms-controller.webp",
       "monochrome": true
     },
     "snes": {

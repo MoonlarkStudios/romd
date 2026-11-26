@@ -30,3 +30,11 @@ Hardware references used during review
   [gray six-button controller photographed by Evan-Amos](https://commons.wikimedia.org/wiki/File:Sega-Saturn-JP-Mk1-Controller.jpg)
   ([CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)),
   and [Sega’s hardware reference](https://www.sega.jp/history/hard/segasaturn/index.html)
+- [Original Game Boy front](https://commons.wikimedia.org/wiki/File:Game-Boy-Original.jpg),
+  [three-quarter view](https://commons.wikimedia.org/wiki/File:Game-Boy-FL.jpg),
+  and [Nintendo’s Game Boy specifications](https://www.nintendo.com/en-gb/Hardware/Nintendo-History/Game-Boy/Game-Boy-627031.html)
+- [Dandelion Game Boy Color](https://commons.wikimedia.org/wiki/File:Game-Boy-Color-Yellow.jpg)
+  and [Game Boy Color case profile reference](https://commons.wikimedia.org/wiki/File:Nintendo-Game-Boy-Color-FL.jpg)
+- [North American Sega Master System Power Base](https://commons.wikimedia.org/wiki/File:Sega-Master-System-Console-FL.jpg),
+  [two-button control pad](https://commons.wikimedia.org/wiki/File:Sega-Master-System-Controllers.jpg),
+  and [Sega’s instruction manual](https://manuals.plus/m/4864daec02ce1859978bd62bb565e2520d8aac5121ff2c93914e10f68b737f3f.pdf)
