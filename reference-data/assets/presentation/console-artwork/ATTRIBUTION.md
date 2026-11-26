@@ -20,3 +20,6 @@ Hardware references used during review
 - [North American Dreamcast console](https://commons.wikimedia.org/wiki/File:Sega-Dreamcast-Console-FL.jpg),
   [controller with a VMU installed](https://commons.wikimedia.org/wiki/File:Sega-Dreamcast-Controller-wVMU-FL.jpg),
   and [Sega’s North American instruction manual](https://www.gamesdatabase.org/MEDIA/system/Sega_Dreamcast/systemmanual/Sega_Dreamcast_manual.pdf)
+- [PlayStation 2 SCPH-30001 console](https://commons.wikimedia.org/wiki/File:Sony-PlayStation-2-30001-Console-FL.jpg),
+  [wired DualShock 2 controller](https://commons.wikimedia.org/wiki/File:DualShock_2.jpg),
+  and [Sony’s SCPH-30000-series service manual](https://gamingdoc.org/wp-content/uploads/2021/03/sony-ps2-scph-30000_series_service_manual_2nd.pdf)

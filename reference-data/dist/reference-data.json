@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 12,
+  "catalogVersion": 13,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -507,6 +507,8 @@
       "symbol": "PlayStation2",
       "compactLabel": "PlayStation 2",
       "iconPath": "platforms/ps2.png",
+      "consoleArtworkPath": "console-artwork/ps2-console.webp",
+      "controllerArtworkPath": "console-artwork/ps2-controller.webp",
       "monochrome": true
     },
     "ps3": {
