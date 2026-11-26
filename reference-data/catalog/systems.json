@@ -449,7 +449,9 @@
     "symbol": "Nes",
     "compactLabel": "NES",
     "iconPath": "platforms/nes.png",
-    "monochrome": true
+    "monochrome": true,
+    "consoleArtworkPath": "console-artwork/nes-console.webp",
+    "controllerArtworkPath": "console-artwork/nes-controller.webp"
   },
   "ngp": {
     "name": "Neo Geo Pocket",

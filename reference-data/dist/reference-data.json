@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 6,
+  "catalogVersion": 7,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -452,7 +452,9 @@
       "symbol": "Nes",
       "compactLabel": "NES",
       "iconPath": "platforms/nes.png",
-      "monochrome": true
+      "monochrome": true,
+      "consoleArtworkPath": "console-artwork/nes-console.webp",
+      "controllerArtworkPath": "console-artwork/nes-controller.webp"
     },
     "ngp": {
       "name": "Neo Geo Pocket",
