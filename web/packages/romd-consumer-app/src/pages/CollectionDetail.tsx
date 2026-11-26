@@ -2,7 +2,7 @@ import { Button, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
 import { IconArrowLeft, IconRefresh } from '@tabler/icons-react';
 import { Link, useParams } from 'react-router';
 import { PosterCard } from '../components/library/PosterCard';
-import { CollectionNavigationName } from '../components/navigation/titleNavigation';
+import { DestinationNavigationName } from '../components/navigation/titleNavigation';
 import { StatusState } from '../components/status/StatusState';
 import { useCollectionDetail, useCollectionTitles } from '../hooks/useConsumerLibrary';
 
@@ -31,7 +31,7 @@ export function CollectionDetail() {
   }
 
   return (
-    <CollectionNavigationName value={collectionQuery.data.name}>
+    <DestinationNavigationName value={collectionQuery.data.name}>
       <Stack gap="var(--romd-page-gap)">
         <Group>
           <Button
@@ -108,6 +108,6 @@ export function CollectionDetail() {
           </Group>
         )}
       </Stack>
-    </CollectionNavigationName>
+    </DestinationNavigationName>
   );
 }

@@ -81,7 +81,7 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Platforms_ResolveConsoleArtworkIndependentlyOfGameMedia()
+    public async Task Platforms_ResolveSystemPresentationIndependentlyOfGameMedia()
     {
         await SeedCompletenessScenariosAsync();
         await using var context = CreateContext();
@@ -95,6 +95,10 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
             new ReferenceAssetEntity { Hash = customHash, ContentType = "image/webp", FileId = 2 });
         var platform = await context.Platforms.AsTracking().SingleAsync();
         platform.BaseConsoleArtworkHash = defaultHash;
+        platform.BaseControllerArtworkHash = customHash;
+        platform.BaseAssetHash = defaultHash;
+        platform.BaseDescription = "A cartridge console.";
+        platform.CanonicalKey = "snes";
         await context.SaveChangesAsync();
         var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
         var scope = new ConsumerLibraryScope(UserId);
@@ -103,15 +107,24 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
             .ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerPlatformSummaryData>>.Found>();
         var summary = listed.Value.Items.ShouldHaveSingleItem();
         summary.ConsoleArtwork!.Sha256.ShouldBe(defaultHash);
+        summary.Icon!.Sha256.ShouldBe(defaultHash);
         summary.CoverMediaId.ShouldBeNull();
 
         platform.ConsoleArtworkOverrideHash = customHash;
+        platform.ControllerArtworkOverrideHash = defaultHash;
+        platform.HasArtworkOverride = true;
         await context.SaveChangesAsync();
         var selected = (await repository.GetPlatformAsync(scope, platform.Id))
             .ShouldBeOfType<ConsumerLibraryReadResult<ConsumerPlatformDetailData>.Found>();
         selected.Value.ConsoleArtwork!.Sha256.ShouldBe(customHash);
         selected.Value.ConsoleArtwork.Url.ShouldBe($"/api/assets/{customHash}");
         selected.Value.ConsoleArtwork.ContentType.ShouldBe("image/webp");
+        selected.Value.ControllerArtwork!.Sha256.ShouldBe(defaultHash);
+        selected.Value.Icon.ShouldBeNull();
+        selected.Value.Description.ShouldBe("A cartridge console.");
+        selected.Value.Hardware!.Category.ShouldBe("console");
+        selected.Value.Hardware.Generation.ShouldBe(4);
+        selected.Value.Hardware.ReleaseYear.ShouldBe(1990);
         selected.Value.Media.ShouldBeEmpty();
     }
 

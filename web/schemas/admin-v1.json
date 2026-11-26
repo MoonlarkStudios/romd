@@ -27809,6 +27809,16 @@
                 "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
+          },
+          "controllerArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
           }
         }
       },
@@ -29261,6 +29271,12 @@
               "null",
               "string"
             ]
+          },
+          "controllerArtwork": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -29279,6 +29295,9 @@
             "type": "string"
           },
           "consoleArtwork": {
+            "type": "string"
+          },
+          "controllerArtwork": {
             "type": "string"
           },
           "icon": {
@@ -29364,6 +29383,16 @@
             }
           },
           "consoleArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
+          },
+          "controllerArtwork": {
             "oneOf": [
               {
                 "type": "null"

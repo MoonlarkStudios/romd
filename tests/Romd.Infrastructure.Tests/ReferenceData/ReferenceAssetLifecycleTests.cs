@@ -15,8 +15,6 @@ using Romd.Persistence.Entities;
 using Romd.Persistence.Repositories;
 using Romd.PostgreSql.TestSupport;
 using Romd.Storage;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 
 using Shouldly;
 using Xunit;
@@ -71,7 +69,8 @@ public sealed partial class ReferenceAssetLifecycleTests : IDisposable
         edited.IsError.ShouldBeFalse();
         (await service.GetCurrentAsync(default))!.Revision.ShouldNotBe(oldRevision);
         (await db.ReferenceCatalogState.CountAsync()).ShouldBe(1);
-        (await db.ReferenceAssetOwners.Where(x => x.Kind == "systems" && x.Key == "snes").CountAsync()).ShouldBe(2);
+        (await db.ReferenceAssetOwners.Where(x => x.Kind == "systems" && x.Key == "snes")
+            .Select(x => x.Slot).ToArrayAsync()).ShouldBe(["base", "override", "console-base", "controller-base"], ignoreOrder: true);
         await db.ReferenceAssets.ExecuteUpdateAsync(s => s.SetProperty(x => x.ReservedUntil, DateTimeOffset.UtcNow.AddDays(-20)));
         db.ChangeTracker.Clear();
         (await ReferenceCatalogService.ReleaseExpiredAssetsAsync(db, DateTimeOffset.UtcNow, default)).ShouldBe(0);
@@ -87,27 +86,26 @@ public sealed partial class ReferenceAssetLifecycleTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsoleArtworkOverride_KeepsBundledBytesUntilRestoredAndPreservesTheLogo()
+    public async Task SystemArtworkOverrides_KeepBothBundledAssetsAndTheLogo()
     {
         await using var db = _database.CreateContext();
         var cas = Store();
         var blobs = new ReferenceBlobStore(cas, Ledger(db, cas));
         var service = new ReferenceCatalogService(db, blobs);
-        var document = JsonNode.Parse(BundledReferenceData.Document.GetRawText())!;
-        var systems = document["systems"]!;
-        // Reuse an embedded raster as a stand-in for a shipped portrait; give it only one owner.
-        systems["snes"]!["consoleArtworkPath"] = systems["genesis"]!["iconPath"]!.DeepClone();
-        systems["genesis"]!["iconPath"] = null;
-        await SharedReferenceDataSeeder.InitializeAsync(db, blobs, clock: TimeProvider.System,
-            document: JsonSerializer.SerializeToElement(document));
+        await SharedReferenceDataSeeder.InitializeAsync(db, blobs, clock: TimeProvider.System);
         var commands = new TypedReferenceTestCommands(db);
         var original = (await commands.System("snes"))!;
         var bundled = original.Resource.ConsoleArtwork.ShouldNotBeNull();
+        var controller = original.Resource.ControllerArtwork.ShouldNotBeNull();
+        bundled.ContentType.ShouldBe("image/webp");
+        bundled.Sha256.ShouldNotBe(original.Resource.Icon.ShouldNotBeNull().Sha256);
+        controller.Sha256.ShouldNotBe(bundled.Sha256);
         var customHash = (await UploadAsync(db, Png, default)).Value;
 
         var uploaded = (await commands.UpdateSystem("snes", new SystemPatch { ConsoleArtwork = customHash }, original.Revision)).Value;
         uploaded.Resource.ConsoleArtwork!.Sha256.ShouldBe(customHash);
         uploaded.Resource.Icon.ShouldBe(original.Resource.Icon);
+        uploaded.Resource.ControllerArtwork.ShouldBe(controller);
         uploaded.Overrides.ConsoleArtwork.ShouldBe(customHash);
         var snapshot = (await service.GetCurrentAsync(default))!;
         snapshot.Systems.Single(x => x.Key == "snes").ConsoleArtwork.ShouldBe(uploaded.Resource.ConsoleArtwork);
@@ -124,6 +122,22 @@ public sealed partial class ReferenceAssetLifecycleTests : IDisposable
         restored.Resource.Icon.ShouldBe(original.Resource.Icon);
         restored.Overrides.ConsoleArtwork.ShouldBeNull();
         (await db.ReferenceAssets.SingleAsync(x => x.Hash == customHash)).ReservedUntil.ShouldBeGreaterThan(DateTimeOffset.UtcNow.AddDays(6));
+
+        var customController = (await commands.UpdateSystem("snes", new SystemPatch { ControllerArtwork = customHash }, restored.Revision)).Value;
+        customController.Resource.ConsoleArtwork.ShouldBe(bundled);
+        customController.Resource.Icon.ShouldBe(original.Resource.Icon);
+        customController.Resource.ControllerArtwork!.Sha256.ShouldBe(customHash);
+        customController.Overrides.ControllerArtwork.ShouldBe(customHash);
+        (await db.ReferenceAssetOwners.SingleAsync(x => x.Kind == "systems" && x.Key == "snes" && x.Slot == "controller-local"))
+            .Hash.ShouldBe(customHash);
+        (await service.GetCurrentAsync(default))!.Systems.Single(x => x.Key == "snes")
+            .ControllerArtwork.ShouldBe(customController.Resource.ControllerArtwork);
+        (await ReferenceCatalogService.ReleaseExpiredAssetsAsync(db, DateTimeOffset.UtcNow.AddDays(30), default)).ShouldBe(0);
+        ReferenceCatalogService.Hash((await service.GetAssetAsync(controller.Sha256, default))!.Bytes).ShouldBe(controller.Sha256);
+
+        var restoredController = (await commands.ResetSystem("snes", SystemOverrideField.ControllerArtwork, customController.Revision)).Value;
+        restoredController.Resource.ControllerArtwork.ShouldBe(controller);
+        restoredController.Overrides.ControllerArtwork.ShouldBeNull();
     }
 
     [Fact]

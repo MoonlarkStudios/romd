@@ -3281,6 +3281,10 @@ namespace Romd.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<string>("BaseControllerArtworkHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<string>("BaseDescription")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -3319,6 +3323,10 @@ namespace Romd.Persistence.Migrations
                         .HasColumnType("character varying(40)");
 
                     b.Property<string>("ConsoleArtworkOverrideHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ControllerArtworkOverrideHash")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
@@ -3387,10 +3395,14 @@ namespace Romd.Persistence.Migrations
 
                     b.HasIndex("BaseConsoleArtworkHash");
 
+                    b.HasIndex("BaseControllerArtworkHash");
+
                     b.HasIndex("CanonicalKey")
                         .IsUnique();
 
                     b.HasIndex("ConsoleArtworkOverrideHash");
+
+                    b.HasIndex("ControllerArtworkOverrideHash");
 
                     b.HasIndex("Name");
 
@@ -3402,6 +3414,8 @@ namespace Romd.Persistence.Migrations
                             t.HasCheckConstraint("CK_Platforms_ArtworkOverride", "\"HasArtworkOverride\" OR \"ArtworkOverrideHash\" IS NULL");
 
                             t.HasCheckConstraint("CK_Platforms_ConsoleArtworkOwnership", "(\"BaseConsoleArtworkHash\" IS NULL OR \"Ownership\" IS NOT DISTINCT FROM 'Romd') AND (\"ConsoleArtworkOverrideHash\" IS NULL OR \"Ownership\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_Platforms_ControllerArtworkOwnership", "(\"BaseControllerArtworkHash\" IS NULL OR \"Ownership\" IS NOT DISTINCT FROM 'Romd') AND (\"ControllerArtworkOverrideHash\" IS NULL OR \"Ownership\" IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_Platforms_DescriptionOverride", "\"HasDescriptionOverride\" OR \"DescriptionOverride\" IS NULL");
 
@@ -6007,7 +6021,17 @@ namespace Romd.Persistence.Migrations
 
                     b.HasOne("Romd.Persistence.Entities.ReferenceAssetEntity", null)
                         .WithMany()
+                        .HasForeignKey("BaseControllerArtworkHash")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Romd.Persistence.Entities.ReferenceAssetEntity", null)
+                        .WithMany()
                         .HasForeignKey("ConsoleArtworkOverrideHash")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Romd.Persistence.Entities.ReferenceAssetEntity", null)
+                        .WithMany()
+                        .HasForeignKey("ControllerArtworkOverrideHash")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 

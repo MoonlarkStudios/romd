@@ -22,12 +22,12 @@ internal static partial class TypedReferenceMapping
             ? null : new(row.HardwareCategory, row.HardwareGeneration, row.HardwareReleaseYear);
 
     internal static SystemDefinition Definition(PlatformEntity row) => new(row.BaseName!, row.BaseCompactLabel!, row.BaseDescription,
-        row.BaseAssetHash, row.BaseMonochrome, row.Retired, row.BaseConsoleArtworkHash);
+        row.BaseAssetHash, row.BaseMonochrome, row.Retired, row.BaseConsoleArtworkHash, row.BaseControllerArtworkHash);
     internal static CompanyDefinition Definition(CompanyEntity row) => new(row.BaseName, row.BaseDescription, row.Retired);
     internal static SystemDefinition Effective(PlatformEntity row) => (row.ReferenceOverrides ?? new()).Apply(Definition(row));
     internal static CompanyDefinition Effective(CompanyEntity row) => row.Overrides.Apply(Definition(row));
     internal static ContractSystemOverrides Overrides(SystemOverrides x) => new(x.Name, x.CompactLabel, x.Description, x.Icon, x.Monochrome, x.HasDescription, x.HasIcon)
-    { ConsoleArtwork = x.ConsoleArtwork };
+    { ConsoleArtwork = x.ConsoleArtwork, ControllerArtwork = x.ControllerArtwork };
     internal static ContractCompanyOverrides Overrides(CompanyOverrides x) => new(x.Name, x.Description, x.HasDescription);
     internal static ReferenceAsset? Asset(IReadOnlyDictionary<string, string> types, string? hash, bool monochrome = false) =>
         hash is not null && types.TryGetValue(hash, out var type) ? new("/api/assets/" + hash, hash, type, monochrome) : null;
@@ -104,7 +104,8 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
     {
         var companies = await new SystemCompanyReader(db).ReadAsync(rows.Select(x => x.Id), ct);
         var effective = rows.Select(row => (Row: row, Facts: TypedReferenceMapping.Effective(row))).ToArray();
-        var hashes = effective.SelectMany(x => new[] { x.Facts.AssetHash, x.Facts.ConsoleArtworkHash }).OfType<string>().Distinct().ToArray();
+        var hashes = effective.SelectMany(x => new[] { x.Facts.AssetHash, x.Facts.ConsoleArtworkHash, x.Facts.ControllerArtworkHash })
+            .OfType<string>().Distinct().ToArray();
         var types = await db.ReferenceAssets.Where(x => hashes.Contains(x.Hash)).ToDictionaryAsync(x => x.Hash, x => x.ContentType, ct);
         return effective.Select(item =>
         {
@@ -112,7 +113,11 @@ public sealed class SystemReferenceReader : ISystemReferenceReader
             var icon = TypedReferenceMapping.Asset(types, facts.AssetHash, facts.Monochrome);
             var resource = new SystemResource(row.CanonicalKey!, row.Ownership!.Value.ToString(), row.BuiltInVersion,
                 facts.Name, facts.CompactLabel, facts.Description, icon, facts.Retired, companies.GetValueOrDefault(row.Id) ?? [])
-            { Revision = "", ConsoleArtwork = TypedReferenceMapping.Asset(types, facts.ConsoleArtworkHash) };
+            {
+                Revision = "",
+                ConsoleArtwork = TypedReferenceMapping.Asset(types, facts.ConsoleArtworkHash),
+                ControllerArtwork = TypedReferenceMapping.Asset(types, facts.ControllerArtworkHash)
+            };
             var overrides = TypedReferenceMapping.Overrides(row.ReferenceOverrides ?? new());
             var definition = TypedReferenceMapping.Definition(row);
             var revision = TypedReferenceMapping.Hardware(row) is { } hardware

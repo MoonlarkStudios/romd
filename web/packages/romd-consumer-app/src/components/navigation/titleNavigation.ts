@@ -3,13 +3,14 @@ import { createContext } from 'react';
 export interface ReturnContext {
   href: string;
   label: string;
-  section: 'home' | 'browse';
+  section: 'home' | 'browse' | 'systems';
   scroll?: {
     y: number;
     rails: Record<string, number>;
   };
 }
-export const CollectionNavigationName = createContext<string | null>(null);
+export const DestinationNavigationName = createContext<string | null>(null);
+const systemDetailPath = /^\/systems\/[A-Za-z0-9_-]+$/;
 const fallback: ReturnContext = {
   href: '/library',
   label: 'Browse',
@@ -30,7 +31,9 @@ export function readReturnContext(state: unknown): ReturnContext {
       ? 'browse'
       : path === '/' || /^\/collections\/[A-Za-z0-9_-]+$/.test(path)
         ? 'home'
-        : null;
+        : systemDetailPath.test(path)
+          ? 'systems'
+          : null;
   if (!section) return fallback;
   return {
     ...candidate,
@@ -42,7 +45,9 @@ export function readReturnContext(state: unknown): ReturnContext {
           ? 'Browse'
           : typeof candidate.label === 'string' && candidate.label.trim()
             ? candidate.label
-            : 'Collection',
+            : section === 'systems'
+              ? 'Console'
+              : 'Collection',
   };
 }
 
@@ -53,7 +58,7 @@ export function titleOrigin(
     hash: string;
     state: unknown;
   },
-  collectionName: string | null,
+  destinationName: string | null,
 ): ReturnContext {
   if (location.pathname.startsWith('/titles/')) return readReturnContext(location.state);
   if (location.pathname === '/library')
@@ -65,8 +70,14 @@ export function titleOrigin(
   if (/^\/collections\/[A-Za-z0-9_-]+$/.test(location.pathname))
     return {
       href: `${location.pathname}${location.search}${location.hash}`,
-      label: collectionName ?? 'Collection',
+      label: destinationName ?? 'Collection',
       section: 'home',
+    };
+  if (systemDetailPath.test(location.pathname))
+    return {
+      href: `${location.pathname}${location.search}${location.hash}`,
+      label: destinationName ?? 'Console',
+      section: 'systems',
     };
   return {
     href: '/',

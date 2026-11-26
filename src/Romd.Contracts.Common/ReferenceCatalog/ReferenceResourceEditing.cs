@@ -41,13 +41,16 @@ public class ArtworkReferencePatch : ReferencePatch
 [JsonConverter(typeof(ReferencePatchJsonConverter))]
 public sealed class SystemPatch : ArtworkReferencePatch
 {
-    private static readonly HashSet<string> SystemResets = ["name", "monochrome", "compactLabel", "consoleArtwork"];
+    private static readonly HashSet<string> SystemResets = ["name", "monochrome", "compactLabel", "consoleArtwork", "controllerArtwork"];
     private string? _compactLabel;
     private string? _consoleArtwork;
+    private string? _controllerArtwork;
     private IReadOnlyList<string>? _manufacturerKeys;
     public override IReadOnlySet<string> ResetOnlyFields => SystemResets;
     public IReadOnlyList<string>? ManufacturerKeys { get => _manufacturerKeys; set { _manufacturerKeys = value; Set("manufacturerKeys", value); } }
     public string? CompactLabel { get => _compactLabel; set { _compactLabel = value; Set("compactLabel", value); } }
     /// <summary>Uploaded console portrait hash. Delete the consoleArtwork override to restore the default.</summary>
     public string? ConsoleArtwork { get => _consoleArtwork; set { _consoleArtwork = value; Set("consoleArtwork", value); } }
+    /// <summary>Uploaded controller portrait hash. Delete the controllerArtwork override to restore the default.</summary>
+    public string? ControllerArtwork { get => _controllerArtwork; set { _controllerArtwork = value; Set("controllerArtwork", value); } }
 }

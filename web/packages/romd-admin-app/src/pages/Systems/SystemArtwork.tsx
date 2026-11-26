@@ -33,6 +33,31 @@ type ArtworkAction = {
 };
 
 export function SystemArtwork({ system }: { system: SystemResource }) {
+  return (
+    <Stack gap="md">
+      <SystemArtworkPanel
+        system={system}
+        field="consoleArtwork"
+        label="Console artwork"
+      />
+      <SystemArtworkPanel
+        system={system}
+        field="controllerArtwork"
+        label="Controller artwork"
+      />
+    </Stack>
+  );
+}
+
+function SystemArtworkPanel({
+  system,
+  field,
+  label,
+}: {
+  system: SystemResource;
+  field: 'consoleArtwork' | 'controllerArtwork';
+  label: string;
+}) {
   const { canEditReferenceData } = usePermissions();
   const overrides = usePlatformOverrides(system.key, canEditReferenceData);
   const refresh = useRefreshSystemPresentation();
@@ -40,8 +65,10 @@ export function SystemArtwork({ system }: { system: SystemResource }) {
   const path = {
     systemKey: system.key,
   };
-  const artwork = system.consoleArtwork;
-  const custom = !!overrides.data?.consoleArtwork;
+  const artwork = system[field];
+  const custom = !!overrides.data?.[field];
+  const artworkSource = custom ? 'Custom artwork' : 'Built-in artwork';
+  const headingId = `${field}-heading`;
 
   const change = useMutation({
     mutationFn: async ({ file, revision }: ArtworkAction) => {
@@ -65,7 +92,7 @@ export function SystemArtwork({ system }: { system: SystemResource }) {
           path,
           headers,
           body: {
-            consoleArtwork: uploaded.data,
+            [field]: uploaded.data,
           },
         });
         if (updated.response?.status === 412) {
@@ -78,14 +105,14 @@ export function SystemArtwork({ system }: { system: SystemResource }) {
           );
         }
         if (updated.error || !updated.data)
-          throw new Error(updated.error?.detail ?? 'Console artwork could not be saved.');
+          throw new Error(updated.error?.detail ?? 'The artwork could not be saved.');
         return updated.data;
       }
 
       const restored = await deleteSystemOverride({
         path: {
           ...path,
-          field: 'consoleArtwork',
+          field,
         },
         headers,
       });
@@ -107,16 +134,16 @@ export function SystemArtwork({ system }: { system: SystemResource }) {
 
   return (
     <section
-      aria-labelledby="console-artwork-heading"
+      aria-labelledby={headingId}
       className={workspace.panel}
     >
       <Stack gap="md">
         <Title
           order={2}
-          id="console-artwork-heading"
+          id={headingId}
           className={workspace.sectionHeading}
         >
-          Console artwork
+          {label}
         </Title>
         <SimpleGrid
           cols={{
@@ -133,14 +160,14 @@ export function SystemArtwork({ system }: { system: SystemResource }) {
             {artwork ? (
               <Image
                 src={artwork.url}
-                alt={`${system.name} console artwork`}
+                alt={`${system.name} ${label.toLowerCase()}`}
                 fit="contain"
               />
             ) : (
               <Center>
                 <SystemLogo
                   icon={system.icon}
-                  size="lg"
+                  size="preview"
                 />
               </Center>
             )}
@@ -154,8 +181,20 @@ export function SystemArtwork({ system }: { system: SystemResource }) {
               size="sm"
               fw={600}
             >
-              {artwork ? (custom ? 'Custom artwork' : 'Console image') : 'Showing the system logo'}
+              {artwork
+                ? overrides.isSuccess
+                  ? artworkSource
+                  : 'Current artwork'
+                : 'No artwork yet'}
             </Text>
+            {!artwork && system.icon && (
+              <Text
+                size="sm"
+                c="dimmed"
+              >
+                The system logo is shown as a fallback.
+              </Text>
+            )}
             {canEditReferenceData && (
               <>
                 <Text

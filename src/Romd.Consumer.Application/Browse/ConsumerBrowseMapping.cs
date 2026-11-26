@@ -24,7 +24,8 @@ public static class ConsumerBrowseMapping
                 Manufacturer = item.Manufacturer,
                 TitleCount = item.TitleCount,
                 CoverUrl = item.CoverMediaId is { } mediaId ? MediaUrl(mediaId) : null,
-                ConsoleArtwork = item.ConsoleArtwork?.ToContract()
+                ConsoleArtwork = item.ConsoleArtwork?.ToContract(),
+                Icon = item.Icon?.ToContract()
             }).ToList(),
             NextCursor = page.NextCursor,
             HasNextPage = page.HasNextPage
@@ -39,7 +40,11 @@ public static class ConsumerBrowseMapping
             Manufacturer = item.Manufacturer,
             TitleCount = item.TitleCount,
             Media = item.Media.Select(ToContract).ToList(),
-            ConsoleArtwork = item.ConsoleArtwork?.ToContract()
+            ConsoleArtwork = item.ConsoleArtwork?.ToContract(),
+            ControllerArtwork = item.ControllerArtwork?.ToContract(),
+            Icon = item.Icon?.ToContract(),
+            Description = item.Description,
+            Hardware = item.Hardware is { } hardware ? new(hardware.Category, hardware.Generation, hardware.ReleaseYear) : null
         };
 
     public static CommonModels.Page<ConsumerTitleCard> ToContract(this PagedList<ConsumerTitleCardData> page) =>

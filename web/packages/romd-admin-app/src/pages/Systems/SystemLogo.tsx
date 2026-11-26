@@ -23,7 +23,7 @@ export function SystemLogo({
   size = 'md',
 }: {
   icon?: ReferenceAsset | null;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'preview';
 }) {
   const [failedUrl, setFailedUrl] = useState<string>();
   return (

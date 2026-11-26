@@ -21,6 +21,7 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
     public string? BaseDescription { get; set; }
     public string? BaseAssetHash { get; set; }
     public string? BaseConsoleArtworkHash { get; set; }
+    public string? BaseControllerArtworkHash { get; set; }
     public bool BaseMonochrome { get; set; }
     public bool Retired { get; set; }
     public string? HardwareCategory { get; set; }
@@ -48,12 +49,13 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
     public bool HasArtworkOverride { get; set; }
     public string? ArtworkOverrideHash { get; set; }
     public string? ConsoleArtworkOverrideHash { get; set; }
+    public string? ControllerArtworkOverrideHash { get; set; }
     public bool? MonochromeOverride { get; set; }
     [NotMapped]
     public SystemOverrides ReferenceOverrides
     {
         get => new(NameOverride, CompactLabelOverride, DescriptionOverride, ArtworkOverrideHash, MonochromeOverride,
-            HasDescriptionOverride, HasArtworkOverride, ConsoleArtworkOverrideHash);
+            HasDescriptionOverride, HasArtworkOverride, ConsoleArtworkOverrideHash, ControllerArtworkOverrideHash);
         set
         {
             NameOverride = value.Name;
@@ -63,6 +65,7 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
             HasArtworkOverride = value.HasIcon;
             ArtworkOverrideHash = value.HasIcon ? value.Icon : null;
             ConsoleArtworkOverrideHash = value.ConsoleArtwork;
+            ControllerArtworkOverrideHash = value.ControllerArtwork;
             MonochromeOverride = value.Monochrome;
         }
     }
@@ -73,6 +76,7 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
             t.HasCheckConstraint("CK_Platforms_DescriptionOverride", "\"HasDescriptionOverride\" OR \"DescriptionOverride\" IS NULL");
             t.HasCheckConstraint("CK_Platforms_ArtworkOverride", "\"HasArtworkOverride\" OR \"ArtworkOverrideHash\" IS NULL");
             t.HasCheckConstraint("CK_Platforms_ConsoleArtworkOwnership", "(\"BaseConsoleArtworkHash\" IS NULL OR \"Ownership\" IS NOT DISTINCT FROM 'Romd') AND (\"ConsoleArtworkOverrideHash\" IS NULL OR \"Ownership\" IS NOT NULL)");
+            t.HasCheckConstraint("CK_Platforms_ControllerArtworkOwnership", "(\"BaseControllerArtworkHash\" IS NULL OR \"Ownership\" IS NOT DISTINCT FROM 'Romd') AND (\"ControllerArtworkOverrideHash\" IS NULL OR \"Ownership\" IS NOT NULL)");
         });
         builder.Property(x => x.NameOverride).HasMaxLength(200);
         builder.Property(x => x.DescriptionOverride).HasMaxLength(2000);
@@ -81,6 +85,8 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
         builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.ArtworkOverrideHash).OnDelete(DeleteBehavior.Restrict);
         builder.Property(x => x.ConsoleArtworkOverrideHash).HasMaxLength(64);
         builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.ConsoleArtworkOverrideHash).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(x => x.ControllerArtworkOverrideHash).HasMaxLength(64);
+        builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.ControllerArtworkOverrideHash).OnDelete(DeleteBehavior.Restrict);
         builder.ConfigureEntity("Platforms");
         builder.ToTable("Platforms", t =>
         {
@@ -96,6 +102,8 @@ public sealed class PlatformEntity : EntityBase, ICreatableEntity
         builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.BaseAssetHash).OnDelete(DeleteBehavior.Restrict);
         builder.Property(x => x.BaseConsoleArtworkHash).HasMaxLength(64);
         builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.BaseConsoleArtworkHash).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(x => x.BaseControllerArtworkHash).HasMaxLength(64);
+        builder.HasOne<ReferenceAssetEntity>().WithMany().HasForeignKey(x => x.BaseControllerArtworkHash).OnDelete(DeleteBehavior.Restrict);
         builder.Property(x => x.CanonicalKey).HasMaxLength(64);
         builder.HasIndex(x => x.CanonicalKey).IsUnique();
 

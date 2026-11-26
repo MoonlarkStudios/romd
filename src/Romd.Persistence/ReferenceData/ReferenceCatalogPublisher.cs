@@ -30,7 +30,10 @@ internal static class ReferenceCatalogPublisher
             row.Manufacturer = SystemCompanyReader.Names(makers);
             return new ReferenceSystem(row.CanonicalKey!, facts.Name, facts.CompactLabel, facts.Description,
                 TypedReferenceMapping.Asset(assets, facts.AssetHash, facts.Monochrome), makers.Select(x => x.Key).ToArray(), facts.Retired, makers)
-            { ConsoleArtwork = TypedReferenceMapping.Asset(assets, facts.ConsoleArtworkHash) };
+            {
+                ConsoleArtwork = TypedReferenceMapping.Asset(assets, facts.ConsoleArtworkHash),
+                ControllerArtwork = TypedReferenceMapping.Asset(assets, facts.ControllerArtworkHash)
+            };
         }).ToArray();
         var regionRows = await db.Regions.AsTracking().Where(x => x.Ownership != null).OrderBy(x => x.CanonicalKey).ToListAsync(ct);
         var regions = regionRows.Select(row =>

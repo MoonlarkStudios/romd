@@ -5,7 +5,7 @@ namespace Romd.Persistence.ReferenceData;
 internal sealed record CompanyInput(string Name, string? Description = null, bool Retired = false);
 internal sealed record SystemInput(string Name, string CompactLabel, string[] ManufacturerIds, string[] Aliases,
     Dictionary<string, string> ProviderMappings, string? Description = null, string? IconPath = null, bool Monochrome = false,
-    bool Retired = false, string? ConsoleArtworkPath = null);
+    bool Retired = false, string? ConsoleArtworkPath = null, string? ControllerArtworkPath = null);
 internal sealed record RegionInput(string Name, int SortOrder, string[] Aliases, string? Description = null, bool Retired = false);
 internal sealed record LanguageInput(string Name, int SortOrder, string[] Aliases, string? Description = null, bool Retired = false);
 internal sealed record RatingBoardInput(string Key, string Label, string? Description = null, bool Retired = false);

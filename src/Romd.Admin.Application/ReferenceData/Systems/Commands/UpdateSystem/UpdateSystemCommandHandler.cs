@@ -55,6 +55,9 @@ public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCom
             if (patch.ConsoleArtwork is { } artwork &&
                 (!ReferenceEditRules.Asset(artwork) || !await repository.RasterAssetExistsAsync(artwork, token)))
                 return ReferenceEditErrors.Invalid("Upload a PNG or WebP console image first.");
+            if (patch.ControllerArtwork is { } controller &&
+                (!ReferenceEditRules.Asset(controller) || !await repository.RasterAssetExistsAsync(controller, token)))
+                return ReferenceEditErrors.Invalid("Upload a PNG or WebP controller image first.");
             if (command.ManufacturerKeys is { } manufacturers)
             {
                 if (resource.Metadata.Ownership == ReferenceOwnership.Romd)
@@ -68,8 +71,8 @@ public sealed class UpdateSystemCommandHandler : ICommandHandler<UpdateSystemCom
                 ? resource with { Overrides = resource.Overrides.Merge(patch) }
                 : resource with
                 {
-                    Definition = (patch with { ConsoleArtwork = null }).Apply(resource.Definition),
-                    Overrides = resource.Overrides.Merge(new(ConsoleArtwork: patch.ConsoleArtwork))
+                    Definition = (patch with { ConsoleArtwork = null, ControllerArtwork = null }).Apply(resource.Definition),
+                    Overrides = resource.Overrides.Merge(new(ConsoleArtwork: patch.ConsoleArtwork, ControllerArtwork: patch.ControllerArtwork))
                 };
             if (command.NameAliases is { Count: > 0 } names)
             {

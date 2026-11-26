@@ -72,7 +72,8 @@ public static class SystemReferenceEndpoints
             patch.CompactLabel,
             patch.Description,
             patch.Icon,
-            patch.Monochrome, patch.Changes.ContainsKey("description"), patch.Changes.ContainsKey("icon"), patch.ConsoleArtwork
+            patch.Monochrome, patch.Changes.ContainsKey("description"), patch.Changes.ContainsKey("icon"),
+            patch.ConsoleArtwork, patch.ControllerArtwork
         ), ifMatch.Value, patch.ManufacturerKeys), ct);
         return result.Match(updated => Results.Ok(updated.Resource).WithETag(context, updated.Revision), errors => errors.ToProblem());
     }

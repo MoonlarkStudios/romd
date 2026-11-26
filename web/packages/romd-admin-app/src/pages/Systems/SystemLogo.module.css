@@ -20,6 +20,13 @@
   block-size: 2.75rem;
 }
 
+.logo[data-size="preview"] {
+  inline-size: min(60%, 16rem);
+  block-size: min(50%, 8rem);
+  padding: 0;
+  background: transparent;
+}
+
 .logo img {
   inline-size: 100%;
   block-size: 100%;

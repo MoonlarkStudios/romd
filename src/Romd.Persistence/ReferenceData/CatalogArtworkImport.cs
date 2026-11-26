@@ -14,7 +14,7 @@ internal static class CatalogArtworkImport
     internal static async Task<ImmutableArray<Artwork>> ReadPlanAsync(RomdCatalogInput catalog, CancellationToken ct)
     {
         var artwork = ImmutableArray.CreateBuilder<Artwork>();
-        var paths = catalog.Systems.Values.SelectMany(system => new[] { system.IconPath, system.ConsoleArtworkPath })
+        var paths = catalog.Systems.Values.SelectMany(system => new[] { system.IconPath, system.ConsoleArtworkPath, system.ControllerArtworkPath })
             .Concat(catalog.Ratings.Ratings.Select(rating => rating.IconPath)).OfType<string>().Distinct();
         foreach (var path in paths)
         {

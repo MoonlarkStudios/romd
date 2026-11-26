@@ -14,6 +14,7 @@ public sealed record SystemResource(string Key, string Ownership, int? BuiltInVe
     string? Description, ReferenceAsset? Icon, bool Retired, IReadOnlyList<CompanySummary> Manufacturers)
 {
     public ReferenceAsset? ConsoleArtwork { get; init; }
+    public ReferenceAsset? ControllerArtwork { get; init; }
     public required string Revision { get; init; }
 }
 public sealed record CompanyResource(string Key, string Ownership, int? BuiltInVersion, string Name, string? Description, bool Retired)
@@ -24,5 +25,6 @@ public sealed record SystemOverrides(string? Name, string? CompactLabel, string?
     string? Icon, bool? Monochrome, bool HasDescription, bool HasIcon)
 {
     public string? ConsoleArtwork { get; init; }
+    public string? ControllerArtwork { get; init; }
 }
 public sealed record CompanyOverrides(string? Name, string? Description, bool HasDescription);

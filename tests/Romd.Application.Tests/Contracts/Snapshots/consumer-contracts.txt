@@ -106,6 +106,10 @@ Romd.Contracts.Consumer.Browse.ConsumerMediaRef
 
 Romd.Contracts.Consumer.Browse.ConsumerPlatformDetail
   ConsoleArtwork: ReferenceAsset?
+  ControllerArtwork: ReferenceAsset?
+  Description: string?
+  Hardware: ConsumerSystemHardware?
+  Icon: ReferenceAsset?
   Key: string [required]
   Manufacturer: string?
   Media: IReadOnlyList<ConsumerMediaRef> [required]
@@ -116,11 +120,17 @@ Romd.Contracts.Consumer.Browse.ConsumerPlatformDetail
 Romd.Contracts.Consumer.Browse.ConsumerPlatformSummary
   ConsoleArtwork: ReferenceAsset?
   CoverUrl: string?
+  Icon: ReferenceAsset?
   Key: string [required]
   Manufacturer: string?
   Name: string [required]
   ShortName: string [required]
   TitleCount: int [required]
+
+Romd.Contracts.Consumer.Browse.ConsumerSystemHardware
+  Category: string?
+  Generation: int?
+  ReleaseYear: int?
 
 Romd.Contracts.Consumer.Browse.ConsumerTitleCard
   Artwork: IReadOnlyList<ResolvedArtwork>

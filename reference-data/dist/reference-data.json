@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 3,
+  "catalogVersion": 6,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -292,6 +292,8 @@
       "symbol": "Genesis",
       "compactLabel": "Sega Genesis",
       "iconPath": "platforms/genesis.png",
+      "consoleArtworkPath": "console-artwork/genesis-console.webp",
+      "controllerArtworkPath": "console-artwork/genesis-controller.webp",
       "monochrome": true
     },
     "gg": {
@@ -580,6 +582,8 @@
       "symbol": "PlayStation",
       "compactLabel": "PlayStation",
       "iconPath": "platforms/psx.png",
+      "consoleArtworkPath": "console-artwork/psx-console.webp",
+      "controllerArtworkPath": "console-artwork/psx-controller.webp",
       "monochrome": true
     },
     "saturn": {
@@ -659,6 +663,8 @@
       "symbol": "Snes",
       "compactLabel": "SNES",
       "iconPath": "platforms/snes.png",
+      "consoleArtworkPath": "console-artwork/snes-console.webp",
+      "controllerArtworkPath": "console-artwork/snes-controller.webp",
       "monochrome": true
     },
     "switch": {

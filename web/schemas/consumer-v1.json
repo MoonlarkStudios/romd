@@ -4722,6 +4722,42 @@
                 "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
+          },
+          "controllerArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
+          },
+          "icon": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hardware": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConsumerSystemHardware"
+              }
+            ]
           }
         }
       },
@@ -4757,6 +4793,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "icon": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
             ]
           },
           "consoleArtwork": {
@@ -5165,6 +5211,36 @@
           },
           "isCurrent": {
             "type": "boolean"
+          }
+        }
+      },
+      "ConsumerSystemHardware": {
+        "required": [
+          "category",
+          "generation",
+          "releaseYear"
+        ],
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generation": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -6539,6 +6615,16 @@
                 "$ref": "#/components/schemas/ReferenceAsset"
               }
             ]
+          },
+          "controllerArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
           }
         }
       },
@@ -6791,6 +6877,16 @@
             }
           },
           "consoleArtwork": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ReferenceAsset"
+              }
+            ]
+          },
+          "controllerArtwork": {
             "oneOf": [
               {
                 "type": "null"

@@ -2228,6 +2228,7 @@ export type ReferenceSystem = {
     retired?: boolean;
     manufacturers?: null | Array<CompanySummary>;
     consoleArtwork?: null | ReferenceAsset;
+    controllerArtwork?: null | ReferenceAsset;
 };
 
 export type ReferenceTaxonomy = {
@@ -2584,12 +2585,14 @@ export type SystemOverrides = {
     hasDescription: boolean;
     hasIcon: boolean;
     consoleArtwork?: null | string;
+    controllerArtwork?: null | string;
 };
 
 export type SystemPatch = {
     manufacturerKeys?: Array<string>;
     compactLabel?: string;
     consoleArtwork?: string;
+    controllerArtwork?: string;
     icon?: null | string;
     monochrome?: boolean;
     name?: string;
@@ -2607,6 +2610,7 @@ export type SystemResource = {
     retired: boolean;
     manufacturers: Array<CompanySummary>;
     consoleArtwork?: null | ReferenceAsset;
+    controllerArtwork?: null | ReferenceAsset;
     revision: string;
 };
 

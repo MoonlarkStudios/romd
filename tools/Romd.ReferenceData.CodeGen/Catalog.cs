@@ -45,9 +45,8 @@ public sealed class Catalog
             Require(Text(system.Value, "compactLabel").Length <= 40, "Compact label too long");
             Require(system.Value["monochrome"]?.Type == JTokenType.Boolean, "Missing monochrome flag");
             ValidateIcon(system.Value);
-            var artwork = system.Value["consoleArtworkPath"];
-            Require(artwork == null || artwork.Type == JTokenType.Null || artwork.Type == JTokenType.String &&
-                Regex.IsMatch((string)artwork!, @"^console-artwork/[a-zA-Z0-9_-]+\.(png|webp)$"), "Invalid console artwork path");
+            ValidateSystemArtwork(system.Value, "consoleArtworkPath");
+            ValidateSystemArtwork(system.Value, "controllerArtworkPath");
             foreach (var alias in Array(system.Value, "aliases"))
                 Require(alias.Type == JTokenType.String, "Invalid system alias");
             Require(system.Value["providerMappings"] is JObject, "Missing provider mappings");
@@ -80,6 +79,12 @@ public sealed class Catalog
             foreach (var alias in Array(rating, "aliases"))
                 Require(alias.Type == JTokenType.String && aliases.Add(board + ":" + (string)alias!), "Duplicate rating alias");
         }
+    }
+    private static void ValidateSystemArtwork(JToken item, string field)
+    {
+        var artwork = item[field];
+        Require(artwork == null || artwork.Type == JTokenType.Null || artwork.Type == JTokenType.String &&
+            Regex.IsMatch((string)artwork!, @"^console-artwork/[a-zA-Z0-9_-]+\.(png|webp)$"), "Invalid " + field);
     }
     private static void ValidateIcon(JToken item)
     {

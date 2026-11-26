@@ -2,13 +2,14 @@ namespace Romd.Domain.ReferenceData;
 
 public sealed record ReferenceMetadata(ReferenceOwnership Ownership, int? BuiltInVersion = null);
 public sealed record SystemDefinition(string Name, string CompactLabel, string? Description = null,
-    string? AssetHash = null, bool Monochrome = false, bool Retired = false, string? ConsoleArtworkHash = null);
+    string? AssetHash = null, bool Monochrome = false, bool Retired = false, string? ConsoleArtworkHash = null,
+    string? ControllerArtworkHash = null);
 public sealed record CompanyDefinition(string Name, string? Description = null, bool Retired = false);
-public enum SystemOverrideField { Name, CompactLabel, Description, Icon, Monochrome, ConsoleArtwork }
+public enum SystemOverrideField { Name, CompactLabel, Description, Icon, Monochrome, ConsoleArtwork, ControllerArtwork }
 public enum CompanyOverrideField { Name, Description }
 public sealed record SystemOverrides(string? Name = null, string? CompactLabel = null,
     string? Description = null, string? Icon = null, bool? Monochrome = null,
-    bool HasDescription = false, bool HasIcon = false, string? ConsoleArtwork = null)
+    bool HasDescription = false, bool HasIcon = false, string? ConsoleArtwork = null, string? ControllerArtwork = null)
 {
     public SystemDefinition Apply(SystemDefinition source) => source with
     {
@@ -17,12 +18,13 @@ public sealed record SystemOverrides(string? Name = null, string? CompactLabel =
         Description = HasDescription ? Description : source.Description,
         AssetHash = HasIcon ? Icon : source.AssetHash,
         Monochrome = Monochrome ?? source.Monochrome,
-        ConsoleArtworkHash = ConsoleArtwork ?? source.ConsoleArtworkHash
+        ConsoleArtworkHash = ConsoleArtwork ?? source.ConsoleArtworkHash,
+        ControllerArtworkHash = ControllerArtwork ?? source.ControllerArtworkHash
     };
     public SystemOverrides Merge(SystemOverrides patch) => new(patch.Name ?? Name, patch.CompactLabel ?? CompactLabel,
         patch.HasDescription ? patch.Description : Description, patch.HasIcon ? patch.Icon : Icon,
         patch.Monochrome ?? Monochrome, patch.HasDescription || HasDescription, patch.HasIcon || HasIcon,
-        patch.ConsoleArtwork ?? ConsoleArtwork);
+        patch.ConsoleArtwork ?? ConsoleArtwork, patch.ControllerArtwork ?? ControllerArtwork);
     public SystemOverrides Reset(SystemOverrideField? field) => field switch
     {
         null => new(),
@@ -32,6 +34,7 @@ public sealed record SystemOverrides(string? Name = null, string? CompactLabel =
         SystemOverrideField.Icon => this with { HasIcon = false, Icon = null },
         SystemOverrideField.Monochrome => this with { Monochrome = null },
         SystemOverrideField.ConsoleArtwork => this with { ConsoleArtwork = null },
+        SystemOverrideField.ControllerArtwork => this with { ControllerArtwork = null },
         _ => throw new ArgumentOutOfRangeException(nameof(field))
     };
 }

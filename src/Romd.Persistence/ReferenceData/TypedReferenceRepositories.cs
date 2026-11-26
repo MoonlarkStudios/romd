@@ -43,6 +43,7 @@ public sealed class SystemReferenceRepository : ISystemReferenceRepository
         row.BaseDescription = system.Definition.Description;
         row.BaseAssetHash = system.Definition.AssetHash;
         row.BaseConsoleArtworkHash = system.Definition.ConsoleArtworkHash;
+        row.BaseControllerArtworkHash = system.Definition.ControllerArtworkHash;
         row.BaseMonochrome = system.Definition.Monochrome;
         row.Retired = system.Definition.Retired;
         row.HardwareCategory = system.Hardware?.Category;
