@@ -556,6 +556,8 @@
     "symbol": "PlayStation4",
     "compactLabel": "PlayStation 4",
     "iconPath": "platforms/ps4.png",
+    "consoleArtworkPath": "console-artwork/ps4-console.webp",
+    "controllerArtworkPath": "console-artwork/ps4-controller.webp",
     "monochrome": true
   },
   "ps5": {
@@ -779,6 +781,8 @@
     "symbol": "Vita",
     "compactLabel": "PS Vita",
     "iconPath": "platforms/vita.png",
+    "consoleArtworkPath": "console-artwork/vita-console.webp",
+    "controllerArtworkPath": "console-artwork/vita-controller.webp",
     "monochrome": true
   },
   "wii": {
@@ -811,6 +815,8 @@
     "symbol": "WiiU",
     "compactLabel": "Wii U",
     "iconPath": "platforms/wiiu.png",
+    "consoleArtworkPath": "console-artwork/wiiu-console.webp",
+    "controllerArtworkPath": "console-artwork/wiiu-controller.webp",
     "monochrome": true
   },
   "ws": {
@@ -856,6 +862,8 @@
     "symbol": "Xbox360",
     "compactLabel": "Xbox 360",
     "iconPath": "platforms/x360.png",
+    "consoleArtworkPath": "console-artwork/x360-console.webp",
+    "controllerArtworkPath": "console-artwork/x360-controller.webp",
     "monochrome": true
   },
   "xbox": {

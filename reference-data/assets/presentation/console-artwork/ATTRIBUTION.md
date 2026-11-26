@@ -70,3 +70,11 @@ Hardware references used during review
   [Carbon Black Series X photographed by Der. Bellemer](https://commons.wikimedia.org/wiki/File:Xbox_Series_X_2.jpg),
   and [Carbon Black Xbox Wireless Controller photographed by uKER](https://commons.wikimedia.org/wiki/File:Xbox_Series_Controller_Carbon_Black.jpg)
   (both photographs [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/))
+- [Original Jet Black PlayStation 4 console](https://commons.wikimedia.org/wiki/File:Sony-PlayStation-4-PS4-Console-FL.png)
+  and [first-generation DualShock 4](https://commons.wikimedia.org/wiki/File:PS4-Console-wDS4.jpg)
+- [White Xbox 360 Premium console](https://commons.wikimedia.org/wiki/File:Xbox-360-Pro-wController.jpg)
+  and [white Xbox 360 wireless controller](https://commons.wikimedia.org/wiki/File:Xbox-360-Wireless-Controller-White.jpg)
+- [Black Wii U Deluxe console](https://commons.wikimedia.org/wiki/File:Nintendo-Wii-U-Console-FL.jpg)
+  and [black Wii U GamePad photographed by Mariofan13](https://commons.wikimedia.org/wiki/File:Wii_U_Gamepad_schwarz.JPG)
+  ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/))
+- [Original OLED PlayStation Vita PCH-1101](https://commons.wikimedia.org/wiki/File:PlayStation-Vita-1101-FL.jpg)
