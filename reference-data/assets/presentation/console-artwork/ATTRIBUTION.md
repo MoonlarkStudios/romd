@@ -58,3 +58,15 @@ Hardware references used during review
 - [Neo Geo AES console](https://commons.wikimedia.org/wiki/File:Neo-Geo-AES-FL.jpg)
   and the original arcade stick from the [front](https://commons.wikimedia.org/wiki/File:Neo-Geo-AES-Controller-FL.jpg)
   and [back](https://commons.wikimedia.org/wiki/File:Neo-Geo-AES-Controller-BR.jpg)
+- [Original neon Nintendo Switch in handheld mode](https://commons.wikimedia.org/wiki/File:Nintendo-Switch-wJoyCons-BlRd-Standing-FL.jpg),
+  [Joy-Con grip assembly](https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Console-Docked-wJoyConRB.jpg),
+  and [grip detail](https://commons.wikimedia.org/wiki/File:Nintendo-Switch-JoyCon-Grip-Chargeable-01.jpg)
+- [Original PlayStation 5 disc console photographed by Howardcorn33](https://commons.wikimedia.org/wiki/File:Playstation_5_base_edition_with_controller_(original).jpg),
+  [front view by Osh33m](https://commons.wikimedia.org/wiki/File:PlayStation_5_and_DualSense.jpg),
+  and [DualSense photographed by Alex Cochrane](https://commons.wikimedia.org/wiki/File:Playstation_DualSense_Controller.png).
+  The front view and DualSense reference photographs are [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+  See also [Sony’s original PS5 specifications](https://blog.playstation.com/2020/11/09/ps5-the-ultimate-faq/).
+- [Microsoft’s Xbox Series X hardware reference](https://www.xbox.com/en-us/consoles/xbox-series-x/),
+  [Carbon Black Series X photographed by Der. Bellemer](https://commons.wikimedia.org/wiki/File:Xbox_Series_X_2.jpg),
+  and [Carbon Black Xbox Wireless Controller photographed by uKER](https://commons.wikimedia.org/wiki/File:Xbox_Series_Controller_Carbon_Black.jpg)
+  (both photographs [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/))

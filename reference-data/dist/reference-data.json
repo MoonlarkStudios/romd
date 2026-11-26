@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 19,
+  "catalogVersion": 20,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -574,6 +574,8 @@
       "symbol": "PlayStation5",
       "compactLabel": "PlayStation 5",
       "iconPath": "platforms/ps5.png",
+      "consoleArtworkPath": "console-artwork/ps5-console.webp",
+      "controllerArtworkPath": "console-artwork/ps5-controller.webp",
       "monochrome": true
     },
     "psp": {
@@ -714,6 +716,8 @@
       "symbol": "Switch",
       "compactLabel": "Nintendo Switch",
       "iconPath": "platforms/switch.png",
+      "consoleArtworkPath": "console-artwork/switch-console.webp",
+      "controllerArtworkPath": "console-artwork/switch-controller.webp",
       "monochrome": true
     },
     "tg16": {
@@ -900,6 +904,8 @@
       "symbol": "XboxSeriesX",
       "compactLabel": "Xbox Series X|S",
       "iconPath": "platforms/xsx.png",
+      "consoleArtworkPath": "console-artwork/xsx-console.webp",
+      "controllerArtworkPath": "console-artwork/xsx-controller.webp",
       "monochrome": true
     },
     "zxs": {
