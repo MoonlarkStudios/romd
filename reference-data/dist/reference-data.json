@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 7,
+  "catalogVersion": 8,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -386,7 +386,9 @@
       "symbol": "N64",
       "compactLabel": "Nintendo 64",
       "iconPath": "platforms/n64.png",
-      "monochrome": true
+      "monochrome": true,
+      "consoleArtworkPath": "console-artwork/n64-console.webp",
+      "controllerArtworkPath": "console-artwork/n64-controller.webp"
     },
     "nds": {
       "name": "Nintendo DS",

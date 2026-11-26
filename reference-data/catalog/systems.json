@@ -383,7 +383,9 @@
     "symbol": "N64",
     "compactLabel": "Nintendo 64",
     "iconPath": "platforms/n64.png",
-    "monochrome": true
+    "monochrome": true,
+    "consoleArtworkPath": "console-artwork/n64-console.webp",
+    "controllerArtworkPath": "console-artwork/n64-controller.webp"
   },
   "nds": {
     "name": "Nintendo DS",
