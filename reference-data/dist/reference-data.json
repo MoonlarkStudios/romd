@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "catalogVersion": 18,
+  "catalogVersion": 19,
   "systems": {
     "2600": {
       "name": "Atari 2600",
@@ -62,6 +62,8 @@
       "symbol": "Nintendo3Ds",
       "compactLabel": "Nintendo 3DS",
       "iconPath": "platforms/3ds.png",
+      "consoleArtworkPath": "console-artwork/3ds-console.webp",
+      "controllerArtworkPath": "console-artwork/3ds-controller.webp",
       "monochrome": true
     },
     "5200": {
@@ -436,6 +438,8 @@
       "symbol": "NeoGeo",
       "compactLabel": "Neo Geo",
       "iconPath": "platforms/neogeo.png",
+      "consoleArtworkPath": "console-artwork/neogeo-console.webp",
+      "controllerArtworkPath": "console-artwork/neogeo-controller.webp",
       "monochrome": true
     },
     "neogeocd": {
@@ -538,6 +542,8 @@
       "symbol": "PlayStation3",
       "compactLabel": "PlayStation 3",
       "iconPath": "platforms/ps3.png",
+      "consoleArtworkPath": "console-artwork/ps3-console.webp",
+      "controllerArtworkPath": "console-artwork/ps3-controller.webp",
       "monochrome": true
     },
     "ps4": {

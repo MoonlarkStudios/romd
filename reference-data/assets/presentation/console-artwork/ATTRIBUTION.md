@@ -50,3 +50,11 @@ Hardware references used during review
 - [Black PlayStation Portable PSP-1000](https://commons.wikimedia.org/wiki/File:PSP-1000.png)
 - [North American TurboGrafx-16 console](https://commons.wikimedia.org/wiki/File:NEC-TurboGrafx-16-Console-FL.jpg)
   and [TurboPad controller](https://commons.wikimedia.org/wiki/File:NEC-TurboGrafx-16-Controller-FL.jpg)
+- [Original Aqua Blue Nintendo 3DS](https://commons.wikimedia.org/wiki/File:Nintendo-3DS-AquaOpen.jpg)
+  and [Nintendo’s 3DS family manuals](https://en-americas-support.nintendo.com/app/answers/detail/a_id/16903/~/nintendo-3ds-family-manuals)
+- [PlayStation 3 CECHA01 console](https://commons.wikimedia.org/wiki/File:Sony-PlayStation-3-CECHA01-Console-FL.jpg),
+  [wireless Sixaxis](https://commons.wikimedia.org/wiki/File:PlayStation3-Sixaxis.jpg),
+  and [Sony’s original PlayStation 3 manual](https://www.playstation.com/content/dam/global_pdc/en/corporate/support/manuals/ps3-docs/PS3-01-1.6_1_EN_FR_ES_AMER_SG.pdf)
+- [Neo Geo AES console](https://commons.wikimedia.org/wiki/File:Neo-Geo-AES-FL.jpg)
+  and the original arcade stick from the [front](https://commons.wikimedia.org/wiki/File:Neo-Geo-AES-Controller-FL.jpg)
+  and [back](https://commons.wikimedia.org/wiki/File:Neo-Geo-AES-Controller-BR.jpg)
