@@ -969,7 +969,17 @@ describe('Play Later', () => {
         name: destination,
       }),
     );
-    expect(await screen.findByText('Loading Play Later')).toBeInTheDocument();
+    await waitFor(() => expect(cache.getQueryState(queryKey)?.fetchStatus).toBe('fetching'));
+    const homeShelf = () =>
+      screen.queryByRole('heading', {
+        name: 'Play Later',
+        level: 2,
+      });
+    if (destination === 'Home') {
+      expect(homeShelf()).not.toBeInTheDocument();
+    } else {
+      expect(await screen.findByText('Loading Play Later')).toBeInTheDocument();
+    }
     expect(cache.getQueryData(queryKey)).toBe(warmed);
     expect(
       screen.queryByRole('link', {
@@ -978,7 +988,12 @@ describe('Play Later', () => {
     ).not.toBeInTheDocument();
 
     await act(async () => response.resolve(page([])));
-    expect(await screen.findByText('No games saved for later')).toBeInTheDocument();
+    if (destination === 'Home') {
+      await waitFor(() => expect(cache.getQueryData(queryKey)).not.toBe(warmed));
+      expect(homeShelf()).not.toBeInTheDocument();
+    } else {
+      expect(await screen.findByText('No games saved for later')).toBeInTheDocument();
+    }
   });
 
   it('does not verify a newly opened list with a removal patched into its cache', async () => {

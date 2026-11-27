@@ -5,7 +5,7 @@ import type {
   RecentlyPlayedTitle,
 } from '@romd/consumer-api-client';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
-import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { PosterCard } from './PosterCard';
 
@@ -16,7 +16,6 @@ interface TitleRailProps {
   subtitle?: string | null;
   seeAllTo?: string;
   seeAllLabel?: string;
-  emptyState?: ReactNode;
   titles: RailTitle[];
   showPlayAction?: boolean;
 }
@@ -26,7 +25,6 @@ export function TitleRail({
   subtitle,
   seeAllTo,
   seeAllLabel,
-  emptyState,
   titles,
   showPlayAction = true,
 }: TitleRailProps) {
@@ -70,7 +68,7 @@ export function TitleRail({
     titleCount,
   ]);
 
-  if (titles.length === 0 && !emptyState) {
+  if (titleCount === 0) {
     return null;
   }
 
@@ -142,40 +140,36 @@ export function TitleRail({
         )}
       </Group>
 
-      {titles.length === 0 ? (
-        emptyState
-      ) : (
-        <Box className="romd-rail-wrap">
-          <RailArrow
-            side="left"
-            disabled={!edges.left}
-            controls={railId}
-            onClick={() => scroll(-1)}
-          />
-          <Box
-            id={railId}
-            data-left={edges.left || undefined}
-            data-right={edges.right || undefined}
-            ref={railRef}
-            data-navigation-rail={seeAllTo ?? title}
-            className="romd-rail"
-          >
-            {titles.map((railTitle) => (
-              <PosterCard
-                key={railTitle.id}
-                title={railTitle}
-                showPlayAction={showPlayAction}
-              />
-            ))}
-          </Box>
-          <RailArrow
-            side="right"
-            disabled={!edges.right}
-            controls={railId}
-            onClick={() => scroll(1)}
-          />
+      <Box className="romd-rail-wrap">
+        <RailArrow
+          side="left"
+          disabled={!edges.left}
+          controls={railId}
+          onClick={() => scroll(-1)}
+        />
+        <Box
+          id={railId}
+          data-left={edges.left || undefined}
+          data-right={edges.right || undefined}
+          ref={railRef}
+          data-navigation-rail={seeAllTo ?? title}
+          className="romd-rail"
+        >
+          {titles.map((railTitle) => (
+            <PosterCard
+              key={railTitle.id}
+              title={railTitle}
+              showPlayAction={showPlayAction}
+            />
+          ))}
         </Box>
-      )}
+        <RailArrow
+          side="right"
+          disabled={!edges.right}
+          controls={railId}
+          onClick={() => scroll(1)}
+        />
+      </Box>
     </Stack>
   );
 }

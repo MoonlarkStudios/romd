@@ -21,8 +21,9 @@ can differ between releases of the same title.
 
 Choose **Play Later** on a game's title page or use its bookmark in **Browse**.
 On a desktop Browse grid, hover over a cover or move keyboard focus to it to
-reveal the bookmark. Filled bookmarks mark saved games. On **Home**, choose
-**See all** in the **Play Later** shelf for the full list, newest additions first.
+reveal the bookmark. Filled bookmarks mark saved games. When you have saved
+games, **Play Later** appears as the first shelf on **Home**. Choose **See all**
+for the full list, newest additions first.
 
 Your list is private to your account and follows you when you sign in to the
 consumer portal in another browser. It can hold games from different systems.

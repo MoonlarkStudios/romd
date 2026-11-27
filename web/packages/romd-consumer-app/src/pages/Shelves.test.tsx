@@ -209,7 +209,71 @@ describe('Shelves', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows the Play Later shelf before the featured and Explore games', () => {
+  it('shows Play Later as the first shelf below the featured game', () => {
+    const system = {
+      key: 'snes',
+      name: 'SNES',
+      compactLabel: 'SNES',
+    };
+    vi.mocked(usePlayLaterTitles).mockReturnValueOnce({
+      data: {
+        pages: [
+          {
+            items: [
+              {
+                id: 'title-saved',
+                name: 'F-Zero',
+                system,
+              },
+            ],
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof usePlayLaterTitles>);
+    vi.mocked(useRecentlyPlayed).mockReturnValue({
+      data: [
+        {
+          id: 'title-played',
+          name: 'Pilotwings',
+          system,
+        },
+      ],
+      isError: false,
+    } as unknown as ReturnType<typeof useRecentlyPlayed>);
+    render(<Shelves />);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Your games',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole('heading', {
+          level: 2,
+        })
+        .slice(0, 4)
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      'Chrono Trigger',
+      'Play Later',
+      'Recently Played',
+      'Explore your games',
+    ]);
+    expect(
+      screen.getByRole('link', {
+        name: 'See all in Play Later',
+      }),
+    ).toHaveAttribute('href', '/play-later');
+    expect(
+      screen.getByRole('link', {
+        name: 'F-Zero',
+      }),
+    ).toHaveAttribute('href', '/titles/title-saved');
+  });
+
+  it('omits the Play Later shelf when there are no saved games', () => {
     vi.mocked(usePlayLaterTitles).mockReturnValueOnce({
       data: {
         pages: [
@@ -222,32 +286,29 @@ describe('Shelves', () => {
     render(<Shelves />);
 
     expect(
-      screen.getByRole('heading', {
-        level: 1,
-        name: 'Your games',
+      screen.queryByRole('heading', {
+        name: 'Play Later',
       }),
-    ).toBeInTheDocument();
-    const playLater = screen.getByRole('heading', {
-      level: 2,
-      name: 'Play Later',
-    });
-    const featured = screen.getByRole('heading', {
-      level: 2,
-      name: 'Chrono Trigger',
-    });
-    const explore = screen.getByRole('heading', {
-      level: 2,
-      name: 'Explore your games',
-    });
+    ).not.toBeInTheDocument();
     expect(
-      playLater.compareDocumentPosition(featured) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.queryByRole('link', {
+        name: 'See all in Play Later',
+      }),
+    ).not.toBeInTheDocument();
     expect(
-      playLater.compareDocumentPosition(explore) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen
+        .getAllByRole('heading', {
+          level: 2,
+        })
+        .slice(0, 2)
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      'Chrono Trigger',
+      'Explore your games',
+    ]);
   });
 
-  it('puts recently played first and avoids repeating those games in discovery', () => {
+  it('shows Recently Played below the featured game and avoids repeating games in discovery', () => {
     const title = {
       id: 'title-ready',
       name: 'Super Metroid',
@@ -266,10 +327,16 @@ describe('Shelves', () => {
     } as unknown as ReturnType<typeof useRecentlyPlayed>);
     render(<Shelves />);
     expect(
-      screen.getAllByRole('heading', {
-        level: 2,
-      })[0],
-    ).toHaveTextContent('Recently Played');
+      screen
+        .getAllByRole('heading', {
+          level: 2,
+        })
+        .slice(0, 2)
+        .map((heading) => heading.textContent),
+    ).toEqual([
+      'Chrono Trigger',
+      'Recently Played',
+    ]);
     expect(
       screen.queryByRole('heading', {
         name: 'Explore your games',
