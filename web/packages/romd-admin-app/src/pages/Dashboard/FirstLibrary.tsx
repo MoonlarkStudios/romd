@@ -6,9 +6,15 @@ import { workspaceActionProps } from '../../components/Workspace/workspaceAction
 import type { HealthStats } from '../../hooks/api/useHealthStats';
 
 export function FirstLibrary({ library, health }: { library: Library; health?: HealthStats }) {
-  const hasMatchedFiles = (health?.identifiedCount ?? 0) > 0;
+  const hasRoutedFiles = (health?.routedCount ?? 0) > 0;
+  const hasUnroutedFiles = (health?.unroutedCount ?? 0) > 0;
   const hasFiles = (health?.totalRoms ?? 0) > 0;
   const libraryPath = `/libraries/${library.id}?tab=games`;
+  const guidance = hasRoutedFiles
+    ? `Review the games in ${library.name}, then choose Publish library. After it publishes, sign in to the consumer portal with this account.`
+    : hasUnroutedFiles
+      ? `Some imported files still need a game. Check them before publishing ${library.name}.`
+      : `${library.name} is assigned to your account. Import games or check your import results, then review and publish the library.`;
   return (
     <Stack
       className={workspace.panel}
@@ -20,13 +26,9 @@ export function FirstLibrary({ library, health }: { library: Library; health?: H
       >
         Set up your first library
       </Title>
-      <Text size="sm">
-        {hasMatchedFiles
-          ? `Review the games in ${library.name}, then choose Publish library. After it publishes, sign in to the consumer portal with this account.`
-          : `${library.name} is assigned to your account. Import games or check your import results, then review and publish the library.`}
-      </Text>
+      <Text size="sm">{guidance}</Text>
       <Group gap="sm">
-        {hasMatchedFiles ? (
+        {hasRoutedFiles && (
           <Button
             component={Link}
             to={libraryPath}
@@ -34,32 +36,42 @@ export function FirstLibrary({ library, health }: { library: Library; health?: H
           >
             Review {library.name}
           </Button>
-        ) : (
-          <>
-            <Button
-              component={Link}
-              to="/roms/import"
-              {...workspaceActionProps}
-            >
-              Import files
-            </Button>
-            {!hasFiles && (
-              <Anchor
-                component={Link}
-                to="/systems"
-                size="sm"
-              >
-                Set up a system
-              </Anchor>
-            )}
-            <Anchor
-              component={Link}
-              to={libraryPath}
-              size="sm"
-            >
-              Open {library.name} draft
-            </Anchor>
-          </>
+        )}
+        {hasUnroutedFiles && (
+          <Button
+            component={Link}
+            to="/roms?status=unrouted"
+            variant={hasRoutedFiles ? 'subtle' : 'filled'}
+            {...workspaceActionProps}
+          >
+            Review files without a game
+          </Button>
+        )}
+        <Button
+          component={Link}
+          to="/roms/import"
+          variant={hasRoutedFiles || hasUnroutedFiles ? 'subtle' : 'filled'}
+          {...workspaceActionProps}
+        >
+          Import files
+        </Button>
+        {!hasRoutedFiles && !hasFiles && (
+          <Anchor
+            component={Link}
+            to="/systems"
+            size="sm"
+          >
+            Set up a system
+          </Anchor>
+        )}
+        {!hasRoutedFiles && (
+          <Anchor
+            component={Link}
+            to={libraryPath}
+            size="sm"
+          >
+            Open {library.name} draft
+          </Anchor>
         )}
         <Anchor
           component={Link}

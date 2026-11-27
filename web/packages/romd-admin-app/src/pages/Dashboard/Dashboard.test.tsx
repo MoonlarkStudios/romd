@@ -307,10 +307,46 @@ it('guides the administrator to system setup, imports and the assigned draft bef
   ).toHaveAttribute('href', '/libraries/starter?tab=games');
 });
 
-it('links matched imports to review and restores the normal Dashboard after publication', async () => {
+it('keeps import and routing actions available when identified files have no game', async () => {
   returns(getServerHealth, {
     totalRoms: 1,
     identifiedCount: 1,
+    routedCount: 0,
+    unroutedCount: 1,
+  });
+  render(<Dashboard />, {
+    auth: adminAuth,
+  });
+
+  await screen.findByText('Files without a destination');
+  expect(
+    screen.queryByRole('link', {
+      name: 'Review All Titles',
+    }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('link', {
+      name: 'Review files without a game',
+    }),
+  ).toHaveAttribute('href', '/roms?status=unrouted');
+  expect(
+    screen.getByRole('link', {
+      name: 'Import files',
+    }),
+  ).toHaveAttribute('href', '/roms/import');
+  expect(
+    screen.getByRole('link', {
+      name: 'Review import results',
+    }),
+  ).toHaveAttribute('href', '/jobs?type=upload');
+});
+
+it('links routed imports to review and restores the normal Dashboard after publication', async () => {
+  returns(getServerHealth, {
+    totalRoms: 2,
+    identifiedCount: 2,
+    routedCount: 1,
+    unroutedCount: 1,
   });
   render(<Dashboard />, {
     auth: adminAuth,
@@ -320,6 +356,16 @@ it('links matched imports to review and restores the normal Dashboard after publ
       name: 'Review All Titles',
     }),
   ).toHaveAttribute('href', '/libraries/starter?tab=games');
+  expect(
+    screen.getByRole('link', {
+      name: 'Import files',
+    }),
+  ).toHaveAttribute('href', '/roms/import');
+  expect(
+    screen.getByRole('link', {
+      name: 'Review files without a game',
+    }),
+  ).toHaveAttribute('href', '/roms?status=unrouted');
 
   returns(getLibrary, {
     id: 'starter',
