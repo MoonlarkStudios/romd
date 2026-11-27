@@ -221,6 +221,9 @@ Romd.Contracts.Consumer.Libraries.LibraryFacet
 Romd.Contracts.Consumer.Libraries.LibraryPublicationVersion
   Version: string?
 
+Romd.Contracts.Consumer.PlayLater.ConsumerPlayLaterMembership
+  TitleIds: IReadOnlyList<string>
+
 Romd.Contracts.Consumer.Playback.ConsumerPlaybackConfig
   PlayerOrigin: string? [required]
 
