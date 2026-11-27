@@ -17,6 +17,23 @@ or revision. Use the **Releases** tab when you want a specific version. A
 catalog entry can exist without the files needed to play it, and availability
 can differ between releases of the same title.
 
+## Save games for later
+
+Choose **Play Later** on a game's title page or use its bookmark in **Browse**.
+On a desktop Browse grid, hover over a cover or move keyboard focus to it to
+reveal the bookmark. Filled bookmarks mark saved games. On **Home**, choose
+**See all** in the **Play Later** shelf for the full list, newest additions first.
+
+Your list is private to your account and follows you when you sign in to the
+consumer portal in another browser. It can hold games from different systems.
+Open any saved title to choose a release, play, or download as usual. The game
+stays on your list until you select its filled bookmark in **Browse** or the
+full **Play Later** list, or choose **Saved** on the title page. In the full
+list, choose **Undo** to restore the game you just removed.
+
+If a title becomes unavailable in your published library, it disappears from
+the list. It reappears when your library gives you access again.
+
 ## Download
 
 Choose **Download** on the title or on the release you want. The browser owns

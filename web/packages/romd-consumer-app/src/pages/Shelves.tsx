@@ -12,6 +12,7 @@ import {
 } from '../hooks/useConsumerLibrary';
 import { useRefreshLibrary } from '../hooks/useLibraryRefresh';
 import { useRecentlyPlayed } from '../hooks/usePlayActivity';
+import { usePlayLaterTitles } from '../hooks/usePlayLater';
 import { ConsumerLibraryUnavailableError } from '../services/libraryErrors';
 
 export function Shelves() {
@@ -38,6 +39,7 @@ export function Shelves() {
     },
   );
   const recentlyPlayedQuery = useRecentlyPlayed(18, available);
+  const playLaterQuery = usePlayLaterTitles(available);
 
   const library = libraryQuery.data;
   const collections = (collectionsQuery.data ?? []).slice(0, 10);
@@ -79,16 +81,9 @@ export function Shelves() {
       gap="var(--romd-page-gap)"
       className="romd-home"
     >
-      {spotlights.length > 0 ? (
-        <SpotlightCarousel
-          key={spotlights.map((title) => title.id).join(':')}
-          titles={spotlights}
-        />
-      ) : (
-        <VisuallyHidden>
-          <Title order={1}>Your games</Title>
-        </VisuallyHidden>
-      )}
+      <VisuallyHidden>
+        <Title order={1}>Your games</Title>
+      </VisuallyHidden>
 
       <Group justify="flex-end">
         <Button
@@ -115,6 +110,42 @@ export function Shelves() {
           kind="error"
           message="Your recently played games could not be loaded."
           onRetry={() => void recentlyPlayedQuery.refetch()}
+        />
+      )}
+      {(playLaterQuery.data || playLaterQuery.isError || playLaterQuery.isLoading) && (
+        <TitleRail
+          showPlayAction={false}
+          title="Play Later"
+          seeAllTo="/play-later"
+          seeAllLabel="See all"
+          titles={playLaterQuery.isError ? [] : (playLaterQuery.data?.pages[0]?.items ?? [])}
+          emptyState={
+            playLaterQuery.isError ? (
+              <StatusState
+                kind="error"
+                message="Play Later could not be loaded."
+                onRetry={() => void playLaterQuery.refetch()}
+                retrying={playLaterQuery.isRefetching}
+              />
+            ) : playLaterQuery.isLoading ? (
+              <StatusState
+                kind="loading"
+                label="Loading Play Later"
+              />
+            ) : (
+              <StatusState
+                kind="empty"
+                title="No games saved for later"
+                message="Save games from Browse or a game page."
+              />
+            )
+          }
+        />
+      )}
+      {spotlights.length > 0 && (
+        <SpotlightCarousel
+          key={spotlights.map((title) => title.id).join(':')}
+          titles={spotlights}
         />
       )}
       {readyToPlayQuery.isError && (

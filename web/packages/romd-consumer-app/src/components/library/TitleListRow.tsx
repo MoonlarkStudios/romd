@@ -5,6 +5,7 @@ import type {
   RecentlyPlayedTitle,
 } from '@romd/consumer-api-client';
 import { IconDownload, IconPlayerPlay, IconStar } from '@tabler/icons-react';
+import type { ReactNode } from 'react';
 import { useBrowserPlaybackAvailability } from '../../hooks/useBrowserPlaybackCapability';
 import { formatCount, formatRating } from '../../utils/format';
 import { TitleLink } from '../navigation/TitleLink';
@@ -15,9 +16,10 @@ type TitleRowData = ConsumerTitleCard | ConsumerCollectionTitle | RecentlyPlayed
 
 interface TitleListRowProps {
   title: TitleRowData;
+  playLaterAction?: ReactNode;
 }
 
-export function TitleListRow({ title }: TitleListRowProps) {
+export function TitleListRow({ title, playLaterAction }: TitleListRowProps) {
   const defaultReleaseId = title.defaultReleaseId ?? null;
   const playback = useBrowserPlaybackAvailability(title.system.key);
   const rating = formatRating(title.rating);
@@ -98,10 +100,16 @@ export function TitleListRow({ title }: TitleListRowProps) {
           </Group>
         </Stack>
 
-        <TitleAction
-          titleId={title.id}
-          releaseId={playback.available ? defaultReleaseId : null}
-        />
+        <Group
+          gap="xs"
+          wrap="nowrap"
+        >
+          {playLaterAction}
+          <TitleAction
+            titleId={title.id}
+            releaseId={playback.available ? defaultReleaseId : null}
+          />
+        </Group>
       </Group>
     </Paper>
   );

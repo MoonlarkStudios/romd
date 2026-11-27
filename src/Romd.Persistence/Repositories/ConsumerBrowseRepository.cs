@@ -7,6 +7,7 @@ using Romd.Application.Common.Pagination;
 using Romd.Consumer.Application.Browse;
 using Romd.Consumer.Application.Browse.ReadModels;
 using Romd.Consumer.Application.Libraries;
+using Romd.Consumer.Application.PlayLater;
 using Romd.Domain.Libraries;
 using Romd.Persistence.MetadataProviders;
 using Romd.Persistence.Entities;
@@ -19,7 +20,7 @@ namespace Romd.Persistence.Repositories;
 
 public sealed partial class ConsumerBrowseRepository(
     RomdDbContext context,
-    IConsumerReleaseSelector releaseSelector) : IConsumerBrowseRepository
+    IConsumerReleaseSelector releaseSelector) : IConsumerBrowseRepository, IPlayLaterRepository
 {
     private static readonly string ValidConfigurationState = LibraryConfigurationState.Valid.ToString();
     private readonly LiveConsumerLibraryQuery _liveConsumerLibrary = new(context);
@@ -297,24 +298,30 @@ public sealed partial class ConsumerBrowseRepository(
             .Take(limit + 1)
             .ToListAsync(ct);
 
-        var releaseCandidatesByTitleId = await ConsumerReleaseProjection.LoadByTitleIdsAsync(
-            context,
-            libraryId,
-            titleRows.Select(item => item.Id).ToList(),
-            ct);
-
-        var artwork = await new ArtworkReader(context).ResolveAsync(titleRows.Select(t => t.Id).ToArray(), ct);
-
-        var systems = await new SystemSummaryReader(context).ReadAsync(titleRows.Select(x => x.PlatformId), ct);
-
-        var ratings = await new ContentRatingSummaryReader(context).ReadAsync(titleRows.SelectMany(x => x.ContentRatings), ct);
-
-        var items = titleRows
-            .Select(item => AddReleaseSummary(item, releaseCandidatesByTitleId, releasePreference) with { Artwork = artwork[item.Id], System = systems[item.PlatformId], ContentRatings = item.ContentRatings.Select(rating => ratings[ContentRatingSummaryReader.Key(rating)]).ToArray() })
-            .ToList();
-
+        var items = await CompleteTitleCardsAsync(titleRows, libraryId, releasePreference, ct);
         return new ConsumerLibraryProjectionResult<PagedList<ConsumerTitleCardData>>.Found(ToPage(
             items, limit, item => new ConsumerTitleCursor(filters.SortField, item.Name, item.Rating, item.Id), fingerprint));
+    }
+
+    private async Task<List<ConsumerTitleCardData>> CompleteTitleCardsAsync(
+        IReadOnlyList<ConsumerTitleCardData> titleRows, int libraryId, ConsumerReleasePreference releasePreference,
+        CancellationToken ct)
+    {
+        if (titleRows.Count == 0)
+            return [];
+
+        var titleIds = titleRows.Select(item => item.Id).ToArray();
+        var releaseCandidatesByTitleId = await ConsumerReleaseProjection.LoadByTitleIdsAsync(context, libraryId, titleIds, ct);
+        var artwork = await new ArtworkReader(context).ResolveAsync(titleIds, ct);
+        var systems = await new SystemSummaryReader(context).ReadAsync(titleRows.Select(item => item.PlatformId), ct);
+        var ratings = await new ContentRatingSummaryReader(context).ReadAsync(titleRows.SelectMany(item => item.ContentRatings), ct);
+
+        return titleRows.Select(item => AddReleaseSummary(item, releaseCandidatesByTitleId, releasePreference) with
+        {
+            Artwork = artwork[item.Id],
+            System = systems[item.PlatformId],
+            ContentRatings = item.ContentRatings.Select(rating => ratings[ContentRatingSummaryReader.Key(rating)]).ToArray()
+        }).ToList();
     }
 
     public Task<ConsumerLibraryReadResult<ConsumerTitleDetailData>> GetTitleAsync(

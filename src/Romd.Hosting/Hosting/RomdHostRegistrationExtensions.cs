@@ -706,6 +706,12 @@ public static class RomdHostRegistrationExtensions
     {
         Type serializedType = Nullable.GetUnderlyingType(context.JsonTypeInfo.Type) ??
                               context.JsonTypeInfo.Type;
+        if (serializedType == typeof(Sqid[]))
+        {
+            schema.Items = new OpenApiSchema { Type = JsonSchemaType.String };
+            return Task.CompletedTask;
+        }
+
         // A bound system key is a string on the wire too: OpenAPI describes some bound parameters
         // by their CLR shape, which would publish the resolved id.
         if (serializedType != typeof(Sqid) && serializedType != typeof(SystemKeyParameter))

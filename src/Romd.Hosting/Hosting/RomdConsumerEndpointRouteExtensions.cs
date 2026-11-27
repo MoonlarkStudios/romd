@@ -26,6 +26,7 @@ public static class RomdConsumerEndpointRouteExtensions
         api.MapConsumerDiscSetEndpoints();
         api.MapConsumerPlaybackEndpoints();
         api.MapConsumerPlayActivityEndpoints();
+        api.MapConsumerPlayLaterEndpoints();
 
         api.MapReferenceCatalogEndpoints(admin: false);
         return api;

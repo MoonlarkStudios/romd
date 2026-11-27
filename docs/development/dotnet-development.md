@@ -227,7 +227,8 @@ migration stores curator-managed search names on titles. The additive
 `20261126001626_SystemConsoleArtwork` migration stores separate references for
 bundled console artwork and installation overrides. The additive
 `20261126042256_SystemControllerArtwork` migration adds a distinct slot for
-controller artwork. Current readiness is version 96.
+controller artwork. The additive `20261127024621_PlayLaterEntries` migration
+stores account-owned title bookmarks. Current readiness is version 97.
 The SQL resources executed by the baseline are immutable and SHA-256 pinned by
 `FreshMediaBaselineResourceTests`;
 subsequent schema changes require a new migration. `RuntimeFactGrants.sql` is

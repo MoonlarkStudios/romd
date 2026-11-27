@@ -107,6 +107,7 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
     public DbSet<MaterializedLibraryReleaseEntity> MaterializedLibraryReleases => Set<MaterializedLibraryReleaseEntity>();
     public DbSet<ConsumerUserSettingsEntity> ConsumerUserSettings => Set<ConsumerUserSettingsEntity>();
     public DbSet<PlaySessionEntity> PlaySessions => Set<PlaySessionEntity>();
+    internal DbSet<PlayLaterEntryEntity> PlayLaterEntries => Set<PlayLaterEntryEntity>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -233,6 +234,7 @@ public sealed class RomdDbContext : IdentityDbContext<RomdUser, RomdIdentityRole
         MaterializedLibraryReleaseEntity.Configure(modelBuilder.Entity<MaterializedLibraryReleaseEntity>());
         ConsumerUserSettingsEntity.Configure(modelBuilder.Entity<ConsumerUserSettingsEntity>());
         PlaySessionEntity.Configure(modelBuilder.Entity<PlaySessionEntity>());
+        PlayLaterEntryEntity.Configure(modelBuilder.Entity<PlayLaterEntryEntity>());
 
         ConfigureJobsHierarchy(modelBuilder);
         JobDispatchEntity.Configure(modelBuilder.Entity<JobDispatchEntity>());

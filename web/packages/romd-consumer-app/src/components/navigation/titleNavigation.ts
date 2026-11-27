@@ -29,7 +29,7 @@ export function readReturnContext(state: unknown): ReturnContext {
   const section =
     path === '/library'
       ? 'browse'
-      : path === '/' || /^\/collections\/[A-Za-z0-9_-]+$/.test(path)
+      : path === '/' || path === '/play-later' || /^\/collections\/[A-Za-z0-9_-]+$/.test(path)
         ? 'home'
         : systemDetailPath.test(path)
           ? 'systems'
@@ -41,13 +41,15 @@ export function readReturnContext(state: unknown): ReturnContext {
     label:
       path === '/'
         ? 'Home'
-        : path === '/library'
-          ? 'Browse'
-          : typeof candidate.label === 'string' && candidate.label.trim()
-            ? candidate.label
-            : section === 'systems'
-              ? 'Console'
-              : 'Collection',
+        : path === '/play-later'
+          ? 'Play Later'
+          : path === '/library'
+            ? 'Browse'
+            : typeof candidate.label === 'string' && candidate.label.trim()
+              ? candidate.label
+              : section === 'systems'
+                ? 'Console'
+                : 'Collection',
   };
 }
 
@@ -66,6 +68,12 @@ export function titleOrigin(
       href: `/library${location.search}${location.hash}`,
       label: 'Browse',
       section: 'browse',
+    };
+  if (location.pathname === '/play-later')
+    return {
+      href: '/play-later',
+      label: 'Play Later',
+      section: 'home',
     };
   if (/^\/collections\/[A-Za-z0-9_-]+$/.test(location.pathname))
     return {

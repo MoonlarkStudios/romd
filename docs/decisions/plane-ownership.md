@@ -51,8 +51,8 @@ the current process map and its operation.
 
 - The consumer host writes only state that belongs to the authenticated
   caller: their password, sign-in metadata and settings, their account
-  sessions and play sessions, their VFS connections, their OpenIddict tokens
-  and authorizations, and their own export requests.
+  sessions and play sessions, their Play Later entries, their VFS connections,
+  their OpenIddict tokens and authorizations, and their own export requests.
 - It never writes catalog, curation or library configuration, never creates
   or deletes users or changes roles, never writes another user's state, and
   never writes OpenIddict applications or scopes.
@@ -78,8 +78,13 @@ the current process map and its operation.
   reorder or delete collections.
 - Consumer collection projections carry only navigation and display fields,
   never curation configuration.
-- User-owned lists, such as favorites or play-later, are a separate resource
-  and never reuse `Collection`.
+- User-owned lists have their own resources. Play Later stores one entry per
+  account and canonical title. A title merge carries entries to the surviving
+  title and collapses duplicates. Playing or downloading a title leaves its
+  entry in place.
+- Play Later is first-party account state. Reads and title mutations use the
+  caller's current published library. Entries outside that library remain
+  stored and expose no membership or title information until access returns.
 
 ### Delivery Markers Do Not Expose Administrative Provenance
 

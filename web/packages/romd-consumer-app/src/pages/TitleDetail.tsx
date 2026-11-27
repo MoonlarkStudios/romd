@@ -20,11 +20,12 @@ import type {
   ConsumerTitleDetail,
 } from '@romd/consumer-api-client';
 import { IconArrowLeft, IconDownload, IconPlayerPlayFilled } from '@tabler/icons-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { ArtworkFallback } from '../components/library/ArtworkFallback';
 import { ArtworkImage } from '../components/library/ArtworkImage';
 import { DiscSetDownloads } from '../components/library/DiscSetDownloads';
+import { PlayLaterButton } from '../components/library/PlayLaterButton';
 import { ReleaseManifestPanel } from '../components/library/ReleaseManifestPanel';
 import { ReleaseVersionMenu } from '../components/library/ReleaseVersionMenu';
 import { TitleLink } from '../components/navigation/TitleLink';
@@ -32,6 +33,7 @@ import { readReturnContext } from '../components/navigation/titleNavigation';
 import { StatusState } from '../components/status/StatusState';
 import { useBrowserPlaybackCapability } from '../hooks/useBrowserPlaybackCapability';
 import { useTitleDetail } from '../hooks/useConsumerLibrary';
+import { usePlayLaterMembership } from '../hooks/usePlayLater';
 import {
   type BrowserPlaybackPreflight,
   getBrowserPlaybackPreflight,
@@ -55,6 +57,17 @@ export function TitleDetail() {
   const [downloadRelease, setDownloadRelease] = useState<string | null>(null);
   const [failedBackdrop, setFailedBackdrop] = useState<string | null>(null);
   const title = titleQuery.data;
+  const playLater = usePlayLaterMembership(
+    title
+      ? [
+          {
+            items: [
+              title,
+            ],
+          },
+        ]
+      : [],
+  );
   if (titleQuery.isLoading) return <StatusState kind="loading" />;
   if (titleQuery.error instanceof ConsumerGameUnavailableError)
     return (
@@ -180,6 +193,12 @@ export function TitleDetail() {
             selectedRelease={selectedRelease}
             playback={playback}
             checking={capability.isLoading}
+            playLaterAction={
+              <PlayLaterButton
+                title={title}
+                membership={playLater.get(title.id)}
+              />
+            }
             onSelectRelease={(id) => select('release', id)}
             onDownload={() => {
               setDownloadRelease(selectedRelease?.id ?? null);
@@ -500,6 +519,7 @@ interface HeroActionsProps {
   selectedRelease: ConsumerRelease | null;
   playback: ReturnType<typeof getBrowserPlaybackPreflight> | null;
   checking: boolean;
+  playLaterAction: ReactNode;
   onSelectRelease: (releaseId: string) => void;
   onDownload: () => void;
 }
@@ -511,17 +531,21 @@ function HeroActions({
   selectedRelease,
   playback,
   checking,
+  playLaterAction,
   onSelectRelease,
   onDownload,
 }: HeroActionsProps) {
   if (!selectedRelease) {
     return (
-      <Text
-        size="sm"
-        c="dimmed"
-      >
-        No owned version is available.
-      </Text>
+      <Group gap="sm">
+        <Text
+          size="sm"
+          c="dimmed"
+        >
+          No owned version is available.
+        </Text>
+        {playLaterAction}
+      </Group>
     );
   }
 
@@ -572,6 +596,8 @@ function HeroActions({
             Download
           </Button>
         )}
+
+        {playLaterAction}
 
         {releases.length > 1 && (
           <ReleaseVersionMenu

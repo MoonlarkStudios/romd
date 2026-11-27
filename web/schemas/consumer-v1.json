@@ -3137,6 +3137,191 @@
         }
       }
     },
+    "/api/me/play-later": {
+      "get": {
+        "tags": [
+          "Consumer Play Later"
+        ],
+        "description": "List the caller's saved titles in the current published library, newest added first.",
+        "operationId": "ListConsumerPlayLaterTitles",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageOfConsumerTitleCard"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/play-later/membership": {
+      "get": {
+        "tags": [
+          "Consumer Play Later"
+        ],
+        "description": "Return the requested title IDs that are saved by the caller and visible in the current published library.",
+        "operationId": "GetConsumerPlayLaterMembership",
+        "parameters": [
+          {
+            "name": "titleIds",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "maxItems": 100,
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerPlayLaterMembership"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/play-later/{titleId}": {
+      "put": {
+        "tags": [
+          "Consumer Play Later"
+        ],
+        "description": "Save a visible title for the caller. Repeated saves preserve its original position.",
+        "operationId": "ReplaceConsumerPlayLaterTitle",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Consumer Play Later"
+        ],
+        "description": "Remove a currently visible title from the caller's list. Unavailable titles and absent entries are left unchanged.",
+        "operationId": "DeleteConsumerPlayLaterTitle",
+        "parameters": [
+          {
+            "name": "titleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/systems": {
       "get": {
         "tags": [
@@ -4854,6 +5039,20 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ConsumerPlayLaterMembership": {
+        "required": [
+          "titleIds"
+        ],
+        "type": "object",
+        "properties": {
+          "titleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -7151,6 +7350,9 @@
     },
     {
       "name": "Consumer Play Activity"
+    },
+    {
+      "name": "Consumer Play Later"
     },
     {
       "name": "systems"

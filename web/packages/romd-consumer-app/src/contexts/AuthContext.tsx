@@ -7,7 +7,7 @@ import {
   useSessionProfile,
 } from '@romd/portal-auth';
 import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react';
-import { userManager } from '../auth/userManager';
+import { clearCachedSession, userManager } from '../auth/userManager';
 
 export interface AuthContextValue extends Omit<SessionProfile<CurrentUser>, 'clear'> {
   login: () => Promise<void>;
@@ -66,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
   const logout = useCallback(async () => {
+    clearCachedSession();
     session.clear();
     await userManager.signoutRedirect();
   }, [

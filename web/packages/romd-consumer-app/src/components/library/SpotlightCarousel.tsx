@@ -92,6 +92,7 @@ function TitleSpotlight({ title }: { title: ConsumerTitleCard }) {
   return (
     <GameSpotlight
       name={title.name}
+      headingOrder={2}
       art={
         hasHero && (
           <ArtworkImage

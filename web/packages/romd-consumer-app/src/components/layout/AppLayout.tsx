@@ -48,7 +48,7 @@ function isNavActive(path: string, pathname: string, state: unknown): boolean {
   if (pathname.startsWith('/titles/'))
     return path === titleSectionPaths[readReturnContext(state).section];
   if (path === '/') {
-    return pathname === '/' || pathname.startsWith('/collections');
+    return pathname === '/' || pathname === '/play-later' || pathname.startsWith('/collections');
   }
 
   return pathname === path || pathname.startsWith(`${path}/`);

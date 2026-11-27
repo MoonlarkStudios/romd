@@ -44,7 +44,7 @@
   max-width: 100%;
   min-height: var(--romd-spotlight-logo-height, clamp(120px, 15cqw, 200px));
 }
-.romd-home-spotlight-content h1 { width: 100%; max-width: 18ch; text-wrap: balance; overflow-wrap: anywhere; }
+.romd-home-spotlight-content .romd-hero { width: 100%; max-width: 18ch; text-wrap: balance; overflow-wrap: anywhere; }
 .romd-home-spotlight-poster { width: clamp(120px, 15cqw, 210px); flex: none; transform: rotate(-5deg); box-shadow: 0 24px 60px var(--romd-surface-deepest); }
 .romd-home-spotlight:not([data-has-art]) { background: radial-gradient(ellipse at 80% 20%, var(--romd-accent-glow), transparent 65%), linear-gradient(0deg, var(--romd-bg), var(--romd-panel)); }
 .romd-home-spotlight:not([data-has-art]) { --romd-spotlight-content-width: 90%; }

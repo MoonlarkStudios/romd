@@ -191,6 +191,10 @@ internal static class ApiContractPolicyAllowlists
                 "consumer DELETE /api/me/activity/play-sessions/{sessionId}",
                 "An idempotent delete scoped to the caller: deleting a session that does not exist succeeds with 204."
             },
+            {
+                "consumer DELETE /api/me/play-later/{titleId}",
+                "An idempotent delete scoped to the caller: absent, unknown and unpublished titles all return 204."
+            },
         };
 
     public static readonly IReadOnlyDictionary<string, OwningSlice> R1 =

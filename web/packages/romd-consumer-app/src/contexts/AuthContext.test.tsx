@@ -21,6 +21,7 @@ const session = vi.hoisted(() => ({
 }));
 
 vi.mock('../auth/userManager', () => ({
+  clearCachedSession: vi.fn(),
   userManager: {
     getUser: session.getUser,
     signinRedirect: vi.fn(),

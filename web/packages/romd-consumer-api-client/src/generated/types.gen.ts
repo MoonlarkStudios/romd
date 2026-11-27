@@ -252,6 +252,10 @@ export type ConsumerPlaybackConfig = {
     playerOrigin: null | string;
 };
 
+export type ConsumerPlayLaterMembership = {
+    titleIds: Array<string>;
+};
+
 export type ConsumerRelease = {
     id: string;
     name: string;
@@ -2615,6 +2619,135 @@ export type ListConsumerRecentlyPlayedResponses = {
 };
 
 export type ListConsumerRecentlyPlayedResponse = ListConsumerRecentlyPlayedResponses[keyof ListConsumerRecentlyPlayedResponses];
+
+export type ListConsumerPlayLaterTitlesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        limit?: number;
+    };
+    url: '/api/me/play-later';
+};
+
+export type ListConsumerPlayLaterTitlesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type ListConsumerPlayLaterTitlesError = ListConsumerPlayLaterTitlesErrors[keyof ListConsumerPlayLaterTitlesErrors];
+
+export type ListConsumerPlayLaterTitlesResponses = {
+    /**
+     * OK
+     */
+    200: PageOfConsumerTitleCard;
+};
+
+export type ListConsumerPlayLaterTitlesResponse = ListConsumerPlayLaterTitlesResponses[keyof ListConsumerPlayLaterTitlesResponses];
+
+export type GetConsumerPlayLaterMembershipData = {
+    body?: never;
+    path?: never;
+    query: {
+        titleIds: Array<string>;
+    };
+    url: '/api/me/play-later/membership';
+};
+
+export type GetConsumerPlayLaterMembershipErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type GetConsumerPlayLaterMembershipError = GetConsumerPlayLaterMembershipErrors[keyof GetConsumerPlayLaterMembershipErrors];
+
+export type GetConsumerPlayLaterMembershipResponses = {
+    /**
+     * OK
+     */
+    200: ConsumerPlayLaterMembership;
+};
+
+export type GetConsumerPlayLaterMembershipResponse = GetConsumerPlayLaterMembershipResponses[keyof GetConsumerPlayLaterMembershipResponses];
+
+export type DeleteConsumerPlayLaterTitleData = {
+    body?: never;
+    path: {
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/me/play-later/{titleId}';
+};
+
+export type DeleteConsumerPlayLaterTitleErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+};
+
+export type DeleteConsumerPlayLaterTitleError = DeleteConsumerPlayLaterTitleErrors[keyof DeleteConsumerPlayLaterTitleErrors];
+
+export type DeleteConsumerPlayLaterTitleResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type DeleteConsumerPlayLaterTitleResponse = DeleteConsumerPlayLaterTitleResponses[keyof DeleteConsumerPlayLaterTitleResponses];
+
+export type ReplaceConsumerPlayLaterTitleData = {
+    body?: never;
+    path: {
+        titleId: string;
+    };
+    query?: never;
+    url: '/api/me/play-later/{titleId}';
+};
+
+export type ReplaceConsumerPlayLaterTitleErrors = {
+    /**
+     * Bad Request
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Not Found
+     */
+    404: ProblemDetails;
+};
+
+export type ReplaceConsumerPlayLaterTitleError = ReplaceConsumerPlayLaterTitleErrors[keyof ReplaceConsumerPlayLaterTitleErrors];
+
+export type ReplaceConsumerPlayLaterTitleResponses = {
+    /**
+     * No Content
+     */
+    204: void;
+};
+
+export type ReplaceConsumerPlayLaterTitleResponse = ReplaceConsumerPlayLaterTitleResponses[keyof ReplaceConsumerPlayLaterTitleResponses];
 
 export type ListConsumerSystemsData = {
     body?: never;

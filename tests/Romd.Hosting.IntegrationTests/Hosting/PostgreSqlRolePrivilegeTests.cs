@@ -483,6 +483,15 @@ public sealed class PostgreSqlRolePrivilegeTests
         await ExecuteAsync(
             consumerConnectionString,
             $@"DELETE FROM romd.""PlaySessions"" WHERE ""UserId"" = {noUser}");
+        Convert.ToBoolean(await ScalarAsync(
+                consumerConnectionString,
+                """
+                SELECT has_table_privilege(current_user, 'romd."PlayLaterEntries"', 'SELECT')
+                   AND has_table_privilege(current_user, 'romd."PlayLaterEntries"', 'INSERT')
+                   AND has_table_privilege(current_user, 'romd."PlayLaterEntries"', 'DELETE')
+                   AND NOT has_table_privilege(current_user, 'romd."PlayLaterEntries"', 'UPDATE')
+                """))
+            .ShouldBeTrue();
         await ExecuteAsync(
             consumerConnectionString,
             $@"UPDATE romd.""AspNetUsers"" SET ""SecurityStamp"" = 'probe' WHERE ""Id"" = {noUser}");

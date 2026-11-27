@@ -113,6 +113,7 @@ public sealed class ConsumerBoundaryTests
         "src/Romd.Hosting/Endpoints/ConsumerAccessEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerAccountEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerPlayActivityEndpoints.cs",
+        "src/Romd.Hosting/Endpoints/ConsumerPlayLaterEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerBrowseEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerCollectionEndpoints.cs",
         "src/Romd.Hosting/Endpoints/ConsumerDeliveryEndpoints.cs",
