@@ -49,23 +49,20 @@
 .romd-poster-caption {
   margin: var(--mantine-spacing-xs);
 }
-.romd-poster::after {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border: 4px solid var(--romd-text-strong);
-  border-radius: calc(var(--romd-poster-radius) + 8px);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--romd-duration-screen) var(--romd-ease-standard);
+.romd-play-later-undo {
+  position: fixed;
+  inset-inline-end: var(--mantine-spacing-lg);
+  inset-block-end: calc(var(--mantine-spacing-lg) + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  padding: 2px var(--mantine-spacing-xs);
+  border: 1px solid var(--romd-border-subtle);
+  border-radius: var(--mantine-radius-md);
+  background: var(--romd-portal-surface);
+  box-shadow: var(--mantine-shadow-md);
 }
-.romd-poster:hover,
-.romd-poster:focus-within {
-  transform: translateY(-3px);
-}
-.romd-poster:hover::after,
-.romd-poster:focus-within::after {
-  opacity: 1;
+.romd-poster:has(> a:first-child:focus-visible) {
+  outline: 3px solid var(--romd-text-strong);
+  outline-offset: 3px;
 }
 .romd-poster-play-later {
   position: absolute;
@@ -104,6 +101,13 @@
   }
 }
 @media (hover: hover) and (pointer: fine) and (not (any-pointer: coarse)) {
+  .romd-poster:hover {
+    transform: translateY(-3px);
+  }
+  .romd-poster:hover .romd-poster-play {
+    opacity: 1;
+    transform: scale(1);
+  }
   .romd-poster-play-later .romd-play-later-icon {
     transition: opacity var(--romd-duration-focus) var(--romd-ease-standard);
   }
@@ -120,10 +124,13 @@
     opacity var(--romd-duration-focus) var(--romd-ease-standard),
     transform var(--romd-duration-enter) var(--romd-ease-emphasized);
 }
-.romd-poster:hover .romd-poster-play,
-.romd-poster:focus-within .romd-poster-play {
+.romd-poster:has(:focus-visible) .romd-poster-play {
   opacity: 1;
   transform: scale(1);
+}
+.romd-poster .romd-poster-play:focus-visible {
+  outline: 2px solid var(--romd-text-strong);
+  outline-offset: 3px;
 }
 
 /* Rail edge fade arrows. */
@@ -148,7 +155,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .romd-poster,
-  .romd-poster::after,
   .romd-poster .romd-poster-play,
   .romd-poster-play-later .romd-play-later-icon,
   .romd-rail-arrow,
@@ -171,7 +177,9 @@
 .romd-primary-nav[aria-current='page']::after { content: ''; position: absolute; bottom: 0; left: var(--mantine-spacing-sm); right: var(--mantine-spacing-sm); height: 2px; background: var(--romd-accent); }
 .romd-rail { gap: 22px; padding-block: 12px 28px; }
 .romd-rail > * { flex-basis: clamp(190px, 18vw, 260px); }
-@media (hover: none) { .romd-poster .romd-poster-play { opacity: 1; transform: scale(.85); } }
+@media (hover: none), (any-pointer: coarse) {
+  .romd-poster .romd-poster-play { opacity: 1; transform: scale(.85); }
+}
 @media (max-width: 48em) {
   .romd-rail > * { flex-basis: 150px; }
 }

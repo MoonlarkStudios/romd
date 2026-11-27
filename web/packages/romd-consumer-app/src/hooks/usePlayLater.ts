@@ -87,6 +87,8 @@ export interface PlayLaterMembership {
   retry?: () => void;
 }
 
+type PlayLaterApplied = (isCurrent: () => boolean) => void;
+
 export function usePlayLaterMembership(
   pages: readonly {
     items: readonly Pick<ConsumerTitleCard, 'id'>[];
@@ -167,6 +169,7 @@ export function useChangePlayLater(titleId: string) {
     }: {
       save: boolean;
       request: ReturnType<typeof bindAccountRequest>;
+      onApplied?: PlayLaterApplied;
     }) => {
       const change = save ? replaceConsumerPlayLaterTitle : deleteConsumerPlayLaterTitle;
       const result = await change({
@@ -179,13 +182,14 @@ export function useChangePlayLater(titleId: string) {
         throw new Error('Unable to update Play Later.');
       }
     },
-    onSuccess: async (_, { request }) => {
+    onSuccess: async (_, { request, onApplied }) => {
+      if (!request.isCurrent()) return;
+      onApplied?.(request.isCurrent);
       // Reset the private list as well as membership so revisiting an inactive
       // shelf or view cannot flash the old result.
-      if (request.isCurrent())
-        await queryClient.resetQueries({
-          queryKey: accountKey,
-        });
+      await queryClient.resetQueries({
+        queryKey: accountKey,
+      });
     },
     onError: (_, { request }) => {
       if (request.isCurrent()) {
@@ -200,7 +204,7 @@ export function useChangePlayLater(titleId: string) {
   return {
     available: Boolean(accountId),
     pending,
-    change: (save: boolean) => {
+    change: (save: boolean, onApplied?: PlayLaterApplied) => {
       // An action in another view can already be pending before this control
       // has rendered the new mutation state.
       if (
@@ -216,6 +220,7 @@ export function useChangePlayLater(titleId: string) {
         mutate({
           save,
           request,
+          onApplied,
         });
     },
   };

@@ -391,6 +391,145 @@ describe('Play Later', () => {
     expect(server.requests.filter(({ method }) => method === 'DELETE')).toHaveLength(1);
   });
 
+  it('removes the last saved title from the list and restores it with keyboard Undo', async () => {
+    const server = fakeServer();
+    server.saved.alice = [
+      mario,
+    ];
+    const user = userEvent.setup();
+    render(
+      <Portal
+        id="alice"
+        cache={cacheForTest()}
+      />,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/play-later',
+          ],
+        },
+      },
+    );
+
+    const title = await screen.findByRole('link', {
+      name: mario.name,
+    });
+    title.focus();
+    await user.tab();
+    expect(
+      screen.getByRole('button', {
+        name: `Play Later for ${mario.name}`,
+        pressed: true,
+      }),
+    ).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    const undo = await screen.findByRole('button', {
+      name: 'Undo',
+    });
+    expect(undo).toHaveFocus();
+    expect(await screen.findByText('No games saved for later')).toBeVisible();
+    expect(title).not.toBeInTheDocument();
+    await waitFor(() => expect(undo).not.toHaveAttribute('aria-disabled'));
+    await user.keyboard(' ');
+
+    expect(
+      await screen.findByRole('link', {
+        name: mario.name,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Undo',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Play Later',
+        level: 1,
+      }),
+    ).toHaveFocus();
+    expect(
+      server.requests
+        .filter(({ method }) => method === 'DELETE' || method === 'PUT')
+        .map(({ method }) => method),
+    ).toEqual([
+      'DELETE',
+      'PUT',
+    ]);
+  });
+
+  it('clears an available Undo across account sessions', async () => {
+    const server = fakeServer();
+    server.saved.alice = [
+      mario,
+    ];
+    server.saved.bob = [
+      metroid,
+    ];
+    const cache = cacheForTest();
+    const user = userEvent.setup();
+    const view = render(
+      <Portal
+        id="alice"
+        cache={cache}
+      />,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/play-later',
+          ],
+        },
+      },
+    );
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Play Later for ${mario.name}`,
+        pressed: true,
+      }),
+    );
+    expect(
+      await screen.findByRole('button', {
+        name: 'Undo',
+      }),
+    ).toBeVisible();
+    expect(await screen.findByText('No games saved for later')).toBeVisible();
+
+    await authenticate('bob');
+    view.rerender(
+      <Portal
+        id="bob"
+        cache={cache}
+      />,
+    );
+    expect(
+      await screen.findByRole('link', {
+        name: metroid.name,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Undo',
+      }),
+    ).not.toBeInTheDocument();
+
+    await authenticate('alice');
+    view.rerender(
+      <Portal
+        id="alice"
+        cache={cache}
+      />,
+    );
+    expect(await screen.findByText('No games saved for later')).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Undo',
+      }),
+    ).not.toBeInTheDocument();
+    expect(server.requests.some(({ method }) => method === 'PUT')).toBe(false);
+  });
+
   it('keeps server order across systems and follows the next cursor', async () => {
     const server = fakeServer();
     const following = Promise.withResolvers<Response>();
