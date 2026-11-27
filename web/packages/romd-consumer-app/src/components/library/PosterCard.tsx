@@ -19,9 +19,15 @@ interface PosterCardProps {
   title: PosterTitle;
   showPlayAction?: boolean;
   playLaterAction?: ReactNode;
+  showTitle?: boolean;
 }
 
-export function PosterCard({ title, showPlayAction = true, playLaterAction }: PosterCardProps) {
+export function PosterCard({
+  title,
+  showPlayAction = true,
+  playLaterAction,
+  showTitle = false,
+}: PosterCardProps) {
   const defaultReleaseId = title.defaultReleaseId ?? null;
   const playback = useBrowserPlaybackAvailability(title.system.key);
 
@@ -45,16 +51,27 @@ export function PosterCard({ title, showPlayAction = true, playLaterAction }: Po
             }}
             fallback={<ArtworkFallback name={title.name} />}
             missingArtworkLabel={
-              <Text
-                className="romd-card-title romd-poster-fallback-name"
-                lineClamp={4}
-                title={title.name}
-              >
-                {title.name}
-              </Text>
+              showTitle ? null : (
+                <Text
+                  className="romd-card-title romd-poster-fallback-name"
+                  lineClamp={4}
+                  title={title.name}
+                >
+                  {title.name}
+                </Text>
+              )
             }
           />
         </GamePosterSurface>
+        {showTitle && (
+          <Text
+            className="romd-metadata romd-poster-caption"
+            lineClamp={1}
+            title={title.name}
+          >
+            {title.name}
+          </Text>
+        )}
       </Box>
 
       {playLaterAction && <Box className="romd-poster-play-later">{playLaterAction}</Box>}

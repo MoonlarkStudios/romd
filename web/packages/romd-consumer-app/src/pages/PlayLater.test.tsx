@@ -285,7 +285,8 @@ describe('Play Later', () => {
       },
     );
     const save = await screen.findByRole('button', {
-      name: 'Add to Play Later for Super Mario Bros.',
+      name: 'Play Later for Super Mario Bros.',
+      pressed: false,
     });
     const title = screen.getByRole('link', {
       name: mario.name,
@@ -308,8 +309,10 @@ describe('Play Later', () => {
     expect(save).toHaveFocus();
     await user.keyboard('{Enter}');
     const remove = await screen.findByRole('button', {
-      name: 'Remove from Play Later for Super Mario Bros.',
+      name: 'Play Later for Super Mario Bros.',
+      pressed: true,
     });
+    expect(remove).toBe(save);
     expect(remove).toHaveFocus();
     expect(
       screen.getByRole('heading', {
@@ -326,7 +329,8 @@ describe('Play Later', () => {
     );
     expect(
       screen.getByRole('button', {
-        name: 'Remove from Play Later for Super Mario Bros.',
+        name: 'Play Later for Super Mario Bros.',
+        pressed: true,
       }),
     ).toBeInTheDocument();
 
@@ -356,25 +360,26 @@ describe('Play Later', () => {
         level: 1,
       }),
     ).toBeInTheDocument();
-    await user.click(
-      await screen.findByRole('link', {
-        name: mario.name,
-      }),
-    );
+    const savedTitle = await screen.findByRole('link', {
+      name: mario.name,
+    });
+    expect(within(savedTitle).getByText(mario.name)).toBeVisible();
+    await user.click(savedTitle);
     expect(
       await screen.findByRole('link', {
         name: 'Play Later',
       }),
     ).toHaveAttribute('href', '/play-later');
 
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'Remove from Play Later',
-      }),
-    );
+    const savedButton = await screen.findByRole('button', {
+      name: 'Saved, remove from Play Later',
+    });
+    expect(savedButton).toHaveTextContent('Saved');
+    await user.click(savedButton);
     expect(
       await screen.findByRole('button', {
-        name: 'Add to Play Later',
+        name: 'Play Later',
+        exact: true,
       }),
     ).toHaveFocus();
     await user.click(
@@ -484,7 +489,7 @@ describe('Play Later', () => {
     );
     await user.click(
       await screen.findByRole('button', {
-        name: 'Remove from Play Later',
+        name: 'Saved, remove from Play Later',
       }),
     );
     await waitFor(() =>
@@ -506,7 +511,7 @@ describe('Play Later', () => {
     );
     expect(
       screen.queryByRole('button', {
-        name: 'Remove from Play Later',
+        name: 'Saved, remove from Play Later',
       }),
     ).not.toBeInTheDocument();
     await user.click(

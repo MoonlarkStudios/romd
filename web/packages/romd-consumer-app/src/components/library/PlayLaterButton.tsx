@@ -52,14 +52,17 @@ export function PlayLaterButton({ title, membership, compact }: PlayLaterButtonP
     onClick: handleClick,
   };
   if (!compact) {
+    const caption = saved ? 'Saved' : 'Play Later';
     return (
       <Button
         size="md"
-        variant="default"
+        variant="subtle"
+        color="gray"
+        aria-label={saved && !retry ? 'Saved, remove from Play Later' : undefined}
         leftSection={icon}
         {...control}
       >
-        {label}
+        {retry || loading ? label : caption}
       </Button>
     );
   }
@@ -73,9 +76,12 @@ export function PlayLaterButton({ title, membership, compact }: PlayLaterButtonP
       }}
     >
       <ActionIcon
-        variant="default"
-        size={36}
-        aria-label={`${label} for ${title.name}`}
+        className="romd-play-later-icon"
+        variant="transparent"
+        radius="xl"
+        size={44}
+        aria-label={`${retry || loading ? label : 'Play Later'} for ${title.name}`}
+        aria-pressed={retry ? undefined : saved}
         {...control}
       >
         {icon}

@@ -46,6 +46,9 @@
   color: var(--romd-text-strong);
   overflow-wrap: anywhere;
 }
+.romd-poster-caption {
+  margin: var(--mantine-spacing-xs);
+}
 .romd-poster::after {
   content: '';
   position: absolute;
@@ -66,9 +69,49 @@
 }
 .romd-poster-play-later {
   position: absolute;
-  inset-block-start: var(--mantine-spacing-xs);
-  inset-inline-end: var(--mantine-spacing-xs);
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
   z-index: 2;
+}
+.romd-play-later-icon {
+  background: transparent;
+  color: var(--romd-text-muted);
+  isolation: isolate;
+}
+.romd-play-later-icon[aria-pressed='true'],
+.romd-poster-play-later .romd-play-later-icon {
+  color: var(--romd-text-strong);
+}
+/* Paint a smaller circle inside the full tap target. */
+.romd-play-later-icon::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.romd-poster-play-later .romd-play-later-icon::before {
+  background: color-mix(in srgb, var(--romd-portal-surface) 90%, transparent);
+}
+.romd-play-later-icon:focus-visible::before,
+.romd-play-later-icon:active:not([aria-disabled])::before {
+  background: var(--romd-portal-overlay);
+}
+@media (hover: hover) {
+  .romd-play-later-icon:hover:not([aria-disabled])::before {
+    background: var(--romd-portal-overlay);
+  }
+}
+@media (hover: hover) and (pointer: fine) and (not (any-pointer: coarse)) {
+  .romd-poster-play-later .romd-play-later-icon {
+    transition: opacity var(--romd-duration-focus) var(--romd-ease-standard);
+  }
+  .romd-poster:not(:hover, :focus-within)
+    .romd-poster-play-later .romd-play-later-icon[aria-pressed='false']:not([aria-busy]) {
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 .romd-poster .romd-poster-play {
   opacity: 0;
@@ -107,6 +150,7 @@
   .romd-poster,
   .romd-poster::after,
   .romd-poster .romd-poster-play,
+  .romd-poster-play-later .romd-play-later-icon,
   .romd-rail-arrow,
   .romd-version-row {
     transition: none;

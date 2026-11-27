@@ -82,6 +82,7 @@ export function PlayLater() {
               key={title.id}
               title={title}
               showPlayAction={false}
+              showTitle
             />
           ))}
         </SimpleGrid>
