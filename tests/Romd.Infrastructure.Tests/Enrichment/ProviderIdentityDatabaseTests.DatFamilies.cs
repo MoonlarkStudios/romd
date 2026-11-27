@@ -87,6 +87,8 @@ public sealed partial class ProviderIdentityDatabaseTests
         matched.DatFamily.ShouldNotBeNull().RequiresReview.ShouldBeFalse();
         matched.DatFamily!.Names.ShouldBe(["Root (USA)", "Game", "Other Release (Japan)"]);
         matched.Facts.Names.ShouldBe(["Game"]);
+        matched.DatLookupNames["Root (USA)"].ShouldBe("Root");
+        matched.DatLookupNames["Other Release (Japan)"].ShouldBe("Other Release");
         matched.Fingerprint.ShouldNotBe(unmatched.Fingerprint);
         (await store.ReadTrustedAsync(1, "a", default)).ShouldBeNull();
     }

@@ -70,6 +70,20 @@ public sealed class ProviderIdentityPolicyTests
     [InlineData("Game-Boy", "Game Boy")]
     public void Decide_DistinctTitleMeaning_RemainsDistinct(string local, string remote) =>
         ProviderIdentityPolicy.Decide(Facts(local), new IdentitySearchEvidence([Candidate(name: remote)], true)).State.ShouldBe("NeedsReview");
+
+    [Theory]
+    [InlineData(ProviderIdentityScope.CrossPlatformArtwork, "Game: Subtitle", true)]
+    [InlineData(ProviderIdentityScope.Release, "Game: Subtitle", false)]
+    [InlineData(ProviderIdentityScope.CrossPlatformArtwork, "Game Remastered", false)]
+    public void Decide_CorroboratingTitle_RespectsScopeAndEdition(ProviderIdentityScope scope, string name, bool eligible)
+    {
+        var decision = ProviderIdentityPolicy.Decide(Facts(), new IdentitySearchEvidence([Candidate(name: name)], false,
+            corroboratingArtworkTitle: name), scope);
+
+        decision.State.ShouldBe("NeedsReview");
+        decision.Candidates.ShouldHaveSingleItem().Eligible.ShouldBe(eligible);
+    }
+
     [Fact]
     public void Decide_ArtworkUniqueExactNameWithoutDateOrPlatform_Accepts()
     {

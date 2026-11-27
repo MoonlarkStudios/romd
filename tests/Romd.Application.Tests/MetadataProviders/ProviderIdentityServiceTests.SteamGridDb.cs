@@ -33,7 +33,7 @@ public sealed partial class ProviderIdentityServiceTests
         decision.ProvisionalGameId.ShouldBe(provisionalGameId);
         decision.Explanation.ShouldContain(provisionalGameId is null
             ? "1991, supported by the trusted IGDB release on the local platform"
-            : "Provider search evidence is incomplete");
+            : "ROMD can use this artwork provisionally");
         decision.Candidates.Select(candidate => candidate.Game.Id).ShouldBe(["35571", "1"]);
         decision.Candidates[0].Score.ShouldBe(decision.Candidates[1].Score);
         decision.Candidates[0].Evidence.ShouldContain("Release year matches the trusted IGDB game on the local platform.");
@@ -41,6 +41,158 @@ public sealed partial class ProviderIdentityServiceTests
         decision.LocalEvidence.ShouldNotBeNull().Years.ShouldBeEmpty();
         decision.Dependencies.ShouldNotBeNull().ShouldHaveSingleItem().ShouldBe(new("igdb", "3192", igdb.Revision));
         _accepted.ShouldBe(provisionalGameId is null ? original : null);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiscoverAsync_SteamGridDbDatReleaseAnnotations_UsesBudgetForDistinctNames(bool undatedContender)
+    {
+        const string title = "Donkey Kong Country 2 - Diddy's Kong Quest";
+        const string alternate = "Super Donkey Kong 2";
+        var release = new ProviderGame("36688", "Donkey Kong Country 2: Diddy's Kong Quest", "https://provider.test/game", Year: 1995);
+        var differentGame = new ProviderGame("22131", "Donkey Kong Country 3: Dixie Kong's Double Trouble!",
+            "https://provider.test/game", Year: 1996);
+        var igdb = new ProviderIdentityLink("igdb", "1092", true, false, true, Guid.NewGuid(), null, null, null)
+        {
+            TrustedGame = new("1092", release.Name, "https://provider.test/igdb", Year: 1995, Releases: [new(1995, "SNES")])
+        };
+        string[] aliases =
+        [
+            $"{title} (Europe) (En,Fr) (Rev 1)",
+            $"{title} (Europe) (En,Fr) (Rev 1) (Virtual Console)",
+            $"{title} (Germany) (En,De)",
+            $"{title} (Germany) (En,De) (Rev 1) (Virtual Console)",
+            $"{title} (USA) (En,Fr)",
+            $"{title} (USA) (En,Fr) (Rev 1) (Virtual Console)",
+            $"{title} (USA, Europe) (En,Fr) (Rev 1) (Switch Online)",
+            alternate
+        ];
+        var service = Create(title, aliases, query => ErrorOrFactory.From<IReadOnlyList<ProviderGame>>(
+                query == alternate.ToUpperInvariant() && undatedContender
+                    ? [new("undated", alternate, "https://provider.test/game")]
+                    : [release, differentGame]),
+            [igdb], completeness: ProviderGameSearchCompleteness.ProviderLimited, providerId: "steamgriddb",
+            datFamily: new([$"{title} (USA) (En,Fr)"], false), years: [],
+            datLookupNames: aliases[..^1].ToDictionary(name => name, _ => title, StringComparer.Ordinal));
+        _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+
+        await service.DiscoverAsync(1, null, default);
+
+        _queries.ShouldBe([title.ToUpperInvariant(), "DONKEY KONG COUNTRY 2 DIDDY'S KONG QUEST",
+            release.Name.ToUpperInvariant(), alternate.ToUpperInvariant()]);
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.ProvisionalGameId.ShouldBe(undatedContender ? null : "36688");
+        decision.Candidates[0].Game.ShouldBe(release);
+        decision.LocalEvidence.ShouldNotBeNull().Names.ShouldBe(aliases);
+        decision.Dependencies.ShouldNotBeNull().ShouldHaveSingleItem().ShouldBe(new("igdb", "1092", igdb.Revision));
+        _accepted.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task DiscoverAsync_TurtlesInTimeDatBetaEntries_ReuseRetailSearchQueries()
+    {
+        const string title = "Teenage Mutant Ninja Turtles IV - Turtles in Time";
+        var game = new ProviderGame("33864", "Teenage Mutant Ninja Turtles IV: Turtles in Time", "https://provider.test/game", Year: 1992);
+        var igdb = new ProviderIdentityLink("igdb", "14697", true, false, true, Guid.NewGuid(), null, null, null)
+        {
+            TrustedGame = game with { Id = "14697", Releases = [new(1992, "SNES")] }
+        };
+        string[] releases = [$"{title} (Australia)", $"{title} (USA)", $"{title} (USA) (Beta 1)",
+            $"{title} (USA) (Beta 2)", $"{title} (USA) (The Cowabunga Collection)"];
+        var service = Create(title, releases, _ => ErrorOrFactory.From<IReadOnlyList<ProviderGame>>([game]), [igdb],
+            completeness: ProviderGameSearchCompleteness.ProviderLimited, datFamily: new([$"{title} (USA)"], false),
+            providerId: "steamgriddb", years: [],
+            datLookupNames: releases[..^1].ToDictionary(name => name, _ => title, StringComparer.Ordinal));
+        _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+
+        await service.DiscoverAsync(1, null, default);
+
+        var baseQuery = "TEENAGE MUTANT NINJA TURTLES IV TURTLES IN TIME";
+        var taggedQuery = " (THE COWABUNGA COLLECTION)";
+        _queries.ShouldBe([title.ToUpperInvariant(), baseQuery, game.Name.ToUpperInvariant(),
+            title.ToUpperInvariant() + taggedQuery, baseQuery + taggedQuery]);
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.ProvisionalGameId.ShouldBe(game.Id);
+        decision.LocalEvidence.ShouldNotBeNull().Names.ShouldBe(releases);
+        _accepted.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(ProviderGameSearchCompleteness.ProviderLimited, false)]
+    [InlineData(ProviderGameSearchCompleteness.Complete, false)]
+    [InlineData(ProviderGameSearchCompleteness.Complete, true)]
+    public async Task DiscoverAsync_ZeldaTrustedTitleAndPlatformAlias_RequiresProvisionalEvidence(
+        ProviderGameSearchCompleteness completeness, bool undatedContender)
+    {
+        const string title = "Legend of Zelda, The - A Link to the Past";
+        const string providerTitle = "The Legend of Zelda: A Link to the Past";
+        var game = new ProviderGame("38124", providerTitle, "https://provider.test/game", Year: 1991);
+        var igdb = new ProviderIdentityLink("igdb", "1026", true, false, true, Guid.NewGuid(), null, null, null)
+        {
+            TrustedGame = game with { Id = "1026", Releases = [new(1991, "Super Famicom"), new(1992, "SNES")] }
+        };
+        ArtworkPlatformAlias[] aliases = [new(59, "Super Famicom")];
+        var service = Create(title, [$"{title} (France) (Beta 1)"], query => ErrorOrFactory.From<IReadOnlyList<ProviderGame>>(
+                query == providerTitle.ToUpperInvariant() ? [game] : undatedContender ? [game with { Id = "undated", Name = title, Year = null }] : []),
+            [igdb], completeness: completeness, datFamily: new([$"{title} (USA)"], false),
+            providerId: "steamgriddb", years: [], artworkPlatformAliases: aliases,
+            datLookupNames: new Dictionary<string, string> { [$"{title} (France) (Beta 1)"] = title });
+        _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+
+        await service.DiscoverAsync(1, null, default);
+
+        _queries.ShouldContain(providerTitle.ToUpperInvariant());
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.ProvisionalGameId.ShouldBe(undatedContender ? null : game.Id);
+        decision.Candidates[0].Game.ShouldBe(game);
+        decision.Candidates[0].Evidence.ShouldContain("Name matches the trusted provider title on the local system.");
+        decision.LocalEvidence.ShouldNotBeNull().Names.ShouldNotContain(providerTitle);
+        decision.Dependencies.ShouldNotBeNull().ShouldHaveSingleItem().ShouldBe(new("igdb", "1026", igdb.Revision));
+        if (undatedContender)
+            decision.ArtworkPlatformAliases.ShouldBeNull();
+        else
+            decision.ArtworkPlatformAliases.ShouldBe(aliases);
+        _accepted.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DiscoverAsync_PhantasyStarIVTrustedTitle_FindsUndatedGameForReview(bool trusted)
+    {
+        const string title = "Phantasy Star IV";
+        const string providerTitle = "Phantasy Star IV: The End of the Millennium";
+        var game = new ProviderGame("39080", providerTitle, "https://provider.test/game");
+        var igdb = new ProviderIdentityLink("igdb", "1230", false, false, trusted, Guid.NewGuid(), null, null, null)
+        {
+            TrustedGame = game with { Id = "1230", Year = 1993, Releases = [new(1993, "Genesis")] }
+        };
+        var service = Create(title, [$"{title} (USA) (Sample)"], query => ErrorOrFactory.From<IReadOnlyList<ProviderGame>>(
+                query == providerTitle.ToUpperInvariant() ? [game] : []),
+            [igdb], completeness: ProviderGameSearchCompleteness.ProviderLimited, datFamily: new([$"{title} (USA)"], false),
+            providerId: "steamgriddb", years: [], platforms: ["genesis"],
+            datLookupNames: new Dictionary<string, string> { [$"{title} (USA) (Sample)"] = title });
+        _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+
+        await service.DiscoverAsync(1, null, default);
+
+        _queries.Contains(providerTitle.ToUpperInvariant()).ShouldBe(trusted);
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.ProvisionalGameId.ShouldBeNull();
+        if (trusted)
+        {
+            var candidate = decision.Candidates.ShouldHaveSingleItem();
+            candidate.Game.ShouldBe(game);
+            candidate.Conflicts.ShouldBeEmpty();
+        }
+        else
+            decision.Candidates.ShouldBeEmpty();
+        _accepted.ShouldBeNull();
     }
 
     [Theory]
@@ -215,7 +367,7 @@ public sealed partial class ProviderIdentityServiceTests
             [], cachedDependencies)
         {
             ProvisionalPolicyVersion = scenario == "previous provisional policy" ? null : ProvisionalProviderMatchPolicy.Version,
-            ArtworkReleasePolicyVersion = scenario == "previous artwork policy" ? "steamgriddb-title-year-2" : "steamgriddb-title-year-3"
+            ArtworkReleasePolicyVersion = scenario == "previous artwork policy" ? "steamgriddb-title-year-4" : "steamgriddb-title-year-5"
         };
         var service = CreateSonicSteamGridDb([SonicGame("2", 1991)],
             [igdb with { Trusted = scenario != "lost trust" },

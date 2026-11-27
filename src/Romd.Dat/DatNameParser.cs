@@ -54,6 +54,44 @@ public static partial class DatNameParser
     [GeneratedRegex(@"\((.*?)\)")]
     private static partial Regex ParenthesesRegex();
 
+    // Match only known language codes here. Parse's broader language heuristic is
+    // useful for retaining annotations, but would strip labels such as (Pro).
+    [GeneratedRegex(@"^(?:En|Ja|Fr|De|Es|It|Nl|Pt|Sv|No|Da|Fi|Ru|Ko|Zh)(?:,\s*(?:En|Ja|Fr|De|Es|It|Nl|Pt|Sv|No|Da|Fi|Ru|Ko|Zh))*$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SearchLanguageCodes();
+
+    [GeneratedRegex(@"\A(?:Alpha|Beta|Proto(?:type)?|Demo|Preview|Sample)(?:[ \t-]+[0-9]+(?:\.[0-9]+)*)?\z",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SearchNonRetailAnnotation();
+
+    /// <summary>Removes known trailing release annotations for game-level lookups.</summary>
+    public static string StripReleaseAnnotations(string name, bool includeNonRetail = false)
+    {
+        var title = name.TrimEnd();
+        while (title.EndsWith(')'))
+        {
+            var start = title.LastIndexOf('(');
+            if (start < 2 || !char.IsWhiteSpace(title[start - 1]))
+                break;
+
+            var qualifier = title[(start + 1)..^1];
+            var tag = title[start..];
+            if (!IsReleaseAnnotation(qualifier, tag) && !(includeNonRetail && SearchNonRetailAnnotation().IsMatch(qualifier)))
+                break;
+
+            title = title[..start].TrimEnd();
+        }
+
+        return title;
+    }
+
+    private static bool IsReleaseAnnotation(string qualifier, string tag) =>
+        qualifier.Split(',', StringSplitOptions.TrimEntries).All(Regions.Contains) ||
+        SearchLanguageCodes().IsMatch(qualifier) ||
+        (RevisionRegex().IsMatch(tag) && !HasNonRetailQualifier(tag)) ||
+        qualifier.Equals("Virtual Console", StringComparison.OrdinalIgnoreCase) ||
+        qualifier.Equals("Switch Online", StringComparison.OrdinalIgnoreCase);
+
     public static ParsedNameMetadata Parse(string name, string? explicitCategory = null)
     {
         var regions = new List<string>();
