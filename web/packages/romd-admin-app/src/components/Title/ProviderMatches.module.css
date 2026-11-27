@@ -1,16 +1,40 @@
 .candidates {
+  margin-block-start: var(--mantine-spacing-xs);
   max-height: min(36vh, 24rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 .candidate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--mantine-spacing-xs);
   border-bottom: 1px solid var(--mantine-color-default-border);
-  padding: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-xs);
 }
+.candidate:last-child { border-bottom: 0; }
 .candidate[data-selected] { background: var(--mantine-primary-color-light); }
 .candidate:focus-within { outline: 2px solid var(--romd-admin-focus); outline-offset: -2px; }
-.preview { min-width: 0; padding-left: calc(var(--mantine-spacing-md) + var(--mantine-spacing-sm)); }
+.matchContext { overflow-wrap: anywhere; }
+.candidate :global(.mantine-Radio-labelWrapper) { flex: 1; min-inline-size: 0; }
+.candidate :global(.mantine-Radio-label) { display: block; cursor: pointer; }
+.pickerCandidateLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
+}
+.candidateEvidence {
+  grid-column: 1 / -1;
+  margin-inline-start: calc(1.25rem + var(--mantine-spacing-sm));
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+  overflow-wrap: anywhere;
+}
+.candidateEvidence summary { cursor: pointer; }
+.candidateEvidence[open] > summary { margin-block-end: calc(var(--mantine-spacing-xs) / 2); }
+.candidateEvidence summary:focus-visible { outline: 2px solid var(--romd-admin-focus); outline-offset: 2px; }
+.candidate > .candidateLink { margin-inline: 0; }
 /* The card-title role's strong text colour has no light-scheme value, so light schemes use the admin text colour. */
 .pickerHeading:global(.romd-card-title) { color: var(--mantine-color-text); }
 .pickerDialog { display: flex; flex-direction: column; overflow: hidden; }
@@ -34,7 +58,8 @@
 .actions button { height: auto; min-height: var(--button-height); white-space: normal; }
 
 .actions[data-inline] { bottom: var(--romd-admin-status-bar-height, 0px); }
-.actions[data-review] { background: var(--mantine-color-default); }
+.actions[data-review], .actions[data-modal] { background: var(--mantine-color-default); }
+.actions[data-modal] { padding-block: var(--mantine-spacing-xs); }
 :global([data-review-single]) .actions[data-review] { bottom: var(--romd-admin-status-bar-height, 0px); }
 :global([data-review-single]) .skip { padding-inline: var(--mantine-spacing-xs); }
 

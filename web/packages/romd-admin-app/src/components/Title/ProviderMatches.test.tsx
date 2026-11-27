@@ -191,7 +191,7 @@ it('requires a preview selection before confirming a match and sends its revisio
   expect(save).not.toHaveBeenCalled();
   await user.click(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   );
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
@@ -262,7 +262,7 @@ it('requires a reload and renewed selection after a match conflict', async () =>
   );
   await user.click(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   );
   await user.click(
@@ -312,7 +312,7 @@ it('requires a reload and renewed selection after a match conflict', async () =>
   );
   await user.click(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   );
   await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
@@ -432,14 +432,40 @@ it('shows persisted candidates and independent evidence without repeating provid
       name: 'Review match',
     }),
   );
-  expect(screen.getByText('Two plausible editions.')).toBeInTheDocument();
-  expect(screen.getByText('Local title: Game · SNES · 1994')).toBeInTheDocument();
-  expect(screen.getByText('Conflict: Release year differs.')).toBeInTheDocument();
-  expect(
-    screen.getByRole('radio', {
-      name: 'Select The matching game',
+  const dialog = within(
+    screen.getByRole('dialog', {
+      name: 'Match Example provider',
     }),
-  ).toBeEnabled();
+  );
+  expect(dialog.getByText('Two plausible editions.')).toBeInTheDocument();
+  expect(
+    dialog.getByText('Game', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(
+    dialog.getAllByText('The matching game', {
+      exact: true,
+    }),
+  ).toHaveLength(1);
+  expect(dialog.queryByText('Select The matching game')).not.toBeInTheDocument();
+  expect(
+    dialog.getByRole('link', {
+      name: 'Open The matching game on Example provider',
+    }),
+  ).toHaveAttribute('href', game.url);
+  expect(dialog.getByText('Release year differs.')).not.toBeVisible();
+  const candidate = dialog.getByRole('radio', {
+    name: 'Select The matching game',
+  });
+  expect(candidate).toBeEnabled();
+  await userEvent.click(
+    dialog.getByText('The matching game', {
+      exact: true,
+    }),
+  );
+  expect(candidate).toBeChecked();
+  expect(dialog.getByText('Release year differs.')).toBeVisible();
 });
 
 it('offers confirmation directly and invalidates the permanent workbench after saving', async () => {
@@ -735,12 +761,10 @@ it('does not preselect an uncertain suggestion and supports keyboard selection',
   ).toBeChecked();
   expect(
     screen.getByRole('button', {
-      name: 'Confirm Another edition',
+      name: 'Confirm match',
     }),
   ).toBeEnabled();
-  expect(
-    screen.getByText('Provider evidence: platform unknown · year unknown'),
-  ).toBeInTheDocument();
+  expect(screen.getByText('Release details unknown')).toBeInTheDocument();
 });
 
 it('guards dismissal of a selection and preserves it when editing continues', async () => {
@@ -912,7 +936,7 @@ it('locks the selected game and dismissal until confirmation completes', async (
   );
   await userEvent.click(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   );
   expect(
@@ -1141,7 +1165,7 @@ it('does not close a new provider picker when the previous save finishes late', 
   );
   await userEvent.click(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   );
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
@@ -1197,7 +1221,7 @@ it('resets a same-provider draft after a new accepted navigation request', async
   );
   expect(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   ).toBeEnabled();
   // The router changes location.key only after its unsaved-changes blocker allows navigation.
@@ -1269,7 +1293,7 @@ it.each([
   );
   expect(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   ).toBeEnabled();
 });
@@ -1449,7 +1473,7 @@ it('resolves a game ID or URL through the separate safe lookup resource', async 
   );
   expect(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   ).toBeEnabled();
   expect(lookup).toHaveBeenCalledOnce();
@@ -1722,7 +1746,7 @@ it.each([
   );
   expect(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   ).toBeEnabled();
   rerender(view(true));
@@ -1781,7 +1805,7 @@ it('opens review with the provisional match selected and offers explicit rejecti
   ).toBeChecked();
   expect(
     screen.getByRole('button', {
-      name: 'Confirm The matching game',
+      name: 'Confirm match',
     }),
   ).toBeEnabled();
   await user.click(

@@ -75,73 +75,6 @@ function releaseYearsOnSystem(game: ProviderGame, matchesSystem: (platform: stri
   ].sort((left, right) => left - right);
 }
 
-function GamePreview({ game, showDetails = true }: { game: ProviderGame; showDetails?: boolean }) {
-  const platformLabels = usePlatformLabels();
-  return (
-    <Group
-      gap="sm"
-      wrap="nowrap"
-      align="center"
-      style={{
-        minWidth: 0,
-      }}
-    >
-      {game.thumbnailUrl && (
-        <Image
-          src={game.thumbnailUrl}
-          alt=""
-          w={40}
-          h={56}
-          fit="contain"
-          referrerPolicy="no-referrer"
-          style={{
-            flexShrink: 0,
-          }}
-        />
-      )}
-      <Stack
-        gap={2}
-        style={{
-          minWidth: 0,
-        }}
-      >
-        <Anchor
-          href={game.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          size="sm"
-          style={{
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {game.name}{' '}
-          <IconExternalLink
-            size={13}
-            aria-label="Open provider page"
-          />
-        </Anchor>
-        {showDetails && (
-          <Text
-            size="xs"
-            c="dimmed"
-            style={{
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {[
-              game.year,
-              ...platformLabels(game.platforms),
-              `#${game.id}`,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-        )}
-      </Stack>
-    </Group>
-  );
-}
-
 function ProviderIdentifier({
   provider,
   id,
@@ -570,11 +503,21 @@ function ProviderMatchPickerContent({
         </div>
       ) : (
         <>
-          <Text size="sm">
-            Local title: {local?.name ?? titleName} ·{' '}
-            {local?.platforms.length ? local.platforms.join(' / ') : 'platform unknown'} ·{' '}
-            {local?.years.length ? local.years.join(', ') : 'year unknown'}
-          </Text>
+          <div className={classes.matchContext}>
+            <Text
+              size="sm"
+              fw={600}
+            >
+              {local?.name ?? titleName}
+            </Text>
+            <Text
+              size="xs"
+              c="dimmed"
+            >
+              {platformLabels(local?.platforms)[0] ?? 'Platform unknown'} ·{' '}
+              {local?.years.length ? local.years.join(', ') : 'Release year unknown'}
+            </Text>
+          </div>
           {!conflicted && lookup}
         </>
       )}
@@ -758,34 +701,82 @@ function ProviderMatchPickerContent({
                   </div>
                 );
               }
+              const release = [
+                ...platformLabels(game.platforms),
+                game.year,
+              ]
+                .filter((value) => value != null)
+                .join(' · ');
+              const conflicts = evidence?.conflicts ?? [];
+              const signals = evidence?.evidence ?? [];
+              const isSelected = selected?.id === game.id;
+              const descriptionId = `${candidateEvidence}-${game.id}`;
               return (
                 <div
                   key={game.id}
                   className={classes.candidate}
-                  data-selected={selected?.id === game.id || undefined}
+                  data-selected={isSelected || undefined}
                 >
                   <Radio
                     value={game.id}
-                    label={`Select ${game.name}`}
+                    aria-label={`Select ${game.name}`}
+                    aria-describedby={descriptionId}
                     disabled={inputsLocked || search.isPending || conflicted}
+                    label={
+                      <span className={classes.pickerCandidateLabel}>
+                        {game.thumbnailUrl && <MatchCover url={game.thumbnailUrl} />}
+                        <span className={classes.candidateText}>
+                          <Text
+                            component="span"
+                            size="sm"
+                            fw={600}
+                          >
+                            {game.name}
+                          </Text>
+                          <Text
+                            id={descriptionId}
+                            component="span"
+                            size="xs"
+                            c="dimmed"
+                          >
+                            {release || 'Release details unknown'}
+                          </Text>
+                        </span>
+                      </span>
+                    }
                   />
-                  <div className={classes.preview}>
-                    <GamePreview
-                      game={game}
-                      showDetails={false}
-                    />
-                    <Text
-                      size="xs"
-                      c="dimmed"
+                  {game.url && (
+                    <Anchor
+                      className={classes.candidateLink}
+                      href={game.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open ${game.name} on ${row.providerName}`}
                     >
-                      Provider evidence:{' '}
-                      {game.platforms?.length
-                        ? platformLabels(game.platforms).join(' / ')
-                        : 'platform unknown'}{' '}
-                      · {game.year ?? 'year unknown'}
-                    </Text>
-                    {showEvidence &&
-                      evidence?.evidence.map((value) => (
+                      <IconExternalLink
+                        size={16}
+                        aria-hidden="true"
+                      />
+                    </Anchor>
+                  )}
+                  {showEvidence && (signals.length > 0 || conflicts.length > 0) && (
+                    <details
+                      className={classes.candidateEvidence}
+                      open={(isSelected && conflicts.length > 0) || undefined}
+                    >
+                      <summary>
+                        {conflicts.length ? 'Why it differs' : 'Supporting evidence'}
+                      </summary>
+                      {conflicts.map((value) => (
+                        <Text
+                          key={value}
+                          size="xs"
+                          c="orange"
+                        >
+                          {value}
+                        </Text>
+                      ))}
+                      {signals.map((value) => (
                         <Text
                           key={value}
                           size="xs"
@@ -794,25 +785,8 @@ function ProviderMatchPickerContent({
                           {value}
                         </Text>
                       ))}
-                    {showEvidence &&
-                      evidence?.conflicts.map((value) => (
-                        <Text
-                          key={value}
-                          size="xs"
-                          c="orange"
-                        >
-                          Conflict: {value}
-                        </Text>
-                      ))}
-                    {selected?.id === game.id && (
-                      <Badge
-                        size="xs"
-                        variant="light"
-                      >
-                        Selected
-                      </Badge>
-                    )}
-                  </div>
+                    </details>
+                  )}
                 </div>
               );
             })}
@@ -874,6 +848,7 @@ function ProviderMatchPickerContent({
         className={classes.actions}
         data-inline={(inline && !review) || undefined}
         data-review={!!review || undefined}
+        data-modal={(!inline && !review) || undefined}
       >
         {stale && review && (
           <Alert
@@ -965,11 +940,7 @@ function ProviderMatchPickerContent({
                     }).catch(() => undefined);
                 }}
               >
-                {choosingAlternative && replacing
-                  ? 'Replace match'
-                  : review || reviewingSuggestion || !target
-                    ? 'Confirm match'
-                    : `Confirm ${target.name}`}
+                {choosingAlternative && replacing ? 'Replace match' : 'Confirm match'}
               </Button>
             )
           )}
