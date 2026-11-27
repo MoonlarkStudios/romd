@@ -244,6 +244,17 @@ leaves the fingerprint unchanged, while activation and changes to the active
 match set can revoke automatic trust. Titles without hash-backed evidence
 continue to use the name and year fingerprint.
 
+IGDB can earn automatic trust when the active DAT has no release year. A
+complete, consistent search must find one conflict-free candidate with a dated
+release on the title's system. Its title must match both the catalog title and
+every hash-matched DAT release's title after stripping known release
+annotations. The matched releases must all be retail. Clone ancestors and
+lookup aliases can help find candidates. Full enrichment can grant this trust
+and fetch the metadata. An artwork-only refresh can revalidate an existing
+trusted link while preserving still-current provisional metadata. The decision
+has the same active-DAT fingerprint and review actions as other automatic
+matches.
+
 Discovery reads facts and fingerprints in a consistent database snapshot. Import
 publication checks trust directly in its existing mutation transaction. The new
 fingerprint encoding invalidates legacy automatic decisions for reassessment;

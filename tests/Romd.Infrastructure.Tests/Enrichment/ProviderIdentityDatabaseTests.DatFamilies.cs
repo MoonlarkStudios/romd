@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -86,11 +87,72 @@ public sealed partial class ProviderIdentityDatabaseTests
         var matched = (await store.ReadAsync(1, default)).ShouldNotBeNull();
         matched.DatFamily.ShouldNotBeNull().RequiresReview.ShouldBeFalse();
         matched.DatFamily!.Names.ShouldBe(["Root (USA)", "Game", "Other Release (Japan)"]);
+        matched.DatFamily.MatchedRetailTitles.ShouldBe(["Game", "Other Release"]);
         matched.Facts.Names.ShouldBe(["Game"]);
         matched.DatLookupNames["Root (USA)"].ShouldBe("Root");
         matched.DatLookupNames["Other Release (Japan)"].ShouldBe("Other Release");
         matched.Fingerprint.ShouldNotBe(unmatched.Fingerprint);
         (await store.ReadTrustedAsync(1, "a", default)).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task DiscoverAsync_IgdbRetailMatchReevaluatesCachedReviewAndLosesTrustWhenDatIsPaused()
+    {
+        await using var db = _database.CreateContext();
+        await Seed(db);
+        await AddFamilyRom(db);
+        db.DatRoms.Add(MatchedRom(1));
+        await db.SaveChangesAsync();
+        await db.DatGames.Where(game => game.Id == 1).ExecuteUpdateAsync(update => update
+            .SetProperty(game => game.Name, "Game (USA) (Rev 1)")
+            .SetProperty(game => game.Category, "Games")
+            .SetProperty(game => game.Year, (string?)null));
+        db.ChangeTracker.Clear();
+
+        var provider = Substitute.For<IProviderIdentityAdapter>();
+        provider.Id.Returns("igdb");
+        provider.Capabilities.Returns(["metadata"]);
+        provider.GetAvailabilityAsync(default).Returns(new ProviderAvailability(true, true));
+        var game = new ProviderGame("42", "Game", "https://provider.test/game", Platforms: ["Test"], Releases: [new(1990, "Test")]);
+        var completeness = ProviderGameSearchCompleteness.ProviderLimited;
+        provider.SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => new ProviderGameSearchResult([game], completeness, 100));
+        var store = CreateFamilyStore(db);
+        var identity = new ProviderIdentityService(store, [provider], [], TimeProvider.System, new EfUnitOfWork(db),
+            NullLogger<ProviderIdentityService>.Instance);
+
+        await identity.DiscoverAsync(1, null, default);
+
+        var before = (await store.ReadAsync(1, default)).ShouldNotBeNull().Links.ShouldHaveSingleItem();
+        var review = before.Decision.ShouldNotBeNull();
+        review.ProvisionalGameId.ShouldBe("42");
+        var legacyDecision = JsonSerializer.Serialize(review with { IgdbRetailPolicyVersion = null });
+        await db.Set<TitleProviderMatchStateEntity>().ExecuteUpdateAsync(update =>
+            update.SetProperty(state => state.DecisionJson, legacyDecision));
+        completeness = ProviderGameSearchCompleteness.Complete;
+
+        await identity.DiscoverArtworkAsync(1, null, default);
+
+        (await store.ReadTrustedAsync(1, "igdb", default)).ShouldBeNull();
+        (await store.ReadAsync(1, default)).ShouldNotBeNull().Links.ShouldHaveSingleItem().Decision
+            .ShouldNotBeNull().ProvisionalGameId.ShouldBe("42");
+
+        await identity.DiscoverAsync(1, null, default);
+
+        (await store.ReadTrustedAsync(1, "igdb", default)).ShouldBe("42");
+        var trusted = (await store.ReadAsync(1, default)).ShouldNotBeNull().Links.ShouldHaveSingleItem();
+        trusted.Confirmed.ShouldBeFalse();
+        trusted.Revision.ShouldNotBe(before.Revision);
+        trusted.Decision.ShouldNotBeNull().RequiresIgdbRetailEvidence.ShouldBeTrue();
+
+        await db.CatalogSources.ExecuteUpdateAsync(update => update.SetProperty(source => source.Status, "Paused"));
+        (await store.ReadTrustedAsync(1, "igdb", default)).ShouldBeNull();
+        await identity.DiscoverAsync(1, null, default);
+
+        (await store.ReadTrustedAsync(1, "igdb", default)).ShouldBeNull();
+        var stale = (await store.ReadAsync(1, default)).ShouldNotBeNull().Links.ShouldHaveSingleItem();
+        stale.GameId.ShouldBe("42");
+        stale.Decision.ShouldNotBeNull().State.ShouldBe("NeedsReview");
     }
 
     [Fact]

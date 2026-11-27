@@ -30,7 +30,7 @@ public sealed class ArtworkMatchAuthorizationService(IProviderIdentityService id
     IEnumerable<IProviderIdentityAdapter> providers, IProviderMatchAuthorizationStore store) : IArtworkMatchAuthorizationService
 {
     public Task<ProviderIdentityDiscoveryResult> DiscoverAsync(int titleId, JobContext context, CancellationToken ct) =>
-        identities.DiscoverAsync(titleId, context, ct);
+        identities.DiscoverArtworkAsync(titleId, context, ct);
 
     public async Task<ArtworkMatchResolution?> ReadAsync(int titleId, string providerId, ArtworkRole role, CancellationToken ct)
     {
