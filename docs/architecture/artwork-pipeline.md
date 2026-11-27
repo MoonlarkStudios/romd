@@ -91,9 +91,13 @@ also folds recognized prerelease tags on DAT entries that reduce to the primary
 title. Persistence projects lookup names with `Romd.Dat` and retains the full
 names as identity evidence. Application uses that evidence to plan the bounded
 search. Discovery includes the current trusted
-IGDB game's primary title in that budget. An exact match to that name can support
-a provisional selection when the platform year agrees. Automatic acceptance
-from an exhaustive search still requires a local name match.
+IGDB game's primary title in that budget. When the primary search finds no
+plausible release, discovery can use the remaining budget for the trusted game's
+multi-word aliases. It searches the whole set of eligible aliases within that
+budget. A unique exact alias match with a corroborated release year can supply
+provisional artwork. The decision retains the IGDB association revision.
+An undated SteamGridDB candidate stays in review when discovery only has search
+evidence. A verified ID bridge can identify a game without a release year.
 
 A trusted IGDB release can corroborate the year if its platform label exactly
 matches a ROMD-owned name alias for the title's system, ignoring case. This

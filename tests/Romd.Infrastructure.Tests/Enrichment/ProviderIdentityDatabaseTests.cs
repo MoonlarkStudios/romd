@@ -223,10 +223,11 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
     }
 
     [Theory]
-    [InlineData(ProviderGameSearchCompleteness.Complete, "35571", null)]
-    [InlineData(ProviderGameSearchCompleteness.ProviderLimited, null, "35571")]
+    [InlineData(ProviderGameSearchCompleteness.Complete, "35571", null, false)]
+    [InlineData(ProviderGameSearchCompleteness.ProviderLimited, null, "35571", false)]
+    [InlineData(ProviderGameSearchCompleteness.ProviderLimited, null, "35571", true)]
     public async Task DiscoverAsync_SteamGridDbTitleYearMatch_RequiresCurrentIgdbAssociation(
-        ProviderGameSearchCompleteness completeness, string? trustedId, string? provisionalId)
+        ProviderGameSearchCompleteness completeness, string? trustedId, string? provisionalId, bool matchAlternateTitle)
     {
         await using var db = _database.CreateContext();
         await Seed(db);
@@ -238,7 +239,8 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         await db.SaveChangesAsync();
         await db.DatGames.Where(game => !game.IsBios).ExecuteUpdateAsync(update => update.SetProperty(game => game.Year, (string?)null));
         var revision = await AddAutomatic(db, "igdb", "3192");
-        var igdb = new ProviderGame("3192", "Game", "https://provider.test/game", Releases: [new(1991, "Test")]);
+        var igdb = new ProviderGame("3192", "Game", "https://provider.test/game",
+            Aliases: matchAlternateTitle ? ["Alternate Title"] : [], Releases: [new(1991, "Test")]);
         var igdbJson = JsonSerializer.Serialize(igdb);
         var states = db.Set<TitleProviderMatchStateEntity>();
         await states.Where(state => state.ProviderId == "igdb")
@@ -248,9 +250,13 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         provider.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
         provider.Capabilities.Returns(["artwork"]);
         provider.GetAvailabilityAsync(Arg.Any<CancellationToken>()).Returns(new ProviderAvailability(true, true));
+        var otherGame = new ProviderGame("1", "Game", "https://provider.test/game", Year: 2006);
+        var correctGame = new ProviderGame("35571", matchAlternateTitle ? "Alternate Title" : "Game", "https://provider.test/game", Year: 1991);
         provider.SearchAsync("GAME", Arg.Any<CancellationToken>()).Returns(new ProviderGameSearchResult(
-            [new("1", "Game", "https://provider.test/game", Year: 2006), new("35571", "Game", "https://provider.test/game", Year: 1991)],
-            completeness, 100));
+            matchAlternateTitle ? [otherGame] : [otherGame, correctGame], completeness, 100));
+        if (matchAlternateTitle)
+            provider.SearchAsync("ALTERNATE TITLE", Arg.Any<CancellationToken>())
+                .Returns(new ProviderGameSearchResult([correctGame], completeness, 100));
         var store = CreateFamilyStore(db);
         var artworkMatches = new TitleProviderMatchStore(db, TimeProvider.System);
         var service = new ProviderIdentityService(store, [provider], [], TimeProvider.System, new EfUnitOfWork(db),
@@ -258,7 +264,7 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
 
         await service.DiscoverAsync(1, null, default);
 
-        await provider.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await provider.Received(matchAlternateTitle ? 2 : 1).SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         (await store.ReadTrustedAsync(1, "steamgriddb", default)).ShouldBe(trustedId);
         var authorization = (await artworkMatches.ReadAuthorizationAsync(1, "steamgriddb", default))
             .ShouldBeOfType<ProviderMatchAuthorizationResult.Authorized>().Match;

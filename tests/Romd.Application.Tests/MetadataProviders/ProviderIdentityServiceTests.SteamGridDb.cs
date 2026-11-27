@@ -189,9 +189,117 @@ public sealed partial class ProviderIdentityServiceTests
             var candidate = decision.Candidates.ShouldHaveSingleItem();
             candidate.Game.ShouldBe(game);
             candidate.Conflicts.ShouldBeEmpty();
+            decision.Explanation.ShouldContain("no release year");
         }
         else
             decision.Candidates.ShouldBeEmpty();
+        _accepted.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(ProviderGameSearchCompleteness.Complete)]
+    [InlineData(ProviderGameSearchCompleteness.ProviderLimited)]
+    public async Task DiscoverAsync_FinalFantasyIIITrustedIgdbAlias_Selects1994Provisionally(
+        ProviderGameSearchCompleteness completeness)
+    {
+        const string title = "Final Fantasy III";
+        var wrong = new ProviderGame("5288929", title, "https://provider.test/game", Year: 1990);
+        var expected = new ProviderGame("8236", "Final Fantasy VI", "https://provider.test/game", Year: 1994);
+        var igdb = new ProviderIdentityLink("igdb", "426", false, false, true, Guid.NewGuid(), null, null, null)
+        {
+            TrustedGame = new("426", title, "https://provider.test/igdb", Year: 1994, Releases: [new(1994, "SNES")],
+                Aliases: ["FF6", "Final Fantasy 6", "Final Fantasy VI", "FINAL FANTASY III", "Final Fantasy 3", "FFVI"])
+        };
+        var service = Create(title, [], query => query == "FINAL FANTASY VI" ? new[] { expected } : new[] { wrong },
+            [igdb], completeness: completeness, datFamily: new([title], false), providerId: "steamgriddb", years: []);
+        _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+
+        await service.DiscoverAsync(1, null, default);
+
+        _queries.ShouldBe(["FINAL FANTASY III", "FINAL FANTASY 3", "FINAL FANTASY 6", "FINAL FANTASY VI"]);
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.ProvisionalGameId.ShouldBe(expected.Id);
+        decision.Candidates.Select(candidate => candidate.Game.Id).ShouldBe([expected.Id, wrong.Id]);
+        decision.Explanation.ShouldContain("trusted IGDB alias");
+        decision.LocalEvidence.ShouldNotBeNull().Names.ShouldBeEmpty();
+        decision.Dependencies.ShouldNotBeNull().ShouldHaveSingleItem().ShouldBe(new("igdb", "426", igdb.Revision));
+        _accepted.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("untrusted", false)]
+    [InlineData("wrong system", false)]
+    [InlineData("ambiguous DAT", false)]
+    [InlineData("budget exceeded", false)]
+    [InlineData("undated primary", false)]
+    [InlineData("competing alias", true)]
+    [InlineData("undated alias", true)]
+    [InlineData("wrong year", true)]
+    [InlineData("edition conflict", true)]
+    [InlineData("provider cap", true)]
+    public async Task DiscoverAsync_FinalFantasyIIIAliasWithoutSufficientEvidence_StaysInReview(string scenario,
+        bool searchesAlias)
+    {
+        const string title = "Final Fantasy III";
+        const string alternate = "Final Fantasy VI";
+        var alias = new ProviderGame("8236", scenario == "edition conflict" ? alternate + " Remastered" : alternate,
+            "https://provider.test/game", Year: scenario == "undated alias" ? null : scenario == "wrong year" ? 1995 : 1994);
+        var original = new ProviderGame("5288929", title, "https://provider.test/game",
+            Year: scenario == "undated primary" ? null : 1990);
+        var igdb = new ProviderIdentityLink("igdb", "426", false, false, scenario != "untrusted", Guid.NewGuid(), null, null, null)
+        {
+            TrustedGame = new("426", title, "https://provider.test/igdb",
+                Releases: [new(1994, scenario == "wrong system" ? "PS5" : "SNES")],
+                Aliases: scenario == "budget exceeded"
+                    ? [alternate, "Alias One", "Alias Two", "Alias Three", "Alias Four", "Alias Five"]
+                    : [alternate])
+        };
+        ProviderGame[] aliasResults = scenario == "competing alias" ? [alias, alias with { Id = "9999" }] : [alias];
+        var service = Create(title, [], query => query == "FINAL FANTASY VI" ? aliasResults : [original],
+            [igdb], completeness: ProviderGameSearchCompleteness.ProviderLimited,
+            datFamily: new([title], scenario == "ambiguous DAT"), providerId: "steamgriddb", years: []);
+        _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+        if (scenario == "provider cap")
+            _adapter.SearchAsync("FINAL FANTASY VI", Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    _queries.Add("FINAL FANTASY VI");
+                    return (ErrorOr<ProviderGameSearchResult>)new ProviderGameSearchResult([alias], ProviderGameSearchCompleteness.BudgetLimited, 1);
+                });
+
+        await service.DiscoverAsync(1, null, default);
+
+        _queries.ShouldBe(searchesAlias ? ["FINAL FANTASY III", "FINAL FANTASY VI"] : ["FINAL FANTASY III"]);
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.ProvisionalGameId.ShouldBeNull();
+        _accepted.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData("ToeJam & Earl", "ToeJam & Earl", "34242", 1991)]
+    [InlineData("Shinobi III - Return of the Ninja Master", "Shinobi III : Return of the Ninja Master", "36280", 1993)]
+    public async Task DiscoverAsync_SteamGridDbUndatedExactTitle_ExplainsWhyTheGameNeedsReview(
+        string title, string providerTitle, string id, int year)
+    {
+        var game = new ProviderGame(id, providerTitle, "https://provider.test/game");
+        var igdb = new ProviderIdentityLink("igdb", "1230", false, false, true, Guid.NewGuid(), null, null, null)
+        {
+            TrustedGame = new("1230", title, "https://provider.test/igdb", Releases: [new(year, "Genesis")])
+        };
+        var service = Create(title, [], _ => new[] { game }, [igdb],
+            completeness: ProviderGameSearchCompleteness.ProviderLimited, datFamily: new([title], false),
+            providerId: "steamgriddb", years: [], platforms: ["genesis"]);
+        _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
+
+        await service.DiscoverAsync(1, null, default);
+
+        var decision = _decision.ShouldNotBeNull();
+        decision.State.ShouldBe("NeedsReview");
+        decision.Candidates.ShouldHaveSingleItem().Game.ShouldBe(game);
+        decision.Explanation.ShouldContain("no release year");
+        decision.ProvisionalGameId.ShouldBeNull();
         _accepted.ShouldBeNull();
     }
 
@@ -331,10 +439,12 @@ public sealed partial class ProviderIdentityServiceTests
         _accepted.ShouldBeNull();
     }
 
-    [Fact]
-    public async Task DiscoverAsync_SteamGridDbVerifiedBridge_PreservesAutomaticAcceptance()
+    [Theory]
+    [InlineData(1991)]
+    [InlineData(null)]
+    public async Task DiscoverAsync_SteamGridDbVerifiedBridge_PreservesAutomaticAcceptance(int? year)
     {
-        var original = SonicGame("2", 1991);
+        var original = SonicGame("2", year);
         var bridge = Substitute.For<IArtworkIdentityBridge>();
         bridge.SourceProviderId.Returns("igdb");
         bridge.TargetProviderId.Returns("steamgriddb");
@@ -367,7 +477,7 @@ public sealed partial class ProviderIdentityServiceTests
             [], cachedDependencies)
         {
             ProvisionalPolicyVersion = scenario == "previous provisional policy" ? null : ProvisionalProviderMatchPolicy.Version,
-            ArtworkReleasePolicyVersion = scenario == "previous artwork policy" ? "steamgriddb-title-year-4" : "steamgriddb-title-year-5"
+            ArtworkReleasePolicyVersion = scenario == "previous artwork policy" ? "steamgriddb-title-year-5" : "steamgriddb-title-year-6"
         };
         var service = CreateSonicSteamGridDb([SonicGame("2", 1991)],
             [igdb with { Trusted = scenario != "lost trust" },
