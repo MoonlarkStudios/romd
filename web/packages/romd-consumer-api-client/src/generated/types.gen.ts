@@ -233,6 +233,7 @@ export type ConsumerPlatformDetail = {
     icon?: null | ReferenceAsset;
     description?: null | string;
     hardware?: null | ConsumerSystemHardware;
+    eraPeers?: Array<ConsumerPlatformSummary>;
 };
 
 export type ConsumerPlatformSummary = {
@@ -240,6 +241,7 @@ export type ConsumerPlatformSummary = {
     name: string;
     shortName: string;
     manufacturer?: null | string;
+    releaseYear?: null | number;
     titleCount: number;
     coverUrl?: null | string;
     icon?: null | ReferenceAsset;
@@ -1993,6 +1995,7 @@ export type ListConsumerLibrarySystemsData = {
     body?: never;
     path?: never;
     query?: {
+        sortBy?: 'name' | 'releaseYear' | 'titleCount';
         cursor?: string;
         limit?: number;
     };

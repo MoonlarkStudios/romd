@@ -9,6 +9,7 @@ using Romd.Consumer.Application.Libraries;
 using Romd.Domain.Catalog;
 using Romd.Domain.Hashing;
 using Romd.Domain.Libraries;
+using Romd.Domain.ReferenceData;
 using Romd.Domain.Source.Dat;
 using Romd.Infrastructure.Identity;
 using Romd.Persistence.Identity;
@@ -126,6 +127,140 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
         selected.Value.Hardware.Generation.ShouldBe(4);
         selected.Value.Hardware.ReleaseYear.ShouldBe(1990);
         selected.Value.Media.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ListPlatforms_SortsAcrossPagesWithStableTiesAndScopedCursors()
+    {
+        await using var context = CreateContext();
+        var systems = new[]
+        {
+            (Key: "genesis", Name: "Genesis", BuiltIn: true, StoredYear: (int?)2000, Count: 2),
+            (Key: "snes", Name: "Super Nintendo", BuiltIn: true, StoredYear: (int?)null, Count: 1),
+            (Key: "custom", Name: "A custom system", BuiltIn: false, StoredYear: (int?)1990, Count: 3),
+            (Key: "undated", Name: "B undated", BuiltIn: false, StoredYear: (int?)null, Count: 1),
+            (Key: "legacy", Name: "C undated", BuiltIn: false, StoredYear: (int?)null, Count: 1),
+            (Key: "nes", Name: "Nintendo Entertainment System", BuiltIn: true, StoredYear: (int?)null, Count: 0)
+        };
+        int titleId = 0;
+        for (int index = 0; index < systems.Length; index++)
+        {
+            var system = systems[index];
+            int platformId = index + 1;
+            context.Platforms.Add(new PlatformEntity
+            {
+                Id = platformId,
+                CanonicalKey = system.Key,
+                ShortName = system.Key,
+                Name = system.Name,
+                BaseName = system.Name,
+                BaseCompactLabel = system.Key,
+                Ownership = system.BuiltIn ? ReferenceOwnership.Romd : ReferenceOwnership.Installation,
+                BuiltInVersion = system.BuiltIn ? 1 : null,
+                HardwareReleaseYear = system.StoredYear,
+                CreatedAt = DateTimeOffset.UnixEpoch
+            });
+            for (int indexOfTitle = 0; indexOfTitle < system.Count; indexOfTitle++)
+            {
+                titleId++;
+                context.Titles.Add(NewTitle(titleId, platformId, $"Title {titleId}", DateTimeOffset.UnixEpoch));
+                context.MaterializedLibraryTitles.Add(NewOwnedTitle(titleId, platformId, exposedReleaseCount: 1));
+            }
+        }
+        await context.SaveChangesAsync();
+
+        var scope = new ConsumerLibraryScope(UserId);
+        var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
+        var byYear = await ReadAllPages(ConsumerPlatformSortField.ReleaseYear);
+        byYear.Select(system => system.Key).ShouldBe(["genesis", "custom", "snes", "undated", "legacy"]);
+        byYear.Select(system => system.ReleaseYear).ShouldBe([1988, 1990, 1990, null, null]);
+        var byCount = await ReadAllPages(ConsumerPlatformSortField.TitleCount);
+        byCount.Select(system => system.Key).ShouldBe(["custom", "genesis", "undated", "legacy", "snes"]);
+        var byName = await ReadAllPages(ConsumerPlatformSortField.Name);
+        byName.Select(system => system.Key).ShouldBe(["custom", "undated", "legacy", "genesis", "snes"]);
+
+        var first = (await repository.ListPlatformsAsync(scope, null, 1, ConsumerPlatformSortField.ReleaseYear))
+            .ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerPlatformSummaryData>>.Found>();
+        var incompatible = await repository.ListPlatformsAsync(scope, first.Value.NextCursor, 1, ConsumerPlatformSortField.TitleCount);
+        incompatible.ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerPlatformSummaryData>>.Rejected>()
+            .Error.Code.ShouldBe("Pagination.InvalidCursor");
+
+        async Task<List<ConsumerPlatformSummaryData>> ReadAllPages(ConsumerPlatformSortField sortField)
+        {
+            var items = new List<ConsumerPlatformSummaryData>();
+            string? cursor = null;
+            for (int index = 0; index < systems.Length; index++)
+            {
+                var result = await repository.ListPlatformsAsync(scope, cursor, 1, sortField);
+                var page = result.ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerPlatformSummaryData>>.Found>().Value;
+                items.Add(page.Items.ShouldHaveSingleItem());
+                if (!page.HasNextPage)
+                {
+                    page.NextCursor.ShouldBeNull();
+                    return items;
+                }
+                page.NextCursor.ShouldNotBeNull();
+                page.NextCursor.ShouldNotBe(cursor);
+                cursor = page.NextCursor;
+            }
+            throw new InvalidOperationException("Platform pagination did not terminate.");
+        }
+    }
+
+    [Fact]
+    public async Task GetPlatformAsync_SuggestsOnlyOwnedPeersFromTheSameKnownGeneration()
+    {
+        await using var context = CreateContext();
+        var systems = new (string Key, bool BuiltIn, int? Generation, int? ReleaseYear, bool Owned)[]
+        {
+            ("snes", true, 9, 2000, true),
+            ("genesis", true, null, null, true),
+            ("gb", true, null, null, true),
+            ("regional", false, 4, 1990, true),
+            ("later", false, 4, 1994, true),
+            ("different-generation", false, 5, 1990, true),
+            ("unknown-generation", false, null, 1990, true),
+            ("unowned", false, 4, 1990, false)
+        };
+        for (int index = 0; index < systems.Length; index++)
+        {
+            var system = systems[index];
+            int id = index + 1;
+            context.Platforms.Add(new PlatformEntity
+            {
+                Id = id,
+                CanonicalKey = system.Key,
+                ShortName = system.Key,
+                Name = system.Key,
+                BaseName = system.Key,
+                BaseCompactLabel = system.Key,
+                Ownership = system.BuiltIn ? ReferenceOwnership.Romd : ReferenceOwnership.Installation,
+                BuiltInVersion = system.BuiltIn ? 1 : null,
+                HardwareGeneration = system.Generation,
+                HardwareReleaseYear = system.ReleaseYear,
+                CreatedAt = DateTimeOffset.UnixEpoch
+            });
+            var title = NewTitle(id, id, $"Title {id}", DateTimeOffset.UnixEpoch);
+            context.Titles.Add(title);
+            var libraryTitle = NewOwnedTitle(id, id, exposedReleaseCount: 1);
+            libraryTitle.IsOwned = system.Owned;
+            context.MaterializedLibraryTitles.Add(libraryTitle);
+        }
+        await context.SaveChangesAsync();
+
+        var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
+        var scope = new ConsumerLibraryScope(UserId);
+        var detail = (await repository.GetPlatformAsync(scope, 1))
+            .ShouldBeOfType<ConsumerLibraryReadResult<ConsumerPlatformDetailData>.Found>().Value;
+
+        detail.Hardware!.Generation.ShouldBe(4);
+        detail.EraPeers.Select(peer => peer.Key).ShouldBe(["regional", "gb", "genesis"]);
+        detail.EraPeers.Select(peer => peer.ReleaseYear).ShouldBe([1990, 1989, 1988]);
+        detail.EraPeers.ShouldAllBe(peer => peer.TitleCount == 1);
+
+        var unknown = (await repository.GetPlatformAsync(scope, 7))
+            .ShouldBeOfType<ConsumerLibraryReadResult<ConsumerPlatformDetailData>.Found>().Value;
+        unknown.EraPeers.ShouldBeEmpty();
     }
 
     [Fact]

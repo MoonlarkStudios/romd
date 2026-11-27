@@ -65,8 +65,8 @@ public sealed class RomdOpenIddictApplicationSeeder(
         yield return BuildSpaDescriptor(
             RomdOpenIddictClients.ConsumerSpa,
             "ROMD",
-            "Romd:Auth:ConsumerSpa",
-            defaultOrigin: "http://localhost:5174");
+            RomdOpenIddictClients.ConsumerSpaConfiguration,
+            defaultOrigin: RomdOpenIddictClients.ConsumerSpaDevelopmentOrigin);
     }
 
     private static OpenIddictApplicationDescriptor BuildDeviceDescriptor(string clientId, string displayName) =>

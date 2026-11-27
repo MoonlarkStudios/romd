@@ -128,7 +128,22 @@ public sealed class ConsumerBrowseEndpointsTests
             list.Items.Single(x => x.Key == "snes").Manufacturer.ShouldBe(name);
             var detail = (await client.GetFromJsonAsync<ConsumerPlatformDetail>("/api/me/library/systems/snes"))!;
             detail.Manufacturer.ShouldBe(name);
+            list.Items.Single(x => x.Key == "snes").ReleaseYear.ShouldBe(1990);
+            detail.Hardware!.ReleaseYear.ShouldBe(1990);
         }
+    }
+
+    [Fact]
+    public async Task ListPlatforms_RejectsUnknownSortValues()
+    {
+        await using var fixture = await ConsumerHostFixture.CreateAsync();
+        var seed = await fixture.SeedBrowseDataAsync();
+        using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
+
+        using var response = await client.GetAsync("/api/me/library/systems?sortBy=manufacturer");
+
+        using var problem = await ProblemEnvelope.ReadAsync(response, 400, "Request.InvalidParameter");
+        problem.RootElement.GetProperty("errors").TryGetProperty("sortBy", out _).ShouldBeTrue();
     }
 
     [Fact]
@@ -145,6 +160,7 @@ public sealed class ConsumerBrowseEndpointsTests
         body.ShouldNotBeNull();
         body.Name.ShouldBe("Super Nintendo");
         body.TitleCount.ShouldBe(2);
+        body.EraPeers.ShouldBeEmpty();
         body.Media.Single().Url.ShouldStartWith("/media/");
     }
 

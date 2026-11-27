@@ -20,6 +20,9 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
             "The shared authentication command owns session acceptance on both API hosts and delegates settlement to the same scoped unit of work before cookie or protocol issuance.",
             Site("src/Romd.Persistence/Identity/AccountSessionTransaction.cs", "AccountSessionTransaction", "ExecuteAsync", "ExecuteInTransactionAsync")),
         Boundary(TransactionBoundaryKind.BootstrapProtocol,
+            "The worker seeder flushes the generated starter library ID inside its locked bootstrap transaction so the initial account, role and assignment commit together.",
+            Site("src/Romd.Persistence/AdminSeeder.cs", "AdminSeeder", "SeedDefaultAdminAsync", "SaveChangesAsync")),
+        Boundary(TransactionBoundaryKind.BootstrapProtocol,
             "The existing locked catalog bootstrap owner flushes staged icon file identities before recording reference assets and typed catalog foreign keys; the bridge never flushes or commits.",
             Site("src/Romd.Persistence/ReferenceData/RomdCatalogImporter.cs", "RomdCatalogImporter", "ImportAsync", "SaveChangesAsync"))
     ];
@@ -28,9 +31,9 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
     public void ReviewedProtocolExtensions_HaveExactShapeAndDoNotReplaceMeasuredDebt()
     {
         var sites = ReviewedProtocolExtensions.SelectMany(boundary => boundary.Sites).ToArray();
-        sites.Length.ShouldBe(4);
-        sites.Sum(site => site.Count).ShouldBe(4);
-        sites.Select(site => site.Key).Distinct().Count().ShouldBe(4);
+        sites.Length.ShouldBe(5);
+        sites.Sum(site => site.Count).ShouldBe(5);
+        sites.Select(site => site.Key).Distinct().Count().ShouldBe(5);
         var measured = InitialDebt.Select(site => site.Key)
             .Concat(AdditionalTransactionBoundaries.SelectMany(boundary => boundary.Sites).Select(site => site.Key))
             .ToImmutableHashSet();
@@ -39,6 +42,7 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
             TransactionBoundaryKind.UnitOfWorkAdapter,
             TransactionBoundaryKind.UnitOfWorkAdapter,
             TransactionBoundaryKind.UnitOfWorkAdapter,
+            TransactionBoundaryKind.BootstrapProtocol,
             TransactionBoundaryKind.BootstrapProtocol
         ]);
         ReviewedProtocolExtensions.ShouldAllBe(boundary =>

@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { type TitleStatus, titleStatusLabels } from '../../components/Title/enrichmentPresentation';
 import workspace from '../../components/Workspace/Workspace.module.css';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { FirstLibrary } from './FirstLibrary';
 import { OverviewJobs } from './OverviewJobs';
 import { OverviewSection } from './OverviewSection';
 import { useOverview } from './useOverview';
@@ -44,7 +45,10 @@ export function Dashboard() {
     failed,
     audit,
     permissions,
+    consumerPortalUrl,
+    assignedLibrary,
   } = model;
+  const firstRun = assignedLibrary?.starterSetupComplete === false;
   const issues = [
     {
       label: 'Unidentified files',
@@ -89,6 +93,15 @@ export function Dashboard() {
           Dashboard
         </Title>
         <Group gap="sm">
+          {consumerPortalUrl && !firstRun && (
+            <Button
+              component="a"
+              href={consumerPortalUrl}
+              variant="default"
+            >
+              Open consumer portal
+            </Button>
+          )}
           <Button
             variant="default"
             leftSection={<IconRefresh size={16} />}
@@ -97,7 +110,7 @@ export function Dashboard() {
           >
             Refresh
           </Button>
-          {permissions.canUploadRoms && (
+          {permissions.canUploadRoms && !firstRun && (
             <Button
               component={Link}
               to="/roms/import"
@@ -109,6 +122,12 @@ export function Dashboard() {
           )}
         </Group>
       </Group>
+      {firstRun && (
+        <FirstLibrary
+          library={assignedLibrary}
+          health={health.data}
+        />
+      )}
       <OverviewSection
         title="Needs attention"
         query={attention}

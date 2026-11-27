@@ -7,6 +7,7 @@ import { DestinationNavigationName } from '../components/navigation/titleNavigat
 import { StatusState } from '../components/status/StatusState';
 import { useCatalogSearch, usePlatformDetail } from '../hooks/useConsumerLibrary';
 import { ConsoleLogo, useAvailableArtwork } from './ConsoleArtwork';
+import { ConsoleCard } from './ConsoleCard';
 import classes from './Consoles.module.css';
 
 function ConsoleHeader({ system }: { system: ConsumerPlatformDetail }) {
@@ -93,6 +94,7 @@ export function ConsoleDetail() {
     },
   );
   const titles = games.data?.pages.flatMap((page) => page.items) ?? [];
+  const eraPeers = system?.eraPeers ?? [];
 
   return (
     <Stack gap="var(--romd-page-gap)">
@@ -100,6 +102,9 @@ export function ConsoleDetail() {
         <Button
           component={Link}
           to="/systems"
+          state={{
+            restoreConsoleList: true,
+          }}
           variant="subtle"
           color="gray"
           leftSection={<IconArrowLeft size={16} />}
@@ -200,6 +205,37 @@ export function ConsoleDetail() {
               </Group>
             )}
           </Stack>
+          {eraPeers.length > 0 && (
+            <Stack
+              component="section"
+              gap="md"
+              aria-labelledby="console-era-peers"
+            >
+              <Title
+                order={2}
+                id="console-era-peers"
+              >
+                Also from this era
+              </Title>
+              <SimpleGrid
+                cols={{
+                  base: 1,
+                  xs: 2,
+                  lg: 3,
+                }}
+                spacing="lg"
+              >
+                {eraPeers.map((peer) => (
+                  <ConsoleCard
+                    key={peer.key}
+                    system={peer}
+                    headingLevel={3}
+                    showReleaseYear
+                  />
+                ))}
+              </SimpleGrid>
+            </Stack>
+          )}
         </DestinationNavigationName>
       )}
     </Stack>

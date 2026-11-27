@@ -2083,6 +2083,18 @@
         "operationId": "ListConsumerLibrarySystems",
         "parameters": [
           {
+            "name": "sortBy",
+            "in": "query",
+            "schema": {
+              "enum": [
+                "name",
+                "releaseYear",
+                "titleCount"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "name": "cursor",
             "in": "query",
             "schema": {
@@ -2143,6 +2155,7 @@
         "tags": [
           "Consumer Browse"
         ],
+        "description": "Get a library system and up to 3 other systems in the same hardware generation with games in the active library.",
         "operationId": "GetConsumerLibrarySystem",
         "parameters": [
           {
@@ -4943,6 +4956,12 @@
                 "$ref": "#/components/schemas/ConsumerSystemHardware"
               }
             ]
+          },
+          "eraPeers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerPlatformSummary"
+            }
           }
         }
       },
@@ -4969,6 +4988,13 @@
               "null",
               "string"
             ]
+          },
+          "releaseYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
           },
           "titleCount": {
             "type": "integer",

@@ -32,6 +32,7 @@ import { UnsavedChanges } from '../../components/Administration/UnsavedChanges';
 import { libraryInspectionPath, reviewReturnPath } from '../../components/Title/reviewHandoff';
 import { CurationHelp } from '../../components/Workspace/CurationHelp';
 import { workspaceActionProps } from '../../components/Workspace/workspaceActions';
+import { useAuth } from '../../contexts/AuthContext';
 import { useExportLibrary } from '../../hooks/api/useExport';
 import { useJob, useJobs } from '../../hooks/api/useJobs';
 import { useLibraryAttachments } from '../../hooks/api/useLibraryExperience';
@@ -409,6 +410,10 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
         </Alert>
       )}
       <LibraryPublicationProgress attempt={displayedAttempt} />
+      {library.starterSetupComplete &&
+        library.lastMaterializedAt &&
+        library.configurationState === 'Valid' &&
+        active !== 'access' && <StarterLibraryHandoff libraryId={libraryId} />}
       {reviewing && (
         <LibraryPublishDialog
           libraryId={libraryId}
@@ -705,5 +710,44 @@ function LibraryWorkspaceContent({ libraryId }: { libraryId: string }) {
         </Stack>
       </Modal>
     </div>
+  );
+}
+
+function StarterLibraryHandoff({ libraryId }: { libraryId: string }) {
+  const { user } = useAuth();
+  if (user?.libraryId !== libraryId) return null;
+
+  return (
+    <Alert
+      mb="lg"
+      title="Your library is ready"
+    >
+      <Stack gap="xs">
+        <Text size="sm">
+          Sign in to the consumer portal with this account. When you’re ready to share, assign
+          people from this library’s People tab.
+        </Text>
+        <Group gap="xs">
+          {user.consumerPortalUrl && (
+            <Button
+              component="a"
+              href={user.consumerPortalUrl}
+              variant="light"
+              {...workspaceActionProps}
+            >
+              Open consumer portal
+            </Button>
+          )}
+          <Button
+            component={Link}
+            to={`/libraries/${libraryId}?tab=access`}
+            variant="subtle"
+            {...workspaceActionProps}
+          >
+            Go to People
+          </Button>
+        </Group>
+      </Stack>
+    </Alert>
   );
 }

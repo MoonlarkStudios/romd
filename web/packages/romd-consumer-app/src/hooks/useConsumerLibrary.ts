@@ -1,4 +1,7 @@
-import type { ConsumerReleaseManifest } from '@romd/consumer-api-client';
+import type {
+  ConsumerReleaseManifest,
+  ListConsumerLibrarySystemsData,
+} from '@romd/consumer-api-client';
 import {
   getConsumerCollection,
   getConsumerCurrentLibrary,
@@ -122,15 +125,23 @@ export function useCurrentLibrary() {
   });
 }
 
-export function usePlatforms(options?: PagedQueryOptions) {
+export function usePlatforms(
+  sortBy: NonNullable<ListConsumerLibrarySystemsData['query']>['sortBy'],
+  options?: PagedQueryOptions,
+) {
   const { enabled = true, limit = 24 } = options ?? {};
 
   return useInfiniteQuery({
-    queryKey: consumerQueryKeys.platforms,
+    queryKey: [
+      ...consumerQueryKeys.platforms,
+      sortBy,
+      limit,
+    ],
     queryFn: async ({ pageParam, signal }) => {
       const response = await listConsumerLibrarySystems({
         query: {
           limit,
+          sortBy,
           cursor: pageParam,
         },
         signal,

@@ -260,6 +260,9 @@ export const listConsumerLibrarySystems = <ThrowOnError extends boolean = false>
     ...options
 });
 
+/**
+ * Get a library system and up to 3 other systems in the same hardware generation with games in the active library.
+ */
 export const getConsumerLibrarySystem = <ThrowOnError extends boolean = false>(options: Options<GetConsumerLibrarySystemData, ThrowOnError>) => (options.client ?? client).get<GetConsumerLibrarySystemResponses, GetConsumerLibrarySystemErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/me/library/systems/{systemKey}',

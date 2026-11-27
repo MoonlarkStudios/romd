@@ -11,6 +11,8 @@ public sealed record Library
     public LibraryConfiguration? Configuration { get; init; }
     public required string ConfigurationState { get; init; }
     public string? ConfigurationError { get; init; }
+    /// <summary>Whether the bootstrap library has ever been published. Null for other libraries.</summary>
+    public bool? StarterSetupComplete { get; init; }
     public required bool IsDefault { get; init; }
     public required bool NeedsMaterialization { get; init; }
     public DateTimeOffset? LastMaterializedAt { get; init; }

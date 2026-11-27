@@ -1,15 +1,20 @@
 import { listAuditEvents } from '@romd/admin-api-client';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../contexts/AuthContext';
 import { useEnrichmentStats } from '../../hooks/api/useEnrichmentStats';
 import { enrichmentWorkspaceCountsQuery } from '../../hooks/api/useEnrichmentWorkspace';
 import { useHealthStats } from '../../hooks/api/useHealthStats';
 import { useJobHistory } from '../../hooks/api/useJobHistory';
+import { useLibrary } from '../../hooks/api/useLibraryManagement';
 import { useTrackedCollectionStats } from '../../hooks/api/useTrackedCollection';
 import { usePermissions } from '../../hooks/usePermissions';
 
 /** Composes existing domain summaries without downloading title lists or probing dependencies. */
 export function useOverview() {
+  const { user } = useAuth();
   const permissions = usePermissions();
+  const assignedLibraryId = permissions.canManageUsers ? (user?.libraryId ?? null) : null;
+  const assignedLibrary = useLibrary(assignedLibraryId);
   const health = useHealthStats();
   const enrichment = useEnrichmentStats();
   // Shares the workspace's cache entry; the overview reads it on demand instead of polling.
@@ -67,9 +72,16 @@ export function useOverview() {
           audit,
         ]
       : []),
+    ...(assignedLibraryId
+      ? [
+          assignedLibrary,
+        ]
+      : []),
   ];
   return {
     permissions,
+    consumerPortalUrl: user?.consumerPortalUrl,
+    assignedLibrary: assignedLibrary.data,
     health,
     enrichment,
     enrichmentCounts,

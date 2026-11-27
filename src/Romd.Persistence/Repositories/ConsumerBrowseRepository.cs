@@ -14,6 +14,7 @@ using Romd.Persistence.Entities;
 using Romd.Persistence.Search;
 using Romd.Persistence.Queries;
 using Romd.Persistence.Systems;
+using System.Text.Json.Serialization;
 
 namespace Romd.Persistence.Repositories;
 
@@ -28,10 +29,11 @@ public sealed partial class ConsumerBrowseRepository(
         ConsumerLibraryScope scope,
         string? cursor,
         int limit,
+        ConsumerPlatformSortField sortField = ConsumerPlatformSortField.Name,
         CancellationToken ct = default) =>
         _liveConsumerLibrary.ReadAsync<PagedList<ConsumerPlatformSummaryData>>(
             scope,
-            (libraryId, token) => ListPlatformsForLibraryAsync(libraryId, scope.UserId, cursor, limit, token),
+            (libraryId, token) => ListPlatformsForLibraryAsync(libraryId, scope.UserId, cursor, limit, sortField, token),
             ct);
 
     private async Task<ConsumerLibraryProjectionResult<PagedList<ConsumerPlatformSummaryData>>> ListPlatformsForLibraryAsync(
@@ -39,41 +41,87 @@ public sealed partial class ConsumerBrowseRepository(
         Guid userId,
         string? cursor,
         int limit,
+        ConsumerPlatformSortField sortField,
         CancellationToken ct)
     {
-        string fingerprint = KeysetCursor.Fingerprint("consumer.library-systems", userId, libraryId);
-        var decoded = KeysetCursor.Decode<ConsumerNameCursor>(cursor, fingerprint, value => value.Id > 0 && value.Name is not null);
+        // Keep the existing name cursor valid for callers that omit the optional sort.
+        bool sortByName = sortField == ConsumerPlatformSortField.Name;
+        string fingerprint = sortByName
+            ? KeysetCursor.Fingerprint("consumer.library-systems", userId, libraryId)
+            : KeysetCursor.Fingerprint("consumer.library-systems", userId, libraryId, sortField);
+        var decoded = KeysetCursor.Decode<ConsumerPlatformCursor>(cursor, fingerprint,
+            value => value.Id > 0 && value.Name is not null && value.SortValue.HasValue != sortByName);
         if (decoded.IsError)
             return new ConsumerLibraryProjectionResult<PagedList<ConsumerPlatformSummaryData>>.Rejected(decoded.FirstError);
         var cursorData = decoded.Value;
 
-        var query = context.Platforms
-            .AsNoTracking()
-            .Where(platform => OwnedMaterializedLibraryTitles(libraryId).Any(item => item.PlatformId == platform.Id));
+        var summaries = ProjectPlatformSummaries(libraryId, context.Platforms.AsNoTracking());
 
+        // Use a single ascending keyset. Count is descending, and undated systems follow dated ones.
+        var ranked = summaries.Select(summary => new
+        {
+            Summary = summary,
+            SortValue = sortField == ConsumerPlatformSortField.ReleaseYear ? summary.ReleaseYear ?? int.MaxValue
+                : sortField == ConsumerPlatformSortField.TitleCount ? -summary.TitleCount
+                : 0
+        });
         if (cursorData is not null)
         {
-            query = query.Where(platform =>
-                platform.Name.CompareTo(cursorData.Name) > 0 ||
-                (platform.Name == cursorData.Name && platform.Id > cursorData.Id));
+            int sortValue = cursorData.SortValue ?? 0;
+            ranked = ranked.Where(item => item.SortValue > sortValue ||
+                (item.SortValue == sortValue && (item.Summary.Name.CompareTo(cursorData.Name) > 0 ||
+                    (item.Summary.Name == cursorData.Name && item.Summary.Id > cursorData.Id))));
         }
 
-        var items = await query
-            .OrderBy(platform => platform.Name)
-            .ThenBy(platform => platform.Id)
-            .Select(platform => new ConsumerPlatformSummaryData
+        var ordered = sortByName
+            ? ranked.OrderBy(item => item.Summary.Name)
+            : ranked.OrderBy(item => item.SortValue).ThenBy(item => item.Summary.Name);
+        var items = await ordered
+            .ThenBy(item => item.Summary.Id)
+            .Take(limit + 1)
+            .ToListAsync(ct);
+
+        var page = ToPage(items, limit, item => new ConsumerPlatformCursor(
+            item.Summary.Name, item.Summary.Id, sortByName ? null : item.SortValue), fingerprint);
+        var manufacturers = await new Romd.Persistence.ReferenceData.SystemCompanyReader(context).ReadAsync(page.Items.Select(x => x.Summary.Id), ct);
+        var results = page.Items.Select(x => x.Summary with
+        {
+            Manufacturer = Romd.Persistence.ReferenceData.SystemCompanyReader.Names(manufacturers.GetValueOrDefault(x.Summary.Id))
+        }).ToList();
+        return new ConsumerLibraryProjectionResult<PagedList<ConsumerPlatformSummaryData>>.Found(
+            new(results, page.NextCursor, page.HasNextPage));
+    }
+
+    private IQueryable<ConsumerPlatformSummaryData> ProjectPlatformSummaries(
+        int libraryId,
+        IQueryable<PlatformEntity> platforms)
+    {
+        var ownedTitles = OwnedMaterializedLibraryTitles(libraryId);
+        var titleCounts = ownedTitles.GroupBy(title => title.PlatformId)
+            .Select(group => new { PlatformId = group.Key, Count = group.Count() });
+        // Join the same bundled release years used by system detail before applying either bounded ordering.
+        var years = BuiltInSystemHardware.ReleaseYears().ToArray();
+        var builtInYears = context.Database.SqlQuery<BuiltInReleaseYear>($"""
+            SELECT data."Key", data."ReleaseYear"
+            FROM unnest({years.Select(year => year.Key).ToArray()}, {years.Select(year => year.Year).ToArray()}) AS data("Key", "ReleaseYear")
+            """);
+        return
+            from platform in platforms
+            join titles in titleCounts on platform.Id equals titles.PlatformId
+            join year in builtInYears on platform.CanonicalKey equals year.Key into hardware
+            from year in hardware.DefaultIfEmpty()
+            select new ConsumerPlatformSummaryData
             {
                 Key = platform.CanonicalKey ?? platform.ShortName,
                 Id = platform.Id,
                 Name = platform.Name,
                 ShortName = platform.ShortName,
-                TitleCount = OwnedMaterializedLibraryTitles(libraryId)
-                    .Where(item => item.PlatformId == platform.Id)
-                    .Count(),
+                ReleaseYear = platform.BuiltInVersion != null ? year!.ReleaseYear : platform.HardwareReleaseYear,
+                TitleCount = titles.Count,
                 CoverMediaId = context.TitleMedia
                     .Where(media =>
                         media.Type == "Cover" &&
-                        OwnedMaterializedLibraryTitles(libraryId).Any(item =>
+                        ownedTitles.Any(item =>
                             item.PlatformId == platform.Id &&
                             item.TitleId == media.TitleId))
                     .OrderByDescending(media => media.IsPrimary)
@@ -89,14 +137,7 @@ public sealed partial class ConsumerBrowseRepository(
                     .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType,
                         platform.MonochromeOverride ?? platform.BaseMonochrome))
                     .FirstOrDefault()
-            })
-            .Take(limit + 1)
-            .ToListAsync(ct);
-
-        var manufacturers = await new Romd.Persistence.ReferenceData.SystemCompanyReader(context).ReadAsync(items.Select(x => x.Id), ct);
-        items = items.Select(x => x with { Manufacturer = Romd.Persistence.ReferenceData.SystemCompanyReader.Names(manufacturers.GetValueOrDefault(x.Id)) }).ToList();
-        return new ConsumerLibraryProjectionResult<PagedList<ConsumerPlatformSummaryData>>.Found(
-            ToPage(items, limit, item => new ConsumerNameCursor(item.Name, item.Id), fingerprint));
+            };
     }
 
     public Task<ConsumerLibraryReadResult<ConsumerPlatformDetailData>> GetPlatformAsync(
@@ -171,9 +212,44 @@ public sealed partial class ConsumerBrowseRepository(
             })
             .ToListAsync(ct);
 
-        var manufacturers = await new Romd.Persistence.ReferenceData.SystemCompanyReader(context).ReadAsync([platformId], ct);
+        var peers = await ReadEraPeersAsync(libraryId, platform, ct);
+        var manufacturers = await new Romd.Persistence.ReferenceData.SystemCompanyReader(context)
+            .ReadAsync(peers.Select(peer => peer.Id).Append(platformId), ct);
         return new ConsumerLibraryProjectionResult<ConsumerPlatformDetailData>.Found(
-            platform with { Media = media, Manufacturer = Romd.Persistence.ReferenceData.SystemCompanyReader.Names(manufacturers.GetValueOrDefault(platformId)) });
+            platform with
+            {
+                Media = media,
+                Manufacturer = Romd.Persistence.ReferenceData.SystemCompanyReader.Names(manufacturers.GetValueOrDefault(platformId)),
+                EraPeers = peers.Select(peer => peer with
+                {
+                    Manufacturer = Romd.Persistence.ReferenceData.SystemCompanyReader.Names(manufacturers.GetValueOrDefault(peer.Id))
+                }).ToList()
+            });
+    }
+
+    private async Task<List<ConsumerPlatformSummaryData>> ReadEraPeersAsync(
+        int libraryId,
+        ConsumerPlatformDetailData platform,
+        CancellationToken ct)
+    {
+        if (platform.Hardware?.Generation is not { } generation)
+        {
+            return [];
+        }
+
+        string[] builtInPeers = BuiltInSystemHardware.KeysForGeneration(generation);
+        int releaseYear = platform.Hardware.ReleaseYear ?? 0;
+        var candidates = context.Platforms.AsNoTracking()
+            .Where(candidate => candidate.Id != platform.Id && (candidate.BuiltInVersion != null
+                ? builtInPeers.Contains(candidate.CanonicalKey!)
+                : candidate.HardwareGeneration == generation));
+        return await ProjectPlatformSummaries(libraryId, candidates)
+            .OrderBy(peer => peer.ReleaseYear == null ? int.MaxValue : Math.Abs(peer.ReleaseYear.Value - releaseYear))
+            .ThenBy(peer => peer.ReleaseYear)
+            .ThenBy(peer => peer.Name)
+            .ThenBy(peer => peer.Id)
+            .Take(ConsumerPlatformDetailData.MaximumEraPeers)
+            .ToListAsync(ct);
     }
 
     public Task<ConsumerLibraryReadResult<PagedList<ConsumerTitleCardData>>> SearchCatalogAsync(
@@ -550,7 +626,10 @@ public sealed partial class ConsumerBrowseRepository(
         return new PagedList<T>(items, nextCursor, hasNextPage);
     }
 
-    private sealed record ConsumerNameCursor(string Name, int Id);
+    private sealed record ConsumerPlatformCursor(
+        string Name, int Id, [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? SortValue);
+
+    private sealed record BuiltInReleaseYear(string Key, int? ReleaseYear);
 
     private sealed record ConsumerTitleCursor(
         ConsumerTitleSortField SortField,
