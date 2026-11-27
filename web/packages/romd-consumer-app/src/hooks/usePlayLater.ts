@@ -25,18 +25,25 @@ function usePlayLaterAccountId() {
   return isAuthenticated ? (user?.id ?? '') : '';
 }
 
+type PlayLaterPage = PageOfConsumerTitleCard & {
+  readToken: symbol;
+};
+
+const playLaterTitlesKey = (accountId: string) =>
+  [
+    ...playLaterAccountKey(accountId),
+    'titles',
+  ] as const;
+
 export function usePlayLaterTitles(enabled = true) {
   const accountId = usePlayLaterAccountId();
   const cache = useQueryClient();
   const view = useMemo(() => {
-    const queryKey = [
-      ...playLaterAccountKey(accountId),
-      'titles',
-    ];
-    const cached = cache.getQueryData<InfiniteData<PageOfConsumerTitleCard>>(queryKey);
+    const queryKey = playLaterTitlesKey(accountId);
+    const cached = cache.getQueryData<InfiniteData<PlayLaterPage>>(queryKey);
     return {
       queryKey,
-      firstCachedPage: cached?.pages[0],
+      cachedReadToken: cached?.pages[0]?.readToken,
     };
   }, [
     accountId,
@@ -47,9 +54,6 @@ export function usePlayLaterTitles(enabled = true) {
     enabled: enabled && Boolean(accountId),
     staleTime: 0,
     refetchOnMount: 'always',
-    // Each successful response gets a distinct page reference, even when the
-    // server returns exactly the same titles as the cached page.
-    structuralSharing: false,
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam, signal }) => {
       const { fetch } = bindAccountRequest(accountId);
@@ -62,14 +66,18 @@ export function usePlayLaterTitles(enabled = true) {
         signal,
       });
       if (result.error || !result.data) throw new Error('Unable to load Play Later.');
-      return result.data;
+      return {
+        ...result.data,
+        readToken: Symbol(),
+      };
     },
     getNextPageParam: (page) => (page.hasNextPage ? (page.nextCursor ?? undefined) : undefined),
   });
   // A newly mounted shelf or list must confirm visibility, even if the
-  // previous view's cached titles are still available to the query.
-  const firstPage = query.data?.pages[0];
-  const verified = firstPage !== undefined && firstPage !== view.firstCachedPage;
+  // previous view's cached titles are still available to the query. Only a
+  // server read changes the token, even if a removal edits a cached page.
+  const readToken = query.data?.pages[0]?.readToken;
+  const verified = readToken !== undefined && readToken !== view.cachedReadToken;
   return {
     data: verified ? query.data : undefined,
     isLoading: enabled && Boolean(accountId) && !verified && !query.isError,
@@ -149,6 +157,7 @@ export function useChangePlayLater(titleId: string) {
   const accountId = usePlayLaterAccountId();
   const queryClient = useQueryClient();
   const accountKey = playLaterAccountKey(accountId);
+  const titlesKey = playLaterTitlesKey(accountId);
   const mutationKey = [
     ...accountKey,
     'setMembership',
@@ -182,14 +191,45 @@ export function useChangePlayLater(titleId: string) {
         throw new Error('Unable to update Play Later.');
       }
     },
-    onSuccess: async (_, { request, onApplied }) => {
+    onSuccess: async (_, { request, save, onApplied }) => {
+      if (!request.isCurrent()) return;
+      // Cancellation is local and keeps a GET started before the write from
+      // restoring stale membership while the replacement GET is still pending.
+      await queryClient.cancelQueries({
+        queryKey: titlesKey,
+        exact: true,
+      });
       if (!request.isCurrent()) return;
       onApplied?.(request.isCurrent);
-      // Reset the private list as well as membership so revisiting an inactive
-      // shelf or view cannot flash the old result.
-      await queryClient.resetQueries({
-        queryKey: accountKey,
+      const list = queryClient.getQueryCache().find({
+        queryKey: titlesKey,
+        exact: true,
       });
+      const activeList = list?.isActive();
+      if (activeList && !save && list.state.status === 'success') {
+        queryClient.setQueryData<InfiniteData<PlayLaterPage>>(
+          titlesKey,
+          (data) =>
+            data && {
+              ...data,
+              pages: data.pages.map((page) => ({
+                ...page,
+                items: page.items.filter((title) => title.id !== titleId),
+              })),
+            },
+        );
+      }
+      // Drop inactive list data and membership as before. Keep the active
+      // list's page depth and refresh it independently of the write lock.
+      void queryClient.resetQueries({
+        queryKey: accountKey,
+        predicate: (query) => !activeList || query.queryKey[3] !== titlesKey[3],
+      });
+      if (activeList)
+        void queryClient.invalidateQueries({
+          queryKey: titlesKey,
+          exact: true,
+        });
     },
     onError: (_, { request }) => {
       if (request.isCurrent()) {

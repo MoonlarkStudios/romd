@@ -72,9 +72,12 @@ function UndoRemoval({
         aria-busy={pending || undefined}
         aria-disabled={pending || undefined}
         data-disabled={pending || undefined}
-        onClick={() => {
+        onClick={(event) => {
           if (!pending && removal.isCurrent()) {
-            change(true, () => onRestore(removal, document.activeElement === undo.current));
+            const keyboard = event.detail === 0;
+            change(true, () =>
+              onRestore(removal, keyboard && document.activeElement === undo.current),
+            );
           }
         }}
       >
@@ -89,6 +92,7 @@ export function PlayLater() {
   const [notice, setNotice] = useState<{
     removal: RecentRemoval;
     restored?: boolean;
+    focusHeading?: boolean;
   } | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const currentNotice = notice?.removal.isCurrent() ? notice : null;
@@ -117,14 +121,17 @@ export function PlayLater() {
         ? {
             removal: restoredRemoval,
             restored: true,
+            focusHeading: hadFocus,
           }
         : current,
     );
-    if (hadFocus)
-      heading.current?.focus({
-        preventScroll: true,
-      });
   }
+
+  useEffect(() => {
+    if (currentNotice?.focusHeading) heading.current?.focus();
+  }, [
+    currentNotice,
+  ]);
 
   return (
     <Stack gap="var(--romd-page-gap)">
@@ -153,6 +160,7 @@ export function PlayLater() {
         </Title>
         {removal && (
           <UndoRemoval
+            key={removal.titleId}
             removal={removal}
             onExpire={expireRemoval}
             onRestore={reportRestoration}
