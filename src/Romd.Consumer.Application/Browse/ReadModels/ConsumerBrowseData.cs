@@ -32,6 +32,8 @@ public sealed record ConsumerPlatformSummaryData
 
 public sealed record ConsumerPlatformDetailData
 {
+    public const int MaximumEraPeers = 3;
+
     public required string Key { get; init; }
     public required int Id { get; init; }
     public required string Name { get; init; }
@@ -44,6 +46,7 @@ public sealed record ConsumerPlatformDetailData
     public ReferenceAssetData? Icon { get; init; }
     public string? Description { get; init; }
     public SystemHardware? Hardware { get; init; }
+    public IReadOnlyList<ConsumerPlatformSummaryData> EraPeers { get; init; } = [];
 }
 
 public sealed record ConsumerTitleCardData

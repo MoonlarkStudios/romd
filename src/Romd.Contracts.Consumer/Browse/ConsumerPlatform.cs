@@ -28,6 +28,7 @@ public sealed record ConsumerPlatformDetail
     public ReferenceAsset? Icon { get; init; }
     public string? Description { get; init; }
     public ConsumerSystemHardware? Hardware { get; init; }
+    public IReadOnlyList<ConsumerPlatformSummary> EraPeers { get; init; } = [];
 }
 
 public sealed record ConsumerSystemHardware(string? Category, int? Generation, int? ReleaseYear);

@@ -233,6 +233,7 @@ export type ConsumerPlatformDetail = {
     icon?: null | ReferenceAsset;
     description?: null | string;
     hardware?: null | ConsumerSystemHardware;
+    eraPeers?: Array<ConsumerPlatformSummary>;
 };
 
 export type ConsumerPlatformSummary = {

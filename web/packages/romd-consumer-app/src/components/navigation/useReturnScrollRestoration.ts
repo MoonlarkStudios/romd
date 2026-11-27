@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { useLocation, useNavigationType } from 'react-router';
 import { type ReturnContext, readReturnContext } from './titleNavigation';
 
@@ -7,53 +7,62 @@ export function useReturnScrollRestoration() {
   const location = useLocation();
   const navigationType = useNavigationType();
   const previousPath = useRef<string | null>(null);
-  const consoleListPosition = useRef<{
-    key: string;
-    y: number;
-  } | null>(null);
-  useEffect(() => {
+  const consolePositions = useRef(new Map<string, number>());
+  const consoleListKey = useRef<string | undefined>(undefined);
+  useLayoutEffect(() => {
     const changedPage = previousPath.current !== location.pathname;
     previousPath.current = location.pathname;
     const isConsoleList = location.pathname === '/systems';
-    const saved = consoleListPosition.current;
-    const restoreConsoleList =
-      isConsoleList &&
-      saved &&
-      (location.state?.restoreConsoleList === true ||
-        (navigationType === 'POP' && saved.key === location.key));
+    const isConsolePage = isConsoleList || location.pathname.startsWith('/systems/');
+    const positions = consolePositions.current;
+    const savedKey =
+      isConsoleList && location.state?.restoreConsoleList === true
+        ? consoleListKey.current
+        : isConsolePage && navigationType === 'POP'
+          ? location.key
+          : undefined;
+    const consolePosition = savedKey === undefined ? undefined : positions.get(savedKey);
     const context = readReturnContext({
       titleReturn: location.state?.restoreTitleReturn,
     });
-    const scroll: ReturnContext['scroll'] = restoreConsoleList
-      ? {
-          y: saved.y,
-          rails: {},
-        }
-      : location.state?.restoreTitleReturn &&
-          context.href === `${location.pathname}${location.search}${location.hash}`
-        ? context.scroll
-        : undefined;
-    if (
-      !scroll &&
-      changedPage &&
-      (isConsoleList ||
-        location.pathname.startsWith('/systems/') ||
-        location.pathname.startsWith('/titles/'))
-    ) {
+    const scroll: ReturnContext['scroll'] =
+      consolePosition !== undefined
+        ? {
+            y: consolePosition,
+            rails: {},
+          }
+        : location.state?.restoreTitleReturn &&
+            context.href === `${location.pathname}${location.search}${location.hash}`
+          ? context.scroll
+          : undefined;
+    if (!scroll && changedPage && (isConsolePage || location.pathname.startsWith('/titles/'))) {
       window.scrollTo(0, 0);
     }
     const rememberConsolePosition = () => {
-      consoleListPosition.current = {
-        key: location.key,
-        y: window.scrollY,
-      };
+      positions.set(location.key, window.scrollY);
     };
-    const stopRemembering = () => window.removeEventListener('scroll', rememberConsolePosition);
+    const stopRemembering = () => {
+      window.removeEventListener('scroll', rememberConsolePosition);
+      window.removeEventListener('click', rememberConsolePosition, true);
+    };
     if (isConsoleList) {
+      consoleListKey.current = location.key;
+    }
+    if (isConsolePage) {
+      positions.delete(location.key);
       rememberConsolePosition();
+      // Keep recent browser entries in this session, including the latest console list.
+      if (positions.size > 32) {
+        const oldest = [
+          ...positions.keys(),
+        ].find((key) => key !== consoleListKey.current);
+        if (oldest !== undefined) positions.delete(oldest);
+      }
       window.addEventListener('scroll', rememberConsolePosition, {
         passive: true,
       });
+      // Read the departing position before a link can replace the page or the scroll event arrives.
+      window.addEventListener('click', rememberConsolePosition, true);
     }
     if (
       !scroll ||
@@ -90,7 +99,12 @@ export function useReturnScrollRestoration() {
         return;
       timer = setTimeout(restore, 50);
     };
-    restore();
+    if (consolePosition !== undefined && navigationType === 'POP') {
+      // Let the browser finish its history traversal before restoring the SPA position.
+      timer = setTimeout(restore, 0);
+    } else {
+      restore();
+    }
     window.addEventListener('wheel', stop, {
       passive: true,
     });

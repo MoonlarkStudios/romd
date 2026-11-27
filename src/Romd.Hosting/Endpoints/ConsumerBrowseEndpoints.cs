@@ -8,6 +8,7 @@ using Romd.Consumer.Application.Browse.Queries.ListConsumerPlatforms;
 using Romd.Consumer.Application.Browse.Queries.SearchConsumerCatalog;
 using Romd.Consumer.Application.Browse.Queries.ListConsumerTitleMedia;
 using Romd.Consumer.Application.Browse.Queries.ListConsumerTitleReleases;
+using Romd.Consumer.Application.Browse.ReadModels;
 using Romd.Contracts.Consumer.Releases;
 using Romd.Contracts.Consumer.Browse;
 using Romd.Host.Authorization;
@@ -32,6 +33,7 @@ public static class ConsumerBrowseEndpoints
 
         group.MapGet("me/library/systems/{systemKey}", GetPlatform)
             .WithName("GetConsumerLibrarySystem")
+            .WithDescription($"Get a library system and up to {ConsumerPlatformDetailData.MaximumEraPeers} other systems in the same hardware generation with games in the active library.")
             .Produces<ConsumerPlatformDetail>()
             .Produces(StatusCodes.Status401Unauthorized);
 

@@ -2155,6 +2155,7 @@
         "tags": [
           "Consumer Browse"
         ],
+        "description": "Get a library system and up to 3 other systems in the same hardware generation with games in the active library.",
         "operationId": "GetConsumerLibrarySystem",
         "parameters": [
           {
@@ -4770,6 +4771,12 @@
                 "$ref": "#/components/schemas/ConsumerSystemHardware"
               }
             ]
+          },
+          "eraPeers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerPlatformSummary"
+            }
           }
         }
       },

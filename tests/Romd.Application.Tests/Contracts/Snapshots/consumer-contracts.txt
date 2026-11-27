@@ -108,6 +108,7 @@ Romd.Contracts.Consumer.Browse.ConsumerPlatformDetail
   ConsoleArtwork: ReferenceAsset?
   ControllerArtwork: ReferenceAsset?
   Description: string?
+  EraPeers: IReadOnlyList<ConsumerPlatformSummary>
   Hardware: ConsumerSystemHardware?
   Icon: ReferenceAsset?
   Key: string [required]

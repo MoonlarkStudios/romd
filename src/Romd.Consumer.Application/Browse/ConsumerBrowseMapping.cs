@@ -16,20 +16,23 @@ public static class ConsumerBrowseMapping
         this PagedList<ConsumerPlatformSummaryData> page) =>
         new()
         {
-            Items = page.Items.Select(item => new ConsumerPlatformSummary
-            {
-                Key = item.Key,
-                Name = item.Name,
-                ShortName = item.ShortName,
-                Manufacturer = item.Manufacturer,
-                ReleaseYear = item.ReleaseYear,
-                TitleCount = item.TitleCount,
-                CoverUrl = item.CoverMediaId is { } mediaId ? MediaUrl(mediaId) : null,
-                ConsoleArtwork = item.ConsoleArtwork?.ToContract(),
-                Icon = item.Icon?.ToContract()
-            }).ToList(),
+            Items = page.Items.Select(ToContract).ToList(),
             NextCursor = page.NextCursor,
             HasNextPage = page.HasNextPage
+        };
+
+    private static ConsumerPlatformSummary ToContract(ConsumerPlatformSummaryData item) =>
+        new()
+        {
+            Key = item.Key,
+            Name = item.Name,
+            ShortName = item.ShortName,
+            Manufacturer = item.Manufacturer,
+            ReleaseYear = item.ReleaseYear,
+            TitleCount = item.TitleCount,
+            CoverUrl = item.CoverMediaId is { } mediaId ? MediaUrl(mediaId) : null,
+            ConsoleArtwork = item.ConsoleArtwork?.ToContract(),
+            Icon = item.Icon?.ToContract()
         };
 
     public static ConsumerPlatformDetail ToContract(this ConsumerPlatformDetailData item) =>
@@ -45,7 +48,8 @@ public static class ConsumerBrowseMapping
             ControllerArtwork = item.ControllerArtwork?.ToContract(),
             Icon = item.Icon?.ToContract(),
             Description = item.Description,
-            Hardware = item.Hardware is { } hardware ? new(hardware.Category, hardware.Generation, hardware.ReleaseYear) : null
+            Hardware = item.Hardware is { } hardware ? new(hardware.Category, hardware.Generation, hardware.ReleaseYear) : null,
+            EraPeers = item.EraPeers.Select(ToContract).ToList()
         };
 
     public static CommonModels.Page<ConsumerTitleCard> ToContract(this PagedList<ConsumerTitleCardData> page) =>

@@ -1,69 +1,11 @@
-import { Button, Group, NativeSelect, SimpleGrid, Stack, Text, Title } from '@mantine/core';
+import { Button, Group, NativeSelect, SimpleGrid, Stack, Title } from '@mantine/core';
 import { useLocalStorage } from '@mantine/hooks';
-import type { ConsumerPlatformSummary } from '@romd/consumer-api-client';
-import { IconArrowRight } from '@tabler/icons-react';
-import { Link } from 'react-router';
 import { LibraryUnavailable } from '../components/status/LibraryUnavailable';
 import { StatusState } from '../components/status/StatusState';
 import { usePlatforms } from '../hooks/useConsumerLibrary';
 import { ConsumerLibraryUnavailableError } from '../services/libraryErrors';
-import { ConsoleLogo, useAvailableArtwork } from './ConsoleArtwork';
+import { ConsoleCard } from './ConsoleCard';
 import classes from './Consoles.module.css';
-
-function ConsoleCard({ system }: { system: ConsumerPlatformSummary }) {
-  const portrait = useAvailableArtwork(system.consoleArtwork);
-  return (
-    <Link
-      className={classes.card}
-      to={`/systems/${encodeURIComponent(system.key)}`}
-    >
-      <div className={classes.artwork}>
-        {portrait.src ? (
-          <img
-            {...portrait}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className={classes.portrait}
-          />
-        ) : (
-          <ConsoleLogo
-            icon={system.icon}
-            fallback
-          />
-        )}
-      </div>
-      <div className={classes.cardInfo}>
-        <Stack gap={4}>
-          {portrait.src && <ConsoleLogo icon={system.icon} />}
-          <Title
-            order={2}
-            className={classes.cardName}
-          >
-            {system.name}
-          </Title>
-          <Text
-            size="sm"
-            c="dimmed"
-          >
-            {[
-              system.manufacturer,
-              `${system.titleCount} ${system.titleCount === 1 ? 'game' : 'games'}`,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-        </Stack>
-        <span
-          className={classes.arrow}
-          aria-hidden
-        >
-          <IconArrowRight size={17} />
-        </span>
-      </div>
-    </Link>
-  );
-}
 
 export function Consoles() {
   const [savedSort, setSavedSort] = useLocalStorage({
@@ -121,21 +63,11 @@ export function Consoles() {
               spacing="lg"
             >
               {items.map((system) => (
-                <div
+                <ConsoleCard
                   key={system.key}
-                  className={classes.gridItem}
-                >
-                  {sortBy === 'releaseYear' && (
-                    <div className={`romd-metadata ${classes.year}`}>
-                      {system.releaseYear == null ? (
-                        'Year unknown'
-                      ) : (
-                        <time dateTime={String(system.releaseYear)}>{system.releaseYear}</time>
-                      )}
-                    </div>
-                  )}
-                  <ConsoleCard system={system} />
-                </div>
+                  system={system}
+                  showReleaseYear={sortBy === 'releaseYear'}
+                />
               ))}
             </SimpleGrid>
           )}

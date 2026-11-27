@@ -208,6 +208,62 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetPlatformAsync_SuggestsOnlyOwnedPeersFromTheSameKnownGeneration()
+    {
+        await using var context = CreateContext();
+        var systems = new (string Key, bool BuiltIn, int? Generation, int? ReleaseYear, bool Owned)[]
+        {
+            ("snes", true, 9, 2000, true),
+            ("genesis", true, null, null, true),
+            ("gb", true, null, null, true),
+            ("regional", false, 4, 1990, true),
+            ("later", false, 4, 1994, true),
+            ("different-generation", false, 5, 1990, true),
+            ("unknown-generation", false, null, 1990, true),
+            ("unowned", false, 4, 1990, false)
+        };
+        for (int index = 0; index < systems.Length; index++)
+        {
+            var system = systems[index];
+            int id = index + 1;
+            context.Platforms.Add(new PlatformEntity
+            {
+                Id = id,
+                CanonicalKey = system.Key,
+                ShortName = system.Key,
+                Name = system.Key,
+                BaseName = system.Key,
+                BaseCompactLabel = system.Key,
+                Ownership = system.BuiltIn ? ReferenceOwnership.Romd : ReferenceOwnership.Installation,
+                BuiltInVersion = system.BuiltIn ? 1 : null,
+                HardwareGeneration = system.Generation,
+                HardwareReleaseYear = system.ReleaseYear,
+                CreatedAt = DateTimeOffset.UnixEpoch
+            });
+            var title = NewTitle(id, id, $"Title {id}", DateTimeOffset.UnixEpoch);
+            context.Titles.Add(title);
+            var libraryTitle = NewOwnedTitle(id, id, exposedReleaseCount: 1);
+            libraryTitle.IsOwned = system.Owned;
+            context.MaterializedLibraryTitles.Add(libraryTitle);
+        }
+        await context.SaveChangesAsync();
+
+        var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
+        var scope = new ConsumerLibraryScope(UserId);
+        var detail = (await repository.GetPlatformAsync(scope, 1))
+            .ShouldBeOfType<ConsumerLibraryReadResult<ConsumerPlatformDetailData>.Found>().Value;
+
+        detail.Hardware!.Generation.ShouldBe(4);
+        detail.EraPeers.Select(peer => peer.Key).ShouldBe(["regional", "gb", "genesis"]);
+        detail.EraPeers.Select(peer => peer.ReleaseYear).ShouldBe([1990, 1989, 1988]);
+        detail.EraPeers.ShouldAllBe(peer => peer.TitleCount == 1);
+
+        var unknown = (await repository.GetPlatformAsync(scope, 7))
+            .ShouldBeOfType<ConsumerLibraryReadResult<ConsumerPlatformDetailData>.Found>().Value;
+        unknown.EraPeers.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task SearchCatalogAsync_CompletenessFilters_RequireExposedReleasesAndClassifyMixedReleasesAsPartial()
     {
         await SeedCompletenessScenariosAsync();

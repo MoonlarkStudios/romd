@@ -15,9 +15,19 @@ afterEach(() => {
 });
 
 it.each([
-  'Consoles link',
-  'Browser back',
-])('restores the console list through %s', (returnAction) => {
+  [
+    'Consoles link',
+    '/systems',
+  ],
+  [
+    'Browser back',
+    '/systems',
+  ],
+  [
+    'Browser back',
+    '/systems/genesis',
+  ],
+])('restores scroll through %s to %s', (returnAction, source) => {
   function ConsoleNavigation() {
     useReturnScrollRestoration();
     const navigate = useNavigate();
@@ -51,16 +61,16 @@ it.each([
     withAuth: false,
     routerOptions: {
       initialEntries: [
-        '/systems',
+        source,
       ],
     },
   });
 
   y = 280;
-  fireEvent.scroll(window);
   fireEvent.click(screen.getByText('Open console'));
   expect(y).toBe(0);
   fireEvent.click(screen.getByText(returnAction));
+  act(() => vi.runOnlyPendingTimers());
   expect(y).toBe(280);
 });
 

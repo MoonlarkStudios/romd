@@ -54,48 +54,7 @@ public sealed partial class ConsumerBrowseRepository(
             return new ConsumerLibraryProjectionResult<PagedList<ConsumerPlatformSummaryData>>.Rejected(decoded.FirstError);
         var cursorData = decoded.Value;
 
-        var ownedTitles = OwnedMaterializedLibraryTitles(libraryId);
-        var titleCounts = ownedTitles.GroupBy(title => title.PlatformId)
-            .Select(group => new { PlatformId = group.Key, Count = group.Count() });
-        // Join the same bundled release years used by system detail before PostgreSQL sorts the page.
-        var years = BuiltInSystemHardware.ReleaseYears().ToArray();
-        var builtInYears = context.Database.SqlQuery<BuiltInReleaseYear>($"""
-            SELECT data."Key", data."ReleaseYear"
-            FROM unnest({years.Select(year => year.Key).ToArray()}, {years.Select(year => year.Year).ToArray()}) AS data("Key", "ReleaseYear")
-            """);
-        var summaries =
-            from platform in context.Platforms.AsNoTracking()
-            join titles in titleCounts on platform.Id equals titles.PlatformId
-            join year in builtInYears on platform.CanonicalKey equals year.Key into hardware
-            from year in hardware.DefaultIfEmpty()
-            select new ConsumerPlatformSummaryData
-            {
-                Key = platform.CanonicalKey ?? platform.ShortName,
-                Id = platform.Id,
-                Name = platform.Name,
-                ShortName = platform.ShortName,
-                ReleaseYear = platform.BuiltInVersion != null ? year!.ReleaseYear : platform.HardwareReleaseYear,
-                TitleCount = titles.Count,
-                CoverMediaId = context.TitleMedia
-                    .Where(media =>
-                        media.Type == "Cover" &&
-                        ownedTitles.Any(item =>
-                            item.PlatformId == platform.Id &&
-                            item.TitleId == media.TitleId))
-                    .OrderByDescending(media => media.IsPrimary)
-                    .ThenBy(media => media.Id)
-                    .Select(media => (int?)media.Id)
-                    .FirstOrDefault(),
-                ConsoleArtwork = context.ReferenceAssets
-                    .Where(asset => asset.Hash == (platform.ConsoleArtworkOverrideHash ?? platform.BaseConsoleArtworkHash))
-                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType, false))
-                    .FirstOrDefault(),
-                Icon = context.ReferenceAssets
-                    .Where(asset => asset.Hash == (platform.HasArtworkOverride ? platform.ArtworkOverrideHash : platform.BaseAssetHash))
-                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType,
-                        platform.MonochromeOverride ?? platform.BaseMonochrome))
-                    .FirstOrDefault()
-            };
+        var summaries = ProjectPlatformSummaries(libraryId, context.Platforms.AsNoTracking());
 
         // Use a single ascending keyset. Count is descending, and undated systems follow dated ones.
         var ranked = summaries.Select(summary => new
@@ -130,6 +89,54 @@ public sealed partial class ConsumerBrowseRepository(
         }).ToList();
         return new ConsumerLibraryProjectionResult<PagedList<ConsumerPlatformSummaryData>>.Found(
             new(results, page.NextCursor, page.HasNextPage));
+    }
+
+    private IQueryable<ConsumerPlatformSummaryData> ProjectPlatformSummaries(
+        int libraryId,
+        IQueryable<PlatformEntity> platforms)
+    {
+        var ownedTitles = OwnedMaterializedLibraryTitles(libraryId);
+        var titleCounts = ownedTitles.GroupBy(title => title.PlatformId)
+            .Select(group => new { PlatformId = group.Key, Count = group.Count() });
+        // Join the same bundled release years used by system detail before applying either bounded ordering.
+        var years = BuiltInSystemHardware.ReleaseYears().ToArray();
+        var builtInYears = context.Database.SqlQuery<BuiltInReleaseYear>($"""
+            SELECT data."Key", data."ReleaseYear"
+            FROM unnest({years.Select(year => year.Key).ToArray()}, {years.Select(year => year.Year).ToArray()}) AS data("Key", "ReleaseYear")
+            """);
+        return
+            from platform in platforms
+            join titles in titleCounts on platform.Id equals titles.PlatformId
+            join year in builtInYears on platform.CanonicalKey equals year.Key into hardware
+            from year in hardware.DefaultIfEmpty()
+            select new ConsumerPlatformSummaryData
+            {
+                Key = platform.CanonicalKey ?? platform.ShortName,
+                Id = platform.Id,
+                Name = platform.Name,
+                ShortName = platform.ShortName,
+                ReleaseYear = platform.BuiltInVersion != null ? year!.ReleaseYear : platform.HardwareReleaseYear,
+                TitleCount = titles.Count,
+                CoverMediaId = context.TitleMedia
+                    .Where(media =>
+                        media.Type == "Cover" &&
+                        ownedTitles.Any(item =>
+                            item.PlatformId == platform.Id &&
+                            item.TitleId == media.TitleId))
+                    .OrderByDescending(media => media.IsPrimary)
+                    .ThenBy(media => media.Id)
+                    .Select(media => (int?)media.Id)
+                    .FirstOrDefault(),
+                ConsoleArtwork = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (platform.ConsoleArtworkOverrideHash ?? platform.BaseConsoleArtworkHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType, false))
+                    .FirstOrDefault(),
+                Icon = context.ReferenceAssets
+                    .Where(asset => asset.Hash == (platform.HasArtworkOverride ? platform.ArtworkOverrideHash : platform.BaseAssetHash))
+                    .Select(asset => new ReferenceAssetData("/api/assets/" + asset.Hash, asset.Hash, asset.ContentType,
+                        platform.MonochromeOverride ?? platform.BaseMonochrome))
+                    .FirstOrDefault()
+            };
     }
 
     public Task<ConsumerLibraryReadResult<ConsumerPlatformDetailData>> GetPlatformAsync(
@@ -204,9 +211,44 @@ public sealed partial class ConsumerBrowseRepository(
             })
             .ToListAsync(ct);
 
-        var manufacturers = await new Romd.Persistence.ReferenceData.SystemCompanyReader(context).ReadAsync([platformId], ct);
+        var peers = await ReadEraPeersAsync(libraryId, platform, ct);
+        var manufacturers = await new Romd.Persistence.ReferenceData.SystemCompanyReader(context)
+            .ReadAsync(peers.Select(peer => peer.Id).Append(platformId), ct);
         return new ConsumerLibraryProjectionResult<ConsumerPlatformDetailData>.Found(
-            platform with { Media = media, Manufacturer = Romd.Persistence.ReferenceData.SystemCompanyReader.Names(manufacturers.GetValueOrDefault(platformId)) });
+            platform with
+            {
+                Media = media,
+                Manufacturer = Romd.Persistence.ReferenceData.SystemCompanyReader.Names(manufacturers.GetValueOrDefault(platformId)),
+                EraPeers = peers.Select(peer => peer with
+                {
+                    Manufacturer = Romd.Persistence.ReferenceData.SystemCompanyReader.Names(manufacturers.GetValueOrDefault(peer.Id))
+                }).ToList()
+            });
+    }
+
+    private async Task<List<ConsumerPlatformSummaryData>> ReadEraPeersAsync(
+        int libraryId,
+        ConsumerPlatformDetailData platform,
+        CancellationToken ct)
+    {
+        if (platform.Hardware?.Generation is not { } generation)
+        {
+            return [];
+        }
+
+        string[] builtInPeers = BuiltInSystemHardware.KeysForGeneration(generation);
+        int releaseYear = platform.Hardware.ReleaseYear ?? 0;
+        var candidates = context.Platforms.AsNoTracking()
+            .Where(candidate => candidate.Id != platform.Id && (candidate.BuiltInVersion != null
+                ? builtInPeers.Contains(candidate.CanonicalKey!)
+                : candidate.HardwareGeneration == generation));
+        return await ProjectPlatformSummaries(libraryId, candidates)
+            .OrderBy(peer => peer.ReleaseYear == null ? int.MaxValue : Math.Abs(peer.ReleaseYear.Value - releaseYear))
+            .ThenBy(peer => peer.ReleaseYear)
+            .ThenBy(peer => peer.Name)
+            .ThenBy(peer => peer.Id)
+            .Take(ConsumerPlatformDetailData.MaximumEraPeers)
+            .ToListAsync(ct);
     }
 
     public Task<ConsumerLibraryReadResult<PagedList<ConsumerTitleCardData>>> SearchCatalogAsync(

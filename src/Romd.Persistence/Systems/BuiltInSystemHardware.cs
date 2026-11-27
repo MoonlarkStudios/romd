@@ -14,6 +14,9 @@ internal static class BuiltInSystemHardware
         Facts.Value.Where(fact => fact.Value.ReleaseYear.HasValue)
             .Select(fact => (fact.Key, fact.Value.ReleaseYear!.Value));
 
+    internal static string[] KeysForGeneration(int generation) =>
+        Facts.Value.Where(fact => fact.Value.Generation == generation).Select(fact => fact.Key).ToArray();
+
     private static Dictionary<string, SystemHardware> Load()
     {
         using var stream = typeof(BuiltInSystemHardware).Assembly.GetManifestResourceStream("Romd.SystemHardware.json")

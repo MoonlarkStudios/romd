@@ -160,6 +160,7 @@ public sealed class ConsumerBrowseEndpointsTests
         body.ShouldNotBeNull();
         body.Name.ShouldBe("Super Nintendo");
         body.TitleCount.ShouldBe(2);
+        body.EraPeers.ShouldBeEmpty();
         body.Media.Single().Url.ShouldStartWith("/media/");
     }
 
