@@ -205,8 +205,8 @@ export function useChangePlayLater(titleId: string) {
         queryKey: titlesKey,
         exact: true,
       });
-      const activeList = list?.isActive();
-      if (activeList && !save && list.state.status === 'success') {
+      const activeList = list?.isActive() ? list : undefined;
+      if (activeList?.state.status === 'success' && !save) {
         queryClient.setQueryData<InfiniteData<PlayLaterPage>>(
           titlesKey,
           (data) =>
