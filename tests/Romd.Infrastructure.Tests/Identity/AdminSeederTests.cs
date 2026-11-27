@@ -6,8 +6,10 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Romd.Application.Common.Configuration;
 using Romd.Domain.Identity;
+using Romd.Domain.Libraries;
 using Romd.Infrastructure.Identity;
 using Romd.Persistence;
+using Romd.Persistence.Entities;
 using Romd.Persistence.Identity;
 using Romd.PostgreSql.TestSupport;
 using Shouldly;
@@ -18,11 +20,12 @@ namespace Romd.Infrastructure.Tests.Identity;
 public sealed class AdminSeederTests
 {
     [Fact]
-    public async Task StartAsync_EmptyDatabaseAndConcurrentStarts_CreatesOneAdministrator()
+    public async Task StartAsync_EmptyDatabaseAndConcurrentStarts_CreatesOneAdministratorWithOneDraft()
     {
         await using var fixture = Fixture.Create();
 
         await Task.WhenAll(fixture.SeedAsync(), fixture.SeedAsync());
+        await fixture.SeedAsync();
 
         await using var scope = fixture.Provider.CreateAsyncScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<RomdUser>>();
@@ -33,6 +36,61 @@ public sealed class AdminSeederTests
         admin.RequiresActivation.ShouldBeFalse();
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
         (await db.Users.CountAsync(user => user.Id != SystemActor.UserId)).ShouldBe(1);
+        var starter = (await db.Libraries.SingleAsync()).ToDomain();
+        starter.Name.ShouldBe("All Titles");
+        starter.IsStarter.ShouldBeTrue();
+        starter.IsDefault.ShouldBeFalse();
+        starter.AwaitsFirstPublication.ShouldBeTrue();
+        starter.Configuration.AllowedPlatformIds.ShouldBeEmpty();
+        starter.Configuration.IncludeUntrackedTitles.ShouldBeTrue();
+        starter.Configuration.ShowMissingGames.ShouldBeFalse();
+        starter.Configuration.ContentRatingPolicy.UnknownRatingPolicy.ShouldBe(UnknownMetadataPolicy.Allow);
+        admin.LibraryId.ShouldBe(starter.Id);
+        (await db.Jobs.OfType<MaterializationJobEntity>().AnyAsync()).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task StartAsync_ExistingAudiencesAndExplicitAssignments_PreservesConfigurationAndDefault()
+    {
+        await using var fixture = Fixture.Create();
+        var now = DateTimeOffset.UtcNow;
+        var audience = Library.CreateNew("Private collection", new LibraryConfiguration
+        {
+            IncludeUntrackedTitles = true,
+            ContentRatingPolicy = new ContentRatingPolicy { MaxMinimumAge = 16 }
+        }, now);
+        audience.MarkMaterialized(12, now);
+        var family = Library.CreateNew("Family", new LibraryConfiguration
+        {
+            ContentRatingPolicy = new ContentRatingPolicy { MaxMinimumAge = 8 }
+        }, now);
+        family.MarkAsDefault(now);
+        var audienceRow = LibraryEntity.FromDomain(audience);
+        var familyRow = LibraryEntity.FromDomain(family);
+        var admin = RomdUser.Create(Fixture.Email, Fixture.Email);
+        var familyMember = RomdUser.Create("family@example.com", "family@example.com");
+        await using (var db = fixture.Database.CreateContext())
+        {
+            db.Libraries.AddRange(audienceRow, familyRow);
+            await db.SaveChangesAsync();
+            admin.LibraryId = audienceRow.Id;
+            familyMember.LibraryId = familyRow.Id;
+            db.Users.AddRange(admin, familyMember);
+            await db.SaveChangesAsync();
+        }
+
+        await fixture.SeedAsync();
+        await fixture.SeedAsync();
+
+        await using var verify = fixture.Database.CreateContext();
+        var libraries = await verify.Libraries.ToDictionaryAsync(library => library.Id);
+        libraries.Count.ShouldBe(2);
+        libraries[audienceRow.Id].ConfigurationJson.ShouldBe(audienceRow.ConfigurationJson);
+        libraries[audienceRow.Id].ItemCount.ShouldBe(12);
+        libraries[familyRow.Id].ConfigurationJson.ShouldBe(familyRow.ConfigurationJson);
+        libraries.Values.Where(library => library.IsDefault).ShouldHaveSingleItem().Id.ShouldBe(familyRow.Id);
+        (await verify.Users.SingleAsync(user => user.Id == admin.Id)).LibraryId.ShouldBe(audienceRow.Id);
+        (await verify.Users.SingleAsync(user => user.Id == familyMember.Id)).LibraryId.ShouldBe(familyRow.Id);
     }
 
     [Theory]
@@ -159,13 +217,17 @@ public sealed class AdminSeederTests
             (await verify.Users.AnyAsync()).ShouldBeFalse();
             (await verify.UserRoles.AnyAsync()).ShouldBeFalse();
             (await verify.Roles.AnyAsync()).ShouldBeFalse();
+            (await verify.Libraries.AnyAsync()).ShouldBeFalse();
         }
         validator.Enabled = false;
         fixture.Options.DefaultAdminPassword.Returns(Fixture.Password);
         await fixture.SeedAsync();
         await using var scope = fixture.Provider.CreateAsyncScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<RomdUser>>();
-        (await users.IsInRoleAsync((await users.FindByEmailAsync(Fixture.Email))!, "Admin")).ShouldBeTrue();
+        var admin = (await users.FindByEmailAsync(Fixture.Email))!;
+        (await users.IsInRoleAsync(admin, "Admin")).ShouldBeTrue();
+        var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
+        admin.LibraryId.ShouldBe((await db.Libraries.SingleAsync()).Id);
     }
 
     [Fact]

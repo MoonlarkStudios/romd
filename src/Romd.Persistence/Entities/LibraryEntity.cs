@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Romd.Domain.Identity;
 using Romd.Domain.Libraries;
 using Romd.Persistence.Configuration;
 
@@ -84,7 +85,9 @@ public sealed class LibraryEntity : EntityBase, IEditableEntity
             CreatedAt,
             UpdatedAt,
             MaterializationGeneration,
-            MaterializationRevision);
+            MaterializationRevision,
+            // Only bootstrap creates libraries as the system actor. Renames and edits retain this origin.
+            isStarter: CreatedByUserId == SystemActor.UserId);
     }
 
     public static LibraryEntity FromDomain(Library domain)

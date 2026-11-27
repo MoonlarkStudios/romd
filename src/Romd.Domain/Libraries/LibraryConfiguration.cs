@@ -32,6 +32,17 @@ public sealed record LibraryConfiguration
     private IReadOnlyList<int> _includeTitleIds = Array.Empty<int>();
     private IReadOnlyList<int> _excludeTitleIds = Array.Empty<int>();
 
+    public static LibraryConfiguration AllOwnedTitles { get; } = new()
+    {
+        IncludeUntrackedTitles = true,
+        ContentRatingPolicy = new ContentRatingPolicy
+        {
+            MaxMinimumAge = null,
+            AllowRefusedClassification = true,
+            UnknownRatingPolicy = UnknownMetadataPolicy.Allow
+        }
+    };
+
     public static LibraryConfiguration InvalidFailClosedSentinel { get; } = new()
     {
         TitleSelectionMode = LibraryTitleSelectionMode.IncludeOnly,

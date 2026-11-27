@@ -83,6 +83,8 @@ public static class AuthEndpoints
     private static async Task<IResult> GetCurrentUser(
         ICurrentUser currentUser,
         UserManager<RomdUser> userManager,
+        IConfiguration configuration,
+        IHostEnvironment environment,
         CancellationToken cancellationToken)
     {
         if (!currentUser.IsAuthenticated || currentUser.UserId is null)
@@ -102,7 +104,25 @@ public static class AuthEndpoints
             Id: user.Id,
             Email: user.Email ?? string.Empty,
             Roles: roles.ToList(),
-            LibraryId: user.LibraryId.HasValue ? IdCoder.Encode(user.LibraryId.Value) : null));
+            LibraryId: user.LibraryId.HasValue ? IdCoder.Encode(user.LibraryId.Value) : null,
+            ConsumerPortalUrl: ResolveConsumerPortalUrl(configuration, environment)));
+    }
+
+    private static string? ResolveConsumerPortalUrl(IConfiguration configuration, IHostEnvironment environment)
+    {
+        var redirects = configuration.GetSection($"{RomdOpenIddictClients.ConsumerSpaConfiguration}:RedirectUris")
+            .Get<string[]>();
+        if (redirects is not { Length: > 0 })
+            return environment.IsDevelopment() ? RomdOpenIddictClients.ConsumerSpaDevelopmentOrigin : null;
+
+        foreach (string redirect in redirects)
+        {
+            if (Uri.TryCreate(redirect, UriKind.Absolute, out var uri) &&
+                uri.Scheme is "http" or "https" && uri.UserInfo.Length == 0)
+                return uri.GetLeftPart(UriPartial.Authority);
+        }
+
+        return null;
     }
 
     private static async Task<IResult> ChangePassword(

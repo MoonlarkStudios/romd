@@ -514,6 +514,7 @@ export type CurrentUserResponse = {
     email: string;
     roles: Array<string>;
     libraryId: null | string;
+    consumerPortalUrl?: null | string;
 };
 
 export type DashboardStatusBar = {
@@ -1237,6 +1238,7 @@ export type Library = {
     configuration?: null | LibraryConfiguration;
     configurationState: string;
     configurationError?: null | string;
+    starterSetupComplete?: null | boolean;
     isDefault: boolean;
     needsMaterialization: boolean;
     lastMaterializedAt?: null | string;

@@ -11,7 +11,7 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createMemoryRouter, Outlet, RouterProvider } from 'react-router';
+import { createMemoryRouter, Outlet, Route, RouterProvider, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DraftGuardProvider } from '../../components/Administration/DraftGuard';
 import { useUpdateCollection } from '../../hooks/api/useCollectionManagement';
@@ -128,6 +128,110 @@ const poster = {
   role: 'Poster',
   url: posterUrl,
 };
+
+it('hands the assigned starter library off to the consumer portal and People after publication', async () => {
+  vi.mocked(getLibrary).mockResolvedValue({
+    data: {
+      ...library,
+      id: 'starter',
+      starterSetupComplete: true,
+      name: 'All Titles',
+    },
+  } as never);
+  render(
+    <Routes>
+      <Route
+        path="/libraries/:libraryId"
+        element={<LibraryWorkspace />}
+      />
+    </Routes>,
+    {
+      routerOptions: {
+        initialEntries: [
+          '/libraries/starter?tab=games',
+        ],
+      },
+      auth: {
+        user: {
+          id: 'admin',
+          email: 'admin@example.com',
+          roles: [
+            'Admin',
+          ],
+          libraryId: 'starter',
+          consumerPortalUrl: 'https://play.example.test',
+        },
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        retry: async () => {},
+        login: async () => {},
+        logout: async () => {},
+      },
+    },
+  );
+  expect(
+    await screen.findByRole('link', {
+      name: 'Open consumer portal',
+    }),
+  ).toHaveAttribute('href', 'https://play.example.test');
+  expect(
+    screen.getByRole('link', {
+      name: 'Go to People',
+    }),
+  ).toHaveAttribute('href', '/libraries/starter?tab=access');
+});
+
+it('creates an ordinary All Titles draft with broad owned-game rules when the preset is chosen', async () => {
+  vi.mocked(createLibrary).mockResolvedValue({
+    data: {
+      ...library,
+      id: 'all-titles',
+      name: 'All Titles',
+    },
+  } as never);
+  render(<Libraries />);
+
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'New library',
+    }),
+  );
+  await userEvent.click(
+    screen.getByRole('radio', {
+      name: /All Titles/,
+    }),
+  );
+  expect(
+    screen.getByRole('textbox', {
+      name: 'Library name',
+    }),
+  ).toHaveValue('All Titles');
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'Create draft',
+    }),
+  );
+
+  await waitFor(() =>
+    expect(createLibrary).toHaveBeenCalledWith({
+      body: {
+        name: 'All Titles',
+        configuration: {
+          ...defaultLibraryConfiguration,
+          includeUntrackedTitles: true,
+          showMissingGames: false,
+          contentRatingPolicy: {
+            ...defaultLibraryConfiguration.contentRatingPolicy,
+            maxMinimumAge: null,
+            allowRefusedClassification: true,
+            unknownRatingPolicy: 'Allow',
+          },
+        },
+      },
+    }),
+  );
+});
 
 beforeEach(() => {
   vi.mocked(getLibraryPublicationStatus).mockResolvedValue({

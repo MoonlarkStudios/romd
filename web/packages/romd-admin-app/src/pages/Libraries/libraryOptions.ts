@@ -128,6 +128,17 @@ export const defaultLibraryConfiguration: Required<LibraryConfiguration> = {
   selectedDiscSetIds: [],
 };
 
+export const allTitlesLibraryConfiguration: LibraryConfiguration = {
+  ...defaultLibraryConfiguration,
+  includeUntrackedTitles: true,
+  contentRatingPolicy: {
+    ...defaultContentRatingPolicy,
+    maxMinimumAge: null,
+    allowRefusedClassification: true,
+    unknownRatingPolicy: 'Allow',
+  },
+};
+
 export function getTitleSelectionModeLabel(value: string | null | undefined): string {
   return (
     titleSelectionModeOptions.find((option) => option.value === String(value))?.label ?? 'Unknown'

@@ -20418,6 +20418,12 @@
               "null",
               "string"
             ]
+          },
+          "consumerPortalUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -23614,6 +23620,12 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "starterSetupComplete": {
+            "type": [
+              "null",
+              "boolean"
             ]
           },
           "isDefault": {
