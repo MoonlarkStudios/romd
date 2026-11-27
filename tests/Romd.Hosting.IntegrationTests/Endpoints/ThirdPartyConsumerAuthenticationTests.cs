@@ -130,6 +130,12 @@ public sealed class ThirdPartyConsumerAuthenticationTests
         (await device.GetAsync(session)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await device.DeleteAsync(history)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
         (await device.GetAsync("/api/me/settings")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        const string playLater = "/api/me/play-later";
+        string titleId = IdCoder.Encode(seed.OwnedTitleId);
+        (await device.GetAsync(playLater)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await device.GetAsync($"{playLater}/membership?titleIds={titleId}")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await device.PutAsync($"{playLater}/{titleId}", content: null)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await device.DeleteAsync($"{playLater}/{titleId}")).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
         using var refresh = await RefreshAsync(browser, clientId, console.RefreshToken);
         var refreshed = await ReadTokensAsync(refresh, requireRefresh: true);
@@ -141,6 +147,7 @@ public sealed class ThirdPartyConsumerAuthenticationTests
         using var portal = CreateConsumerClient(fixture, portalTokens.AccessToken);
         var historyPage = (await portal.GetFromJsonAsync<Page<PlaySession>>(history)).ShouldNotBeNull();
         historyPage.Items.ShouldHaveSingleItem().ClientId.ShouldBe("living-room");
+        (await portal.PutAsync($"{playLater}/{titleId}", content: null)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
     }
 
     [Fact]

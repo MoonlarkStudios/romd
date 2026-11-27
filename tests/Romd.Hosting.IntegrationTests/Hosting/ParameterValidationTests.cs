@@ -138,6 +138,7 @@ public sealed class ParameterValidationTests : IAsyncLifetime, IDisposable
     [InlineData(true, "/api/catalog?limit=101")]
     [InlineData(true, "/api/me/library/systems?limit=101")]
     [InlineData(true, "/api/me/activity/recently-played?limit=51")]
+    [InlineData(true, "/api/me/play-later?limit=101")]
     public async Task HostLimit_AboveItsMaximum_Returns400InsteadOfClamping(bool consumer, string path)
     {
         var (factory, client) = consumer

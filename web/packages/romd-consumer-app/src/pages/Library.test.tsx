@@ -111,9 +111,7 @@ describe('Library', () => {
   });
 
   it('renders the library context, filters, and title links without play overlays', () => {
-    render(<Library />, {
-      withAuth: false,
-    });
+    render(<Library />);
 
     expect(
       screen.getByRole('heading', {
@@ -137,7 +135,6 @@ describe('Library', () => {
 
   it('passes URL filters to the backend-backed catalog search hook', () => {
     render(<Library />, {
-      withAuth: false,
       routerOptions: {
         initialEntries: [
           '/library?q=mario&systemKey=platform-1&genre=Platformer&completeness=complete&sortBy=rating',
@@ -173,7 +170,6 @@ describe('Library', () => {
         <NavigationProbe />
       </>,
       {
-        withAuth: false,
         routerOptions: {
           initialEntries: [
             '/library?q=mario&systemKey=platform-1',
@@ -212,7 +208,6 @@ describe('Library', () => {
         <NavigationProbe />
       </>,
       {
-        withAuth: false,
         routerOptions: {
           initialEntries: [
             `/library?q=${previousQuery}`,
@@ -248,7 +243,6 @@ describe('Library', () => {
         <NavigationProbe />
       </>,
       {
-        withAuth: false,
         routerOptions: {
           initialEntries: [
             '/library?systemKey=platform-1',

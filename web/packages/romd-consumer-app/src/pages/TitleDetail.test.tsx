@@ -71,7 +71,6 @@ describe('TitleDetail', () => {
       isError: false,
     } as ReturnType<typeof useTitleDetail>);
     render(<TitleDetail />, {
-      withAuth: false,
       routerOptions: {
         initialEntries: [
           {
@@ -108,7 +107,6 @@ describe('TitleDetail', () => {
     } as ReturnType<typeof useTitleDetail>);
 
     render(<TitleDetail />, {
-      withAuth: false,
       routerOptions: {
         initialEntries: [
           '/titles/title-1',
@@ -189,7 +187,6 @@ describe('TitleDetail', () => {
     } as ReturnType<typeof useTitleDetail>);
 
     render(<TitleDetail />, {
-      withAuth: false,
       routerOptions: {
         initialEntries: [
           '/titles/title-1',
@@ -227,7 +224,6 @@ describe('TitleDetail', () => {
     } as ReturnType<typeof useTitleDetail>);
 
     render(<TitleDetail />, {
-      withAuth: false,
       routerOptions: {
         initialEntries: [
           '/titles/title-1',
@@ -268,9 +264,7 @@ describe('TitleDetail', () => {
       isLoading: false,
       isError: false,
     } as ReturnType<typeof useTitleDetail>);
-    const { container } = render(<TitleDetail />, {
-      withAuth: false,
-    });
+    const { container } = render(<TitleDetail />, {});
     const overview = screen.getByRole('region', {
       name: /Super Metroid overview/i,
     });
@@ -308,7 +302,6 @@ describe('TitleDetail', () => {
       isError: false,
     } as ReturnType<typeof useTitleDetail>);
     render(<TitleDetail />, {
-      withAuth: false,
       routerOptions: {
         initialEntries: [
           '/titles/title-1?tab=releases',
@@ -364,7 +357,6 @@ describe('TitleDetail', () => {
       isError: false,
     } as ReturnType<typeof useTitleDetail>);
     render(<TitleDetail />, {
-      withAuth: false,
       routerOptions: {
         initialEntries: [
           '/titles/title-1',
@@ -422,7 +414,6 @@ describe('TitleDetail', () => {
       isError: false,
     } as ReturnType<typeof useTitleDetail>);
     render(<TitleDetail />, {
-      withAuth: false,
       routerOptions: {
         initialEntries: [
           '/titles/title-1?release=release-2&tab=media',
@@ -455,9 +446,7 @@ describe('TitleDetail', () => {
     vi.mocked(useBrowserPlaybackCapability).mockReturnValue({
       isLoading: true,
     } as ReturnType<typeof useBrowserPlaybackCapability>);
-    render(<TitleDetail />, {
-      withAuth: false,
-    });
+    render(<TitleDetail />, {});
     expect(
       screen.getByRole('button', {
         name: 'Checking play availability',

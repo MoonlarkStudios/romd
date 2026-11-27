@@ -32,6 +32,11 @@ import {
   useCurrentLibrary,
 } from '../hooks/useConsumerLibrary';
 import { useRecentlyPlayed } from '../hooks/usePlayActivity';
+import { usePlayLaterTitles } from '../hooks/usePlayLater';
+
+vi.mock('../hooks/usePlayLater', () => ({
+  usePlayLaterTitles: vi.fn(() => ({})),
+}));
 
 describe('Shelves', () => {
   beforeEach(() => {
@@ -151,7 +156,7 @@ describe('Shelves', () => {
 
     expect(
       screen.getByRole('heading', {
-        level: 1,
+        level: 2,
         name: 'Chrono Trigger',
       }),
     ).toBeInTheDocument();
@@ -202,6 +207,44 @@ describe('Shelves', () => {
         name: 'EarthBound',
       }),
     ).toBeInTheDocument();
+  });
+
+  it('shows the Play Later shelf before the featured and Explore games', () => {
+    vi.mocked(usePlayLaterTitles).mockReturnValueOnce({
+      data: {
+        pages: [
+          {
+            items: [],
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof usePlayLaterTitles>);
+    render(<Shelves />);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Your games',
+      }),
+    ).toBeInTheDocument();
+    const playLater = screen.getByRole('heading', {
+      level: 2,
+      name: 'Play Later',
+    });
+    const featured = screen.getByRole('heading', {
+      level: 2,
+      name: 'Chrono Trigger',
+    });
+    const explore = screen.getByRole('heading', {
+      level: 2,
+      name: 'Explore your games',
+    });
+    expect(
+      playLater.compareDocumentPosition(featured) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      playLater.compareDocumentPosition(explore) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('puts recently played first and avoids repeating those games in discovery', () => {
@@ -262,7 +305,7 @@ describe('Shelves', () => {
     render(<Shelves />);
     expect(
       screen.getByRole('heading', {
-        level: 1,
+        level: 2,
         name: 'Chrono Trigger',
       }),
     ).toBeInTheDocument();

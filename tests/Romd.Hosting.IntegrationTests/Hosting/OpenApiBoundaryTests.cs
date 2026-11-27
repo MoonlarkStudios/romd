@@ -60,6 +60,9 @@ public sealed class OpenApiBoundaryTests
             ["/api/me/activity/play-sessions"] = ["delete", "get"],
             ["/api/me/activity/play-sessions/{sessionId}"] = ["delete", "get", "put"],
             ["/api/me/activity/recently-played"] = ["get"],
+            ["/api/me/play-later"] = ["get"],
+            ["/api/me/play-later/membership"] = ["get"],
+            ["/api/me/play-later/{titleId}"] = ["delete", "put"],
             ["/api/me/library"] = ["get"],
             ["/api/me/library/publication"] = ["get"],
             ["/api/me/library/systems"] = ["get"],
@@ -245,6 +248,22 @@ public sealed class OpenApiBoundaryTests
         {
             json.ShouldNotContain(term, Case.Insensitive);
         }
+    }
+
+    [Fact]
+    public void ConsumerOpenApi_PlayLaterMembershipDocumentsABoundedArrayOfOpaqueIds()
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(FindRepositoryFile("web/schemas/consumer-v1.json")));
+        var query = document.RootElement.GetProperty("paths").GetProperty("/api/me/play-later/membership")
+            .GetProperty("get").GetProperty("parameters").EnumerateArray().Single();
+
+        query.GetProperty("in").GetString().ShouldBe("query");
+        query.GetProperty("name").GetString().ShouldBe("titleIds");
+        query.GetProperty("required").GetBoolean().ShouldBeTrue();
+        var schema = query.GetProperty("schema");
+        schema.GetProperty("minItems").GetInt32().ShouldBe(1);
+        schema.GetProperty("maxItems").GetInt32().ShouldBe(100);
+        schema.GetProperty("items").GetProperty("type").GetString().ShouldBe("string");
     }
 
     [Fact]

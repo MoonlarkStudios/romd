@@ -7,6 +7,7 @@ import type {
 import { GamePosterSurface } from '@romd/consumer-ui';
 import '@romd/consumer-ui/styles.css';
 import { IconPlayerPlayFilled } from '@tabler/icons-react';
+import type { ReactNode } from 'react';
 import { useBrowserPlaybackAvailability } from '../../hooks/useBrowserPlaybackCapability';
 import { TitleLink } from '../navigation/TitleLink';
 import { ArtworkFallback } from './ArtworkFallback';
@@ -17,9 +18,10 @@ type PosterTitle = ConsumerTitleCard | ConsumerCollectionTitle | RecentlyPlayedT
 interface PosterCardProps {
   title: PosterTitle;
   showPlayAction?: boolean;
+  playLaterAction?: ReactNode;
 }
 
-export function PosterCard({ title, showPlayAction = true }: PosterCardProps) {
+export function PosterCard({ title, showPlayAction = true, playLaterAction }: PosterCardProps) {
   const defaultReleaseId = title.defaultReleaseId ?? null;
   const playback = useBrowserPlaybackAvailability(title.system.key);
 
@@ -54,6 +56,8 @@ export function PosterCard({ title, showPlayAction = true }: PosterCardProps) {
           />
         </GamePosterSurface>
       </Box>
+
+      {playLaterAction && <Box className="romd-poster-play-later">{playLaterAction}</Box>}
 
       {showPlayAction && defaultReleaseId && playback.available && (
         <Box

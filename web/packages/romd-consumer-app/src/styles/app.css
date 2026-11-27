@@ -64,6 +64,12 @@
 .romd-poster:focus-within::after {
   opacity: 1;
 }
+.romd-poster-play-later {
+  position: absolute;
+  inset-block-start: var(--mantine-spacing-xs);
+  inset-inline-end: var(--mantine-spacing-xs);
+  z-index: 2;
+}
 .romd-poster .romd-poster-play {
   opacity: 0;
   transform: scale(0.7);

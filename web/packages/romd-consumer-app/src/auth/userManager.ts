@@ -19,18 +19,42 @@ export const userManager = new UserManager({
   }),
 });
 
+let receivedSessionUpdate = false;
 let currentAccessToken: string | null = null;
+let currentSession: {
+  subject: string;
+} | null = null;
+
+export function clearCachedSession(): void {
+  receivedSessionUpdate = true;
+  currentAccessToken = null;
+  currentSession = null;
+}
 
 function cacheAccessToken(user: User | null): void {
-  currentAccessToken = user && !user.expired ? user.access_token : null;
+  receivedSessionUpdate = true;
+  if (!user || user.expired || !user.profile.sub) {
+    clearCachedSession();
+    return;
+  }
+  currentAccessToken = user.access_token;
+  if (currentSession?.subject !== user.profile.sub) {
+    currentSession = {
+      subject: user.profile.sub,
+    };
+  }
 }
 
 userManager.events.addUserLoaded(cacheAccessToken);
-userManager.events.addUserUnloaded(() => cacheAccessToken(null));
+userManager.events.addUserUnloaded(clearCachedSession);
 void userManager
   .getUser()
-  .then(cacheAccessToken)
-  .catch(() => cacheAccessToken(null));
+  .then((user) => {
+    if (!receivedSessionUpdate) cacheAccessToken(user);
+  })
+  .catch(() => {
+    if (!receivedSessionUpdate) clearCachedSession();
+  });
 
 /**
  * Returns the current access token for non-React callers (API client, downloads).
@@ -38,4 +62,26 @@ void userManager
  */
 export function getAccessToken(): string | null {
   return currentAccessToken;
+}
+
+/** Bind a private request to the active account, including across silent token renewal. */
+export function bindAccountRequest(accountId: string) {
+  const session = currentSession;
+  const isCurrent = () => session?.subject === accountId && session === currentSession;
+  const assertCurrent = () => {
+    if (!isCurrent()) throw new DOMException('The account session has changed.', 'AbortError');
+  };
+  const fetch: typeof globalThis.fetch = async (input, init) => {
+    // The generated client sets Authorization before calling fetch. Never send a
+    // request from an old screen with the new account's bearer token.
+    assertCurrent();
+    const response = await globalThis.fetch(input, init);
+    // Withhold obsolete responses from the client's response interceptors too.
+    assertCurrent();
+    return response;
+  };
+  return {
+    fetch,
+    isCurrent,
+  };
 }

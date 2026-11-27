@@ -14,6 +14,9 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
             "Consumer-owned security mutations delegate to the existing unit-of-work helper, preserving rollback and durable-result cleanup semantics without a Consumer-to-Admin application dependency.",
             Site("src/Romd.Persistence/Identity/ConsumerSecurityTransaction.cs", "ConsumerSecurityTransaction", "ExecuteAsync", "ExecuteInTransactionAsync")),
         Boundary(TransactionBoundaryKind.UnitOfWorkAdapter,
+            "Play Later commands own settlement through the shared unit of work. The account and topology locks protect the staged membership change until commit.",
+            Site("src/Romd.Persistence/PlayLaterTransaction.cs", "PlayLaterTransaction", "ExecuteAsync", "ExecuteInTransactionAsync")),
+        Boundary(TransactionBoundaryKind.UnitOfWorkAdapter,
             "The shared authentication command owns session acceptance on both API hosts and delegates settlement to the same scoped unit of work before cookie or protocol issuance.",
             Site("src/Romd.Persistence/Identity/AccountSessionTransaction.cs", "AccountSessionTransaction", "ExecuteAsync", "ExecuteInTransactionAsync")),
         Boundary(TransactionBoundaryKind.BootstrapProtocol,
@@ -25,14 +28,15 @@ public sealed partial class RepositoryTransactionOwnershipArchitectureTests
     public void ReviewedProtocolExtensions_HaveExactShapeAndDoNotReplaceMeasuredDebt()
     {
         var sites = ReviewedProtocolExtensions.SelectMany(boundary => boundary.Sites).ToArray();
-        sites.Length.ShouldBe(3);
-        sites.Sum(site => site.Count).ShouldBe(3);
-        sites.Select(site => site.Key).Distinct().Count().ShouldBe(3);
+        sites.Length.ShouldBe(4);
+        sites.Sum(site => site.Count).ShouldBe(4);
+        sites.Select(site => site.Key).Distinct().Count().ShouldBe(4);
         var measured = InitialDebt.Select(site => site.Key)
             .Concat(AdditionalTransactionBoundaries.SelectMany(boundary => boundary.Sites).Select(site => site.Key))
             .ToImmutableHashSet();
         sites.ShouldAllBe(site => !measured.Contains(site.Key));
         ReviewedProtocolExtensions.Select(boundary => boundary.Kind).ShouldBe([
+            TransactionBoundaryKind.UnitOfWorkAdapter,
             TransactionBoundaryKind.UnitOfWorkAdapter,
             TransactionBoundaryKind.UnitOfWorkAdapter,
             TransactionBoundaryKind.BootstrapProtocol

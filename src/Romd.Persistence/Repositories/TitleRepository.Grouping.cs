@@ -41,6 +41,8 @@ public sealed partial class TitleRepository
         await _context.PlaySessions.Where(session => session.TitleId == sourceTitleId)
             .ExecuteUpdateAsync(set => set.SetProperty(session => session.TitleId, targetTitleId), cancellationToken);
 
+        await ReassignPlayLaterEntriesAsync(sourceTitleId, targetTitleId, cancellationToken);
+
         var sourceNames = _context.TitleLookupNames.Where(name => name.TitleId == sourceTitleId);
         var targetNames = _context.TitleLookupNames.Where(name => name.TitleId == targetTitleId);
         await sourceNames.Where(name => targetNames.Any(target => target.SearchDocument == name.SearchDocument))
@@ -59,5 +61,18 @@ public sealed partial class TitleRepository
         await sourceItems.Where(item => targetItems.Any(target => target.CollectionId == item.CollectionId))
             .ExecuteDeleteAsync(cancellationToken);
         await sourceItems.ExecuteUpdateAsync(set => set.SetProperty(item => item.TitleId, targetTitleId), cancellationToken);
+    }
+
+    private async Task ReassignPlayLaterEntriesAsync(int sourceTitleId, int targetTitleId, CancellationToken ct)
+    {
+        // The exclusive topology lock keeps consumer writes out while duplicates are
+        // collapsed. The merged title retains the latest original addition.
+        var source = _context.PlayLaterEntries.Where(entry => entry.TitleId == sourceTitleId);
+        var target = _context.PlayLaterEntries.Where(entry => entry.TitleId == targetTitleId);
+        await target.Where(entry => source.Any(duplicate => duplicate.UserId == entry.UserId && duplicate.AddedAt > entry.AddedAt))
+            .ExecuteUpdateAsync(update => update.SetProperty(entry => entry.AddedAt,
+                entry => source.Where(duplicate => duplicate.UserId == entry.UserId).Select(duplicate => duplicate.AddedAt).First()), ct);
+        await source.Where(entry => target.Any(duplicate => duplicate.UserId == entry.UserId)).ExecuteDeleteAsync(ct);
+        await source.ExecuteUpdateAsync(update => update.SetProperty(entry => entry.TitleId, targetTitleId), ct);
     }
 }

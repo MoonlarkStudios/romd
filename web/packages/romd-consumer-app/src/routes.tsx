@@ -58,6 +58,11 @@ const NotFound = lazy(() =>
     default: module.NotFound,
   })),
 );
+const PlayLater = lazy(() =>
+  import('./pages/PlayLater').then((module) => ({
+    default: module.PlayLater,
+  })),
+);
 const Shelves = lazy(() =>
   import('./pages/Shelves').then((module) => ({
     default: module.Shelves,
@@ -106,6 +111,10 @@ export const routes: RouteObject[] = [
       {
         path: 'library',
         element: <Library />,
+      },
+      {
+        path: 'play-later',
+        element: <PlayLater />,
       },
       {
         path: 'systems',

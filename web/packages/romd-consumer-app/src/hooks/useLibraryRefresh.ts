@@ -2,6 +2,7 @@ import { getConsumerLibraryPublication } from '@romd/consumer-api-client';
 import { type QueryClient, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { playLaterAccountKey } from './playLaterQueryKeys';
 
 export function refreshLibraryQueries(cache: QueryClient) {
   // Reset infinite queries as well as single pages so cursors from an older publication
@@ -58,6 +59,16 @@ export function LibraryPublicationObserver() {
       };
     }
     if (old.userId && old.userId !== userId) {
+      const playLaterKey = playLaterAccountKey(old.userId);
+      cache.removeQueries({
+        queryKey: playLaterKey,
+      });
+      const mutations = cache.getMutationCache();
+      for (const mutation of mutations.findAll({
+        mutationKey: playLaterKey,
+      })) {
+        mutations.remove(mutation);
+      }
       void cache.resetQueries({
         queryKey: [
           'consumer',

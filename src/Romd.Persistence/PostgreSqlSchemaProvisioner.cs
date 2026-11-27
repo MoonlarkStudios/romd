@@ -113,6 +113,7 @@ public sealed class PostgreSqlSchemaProvisioner(
             GRANT INSERT, UPDATE ON {{PostgreSqlConfiguration.SchemaName}}."VfsConnections" TO romd_consumer;
             GRANT INSERT, UPDATE ON {{PostgreSqlConfiguration.SchemaName}}."ConsumerUserSettings" TO romd_consumer;
             GRANT INSERT, UPDATE, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."PlaySessions" TO romd_consumer;
+            GRANT INSERT, DELETE ON {{PostgreSqlConfiguration.SchemaName}}."PlayLaterEntries" TO romd_consumer;
             GRANT INSERT, UPDATE, DELETE
                 ON {{PostgreSqlConfiguration.SchemaName}}."OpenIddictAuthorizations" TO romd_consumer;
             GRANT INSERT, UPDATE, DELETE

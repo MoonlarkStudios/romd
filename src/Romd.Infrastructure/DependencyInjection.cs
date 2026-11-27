@@ -57,6 +57,7 @@ using Romd.Consumer.Application;
 using Romd.Consumer.Application.Access;
 using Romd.Consumer.Application.Account;
 using Romd.Consumer.Application.Activity;
+using Romd.Consumer.Application.PlayLater;
 using Romd.Consumer.Application.Browse;
 using Romd.Consumer.Application.Collections;
 using Romd.Consumer.Application.Common.Persistence;
@@ -1221,7 +1222,12 @@ public static class DependencyInjection
 
         services.AddScoped<ISystemReferenceReader, SystemReferenceReader>();
         services.AddScoped<ICompanyReferenceReader, CompanyReferenceReader>();
-        services.AddScoped<IConsumerBrowseRepository, ConsumerBrowseRepository>();
+        services.AddScoped<ConsumerBrowseRepository>();
+        services.AddScoped<IConsumerBrowseRepository>(sp => sp.GetRequiredService<ConsumerBrowseRepository>());
+        services.AddScoped<IPlayLaterRepository>(sp => sp.GetRequiredService<ConsumerBrowseRepository>());
+        services.AddScoped<IPlayLaterTransaction>(sp => new PlayLaterTransaction(
+            new EfUnitOfWork(sp.GetRequiredService<RomdDbContext>()),
+            sp.GetRequiredService<ILogger<PlayLaterTransaction>>()));
         services.AddScoped<IConsumerReleaseAccessRepository, ConsumerReleaseAccessRepository>();
         services.AddScoped<IConsumerReleaseManifestRepository, ConsumerReleaseManifestRepository>();
         services.AddScoped<IConsumerCdArchiveRepository, ConsumerCdArchiveRepository>();

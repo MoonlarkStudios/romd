@@ -17,6 +17,7 @@ import { useDebouncedCallback } from '@mantine/hooks';
 import { IconLayoutGrid, IconList, IconRefresh, IconSearch } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
+import { PlayLaterButton } from '../components/library/PlayLaterButton';
 import { PosterCard } from '../components/library/PosterCard';
 import { TitleListRow } from '../components/library/TitleListRow';
 import { LibraryUnavailable } from '../components/status/LibraryUnavailable';
@@ -27,6 +28,7 @@ import {
   useCurrentLibrary,
 } from '../hooks/useConsumerLibrary';
 import { useRefreshLibrary } from '../hooks/useLibraryRefresh';
+import { usePlayLaterMembership } from '../hooks/usePlayLater';
 import { ConsumerLibraryUnavailableError } from '../services/libraryErrors';
 
 const completenessOptions = [
@@ -103,6 +105,7 @@ export function Library() {
   });
 
   const titles = catalogQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  const playLater = usePlayLaterMembership(catalogQuery.data?.pages);
   const selectedPlatformName = platforms.find((platform) => platform.id === systemKey)?.name;
   const loadedResultCount = titles.length;
   const filteredContext =
@@ -400,6 +403,13 @@ export function Library() {
               key={title.id}
               title={title}
               showPlayAction={false}
+              playLaterAction={
+                <PlayLaterButton
+                  title={title}
+                  membership={playLater.get(title.id)}
+                  compact
+                />
+              }
             />
           ))}
         </SimpleGrid>
@@ -409,6 +419,13 @@ export function Library() {
             <TitleListRow
               key={title.id}
               title={title}
+              playLaterAction={
+                <PlayLaterButton
+                  title={title}
+                  membership={playLater.get(title.id)}
+                  compact
+                />
+              }
             />
           ))}
         </Stack>

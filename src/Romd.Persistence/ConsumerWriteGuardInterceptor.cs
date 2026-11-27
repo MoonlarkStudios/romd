@@ -42,6 +42,7 @@ public sealed class ConsumerWriteGuardInterceptor : SaveChangesInterceptor
                 EntityState.Modified,
                 EntityState.Deleted
             },
+            [typeof(PlayLaterEntryEntity)] = new HashSet<EntityState> { EntityState.Added, EntityState.Deleted },
             [typeof(OpenIddictEntityFrameworkCoreAuthorization)] = ConsumerWritableOpenIddictStates,
             [typeof(OpenIddictEntityFrameworkCoreToken)] = ConsumerWritableOpenIddictStates
         };

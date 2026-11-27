@@ -3466,6 +3466,27 @@ namespace Romd.Persistence.Migrations
                     b.ToTable("PlatformFieldDefaults", "romd");
                 });
 
+            modelBuilder.Entity("Romd.Persistence.Entities.PlayLaterEntryEntity", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TitleId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("AddedAt")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("UserId", "TitleId");
+
+                    b.HasIndex("TitleId");
+
+                    b.HasIndex("UserId", "AddedAt", "TitleId")
+                        .IsDescending(false, true, true);
+
+                    b.ToTable("PlayLaterEntries", "romd");
+                });
+
             modelBuilder.Entity("Romd.Persistence.Entities.PlaySessionEntity", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -6040,6 +6061,21 @@ namespace Romd.Persistence.Migrations
                     b.HasOne("Romd.Persistence.Entities.PlatformEntity", null)
                         .WithMany()
                         .HasForeignKey("PlatformId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Romd.Persistence.Entities.PlayLaterEntryEntity", b =>
+                {
+                    b.HasOne("Romd.Persistence.Entities.TitleEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Romd.Persistence.Identity.RomdUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

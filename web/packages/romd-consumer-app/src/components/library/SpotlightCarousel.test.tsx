@@ -55,7 +55,7 @@ describe('SpotlightCarousel', () => {
       />,
     );
     const heading = screen.getByRole('heading', {
-      level: 1,
+      level: 2,
       name: 'Chrono Trigger',
     });
     const spotlight = heading.closest('.romd-home-spotlight');
@@ -89,7 +89,7 @@ describe('SpotlightCarousel', () => {
       />,
     );
     const heading = screen.getByRole('heading', {
-      level: 1,
+      level: 2,
       name: 'EarthBound',
     });
     expect(heading).toHaveTextContent('EarthBound');

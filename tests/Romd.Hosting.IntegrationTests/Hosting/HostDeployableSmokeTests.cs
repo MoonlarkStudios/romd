@@ -81,6 +81,9 @@ public sealed class HostDeployableSmokeTests
         "/api/me/activity/play-sessions",
         "/api/me/activity/play-sessions/{sessionId:guid}",
         "/api/me/activity/recently-played",
+        "/api/me/play-later",
+        "/api/me/play-later/membership",
+        "/api/me/play-later/{titleId}",
         "/api/me/library",
         "/api/me/library/publication",
         "/api/me/library/systems",
@@ -638,6 +641,7 @@ public sealed class HostDeployableSmokeTests
                      route.Pattern != "/api/me/password" && route.Pattern != "/api/me/settings" &&
                      route.Pattern != "/api/me/sessions/{sessionId:guid}" &&
                      !route.Pattern.StartsWith("/api/me/activity", StringComparison.Ordinal) &&
+                     route.Pattern != "/api/me/play-later/{titleId}" &&
                      route.Pattern != "/api/releases/{releaseId}/manifest" &&
                      route.Pattern != "/api/disc-sets/{discSetId}/manifest" &&
                      route.Pattern != "/api/disc-sets/{discSetId}/selection-manifest" &&
@@ -683,6 +687,8 @@ public sealed class HostDeployableSmokeTests
             .ShouldBe(["DELETE", "GET", "PUT"]);
         routes.Single(route => route.Pattern == "/api/me/activity/recently-played")
             .Methods.ShouldBe(["GET"]);
+        routes.Where(route => route.Pattern == "/api/me/play-later/{titleId}")
+            .SelectMany(route => route.Methods).Order(StringComparer.Ordinal).ShouldBe(["DELETE", "PUT"]);
     }
 
     [Fact]

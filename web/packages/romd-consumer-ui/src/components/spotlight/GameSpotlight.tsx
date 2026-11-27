@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 export interface GameSpotlightProps {
   /** Heading text and accessible name; stays the accessible name when a logo replaces it visually. */
   name: string;
+  headingOrder?: 1 | 2;
   /** Hero artwork. When present it fills the surface behind the copy and the poster is not shown. */
   art?: ReactNode;
   /** Shown beside the copy when there is no hero artwork. */
@@ -19,7 +20,15 @@ export interface GameSpotlightProps {
  * The consumer home spotlight slide. Data, routing, and artwork delivery belong to the host. The outer element is
  * the `romd-spotlight` size container, so the layout follows the width it is given rather than the viewport.
  */
-export function GameSpotlight({ name, art, poster, logo, metadata, actions }: GameSpotlightProps) {
+export function GameSpotlight({
+  name,
+  headingOrder = 1,
+  art,
+  poster,
+  logo,
+  metadata,
+  actions,
+}: GameSpotlightProps) {
   return (
     <div className="romd-spotlight-surface">
       <Box
@@ -37,7 +46,7 @@ export function GameSpotlight({ name, art, poster, logo, metadata, actions }: Ga
             }}
           >
             <Title
-              order={1}
+              order={headingOrder}
               className="romd-hero"
               aria-label={name}
             >
