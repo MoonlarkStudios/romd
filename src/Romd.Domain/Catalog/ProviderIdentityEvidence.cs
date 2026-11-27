@@ -45,19 +45,19 @@ public sealed record TrustedIdentityBridgeEvidence(string CandidateId, string Ev
 public sealed class IdentitySearchEvidence
 {
     public IdentitySearchEvidence(IEnumerable<IdentityCandidate> candidates, bool complete,
-        TrustedIdentityBridgeEvidence? trustedBridge = null, string? corroboratingArtworkTitle = null)
+        TrustedIdentityBridgeEvidence? trustedBridge = null, IReadOnlyList<string>? corroboratingArtworkTitles = null)
     {
         Candidates = Array.AsReadOnly(candidates.ToArray());
         if (trustedBridge is not null && !Candidates.Any(candidate => candidate.Id == trustedBridge.CandidateId))
             throw new ArgumentException("Trusted bridge evidence must identify an observed candidate.", nameof(trustedBridge));
         Complete = complete;
         TrustedBridge = trustedBridge;
-        CorroboratingArtworkTitle = corroboratingArtworkTitle;
+        CorroboratingArtworkTitles = Array.AsReadOnly(corroboratingArtworkTitles?.ToArray() ?? []);
     }
 
     public IReadOnlyList<IdentityCandidate> Candidates { get; }
     public bool Complete { get; }
     public TrustedIdentityBridgeEvidence? TrustedBridge { get; }
-    /// <summary>A title from a trusted, platform-corroborated association used to assess artwork candidates.</summary>
-    public string? CorroboratingArtworkTitle { get; }
+    /// <summary>Titles from a trusted, platform-corroborated association used to assess artwork candidates.</summary>
+    public IReadOnlyList<string> CorroboratingArtworkTitles { get; }
 }

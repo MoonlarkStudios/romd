@@ -14,15 +14,16 @@ public static class ProviderIdentityPolicy
     {
         var names = facts.Names.Prepend(facts.Name).Select(ProviderIdentityNames.Normalize).ToHashSet(StringComparer.Ordinal);
         var platforms = facts.Platforms.Select(ArtworkIdentityMatcher.Normalize).ToHashSet(StringComparer.Ordinal);
-        var corroboratingName = scope == ProviderIdentityScope.CrossPlatformArtwork && search.CorroboratingArtworkTitle is { } title
-            ? ProviderIdentityNames.Normalize(title) : null;
+        var corroboratingNames = scope == ProviderIdentityScope.CrossPlatformArtwork
+            ? search.CorroboratingArtworkTitles.Select(ProviderIdentityNames.Normalize).ToHashSet(StringComparer.Ordinal)
+            : [];
         var ranked = search.Candidates.DistinctBy(x => x.Id).Select(candidate =>
         {
             var evidence = new List<string>();
             var conflicts = new List<string>();
             var identityName = ProviderIdentityNames.Normalize(candidate.Name);
             var localExact = names.Contains(identityName);
-            var corroborated = identityName.Length > 0 && identityName == corroboratingName;
+            var corroborated = identityName.Length > 0 && corroboratingNames.Contains(identityName);
             var exact = localExact || corroborated;
             var alias = !exact && candidate.Aliases.Any(x => names.Contains(ProviderIdentityNames.Normalize(x)));
             var score = exact ? 100 : alias ? 90 : 0;

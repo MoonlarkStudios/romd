@@ -78,7 +78,7 @@ public sealed class ProviderIdentityPolicyTests
     public void Decide_CorroboratingTitle_RespectsScopeAndEdition(ProviderIdentityScope scope, string name, bool eligible)
     {
         var decision = ProviderIdentityPolicy.Decide(Facts(), new IdentitySearchEvidence([Candidate(name: name)], false,
-            corroboratingArtworkTitle: name), scope);
+            corroboratingArtworkTitles: ["Alternate title", name]), scope);
 
         decision.State.ShouldBe("NeedsReview");
         decision.Candidates.ShouldHaveSingleItem().Eligible.ShouldBe(eligible);
