@@ -232,6 +232,9 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
         await Seed(db);
         await AddFamilyRom(db);
         db.DatRoms.Add(MatchedRom(1));
+        const string betaRelease = "Game (USA) (Beta 1)";
+        AddFamilyRelease(db, 1, 3, betaRelease);
+        db.TitleSourceLinks.Add(new TitleSourceLinkEntity { TitleId = 1, SourceEntryId = 3 });
         await db.SaveChangesAsync();
         await db.DatGames.Where(game => !game.IsBios).ExecuteUpdateAsync(update => update.SetProperty(game => game.Year, (string?)null));
         var revision = await AddAutomatic(db, "igdb", "3192");
@@ -255,12 +258,15 @@ public sealed partial class ProviderIdentityDatabaseTests : IDisposable
 
         await service.DiscoverAsync(1, null, default);
 
+        await provider.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         (await store.ReadTrustedAsync(1, "steamgriddb", default)).ShouldBe(trustedId);
         var authorization = (await artworkMatches.ReadAuthorizationAsync(1, "steamgriddb", default))
             .ShouldBeOfType<ProviderMatchAuthorizationResult.Authorized>().Match;
         authorization.GameId.ShouldBe(trustedId ?? provisionalId);
         authorization.IsProvisional.ShouldBe(provisionalId is not null);
         var snapshot = (await store.ReadAsync(1, default)).ShouldNotBeNull();
+        snapshot.Facts.Names.ShouldContain(betaRelease);
+        snapshot.DatLookupNames[betaRelease].ShouldBe("Game");
         var link = snapshot.Links.Single(link => link.ProviderId == "steamgriddb");
         link.GameId.ShouldBe(trustedId);
         var decision = link.Decision.ShouldNotBeNull();

@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Domain.Catalog;
 namespace Romd.Admin.Application.MetadataProviders;
@@ -7,6 +8,8 @@ public sealed record ProviderIdentitySnapshot(int TitleId, Guid TitleRevision, s
 {
     public DatFamilySearchEvidence? DatFamily { get; init; }
     public DatParentMatchEvidence? DatParent { get; init; }
+    /// <summary>Declared DAT release names mapped to their unqualified lookup names.</summary>
+    public IReadOnlyDictionary<string, string> DatLookupNames { get; init; } = FrozenDictionary<string, string>.Empty;
     public IReadOnlyList<ArtworkPlatformAlias> ArtworkPlatformAliases { get; init; } = [];
 }
 

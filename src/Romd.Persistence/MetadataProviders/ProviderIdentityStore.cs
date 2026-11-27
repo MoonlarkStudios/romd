@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Data;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Romd.Admin.Application.Ingestion.Jobs;
 using Romd.Admin.Application.MetadataProviders;
 using Romd.Admin.Application.Titles.Enrichment;
+using Romd.Dat;
 using Romd.Domain.Catalog;
 using Romd.Domain.ReferenceData;
 using Romd.Domain.Source.Platform;
@@ -68,10 +70,14 @@ public sealed class ProviderIdentityStore(RomdDbContext db, ITitleEnrichmentEvid
             };
         }).ToArray();
         var family = await HashBackedDatFamilyReader.ReadAsync(db, titleId, ct);
+        var datLookupNames = (family?.Names ?? []).Concat(facts.Names).Distinct(StringComparer.Ordinal)
+            .ToFrozenDictionary(name => name, name => DatNameParser.StripReleaseAnnotations(name, includeNonRetail: true),
+                StringComparer.Ordinal);
         return new(titleId, title.Revision, fingerprint, facts, rows)
         {
             DatFamily = family,
             DatParent = family?.Parent is { } parent ? await ReadDatParentAsync(titleId, parent, ct) : null,
+            DatLookupNames = datLookupNames,
             ArtworkPlatformAliases = await ReadArtworkPlatformAliasesAsync(titleId, ct)
         };
     }

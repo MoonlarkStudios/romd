@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Ingestion.Jobs;
-using Romd.Dat;
 using Romd.Domain.Catalog;
 namespace Romd.Admin.Application.MetadataProviders;
 
@@ -94,7 +93,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 ? sourceGame
                 : null;
             var found = bridged is not null ? ErrorOr.ErrorOrFactory.From(new SearchEvidence([bridged.Game], true, true)) :
-                await SearchCandidatesAsync(adapter, snapshot.Facts, snapshot.DatFamily?.Names ?? [], trustedGame?.Name, ct);
+                await SearchCandidatesAsync(adapter, snapshot, trustedGame?.Name, ct);
             if (found.IsError && RememberThrottle(adapter.Id, found.Errors))
                 continue;
             ProviderIdentityDecision decision;
@@ -274,21 +273,19 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
     private sealed record SearchEvidence(IReadOnlyList<ProviderGame> Games, bool Complete, bool Consistent);
 
     private static async Task<ErrorOr.ErrorOr<SearchEvidence>> SearchCandidatesAsync(
-        IProviderIdentityAdapter adapter, IdentityFacts facts, IReadOnlyList<string> datNames, string? trustedTitle, CancellationToken ct)
+        IProviderIdentityAdapter adapter, ProviderIdentitySnapshot snapshot, string? trustedTitle, CancellationToken ct)
     {
         // Bound provider load and make the query set independent of evidence enumeration order.
         // Gather the whole set before deciding, so an alias cannot hide a plausible alternative.
-        var names = datNames.Concat(facts.Names.Order(StringComparer.Ordinal));
+        var facts = snapshot.Facts;
+        var names = (snapshot.DatFamily?.Names ?? []).Concat(facts.Names.Order(StringComparer.Ordinal));
         if (adapter.Id == "steamgriddb")
         {
             // SteamGridDB searches for games, so DAT releases of the primary title
             // can share queries. Keep distinct names and the original match evidence.
             var primaryName = ProviderIdentityNames.Normalize(facts.Name);
-            names = names.Select(name =>
-            {
-                var stripped = DatNameParser.StripReleaseAnnotations(name, includeNonRetail: true);
-                return ProviderIdentityNames.Normalize(stripped) == primaryName ? stripped : name;
-            });
+            names = names.Select(name => snapshot.DatLookupNames.TryGetValue(name, out var lookupName) &&
+                ProviderIdentityNames.Normalize(lookupName) == primaryName ? lookupName : name);
         }
         if (trustedTitle is not null)
             names = names.Prepend(trustedTitle);

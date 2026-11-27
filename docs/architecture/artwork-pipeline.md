@@ -88,8 +88,9 @@ returned candidates satisfy the review rules. SteamGridDB lookups reuse queries
 for DAT entries that share the primary title after removing known trailing
 release annotations, such as region, revision and distribution channel. ROMD
 also folds recognized prerelease tags on DAT entries that reduce to the primary
-title. It retains those entries' full names for identity assessment and searches
-distinct names within the same budget. Discovery includes the current trusted
+title. Persistence projects lookup names with `Romd.Dat` and retains the full
+names as identity evidence. Application uses that evidence to plan the bounded
+search. Discovery includes the current trusted
 IGDB game's primary title in that budget. An exact match to that name can support
 a provisional selection when the platform year agrees. Automatic acceptance
 from an exhaustive search still requires a local name match.

@@ -18,7 +18,6 @@
     <ProjectReference Include="..\Romd.Application.Common\Romd.Application.Common.csproj" />
     <ProjectReference Include="..\Romd.Contracts.Common\Romd.Contracts.Common.csproj" />
     <ProjectReference Include="..\Romd.Contracts.Management\Romd.Contracts.Management.csproj" />
-    <ProjectReference Include="..\Romd.Dat\Romd.Dat.csproj" />
     <ProjectReference Include="..\Romd.Domain\Romd.Domain.csproj" />
   </ItemGroup>
 

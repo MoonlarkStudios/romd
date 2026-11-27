@@ -31,7 +31,8 @@ public sealed partial class ProviderIdentityServiceTests
         ProviderGameSearchCompleteness completeness = ProviderGameSearchCompleteness.Complete,
         DatFamilySearchEvidence? datFamily = null, string providerId = "provider",
         IReadOnlyList<int>? years = null, IReadOnlyList<string>? platforms = null,
-        IReadOnlyList<ArtworkPlatformAlias>? artworkPlatformAliases = null)
+        IReadOnlyList<ArtworkPlatformAlias>? artworkPlatformAliases = null,
+        IReadOnlyDictionary<string, string>? datLookupNames = null)
     {
         _adapter.Id.Returns(providerId);
         _adapter.Capabilities.Returns(new[] { "metadata" });
@@ -45,7 +46,11 @@ public sealed partial class ProviderIdentityServiceTests
         });
         _store.ReadAsync(1, Arg.Any<CancellationToken>()).Returns(new ProviderIdentitySnapshot(1, Guid.NewGuid(), "fingerprint",
             new(name, aliases, years ?? [1994], platforms ?? ["SNES"], "catalog"), links ?? [])
-        { DatFamily = datFamily, ArtworkPlatformAliases = artworkPlatformAliases ?? [] });
+        {
+            DatFamily = datFamily,
+            ArtworkPlatformAliases = artworkPlatformAliases ?? [],
+            DatLookupNames = datLookupNames ?? System.Collections.Frozen.FrozenDictionary<string, string>.Empty
+        });
         _store.StageDecisionAsync(Arg.Any<ProviderIdentitySnapshot>(), providerId, Guid.Empty,
             Arg.Any<ProviderIdentityDecision>(), Arg.Any<ProviderGame?>(), Arg.Any<CancellationToken>()).Returns(call =>
         {

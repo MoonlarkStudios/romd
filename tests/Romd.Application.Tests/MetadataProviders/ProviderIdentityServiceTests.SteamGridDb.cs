@@ -73,7 +73,8 @@ public sealed partial class ProviderIdentityServiceTests
                     ? [new("undated", alternate, "https://provider.test/game")]
                     : [release, differentGame]),
             [igdb], completeness: ProviderGameSearchCompleteness.ProviderLimited, providerId: "steamgriddb",
-            datFamily: new([$"{title} (USA) (En,Fr)"], false), years: []);
+            datFamily: new([$"{title} (USA) (En,Fr)"], false), years: [],
+            datLookupNames: aliases[..^1].ToDictionary(name => name, _ => title, StringComparer.Ordinal));
         _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
 
         await service.DiscoverAsync(1, null, default);
@@ -102,7 +103,8 @@ public sealed partial class ProviderIdentityServiceTests
             $"{title} (USA) (Beta 2)", $"{title} (USA) (The Cowabunga Collection)"];
         var service = Create(title, releases, _ => ErrorOrFactory.From<IReadOnlyList<ProviderGame>>([game]), [igdb],
             completeness: ProviderGameSearchCompleteness.ProviderLimited, datFamily: new([$"{title} (USA)"], false),
-            providerId: "steamgriddb", years: []);
+            providerId: "steamgriddb", years: [],
+            datLookupNames: releases[..^1].ToDictionary(name => name, _ => title, StringComparer.Ordinal));
         _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
 
         await service.DiscoverAsync(1, null, default);
@@ -136,7 +138,8 @@ public sealed partial class ProviderIdentityServiceTests
         var service = Create(title, [$"{title} (France) (Beta 1)"], query => ErrorOrFactory.From<IReadOnlyList<ProviderGame>>(
                 query == providerTitle.ToUpperInvariant() ? [game] : undatedContender ? [game with { Id = "undated", Name = title, Year = null }] : []),
             [igdb], completeness: completeness, datFamily: new([$"{title} (USA)"], false),
-            providerId: "steamgriddb", years: [], artworkPlatformAliases: aliases);
+            providerId: "steamgriddb", years: [], artworkPlatformAliases: aliases,
+            datLookupNames: new Dictionary<string, string> { [$"{title} (France) (Beta 1)"] = title });
         _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
 
         await service.DiscoverAsync(1, null, default);
@@ -171,7 +174,8 @@ public sealed partial class ProviderIdentityServiceTests
         var service = Create(title, [$"{title} (USA) (Sample)"], query => ErrorOrFactory.From<IReadOnlyList<ProviderGame>>(
                 query == providerTitle.ToUpperInvariant() ? [game] : []),
             [igdb], completeness: ProviderGameSearchCompleteness.ProviderLimited, datFamily: new([$"{title} (USA)"], false),
-            providerId: "steamgriddb", years: [], platforms: ["genesis"]);
+            providerId: "steamgriddb", years: [], platforms: ["genesis"],
+            datLookupNames: new Dictionary<string, string> { [$"{title} (USA) (Sample)"] = title });
         _adapter.IdentityScope.Returns(ProviderIdentityScope.CrossPlatformArtwork);
 
         await service.DiscoverAsync(1, null, default);
