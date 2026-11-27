@@ -11,6 +11,8 @@ namespace Romd.Persistence.Queries;
 
 public sealed partial class TitleDetailReader
 {
+    private const int EmbeddedSourceLimit = 50;
+
     public async Task<TitleDetailData?> GetPublicDetailAsync(int titleId, CancellationToken ct = default)
     {
         var detail = await GetDetailCoreAsync(titleId, true, ct);
@@ -92,13 +94,19 @@ public sealed partial class TitleDetailReader
         var groups = await ReleaseGroups(titleId).Where(group => group.Min(game => game.Id) > after)
             .OrderBy(group => group.Min(game => game.Id)).Take(limit + 1)
             .Select(group => new ReleaseGroup(group.Key, group.Min(game => game.Id))).ToListAsync(ct);
-        var ids = groups.Take(limit).Select(group => group.RepresentativeId).ToArray();
+        var pageGroups = groups.Take(limit).ToArray();
+        if (pageGroups.Length == 0)
+            return new TitleReadPage<TitleReleaseData>(revision.Value, new PagedList<TitleReleaseData>([], null, false));
+
+        var ids = pageGroups.Select(group => group.RepresentativeId).ToArray();
         var games = await _context.DatGames.AsNoTracking().Where(game => ids.Contains(game.Id)).Include(game => game.Roms).ToDictionaryAsync(game => game.Id, ct);
+        var sourcesByGroup = await ReadSourcesAsync(titleId, pageGroups.Select(group => group.Key).ToArray(), 0, EmbeddedSourceLimit, ct);
         List<TitleReleaseData> rows = [];
-        foreach (var group in groups.Take(limit))
+        foreach (var group in pageGroups)
         {
             var game = games[group.RepresentativeId];
-            var sources = await ReadSourcesAsync(titleId, group, null, 50, ct);
+            var sources = CreateSourcePage(sourcesByGroup[group.Key], EmbeddedSourceLimit,
+                ReleaseSourcesFingerprint(titleId, group.RepresentativeId));
             rows.Add(new TitleReleaseData
             {
                 Id = game.Id,
@@ -143,25 +151,65 @@ public sealed partial class TitleDetailReader
             return Error.NotFound("Catalog.ReleaseNotFound", "The release was not found for this title.");
         if (limit is < 1 or > 100)
             return InvalidLimit();
-        string fingerprint = KeysetCursor.Fingerprint("admin.title.release-sources", titleId, representativeId, "datGameId:asc");
+        string fingerprint = ReleaseSourcesFingerprint(titleId, representativeId);
         var decoded = KeysetCursor.Decode<IntegerPosition>(cursor, fingerprint, p => p.IsValid);
         if (decoded.IsError)
             return InvalidCursor();
-        return new TitleReadPage<TitleReleaseSourceData>(revision.Value, await ReadSourcesAsync(titleId, group, decoded.Value?.Id, limit, ct));
+        var sourcesByGroup = await ReadSourcesAsync(titleId, [group.Key], decoded.Value?.Id ?? 0, limit, ct);
+        return new TitleReadPage<TitleReleaseSourceData>(revision.Value, CreateSourcePage(sourcesByGroup[group.Key], limit, fingerprint));
     }
 
-    private async Task<PagedList<TitleReleaseSourceData>> ReadSourcesAsync(int titleId, ReleaseGroup selectedGroup, int? after, int limit, CancellationToken ct)
+    private async Task<ILookup<int, TitleReleaseSourceData>> ReadSourcesAsync(int titleId, int[] groupKeys, int after, int limit, CancellationToken ct)
     {
-        int position = after ?? 0;
-        var rows = await (from game in _context.DatGames.AsNoTracking()
-                          join dat in _context.DatFiles on game.DatFileId equals dat.Id
-                          where game.Id > position && _context.TitleSourceLinks.Any(link => link.TitleId == titleId && link.SourceEntryId == game.SourceEntryId)
-                              && (selectedGroup.Key < 0 ? game.Id == -selectedGroup.Key : _context.CatalogReleaseSources.Any(source => source.SourceEntryId == game.SourceEntryId && source.ProviderClaimKey == game.Id.ToString() && source.CatalogReleaseId == selectedGroup.Key))
-                          orderby game.Id
-                          select new TitleReleaseSourceData { DatGameId = game.Id, DatFileId = dat.Id, DatName = dat.Name, GameName = game.Name }).Take(limit + 1).ToListAsync(ct);
-        string fingerprint = KeysetCursor.Fingerprint("admin.title.release-sources", titleId, selectedGroup.RepresentativeId, "datGameId:asc");
-        return new PagedList<TitleReleaseSourceData>(rows.Take(limit).ToArray(), rows.Count > limit ? KeysetCursor.Encode(new IntegerPosition(rows[limit - 1].DatGameId), fingerprint) : null, rows.Count > limit);
+        // Apply the lookahead limit to each requested group before returning any rows. Keep the
+        // exact asserting claim match used by ReleaseGroups, with a separate lookup for negative keys.
+        var rows = await _context.Database.SqlQuery<ReleaseSourceRow>($"""
+            -- Admin title release provenance
+            SELECT requested."GroupKey", source."DatGameId", source."DatFileId", source."DatName", source."GameName"
+            FROM unnest({groupKeys}) AS requested("GroupKey")
+            CROSS JOIN LATERAL (
+                SELECT game."Id" AS "DatGameId", dat."Id" AS "DatFileId", dat."Name" AS "DatName", game."Name" AS "GameName"
+                FROM (
+                    SELECT g."Id", g."SourceEntryId", g."DatFileId", g."Name"
+                    FROM romd."CatalogReleaseSources" claim
+                    JOIN romd."DatGames" g ON g."SourceEntryId" = claim."SourceEntryId"
+                        AND g."Id"::text = claim."ProviderClaimKey"
+                    WHERE requested."GroupKey" >= 0 AND claim."CatalogReleaseId" = requested."GroupKey"
+                    UNION ALL
+                    SELECT g."Id", g."SourceEntryId", g."DatFileId", g."Name"
+                    FROM romd."DatGames" g
+                    WHERE requested."GroupKey" < 0 AND g."Id" = -requested."GroupKey"
+                ) game
+                JOIN romd."TitleSourceLinks" link ON link."SourceEntryId" = game."SourceEntryId"
+                JOIN romd."DatFiles" dat ON dat."Id" = game."DatFileId"
+                WHERE link."TitleId" = {titleId} AND game."Id" > {after}
+                ORDER BY game."Id"
+                LIMIT {limit + 1}
+            ) source
+            ORDER BY requested."GroupKey", source."DatGameId"
+            """).ToArrayAsync(ct);
+
+        return rows.ToLookup(row => row.GroupKey, row => new TitleReleaseSourceData
+        {
+            DatGameId = row.DatGameId,
+            DatFileId = row.DatFileId,
+            DatName = row.DatName,
+            GameName = row.GameName
+        });
     }
+
+    private static PagedList<TitleReleaseSourceData> CreateSourcePage(IEnumerable<TitleReleaseSourceData> rows, int limit, string fingerprint)
+    {
+        var items = rows.ToArray();
+        if (items.Length <= limit)
+            return new PagedList<TitleReleaseSourceData>(items, null, false);
+
+        string cursor = KeysetCursor.Encode(new IntegerPosition(items[limit - 1].DatGameId), fingerprint);
+        return new PagedList<TitleReleaseSourceData>(items[..limit], cursor, true);
+    }
+
+    private static string ReleaseSourcesFingerprint(int titleId, int representativeId) =>
+        KeysetCursor.Fingerprint("admin.title.release-sources", titleId, representativeId, "datGameId:asc");
 
     private IQueryable<IGrouping<int, Romd.Persistence.Entities.DatGameEntity>> ReleaseGroups(int titleId) =>
         _context.DatGames.Where(game => _context.TitleSourceLinks.Any(link => link.TitleId == titleId && link.SourceEntryId == game.SourceEntryId))
@@ -171,4 +219,5 @@ public sealed partial class TitleDetailReader
     private static Error InvalidCursor() => FieldErrors.Validation("Titles.InvalidCursor", "The cursor is invalid for this query.", "cursor");
     private static Error InvalidLimit() => FieldErrors.Validation("Titles.InvalidLimit", "Use a limit between 1 and 100.", "limit");
     private sealed record ReleaseGroup(int Key, int RepresentativeId);
+    private sealed record ReleaseSourceRow(int GroupKey, int DatGameId, int DatFileId, string DatName, string GameName);
 }
