@@ -1,15 +1,17 @@
 import { ActionIcon, Button, Tooltip } from '@mantine/core';
 import type { ConsumerTitleCard } from '@romd/consumer-api-client';
 import { IconBookmark, IconBookmarkFilled, IconRefresh } from '@tabler/icons-react';
+import type { MouseEvent } from 'react';
 import { type PlayLaterMembership, useChangePlayLater } from '../../hooks/usePlayLater';
 
 interface PlayLaterButtonProps {
   title: Pick<ConsumerTitleCard, 'id' | 'name'>;
   membership?: PlayLaterMembership;
   compact?: boolean;
+  onRemoved?: (removal: { isCurrent: () => boolean; focusUndo: boolean }) => void;
 }
 
-export function PlayLaterButton({ title, membership, compact }: PlayLaterButtonProps) {
+export function PlayLaterButton({ title, membership, compact, onRemoved }: PlayLaterButtonProps) {
   const { available, pending, change } = useChangePlayLater(title.id);
   if (!available) return null;
 
@@ -39,10 +41,24 @@ export function PlayLaterButton({ title, membership, compact }: PlayLaterButtonP
       aria-hidden
     />
   );
-  const handleClick = () => {
+  const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     if (disabled) return;
-    if (retry) retry();
-    else change(!saved);
+    if (retry) {
+      retry();
+      return;
+    }
+    const button = event.currentTarget;
+    const keyboard = event.detail === 0;
+    change(
+      !saved,
+      saved && onRemoved
+        ? (isCurrent) =>
+            onRemoved({
+              isCurrent,
+              focusUndo: keyboard && document.activeElement === button,
+            })
+        : undefined,
+    );
   };
   const control = {
     type: 'button' as const,

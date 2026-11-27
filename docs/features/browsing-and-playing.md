@@ -27,8 +27,9 @@ reveal the bookmark. Filled bookmarks mark saved games. On **Home**, choose
 Your list is private to your account and follows you when you sign in to the
 consumer portal in another browser. It can hold games from different systems.
 Open any saved title to choose a release, play, or download as usual. The game
-stays on your list until you select its filled bookmark in **Browse** or
-choose **Saved** on the title page.
+stays on your list until you select its filled bookmark in **Browse** or the
+full **Play Later** list, or choose **Saved** on the title page. In the full
+list, choose **Undo** to restore the game you just removed.
 
 If a title becomes unavailable in your published library, it disappears from
 the list. It reappears when your library gives you access again.

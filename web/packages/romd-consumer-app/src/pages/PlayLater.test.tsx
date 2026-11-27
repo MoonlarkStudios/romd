@@ -212,7 +212,7 @@ function fakeServer() {
           version: publication,
         });
       case '/api/me/play-later':
-        return pendingList ?? page(visible ? bookmarks : []);
+        return pendingList?.then((response) => response.clone()) ?? page(visible ? bookmarks : []);
       case '/api/me/play-later/membership':
         return Response.json({
           titleIds: visible
@@ -222,18 +222,21 @@ function fakeServer() {
             : [],
         });
       case '/api/me/play-later/mario':
+      case '/api/me/play-later/metroid': {
         if (pendingWrite) return pendingWrite;
+        const title = url.pathname.endsWith(mario.id) ? mario : metroid;
         if (request.method === 'PUT') {
           saved[caller] = [
-            mario,
-            ...bookmarks.filter(({ id }) => id !== mario.id),
+            title,
+            ...bookmarks.filter(({ id }) => id !== title.id),
           ];
         } else if (request.method === 'DELETE') {
-          saved[caller] = bookmarks.filter(({ id }) => id !== mario.id);
+          saved[caller] = bookmarks.filter(({ id }) => id !== title.id);
         }
         return new Response(null, {
           status: 204,
         });
+      }
       default:
         throw new Error(`Unexpected request at ${url.pathname}`);
     }
@@ -389,6 +392,357 @@ describe('Play Later', () => {
     );
     expect(await screen.findByText('No games saved for later')).toBeInTheDocument();
     expect(server.requests.filter(({ method }) => method === 'DELETE')).toHaveLength(1);
+  });
+
+  it('removes the last saved title from the list and restores it with keyboard Undo', async () => {
+    const server = fakeServer();
+    server.saved.alice = [
+      mario,
+    ];
+    const user = userEvent.setup();
+    render(
+      <Portal
+        id="alice"
+        cache={cacheForTest()}
+      />,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/play-later',
+          ],
+        },
+      },
+    );
+
+    const title = await screen.findByRole('link', {
+      name: mario.name,
+    });
+    title.focus();
+    await user.tab();
+    expect(
+      screen.getByRole('button', {
+        name: `Play Later for ${mario.name}`,
+        pressed: true,
+      }),
+    ).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    const undo = await screen.findByRole('button', {
+      name: 'Undo',
+    });
+    expect(undo).toHaveFocus();
+    expect(await screen.findByText('No games saved for later')).toBeVisible();
+    expect(title).not.toBeInTheDocument();
+    await waitFor(() => expect(undo).not.toHaveAttribute('aria-disabled'));
+    await user.keyboard(' ');
+
+    expect(
+      await screen.findByRole('link', {
+        name: mario.name,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Undo',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'Play Later',
+        level: 1,
+      }),
+    ).toHaveFocus();
+    expect(
+      server.requests
+        .filter(({ method }) => method === 'DELETE' || method === 'PUT')
+        .map(({ method }) => method),
+    ).toEqual([
+      'DELETE',
+      'PUT',
+    ]);
+  });
+
+  it('allows Undo while the list refresh after a removal is still pending', async () => {
+    const server = fakeServer();
+    server.saved.alice = [
+      mario,
+    ];
+    const refresh = Promise.withResolvers<Response>();
+    const send = server.respond.getMockImplementation();
+    if (!send) throw new Error('Missing fake server');
+    const staleReads: Request[] = [];
+    server.respond.mockImplementation((request) => {
+      if (new URL(request.url).pathname === '/api/me/play-later' && !server.saved.alice.length) {
+        staleReads.push(request);
+        return refresh.promise;
+      }
+      return send(request);
+    });
+    const user = userEvent.setup();
+    render(
+      <Portal
+        id="alice"
+        cache={cacheForTest()}
+      />,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/play-later',
+          ],
+        },
+      },
+    );
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Play Later for ${mario.name}`,
+        pressed: true,
+      }),
+    );
+    await waitFor(() => expect(staleReads).toHaveLength(1));
+    expect(
+      screen.queryByRole('link', {
+        name: mario.name,
+      }),
+    ).not.toBeInTheDocument();
+    const undo = await screen.findByRole('button', {
+      name: 'Undo',
+    });
+    await waitFor(() => expect(undo).not.toHaveAttribute('aria-disabled'));
+    await user.click(undo);
+    expect(
+      await screen.findByRole('link', {
+        name: mario.name,
+      }),
+    ).toBeVisible();
+    expect(staleReads[0].signal.aborted).toBe(true);
+
+    await act(async () => refresh.resolve(page([])));
+    expect(
+      screen.getByRole('link', {
+        name: mario.name,
+      }),
+    ).toBeVisible();
+  });
+
+  it('keeps loaded later pages after removing and restoring a title', async () => {
+    const server = fakeServer();
+    const tail = {
+      ...celeste,
+      id: 'tail',
+      name: 'A fourth game',
+    };
+    server.saved.alice = [
+      metroid,
+      celeste,
+      mario,
+      tail,
+    ];
+    const send = server.respond.getMockImplementation();
+    if (!send) throw new Error('Missing fake server');
+    server.respond.mockImplementation((request) => {
+      const url = new URL(request.url);
+      if (url.pathname !== '/api/me/play-later') return send(request);
+      const items = server.saved.alice;
+      return Promise.resolve(
+        url.searchParams.has('cursor')
+          ? page(items.slice(2))
+          : page(items.slice(0, 2), items.length > 2 ? 'tail' : null),
+      );
+    });
+    const user = userEvent.setup();
+    render(
+      <Portal
+        id="alice"
+        cache={cacheForTest()}
+      />,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/play-later',
+          ],
+        },
+      },
+    );
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Load more',
+      }),
+    );
+    const last = await screen.findByRole('link', {
+      name: tail.name,
+    });
+    await user.click(
+      screen.getByRole('button', {
+        name: `Play Later for ${mario.name}`,
+        pressed: true,
+      }),
+    );
+    const undo = await screen.findByRole('button', {
+      name: 'Undo',
+    });
+    await waitFor(() => expect(undo).not.toHaveAttribute('aria-disabled'));
+    expect(
+      screen.queryByRole('link', {
+        name: mario.name,
+      }),
+    ).not.toBeInTheDocument();
+    expect(last).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Load more',
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(undo);
+    const first = await screen.findByRole('link', {
+      name: mario.name,
+    });
+    expect(first.compareDocumentPosition(last) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(last).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Load more',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps a newer Undo control focused when an older restoration completes', async () => {
+    const server = fakeServer();
+    server.saved.alice = [
+      mario,
+      metroid,
+    ];
+    const write = Promise.withResolvers<void>();
+    const send = server.respond.getMockImplementation();
+    if (!send) throw new Error('Missing fake server');
+    server.respond.mockImplementation(async (request) => {
+      if (request.method === 'PUT') await write.promise;
+      return send(request);
+    });
+    const user = userEvent.setup();
+    render(
+      <Portal
+        id="alice"
+        cache={cacheForTest()}
+      />,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/play-later',
+          ],
+        },
+      },
+    );
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Play Later for ${mario.name}`,
+        pressed: true,
+      }),
+    );
+    const oldUndo = await screen.findByRole('button', {
+      name: 'Undo',
+    });
+    await waitFor(() => expect(oldUndo).not.toHaveAttribute('aria-disabled'));
+    await user.click(oldUndo);
+    await waitFor(() => expect(oldUndo).toHaveAttribute('aria-disabled'));
+
+    await user.click(
+      screen.getByRole('button', {
+        name: `Play Later for ${metroid.name}`,
+        pressed: true,
+      }),
+    );
+    await waitFor(() => expect(oldUndo).not.toBeInTheDocument());
+    const newUndo = screen.getByRole('button', {
+      name: 'Undo',
+    });
+    newUndo.focus();
+    await act(async () => write.resolve());
+    expect(
+      await screen.findByRole('link', {
+        name: mario.name,
+      }),
+    ).toBeVisible();
+    expect(newUndo).toHaveFocus();
+    expect(
+      screen.queryByRole('link', {
+        name: metroid.name,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('clears an available Undo across account sessions', async () => {
+    const server = fakeServer();
+    server.saved.alice = [
+      mario,
+    ];
+    server.saved.bob = [
+      metroid,
+    ];
+    const cache = cacheForTest();
+    const user = userEvent.setup();
+    const view = render(
+      <Portal
+        id="alice"
+        cache={cache}
+      />,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/play-later',
+          ],
+        },
+      },
+    );
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Play Later for ${mario.name}`,
+        pressed: true,
+      }),
+    );
+    expect(
+      await screen.findByRole('button', {
+        name: 'Undo',
+      }),
+    ).toBeVisible();
+    expect(await screen.findByText('No games saved for later')).toBeVisible();
+
+    await authenticate('bob');
+    view.rerender(
+      <Portal
+        id="bob"
+        cache={cache}
+      />,
+    );
+    expect(
+      await screen.findByRole('link', {
+        name: metroid.name,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Undo',
+      }),
+    ).not.toBeInTheDocument();
+
+    await authenticate('alice');
+    view.rerender(
+      <Portal
+        id="alice"
+        cache={cache}
+      />,
+    );
+    expect(await screen.findByText('No games saved for later')).toBeVisible();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Undo',
+      }),
+    ).not.toBeInTheDocument();
+    expect(server.requests.some(({ method }) => method === 'PUT')).toBe(false);
   });
 
   it('keeps server order across systems and follows the next cursor', async () => {
@@ -625,6 +979,81 @@ describe('Play Later', () => {
 
     await act(async () => response.resolve(page([])));
     expect(await screen.findByText('No games saved for later')).toBeInTheDocument();
+  });
+
+  it('does not verify a newly opened list with a removal patched into its cache', async () => {
+    const server = fakeServer();
+    server.saved.alice = [
+      mario,
+      celeste,
+    ];
+    const cache = cacheForTest();
+    const user = userEvent.setup();
+    render(
+      <Portal
+        id="alice"
+        cache={cache}
+      />,
+      {
+        routerOptions: {
+          initialEntries: [
+            '/play-later',
+          ],
+        },
+      },
+    );
+
+    await screen.findByRole('link', {
+      name: celeste.name,
+    });
+    const nav = within(screen.getByRole('navigation'));
+    await user.click(
+      nav.getByRole('link', {
+        name: 'Browse',
+      }),
+    );
+    const write = Promise.withResolvers<Response>();
+    server.deferWrite(write.promise);
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Play Later for ${mario.name}`,
+        pressed: true,
+      }),
+    );
+    await waitFor(() =>
+      expect(server.requests.some(({ method }) => method === 'DELETE')).toBe(true),
+    );
+
+    const read = Promise.withResolvers<Response>();
+    server.setPublication('hidden', false);
+    server.deferList(read.promise);
+    await user.click(
+      nav.getByRole('link', {
+        name: 'Saved list',
+      }),
+    );
+    expect(await screen.findByText('Loading Play Later')).toBeVisible();
+
+    const mutation = cache.getMutationCache().findAll({
+      mutationKey: playLaterAccountKey('alice'),
+    })[0];
+    await act(async () =>
+      write.resolve(
+        new Response(null, {
+          status: 204,
+        }),
+      ),
+    );
+    await waitFor(() => expect(mutation?.state.status).toBe('success'));
+    expect(screen.getByText('Loading Play Later')).toBeVisible();
+    expect(
+      screen.queryByRole('link', {
+        name: celeste.name,
+      }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => read.resolve(page([])));
+    expect(await screen.findByText('No games saved for later')).toBeVisible();
   });
 
   it('drops cached titles when publication changes and reloads them after access returns', async () => {
