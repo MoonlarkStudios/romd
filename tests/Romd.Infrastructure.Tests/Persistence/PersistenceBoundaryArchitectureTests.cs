@@ -118,6 +118,8 @@ public sealed class PersistenceBoundaryArchitectureTests
         Sql(Persistence + "MetadataProviders/TitleMetadataPresentation.cs", "TitleMetadataPresentation", "PresentedTitles", "FromSqlInterpolated"),
         // Serializes retryable session upserts for one user inside the application-owned transaction.
         Sql(Persistence + "PlayActivityUnitOfWork.cs", "PlayActivityUnitOfWork", "BeginAsync", "ExecuteSqlInterpolatedAsync"),
+        // Parameterized account lock serializes Play Later changes inside the caller-owned transaction.
+        Sql(Persistence + "Repositories/ConsumerBrowseRepository.PlayLater.cs", "ConsumerBrowseRepository", "StagePlayLaterMembershipAsync", "ExecuteSqlAsync"),
         // Parameterized policy job row lock serializes unclaimed-pending reuse with worker claim.
         Sql(Persistence + "Repositories/MetadataRematerializationJobRepository.cs", "MetadataRematerializationJobRepository", "GetReusablePendingAsync", "FromSqlInterpolated"),
         // Parameterized recovery lock revalidates the current replacement job before a stale-progress failure.
