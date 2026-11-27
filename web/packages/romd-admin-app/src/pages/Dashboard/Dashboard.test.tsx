@@ -4,6 +4,7 @@ import { act, render as renderWithoutProviders, screen, waitFor } from '@testing
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { AuthContext, type AuthContextValue } from '../../contexts/AuthContext';
 import { enrichmentWorkspaceKeys } from '../../hooks/api/enrichmentWorkspaceCache';
 import { render } from '../../test/utils/render';
 import { Dashboard } from './index';
@@ -19,6 +20,7 @@ vi.mock('../../hooks/usePermissions', () => ({
 vi.mock('@romd/admin-api-client', async () => ({
   ...(await vi.importActual('@romd/admin-api-client')),
   getServerHealth: vi.fn(),
+  getLibrary: vi.fn(),
   listJobs: vi.fn(),
   listTrackedTitles: vi.fn(),
   getEnrichmentStats: vi.fn(),
@@ -30,12 +32,31 @@ vi.mock('@romd/admin-api-client', async () => ({
 import {
   getEnrichmentStats,
   getEnrichmentWorkbenchStats,
+  getLibrary,
   getServerHealth,
   getTrackedCollectionStats,
   listAuditEvents,
   listJobs,
   listTrackedTitles,
 } from '@romd/admin-api-client';
+
+const adminAuth: AuthContextValue = {
+  user: {
+    id: 'admin',
+    email: 'admin@example.com',
+    roles: [
+      'Admin',
+    ],
+    libraryId: 'starter',
+    consumerPortalUrl: 'https://play.example.test',
+  },
+  isAuthenticated: true,
+  isLoading: false,
+  error: null,
+  retry: async () => {},
+  login: async () => {},
+  logout: async () => {},
+};
 
 function returns<T>(fn: T, data: unknown) {
   vi.mocked(fn as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -53,6 +74,12 @@ beforeEach(() => {
     totalRoms: 3,
     unidentifiedCount: 2,
     unroutedCount: 0,
+  });
+  returns(getLibrary, {
+    id: 'starter',
+    name: 'All Titles',
+    starterSetupComplete: false,
+    lastMaterializedAt: null,
   });
   returns(listJobs, {
     items: [],
@@ -237,13 +264,98 @@ it('reads the enrichment workspace counts cache entry instead of a second copy',
     <MantineProvider env="test">
       <QueryClientProvider client={cache}>
         <MemoryRouter>
-          <Dashboard />
+          <AuthContext.Provider value={adminAuth}>
+            <Dashboard />
+          </AuthContext.Provider>
         </MemoryRouter>
       </QueryClientProvider>
     </MantineProvider>,
   );
   expect(await screen.findByText('9 tracked titles')).toBeInTheDocument();
   expect(getEnrichmentWorkbenchStats).not.toHaveBeenCalled();
+});
+
+it('guides the administrator to system setup, imports and the assigned draft before any files arrive', async () => {
+  returns(getServerHealth, {
+    totalRoms: 0,
+    identifiedCount: 0,
+  });
+  render(<Dashboard />, {
+    auth: adminAuth,
+  });
+
+  await screen.findByText('Set up your first library');
+  expect(
+    screen.getByRole('link', {
+      name: 'Import files',
+    }),
+  ).toHaveAttribute('href', '/roms/import');
+  expect(
+    screen.getByRole('link', {
+      name: 'Set up a system',
+    }),
+  ).toHaveAttribute('href', '/systems');
+  expect(
+    screen.getByRole('link', {
+      name: 'Review import results',
+    }),
+  ).toHaveAttribute('href', '/jobs?type=upload');
+  expect(
+    screen.getByRole('link', {
+      name: 'Open All Titles draft',
+    }),
+  ).toHaveAttribute('href', '/libraries/starter?tab=games');
+});
+
+it('links matched imports to review and restores the normal Dashboard after publication', async () => {
+  returns(getServerHealth, {
+    totalRoms: 1,
+    identifiedCount: 1,
+  });
+  render(<Dashboard />, {
+    auth: adminAuth,
+  });
+  expect(
+    await screen.findByRole('link', {
+      name: 'Review All Titles',
+    }),
+  ).toHaveAttribute('href', '/libraries/starter?tab=games');
+
+  returns(getLibrary, {
+    id: 'starter',
+    name: 'All Titles',
+    starterSetupComplete: true,
+    lastMaterializedAt: '2026-11-26T00:00:00Z',
+    needsMaterialization: true,
+  });
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'Refresh',
+    }),
+  );
+
+  await waitFor(() =>
+    expect(screen.queryByText('Set up your first library')).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.getByRole('link', {
+      name: 'Open consumer portal',
+    }),
+  ).toHaveAttribute('href', 'https://play.example.test');
+});
+
+it('keeps the Dashboard for an established installation with its own assigned draft', async () => {
+  returns(getLibrary, {
+    id: 'starter',
+    name: 'Private audience',
+    starterSetupComplete: null,
+    lastMaterializedAt: null,
+  });
+  render(<Dashboard />, {
+    auth: adminAuth,
+  });
+  await screen.findByText('8 / 10');
+  expect(screen.queryByText('Set up your first library')).not.toBeInTheDocument();
 });
 it('omits enrichment counts for roles that cannot manage titles', async () => {
   access.canManageTitles = false;

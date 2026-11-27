@@ -5,6 +5,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Romd.Application.Common.Configuration;
 using Romd.Domain.Identity;
+using Romd.Domain.Libraries;
+using Romd.Persistence.Entities;
 using Romd.Persistence.Identity;
 
 namespace Romd.Persistence;
@@ -41,7 +43,7 @@ public sealed class AdminSeeder : IHostedService
         var db = scope.ServiceProvider.GetRequiredService<RomdDbContext>();
 
         // Bootstrap is atomic and uses the same lock as administrative access changes.
-        // A failed role assignment must not strand a human account without an administrator.
+        // The administrator, role and initial library assignment commit together.
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         await AccountAccessGuard.LockAsync(db, cancellationToken);
 
@@ -151,12 +153,25 @@ public sealed class AdminSeeder : IHostedService
 
         string adminPassword = options.DefaultAdminPassword ?? "ChangeMe123!";
 
+        var now = _timeProvider.GetUtcNow();
+        int? starterLibraryId = null;
+        if (!await db.Libraries.AnyAsync(ct))
+        {
+            var library = Library.CreateNew("All Titles", LibraryConfiguration.AllOwnedTitles, now);
+            var row = LibraryEntity.FromDomain(library);
+            row.CreatedByUserId = SystemActor.UserId;
+            db.Libraries.Add(row);
+            await db.SaveChangesAsync(ct);
+            starterLibraryId = row.Id;
+        }
+
         var adminUser = new RomdUser
         {
             UserName = adminEmail,
             Email = adminEmail,
             EmailConfirmed = true,
-            CreatedAt = _timeProvider.GetUtcNow()
+            CreatedAt = now,
+            LibraryId = starterLibraryId
         };
 
         var createResult = await userManager.CreateAsync(adminUser, adminPassword);

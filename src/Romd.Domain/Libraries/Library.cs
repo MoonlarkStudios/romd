@@ -39,6 +39,7 @@ public sealed class Library
     public LibraryConfigurationState ConfigurationState { get; private set; }
     public string? ConfigurationError { get; private set; }
     public bool HasValidConfiguration => ConfigurationState == LibraryConfigurationState.Valid;
+    public bool IsStarter { get; private set; }
     public bool IsDefault { get; private set; }
     // True means changes that can narrow access wait for an explicit refresh. Consumers keep the
     // last published snapshot meanwhile; additive changes leave this flag alone and advance UpdatedAt.
@@ -119,7 +120,8 @@ public sealed class Library
         DateTimeOffset createdAt,
         DateTimeOffset? updatedAt,
         long materializationGeneration,
-        Guid? materializationRevision = null)
+        Guid? materializationRevision = null,
+        bool isStarter = false)
     {
         var library = new Library(
             id,
@@ -135,6 +137,7 @@ public sealed class Library
             updatedAt);
         library.MaterializationGeneration = materializationGeneration;
         library.MaterializationRevision = materializationRevision ?? library.MaterializationRevision;
+        library.IsStarter = isStarter;
         return library;
     }
 

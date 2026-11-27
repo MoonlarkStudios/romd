@@ -67,7 +67,14 @@ Use [artwork completion](unified-artwork-completion.md) and
 
 ## 4. Choose the audience's games
 
-Open **Libraries → New library** and give it a name such as **Living room**.
+On a fresh installation, **All Titles** is already assigned to the initial
+administrator as a draft. The Dashboard links to the draft and import results.
+It starts with owned games from every system, including untracked and unrated
+games. Open **Libraries → All Titles → Games** to review or edit its rules.
+
+To add the same starting rules to an existing installation, open **Libraries →
+New library** and choose **All Titles**. You can also create a narrower library
+and give it a name such as **Living room**.
 Choose **Select with rules** to set a system scope or **Handpick games** to add
 specific titles. The picker starts with games that have files on your server.
 Set a maximum content-rating age and choose **Create draft** to open **Games**.
@@ -84,9 +91,9 @@ Select **Save changes** if you edited the draft.
 
 ## 5. Publish and assign people
 
-Choose **Publish library** and wait for it to finish. After later edits or
-imports, choose **Publish changes** when you are ready. People keep seeing the
-previous published contents until the new publication succeeds.
+Choose **Publish library**, review the projected changes, and confirm. After
+later edits or imports, choose **Publish changes** when you are ready. People
+keep seeing the previous published contents until the new publication succeeds.
 
 The library list and overview show both games and releases. One game can have
 several releases, such as regional versions or revisions.
@@ -94,6 +101,11 @@ several releases, such as regional versions or revisions.
 In **People**, use **Assign a person**. Create accounts through **Manage people
 and roles** when needed. Each person has one assigned library, wherever they
 play. Use **Preview** to inspect the audience's published experience.
+
+To offer a library as the default when creating accounts, turn on **Default
+library** in its **Library details**. You can choose **All Titles** or a library
+with narrower rules for family and guests. This setting leaves existing
+assignments in place.
 
 Optionally create reusable lists in **Collections**, attach them to the library
 and arrange their featured placement. A collection organizes games; it does not
@@ -103,7 +115,8 @@ override the audience's access rules. See
 
 ## 6. Browse and play
 
-Open the **consumer portal** and sign in as the assigned person. **Browse**
+Open the **consumer portal** from the published starter library or the
+Dashboard and sign in as the assigned person. **Browse**
 searches their library; opening a game shows its details and releases. Choose
 **Download**, or **Play Now** when that release supports browser playback.
 

@@ -7,4 +7,5 @@ public sealed record CurrentUserResponse(
     Guid Id,
     string Email,
     IReadOnlyList<string> Roles,
-    string? LibraryId);
+    string? LibraryId,
+    string? ConsumerPortalUrl = null);

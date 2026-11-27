@@ -29,6 +29,7 @@ public static class LibraryMapping
             Configuration = library.HasValidConfiguration ? ToContract(library.Configuration, systemKeys) : null,
             ConfigurationState = library.ConfigurationState.ToString(),
             ConfigurationError = library.ConfigurationError,
+            StarterSetupComplete = library.IsStarter ? library.MaterializationGeneration > 0 : null,
             IsDefault = library.IsDefault,
             NeedsMaterialization = library.NeedsMaterialization,
             LastMaterializedAt = library.LastMaterializedAt,

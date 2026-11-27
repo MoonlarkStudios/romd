@@ -17,6 +17,7 @@ import {
 import {
   IconAdjustmentsHorizontal,
   IconArrowRight,
+  IconLibrary,
   IconListCheck,
   IconPlus,
   IconSearch,
@@ -31,11 +32,14 @@ import { usePlatforms } from '../../hooks/api/usePlatforms';
 import classes from './Libraries.module.css';
 import { TitleOverridePicker } from './libraryForm';
 import {
+  allTitlesLibraryConfiguration,
   defaultLibraryConfiguration,
   type MaxMinimumAgeValue,
   maxMinimumAgeOptions,
 } from './libraryOptions';
 import { publicationStatus } from './libraryRefresh';
+
+type LibrarySelection = 'AllTitles' | 'Rules' | 'IncludeOnly';
 
 export function Libraries() {
   const libraries = useLibraries();
@@ -53,10 +57,18 @@ export function Libraries() {
   const [opened, setOpened] = useState(false);
   const [name, setName] = useState('');
   const [ratingAge, setRatingAge] = useState<MaxMinimumAgeValue>('18');
-  const [selection, setSelection] = useState<'Rules' | 'IncludeOnly'>('Rules');
+  const [selection, setSelection] = useState<LibrarySelection>('Rules');
   const [systems, setSystems] = useState<string[]>([]);
   const [games, setGames] = useState<string[]>([]);
   const platforms = usePlatforms();
+  const selectPreset = (value: string) => {
+    if (value === 'AllTitles') {
+      setSelection('AllTitles');
+      if (!name.trim()) setName('All Titles');
+    } else if (value === 'Rules' || value === 'IncludeOnly') {
+      setSelection(value);
+    }
+  };
   const filtered = (libraries.data ?? []).filter((l) =>
     l.name.toLowerCase().includes(search.toLowerCase()),
   );
@@ -269,16 +281,19 @@ export function Libraries() {
             const library = await create
               .mutateAsync({
                 name: name.trim(),
-                configuration: {
-                  ...defaultLibraryConfiguration,
-                  titleSelectionMode: selection,
-                  allowedSystemKeys: selection === 'Rules' ? systems : [],
-                  includeTitleIds: selection === 'IncludeOnly' ? games : [],
-                  contentRatingPolicy: {
-                    ...defaultLibraryConfiguration.contentRatingPolicy,
-                    maxMinimumAge: ratingAge === 'none' ? null : Number(ratingAge),
-                  },
-                },
+                configuration:
+                  selection === 'AllTitles'
+                    ? allTitlesLibraryConfiguration
+                    : {
+                        ...defaultLibraryConfiguration,
+                        titleSelectionMode: selection,
+                        allowedSystemKeys: selection === 'Rules' ? systems : [],
+                        includeTitleIds: selection === 'IncludeOnly' ? games : [],
+                        contentRatingPolicy: {
+                          ...defaultLibraryConfiguration.contentRatingPolicy,
+                          maxMinimumAge: ratingAge === 'none' ? null : Number(ratingAge),
+                        },
+                      },
               })
               .catch(() => null);
             if (library) navigate(`/libraries/${library.id}?tab=games`);
@@ -297,16 +312,43 @@ export function Libraries() {
               label="How should games be selected?"
               name="library-selection-mode"
               value={selection}
-              onChange={(value) => setSelection(value === 'IncludeOnly' ? 'IncludeOnly' : 'Rules')}
+              onChange={selectPreset}
             >
               <SimpleGrid
                 cols={{
                   base: 1,
-                  xs: 2,
+                  sm: 3,
                 }}
                 spacing="sm"
                 mt="xs"
               >
+                <Radio.Card
+                  value="AllTitles"
+                  className={classes.selectionCard}
+                >
+                  <Group
+                    gap="xs"
+                    wrap="nowrap"
+                  >
+                    <IconLibrary
+                      size={18}
+                      aria-hidden="true"
+                    />
+                    <Text
+                      size="sm"
+                      fw={650}
+                    >
+                      All Titles
+                    </Text>
+                    <Radio.Indicator ml="auto" />
+                  </Group>
+                  <Text
+                    c="dimmed"
+                    size="xs"
+                  >
+                    Include owned games across all systems, including untracked and unrated games.
+                  </Text>
+                </Radio.Card>
                 <Radio.Card
                   value="Rules"
                   className={classes.selectionCard}
@@ -380,27 +422,31 @@ export function Libraries() {
                 }))}
               />
             ) : (
-              <TitleOverridePicker
-                label="Find games"
-                localFirst
-                withinPortal={false}
-                value={games}
-                onChange={setGames}
+              selection === 'IncludeOnly' && (
+                <TitleOverridePicker
+                  label="Find games"
+                  localFirst
+                  withinPortal={false}
+                  value={games}
+                  onChange={setGames}
+                />
+              )
+            )}
+            {selection !== 'AllTitles' && (
+              <Select
+                label="Maximum content-rating age"
+                description="Unrated games are held for review."
+                data={maxMinimumAgeOptions}
+                comboboxProps={{
+                  withinPortal: false,
+                }}
+                value={ratingAge}
+                allowDeselect={false}
+                onChange={(value) => {
+                  if (value) setRatingAge(value as MaxMinimumAgeValue);
+                }}
               />
             )}
-            <Select
-              label="Maximum content-rating age"
-              description="Unrated games are held for review."
-              data={maxMinimumAgeOptions}
-              comboboxProps={{
-                withinPortal: false,
-              }}
-              value={ratingAge}
-              allowDeselect={false}
-              onChange={(value) => {
-                if (value) setRatingAge(value as MaxMinimumAgeValue);
-              }}
-            />
             {create.isError && <Alert color="red">{create.error.message}</Alert>}
             <Group justify="flex-end">
               <Button
