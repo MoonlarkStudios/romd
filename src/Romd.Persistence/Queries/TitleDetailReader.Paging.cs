@@ -100,7 +100,7 @@ public sealed partial class TitleDetailReader
 
         var ids = pageGroups.Select(group => group.RepresentativeId).ToArray();
         var games = await _context.DatGames.AsNoTracking().Where(game => ids.Contains(game.Id)).Include(game => game.Roms).ToDictionaryAsync(game => game.Id, ct);
-        var sourcesByGroup = await ReadSourcesAsync(titleId, pageGroups.Select(group => group.Key).ToArray(), 0, EmbeddedSourceLimit, ct);
+        var sourcesByGroup = await ReadEmbeddedSourcesAsync(titleId, pageGroups.Select(group => group.Key).ToArray(), ct);
         List<TitleReleaseData> rows = [];
         foreach (var group in pageGroups)
         {
@@ -155,38 +155,55 @@ public sealed partial class TitleDetailReader
         var decoded = KeysetCursor.Decode<IntegerPosition>(cursor, fingerprint, p => p.IsValid);
         if (decoded.IsError)
             return InvalidCursor();
-        var sourcesByGroup = await ReadSourcesAsync(titleId, [group.Key], decoded.Value?.Id ?? 0, limit, ct);
-        return new TitleReadPage<TitleReleaseSourceData>(revision.Value, CreateSourcePage(sourcesByGroup[group.Key], limit, fingerprint));
+        var sources = await ReadSourcesAsync(titleId, group, decoded.Value?.Id ?? 0, limit, ct);
+        return new TitleReadPage<TitleReleaseSourceData>(revision.Value, CreateSourcePage(sources, limit, fingerprint));
     }
 
-    private async Task<ILookup<int, TitleReleaseSourceData>> ReadSourcesAsync(int titleId, int[] groupKeys, int after, int limit, CancellationToken ct)
+    private Task<TitleReleaseSourceData[]> ReadSourcesAsync(int titleId, ReleaseGroup selectedGroup, int position, int limit, CancellationToken ct) =>
+        (from game in _context.DatGames.AsNoTracking()
+         join dat in _context.DatFiles on game.DatFileId equals dat.Id
+         where game.Id > position
+             && _context.TitleSourceLinks.Any(link => link.TitleId == titleId && link.SourceEntryId == game.SourceEntryId)
+             && (selectedGroup.Key < 0
+                 ? game.Id == -selectedGroup.Key
+                 : _context.CatalogReleaseSources.Any(source => source.SourceEntryId == game.SourceEntryId
+                     && source.ProviderClaimKey == game.Id.ToString() && source.CatalogReleaseId == selectedGroup.Key))
+         orderby game.Id
+         select new TitleReleaseSourceData { DatGameId = game.Id, DatFileId = dat.Id, DatName = dat.Name, GameName = game.Name }).Take(limit + 1).ToArrayAsync(ct);
+
+    private async Task<ILookup<int, TitleReleaseSourceData>> ReadEmbeddedSourcesAsync(int titleId, int[] groupKeys, CancellationToken ct)
     {
-        // Apply the lookahead limit to each requested group before returning any rows. Keep the
-        // exact asserting claim match used by ReleaseGroups, with a separate lookup for negative keys.
+        int[] catalogReleaseIds = groupKeys.Where(key => key >= 0).ToArray();
+        int[] unprojectedGameIds = groupKeys.Where(key => key < 0).Select(key => -key).ToArray();
+        // A catalog release may have many claims outside this title. Materialize the intersection
+        // of the title links and the page's release claims before expanding the exact DAT games.
         var rows = await _context.Database.SqlQuery<ReleaseSourceRow>($"""
             -- Admin title release provenance
-            SELECT requested."GroupKey", source."DatGameId", source."DatFileId", source."DatName", source."GameName"
-            FROM unnest({groupKeys}) AS requested("GroupKey")
-            CROSS JOIN LATERAL (
-                SELECT game."Id" AS "DatGameId", dat."Id" AS "DatFileId", dat."Name" AS "DatName", game."Name" AS "GameName"
-                FROM (
-                    SELECT g."Id", g."SourceEntryId", g."DatFileId", g."Name"
-                    FROM romd."CatalogReleaseSources" claim
-                    JOIN romd."DatGames" g ON g."SourceEntryId" = claim."SourceEntryId"
-                        AND g."Id"::text = claim."ProviderClaimKey"
-                    WHERE requested."GroupKey" >= 0 AND claim."CatalogReleaseId" = requested."GroupKey"
-                    UNION ALL
-                    SELECT g."Id", g."SourceEntryId", g."DatFileId", g."Name"
-                    FROM romd."DatGames" g
-                    WHERE requested."GroupKey" < 0 AND g."Id" = -requested."GroupKey"
-                ) game
+            WITH title_claims AS MATERIALIZED (
+                SELECT claim."CatalogReleaseId", claim."SourceEntryId", claim."ProviderClaimKey"
+                FROM romd."TitleSourceLinks" link
+                JOIN romd."CatalogReleaseSources" claim ON claim."SourceEntryId" = link."SourceEntryId"
+                WHERE link."TitleId" = {titleId} AND claim."CatalogReleaseId" = ANY({catalogReleaseIds})
+            ), ranked_sources AS (
+                SELECT claim."CatalogReleaseId" AS "GroupKey", game."Id" AS "DatGameId", game."DatFileId", game."Name" AS "GameName",
+                    row_number() OVER (PARTITION BY claim."CatalogReleaseId" ORDER BY game."Id") AS "Position"
+                FROM title_claims claim
+                JOIN romd."DatGames" game ON game."SourceEntryId" = claim."SourceEntryId"
+                    AND game."Id"::text = claim."ProviderClaimKey"
+            )
+            SELECT source."GroupKey", source."DatGameId", dat."Id" AS "DatFileId", dat."Name" AS "DatName", source."GameName"
+            FROM (
+                SELECT "GroupKey", "DatGameId", "DatFileId", "GameName"
+                FROM ranked_sources
+                WHERE "Position" <= {EmbeddedSourceLimit + 1}
+                UNION ALL
+                SELECT -game."Id", game."Id", game."DatFileId", game."Name"
+                FROM romd."DatGames" game
                 JOIN romd."TitleSourceLinks" link ON link."SourceEntryId" = game."SourceEntryId"
-                JOIN romd."DatFiles" dat ON dat."Id" = game."DatFileId"
-                WHERE link."TitleId" = {titleId} AND game."Id" > {after}
-                ORDER BY game."Id"
-                LIMIT {limit + 1}
+                WHERE link."TitleId" = {titleId} AND game."Id" = ANY({unprojectedGameIds})
             ) source
-            ORDER BY requested."GroupKey", source."DatGameId"
+            JOIN romd."DatFiles" dat ON dat."Id" = source."DatFileId"
+            ORDER BY source."GroupKey", source."DatGameId"
             """).ToArrayAsync(ct);
 
         return rows.ToLookup(row => row.GroupKey, row => new TitleReleaseSourceData

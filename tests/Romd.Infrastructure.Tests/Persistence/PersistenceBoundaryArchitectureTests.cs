@@ -161,8 +161,8 @@ public sealed class PersistenceBoundaryArchitectureTests
         Sql(Persistence + "Repositories/ServerImportStore.cs", "ServerImportStore", "FindUnsubmittedFilesAsync", "SqlQuery"),
         // Parameterized key-share lock retains selected cover media through the caller-owned collection transaction.
         Sql(Persistence + "Queries/CollectionCoverMediaReader.cs", "CollectionCoverMediaReader", "LockStagedAsync", "SqlQuery"),
-        // Parameterized lateral read applies a separate provenance lookahead limit to each release on the page.
-        Sql(Persistence + "Queries/TitleDetailReader.Paging.cs", "TitleDetailReader", "ReadSourcesAsync", "SqlQuery"),
+        // Parameterized read intersects title links with the selected claims before applying the per-release lookahead.
+        Sql(Persistence + "Queries/TitleDetailReader.Paging.cs", "TitleDetailReader", "ReadEmbeddedSourcesAsync", "SqlQuery"),
         // Parameterized region and language row locks for merges and alias writes; each repository supplies its
         // literal statement per lock mode.
         Sql(Persistence + "Repositories/TaxonomyEntryProjection.cs", "TaxonomyEntryProjection", "LockRowsAsync", "SqlQuery"),

@@ -1,7 +1,9 @@
 using System.Data.Common;
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Npgsql;
 using Romd.Admin.Application.Titles.ReadModels;
 using Romd.Application.Common.Ids;
 using Romd.Application.Common.Pagination;
@@ -31,9 +33,10 @@ public sealed class TitleDetailReleasePagingTests(ITestOutputHelper output)
     private const int ReleaseCount = 105;
     private const int ActiveDatId = 1;
     private const int PendingDatId = 2;
+    private const int ForeignClaimCount = 20_000;
 
     [Fact]
-    public async Task GetReleasePageAsync_LargeTitle_BatchesProvenanceAndPreservesContinuations()
+    public async Task GetReleasePageAsync_SkewedTitle_BoundsProvenanceAndPreservesContinuations()
     {
         await using var database = PostgreSqlTestDatabase.Create();
         int[] firstSources = [FirstRepresentativeId, .. Enumerable.Range(0, 56).Select(i => 1000 + 2 * i)];
@@ -50,6 +53,7 @@ public sealed class TitleDetailReleasePagingTests(ITestOutputHelper output)
         var first = await ReadReleasePageAsync(null, 1, 1);
         var fifty = await ReadReleasePageAsync(null, 50, 150);
         var hundred = await ReadReleasePageAsync(null, 100, 200);
+        await AssertProvenancePlanAsync(database.ConnectionString, commands.ProvenanceQuery.ShouldNotBeNull());
         var last = await ReadReleasePageAsync(hundred.NextCursor, 100, 5);
         var detail = await CountQueriesAsync("Title detail", 16, 150, () => reader.GetPublicDetailAsync(TitleId));
         var empty = await CountQueriesAsync("Empty title release page", 2, 0,
@@ -118,7 +122,7 @@ public sealed class TitleDetailReleasePagingTests(ITestOutputHelper output)
             T result = await read();
             int count = commands.Commands - before;
             int[] sourceReads = commands.SourceRows.Skip(sourceReadsBefore).ToArray();
-            output.WriteLine($"{label}: {count} SQL commands, {sourceReads.Sum()} provenance rows");
+            output.WriteLine($"{label}: {count} SQL commands, {sourceReads.Sum()} embedded provenance rows");
             count.ShouldBe(expectedQueries, label);
             sourceReads.ShouldBe(expectedSourceRows == 0 ? [] : [expectedSourceRows]);
             return result;
@@ -139,7 +143,8 @@ public sealed class TitleDetailReleasePagingTests(ITestOutputHelper output)
             release.SourcesHasNextPage.ShouldBeTrue();
             release.SourcesNextCursor.ShouldBe(KeysetCursor.Encode(new IntegerPosition(expectedIds[49]), fingerprint));
 
-            var all = await reader.GetReleaseSourcesPageAsync(TitleId, releaseId, null, 100, default);
+            var all = await CountQueriesAsync("Standalone source page", 3, 0,
+                () => reader.GetReleaseSourcesPageAsync(TitleId, releaseId, null, 100, default));
             all.IsError.ShouldBeFalse();
             all.Value.Page.Items.ShouldBe(expected);
             all.Value.Page.HasNextPage.ShouldBeFalse();
@@ -163,6 +168,19 @@ public sealed class TitleDetailReleasePagingTests(ITestOutputHelper output)
             }
             offset.ShouldBe(expected.Length);
         }
+    }
+
+    private async Task AssertProvenancePlanAsync(string connectionString, CapturedQuery query)
+    {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        await using var explain = new NpgsqlCommand("EXPLAIN (ANALYZE, BUFFERS, TIMING OFF, FORMAT JSON) " + query.Sql, connection);
+        explain.Parameters.AddRange(query.Parameters);
+        using var plan = JsonDocument.Parse((await explain.ExecuteScalarAsync()).ShouldBeOfType<string>());
+        var root = plan.RootElement[0].GetProperty("Plan");
+        int blocks = root.GetProperty("Shared Hit Blocks").GetInt32() + root.GetProperty("Shared Read Blocks").GetInt32();
+        output.WriteLine($"100-release provenance query touched {blocks} shared blocks with {ForeignClaimCount} foreign claims");
+        blocks.ShouldBeLessThan(5_000, "the query must limit work to title-linked claims even when other titles share the releases");
     }
 
     private static async Task SeedAsync(PostgreSqlTestDatabase database, int[] firstSources, int[] secondSources)
@@ -210,8 +228,8 @@ public sealed class TitleDetailReleasePagingTests(ITestOutputHelper output)
                 Lifecycle = nameof(DatFileLifecycle.PendingActivation)
             });
 
-        AddRelease(FirstCatalogReleaseId, firstSources.Length + 1);
-        AddRelease(SecondCatalogReleaseId, secondSources.Length);
+        AddRelease(FirstCatalogReleaseId, firstSources.Length + 1 + ForeignClaimCount / 2);
+        AddRelease(SecondCatalogReleaseId, secondSources.Length + ForeignClaimCount / 2);
         foreach (int id in firstSources)
             AddGame(id, TitleId, FirstCatalogReleaseId);
         foreach (int id in secondSources)
@@ -230,6 +248,24 @@ public sealed class TitleDetailReleasePagingTests(ITestOutputHelper output)
             new DatRomEntity { DatGameId = FirstRepresentativeId, Name = "representative.rom", Size = 1 },
             new DatRomEntity { DatGameId = firstSources[1], Name = "other.rom", Size = 1 });
         await db.SaveChangesAsync();
+
+        // Keep both selected releases wide while their live membership in this title stays small.
+        const int start = 2_000;
+        const int end = start + ForeignClaimCount - 1;
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO romd."SourceEntries" ("Id", "CatalogSourceId", "EntryKey", "Name", "PlatformId", "HasLocalPayload", "CreatedAt", "CreatedByUserId")
+            SELECT id, 1, 'Foreign ' || id, 'Foreign ' || id, {platformId}, false, 0, {Guid.Empty}
+            FROM generate_series({start}, {end}) id;
+            INSERT INTO romd."DatGames" ("Id", "SourceEntryId", "DatFileId", "Name", "CreatedAt", "CreatedByUserId")
+            SELECT id, id, {ActiveDatId}, 'Foreign ' || id, 0, {Guid.Empty}
+            FROM generate_series({start}, {end}) id;
+            INSERT INTO romd."TitleSourceLinks" ("SourceEntryId", "TitleId", "CreatedAt", "CreatedByUserId")
+            SELECT id, {OtherTitleId}, 0, {Guid.Empty} FROM generate_series({start}, {end}) id;
+            INSERT INTO romd."CatalogReleaseSources" ("CatalogReleaseId", "SourceEntryId", "ProviderClaimKey", "AssertedTitleId")
+            SELECT CASE WHEN id % 2 = 0 THEN {FirstCatalogReleaseId} ELSE {SecondCatalogReleaseId} END, id, id::text, {OtherTitleId}
+            FROM generate_series({start}, {end}) id;
+            ANALYZE romd."TitleSourceLinks", romd."CatalogReleaseSources", romd."DatGames";
+            """);
 
         void AddRelease(int id, int sourceCount) => db.CatalogReleases.Add(new CatalogReleaseEntity
         {
@@ -259,22 +295,28 @@ public sealed class TitleDetailReleasePagingTests(ITestOutputHelper output)
 
     private sealed class ReadCounter : DbCommandInterceptor
     {
+        private const string ProvenanceTag = "-- Admin title release provenance";
         public int Commands { get; private set; }
         public List<int> SourceRows { get; } = [];
+        public CapturedQuery? ProvenanceQuery { get; private set; }
 
         public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
             CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
         {
             Commands++;
+            if (command.CommandText.Contains(ProvenanceTag, StringComparison.Ordinal))
+                ProvenanceQuery = new(command.CommandText, command.Parameters.Cast<NpgsqlParameter>().Select(parameter => parameter.Clone()).ToArray());
             return ValueTask.FromResult(result);
         }
 
         public override InterceptionResult DataReaderDisposing(DbCommand command, DataReaderDisposingEventData eventData,
             InterceptionResult result)
         {
-            if (command.CommandText.Contains("-- Admin title release provenance", StringComparison.Ordinal))
+            if (command.CommandText.Contains(ProvenanceTag, StringComparison.Ordinal))
                 SourceRows.Add(eventData.ReadCount - 1); // Includes the final read that found no row.
             return result;
         }
     }
+
+    private sealed record CapturedQuery(string Sql, NpgsqlParameter[] Parameters);
 }
