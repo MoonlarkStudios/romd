@@ -84,7 +84,15 @@ can automatically accept a verified ID bridge or a unique exact title and
 corroborated release year from an exhaustive search. SteamGridDB autocomplete
 cannot establish that the search is exhaustive. It can support a provisional
 artwork selection when the resolved DAT family, trusted IGDB release and
-returned candidates satisfy the review rules.
+returned candidates satisfy the review rules. SteamGridDB lookups reuse queries
+for DAT entries that share the primary title after removing known trailing
+release annotations, such as region, revision and distribution channel. ROMD
+also folds recognized prerelease tags on DAT entries that reduce to the primary
+title. It retains those entries' full names for identity assessment and searches
+distinct names within the same budget. Discovery includes the current trusted
+IGDB game's primary title in that budget. An exact match to that name can support
+a provisional selection when the platform year agrees. Automatic acceptance
+from an exhaustive search still requires a local name match.
 
 A trusted IGDB release can corroborate the year if its platform label exactly
 matches a ROMD-owned name alias for the title's system, ignoring case. This

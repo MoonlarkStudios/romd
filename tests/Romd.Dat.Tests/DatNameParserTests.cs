@@ -6,6 +6,27 @@ namespace Romd.Dat.Tests;
 public class DatNameParserTests
 {
     [Theory]
+    [InlineData("Donkey Kong Country 2 - Diddy's Kong Quest (USA, Europe) (En,Fr) (Rev 1) (Switch Online)",
+        "Donkey Kong Country 2 - Diddy's Kong Quest")]
+    [InlineData("Game (Germany) (En,De) (Rev A) (Virtual Console)", "Game")]
+    [InlineData("Game (USA, Unrecognized)", "Game (USA, Unrecognized)")]
+    [InlineData("Game (Pro) (USA)", "Game (Pro)")]
+    [InlineData("Game (USA) (Demo)", "Game (USA) (Demo)")]
+    [InlineData("Game (Beta 2) (Rev 1)", "Game (Beta 2)")]
+    [InlineData("Game (1995)", "Game (1995)")]
+    public void StripReleaseAnnotations_TrailingTags_PreservesEditionText(string name, string expected) =>
+        DatNameParser.StripReleaseAnnotations(name).ShouldBe(expected);
+
+    [Theory]
+    [InlineData("Game (USA) (Beta 1)", "Game")]
+    [InlineData("Game (Japan) (Sample)", "Game")]
+    [InlineData("Game (Prototype-2) (Rev 1)", "Game")]
+    [InlineData("Game (USA) (The Cowabunga Collection)", "Game (USA) (The Cowabunga Collection)")]
+    [InlineData("Game (USA) (Beta Deluxe)", "Game (USA) (Beta Deluxe)")]
+    public void StripReleaseAnnotations_NonRetailLookupsOnly_StripsRecognizedTags(string name, string expected) =>
+        DatNameParser.StripReleaseAnnotations(name, includeNonRetail: true).ShouldBe(expected);
+
+    [Theory]
     [InlineData("Game (USA) (Beta 1)", true)]
     [InlineData("Game (beta) (Rev 1)", true)]
     [InlineData("Game (Prototype-2)", true)]

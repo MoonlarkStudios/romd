@@ -14,11 +14,16 @@ public static class ProviderIdentityPolicy
     {
         var names = facts.Names.Prepend(facts.Name).Select(ProviderIdentityNames.Normalize).ToHashSet(StringComparer.Ordinal);
         var platforms = facts.Platforms.Select(ArtworkIdentityMatcher.Normalize).ToHashSet(StringComparer.Ordinal);
+        var corroboratingName = scope == ProviderIdentityScope.CrossPlatformArtwork && search.CorroboratingArtworkTitle is { } title
+            ? ProviderIdentityNames.Normalize(title) : null;
         var ranked = search.Candidates.DistinctBy(x => x.Id).Select(candidate =>
         {
             var evidence = new List<string>();
             var conflicts = new List<string>();
-            var exact = names.Contains(ProviderIdentityNames.Normalize(candidate.Name));
+            var identityName = ProviderIdentityNames.Normalize(candidate.Name);
+            var localExact = names.Contains(identityName);
+            var corroborated = identityName.Length > 0 && identityName == corroboratingName;
+            var exact = localExact || corroborated;
             var alias = !exact && candidate.Aliases.Any(x => names.Contains(ProviderIdentityNames.Normalize(x)));
             var score = exact ? 100 : alias ? 90 : 0;
             var markers = new[] { "+", "REMAKE", "REMASTER", "REMASTERED", "HACK", "DEMO", "BETA", "COLLECTION", "DELUXE", "DEFINITIVE" };
@@ -26,8 +31,12 @@ public static class ProviderIdentityPolicy
             var candidateName = ArtworkIdentityMatcher.Normalize(candidate.Name);
             if (markers.Any(marker => HasMarker(localName, marker) != HasMarker(candidateName, marker)))
                 conflicts.Add("Edition or modification markers differ from the local title.");
-            if (exact || alias)
-                evidence.Add(exact ? "Edition-preserving name matches local evidence." : "Provider alias matches local evidence.");
+            if (localExact)
+                evidence.Add("Edition-preserving name matches local evidence.");
+            else if (corroborated)
+                evidence.Add("Name matches the trusted provider title on the local system.");
+            else if (alias)
+                evidence.Add("Provider alias matches local evidence.");
             else
                 conflicts.Add("No identity-preserving name or alias match.");
             var platformMatch = candidate.Platforms.Any(x => platforms.Contains(ArtworkIdentityMatcher.Normalize(x)));

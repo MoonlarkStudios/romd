@@ -23,15 +23,16 @@ public static class ProvisionalProviderMatchPolicy
             candidate.Conflicts.Count == 0) ? null : lead.Game.Id;
     }
 
-    private static bool ExactName(IdentityFacts facts, string candidateName)
+    private static bool ExactName(IdentityFacts facts, string candidateName, string? corroboratingTitle = null)
     {
         var name = ProviderIdentityNames.Normalize(candidateName);
         return name == ProviderIdentityNames.Normalize(facts.Name) ||
-            facts.Names.Any(local => name == ProviderIdentityNames.Normalize(local));
+            facts.Names.Any(local => name == ProviderIdentityNames.Normalize(local)) ||
+            (corroboratingTitle is not null && name == ProviderIdentityNames.Normalize(corroboratingTitle));
     }
 
     internal static string? SelectGame(IdentityFacts facts, IReadOnlyList<ProviderIdentityCandidate> ranked,
-        IEnumerable<int> trustedPlatformYears)
+        IEnumerable<int> trustedPlatformYears, string? corroboratingTitle)
     {
         var years = trustedPlatformYears.Where(year => year is >= 1900 and <= 2200).ToHashSet();
         if (years.Count == 0 || ranked.Count == 0)
@@ -42,7 +43,7 @@ public static class ProvisionalProviderMatchPolicy
             !years.Contains(year) || facts.Years.Count != 0 && !facts.Years.Contains(year))
             return null;
 
-        if (!ExactName(facts, lead.Game.Name))
+        if (!ExactName(facts, lead.Game.Name, corroboratingTitle))
             return null;
 
         // A plausible competitor can also be missing its release year.

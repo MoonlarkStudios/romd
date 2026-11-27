@@ -449,6 +449,7 @@
           "Romd.Application.Common": "[1.0.0, )",
           "Romd.Contracts.Common": "[1.0.0, )",
           "Romd.Contracts.Management": "[1.0.0, )",
+          "Romd.Dat": "[1.0.0, )",
           "Romd.Domain": "[1.0.0, )"
         }
       },

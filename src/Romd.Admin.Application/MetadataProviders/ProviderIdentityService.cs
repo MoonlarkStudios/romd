@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Romd.Admin.Application.Common.Persistence;
 using Romd.Admin.Application.Artwork.Providers;
 using Romd.Admin.Application.Ingestion.Jobs;
+using Romd.Dat;
 using Romd.Domain.Catalog;
 namespace Romd.Admin.Application.MetadataProviders;
 
@@ -88,8 +89,12 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                         $"The hash-verified DAT clone inherits the trusted SteamGridDB match for {parent.TitleName} via {parent.ReleaseName}.");
                 }
             }
+            bool artworkSearch = steamGridDb && bridged is null;
+            var trustedGame = artworkSearch && igdb?.TrustedGame is { } sourceGame && sourceGame.Id == igdb.GameId
+                ? sourceGame
+                : null;
             var found = bridged is not null ? ErrorOr.ErrorOrFactory.From(new SearchEvidence([bridged.Game], true, true)) :
-                await SearchCandidatesAsync(adapter, snapshot.Facts, snapshot.DatFamily?.Names ?? [], ct);
+                await SearchCandidatesAsync(adapter, snapshot.Facts, snapshot.DatFamily?.Names ?? [], trustedGame?.Name, ct);
             if (found.IsError && RememberThrottle(adapter.Id, found.Errors))
                 continue;
             ProviderIdentityDecision decision;
@@ -99,20 +104,6 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                     [], dependency is null ? null : [dependency]);
             else
             {
-                var candidates = found.Value.Games.Select(game => new IdentityCandidate(game.Id, game.Name, game.Aliases ?? [],
-                    RelevantYears(game, snapshot.Facts.Platforms), game.Platforms ?? [])).ToArray();
-                // Bridge trust is tied to the source game and its association revision.
-                var evidence = new IdentitySearchEvidence(candidates, found.Value.Complete,
-                    bridged is null ? null : new TrustedIdentityBridgeEvidence(bridged.Game.Id, bridged.Evidence));
-                var evaluation = ProviderIdentityPolicy.Decide(facts, evidence, adapter.IdentityScope);
-                bool artworkSearch = steamGridDb && bridged is null;
-                if (!datRequiresReview && !artworkSearch && evaluation is IdentityDecision.AutoAccepted match)
-                    accepted = found.Value.Games.Single(x => x.Id == match.CandidateId);
-                var ranked = evaluation.Candidates.Select(x => new ProviderIdentityCandidate(
-                    found.Value.Games.Single(g => g.Id == x.CandidateId), x.Score, x.Eligible, x.Evidence, x.Conflicts)).ToArray();
-                var trustedGame = artworkSearch && igdb?.TrustedGame is { } sourceGame && sourceGame.Id == igdb.GameId
-                    ? sourceGame
-                    : null;
                 var trustedPlatformYears = trustedGame is not null
                     ? PlatformYears(trustedGame, snapshot.Facts.Platforms).Where(year => year is >= 1900 and <= 2200).ToArray()
                     : [];
@@ -120,6 +111,17 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                     !trustedPlatformYears.Contains(release.Year.Value) && snapshot.ArtworkPlatformAliases.Any(alias =>
                         string.Equals(alias.Name, release.Platform, StringComparison.OrdinalIgnoreCase))).ToArray() ?? [];
                 var artworkYears = trustedPlatformYears.Concat(aliasReleases.Select(release => release.Year!.Value)).Distinct().ToArray();
+                var corroboratingTitle = artworkYears.Length > 0 ? trustedGame?.Name : null;
+                var candidates = found.Value.Games.Select(game => new IdentityCandidate(game.Id, game.Name, game.Aliases ?? [],
+                    RelevantYears(game, snapshot.Facts.Platforms), game.Platforms ?? [])).ToArray();
+                // Bridge and title evidence are tied to the source game and its association revision.
+                var evidence = new IdentitySearchEvidence(candidates, found.Value.Complete,
+                    bridged is null ? null : new TrustedIdentityBridgeEvidence(bridged.Game.Id, bridged.Evidence), corroboratingTitle);
+                var evaluation = ProviderIdentityPolicy.Decide(facts, evidence, adapter.IdentityScope);
+                if (!datRequiresReview && !artworkSearch && evaluation is IdentityDecision.AutoAccepted match)
+                    accepted = found.Value.Games.Single(x => x.Id == match.CandidateId);
+                var ranked = evaluation.Candidates.Select(x => new ProviderIdentityCandidate(
+                    found.Value.Games.Single(g => g.Id == x.CandidateId), x.Score, x.Eligible, x.Evidence, x.Conflicts)).ToArray();
                 if (artworkYears.Length > 0)
                     ranked = RankArtworkReviewByPlatformYear(ranked, artworkYears);
                 decision = new(evaluation.State, evaluation.Explanation, snapshot.Facts.Provenance, snapshot.Fingerprint,
@@ -133,7 +135,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 else if (artworkSearch)
                 {
                     var release = found.Value is { Complete: true, Consistent: true }
-                        ? ArtworkReleaseMatchPolicy.Select(snapshot.Facts, ranked, artworkYears, trustedGame?.Year)
+                        ? ArtworkReleaseMatchPolicy.Select(snapshot.Facts, ranked, artworkYears, trustedGame?.Year, corroboratingTitle)
                         : null;
                     if (release is not null)
                     {
@@ -161,18 +163,21 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 {
                     var provisionalGameId = decision.State == "NeedsReview" && found.Value.Consistent && link?.GameId is null &&
                         snapshot.DatFamily is { RequiresReview: false }
-                        ? ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates, artworkYears)
+                        ? ProvisionalProviderMatchPolicy.SelectGame(snapshot.Facts, decision.Candidates, artworkYears, corroboratingTitle)
                         : null;
                     var provisionalAlias = provisionalGameId is not null
                         ? aliasReleases.FirstOrDefault(release => release.Year == decision.Candidates[0].Game.Year)?.Platform
                         : null;
+                    var yearSource = provisionalAlias is not null
+                        ? $"the trusted IGDB release on {provisionalAlias}, a ROMD system alias"
+                        : "the trusted IGDB release on the local platform";
                     decision = decision with
                     {
                         ProvisionalGameId = provisionalGameId,
                         ProvisionalPolicyVersion = ProvisionalProviderMatchPolicy.Version,
                         ArtworkPlatformAliases = provisionalAlias is not null ? snapshot.ArtworkPlatformAliases : decision.ArtworkPlatformAliases,
-                        Explanation = provisionalAlias is not null
-                            ? $"The trusted IGDB release on {provisionalAlias}, a ROMD system alias, supports this artwork provisionally. {decision.Explanation}"
+                        Explanation = provisionalGameId is not null
+                            ? $"ROMD can use this artwork provisionally. The title matches and the year agrees with {yearSource}. You can confirm, replace, or reject the match."
                             : decision.Explanation
                     };
                 }
@@ -269,11 +274,25 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
     private sealed record SearchEvidence(IReadOnlyList<ProviderGame> Games, bool Complete, bool Consistent);
 
     private static async Task<ErrorOr.ErrorOr<SearchEvidence>> SearchCandidatesAsync(
-        IProviderIdentityAdapter adapter, IdentityFacts facts, IReadOnlyList<string> datNames, CancellationToken ct)
+        IProviderIdentityAdapter adapter, IdentityFacts facts, IReadOnlyList<string> datNames, string? trustedTitle, CancellationToken ct)
     {
         // Bound provider load and make the query set independent of evidence enumeration order.
         // Gather the whole set before deciding, so an alias cannot hide a plausible alternative.
-        var queries = datNames.Concat(facts.Names.Order(StringComparer.Ordinal)).Prepend(facts.Name)
+        var names = datNames.Concat(facts.Names.Order(StringComparer.Ordinal));
+        if (adapter.Id == "steamgriddb")
+        {
+            // SteamGridDB searches for games, so DAT releases of the primary title
+            // can share queries. Keep distinct names and the original match evidence.
+            var primaryName = ProviderIdentityNames.Normalize(facts.Name);
+            names = names.Select(name =>
+            {
+                var stripped = DatNameParser.StripReleaseAnnotations(name, includeNonRetail: true);
+                return ProviderIdentityNames.Normalize(stripped) == primaryName ? stripped : name;
+            });
+        }
+        if (trustedTitle is not null)
+            names = names.Prepend(trustedTitle);
+        var queries = names.Prepend(facts.Name)
             .SelectMany(name => new[] { ArtworkIdentityMatcher.Normalize(name), ProviderIdentityNames.Normalize(name) })
             .Where(query => query.Length > 0).Distinct(StringComparer.Ordinal).Take(7).ToArray();
         var complete = queries.Length is > 0 and <= 6;
