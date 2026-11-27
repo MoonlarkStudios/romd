@@ -18,6 +18,8 @@ public sealed record DatFamilySearchEvidence(IReadOnlyList<string> Names, bool R
 {
     public static DatFamilySearchEvidence Ambiguous { get; } = new([], true);
     public DatParentRelease? Parent { get; init; }
+    /// <summary>Unqualified titles of the hash-matched releases, when all are retail.</summary>
+    public IReadOnlyList<string> MatchedRetailTitles { get; init; } = [];
 }
 
 public sealed record DatParentRelease(int DatFileId, int GameId, string Name);
@@ -54,5 +56,6 @@ public interface IProviderIdentityService
 {
     Task<string?> GetTrustedAsync(int titleId, string providerId, CancellationToken ct);
     Task<ProviderIdentityDiscoveryResult> DiscoverAsync(int titleId, JobContext? owner, CancellationToken ct);
+    Task<ProviderIdentityDiscoveryResult> DiscoverArtworkAsync(int titleId, JobContext? owner, CancellationToken ct);
     Task<string?> ResolveTrustedAsync(int titleId, string providerId, CancellationToken ct);
 }

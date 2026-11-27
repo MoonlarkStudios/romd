@@ -18,7 +18,13 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
     }
     public Task<string?> GetTrustedAsync(int titleId, string providerId, CancellationToken ct) =>
         store.ReadTrustedAsync(titleId, providerId, ct);
-    public async Task<ProviderIdentityDiscoveryResult> DiscoverAsync(int titleId, JobContext? owner, CancellationToken ct)
+    public Task<ProviderIdentityDiscoveryResult> DiscoverAsync(int titleId, JobContext? owner, CancellationToken ct) =>
+        DiscoverAsync(titleId, owner, refreshMetadata: true, ct);
+    public Task<ProviderIdentityDiscoveryResult> DiscoverArtworkAsync(int titleId, JobContext? owner, CancellationToken ct) =>
+        DiscoverAsync(titleId, owner, refreshMetadata: false, ct);
+
+    private async Task<ProviderIdentityDiscoveryResult> DiscoverAsync(int titleId, JobContext? owner, bool refreshMetadata,
+        CancellationToken ct)
     {
         var retryAfterByProvider = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
         // Metadata-capable identities are resolved before optional cross-provider bridges.
@@ -36,6 +42,7 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             bool datRequiresReview = snapshot.DatFamily?.RequiresReview == true;
             bool steamGridDb = adapter.Id == "steamgriddb";
             bool igdbMetadata = adapter.Id == "igdb";
+            bool requiresIgdbRetailEvidence = igdbMetadata && link?.Decision?.RequiresIgdbRetailEvidence == true;
             var parent = steamGridDb && !datRequiresReview ? snapshot.DatParent : null;
             var igdb = steamGridDb && !datRequiresReview
                 ? snapshot.Links.SingleOrDefault(x => x is { ProviderId: "igdb", Trusted: true, Suppressed: false, GameId: not null })
@@ -49,6 +56,8 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
                 igdbMetadata ? ProvisionalProviderMatchPolicy.MetadataVersion : null;
             var needsPolicyEvaluation = link?.Decision is { State: "NeedsReview" or "NoMatch" } priorDecision &&
                 (provisionalPolicyVersion is not null && priorDecision.ProvisionalPolicyVersion != provisionalPolicyVersion ||
+                    refreshMetadata && igdbMetadata && priorDecision.ProvisionalGameId is not null &&
+                        priorDecision.IgdbRetailPolicyVersion != IgdbRetailMatchPolicy.Version ||
                     steamGridDb && priorDecision.ArtworkReleasePolicyVersion != ArtworkReleaseMatchPolicy.Version);
             if (!needsPolicyEvaluation && link?.Decision?.State != "AutoAccepted" && link?.InputFingerprint == snapshot.Fingerprint
                 && link.LastAttempt > clock.GetUtcNow() - delay &&
@@ -184,10 +193,35 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             if (igdbMetadata && bridged is null && !found.IsError)
             {
                 string? provisionalGameId = null;
-                if (link?.GameId is null && found.Value.Consistent && snapshot.DatFamily is { RequiresReview: false } &&
-                    (decision.State == "NeedsReview" || accepted is not null && snapshot.Facts.Years.Count == 0))
+                bool needsRetailProof = accepted is not null && snapshot.Facts.Years.Count == 0;
+                if (found.Value.Consistent && snapshot.DatFamily is { RequiresReview: false } datFamily &&
+                    (needsRetailProof || link?.GameId is null && decision.State == "NeedsReview"))
                 {
-                    provisionalGameId = ProvisionalProviderMatchPolicy.SelectMetadataGame(snapshot.Facts, decision.Candidates);
+                    var datedGameId = ProvisionalProviderMatchPolicy.SelectMetadataGame(snapshot.Facts, decision.Candidates);
+                    // Artwork-only work can revalidate established trust. Leave provisional text available
+                    // until an enrichment run can fetch the trusted metadata.
+                    if ((refreshMetadata || requiresIgdbRetailEvidence) && accepted is not null &&
+                        accepted.Id == datedGameId && found.Value.Complete &&
+                        IgdbRetailMatchPolicy.CorroboratesDatedMatch(snapshot.Facts, datFamily, decision.Candidates, accepted))
+                    {
+                        requiresIgdbRetailEvidence = true;
+                        needsRetailProof = false;
+                        decision = decision with
+                        {
+                            Explanation = "The exact title and dated platform release agree with a hash-verified retail release in the active DAT."
+                        };
+                    }
+                    else if (link?.GameId is null)
+                        provisionalGameId = datedGameId;
+                }
+                if (needsRetailProof && requiresIgdbRetailEvidence)
+                {
+                    accepted = null;
+                    decision = decision with
+                    {
+                        State = "NeedsReview",
+                        Explanation = "The current evidence no longer verifies the dated IGDB game against the active DAT retail release."
+                    };
                 }
                 decision = decision with
                 {
@@ -208,6 +242,8 @@ public sealed class ProviderIdentityService(IProviderIdentityStore store, IEnume
             {
                 LocalEvidence = new(snapshot.Facts.Name, snapshot.Facts.Names, snapshot.Facts.Years, snapshot.Facts.Platforms),
                 ArtworkReleasePolicyVersion = steamGridDb ? ArtworkReleaseMatchPolicy.Version : null,
+                IgdbRetailPolicyVersion = igdbMetadata && refreshMetadata ? IgdbRetailMatchPolicy.Version : null,
+                RequiresIgdbRetailEvidence = requiresIgdbRetailEvidence,
                 DatParentMatch = accepted is not null ? inherited : null,
                 EvaluatedDatParent = parent?.Match,
                 EvaluatedArtworkPlatformAliases = steamGridDb && snapshot.ArtworkPlatformAliases.Count > 0

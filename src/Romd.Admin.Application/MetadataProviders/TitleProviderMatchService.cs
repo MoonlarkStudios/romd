@@ -49,7 +49,7 @@ public sealed class TitleProviderMatchService : ITitleProviderMatchService
         _store.GetLinkRevisionAsync(titleId, providerId, gameId, ct);
 
     public Task<ProviderIdentityDiscoveryResult> DiscoverAsync(int titleId, JobContext context, CancellationToken ct) =>
-        _identities?.DiscoverAsync(titleId, context, ct) ?? Task.FromResult(ProviderIdentityDiscoveryResult.Empty);
+        _identities?.DiscoverArtworkAsync(titleId, context, ct) ?? Task.FromResult(ProviderIdentityDiscoveryResult.Empty);
 
     public async Task<ErrorOr<IReadOnlyList<TitleProviderMatch>>> GetAsync(int titleId, CancellationToken ct)
     {

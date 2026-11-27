@@ -55,8 +55,8 @@ internal static class HashBackedDatFamilyReader
         var parents = DatParentResolver.Resolve(entries.Select(entry => new DatParentDeclaration(
             entry.Name, entry.DeclaredId, entry.CloneOf, entry.CloneOfId)).ToArray(), ct);
         var matchedIds = gameIds.ToHashSet();
-        var matchedNames = entries.Where(entry => matchedIds.Contains(entry.Id)).Select(entry => entry.Name)
-            .Order(StringComparer.Ordinal).ToArray();
+        var matchedEntries = entries.Where(entry => matchedIds.Contains(entry.Id)).OrderBy(entry => entry.Name, StringComparer.Ordinal).ToArray();
+        var matchedNames = matchedEntries.Select(entry => entry.Name).ToArray();
         string root = matchedNames[0];
         while (parents.TryGetValue(root, out var parent))
         {
@@ -82,11 +82,14 @@ internal static class HashBackedDatFamilyReader
         }
 
         var rootEntry = entries.Single(entry => entry.Name == root);
-        bool canInherit = !matchedIds.Contains(rootEntry.Id) && IsRetailRelease(rootEntry) &&
-            entries.Where(entry => matchedIds.Contains(entry.Id)).All(IsRetailRelease);
+        bool allRetail = matchedEntries.All(IsRetailRelease);
+        bool canInherit = allRetail && !matchedIds.Contains(rootEntry.Id) && IsRetailRelease(rootEntry);
         return new(matchedNames.Where(name => name != root).Prepend(root).ToArray(), false)
         {
-            Parent = canInherit ? new(matches[0].DatFileId, rootEntry.Id, root) : null
+            Parent = canInherit ? new(matches[0].DatFileId, rootEntry.Id, root) : null,
+            MatchedRetailTitles = allRetail
+                ? matchedNames.Select(name => DatNameParser.StripReleaseAnnotations(name)).Distinct(StringComparer.Ordinal).ToArray()
+                : []
         };
     }
 
