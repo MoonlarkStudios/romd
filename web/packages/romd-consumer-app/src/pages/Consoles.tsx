@@ -1,81 +1,54 @@
-import { Button, Group, SimpleGrid, Stack, Text, Title } from '@mantine/core';
-import type { ConsumerPlatformSummary } from '@romd/consumer-api-client';
-import { IconArrowRight } from '@tabler/icons-react';
-import { Link } from 'react-router';
+import { Button, Group, NativeSelect, SimpleGrid, Stack, Title } from '@mantine/core';
+import { useLocalStorage } from '@mantine/hooks';
 import { LibraryUnavailable } from '../components/status/LibraryUnavailable';
 import { StatusState } from '../components/status/StatusState';
 import { usePlatforms } from '../hooks/useConsumerLibrary';
 import { ConsumerLibraryUnavailableError } from '../services/libraryErrors';
-import { ConsoleLogo, useAvailableArtwork } from './ConsoleArtwork';
+import { ConsoleCard } from './ConsoleCard';
 import classes from './Consoles.module.css';
 
-function ConsoleCard({ system }: { system: ConsumerPlatformSummary }) {
-  const portrait = useAvailableArtwork(system.consoleArtwork);
-  return (
-    <Link
-      className={classes.card}
-      to={`/systems/${encodeURIComponent(system.key)}`}
-    >
-      <div className={classes.artwork}>
-        {portrait.src ? (
-          <img
-            {...portrait}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className={classes.portrait}
-          />
-        ) : (
-          <ConsoleLogo
-            icon={system.icon}
-            fallback
-          />
-        )}
-      </div>
-      <div className={classes.cardInfo}>
-        <Stack gap={4}>
-          {portrait.src && <ConsoleLogo icon={system.icon} />}
-          <Title
-            order={2}
-            className={classes.cardName}
-          >
-            {system.name}
-          </Title>
-          <Text
-            size="sm"
-            c="dimmed"
-          >
-            {[
-              system.manufacturer,
-              `${system.titleCount} ${system.titleCount === 1 ? 'game' : 'games'}`,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Text>
-        </Stack>
-        <span
-          className={classes.arrow}
-          aria-hidden
-        >
-          <IconArrowRight size={17} />
-        </span>
-      </div>
-    </Link>
-  );
-}
-
 export function Consoles() {
-  const systems = usePlatforms();
+  const [savedSort, setSavedSort] = useLocalStorage({
+    key: 'romd.consumer.consoles.sort',
+    defaultValue: 'releaseYear',
+    getInitialValueInEffect: false,
+  });
+  const sortBy = savedSort === 'name' || savedSort === 'titleCount' ? savedSort : 'releaseYear';
+  const systems = usePlatforms(sortBy);
   const items = systems.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
     <Stack gap="var(--romd-page-gap)">
-      <Title
-        order={1}
-        className={classes.pageHeading}
+      <Group
+        justify="space-between"
+        align="center"
       >
-        Consoles
-      </Title>
+        <Title
+          order={1}
+          className={classes.pageHeading}
+        >
+          Consoles
+        </Title>
+        <NativeSelect
+          label="Sort by"
+          value={sortBy}
+          onChange={(event) => setSavedSort(event.currentTarget.value)}
+          data={[
+            {
+              value: 'releaseYear',
+              label: 'Release order',
+            },
+            {
+              value: 'titleCount',
+              label: 'Most games',
+            },
+            {
+              value: 'name',
+              label: 'Name (A–Z)',
+            },
+          ]}
+        />
+      </Group>
       {systems.error instanceof ConsumerLibraryUnavailableError ? (
         <LibraryUnavailable retry={() => void systems.refetch()} />
       ) : (
@@ -93,6 +66,7 @@ export function Consoles() {
                 <ConsoleCard
                   key={system.key}
                   system={system}
+                  showReleaseYear={sortBy === 'releaseYear'}
                 />
               ))}
             </SimpleGrid>

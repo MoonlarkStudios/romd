@@ -8,6 +8,7 @@ public sealed record ConsumerPlatformSummary
     public required string Name { get; init; }
     public required string ShortName { get; init; }
     public string? Manufacturer { get; init; }
+    public int? ReleaseYear { get; init; }
     public required int TitleCount { get; init; }
     public string? CoverUrl { get; init; }
     public ReferenceAsset? Icon { get; init; }
@@ -27,6 +28,7 @@ public sealed record ConsumerPlatformDetail
     public ReferenceAsset? Icon { get; init; }
     public string? Description { get; init; }
     public ConsumerSystemHardware? Hardware { get; init; }
+    public IReadOnlyList<ConsumerPlatformSummary> EraPeers { get; init; } = [];
 }
 
 public sealed record ConsumerSystemHardware(string? Category, int? Generation, int? ReleaseYear);

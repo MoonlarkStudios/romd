@@ -60,6 +60,7 @@ public sealed class NumericOpenApiBoundaryTests
         JsonElement schemas = Schemas(document);
 
         AssertNumericSchema(Property(schemas, "ConsumerPlatformSummary", "titleCount"), "integer", "int32");
+        AssertNullableNumericSchema(Property(schemas, "ConsumerPlatformSummary", "releaseYear"), "integer", "int32");
         AssertNullableNumericSchema(Property(schemas, "ConsumerTitleCard", "rating"), "number", "double");
         AssertCanonicalUnsignedIntegerString(Resolve(Property(schemas, "ConsumerRelease", "sizeBytes"), schemas));
     }
