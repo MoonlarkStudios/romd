@@ -9,8 +9,9 @@ one, ask them to check the [first-library setup](first-library.md#if-the-library
 
 **Home** shows discovery shelves, including featured collections when the
 administrator has attached them. **Browse** opens the searchable library.
-Search games and use the available system, genre and availability filters to
-narrow the results. Open a title to see its description, artwork and releases.
+Use **Filters & view** to narrow the results by system, genre or release
+availability, or to switch between the grid and list. Open a title to see its
+description, artwork and releases.
 
 A **title** is the game; a **release** is a particular version, such as a region
 or revision. Use the **Releases** tab when you want a specific version. A

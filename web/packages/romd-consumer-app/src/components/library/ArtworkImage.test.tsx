@@ -88,6 +88,7 @@ describe('ArtworkImage', () => {
       />,
     );
     expect(screen.queryByText('Game name')).not.toBeInTheDocument();
+    fireEvent.load(screen.getByAltText('Poster'));
     await waitFor(() => expect(loadRecentArtwork).toHaveBeenCalled());
   });
 
@@ -114,7 +115,7 @@ describe('ArtworkImage', () => {
       objectFit: 'contain',
       objectPosition: 'var(--romd-logo-position, left center)',
     });
-    expect(screen.queryByText('Game name')).not.toBeInTheDocument();
+    expect(screen.getByText('Game name')).not.toBeVisible();
     fireEvent.error(image);
     expect(screen.getByText('Game name')).toBeVisible();
     await waitFor(() => expect(loadRecentArtwork).toHaveBeenCalled());
@@ -214,6 +215,7 @@ describe('ArtworkImage', () => {
     expect(container.firstChild).toHaveStyle({
       aspectRatio: '2 / 3',
     });
+    fireEvent.load(image);
     await waitFor(() => expect(loadRecentArtwork).toHaveBeenCalled());
   });
   it('uses only the resolved hero in the hero reference layout', async () => {
@@ -244,11 +246,54 @@ describe('ArtworkImage', () => {
     expect(container.firstChild).toHaveStyle({
       aspectRatio: '96 / 31',
     });
+    fireEvent.load(screen.getByRole('img'));
     await waitFor(() => expect(loadRecentArtwork).toHaveBeenCalled());
   });
-  it('shows cached artwork after a network image failure and releases its blob URL', async () => {
+
+  it('uses the measured width for the first image request', () => {
+    const measure = vi
+      .spyOn(Element.prototype, 'getBoundingClientRect')
+      .mockReturnValue(new DOMRect(0, 480, 480, 300));
+    try {
+      render(
+        <ArtworkImage
+          artwork={[
+            {
+              ...artwork,
+              variants: [
+                {
+                  name: 'thumb',
+                  width: 240,
+                  height: 360,
+                  url: '/artwork/box/thumb/v1',
+                  contentVersion: 'v1',
+                },
+                {
+                  name: 'poster',
+                  width: 960,
+                  height: 1440,
+                  url: '/artwork/box/poster/v1',
+                  contentVersion: 'v1',
+                },
+              ],
+            },
+          ]}
+          alt="Box art"
+        />,
+      );
+      expect(screen.getByAltText('Box art')).toHaveAttribute(
+        'src',
+        `${window.location.origin}/artwork/box/poster/v1`,
+      );
+    } finally {
+      measure.mockRestore();
+    }
+  });
+
+  it('recovers a failed hero from cache before asking the parent for a fallback', async () => {
     const create = vi.fn(() => 'blob:cached-artwork');
     const revoke = vi.fn();
+    const onError = vi.fn();
     vi.stubGlobal(
       'URL',
       class extends URL {
@@ -269,19 +314,45 @@ describe('ArtworkImage', () => {
     const { unmount } = render(
       <ArtworkImage
         artwork={[
-          artwork,
+          {
+            ...artwork,
+            role: 'Hero',
+          },
         ]}
-        alt="Cached box art"
+        artworkRole="Hero"
+        alt="Cached hero"
+        priority
+        onError={onError}
       />,
     );
     fireEvent.error(screen.getByRole('img'));
     await waitFor(() =>
       expect(screen.getByRole('img')).toHaveAttribute('src', 'blob:cached-artwork'),
     );
+    fireEvent.load(screen.getByRole('img'));
+    expect(screen.getByRole('img')).toBeVisible();
+    expect(onError).not.toHaveBeenCalled();
     unmount();
     expect(revoke).toHaveBeenCalledWith('blob:cached-artwork');
   });
-  it('does not replace ordinary online rendering when caching is unavailable', async () => {
+  it('warms the cache after the visible image loads without replacing it', async () => {
+    const create = vi.fn(() => 'blob:warmed-artwork');
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL = create;
+      },
+    );
+    vi.mocked(loadRecentArtwork).mockResolvedValue(
+      new Blob(
+        [
+          'cached',
+        ],
+        {
+          type: 'image/webp',
+        },
+      ),
+    );
     render(
       <ArtworkImage
         artwork={[
@@ -290,8 +361,15 @@ describe('ArtworkImage', () => {
         alt="Box art"
       />,
     );
+    await act(async () => {});
+    expect(loadRecentArtwork).not.toHaveBeenCalled();
+    const image = screen.getByAltText('Box art');
+    expect(image).not.toBeVisible();
+    fireEvent.load(image);
     await waitFor(() => expect(loadRecentArtwork).toHaveBeenCalled());
-    expect(screen.getByRole('img')).toHaveAttribute('src', `${window.location.origin}/media/box`);
+    expect(image).toBeVisible();
+    expect(image).toHaveAttribute('src', `${window.location.origin}/media/box`);
+    expect(create).not.toHaveBeenCalled();
   });
   it('switches cache namespace on account changes and revokes the previous account blob', async () => {
     const create = vi
@@ -324,6 +402,7 @@ describe('ArtworkImage', () => {
         alt="Selected artwork"
       />,
     );
+    fireEvent.error(screen.getByAltText('Selected artwork'));
     await waitFor(() => expect(screen.getByRole('img')).toHaveAttribute('src', 'blob:account-a'));
 
     await act(async () => {
@@ -362,6 +441,7 @@ describe('ArtworkImage', () => {
         alt="Selected artwork"
       />,
     );
+    fireEvent.error(screen.getByAltText('Selected artwork'));
     await waitFor(() => expect(loadRecentArtwork).toHaveBeenCalled());
 
     await act(async () => {
@@ -382,7 +462,7 @@ describe('ArtworkImage', () => {
     });
 
     expect(create).not.toHaveBeenCalled();
-    expect(screen.getByRole('img')).not.toHaveAttribute('src', 'blob:old-account');
+    expect(screen.queryByAltText('Selected artwork')).not.toBeInTheDocument();
     expect(vi.mocked(loadRecentArtwork).mock.calls[0][2].aborted).toBe(true);
   });
 
@@ -410,6 +490,7 @@ describe('ArtworkImage', () => {
         alt="Selected artwork"
       />,
     );
+    fireEvent.error(screen.getByAltText('Selected artwork'));
     await waitFor(() => expect(loadRecentArtwork).toHaveBeenCalled());
 
     unmount();

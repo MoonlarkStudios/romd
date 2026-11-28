@@ -110,9 +110,44 @@ describe('Library', () => {
     } as ReturnType<typeof useCatalogSearch>);
   });
 
+  it('exposes filter and view controls through a labelled disclosure', () => {
+    render(<Library />);
+    const toggle = screen.getByRole('button', {
+      name: 'Filters & view',
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('button', {
+        name: 'List view',
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByPlaceholderText('All systems')).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'Grid view',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      screen.queryByRole('button', {
+        name: 'List view',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
   it('renders the library context, filters, and title links without play overlays', () => {
     render(<Library />);
 
+    expect(
+      screen.queryByRole('button', {
+        name: 'Refresh library',
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
         name: /browse games/i,

@@ -5,7 +5,6 @@ import { StatusState } from '../components/status/StatusState';
 import { usePlatforms } from '../hooks/useConsumerLibrary';
 import { ConsumerLibraryUnavailableError } from '../services/libraryErrors';
 import { ConsoleCard } from './ConsoleCard';
-import classes from './Consoles.module.css';
 
 export function Consoles() {
   const [savedSort, setSavedSort] = useLocalStorage({
@@ -25,12 +24,12 @@ export function Consoles() {
       >
         <Title
           order={1}
-          className={classes.pageHeading}
+          className="romd-page-heading"
         >
           Consoles
         </Title>
         <NativeSelect
-          label="Sort by"
+          aria-label="Sort consoles"
           value={sortBy}
           onChange={(event) => setSavedSort(event.currentTarget.value)}
           data={[
@@ -50,7 +49,7 @@ export function Consoles() {
         />
       </Group>
       {systems.error instanceof ConsumerLibraryUnavailableError ? (
-        <LibraryUnavailable retry={() => void systems.refetch()} />
+        <LibraryUnavailable />
       ) : (
         <>
           {items.length > 0 && (

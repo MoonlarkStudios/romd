@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Title, VisuallyHidden } from '@mantine/core';
+import { Stack, Title, VisuallyHidden } from '@mantine/core';
 import type { ConsumerCollection } from '@romd/consumer-api-client';
 import { SpotlightCarousel } from '../components/library/SpotlightCarousel';
 import { TitleRail } from '../components/library/TitleRail';
@@ -67,7 +67,7 @@ export function Shelves() {
 
   if (libraryQuery.isError) {
     if (libraryQuery.error instanceof ConsumerLibraryUnavailableError)
-      return <LibraryUnavailable retry={() => void refresh()} />;
+      return <LibraryUnavailable />;
     return (
       <StatusState
         kind="error"
@@ -85,17 +85,6 @@ export function Shelves() {
       <VisuallyHidden>
         <Title order={1}>Your games</Title>
       </VisuallyHidden>
-
-      <Group justify="flex-end">
-        <Button
-          variant="subtle"
-          color="gray"
-          size="compact-sm"
-          onClick={() => void refresh()}
-        >
-          Refresh library
-        </Button>
-      </Group>
 
       {spotlights.length > 0 && (
         <SpotlightCarousel

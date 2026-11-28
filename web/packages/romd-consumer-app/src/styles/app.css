@@ -10,7 +10,7 @@
   overflow-x: auto;
   scroll-snap-type: x proximity;
   scroll-behavior: smooth;
-  padding: 12px 8px 28px;
+  padding: 12px var(--romd-rail-inset) 28px;
 }
 .romd-rail::-webkit-scrollbar {
   height: 0;
@@ -19,6 +19,9 @@
   flex: 0 0 var(--romd-poster-w, 184px);
   scroll-snap-align: start;
 }
+
+/* Reveal decoded artwork in its reserved frame. */
+.romd-artwork-image { transition: opacity var(--romd-duration-focus) var(--romd-ease-standard); }
 
 /* Keep the animated frame separate from the clipped artwork. */
 .romd-poster {
@@ -135,7 +138,9 @@
 
 /* Rail edge fade arrows. */
 .romd-rail-wrap {
+  --romd-rail-inset: var(--mantine-spacing-xs);
   position: relative;
+  margin-inline-start: calc(-1 * var(--romd-rail-inset));
 }
 .romd-rail-arrow {
   opacity: 0;
@@ -154,6 +159,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .romd-artwork-image,
   .romd-poster,
   .romd-poster .romd-poster-play,
   .romd-poster-play-later .romd-play-later-icon,
@@ -191,6 +197,7 @@ body.romd-consumer {
   --romd-bg: var(--romd-portal-bg);
   --romd-backdrop: none;
   --romd-page-gap: clamp(24px, 3vw, 40px);
+  --romd-content-gutter: var(--mantine-spacing-xl);
   background: var(--romd-bg);
 }
 .romd-consumer-shell .romd-hero { font-weight: 650; letter-spacing: -.025em; }
@@ -199,16 +206,20 @@ body.romd-consumer {
 .romd-consumer-shell .romd-card-title { font-weight: 500; }
 .romd-consumer-shell .romd-metadata { font-family: var(--romd-font-display); font-weight: 400; }
 .romd-consumer-shell .romd-eyebrow { font-family: var(--romd-font-display); font-weight: 500; letter-spacing: .08em; }
-.romd-home .romd-rail-wrap { margin-right: calc(-1 * var(--mantine-spacing-xl)); }
-.romd-home .romd-rail { padding-right: var(--mantine-spacing-xl); }
+.romd-home .romd-rail-wrap { margin-inline-end: calc(-1 * var(--romd-content-gutter)); }
+.romd-home .romd-rail { padding-inline-end: var(--romd-content-gutter); }
 .romd-consumer-shell summary:focus-visible { outline: 2px solid var(--romd-accent); outline-offset: 4px; }
-@media (max-width: 48em) {
-  .romd-home .romd-rail-wrap { margin-right: calc(-1 * var(--mantine-spacing-md)); }
-  .romd-home .romd-rail { padding-right: var(--mantine-spacing-md); }
+
+.romd-browse-search { flex: 1 1 220px; min-width: 0; }
+.romd-browse-sort { width: 10rem; }
+@media (width < 48em) {
+  body.romd-consumer { --romd-content-gutter: var(--mantine-spacing-md); }
+  .romd-browse-search { flex-basis: 100%; }
+  .romd-browse-sort { flex: 1 1 0; min-width: 0; }
 }
 
 /* Fade only the edges that have more content beyond them. Keep controls outside the mask. */
-.romd-rail { --rail-left-opacity: 1; --rail-right-opacity: 1; scroll-padding-inline: 8px; }
+.romd-rail { --rail-left-opacity: 1; --rail-right-opacity: 1; scroll-padding-inline: var(--romd-rail-inset); }
 .romd-rail[data-left] { --rail-left-opacity: 0; }
 .romd-rail[data-right] { --rail-right-opacity: 0; }
 .romd-rail[data-left], .romd-rail[data-right] {
@@ -218,13 +229,16 @@ body.romd-consumer {
 @media (prefers-reduced-motion: reduce) { .romd-rail { scroll-behavior: auto; } }
 
 .romd-shelf-heading-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mantine-spacing-xs);
   font: inherit;
   color: inherit;
   text-decoration: none;
 }
+.romd-shelf-heading-link svg { flex: none; color: var(--romd-text-muted); }
 .romd-shelf-heading-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+  color: var(--romd-accent);
 }
 .romd-shelf-heading-link:focus-visible {
   outline: 2px solid var(--romd-accent);
@@ -235,7 +249,7 @@ body.romd-consumer {
 
 
 /* Carousel owns the full-bleed frame; every slide shares its natural height. */
-.romd-spotlight-carousel { position: relative; margin: calc(-1 * var(--mantine-spacing-xl)) calc(-1 * var(--mantine-spacing-xl)) 0; }
+.romd-spotlight-carousel { position: relative; margin: calc(-1 * var(--mantine-spacing-xl)) calc(-1 * var(--romd-content-gutter)) 0; }
 .romd-spotlight-carousel .romd-spotlight-surface, .romd-spotlight-carousel .romd-home-spotlight { height: 100%; }
 .romd-spotlight-slides { align-items: stretch; }
 .romd-spotlight-control { background: color-mix(in srgb, var(--romd-bg) 45%, transparent); color: var(--romd-text-strong); border: 1px solid transparent; box-shadow: none; opacity: .75; }
@@ -246,7 +260,6 @@ body.romd-consumer {
 .romd-spotlight-indicator span { width: 8px; height: 8px; border-radius: var(--mantine-radius-xl); background: var(--romd-text-muted); }
 .romd-spotlight-indicator[aria-current] span { width: 28px; background: var(--romd-text-strong); }
 @media (max-width: 48em) {
-  .romd-spotlight-carousel { margin-inline: calc(-1 * var(--mantine-spacing-md)); }
   .romd-spotlight-carousel .romd-home-spotlight { --romd-spotlight-bottom: calc(44px + 2 * var(--mantine-spacing-md)); }
   .romd-spotlight-controls { top: auto; bottom: var(--mantine-spacing-md); }
 }
