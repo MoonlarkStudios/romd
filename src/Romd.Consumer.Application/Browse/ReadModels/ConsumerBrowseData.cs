@@ -57,6 +57,7 @@ public sealed record ConsumerTitleCardData
     public required SystemSummaryData System { get; init; }
     public IReadOnlyList<ConsumerContentRatingData> ContentRatings { get; init; } = [];
     public required string Name { get; init; }
+    public string? MatchedName { get; init; }
     public int? CoverMediaId { get; init; }
     public string? Genre { get; init; }
     public DateOnly? ReleaseDate { get; init; }

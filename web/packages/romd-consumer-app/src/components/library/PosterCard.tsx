@@ -17,6 +17,7 @@ type PosterTitle = ConsumerTitleCard | ConsumerCollectionTitle | RecentlyPlayedT
 
 interface PosterCardProps {
   title: PosterTitle;
+  matchedName?: string | null;
   showPlayAction?: boolean;
   playLaterAction?: ReactNode;
   showTitle?: boolean;
@@ -24,12 +25,14 @@ interface PosterCardProps {
 
 export function PosterCard({
   title,
+  matchedName,
   showPlayAction = true,
   playLaterAction,
   showTitle = false,
 }: PosterCardProps) {
   const defaultReleaseId = title.defaultReleaseId ?? null;
   const playback = useBrowserPlaybackAvailability(title.system.key);
+  const showCaption = showTitle || Boolean(matchedName);
 
   return (
     <Box className="romd-poster">
@@ -51,7 +54,7 @@ export function PosterCard({
             }}
             fallback={<ArtworkFallback name={title.name} />}
             missingArtworkLabel={
-              showTitle ? null : (
+              showCaption ? null : (
                 <Text
                   className="romd-card-title romd-poster-fallback-name"
                   lineClamp={4}
@@ -63,7 +66,7 @@ export function PosterCard({
             }
           />
         </GamePosterSurface>
-        {showTitle && (
+        {showCaption && (
           <Text
             className="romd-metadata romd-poster-caption"
             lineClamp={1}
@@ -73,6 +76,17 @@ export function PosterCard({
           </Text>
         )}
       </Box>
+      {matchedName && (
+        <Text
+          className="romd-metadata"
+          c="dimmed"
+          mx="xs"
+          lineClamp={2}
+          title={matchedName}
+        >
+          Matched as {matchedName}
+        </Text>
+      )}
 
       {playLaterAction && <Box className="romd-poster-play-later">{playLaterAction}</Box>}
 

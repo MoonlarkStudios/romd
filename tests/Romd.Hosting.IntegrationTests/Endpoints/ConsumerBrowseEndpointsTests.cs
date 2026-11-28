@@ -185,14 +185,16 @@ public sealed class ConsumerBrowseEndpointsTests
         chrono.DefaultReleaseId.ShouldBe(IdCoder.Encode(seed.ChronoReleaseId));
     }
 
-    [Fact]
-    public async Task SearchCatalog_TextQuery_MatchesViaFullTextPrefixWithinOwnedScope()
+    [Theory]
+    [InlineData("name")]
+    [InlineData("relevance")]
+    public async Task SearchCatalog_TextQuery_MatchesViaFullTextPrefixWithinOwnedScope(string sort)
     {
         await using var fixture = await ConsumerHostFixture.CreateAsync();
         var seed = await fixture.SeedBrowseDataAsync();
         using var client = fixture.CreateAuthenticatedClient(Guid.NewGuid(), "player@localhost", seed.LibraryId);
 
-        var match = await client.GetAsync("/api/catalog?query=chrono&limit=10");
+        var match = await client.GetAsync($"/api/catalog?query=chrono&sortBy={sort}&limit=10");
         var matchBody = await match.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
 
         match.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -201,7 +203,7 @@ public sealed class ConsumerBrowseEndpointsTests
 
         // FTS prefix matches "Mega Man", but it is not owned in this library, so the
         // owned-materialized-title scope still excludes it.
-        var unowned = await client.GetAsync("/api/catalog?query=mega&limit=10");
+        var unowned = await client.GetAsync($"/api/catalog?query=mega&sortBy={sort}&limit=10");
         var unownedBody = await unowned.Content.ReadFromJsonAsync<CommonModels.Page<ConsumerTitleCard>>();
 
         unowned.StatusCode.ShouldBe(HttpStatusCode.OK);

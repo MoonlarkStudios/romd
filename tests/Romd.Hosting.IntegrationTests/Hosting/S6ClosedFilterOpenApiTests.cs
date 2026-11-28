@@ -23,7 +23,7 @@ public sealed class S6ClosedFilterOpenApiTests(ApiContractPolicyGuardrailTests.L
     public void ConsumerFilters_PublishClosedVocabulariesAndPreservePageLimits()
     {
         var catalog = Get("consumer", "/api/catalog");
-        Values(catalog, "sortBy").ShouldBe(["name", "rating"]);
+        Values(catalog, "sortBy").ShouldBe(["name", "rating", "relevance"]);
         Values(catalog, "completeness").ShouldBe(["all", "complete", "partial"]);
         var limit = Parameter(catalog, "limit");
         limit.GetProperty("default").GetInt32().ShouldBe(50);

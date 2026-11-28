@@ -2087,6 +2087,42 @@
       ]
     },
     {
+      "id": "consumer/exact-before-phrase/relevance",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "relevance",
+        "pagination",
+        "unicode"
+      ],
+      "query": "F-Zero",
+      "sort": "Relevance",
+      "limit": 50,
+      "pageSize": 1,
+      "orderMode": "Exact",
+      "expected": [
+        "19:Ｆ－ＺＥＲＯ",
+        "20:F-Zero X"
+      ]
+    },
+    {
+      "id": "consumer/tied-exact-titles/relevance",
+      "surface": "ConsumerCatalog",
+      "tags": [
+        "relevance",
+        "pagination",
+        "duplicate-ranks"
+      ],
+      "query": "tetris",
+      "sort": "Relevance",
+      "limit": 50,
+      "pageSize": 1,
+      "orderMode": "Exact",
+      "expected": [
+        "24:Tetris",
+        "25:Tetris"
+      ]
+    },
+    {
       "id": "consumer/duplicate-names/name",
       "surface": "ConsumerCatalog",
       "tags": [

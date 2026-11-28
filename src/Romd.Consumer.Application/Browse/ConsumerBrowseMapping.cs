@@ -104,6 +104,7 @@ public static class ConsumerBrowseMapping
                 Icon = rating.Icon?.ToContract()
             }).ToArray(),
             Name = item.Name,
+            MatchedName = item.MatchedName,
             Players = item.Players,
             EsrbRating = item.EsrbRating,
             CoverUrl = item.CoverMediaId is { } mediaId ? MediaUrl(mediaId) : null,

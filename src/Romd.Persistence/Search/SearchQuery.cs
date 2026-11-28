@@ -19,7 +19,7 @@ public static class SearchQuery
     ///     Returns the <c>to_tsquery</c> text for the normalized tokens of <paramref name="text"/>,
     ///     or null when no token survives normalization.
     /// </summary>
-    public static string? ToTsQueryText(string text, bool allowOmittedPossessive = false)
+    public static string? ToTsQueryText(string text, bool allowOmittedPossessive = false, bool prefixLastToken = true)
     {
         var tokens = SearchTextNormalizer.Tokenize(text);
         if (tokens.Count == 0)
@@ -28,7 +28,8 @@ public static class SearchQuery
         }
 
         var terms = tokens.ToArray();
-        terms[^1] += ":*";
+        if (prefixLastToken)
+            terms[^1] += ":*";
         string phrase = string.Join(" <-> ", terms);
         if (!allowOmittedPossessive || terms.Length < 2)
         {

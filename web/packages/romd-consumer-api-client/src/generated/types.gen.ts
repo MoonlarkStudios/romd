@@ -354,6 +354,7 @@ export type ConsumerTitleCard = {
     system: SystemSummary;
     contentRatings?: Array<ConsumerContentRating>;
     name: string;
+    matchedName?: null | string;
     coverUrl?: null | string;
     genre?: null | string;
     releaseDate?: null | string;
@@ -2071,7 +2072,7 @@ export type ListConsumerCatalogData = {
         systemKey?: string;
         genre?: string;
         completeness?: 'all' | 'complete' | 'partial';
-        sortBy?: 'name' | 'rating';
+        sortBy?: 'name' | 'rating' | 'relevance';
         cursor?: string;
         limit?: number;
     };

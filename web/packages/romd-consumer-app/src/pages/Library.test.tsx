@@ -160,6 +160,106 @@ describe('Library', () => {
   });
 
   it.each([
+    {
+      url: '/library',
+      sortBy: 'name',
+      label: 'Title (A-Z)',
+    },
+    {
+      url: '/library?q=mario',
+      sortBy: 'relevance',
+      label: 'Best match',
+    },
+    {
+      url: '/library?q=mario&sortBy=name',
+      sortBy: 'name',
+      label: 'Title (A-Z)',
+    },
+  ])('uses $label with $url', ({ url, sortBy, label }) => {
+    render(<Library />, {
+      routerOptions: {
+        initialEntries: [
+          url,
+        ],
+      },
+    });
+
+    expect(
+      screen.getByRole('combobox', {
+        name: 'Sort',
+      }),
+    ).toHaveValue(label);
+    expect(screen.queryByText('Top rated first')).not.toBeInTheDocument();
+    expect(vi.mocked(useCatalogSearch).mock.calls.at(-1)?.[0]).toMatchObject({
+      sortBy,
+    });
+  });
+
+  it.each([
+    {
+      filter: 'systemKey',
+      action: 'Search all systems',
+    },
+    {
+      filter: 'genre',
+      action: 'Search all genres',
+    },
+    {
+      filter: 'completeness',
+      action: 'Clear release availability filter',
+    },
+  ])('removes only $filter when a filtered search returns no results', ({ filter, action }) => {
+    vi.mocked(useCatalogSearch).mockReturnValue({
+      data: {
+        pages: [
+          {
+            items: [],
+            nextCursor: null,
+            hasNextPage: false,
+          },
+        ],
+        pageParams: [
+          undefined,
+        ],
+      },
+      isLoading: false,
+      isError: false,
+    } as ReturnType<typeof useCatalogSearch>);
+    const search =
+      '?q=mario&systemKey=platform-1&genre=Platformer&completeness=complete&sortBy=name';
+    render(
+      <>
+        <Library />
+        <NavigationProbe />
+      </>,
+      {
+        routerOptions: {
+          initialEntries: [
+            `/library${search}`,
+          ],
+        },
+      },
+    );
+
+    expect(screen.getByText('No results for “mario”')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: action,
+      }),
+    );
+
+    const expected = new URLSearchParams(search);
+    expected.delete(filter);
+    expect(screen.getByLabelText('Current location')).toHaveTextContent(`?${expected}`);
+    expect(screen.getByLabelText('Search')).toHaveValue('mario');
+    expect(
+      screen.queryByRole('button', {
+        name: action,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it.each([
     false,
     true,
   ])('clears the URL and input without restoring a search (pending edit: %s)', async (pending) => {

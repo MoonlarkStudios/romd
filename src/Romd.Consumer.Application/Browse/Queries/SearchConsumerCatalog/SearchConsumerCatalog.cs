@@ -43,7 +43,7 @@ public sealed class SearchConsumerCatalogQueryHandler(
             query.PlatformId,
             query.Genre,
             ParseCompleteness(query.Completeness),
-            ParseSortField(query.SortBy));
+            ParseSortField(query.SortBy, query.Query));
 
         var settings = await settingsStore.GetSettingsAsync(userId, ct);
         var result = await browseRepository.SearchCatalogAsync(
@@ -77,10 +77,11 @@ public sealed class SearchConsumerCatalogQueryHandler(
             _ => ConsumerCompletenessFilter.All
         };
 
-    private static ConsumerTitleSortField ParseSortField(string? value) =>
+    private static ConsumerTitleSortField ParseSortField(string? value, string? query) =>
         value?.ToLowerInvariant() switch
         {
             "rating" => ConsumerTitleSortField.Rating,
+            "relevance" when !string.IsNullOrWhiteSpace(query) => ConsumerTitleSortField.Relevance,
             _ => ConsumerTitleSortField.Name
         };
 }

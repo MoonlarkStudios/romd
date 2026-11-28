@@ -142,6 +142,7 @@ Romd.Contracts.Consumer.Browse.ConsumerTitleCard
   EsrbRating: string?
   Genre: string?
   Id: string [required]
+  MatchedName: string?
   Name: string [required]
   Players: int?
   Rating: double?

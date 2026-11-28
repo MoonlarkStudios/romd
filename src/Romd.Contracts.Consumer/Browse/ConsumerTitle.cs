@@ -2,6 +2,7 @@ using Romd.Contracts.Common.ReferenceCatalog;
 using Romd.Contracts.Common.Artwork;
 using Romd.Contracts.Consumer.Releases;
 using Romd.Contracts.Common.Models;
+using System.Text.Json.Serialization;
 
 namespace Romd.Contracts.Consumer.Browse;
 
@@ -12,6 +13,9 @@ public sealed record ConsumerTitleCard
     public required SystemSummary System { get; init; }
     public IReadOnlyList<ConsumerContentRating> ContentRatings { get; init; } = [];
     public required string Name { get; init; }
+    /// <summary>An alternate name that more closely matched a relevance-sorted catalog query.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MatchedName { get; init; }
     public string? CoverUrl { get; init; }
     public string? Genre { get; init; }
     public DateOnly? ReleaseDate { get; init; }

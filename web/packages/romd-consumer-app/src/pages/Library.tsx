@@ -57,6 +57,14 @@ const sortOptions = [
   },
 ];
 
+const searchSortOptions = [
+  {
+    value: 'relevance',
+    label: 'Best match',
+  },
+  ...sortOptions,
+];
+
 function withSearchQuery(params: URLSearchParams, value: string) {
   const next = new URLSearchParams(params);
   const query = value.trim();
@@ -69,6 +77,7 @@ export function Library() {
   const [urlSearchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const urlQuery = urlSearchParams.get('q') ?? '';
+  const searchTerm = urlQuery.trim();
   const [query, setQuery] = useState(urlQuery);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
     window.localStorage.getItem('romd.library.viewMode') === 'list' ? 'list' : 'grid',
@@ -83,7 +92,9 @@ export function Library() {
   const completenessParam = urlSearchParams.get('completeness');
   const completeness =
     completenessParam === 'complete' || completenessParam === 'partial' ? completenessParam : 'all';
-  const sortBy = urlSearchParams.get('sortBy') === 'rating' ? 'rating' : 'name';
+  const sortParam = urlSearchParams.get('sortBy');
+  const sortBy =
+    sortParam === 'name' || sortParam === 'rating' ? sortParam : searchTerm ? 'relevance' : 'name';
 
   const libraryQuery = useCurrentLibrary();
   const refresh = useRefreshLibrary();
@@ -92,7 +103,7 @@ export function Library() {
   const genres = library?.genres ?? [];
 
   const catalogSearchParams: ConsumerCatalogSearchParams = {
-    query: urlQuery.trim() || undefined,
+    query: searchTerm || undefined,
     systemKey: systemKey ?? undefined,
     genre: genre ?? undefined,
     completeness: completeness === 'all' ? undefined : (completeness as 'complete' | 'partial'),
@@ -108,6 +119,7 @@ export function Library() {
   const playLater = usePlayLaterMembership(catalogQuery.data?.pages);
   const selectedPlatformName = platforms.find((platform) => platform.id === systemKey)?.name;
   const loadedResultCount = titles.length;
+  const draftPending = query.trim() !== searchTerm;
   const filteredContext =
     selectedPlatformName ?? genre ?? (sortBy === 'rating' ? 'Highest rated games' : 'All systems');
 
@@ -185,7 +197,7 @@ export function Library() {
           clear: () => changeQuery(''),
         }
       : null,
-    sortBy !== 'name'
+    sortBy === 'rating'
       ? {
           key: 'sortBy',
           label: 'Top rated first',
@@ -201,6 +213,25 @@ export function Library() {
       clear: () => void;
     } => entry !== null,
   );
+
+  const filterRecovery = [
+    {
+      key: 'systemKey',
+      label: 'Search all systems',
+      active: Boolean(systemKey),
+    },
+    {
+      key: 'genre',
+      label: 'Search all genres',
+      active: Boolean(genre),
+    },
+    {
+      key: 'completeness',
+      label: 'Clear release availability filter',
+      active: completeness !== 'all',
+    },
+  ].filter((filter) => filter.active);
+  const emptyLibrary = library?.counts.availableTitleCount === 0;
 
   if (libraryQuery.isLoading && !library) {
     return <StatusState kind="loading" />;
@@ -256,8 +287,10 @@ export function Library() {
           <Select
             aria-label="Sort"
             value={sortBy}
-            onChange={(value) => updateFilter('sortBy', value)}
-            data={sortOptions}
+            onChange={(value) =>
+              updateFilter('sortBy', value === (query.trim() ? 'relevance' : 'name') ? null : value)
+            }
+            data={searchTerm ? searchSortOptions : sortOptions}
             allowDeselect={false}
             w={160}
           />
@@ -372,20 +405,39 @@ export function Library() {
           onRetry={() => void catalogQuery.refetch()}
           retrying={catalogQuery.isRefetching}
         />
-      ) : loadedResultCount === 0 && catalogQuery.isLoading ? (
+      ) : loadedResultCount === 0 && (catalogQuery.isLoading || draftPending) ? (
         <PosterGridSkeleton />
-      ) : loadedResultCount === 0 && !catalogQuery.isLoading ? (
+      ) : loadedResultCount === 0 ? (
         <StatusState
           kind="empty"
           title={
-            library?.counts.availableTitleCount === 0
+            emptyLibrary
               ? 'No games in your library yet'
-              : 'No games match your filters'
+              : searchTerm
+                ? `No results for “${searchTerm}”`
+                : 'No games match your filters'
           }
           message={
-            library?.counts.availableTitleCount === 0
+            emptyLibrary
               ? 'Games will appear after they are published to your library.'
-              : 'Try clearing a filter or widening your search.'
+              : filterRecovery.length > 0
+                ? 'Remove a filter to broaden your search.'
+                : 'Try a different name or a shorter search.'
+          }
+          action={
+            !emptyLibrary && filterRecovery.length > 0 ? (
+              <Group justify="center">
+                {filterRecovery.map(({ key, label }) => (
+                  <Button
+                    key={key}
+                    variant="light"
+                    onClick={() => updateFilter(key, null)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </Group>
+            ) : undefined
           }
         />
       ) : viewMode === 'grid' ? (
@@ -403,6 +455,7 @@ export function Library() {
               key={title.id}
               title={title}
               showPlayAction={false}
+              matchedName={title.matchedName}
               playLaterAction={
                 <PlayLaterButton
                   title={title}
@@ -419,6 +472,7 @@ export function Library() {
             <TitleListRow
               key={title.id}
               title={title}
+              matchedName={title.matchedName}
               playLaterAction={
                 <PlayLaterButton
                   title={title}

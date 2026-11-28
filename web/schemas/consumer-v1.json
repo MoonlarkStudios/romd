@@ -2250,7 +2250,8 @@
             "schema": {
               "enum": [
                 "name",
-                "rating"
+                "rating",
+                "relevance"
               ],
               "type": "string"
             }
@@ -5498,6 +5499,12 @@
           },
           "name": {
             "type": "string"
+          },
+          "matchedName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "coverUrl": {
             "type": [

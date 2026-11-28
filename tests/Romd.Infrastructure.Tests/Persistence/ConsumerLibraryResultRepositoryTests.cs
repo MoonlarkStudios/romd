@@ -313,8 +313,11 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
         result.Items.Single(item => item.Name == "Mixed Releases").EsrbRating.ShouldBeNull();
     }
 
-    [Fact]
-    public async Task SearchCatalogAsync_DatAliasUsesItsOwnCatalogSourceStatus()
+    [Theory]
+    [InlineData(ConsumerTitleSortField.Name, null)]
+    [InlineData(ConsumerTitleSortField.Relevance, "Crimson Road (USA)")]
+    public async Task SearchCatalogAsync_DatAliasUsesItsOwnCatalogSourceStatus(
+        ConsumerTitleSortField sort, string? matchedName)
     {
         await SeedCompletenessScenariosAsync();
         await using var context = CreateContext();
@@ -346,8 +349,15 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
             .ExecuteUpdateAsync(update => update.SetProperty(release => release.CatalogReleaseId, 1));
 
         var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
-        var filters = new ConsumerCatalogFilters("Crimson Road", null, null, ConsumerCompletenessFilter.All, ConsumerTitleSortField.Name);
-        (await SearchAsync()).Items.ShouldHaveSingleItem().Name.ShouldBe("All Complete");
+        var filters = new ConsumerCatalogFilters("Crimson Road", null, null, ConsumerCompletenessFilter.All, sort);
+        var match = (await SearchAsync()).Items.ShouldHaveSingleItem();
+        match.Name.ShouldBe("All Complete");
+        match.MatchedName.ShouldBe(matchedName);
+
+        var releases = context.MaterializedLibraryReleases.Where(release => release.LibraryId == _libraryId && release.CatalogReleaseId == 1);
+        await releases.ExecuteUpdateAsync(update => update.SetProperty(release => release.IsExposed, false));
+        (await SearchAsync()).Items.ShouldBeEmpty();
+        await releases.ExecuteUpdateAsync(update => update.SetProperty(release => release.IsExposed, true));
 
         await context.CatalogSources.ExecuteUpdateAsync(update => update.SetProperty(source => source.Status,
             source => source.Id == catalogSourceId ? nameof(CatalogSourceStatus.Disabled) : nameof(CatalogSourceStatus.Active)));
@@ -356,6 +366,25 @@ public sealed class ConsumerLibraryResultRepositoryTests : IAsyncLifetime
         async Task<PagedList<ConsumerTitleCardData>> SearchAsync() =>
             (await repository.SearchCatalogAsync(new ConsumerLibraryScope(UserId), filters, ConsumerReleasePreference.Default, null, 20))
             .ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerTitleCardData>>.Found>().Value;
+    }
+
+    [Fact]
+    public async Task SearchCatalogAsync_ExactLookupName_OutranksLongerPhraseAndExplainsTheMatch()
+    {
+        await SeedCompletenessScenariosAsync();
+        await using var context = CreateContext();
+        context.TitleLookupNames.AddRange(
+            new TitleLookupNameEntity { TitleId = 1, Name = "Arcade Quest II", SearchDocument = "arcade quest ii" },
+            new TitleLookupNameEntity { TitleId = 2, Name = "Arcade Quest", SearchDocument = "arcade quest" });
+        await context.SaveChangesAsync();
+        var repository = new ConsumerBrowseRepository(context, new ConsumerReleaseSelector());
+        var filters = new ConsumerCatalogFilters("Arcade Quest", null, null, ConsumerCompletenessFilter.All, ConsumerTitleSortField.Relevance);
+
+        var page = (await repository.SearchCatalogAsync(new ConsumerLibraryScope(UserId), filters, ConsumerReleasePreference.Default, null, 20))
+            .ShouldBeOfType<ConsumerLibraryReadResult<PagedList<ConsumerTitleCardData>>.Found>().Value;
+
+        page.Items.Select(title => title.Name).ShouldBe(["Mixed Releases", "All Complete"]);
+        page.Items[0].MatchedName.ShouldBe("Arcade Quest");
     }
 
     [Fact]
