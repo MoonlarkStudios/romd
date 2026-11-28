@@ -1,6 +1,14 @@
 import type { ResolvedArtwork } from '@romd/consumer-api-client';
 import { artworkAspectRatios, artworkObjectStyle } from '@romd/consumer-ui';
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { userManager } from '../../auth/userManager';
 import { artworkCacheKey, loadRecentArtwork } from '../../services/artworkCache';
 import { type ArtworkRole, artworkDeliveryUrl, selectArtwork } from '../../utils/artwork';
@@ -27,18 +35,34 @@ export function ArtworkImage({
   onError,
 }: ArtworkImageProps) {
   const element = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(200);
+  const [width, setWidth] = useState<number | null>(null);
   const [visible, setVisible] = useState(typeof IntersectionObserver === 'undefined');
-  const [account, setAccount] = useState<string | null>(null);
-  const [image, setImage] = useState<{
+  const [account, setAccount] = useState<string | null>();
+  const [cachedImage, setCachedImage] = useState<{
     key: string;
     url: string;
   } | null>(null);
-  const [loaded, setLoaded] = useState<string | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  const selected = selectArtwork(artwork, role, width, window.devicePixelRatio);
+  const [loaded, setLoaded] = useState<{
+    requestKey: string | null;
+    url: string;
+  } | null>(null);
+  const [failedRequest, setFailedRequest] = useState<string | null>(null);
+  const reportError = useEffectEvent(() => onError?.());
+  // Measure before assigning a source so the first request uses the intended size.
+  const selected =
+    width === null ? null : selectArtwork(artwork, role, width, window.devicePixelRatio);
   const source = artworkDeliveryUrl(selected?.url, window.location.origin);
-  const key =
+  const requestKey = source
+    ? JSON.stringify([
+        source,
+        selected?.contentVersion,
+      ])
+    : null;
+  const directFailed = requestKey !== null && failedRequest === requestKey;
+  const directSettled =
+    directFailed || (loaded?.requestKey === requestKey && loaded?.url === source);
+  const shouldCache = visible || (directFailed && priority);
+  const cacheKey =
     source && account && selected?.contentVersion
       ? artworkCacheKey(window.location.origin, account, selected.contentVersion, source)
       : source;
@@ -68,13 +92,19 @@ export function ArtworkImage({
     source,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const target = element.current;
     if (!target) return;
     const measure = () => setWidth(target.getBoundingClientRect().width || 200);
     measure();
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     resize?.observe(target);
+    return () => resize?.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const target = element.current;
+    if (!target) return;
     const intersection =
       typeof IntersectionObserver === 'undefined'
         ? null
@@ -82,39 +112,51 @@ export function ArtworkImage({
             if (entries.some((entry) => entry.isIntersecting)) setVisible(true);
           });
     intersection?.observe(target);
-    return () => {
-      resize?.disconnect();
-      intersection?.disconnect();
-    };
+    return () => intersection?.disconnect();
   }, []);
 
   useEffect(() => {
-    if (role === 'Backdrop' || !source || !key || !account || !visible) return;
+    if (role === 'Backdrop' || !source || !directSettled || account === undefined) return;
+    if (!shouldCache) return;
+    if (!cacheKey || !account) {
+      if (directFailed) reportError();
+      return;
+    }
     const controller = new AbortController();
     let objectUrl: string | undefined;
-    void loadRecentArtwork(source, key, controller.signal)
+    void loadRecentArtwork(source, cacheKey, controller.signal)
       .then((blob) => {
-        if (controller.signal.aborted || !blob) return;
+        // Warm the cache after the direct load. Only display a cached copy when it failed.
+        if (controller.signal.aborted || !directFailed) return;
+        if (!blob) {
+          reportError();
+          return;
+        }
         objectUrl = URL.createObjectURL(blob);
-        setImage({
-          key,
+        setCachedImage({
+          key: cacheKey,
           url: objectUrl,
         });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!controller.signal.aborted && directFailed) reportError();
+      });
     return () => {
       controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [
     source,
-    key,
+    cacheKey,
     account,
-    visible,
+    shouldCache,
     role,
+    directSettled,
+    directFailed,
   ]);
 
-  const url = image?.key === key ? image.url : source;
+  const url = directFailed ? (cachedImage?.key === cacheKey ? cachedImage.url : null) : source;
+  const ready = url !== null && loaded?.requestKey === requestKey && loaded?.url === url;
   const srcSet =
     role === 'Backdrop'
       ? artwork
@@ -143,11 +185,12 @@ export function ArtworkImage({
         ...style,
       }}
     >
-      {(role !== 'Logo' || !url || loaded !== url || failed === url) && (
+      {fallback && (
         <div
           style={{
             position: role === 'Logo' ? 'relative' : 'absolute',
             minHeight: role === 'Logo' ? 'inherit' : undefined,
+            visibility: role === 'Logo' && ready ? 'hidden' : undefined,
             inset: 0,
             display: 'grid',
             placeItems:
@@ -157,8 +200,9 @@ export function ArtworkImage({
           {fallback}
         </div>
       )}
-      {url && failed !== url && (
+      {url && (
         <img
+          className={role === 'Logo' ? undefined : 'romd-artwork-image'}
           src={url}
           alt={alt}
           srcSet={srcSet || undefined}
@@ -166,22 +210,29 @@ export function ArtworkImage({
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : undefined}
           decoding="async"
-          onLoad={() => setLoaded(url)}
+          onLoad={() =>
+            setLoaded({
+              requestKey,
+              url,
+            })
+          }
           onError={() => {
-            setFailed(url);
-            onError?.();
+            if (directFailed) setCachedImage(null);
+            else setFailedRequest(requestKey);
+            if (directFailed || role === 'Backdrop') onError?.();
           }}
           style={{
             position: 'absolute',
             inset: 0,
             width: '100%',
             height: '100%',
-            visibility: role === 'Logo' && loaded !== url ? 'hidden' : undefined,
+            opacity: ready ? 1 : 0,
+            visibility: role === 'Logo' && !ready ? 'hidden' : undefined,
             ...artworkObjectStyle(role, selected),
           }}
         />
       )}
-      {(!url || failed === url) && missingArtworkLabel}
+      {(!source || (directFailed && !ready)) && missingArtworkLabel}
     </div>
   );
 }

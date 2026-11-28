@@ -89,8 +89,8 @@ If an account changes while the confirmation is open, review its current
 assignment before proceeding. Admin API clients send the account ETag in
 `If-Match` on library assignment writes.
 
-The signed-in consumer web app refreshes when it observes a new publication.
-**Refresh library** on Home or Browse updates all library views and restarts paging.
+The signed-in consumer web app updates its library views and restarts paging
+when it observes a new publication.
 
 **Preview** shows the saved, owned games in the published audience, including
 collection order. Use **Filter by collection** to see an attached collection.

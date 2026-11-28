@@ -400,10 +400,7 @@ export function AppLayout() {
 
       <AppShell.Main>
         <Box
-          px={{
-            base: 'md',
-            sm: 'xl',
-          }}
+          px="var(--romd-content-gutter)"
           py="xl"
           maw={
             location.pathname === '/' || /^\/titles\/[^/]+$/.test(location.pathname)

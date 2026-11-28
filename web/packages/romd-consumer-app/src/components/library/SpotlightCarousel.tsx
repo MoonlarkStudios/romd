@@ -55,7 +55,10 @@ export function SpotlightCarousel({ titles }: { titles: ConsumerTitleCard[] }) {
             aria-hidden={index !== active}
             inert={index !== active}
           >
-            <TitleSpotlight title={title} />
+            <TitleSpotlight
+              title={title}
+              active={index === active}
+            />
           </Carousel.Slide>
         ))}
       </Carousel>
@@ -87,8 +90,10 @@ export function SpotlightCarousel({ titles }: { titles: ConsumerTitleCard[] }) {
   );
 }
 
-function TitleSpotlight({ title }: { title: ConsumerTitleCard }) {
-  const hasHero = title.artwork?.some((item) => item.role === 'Hero' && item.url);
+function TitleSpotlight({ title, active }: { title: ConsumerTitleCard; active: boolean }) {
+  const heroUrl = title.artwork?.find((item) => item.role === 'Hero')?.url;
+  const [failedHero, setFailedHero] = useState<string>();
+  const hasHero = !!heroUrl && heroUrl !== failedHero;
   return (
     <GameSpotlight
       name={title.name}
@@ -99,6 +104,8 @@ function TitleSpotlight({ title }: { title: ConsumerTitleCard }) {
             artwork={title.artwork}
             artworkRole="Hero"
             alt=""
+            priority={active}
+            onError={() => setFailedHero(heroUrl ?? undefined)}
             style={{
               height: '100%',
             }}
@@ -108,6 +115,7 @@ function TitleSpotlight({ title }: { title: ConsumerTitleCard }) {
       poster={
         <ArtworkImage
           artwork={title.artwork}
+          priority={active}
           fallback={<ArtworkFallback name={title.name} />}
         />
       }
@@ -116,6 +124,7 @@ function TitleSpotlight({ title }: { title: ConsumerTitleCard }) {
           <ArtworkImage
             artwork={title.artwork}
             artworkRole="Logo"
+            priority={active}
             style={{
               minHeight: 'inherit',
               aspectRatio: 'auto',
