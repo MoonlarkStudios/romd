@@ -17,5 +17,6 @@ public enum ConsumerCompletenessFilter
 public enum ConsumerTitleSortField
 {
     Name,
-    Rating
+    Rating,
+    Relevance
 }

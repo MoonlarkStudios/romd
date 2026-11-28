@@ -16,10 +16,11 @@ type TitleRowData = ConsumerTitleCard | ConsumerCollectionTitle | RecentlyPlayed
 
 interface TitleListRowProps {
   title: TitleRowData;
+  matchedName?: string | null;
   playLaterAction?: ReactNode;
 }
 
-export function TitleListRow({ title, playLaterAction }: TitleListRowProps) {
+export function TitleListRow({ title, matchedName, playLaterAction }: TitleListRowProps) {
   const defaultReleaseId = title.defaultReleaseId ?? null;
   const playback = useBrowserPlaybackAvailability(title.system.key);
   const rating = formatRating(title.rating);
@@ -80,6 +81,16 @@ export function TitleListRow({ title, playLaterAction }: TitleListRowProps) {
           >
             {title.name}
           </Text>
+          {matchedName && (
+            <Text
+              className="romd-metadata"
+              c="dimmed"
+              lineClamp={2}
+              title={matchedName}
+            >
+              Matched as {matchedName}
+            </Text>
+          )}
           <Group
             gap="xs"
             wrap="wrap"

@@ -284,13 +284,20 @@ public sealed partial class ConsumerBrowseRepository(
             filters.Query?.Trim(), filters.PlatformId, filters.Genre, filters.Completeness, filters.SortField);
         var decoded = KeysetCursor.Decode<ConsumerTitleCursor>(cursor, fingerprint,
             value => value.Id > 0 && value.Name is not null && value.SortField == filters.SortField
-                && (value.Rating is null || double.IsFinite(value.Rating.Value)));
+                && (value.Rating is null || double.IsFinite(value.Rating.Value))
+                && (filters.SortField == ConsumerTitleSortField.Relevance
+                    ? value.Rank is >= PrefixMatch and <= ExactTitleMatch
+                    : value.Rank is null));
         if (decoded.IsError)
             return new ConsumerLibraryProjectionResult<PagedList<ConsumerTitleCardData>>.Rejected(decoded.FirstError);
         var cursorData = decoded.Value;
 
         var query = BuildTitleQuery(libraryId, filters);
         query = ApplyCompletenessFilter(query, libraryId, filters.Completeness);
+        if (filters.SortField == ConsumerTitleSortField.Relevance)
+            return await SearchRankedTitlesAsync(query, filters.Query, libraryId, releasePreference,
+                cursorData, fingerprint, limit, ct);
+
         query = ApplyTitleCursor(query, cursorData, filters.SortField);
         query = ApplyTitleOrdering(query, filters.SortField);
 
@@ -420,11 +427,7 @@ public sealed partial class ConsumerBrowseRepository(
 
     private IQueryable<TitleEntity> BuildTitleQuery(int libraryId, ConsumerCatalogFilters filters)
     {
-        // Display titles and DAT release names share the indexed phrase and prefix match.
         var query = context.PresentedTitles();
-        if (!string.IsNullOrWhiteSpace(filters.Query))
-            query = MatchTitleOrReleaseName(query, libraryId, filters.Query);
-
         query = query.Where(title =>
             OwnedMaterializedLibraryTitles(libraryId).Any(item => item.TitleId == title.Id));
 
@@ -438,13 +441,20 @@ public sealed partial class ConsumerBrowseRepository(
             query = query.Where(title => title.Genre == filters.Genre);
         }
 
-        return query;
+        return filters.SortField != ConsumerTitleSortField.Relevance && !string.IsNullOrWhiteSpace(filters.Query)
+            ? MatchTitleOrReleaseName(query, libraryId, filters.Query)
+            : query;
     }
 
     private IQueryable<TitleEntity> MatchTitleOrReleaseName(IQueryable<TitleEntity> titles, int libraryId, string text)
     {
         var titleMatches = SearchQuery.MatchTitles(titles, context.TitleLookupNames, text).Select(title => title.Id);
-        var releaseNameMatches =
+        var releaseNameMatches = MatchExposedDatGames(libraryId, text).Select(match => match.TitleId);
+        var matchingTitleIds = titleMatches.Union(releaseNameMatches);
+        return titles.Where(title => matchingTitleIds.Contains(title.Id));
+    }
+
+    private IQueryable<ExposedDatMatch> MatchExposedDatGames(int libraryId, string text) =>
             from game in SearchQuery.MatchGames(context.DatGames.Where(game => !game.IsBios), text)
             join dat in context.DatFiles on game.DatFileId equals dat.Id
             join datSource in context.DatSources on dat.DatSourceId equals datSource.Id
@@ -453,11 +463,7 @@ public sealed partial class ConsumerBrowseRepository(
             join release in context.MaterializedLibraryReleases on claim.CatalogReleaseId equals release.CatalogReleaseId
             where dat.Lifecycle == "Active" && source.Status == "Active"
                   && release.LibraryId == libraryId && release.IsOwned && release.IsExposed
-            select release.TitleId;
-
-        var matchingTitleIds = titleMatches.Union(releaseNameMatches);
-        return titles.Where(title => matchingTitleIds.Contains(title.Id));
-    }
+            select new ExposedDatMatch { TitleId = release.TitleId, Game = game };
 
     private IQueryable<ConsumerTitleCardData> ProjectToTitleCards(IQueryable<TitleEntity> query)
     {
@@ -635,5 +641,12 @@ public sealed partial class ConsumerBrowseRepository(
         ConsumerTitleSortField SortField,
         string Name,
         double? Rating,
-        int Id);
+        int Id,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? Rank = null);
+
+    private sealed class ExposedDatMatch
+    {
+        public int TitleId { get; init; }
+        public required DatGameEntity Game { get; init; }
+    }
 }

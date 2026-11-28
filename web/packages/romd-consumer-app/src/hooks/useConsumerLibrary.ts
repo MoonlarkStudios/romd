@@ -29,7 +29,7 @@ export interface ConsumerCatalogSearchParams {
   systemKey?: string;
   genre?: string;
   completeness?: 'complete' | 'partial';
-  sortBy?: 'name' | 'rating';
+  sortBy?: 'name' | 'rating' | 'relevance';
 }
 
 interface PagedQueryOptions {

@@ -88,7 +88,7 @@ public static class ConsumerBrowseEndpoints
         SystemKeyParameter? systemKey = null,
         string? genre = null,
         [ClosedValues("all", "complete", "partial")] string? completeness = null,
-        [ClosedValues("name", "rating")] string? sortBy = null,
+        [ClosedValues("name", "rating", "relevance")] string? sortBy = null,
         string? cursor = null,
         [Range(1, SearchConsumerCatalogQuery.MaxLimit)] int limit = 50,
         CancellationToken cancellationToken = default)
