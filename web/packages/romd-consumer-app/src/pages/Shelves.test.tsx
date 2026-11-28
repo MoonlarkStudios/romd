@@ -243,6 +243,11 @@ describe('Shelves', () => {
     render(<Shelves />);
 
     expect(
+      screen.queryByRole('button', {
+        name: 'Refresh library',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByRole('heading', {
         level: 1,
         name: 'Your games',

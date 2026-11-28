@@ -115,6 +115,10 @@ export function TitleRail({
               className="romd-shelf-heading-link"
             >
               {title}
+              <IconChevronRight
+                size={16}
+                aria-hidden
+              />
             </Anchor>
           ) : (
             title

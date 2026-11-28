@@ -14,8 +14,14 @@ import {
   Title,
 } from '@mantine/core';
 import { useDebouncedCallback } from '@mantine/hooks';
-import { IconLayoutGrid, IconList, IconRefresh, IconSearch } from '@tabler/icons-react';
-import { useEffect, useState } from 'react';
+import {
+  IconAdjustmentsHorizontal,
+  IconLayoutGrid,
+  IconList,
+  IconRefresh,
+  IconSearch,
+} from '@tabler/icons-react';
+import { useEffect, useId, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
 import { PlayLaterButton } from '../components/library/PlayLaterButton';
 import { PosterCard } from '../components/library/PosterCard';
@@ -70,6 +76,8 @@ export function Library() {
   const location = useLocation();
   const urlQuery = urlSearchParams.get('q') ?? '';
   const [query, setQuery] = useState(urlQuery);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersId = useId();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
     window.localStorage.getItem('romd.library.viewMode') === 'list' ? 'list' : 'grid',
   );
@@ -108,8 +116,6 @@ export function Library() {
   const playLater = usePlayLaterMembership(catalogQuery.data?.pages);
   const selectedPlatformName = platforms.find((platform) => platform.id === systemKey)?.name;
   const loadedResultCount = titles.length;
-  const filteredContext =
-    selectedPlatformName ?? genre ?? (sortBy === 'rating' ? 'Highest rated games' : 'All systems');
 
   // URL navigation owns the committed query. Cancel drafts instead of writing an old
   // debounced value back over Clear all or a browser-history entry.
@@ -208,7 +214,7 @@ export function Library() {
 
   if (libraryQuery.isError) {
     if (libraryQuery.error instanceof ConsumerLibraryUnavailableError)
-      return <LibraryUnavailable retry={() => void refresh()} />;
+      return <LibraryUnavailable />;
     return (
       <StatusState
         kind="error"
@@ -221,59 +227,47 @@ export function Library() {
 
   return (
     <Stack gap="var(--romd-page-gap)">
-      <Stack gap="xs">
-        <Title
-          order={1}
-          className="romd-page-heading"
-        >
-          Browse games
-        </Title>
-        <Group justify="space-between">
-          <Text c="dimmed">{filteredContext}</Text>
-          <Button
-            variant="subtle"
-            color="gray"
-            size="compact-sm"
-            onClick={() => void refresh()}
-          >
-            Refresh library
-          </Button>
-        </Group>
-      </Stack>
+      <Title
+        order={1}
+        className="romd-page-heading"
+      >
+        Browse games
+      </Title>
 
       <Stack gap="sm">
         <Group gap="sm">
           <TextInput
+            className="romd-browse-search"
             placeholder="Find games"
             aria-label="Search"
             leftSection={<IconSearch size={16} />}
             value={query}
             onChange={(event) => changeQuery(event.currentTarget.value)}
-            style={{
-              flex: '1 1 220px',
-            }}
           />
           <Select
+            className="romd-browse-sort"
             aria-label="Sort"
             value={sortBy}
             onChange={(value) => updateFilter('sortBy', value)}
             data={sortOptions}
             allowDeselect={false}
-            w={160}
           />
-        </Group>
-        <Box component="details">
-          <Box
-            component="summary"
-            style={{
-              cursor: 'pointer',
-            }}
+          <Button
+            variant={filtersOpen ? 'light' : 'default'}
+            leftSection={<IconAdjustmentsHorizontal size={16} />}
+            aria-controls={filtersId}
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((open) => !open)}
           >
             Filters & view{activeFilters.length > 0 ? ` (${activeFilters.length})` : ''}
-          </Box>
+          </Button>
+        </Group>
+        <Box
+          id={filtersId}
+          hidden={!filtersOpen}
+        >
           <Group
             gap="sm"
-            mt="sm"
             align="center"
           >
             <Select
@@ -316,6 +310,7 @@ export function Library() {
               <ActionIcon
                 variant={viewMode === 'grid' ? 'filled' : 'default'}
                 aria-label="Grid view"
+                aria-pressed={viewMode === 'grid'}
                 onClick={() => changeViewMode('grid')}
                 size="lg"
               >
@@ -324,6 +319,7 @@ export function Library() {
               <ActionIcon
                 variant={viewMode === 'list' ? 'filled' : 'default'}
                 aria-label="List view"
+                aria-pressed={viewMode === 'list'}
                 onClick={() => changeViewMode('list')}
                 size="lg"
               >

@@ -1,5 +1,5 @@
 import type { ConsumerTitleCard, ResolvedArtwork } from '@romd/consumer-api-client';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '../../test/utils/render';
 import { SpotlightCarousel } from './SpotlightCarousel';
@@ -102,5 +102,45 @@ describe('SpotlightCarousel', () => {
         name: 'View game',
       }),
     ).toHaveAttribute('href', '/titles/earthbound');
+  });
+
+  it('prioritizes the active hero and falls back to its poster if no cached hero is available', async () => {
+    const title: ConsumerTitleCard = {
+      id: 'chrono',
+      name: 'Chrono Trigger',
+      system,
+      releaseCount: 1,
+      artwork: [
+        artwork('Hero'),
+        artwork('Poster'),
+      ],
+    };
+    const { container } = render(
+      <SpotlightCarousel
+        titles={[
+          title,
+          {
+            ...title,
+            id: 'earthbound',
+            name: 'EarthBound',
+          },
+        ]}
+      />,
+    );
+    const [activeHero, nextHero] = container.querySelectorAll('.romd-home-spotlight-art img');
+    expect(activeHero).toHaveAttribute('loading', 'eager');
+    expect(activeHero).toHaveAttribute('fetchpriority', 'high');
+    expect(nextHero).toHaveAttribute('loading', 'lazy');
+
+    fireEvent.error(activeHero);
+
+    const spotlight = screen
+      .getByRole('heading', {
+        name: 'Chrono Trigger',
+      })
+      .closest('.romd-home-spotlight');
+    await waitFor(() => expect(spotlight).not.toHaveAttribute('data-has-art'));
+    expect(spotlight?.querySelector('.romd-home-spotlight-poster img')).toBeInTheDocument();
+    expect(spotlight?.querySelector('.romd-home-spotlight-art')).toBeNull();
   });
 });
